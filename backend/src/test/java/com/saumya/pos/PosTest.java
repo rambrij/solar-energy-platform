@@ -612,7 +612,7 @@ class PosTest {
   var draft=checkout.pos("alice","cash-retry-race",posDraft());
   try(var pool=Executors.newFixedThreadPool(2)){
    Callable<Map<String,Object>> pay=()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));
-   for(var result:pool.invokeAll(List.of(pay,pay)))assertThat(result.get().get("id")).isEqualTo(draft.id());
+   for(var result:pool.invokeAll(List.of(pay,pay))){var receipt=result.get();assertThat(receipt.get("id")).isEqualTo(draft.id());assertThat((List<?>)receipt.get("invoices")).hasSize(1);assertThat((BigDecimal)receipt.get("cash_received")).isEqualByComparingTo("120");}
   }
   assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);

@@ -192,4 +192,69 @@ class PosTest {
    .isInstanceOf(org.springframework.dao.DataAccessException.class)
    .rootCause().hasMessageContaining("chk_cash_movement_type");
  }
+ @Test void sessionDiscoveryAndResumeAreRestrictedToTheOwningCashier(){
+  String bobSession=(String)service.open(b,new PosService.OpenSession(2,BigDecimal.ZERO)).get("id");
+  db.update("INSERT INTO employees VALUES('charlie','unused',1,1,TRUE)");
+  db.update("INSERT INTO registers VALUES(3,1,1)");
+  var charlie=new PosService.Scope(1,1,"charlie");
+  String colleagueSession=(String)service.open(charlie,new PosService.OpenSession(3,BigDecimal.ZERO)).get("id");
+  assertThat(service.activeSessions(a)).extracting(PosService.SessionSummary::id).containsExactly(session);
+  assertThat(service.activeSessions(b)).extracting(PosService.SessionSummary::id).containsExactly(bobSession);
+  assertThatThrownBy(()->service.sessionDetails(a,bobSession));
+  assertThatThrownBy(()->service.sessionDetails(a,colleagueSession));
+  assertThatThrownBy(()->service.resume(a,bobSession));
+  assertThatThrownBy(()->service.resume(a,colleagueSession));
+  assertThatThrownBy(()->service.resume(new PosService.Scope(1,2,"alice"),session));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SESSION_RESUME'",Integer.class)).isZero();
+ }
+ @Test void resumePreservesOriginalFloatAndFinancialHistory(){
+  service.checkout(a,"resume-sale",sale(1,"120"));
+  service.cashMovement(a,session,"resume-cash",movement(PosService.MovementType.CASH_IN,"10","Float"));
+  var before=service.reconciliation(a,session);
+  var resumed=service.resume(a,session);
+  assertThat(resumed.id()).isEqualTo(session);
+  assertThat(resumed.registerId()).isEqualTo(1);
+  assertThat(resumed.openingFloat()).isEqualByComparingTo("50");
+  service.resume(a,session);
+  assertThat(service.reconciliation(a,session)).isEqualTo(before);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SESSION_RESUME'",Integer.class)).isEqualTo(2);
+  service.close(a,session,new BigDecimal("170"));
+  assertThat(service.activeSessions(a)).isEmpty();
+  assertThat(service.sessionDetails(a,session).state()).isEqualTo("CLOSED");
+  assertThatThrownBy(()->service.resume(a,session));
+  assertThat(service.sessionDetails(a,session).state()).isEqualTo("CLOSED");
+ }
+ @Test void sessionRecoveryHttpPermissionsAndForgedBodyAreEnforced() throws Exception {
+  String path="/api/vendor/pos/sessions/"+session;
+  mvc.perform(get("/api/vendor/pos/sessions/active")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/vendor/pos/sessions/active").with(user("alice"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/vendor/pos/sessions/active").with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+  mvc.perform(get("/api/vendor/pos/sessions/active").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].registerId").value(1));
+  mvc.perform(get(path).with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+  mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.openingFloat").value(50));
+  mvc.perform(post(path+"/resume").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN")).contentType("application/json").content("{}"))
+   .andExpect(status().isForbidden());
+  mvc.perform(post(path+"/resume").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content("{}"))
+   .andExpect(status().isForbidden());
+  mvc.perform(post(path+"/resume").with(csrf()).with(user("bob").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN")).contentType("application/json").content("{}"))
+   .andExpect(status().isNotFound());
+  mvc.perform(post(path+"/resume").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN")).contentType("application/json").content("{\"openingFloat\":0,\"cashier\":\"bob\"}"))
+   .andExpect(status().isBadRequest());
+  mvc.perform(post(path+"/resume").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN")).contentType("application/json").content("{}"))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(session)).andExpect(jsonPath("$.state").value("OPEN"));
+  service.close(a,session,new BigDecimal("50"));
+  mvc.perform(post(path+"/resume").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN")).contentType("application/json").content("{}"))
+   .andExpect(status().isConflict());
+ }
+ @Test void resumeRacingCloseCannotReopenTheRegister() throws Exception {
+  try(var pool=Executors.newFixedThreadPool(2)) {
+   Callable<Boolean> resume=()->{try{service.resume(a,session);return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
+   Callable<Boolean> close=()->{service.close(a,session,new BigDecimal("50"));return true;};
+   for(var result:pool.invokeAll(List.of(resume,close)))result.get();
+  }
+  assertThat(service.sessionDetails(a,session).state()).isEqualTo("CLOSED");
+  assertThat(service.activeSessions(a)).isEmpty();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions",Integer.class)).isEqualTo(1);
+ }
 }

@@ -100,6 +100,14 @@ Inside an open session, the **Cash drawer** section shows server-calculated tota
 
 When a response is uncertain, use **Retry same cash movement**; do not move cash again. Its request/key survives a page reload, and sale completion/session close is blocked while it remains unresolved. Close the session with the actual counted cash; an exact match closes it, while a variance remains open pending the future supervisor approval workflow. Cash refunds remain part of the outstanding original-payment return/refund feature.
 
+#### Resume an existing cashier session (including Edge)
+
+If opening register `900001` returns **409 Conflict**, the register already has an open session. Do not delete its database row or add the float again. After updating/rebuilding the application, use **Your open sessions → Resume register 900001**. This works in Microsoft Edge and other browsers without editing browser storage or running SQL. The list includes only sessions owned by the signed-in cashier in their assigned tenant and branch. Resume retains the original opening float, sales and cash movements and records an audit event; it cannot reopen a closed session or take over another cashier's till.
+
+If you lose the response while opening a session, the list refreshes so you can resume the session the server may already have created. Use **Refresh open sessions** if needed. A session held by a different cashier is not listed for you; its owner must reconcile and close it before the register is available. Supervisor correction/takeover tooling remains outstanding.
+
+On reload, the app verifies a saved session with the server before showing sale controls. A closed/unavailable saved session with no unresolved financial attempt returns to session selection. If verification fails, use **Retry session check** after restoring login/connectivity. Saved sale/movement retry details are retained; closed-session retries can retrieve previously committed records without creating a new transaction. Resolve them before selecting another session. Resume in a new browser restores the server session; unsent cart inputs and another tab's local retry data are not synchronized.
+
 The browser uses Spring Security HTTP Basic authentication and a CSRF cookie/header; deploy only behind HTTPS. JWT identity/onboarding remains a foundation integration task; this slice does not claim the SRS IAM release gate.
 
 ### 6. Stop and restart
@@ -123,6 +131,7 @@ The named `mysql-data` volume retains data and credentials. **Editing `.env` doe
 - **Access denied for solar/root:** use the matching `.env` password. If the volume existed before a password edit, its original credentials still apply.
 - **Port already allocated:** free host port 8080 or 3307, or change the host-side mapping in the Compose file/override and use that new port in your browser/Workbench.
 - **Application 401 or no products:** MySQL login is separate from application login; provision the named employee, permissions, tenant and branch stock described above.
+- **409 while opening a register:** use **Your open sessions → Resume register …**. If nothing is listed, check that you are signed in as the owning cashier. Refresh the list after a lost response; do not reset or delete existing sessions to bypass the conflict.
 
 ## Run Java and React directly (optional)
 
@@ -162,7 +171,7 @@ One transaction locks the outlet sequence, cashier session and shared inventory 
 
 Backend: `cd backend` then `mvn test`. Tests run the Flyway schema on H2 in MySQL mode and cover guest checkout, tenant isolation, insufficient cash, concurrency, idempotency, register/session scope, CSRF, permissions, forged request fields, cash movement permissions/retries, concurrent drawer removals and reconciliation. CI also runs the same suite on a disposable MySQL 8.4 service via `TEST_DB_URL`, `TEST_DB_USER`, `TEST_DB_PASSWORD`; H2 alone is not MySQL locking evidence.
 
-Frontend: `cd frontend`, `npm ci`, `npm test`, `npm run build`. Component tests cover guest identity, uncertain-response retry identity, server drawer totals/history, movement recovery across reloads, definite rejection correction and blocking close/checkout during uncertain drawer outcomes.
+Frontend: `cd frontend`, `npm ci`, `npm test`, `npm run build`. Component tests cover guest identity, uncertain-response retry identity, server drawer totals/history, movement recovery across reloads, definite rejection correction, blocking close/checkout during uncertain drawer outcomes, explicit session resume, occupied-register/lost-response recovery and saved-session verification without losing pending attempts.
 
 ## Remaining Version 2.0 release gates
 

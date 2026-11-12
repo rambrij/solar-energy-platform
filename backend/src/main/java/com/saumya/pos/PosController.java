@@ -15,6 +15,16 @@ class PosController {
     Object products(Principal p) { return service.products(service.scope(p.getName())); }
     @PostMapping("/sessions") @PreAuthorize("hasAuthority('POS_SESSION_OPEN')")
     Object open(Principal p,@Valid @RequestBody PosService.OpenSession r) { return service.open(service.scope(p.getName()),r); }
+    @GetMapping("/sessions/active") @PreAuthorize("hasAuthority('POS_VIEW')")
+    Object activeSessions(Principal p) { return service.activeSessions(service.scope(p.getName())); }
+    @GetMapping("/sessions/{id}") @PreAuthorize("hasAuthority('POS_VIEW')")
+    Object sessionDetails(Principal p,@PathVariable String id) { return service.sessionDetails(service.scope(p.getName()),id); }
+    @PostMapping("/sessions/{id}/resume")
+    @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_SESSION_OPEN')")
+    Object resume(Principal p,@PathVariable String id,@Valid @RequestBody ResumeSession request) {
+        return service.resume(service.scope(p.getName()),id);
+    }
+    record ResumeSession() {}
     record CloseSession(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("0.00") @jakarta.validation.constraints.Digits(integer=12,fraction=2) java.math.BigDecimal countedCash) {}
     @PostMapping("/sessions/{id}/close") @PreAuthorize("hasAuthority('POS_SESSION_CLOSE')")
     Object close(Principal p,@PathVariable String id,@Valid @RequestBody CloseSession r) { return service.close(service.scope(p.getName()),id,r.countedCash()); }

@@ -39,6 +39,25 @@ public class PosService {
     public List<Map<String,Object>> products(Scope s) {
         return db.queryForList("SELECT p.id,p.sku,p.barcode,p.name,p.price,p.tax_rate,i.quantity FROM products p JOIN inventory i ON i.tenant_id=p.tenant_id AND i.product_id=p.id WHERE p.tenant_id=? AND i.branch_id=? AND p.published=TRUE ORDER BY p.id",s.tenant,s.branch);
     }
+    public record SessionSummary(String id,long registerId,BigDecimal openingFloat,String state) {}
+    private SessionSummary sessionSummary(java.sql.ResultSet rs,int row) throws java.sql.SQLException {
+        return new SessionSummary(rs.getString("id"),rs.getLong("register_id"),rs.getBigDecimal("opening_float"),rs.getString("state"));
+    }
+    public List<SessionSummary> activeSessions(Scope s) {
+        return db.query("SELECT id,register_id,opening_float,state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND state='OPEN' ORDER BY register_id,id",
+            this::sessionSummary,s.tenant,s.branch,s.cashier);
+    }
+    public SessionSummary sessionDetails(Scope s,String id) {
+        return db.query("SELECT id,register_id,opening_float,state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=?",
+            this::sessionSummary,s.tenant,s.branch,s.cashier,id).stream().findFirst()
+            .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Resource unavailable"));
+    }
+    @Transactional
+    public SessionSummary resume(Scope s,String id) {
+        session(s,id);
+        audit(s,"SESSION_RESUME",id);
+        return sessionDetails(s,id);
+    }
     @Transactional
     public Map<String,Object> open(Scope s, OpenSession request) {
         // Lock the register before checking occupancy, including on MySQL.

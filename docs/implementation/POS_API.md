@@ -9,6 +9,9 @@ Mutations require the CSRF token returned from `GET /csrf`, sent as `X-XSRF-TOKE
 | `GET /csrf` | Authenticated | `{token}` |
 | `GET /products` | `POS_VIEW` | Published products and stock in assigned branch |
 | `POST /sessions` | `POS_SESSION_OPEN` | `{registerId, openingFloat}` → `{id}` |
+| `GET /sessions/active` | `POS_VIEW` | Own OPEN sessions only; array of `{id,registerId,openingFloat,state}` |
+| `GET /sessions/{id}` | `POS_VIEW` | Own session metadata, including CLOSED state for recovery |
+| `POST /sessions/{id}/resume` | `POS_VIEW` and `POS_SESSION_OPEN` | `{}` → original session metadata; requires OPEN state; audit event |
 | `POST /sessions/{id}/close` | `POS_SESSION_CLOSE` | `{countedCash}` → `{expectedCash,countedCash,variance}`; non-zero variance rejected |
 | `POST /sessions/{id}/cash-movements` | Matching `POS_CASH_IN`, `POS_CASH_OUT` or `POS_SAFE_DROP` | `{type,amount,reason}` plus `Idempotency-Key` → persisted movement with actor/time |
 | `GET /sessions/{id}/reconciliation` | `POS_VIEW` or `POS_REPORT_VIEW` | Own cashier session only; drawer totals, expected cash, counted cash, variance and movement history |
@@ -50,3 +53,9 @@ Reconciliation returns `sessionId`, `state`, `openingFloat`, `cashReceived`, `ch
 Expected cash = opening float + cash received - change given + cash-in - cash-out - safe drops. Cash applied is not added again. The same calculation is used on close. Refunds are not supported yet; `CASH_REFUND` is rejected rather than accepting an unlinked refund. The future original-payment refund workflow must subtract actual cash refunds from this formula. Variance still blocks closing until supervisor approval is implemented.
 
 After uncertain movement responses, the UI retains the exact request/key across reloads and blocks sale finalization and session close until resolved. Retrying must not move physical cash again.
+
+## Cashier session recovery
+
+List/details/resume derive tenant, branch and cashier exclusively from enabled membership in an active tenant. Another cashier's session, including one in the same tenant/branch, returns 404. Resume accepts an empty object only; float, cashier, branch and tenant overrides are rejected. It locks and revalidates OPEN state, writes `SESSION_RESUME` audit and returns the original metadata. It does not create a session, change its float, reissue stock or post any tender/movement. Each successful explicit resume request is audited, including repeats. Closed sessions return 409 on resume and cannot be reopened by this API.
+
+The UI offers the active-session list after a 409 or uncertain opening response rather than silently creating another shift. Saved sessions are checked via GET before enabling sale controls. Closed/unavailable references with no pending financial attempt can be discarded locally; uncertain sale/movement requests retain their original keys and payloads. A failed verification keeps controls blocked with a retry option. Existing financial retry endpoints can return already-committed records after close. Supervisor reopen/correction and cross-cashier takeover are outside this recovery feature.

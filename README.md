@@ -71,9 +71,26 @@ Enter your `DB_PASSWORD` at the password prompt.
 
 ### 5. Application login and initial data
 
-There is **no default application username/password and no seeded store data** in this foundation branch. Opening the page alone does not create a usable cashier or catalogue. Provision an active tenant, branch, employee with a BCrypt password hash, register, product and inventory through a trusted administrator/database process. The application username is `employees.username`; its password is the one used to generate that employee's BCrypt hash, not the database password. Never insert a plaintext password into `employees.password_hash`.
+There is **no automatically created application account or store data**. For a local demonstration, run the optional manual setup below. For other environments, provision an active tenant, branch, employee with a BCrypt password hash, register, product and inventory through a trusted administrator/database process. The application username is `employees.username`; its password is the one used to generate that employee's BCrypt hash, not the database password. Never insert a plaintext password into `employees.password_hash`.
 
-Assign the employee to one tenant and branch and grant explicit `employee_permissions`: `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SESSION_CLOSE`, `POS_SALE_CREATE`, `POS_TENDER_CASH_RECORD`, `POS_RECEIPT_VIEW`, `POS_RECEIPT_REPRINT`. After provisioning, use the employee credentials at the browser's HTTP Basic sign-in prompt, open the assigned register with an opening float, and choose stocked products for a cash sale. Onboarding/seed tooling is still outstanding. No production mock payments are shipped.
+Assign the employee to one tenant and branch and grant explicit `employee_permissions`: `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SESSION_CLOSE`, `POS_SALE_CREATE`, `POS_TENDER_CASH_RECORD`, `POS_RECEIPT_VIEW`, `POS_RECEIPT_REPRINT`. After provisioning, use the employee credentials at the browser's HTTP Basic sign-in prompt, open the assigned register with an opening float, and choose stocked products for a cash sale. General onboarding tooling is still outstanding. No production mock payments are shipped.
+
+#### Optional local demo setup
+
+After the backend has created the tables, connect Workbench to the local database, select **File → Open SQL Script**, and open [docs/demo/pos-local-demo-setup.sql](docs/demo/pos-local-demo-setup.sql). Execute the entire script **once** using the lightning bolt. It creates a demo tenant/outlet, cashier permissions, register and 10 units of a demo product. It stores a BCrypt password hash and runs data inserts in a transaction; errors roll the inserts back. It does not overwrite existing records or run automatically on startup.
+
+Open a new private/incognito browser window at [http://localhost:8080](http://localhost:8080) and enter:
+
+| Field | Demo value |
+|---|---|
+| Application username | `local-cashier` |
+| Application password | `LocalCashier2026!` |
+| Assigned register | `900001` |
+| Opening float | `0.00` for an empty drawer, otherwise the actual starting cash |
+
+Click **Open session**, add **Demo Solar Panel**, and enter `100.00` cash received for one unit. Complete the cash sale to generate a receipt. The sample price and zero tax rate are demonstration data, not approved tax configuration. These public demo credentials are for local testing only; MySQL credentials remain those in `.env`.
+
+If the script reports an error, stop and inspect it rather than deleting existing data. After a failed call the helper procedure may remain; remove only `setup_pos_local_demo_900001` before retrying a corrected script. If the demo data already exists, use its existing account/register instead of running the setup again.
 
 The browser uses Spring Security HTTP Basic authentication and a CSRF cookie/header; deploy only behind HTTPS. JWT identity/onboarding remains a foundation integration task; this slice does not claim the SRS IAM release gate.
 

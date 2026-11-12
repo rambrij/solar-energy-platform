@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from './api';
 
 type Session = { id: string; registerId: number; openingFloat: number; state: string };
-type Props = { onSession: (id: string) => void; requiredSessionId?: string };
+type Props = { onSession: (id: string, state?: string) => void; requiredSessionId?: string };
 
 export default function SessionStart({ onSession, requiredSessionId }: Props) {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -26,7 +26,7 @@ export default function SessionStart({ onSession, requiredSessionId }: Props) {
     setBusy(true); setError('');
     try {
       const session: Session = await api(`/sessions/${id}/resume`, {});
-      onSession(session.id);
+      onSession(session.id, session.state);
     } catch {
       setError('Could not resume this session. It may have closed or your access may have changed. Refresh the list and try again.');
       setRevision(value => value + 1);
@@ -40,7 +40,7 @@ export default function SessionStart({ onSession, requiredSessionId }: Props) {
     setBusy(true); setError('');
     try {
       const session = await api('/sessions', { registerId: Number(data.get('register')), openingFloat: data.get('float') });
-      onSession(session.id);
+      onSession(session.id, session.state);
     } catch (e) {
       setError(e instanceof ApiError && e.status === 409
         ? 'This register already has an open session. Resume your own session below. A session owned by another cashier must be closed by that cashier or an authorized supervisor.'
@@ -64,7 +64,7 @@ export default function SessionStart({ onSession, requiredSessionId }: Props) {
     <p>Resume keeps the original float and transactions. It does not open another shift or add cash.</p>
     {loading ? <p role="status">Loading open sessions…</p> : sessions.length === 0 ? <p>No open sessions found for your account.</p> :
       <ul>{sessions.map(session => <li key={session.id}>
-        Register {session.registerId} · Opening float {Number(session.openingFloat).toFixed(2)}
+        Register {session.registerId} · Opening float {Number(session.openingFloat).toFixed(2)} {session.state === 'CLOSING' ? '· Awaiting supervisor review' : ''}
         <button disabled={busy || (!!requiredSessionId && requiredSessionId !== session.id)} onClick={() => resume(session.id)}>
           Resume register {session.registerId}
         </button>

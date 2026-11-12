@@ -21,7 +21,7 @@ class PosTest {
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
-  for(String table:List.of("pos_cash_movements","vendor_invoices","inventory_ledger","order_items","orders","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("pos_shift_reviews","pos_cash_movements","vendor_invoices","inventory_ledger","order_items","orders","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -256,5 +256,106 @@ class PosTest {
   assertThat(service.sessionDetails(a,session).state()).isEqualTo("CLOSED");
   assertThat(service.activeSessions(a)).isEmpty();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions",Integer.class)).isEqualTo(1);
+ }
+ PosService.Scope supervisor(String name) {
+  db.update("INSERT INTO employees VALUES(?,'unused',1,1,TRUE)",name);
+  return new PosService.Scope(1,1,name);
+ }
+ @Test void discrepancyRequiresReasonAndFreezesTheCountAndRegister(){
+  assertThatThrownBy(()->service.close(a,session,BigDecimal.ZERO," "));
+  assertThat(service.closeStatus(a,session).state()).isEqualTo("OPEN");
+  var closing=service.close(a,session,BigDecimal.ZERO,"Drawer shortage");
+  assertThat(closing.state()).isEqualTo("CLOSING");assertThat(closing.variance()).isEqualByComparingTo("-50");
+  assertThat(service.close(a,session,BigDecimal.ZERO,"Drawer shortage").requestId()).isEqualTo(closing.requestId());
+  assertThatThrownBy(()->service.close(a,session,new BigDecimal("50"),"Changed count"));
+  assertThatThrownBy(()->service.checkout(a,"frozen-sale",sale(1,"110")));
+  assertThatThrownBy(()->service.cashMovement(a,session,"frozen-cash",movement(PosService.MovementType.CASH_IN,"1","Float")));
+  assertThatThrownBy(()->service.open(a,new PosService.OpenSession(1,BigDecimal.ZERO)));
+  assertThatThrownBy(()->db.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float) VALUES('occupied',1,1,'alice',1,'OPEN',0)"))
+   .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThat(service.resume(a,session).state()).isEqualTo("CLOSING");
+ }
+ @Test void separateSupervisorApprovesVarianceExactlyOnce(){
+  var manager=supervisor("manager");
+  var closing=service.close(a,session,BigDecimal.ZERO,"Shortage");
+  assertThatThrownBy(()->service.reviewVariance(a,session,closing.requestId(),"Self approval",PosService.ReviewAction.APPROVE));
+  assertThatThrownBy(()->service.reviewVariance(b,session,closing.requestId(),"Wrong tenant",PosService.ReviewAction.APPROVE));
+  assertThatThrownBy(()->service.reviewVariance(new PosService.Scope(1,2,"manager"),session,closing.requestId(),"Wrong branch",PosService.ReviewAction.APPROVE));
+  var approved=service.reviewVariance(manager,session,closing.requestId(),"Count and drawer reviewed",PosService.ReviewAction.APPROVE);
+  assertThat(service.reviewVariance(manager,session,closing.requestId(),"Count and drawer reviewed",PosService.ReviewAction.APPROVE).get("id")).isEqualTo(approved.get("id"));
+  assertThat(service.closeStatus(a,session).state()).isEqualTo("CLOSED");
+  assertThat(service.closeStatus(a,session).reviewedBy()).isEqualTo("manager");
+  assertThat(service.closeStatus(a,session).variance()).isEqualByComparingTo("-50");
+  assertThatThrownBy(()->service.reviewVariance(manager,session,closing.requestId(),"Changed",PosService.ReviewAction.APPROVE));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SHIFT_VARIANCE_APPROVE'",Integer.class)).isEqualTo(1);
+  service.open(a,new PosService.OpenSession(1,BigDecimal.ZERO));
+ }
+ @Test void returnedCountRetainsHistoryAndOldRetriesCannotResubmitIt(){
+  var manager=supervisor("manager");String key=UUID.randomUUID().toString();
+  var closing=service.close(a,session,BigDecimal.ZERO,"Need recount",key);
+  service.reviewVariance(manager,session,key,"Recount the drawer",PosService.ReviewAction.RETURN_FOR_CORRECTION);
+  assertThat(service.closeStatus(a,session).state()).isEqualTo("OPEN");
+  assertThat(service.closeStatus(a,session).reviewReason()).isEqualTo("Recount the drawer");
+  assertThat(service.close(a,session,BigDecimal.ZERO,"Need recount",key).state()).isEqualTo("OPEN");
+  assertThatThrownBy(()->service.close(a,session,BigDecimal.ONE,"Need recount",key));
+  var corrected=service.close(a,session,new BigDecimal("45"),"Corrected count",UUID.randomUUID().toString());
+  assertThat(corrected.requestId()).isNotEqualTo(key);
+  assertThatThrownBy(()->service.reviewVariance(manager,session,key,"Old request",PosService.ReviewAction.APPROVE));
+  service.reviewVariance(manager,session,corrected.requestId(),"Verified recount",PosService.ReviewAction.APPROVE);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isEqualTo(2);
+  assertThat(db.queryForObject("SELECT counted_cash FROM pos_shift_reviews WHERE close_request_id=?",BigDecimal.class,closing.requestId())).isEqualByComparingTo("0");
+  assertThat(service.closeStatus(a,session).countedCash()).isEqualByComparingTo("45");
+ }
+ @Test void competingReviewDecisionsCannotBothCommit() throws Exception {
+  var m1=supervisor("m1");var m2=supervisor("m2");var closing=service.close(a,session,BigDecimal.ZERO,"Shortage");
+  try(var pool=Executors.newFixedThreadPool(2)) {
+   var jobs=List.of((Callable<Boolean>)()->reviewAttempt(m1,closing.requestId(),PosService.ReviewAction.APPROVE),()->reviewAttempt(m2,closing.requestId(),PosService.ReviewAction.RETURN_FOR_CORRECTION));
+   int count=0;for(var result:pool.invokeAll(jobs))if(result.get())count++;
+   assertThat(count).isEqualTo(1);
+  }
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isEqualTo(1);
+ }
+ boolean reviewAttempt(PosService.Scope manager,String key,PosService.ReviewAction action) {
+  try{service.reviewVariance(manager,session,key,"Reviewed",action);return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}
+ }
+ @Test void reviewHttpAuthorizationCsrfAndCanonicalIdentityAreEnforced() throws Exception {
+  supervisor("manager");var closing=service.close(a,session,BigDecimal.ZERO,"Shortage");
+  String list="/api/vendor/pos/sessions/pending-variances",path="/api/vendor/pos/sessions/"+session+"/approve-variance";
+  String body="{\"requestId\":\""+closing.requestId()+"\",\"reason\":\"Reviewed drawer\"}";
+  mvc.perform(get(list)).andExpect(status().isUnauthorized());
+  mvc.perform(get(list).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(list).with(user("bob").authorities(()->"POS_SHIFT_VARIANCE_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+  mvc.perform(get(list).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].variance").value(-50));
+  mvc.perform(post(path).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("ALICE").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isNotFound());
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content("{\"requestId\":\"x\",\"reason\":\" \"}")).andExpect(status().isBadRequest());
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk());
+ }
+ @Test void varianceMigrationPreservesPreviouslyClosedSessions(){
+  String url="jdbc:h2:mem:upgrade-"+UUID.randomUUID()+";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+  org.flywaydb.core.Flyway.configure().dataSource(url,"sa","").locations("classpath:db/migration").target("4").load().migrate();
+  var legacy=new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(url,"sa",""));
+  legacy.update("INSERT INTO tenants VALUES(1,'Legacy',TRUE)");
+  legacy.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'Legacy')");
+  legacy.update("INSERT INTO employees VALUES('legacy','unused',1,1,TRUE)");
+  legacy.update("INSERT INTO registers VALUES(1,1,1)");
+  legacy.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float,expected_cash,counted_cash,closed_at) VALUES('legacy',1,1,'legacy',1,'CLOSED',50,50,50,CURRENT_TIMESTAMP)");
+  org.flywaydb.core.Flyway.configure().dataSource(url,"sa","").locations("classpath:db/migration").load().migrate();
+  assertThat(legacy.queryForObject("SELECT cash_variance FROM pos_sessions",BigDecimal.class)).isEqualByComparingTo("0");
+  assertThat(legacy.queryForObject("SELECT close_request_id FROM pos_sessions",String.class)).isEqualTo("legacy");
+  assertThat(legacy.queryForObject("SELECT state FROM pos_sessions",String.class)).isEqualTo("CLOSED");
+ }
+ @Test void httpCloseRequiresVarianceReasonAndPreservesClientRetryIdentity() throws Exception {
+  String path="/api/vendor/pos/sessions/"+session+"/close",key=UUID.randomUUID().toString();
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content("{\"countedCash\":0}"))
+   .andExpect(status().isBadRequest());
+  String body="{\"countedCash\":0,\"reason\":\"Shortage\",\"requestId\":\""+key+"\"}";
+  for(int i=0;i<2;i++)mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content(body))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CLOSING")).andExpect(jsonPath("$.requestId").value(key)).andExpect(jsonPath("$.variance").value(-50));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SHIFT_VARIANCE_SUBMIT'",Integer.class)).isEqualTo(1);
  }
 }

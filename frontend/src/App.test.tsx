@@ -74,6 +74,20 @@ it('blocks checkout and session close while a cash movement outcome is uncertain
  expect((screen.getByText('Complete cash sale') as HTMLButtonElement).disabled).toBe(true);
  expect((screen.getByText('Retry same cash movement') as HTMLButtonElement).disabled).toBe(false);
 });
+it('shows a closing drawer as frozen until supervisor review',async()=>{
+ sessionStorage.setItem('pos-session-v1','session');
+ vi.mocked(api).mockImplementation(async(path)=>{
+  if(path==='/products')return [{id:1,name:'Panel',sku:'P1',price:10,tax_rate:0,quantity:2}];
+  if(path==='/sessions/session')return {state:'CLOSING'};
+  if(path.endsWith('/close-status'))return {state:'CLOSING',expectedCash:50,countedCash:45,variance:-5,varianceReason:'Shortage'};
+  return {state:'CLOSING',openingFloat:50,cashReceived:0,changeGiven:0,cashIn:0,cashOut:0,safeDrops:0,expectedCash:50,movements:[]};
+ });
+ render(<App/>);await screen.findByText(/Awaiting a different supervisor/);
+ expect((screen.getByText('Add Panel') as HTMLButtonElement).disabled).toBe(true);
+ expect((screen.getByText('Complete cash sale') as HTMLButtonElement).disabled).toBe(true);
+ expect((screen.getByText('Record cash movement') as HTMLButtonElement).disabled).toBe(true);
+ expect(screen.queryByText('Reconcile and close session')).toBeNull();
+});
 it('preserves a sale key after an uncertain failure and does not claim completion',async()=>{
  vi.mocked(api).mockImplementation(async(path)=>{if(path==='/products')return [{id:1,name:'Panel',sku:'P1',price:10,tax_rate:0,quantity:2}];if(path==='/sessions/active')return [];if(path==='/sessions')return {id:'session'};throw new Error('Connection lost');});
  render(<App/>);await screen.findByText('No open sessions found for your account.');fireEvent.change(screen.getByLabelText('Assigned register'),{target:{value:'1'}});fireEvent.change(screen.getByLabelText('Opening float'),{target:{value:'0'}});fireEvent.click(screen.getByText('Open session'));

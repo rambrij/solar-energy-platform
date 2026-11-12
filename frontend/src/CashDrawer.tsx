@@ -18,13 +18,14 @@ type Props = {
   session: string;
   revision: number;
   disabled: boolean;
+  readOnly?: boolean;
   onPendingChange: (pending: boolean) => void;
   onBusyChange: (busy: boolean) => void;
 };
 const money = (value: number) => Number(value).toFixed(2);
 const labels = { CASH_IN: 'Cash-in', CASH_OUT: 'Cash-out', SAFE_DROP: 'Safe drop' };
 
-export default function CashDrawer({ session, revision, disabled, onPendingChange, onBusyChange }: Props) {
+export default function CashDrawer({ session, revision, disabled, readOnly = false, onPendingChange, onBusyChange }: Props) {
   const storageKey = `pos-drawer-attempt-v1:${session}`;
   const [pending, setPending] = useState<Attempt | undefined>(() => {
     try { return JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') ?? undefined; }
@@ -105,7 +106,7 @@ export default function CashDrawer({ session, revision, disabled, onPendingChang
     </>}
     <button type="button" disabled={disabled} onClick={() => { setError(''); setRefresh(value => value + 1); }}>Refresh drawer totals</button>
     <form onSubmit={record}>
-      <fieldset disabled={disabled || !!pending || summary?.state === 'CLOSED'}>
+      <fieldset disabled={disabled || !!pending || readOnly || (!!summary && summary.state !== 'OPEN')}>
         <legend>Record a cash movement</legend>
         <label>Movement type <select value={type} onChange={e => setType(e.target.value as MovementType)}>
           <option value="CASH_IN">Cash-in</option><option value="CASH_OUT">Cash-out</option><option value="SAFE_DROP">Safe drop</option>
@@ -113,7 +114,7 @@ export default function CashDrawer({ session, revision, disabled, onPendingChang
         <label>Movement amount <input type="number" min="0.01" max="999999999999.99" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} /></label>
         <label>Movement reason <input maxLength={250} required pattern=".*\S.*" value={reason} onChange={e => setReason(e.target.value)} /></label>
       </fieldset>
-      <button type="submit" disabled={disabled || (!pending && (!amount || !reason.trim() || summary?.state === 'CLOSED'))}>
+      <button type="submit" disabled={disabled || (!pending && (!amount || !reason.trim() || readOnly || (!!summary && summary.state !== 'OPEN')))}>
         {pending ? 'Retry same cash movement' : 'Record cash movement'}
       </button>
     </form>

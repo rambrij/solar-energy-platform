@@ -12,7 +12,7 @@ it('resumes an existing shift explicitly without posting a new float', async () 
   const onSession = vi.fn();
   render(<SessionStart onSession={onSession} />);
   fireEvent.click(await screen.findByText('Resume register 900001'));
-  await waitFor(() => expect(onSession).toHaveBeenCalledWith('own-shift'));
+  await waitFor(() => expect(onSession).toHaveBeenCalledWith('own-shift','OPEN'));
   expect(api).toHaveBeenCalledWith('/sessions/own-shift/resume', {});
   expect(vi.mocked(api).mock.calls.some(call => call[0] === '/sessions')).toBe(false);
   expect(screen.getByText(/Opening float 50.00/)).toBeTruthy();

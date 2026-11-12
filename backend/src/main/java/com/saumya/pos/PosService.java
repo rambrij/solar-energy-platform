@@ -33,7 +33,7 @@ public class PosService {
         BigDecimal countedCash, BigDecimal variance, List<Map<String,Object>> movements) {}
     public Scope scope(String user) {
         return db.query("SELECT e.* FROM employees e JOIN tenants t ON t.id=e.tenant_id WHERE e.username=? AND e.enabled=TRUE AND t.active=TRUE",
-            (r,n)->new Scope(r.getLong("tenant_id"),r.getLong("branch_id"),user),user)
+            (r,n)->new Scope(r.getLong("tenant_id"),r.getLong("branch_id"),r.getString("username")),user)
             .stream().findFirst().orElseThrow(()->new ResponseStatusException(FORBIDDEN));
     }
     public List<Map<String,Object>> products(Scope s) {
@@ -44,7 +44,7 @@ public class PosService {
         return new SessionSummary(rs.getString("id"),rs.getLong("register_id"),rs.getBigDecimal("opening_float"),rs.getString("state"));
     }
     public List<SessionSummary> activeSessions(Scope s) {
-        return db.query("SELECT id,register_id,opening_float,state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND state='OPEN' ORDER BY register_id,id",
+        return db.query("SELECT id,register_id,opening_float,state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND state IN ('OPEN','CLOSING') ORDER BY register_id,id",
             this::sessionSummary,s.tenant,s.branch,s.cashier);
     }
     public SessionSummary sessionDetails(Scope s,String id) {
@@ -54,7 +54,8 @@ public class PosService {
     }
     @Transactional
     public SessionSummary resume(Scope s,String id) {
-        session(s,id);
+        var shift=one("SELECT state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
+        if(!Set.of("OPEN","CLOSING").contains(shift.get("state")))fail("Session is closed");
         audit(s,"SESSION_RESUME",id);
         return sessionDetails(s,id);
     }
@@ -62,7 +63,7 @@ public class PosService {
     public Map<String,Object> open(Scope s, OpenSession request) {
         // Lock the register before checking occupancy, including on MySQL.
         one("SELECT id FROM registers WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant,s.branch,request.registerId);
-        if (!db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=? AND register_id=? AND state='OPEN'",s.tenant,request.registerId).isEmpty()) fail("Register already occupied");
+        if (!db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=? AND register_id=? AND state IN ('OPEN','CLOSING')",s.tenant,request.registerId).isEmpty()) fail("Register already occupied");
         String id=UUID.randomUUID().toString();
         db.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float) VALUES(?,?,?,?,?,'OPEN',?)",id,s.tenant,s.branch,s.cashier,request.registerId,request.openingFloat);
         audit(s,"SESSION_OPEN",id);
@@ -120,13 +121,76 @@ public class PosService {
         order.put("invoices",db.queryForList("SELECT invoice_number,seller_name,outlet_name,total,issued_at FROM vendor_invoices WHERE tenant_id=? AND order_id=?",s.tenant,id));
         return order;
     }
-    @Transactional public Map<String,Object> close(Scope s,String id,BigDecimal counted) {
-        session(s,id);
-        BigDecimal expected=reconciliation(s,id).expectedCash();
-        if(counted.compareTo(expected)!=0) fail("Cash variance requires supervisor workflow; session remains open");
-        db.update("UPDATE pos_sessions SET state='CLOSED',expected_cash=?,counted_cash=?,closed_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND id=?",expected,counted,s.tenant,id);
-        audit(s,"SESSION_CLOSE",id);
-        return Map.of("expectedCash",expected,"countedCash",counted,"variance",BigDecimal.ZERO);
+    public record CloseResult(String sessionId,long registerId,String cashier,String state,String requestId,
+        BigDecimal expectedCash,BigDecimal countedCash,BigDecimal variance,String varianceReason,
+        String reviewedBy,String reviewReason) {}
+    private CloseResult closeResult(java.sql.ResultSet r,int row) throws java.sql.SQLException {
+        return new CloseResult(r.getString("id"),r.getLong("register_id"),r.getString("cashier"),r.getString("state"),
+            r.getString("close_request_id"),r.getBigDecimal("expected_cash"),r.getBigDecimal("counted_cash"),
+            r.getBigDecimal("cash_variance"),r.getString("variance_reason"),r.getString("reviewed_by"),r.getString("review_reason"));
+    }
+    public CloseResult closeStatus(Scope s,String id) {
+        return db.query("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=?",
+            this::closeResult,s.tenant,s.branch,s.cashier,id).stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND));
+    }
+    @Transactional public CloseResult close(Scope s,String id,BigDecimal counted) { return close(s,id,counted,null); }
+    @Transactional public CloseResult close(Scope s,String id,BigDecimal counted,String reason) {
+        return close(s,id,counted,reason,null);
+    }
+    @Transactional public CloseResult close(Scope s,String id,BigDecimal counted,String reason,String requestId) {
+        var shift=one("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
+        String normalized=reason==null||reason.isBlank()?null:reason.strip();
+        if(requestId!=null) {
+            var reviewed=db.queryForList("SELECT counted_cash,variance_reason FROM pos_shift_reviews WHERE tenant_id=? AND session_id=? AND close_request_id=?",s.tenant,id,requestId);
+            if(!reviewed.isEmpty()) {
+                if(counted.compareTo((BigDecimal)reviewed.getFirst().get("counted_cash"))!=0||!Objects.equals(normalized,reviewed.getFirst().get("variance_reason")))
+                    fail("Close request ID already used with different count or reason");
+                return closeStatus(s,id);
+            }
+        }
+        if(!"OPEN".equals(shift.get("state"))) {
+            if((requestId==null||requestId.equals(shift.get("close_request_id")))&&counted.compareTo((BigDecimal)shift.get("counted_cash"))==0&&Objects.equals(normalized,shift.get("variance_reason")))
+                return closeStatus(s,id);
+            fail("Close count is already frozen; supervisor review or a new corrected count is required");
+        }
+        BigDecimal expected=reconciliation(s,id).expectedCash(),variance=counted.subtract(expected);
+        if(variance.signum()!=0&&normalized==null)throw new ResponseStatusException(BAD_REQUEST,"A variance reason is required");
+        String state=variance.signum()==0?"CLOSED":"CLOSING";
+        db.update("UPDATE pos_sessions SET state=?,expected_cash=?,counted_cash=?,cash_variance=?,variance_reason=?,close_request_id=?,close_requested_at=CURRENT_TIMESTAMP,reviewed_by=NULL,review_reason=NULL,reviewed_at=NULL,closed_at=CASE WHEN ?='CLOSED' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE tenant_id=? AND id=?",
+            state,expected,counted,variance,normalized,requestId==null?UUID.randomUUID().toString():requestId,state,s.tenant,id);
+        audit(s,state.equals("CLOSED")?"SESSION_CLOSE":"SHIFT_VARIANCE_SUBMIT",id);
+        return closeStatus(s,id);
+    }
+    @Transactional public List<CloseResult> pendingVariances(Scope s) {
+        var rows=db.query("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier<>? AND state='CLOSING' ORDER BY close_requested_at,id",
+            this::closeResult,s.tenant,s.branch,s.cashier);
+        audit(s,"SHIFT_REVIEW_LIST",Long.toString(s.branch));
+        return rows;
+    }
+    public enum ReviewAction { APPROVE, RETURN_FOR_CORRECTION }
+    @Transactional public Map<String,Object> reviewVariance(Scope s,String id,String requestId,String reason,ReviewAction action) {
+        var shift=one("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant,s.branch,id);
+        if(s.cashier.equals(shift.get("cashier")))throw new ResponseStatusException(FORBIDDEN,"A different supervisor must review the count");
+        var previous=db.queryForList("SELECT * FROM pos_shift_reviews WHERE tenant_id=? AND session_id=? AND close_request_id=?",s.tenant,id,requestId);
+        String normalized=reason.strip();
+        if(!previous.isEmpty()) {
+            var decision=previous.getFirst();
+            if(!s.cashier.equals(decision.get("reviewer"))||!action.name().equals(decision.get("decision"))||!normalized.equals(decision.get("reason")))
+                fail("This close request already has a different review decision");
+            return decision;
+        }
+        if(!"CLOSING".equals(shift.get("state"))||!requestId.equals(shift.get("close_request_id")))fail("Close request is no longer awaiting this review");
+        db.update("INSERT INTO pos_shift_reviews(id,tenant_id,branch_id,cashier,session_id,close_request_id,reviewer,decision,reason,variance_reason,expected_cash,counted_cash,cash_variance) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            UUID.randomUUID().toString(),s.tenant,s.branch,shift.get("cashier"),id,requestId,s.cashier,action.name(),normalized,
+            shift.get("variance_reason"),shift.get("expected_cash"),shift.get("counted_cash"),shift.get("cash_variance"));
+        if(action==ReviewAction.APPROVE) {
+            db.update("UPDATE pos_sessions SET state='CLOSED',reviewed_by=?,review_reason=?,reviewed_at=CURRENT_TIMESTAMP,closed_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND id=?",
+                s.cashier,normalized,s.tenant,id);
+        }else{
+            db.update("UPDATE pos_sessions SET state='OPEN',expected_cash=NULL,counted_cash=NULL,cash_variance=NULL,variance_reason=NULL,close_request_id=NULL,close_requested_at=NULL,reviewed_by=?,review_reason=?,reviewed_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND id=?",s.cashier,normalized,s.tenant,id);
+        }
+        audit(s,action==ReviewAction.APPROVE?"SHIFT_VARIANCE_APPROVE":"SHIFT_VARIANCE_RETURN",id);
+        return one("SELECT * FROM pos_shift_reviews WHERE tenant_id=? AND session_id=? AND close_request_id=?",s.tenant,id,requestId);
     }
     @Transactional
     public Map<String,Object> cashMovement(Scope s, String sessionId, String key, CashMovement request) {

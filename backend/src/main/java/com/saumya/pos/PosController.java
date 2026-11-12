@@ -25,9 +25,25 @@ class PosController {
         return service.resume(service.scope(p.getName()),id);
     }
     record ResumeSession() {}
-    record CloseSession(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("0.00") @jakarta.validation.constraints.Digits(integer=12,fraction=2) java.math.BigDecimal countedCash) {}
+    record CloseSession(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("0.00") @jakarta.validation.constraints.Digits(integer=12,fraction=2) java.math.BigDecimal countedCash,
+                        @jakarta.validation.constraints.Size(max=250) String reason,
+                        @jakarta.validation.constraints.Pattern(regexp="[0-9a-fA-F-]{36}") String requestId) {}
     @PostMapping("/sessions/{id}/close") @PreAuthorize("hasAuthority('POS_SESSION_CLOSE')")
-    Object close(Principal p,@PathVariable String id,@Valid @RequestBody CloseSession r) { return service.close(service.scope(p.getName()),id,r.countedCash()); }
+    Object close(Principal p,@PathVariable String id,@Valid @RequestBody CloseSession r) { return service.close(service.scope(p.getName()),id,r.countedCash(),r.reason(),r.requestId()); }
+    @GetMapping("/sessions/{id}/close-status") @PreAuthorize("hasAuthority('POS_VIEW')")
+    Object closeStatus(Principal p,@PathVariable String id) { return service.closeStatus(service.scope(p.getName()),id); }
+    @GetMapping("/sessions/pending-variances") @PreAuthorize("hasAuthority('POS_SHIFT_VARIANCE_APPROVE')")
+    Object pendingVariances(Principal p) { return service.pendingVariances(service.scope(p.getName())); }
+    record VarianceReview(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max=36) String requestId,
+                          @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max=250) String reason) {}
+    @PostMapping("/sessions/{id}/approve-variance") @PreAuthorize("hasAuthority('POS_SHIFT_VARIANCE_APPROVE')")
+    Object approveVariance(Principal p,@PathVariable String id,@Valid @RequestBody VarianceReview r) {
+        return service.reviewVariance(service.scope(p.getName()),id,r.requestId(),r.reason(),PosService.ReviewAction.APPROVE);
+    }
+    @PostMapping("/sessions/{id}/return-for-correction") @PreAuthorize("hasAuthority('POS_SHIFT_VARIANCE_APPROVE')")
+    Object returnVariance(Principal p,@PathVariable String id,@Valid @RequestBody VarianceReview r) {
+        return service.reviewVariance(service.scope(p.getName()),id,r.requestId(),r.reason(),PosService.ReviewAction.RETURN_FOR_CORRECTION);
+    }
     @PostMapping("/sessions/{id}/cash-movements")
     @PreAuthorize("hasAuthority('POS_' + #request.type().name())")
     Object cashMovement(Principal p,@PathVariable String id,@RequestHeader("Idempotency-Key") String key,

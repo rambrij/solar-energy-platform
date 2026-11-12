@@ -18,11 +18,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.context.TestExecutionListeners(listeners=org.springframework.test.context.support.DependencyInjectionTestExecutionListener.class,inheritListeners=false)
 class PosTest {
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
+ @Autowired MarketplaceService marketplace;
+ @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
-  for(String table:List.of("pos_shift_reviews","pos_cash_movements","vendor_invoices","inventory_ledger","order_items","orders","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
-  db.update("INSERT INTO tenants VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
+  for(String table:List.of("cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","vendor_invoices","inventory_ledger","order_items","orders","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
   db.update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
@@ -339,7 +341,7 @@ class PosTest {
   String url="jdbc:h2:mem:upgrade-"+UUID.randomUUID()+";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
   org.flywaydb.core.Flyway.configure().dataSource(url,"sa","").locations("classpath:db/migration").target("4").load().migrate();
   var legacy=new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(url,"sa",""));
-  legacy.update("INSERT INTO tenants VALUES(1,'Legacy',TRUE)");
+  legacy.update("INSERT INTO tenants(id,name,active) VALUES(1,'Legacy',TRUE)");
   legacy.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'Legacy')");
   legacy.update("INSERT INTO employees VALUES('legacy','unused',1,1,TRUE)");
   legacy.update("INSERT INTO registers VALUES(1,1,1)");
@@ -357,5 +359,86 @@ class PosTest {
   for(int i=0;i<2;i++)mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content(body))
    .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CLOSING")).andExpect(jsonPath("$.requestId").value(key)).andExpect(jsonPath("$.variance").value(-50));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SHIFT_VARIANCE_SUBMIT'",Integer.class)).isEqualTo(1);
+ }
+ void customers(){
+  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id)");
+  db.update("INSERT INTO users VALUES(100,'customer',?,TRUE),(101,'other-customer',?,TRUE)",encoder.encode("CustomerPassword"),encoder.encode("OtherPassword"));
+  db.update("INSERT INTO customer_profiles VALUES(100,100),(101,101)");
+ }
+ @Test void anonymousMarketplaceExposesOnlyActivePublishedCatalogue() throws Exception {
+  customers();db.update("INSERT INTO products VALUES(3,1,'SECRET',NULL,'Private draft',1,0,FALSE)");
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panel"));
+  db.update("UPDATE tenants SET active=FALSE WHERE id=2");
+  mvc.perform(get("/api/marketplace/vendors")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+  mvc.perform(get("/api/marketplace/vendors/vendor-2/products")).andExpect(status().isNotFound());
+ }
+ @Test void singleVendorCartSwitchIsExplicitScopedAndRetainsOldItems(){
+  customers();var cart=marketplace.put(100,new MarketplaceService.Item("vendor-1",1,1));
+  assertThatThrownBy(()->marketplace.put(100,new MarketplaceService.Item("vendor-2",2,1)));
+  assertThat(marketplace.cart(100).vendorSlug()).isEqualTo("vendor-1");
+  assertThatThrownBy(()->marketplace.switchVendor(100,new MarketplaceService.Switch(cart.id(),"vendor-2",1,1)));
+  assertThat(marketplace.cart(100).id()).isEqualTo(cart.id());
+  var switched=marketplace.switchVendor(100,new MarketplaceService.Switch(cart.id(),"vendor-2",2,1));
+  assertThat(switched.vendorSlug()).isEqualTo("vendor-2");
+  assertThat(db.queryForObject("SELECT state FROM carts WHERE id=?",String.class,cart.id())).isEqualTo("ARCHIVED");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM cart_items WHERE cart_id=?",Integer.class,cart.id())).isEqualTo(1);
+  assertThatThrownBy(()->marketplace.switchVendor(100,new MarketplaceService.Switch(cart.id(),"vendor-1",1,1)));
+  assertThat(marketplace.cart(101).items()).isEmpty();
+  assertThatThrownBy(()->marketplace.switchVendor(101,new MarketplaceService.Switch(switched.id(),"vendor-1",1,1)));
+ }
+ @Test void marketplaceAndPosSharePricingAndCurrentStock(){
+  customers();var cart=marketplace.put(100,new MarketplaceService.Item("vendor-1",1,1));
+  assertThat(cart.total()).isEqualByComparingTo("110");
+  assertThat(marketplace.quote(100).checkoutAvailable()).isFalse();
+  var receipt=service.checkout(a,"shared-stock",sale(1,"120"));
+  assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo(cart.total());
+  assertThat(marketplace.products("vendor-1").getFirst().inStock()).isFalse();
+  assertThatThrownBy(()->marketplace.quote(100));
+  assertThat(marketplace.cart(100).items().getFirst().available()).isFalse();
+  db.update("UPDATE inventory SET quantity=5 WHERE tenant_id=1");
+  db.update("UPDATE products SET price=200,tax_rate=5 WHERE id=1");
+  assertThat(marketplace.quote(100).total()).isEqualByComparingTo("210");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
+  db.update("UPDATE products SET published=FALSE WHERE id=1");
+  assertThat(marketplace.cart(100).items().getFirst().name()).isEqualTo("Product unavailable");
+  assertThat(marketplace.cart(100).items().getFirst().unitPrice()).isNull();
+  assertThatThrownBy(()->marketplace.quote(100));
+ }
+ @Test void customerAuthenticationPermissionsAndCsrfProtectCart() throws Exception {
+  customers();String path="/api/customer/cart/items",body="{\"vendorSlug\":\"vendor-1\",\"productId\":1,\"quantity\":1}";
+  mvc.perform(get("/api/customer/cart")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/customer/cart").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/customer/cart").with(user("unknown").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/customer/cart").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isOk());
+  mvc.perform(get("/api/vendor/pos/products").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body)).andExpect(status().isOk());
+  mvc.perform(get("/api/customer/cart").with(httpBasic("other-customer","OtherPassword"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+  mvc.perform(post(path).with(csrf()).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body.replace("\"quantity\":1","\"quantity\":1,\"customerId\":101"))).andExpect(status().isBadRequest());
+ }
+ @Test void cartQuantityUpdatesAreIdempotentAndDatabaseRejectsMixedTenantItems(){
+  customers();var request=new MarketplaceService.Item("vendor-1",1,2);var cart=marketplace.put(100,request);
+  marketplace.put(100,request);
+  assertThat(marketplace.cart(100).items().getFirst().quantity()).isEqualTo(2);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
+  assertThatThrownBy(()->db.update("INSERT INTO cart_items VALUES(1,?,2,1)",cart.id())).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThat(marketplace.remove(100,1).items()).isEmpty();
+  assertThat(marketplace.put(100,new MarketplaceService.Item("vendor-2",2,1)).vendorSlug()).isEqualTo("vendor-2");
+ }
+ @Test void concurrentDifferentVendorAddsCannotCreateMixedActiveCarts() throws Exception {
+  customers();try(var pool=Executors.newFixedThreadPool(2)) {
+   Callable<Boolean> first=()->cartAttempt("vendor-1",1),second=()->cartAttempt("vendor-2",2);
+   int successes=0;for(var result:pool.invokeAll(List.of(first,second)))if(result.get())successes++;
+   assertThat(successes).isEqualTo(1);
+  }
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM carts WHERE state='ACTIVE'",Integer.class)).isEqualTo(1);
+  assertThat(marketplace.cart(100).items()).hasSize(1);
+ }
+ boolean cartAttempt(String slug,long product){try{marketplace.put(100,new MarketplaceService.Item(slug,product,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
+ @Test void conflictingLegacyStaffAndCustomerLoginsFailClosed() throws Exception {
+  customers();db.update("INSERT INTO users VALUES(102,'alice',?,TRUE)",encoder.encode("CustomerPassword"));db.update("INSERT INTO customer_profiles VALUES(102,102)");
+  mvc.perform(get("/api/customer/cart").with(httpBasic("alice","CustomerPassword"))).andExpect(status().isUnauthorized());
+  db.update("UPDATE users SET enabled=FALSE WHERE username='customer'");
+  mvc.perform(get("/api/customer/cart").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isUnauthorized());
  }
 }

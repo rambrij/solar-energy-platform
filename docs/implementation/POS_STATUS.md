@@ -16,6 +16,7 @@ Baseline: requirements §9.2 and SRS/HLD §25.8. `develop` contained documents o
 | Session reconciliation | Live opening float + cash received - change + cash-in - cash-out - safe drops; exact count closes; discrepant count requires a reason and freezes the drawer in CLOSING until separate supervisor review |
 | Supervisor variance review | POS-020/POS-022/POS-023/POS-025: branch-scoped independent supervisor approval/return, immutable review ledger, frozen counts, stale-request/concurrent-decision protection, OPEN/CLOSING till uniqueness and upgrade backfill |
 | Authentication | BCrypt + HTTP Basic + CSRF for initial slice; JWT/refresh integration still required |
+| Online marketplace and cart | Public active vendor storefronts, global customer identity, scoped single-vendor cart and deliberate archived-cart switching; shared pricing and live POS inventory checkout preview; see MARKETPLACE_API.md |
 | MySQL integrity | Flyway composite ownership constraints; MySQL CI job (results must be checked) |
 
 Not implemented: external tender initiation/verification, durable draft and reservation TTL, split tender, customer-initiated association, POS returns/exchanges/refunds/credit notes, online checkout, subscription entitlement checks, tax/legal invoice templates, export masking, metrics/alerts, Playwright browser suites, approved production payment providers. These remain required by Version 2.0 and are **not** reclassified as deferred product scope. Docker Compose definitions are included but local engine access was unavailable for a smoke test.

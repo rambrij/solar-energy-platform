@@ -15,7 +15,8 @@ import static org.springframework.http.HttpStatus.*;
 @Service
 public class PosService {
     private final JdbcTemplate db;
-    public PosService(JdbcTemplate db) { this.db=db; }
+    private final Pricing pricing;
+    public PosService(JdbcTemplate db,Pricing pricing) { this.db=db;this.pricing=pricing; }
     public record Scope(long tenant, long branch, String cashier) {}
     public record Line(@Positive long productId, @Min(1) @Max(10000) int quantity) {}
     public record Checkout(@NotBlank String sessionId, @NotEmpty @Size(max=100) List<@Valid Line> items,
@@ -92,9 +93,8 @@ public class PosService {
             var p=one("SELECT p.name,p.price,p.tax_rate,i.quantity FROM products p JOIN inventory i ON i.tenant_id=p.tenant_id AND i.product_id=p.id WHERE p.tenant_id=? AND i.branch_id=? AND p.id=? AND p.published=TRUE FOR UPDATE",s.tenant,s.branch,item.productId);
             if(((Number)p.get("quantity")).intValue()<item.quantity) fail("Insufficient stock");
             BigDecimal price=(BigDecimal)p.get("price"), rate=(BigDecimal)p.get("tax_rate");
-            BigDecimal net=price.multiply(BigDecimal.valueOf(item.quantity));
-            BigDecimal tax=net.multiply(rate).divide(new BigDecimal("100"),2,RoundingMode.HALF_UP);
-            BigDecimal amount=net.add(tax); total=total.add(amount);
+            var calculated=pricing.line(price,rate,item.quantity);
+            BigDecimal tax=calculated.tax(),amount=calculated.total();total=total.add(amount);
             lines.add(Map.of("id",item.productId,"name",p.get("name"),"quantity",item.quantity,"price",price,"rate",rate,"tax",tax,"total",amount));
         }
         if(request.cashReceived.compareTo(total)<0) fail("Cash received is below amount due");

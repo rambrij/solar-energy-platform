@@ -69,7 +69,7 @@ export default function App() {
       } else setError((e as Error).message+' Retry uses the same sale key. Do not collect cash again.');
     }finally{setBusy(false);}
   }
-  return <main><h1>Saumya Solar · Store POS</h1><p>Walk-in cash checkout · No customer account required</p>
+  return <main><nav><a href="/vendors">Online marketplace</a></nav><h1>Saumya Solar · Store POS</h1><p>Walk-in cash checkout · No customer account required</p>
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
       <label>Search name, SKU or scan barcode <input value={search} onChange={e=>setSearch(e.target.value)} /></label>

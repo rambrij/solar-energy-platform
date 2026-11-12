@@ -170,6 +170,18 @@ npm run dev
 
 Open the Vite URL printed in the terminal (normally [http://localhost:5173](http://localhost:5173)). Vite proxies `/api` to the Java backend at port 8080. The same initial data and employee provisioning requirements apply.
 
+## Online marketplace and global customer carts
+
+Pull the feature branch and rebuild with `docker compose up --build -d`. Flyway V6 creates global customer users/profiles and tenant-scoped carts, and assigns existing vendors a stable `vendor-{id}` slug. Existing POS users, shifts, sales and stock are retained. Fresh local store setup includes its slug. Do not rerun the original demo seed over an existing store.
+
+Open [http://localhost:8080/vendors](http://localhost:8080/vendors) for the public vendor directory, or [http://localhost:8080/vendors/vendor-900001](http://localhost:8080/vendors/vendor-900001) for the existing local demo store. The root URL continues to open physical store POS. Anonymous visitors can browse active vendors and published products without registering. Prices and availability come from the same catalogue/inventory used by POS.
+
+For a local customer demonstration, run [docs/demo/setup-local-customer.sql](docs/demo/setup-local-customer.sql) in Workbench after V6. Open a separate browser/private window from the cashier and use **Sign in / reload my cart**, or add a product. Sign in with `demo-customer` / `LocalCustomer2026!`. The public demo account is global across vendors, is not an employee, and is not created automatically for walk-in shoppers. Staff credentials cannot manage customer carts; no customer registration/verification UI is included yet.
+
+Select a product quantity and **Add or update … in cart**. The entered quantity replaces that product's cart quantity, making retries safe. The backend rejects mixed-vendor additions. The UI offers **Keep current cart** or **Confirm vendor switch** before archiving the old cart and starting the new vendor cart. Removing the last item clears the active vendor binding. No other customer's or vendor-private data is exposed.
+
+**Preview checkout** rechecks current prices, tax and shared stock. A POS sale may make a cart item unavailable; cart items do not reserve stock. Online payment/order finalization is deliberately unavailable until vendor merchant and provider configuration, fulfilment and reservations are implemented. The preview does not claim an order or payment succeeded. See [marketplace API and remaining gates](docs/implementation/MARKETPLACE_API.md).
+
 ## Behavior
 
 Open an assigned register with an opening float. Search name/SKU/barcode, choose quantities, receive cash and complete the sale. Customer identity is absent: no global customer record is created. Prices are tax-exclusive and taxes round HALF_UP per line to two decimal places. No client price/tax/discount/tenant/cashier overrides are accepted. Currency/tax policy requires approved configuration before production.

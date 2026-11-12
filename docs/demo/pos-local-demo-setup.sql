@@ -14,8 +14,8 @@ BEGIN
     END;
 
     START TRANSACTION;
-    INSERT INTO tenants (id, name, active)
-    VALUES (900001, 'Local Demo Solar Store', TRUE);
+    INSERT INTO tenants (id, name, active, slug)
+    VALUES (900001, 'Local Demo Solar Store', TRUE, 'vendor-900001');
 
     INSERT INTO branches (id, tenant_id, name, invoice_required)
     VALUES (900001, 900001, 'Local Demo Outlet', FALSE);

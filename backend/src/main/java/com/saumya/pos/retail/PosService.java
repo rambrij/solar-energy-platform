@@ -142,7 +142,7 @@ public class PosService {
         return receipt(s,id);
     }
     public Map<String,Object> receipt(Scope s,String id) {
-        var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,receipt_number,tax_invoice,created_at FROM orders WHERE tenant_id=? AND branch_id=? AND id=?",s.tenant,s.branch,id);
+        var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,receipt_number,tax_invoice,created_at FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID'",s.tenant,s.branch,id);
         order.put("items",db.queryForList("SELECT name,quantity,price,tax_rate,tax,total FROM order_items WHERE tenant_id=? AND order_id=? ORDER BY product_id",s.tenant,id));
         order.put("invoices",db.queryForList("SELECT invoice_number,seller_name,outlet_name,total,issued_at FROM vendor_invoices WHERE tenant_id=? AND order_id=?",s.tenant,id));
         return order;

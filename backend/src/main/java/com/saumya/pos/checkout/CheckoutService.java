@@ -89,6 +89,7 @@ public class CheckoutService {
         if(cash.compareTo(order.total())<0)conflict("Cash received is below amount due");
         var stored=stored(order);
         for(var line:stored){var p=catalogue.lockForSale(s.tenant(),line.product());if(p.price().compareTo(line.price())!=0||p.taxRate().compareTo(line.rate())!=0)conflict("Catalogue price/tax changed; cancel and recreate the draft");}
+        if(!order.expires().isAfter(clock.instant()))conflict("Draft expired while validating catalogue; refresh/cancel it");
         var consumed=stock.consume(s.tenant(),id);
         var expected=new LinkedHashMap<Long,Integer>();for(var line:stored)expected.put(line.product(),line.quantity());
         if(consumed.isEmpty()||!consumed.equals(expected))throw new IllegalStateException("Reservation does not match draft snapshots");

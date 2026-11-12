@@ -1,0 +1,5 @@
+# Local Workbench access; loaded automatically by `docker compose up`.
+services:
+  mysql:
+    ports:
+      - '127.0.0.1:3307:3306'

@@ -754,7 +754,7 @@ sequenceDiagram
     Buyer->>Provider: Complete payment directly to vendor
     Provider-->>API: Authenticated callback/status or ambiguous outcome
     API->>DB: Persist provider event/result and correlation IDs
-    POSM->>DB: Verify amount, currency, vendor account and attempt; confirm tender idempotently
+    POSM->>DB: Verify amount, currency, vendor account and attempt, then confirm tender idempotently
     POSM->>Inv: Issue previously reserved stock
     POSM->>DB: Mark order PAID and create receipt/audit transactionally
     DB-->>POS: Committed order and receipt
@@ -763,7 +763,7 @@ sequenceDiagram
     POSM->>DB: Cancel draft, release stock and retain failed/expired attempt evidence
   end
   opt External tender outcome is unknown
-    POSM->>DB: Keep order/payment pending reconciliation; do not charge again or mark paid
+    POSM->>DB: Keep order/payment pending reconciliation, do not charge again or mark paid
     POS-->>Cashier: Show pending status and reconciliation reference
   end
   POS-->>Buyer: Print or share receipt after committed sale
@@ -893,7 +893,7 @@ erDiagram
   ORDERS {
     bigint id PK
     bigint tenant_id FK
-    bigint customer_id FK nullable_for_IN_STORE_guest
+    bigint customer_id FK "Nullable for IN_STORE guest"
     string sales_channel
     string order_number
     decimal total
@@ -983,7 +983,7 @@ erDiagram
   ORDERS {
     bigint id PK
     bigint tenant_id FK
-    bigint customer_id nullable_for_IN_STORE_guest
+    bigint customer_id FK "Nullable for IN_STORE guest"
     string sales_channel
     bigint branch_id
     bigint cashier_user_id

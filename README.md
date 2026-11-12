@@ -184,6 +184,12 @@ Select a product quantity and **Add or update … in cart**. The entered quantit
 
 ## Behavior
 
+### Recover a saved vendor cart
+
+After pulling and rebuilding, V7 adds a lifecycle version to existing carts without deleting their data. In the marketplace, click **Load archived carts**. Select a saved vendor cart, review the confirmation, then choose **Confirm cart restore**. Your currently active cart is archived with its items retained; the restored cart uses current prices and stock availability. **Keep active cart** cancels without changing either cart. If another browser changed the active cart, or a saved vendor/product is unavailable, reload history before trying again. A cart with unavailable stock cannot pass preview. History currently shows up to 20 archived carts in stable ID order.
+
+The backend now uses Spring Data JPA for cart aggregates, catalogue, customer profile access and stock balances, organized as a modular monolith with application APIs and protected module internals. Existing POS accounting/session SQL remains during a staged migration and shares one transaction with JPA stock changes. Flyway owns migrations; Hibernate validates schema and Open EntityManager in View is disabled. See [module ownership and transaction tests](docs/architecture/README.md).
+
 Open an assigned register with an opening float. Search name/SKU/barcode, choose quantities, receive cash and complete the sale. Customer identity is absent: no global customer record is created. Prices are tax-exclusive and taxes round HALF_UP per line to two decimal places. No client price/tax/discount/tenant/cashier overrides are accepted. Currency/tax policy requires approved configuration before production.
 
 One transaction locks the outlet sequence, cashier session and shared inventory rows, creates immutable line snapshots, records cash received/applied/change, issues stock and writes its ledger and audit entry. `cash_applied = total = cash_received - change_given`. Each completed sale has an outlet receipt sequence. Tax invoice generation is conditional on `branches.invoice_required` or explicit buyer request. Reprints retain identity and create an audit event. Drawer cash is opening float + cash received - change given + cash-in - cash-out - safe drops; cash applied is not added twice. A close with exactly reconciled cash succeeds; a discrepancy with a reason enters CLOSING for separate supervisor review.

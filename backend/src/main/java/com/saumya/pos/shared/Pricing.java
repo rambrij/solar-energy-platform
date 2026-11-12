@@ -1,4 +1,4 @@
-package com.saumya.pos;
+package com.saumya.pos.shared;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

@@ -14,6 +14,8 @@ export default function Marketplace() {
   const [cart, setCart] = useState<Cart>(), [quantities, setQuantities] = useState<Record<number, number>>({});
   const [search, setSearch] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [switchTarget, setSwitchTarget] = useState<Target>();
+  const [history, setHistory] = useState<Cart[]>(), [restoreTarget, setRestoreTarget] = useState<Cart>();
+  const confirming = !!switchTarget || !!restoreTarget;
   useEffect(() => {
     let active = true;
     marketplaceApi('/api/marketplace/vendors').then(value => { if (active) setVendors(value); }).catch(() => { if (active) setError('Vendor directory unavailable.'); });
@@ -57,6 +59,25 @@ export default function Marketplace() {
     catch (e) { if (e instanceof MarketplaceError && e.status === 409) setError('A cart item is unavailable or the cart is empty. Reload it to check stock and prices.'); else failure(e); }
     finally { setBusy(false); }
   }
+  async function loadHistory() {
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const [current, archived] = await Promise.all([marketplaceApi('/api/customer/cart'), marketplaceApi('/api/customer/cart/history')]);
+      setCart(current); setHistory(archived);
+    } catch (e) { failure(e); } finally { setBusy(false); }
+  }
+  async function restore() {
+    if (!restoreTarget?.id) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      setCart(await marketplaceApi('/api/customer/cart/restore', 'POST', { archivedCartId: restoreTarget.id, expectedCartId: cart?.id ?? null }));
+      setHistory(undefined); setRestoreTarget(undefined); setNotice('Archived cart restored with current prices. Stock is not reserved.');
+    } catch (e) {
+      setRestoreTarget(undefined);
+      if (e instanceof MarketplaceError && [404,409].includes(e.status)) setError('The cart changed or archived products are unavailable. Reload your cart history before trying again.');
+      else failure(e);
+    } finally { setBusy(false); }
+  }
   return <main>
     <nav><a href="/vendors">Vendor directory</a> · <a href="/">Physical store POS</a></nav>
     <h1>Saumya Solar Marketplace</h1><p>Choose a vendor. Your customer account works across vendors; each cart belongs to one vendor.</p>
@@ -68,18 +89,29 @@ export default function Marketplace() {
         const quantity = quantities[product.id] ?? 1;
         return <li key={product.id}><h3>{product.name}</h3><p>{product.sku} · {money(product.price)} + {product.taxRate}% tax · {product.inStock ? 'In stock' : 'Out of stock'}</p>
           <label>Quantity for {product.name} <input type="number" min="1" max="10000" value={quantity} onChange={e => setQuantities({ ...quantities, [product.id]: Number(e.target.value) })} /></label>
-          <button disabled={busy || !!switchTarget || !product.inStock || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000} onClick={() => put(product)}>Add or update {product.name} in cart</button>
+          <button disabled={busy || confirming || !product.inStock || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000} onClick={() => put(product)}>Add or update {product.name} in cart</button>
         </li>;
       })}</ul>
     </section>}
     <section aria-label="Customer cart"><h2>My single-vendor cart</h2>
-      <button disabled={busy || !!switchTarget} onClick={loadCart}>Sign in / reload my cart</button>
-      {cart && <><h3>{cart.vendorName ?? 'Your cart is empty'}</h3><ul>{cart.items.map(line => <li key={line.productId}>{line.name} × {line.quantity} · Unit price {money(line.unitPrice)} · Tax {money(line.tax)} · Total {money(line.total)} {!line.available && '· Unavailable for checkout'} <button disabled={busy || !!switchTarget} onClick={() => remove(line.productId)}>Remove {line.name}</button></li>)}</ul>
+      <button disabled={busy || confirming} onClick={loadCart}>Sign in / reload my cart</button>
+      {cart && <><h3>{cart.vendorName ?? 'Your cart is empty'}</h3><ul>{cart.items.map(line => <li key={line.productId}>{line.name} × {line.quantity} · Unit price {money(line.unitPrice)} · Tax {money(line.tax)} · Total {money(line.total)} {!line.available && '· Unavailable for checkout'} <button disabled={busy || confirming} onClick={() => remove(line.productId)}>Remove {line.name}</button></li>)}</ul>
         <p>Current estimate: {money(cart.total)}. Prices and stock are rechecked on preview; cart items do not reserve stock.</p>
-        <button disabled={busy || !!switchTarget || !cart.items.length} onClick={preview}>Preview checkout</button>
+        <button disabled={busy || confirming || !cart.items.length} onClick={preview}>Preview checkout</button>
         <p>{cart.message}</p>
       </>}
     </section>
+    <section aria-label="Archived carts"><h2>Saved vendor carts</h2>
+      <button disabled={busy || confirming} onClick={loadHistory}>Load archived carts</button>
+      {history && (history.length ? <ul>{history.map(saved => <li key={saved.id}><h3>{saved.vendorName}</h3>
+        <p>{saved.items.map(line => `${line.name} × ${line.quantity}`).join(', ')} · Current estimate {money(saved.total)}</p>
+        <button disabled={busy || confirming || !saved.items.length} onClick={() => setRestoreTarget(saved)}>Restore {saved.vendorName} cart</button>
+      </li>)}</ul> : <p>No archived carts found.</p>)}
+    </section>
+    {restoreTarget && <section role="dialog" aria-modal="true" aria-labelledby="restore-title"><h2 id="restore-title">Restore archived vendor cart?</h2>
+      <p>Restore your saved {restoreTarget.vendorName} cart using current prices. Your active cart will be archived with its items retained. This does not reserve stock or place an order.</p>
+      <button disabled={busy} onClick={() => setRestoreTarget(undefined)}>Keep active cart</button><button disabled={busy} onClick={restore}>Confirm cart restore</button>
+    </section>}
     {switchTarget && <section role="dialog" aria-modal="true" aria-labelledby="switch-title"><h2 id="switch-title">Switch vendor cart?</h2>
       <p>Your current cart belongs to {cart?.vendorName}. Confirming archives that cart and starts a new cart for this vendor. Existing cart items are retained as archived data.</p>
       <button disabled={busy} onClick={() => setSwitchTarget(undefined)}>Keep current cart</button><button disabled={busy} onClick={confirmSwitch}>Confirm vendor switch</button>

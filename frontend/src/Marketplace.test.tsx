@@ -53,3 +53,30 @@ it('reports changed stock at preview rather than claiming an order was completed
   fireEvent.click(screen.getByText('Preview checkout')); await screen.findByText(/A cart item is unavailable/);
   expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();
 });
+it('loads own archived carts and requires confirmation before restoring', async () => {
+  const archived = { ...cart, id: 'saved-cart', vendorName: 'Saved Vendor' };
+  vi.mocked(marketplaceApi).mockImplementation(async path => {
+    if (path === '/api/customer/cart/history') return [archived];
+    return path.startsWith('/api/customer/') ? cart : publicResult(path);
+  });
+  render(<Marketplace />); fireEvent.click(screen.getByText('Load archived carts'));
+  fireEvent.click(await screen.findByText('Restore Saved Vendor cart'));
+  await screen.findByRole('dialog');
+  expect(vi.mocked(marketplaceApi).mock.calls.some(call => call[0].endsWith('/restore'))).toBe(false);
+  fireEvent.click(screen.getByText('Keep active cart')); expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(screen.getByText('Restore Saved Vendor cart')); fireEvent.click(screen.getByText('Confirm cart restore'));
+  await screen.findByText(/Archived cart restored with current prices/);
+  expect(marketplaceApi).toHaveBeenCalledWith('/api/customer/cart/restore', 'POST', { archivedCartId: 'saved-cart', expectedCartId: 'cart-a' });
+});
+it('keeps active cart contents after a stale restore is rejected', async () => {
+  vi.mocked(marketplaceApi).mockImplementation(async path => {
+    if (path === '/api/customer/cart/history') return [{ ...cart, id: 'saved-cart', vendorName: 'Saved Vendor' }];
+    if (path === '/api/customer/cart/restore') throw new MarketplaceError(409);
+    return path.startsWith('/api/customer/') ? cart : publicResult(path);
+  });
+  render(<Marketplace />); fireEvent.click(screen.getByText('Load archived carts'));
+  fireEvent.click(await screen.findByText('Restore Saved Vendor cart')); fireEvent.click(screen.getByText('Confirm cart restore'));
+  await screen.findByText(/The cart changed or archived products are unavailable/);
+  expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();
+  expect(screen.queryByText(/Archived cart restored with current prices/)).toBeNull();
+});

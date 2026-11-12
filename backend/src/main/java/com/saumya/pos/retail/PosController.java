@@ -1,4 +1,4 @@
-package com.saumya.pos;
+package com.saumya.pos.retail;
 import java.security.Principal;
 import java.util.*;
 import jakarta.validation.Valid;

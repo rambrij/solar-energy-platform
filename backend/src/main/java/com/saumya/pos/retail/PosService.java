@@ -1,4 +1,7 @@
-package com.saumya.pos;
+package com.saumya.pos.retail;
+import com.saumya.pos.catalog.CatalogService;
+import com.saumya.pos.inventory.InventoryService;
+import com.saumya.pos.shared.Pricing;
 
 import java.math.*;
 import java.nio.charset.StandardCharsets;
@@ -16,7 +19,9 @@ import static org.springframework.http.HttpStatus.*;
 public class PosService {
     private final JdbcTemplate db;
     private final Pricing pricing;
-    public PosService(JdbcTemplate db,Pricing pricing) { this.db=db;this.pricing=pricing; }
+    private final CatalogService catalogue;
+    private final InventoryService stock;
+    public PosService(JdbcTemplate db,Pricing pricing,CatalogService catalogue,InventoryService stock) { this.db=db;this.pricing=pricing;this.catalogue=catalogue;this.stock=stock; }
     public record Scope(long tenant, long branch, String cashier) {}
     public record Line(@Positive long productId, @Min(1) @Max(10000) int quantity) {}
     public record Checkout(@NotBlank String sessionId, @NotEmpty @Size(max=100) List<@Valid Line> items,
@@ -38,7 +43,7 @@ public class PosService {
             .stream().findFirst().orElseThrow(()->new ResponseStatusException(FORBIDDEN));
     }
     public List<Map<String,Object>> products(Scope s) {
-        return db.queryForList("SELECT p.id,p.sku,p.barcode,p.name,p.price,p.tax_rate,i.quantity FROM products p JOIN inventory i ON i.tenant_id=p.tenant_id AND i.product_id=p.id WHERE p.tenant_id=? AND i.branch_id=? AND p.published=TRUE ORDER BY p.id",s.tenant,s.branch);
+        return catalogue.posProducts(s.tenant,s.branch);
     }
     public record SessionSummary(String id,long registerId,BigDecimal openingFloat,String state) {}
     private SessionSummary sessionSummary(java.sql.ResultSet rs,int row) throws java.sql.SQLException {
@@ -90,12 +95,12 @@ public class PosService {
         var seen=new HashSet<Long>(); BigDecimal total=BigDecimal.ZERO;
         for(var item:request.items.stream().sorted(Comparator.comparingLong(Line::productId)).toList()) {
             if(!seen.add(item.productId)) fail("Duplicate product");
-            var p=one("SELECT p.name,p.price,p.tax_rate,i.quantity FROM products p JOIN inventory i ON i.tenant_id=p.tenant_id AND i.product_id=p.id WHERE p.tenant_id=? AND i.branch_id=? AND p.id=? AND p.published=TRUE FOR UPDATE",s.tenant,s.branch,item.productId);
-            if(((Number)p.get("quantity")).intValue()<item.quantity) fail("Insufficient stock");
-            BigDecimal price=(BigDecimal)p.get("price"), rate=(BigDecimal)p.get("tax_rate");
+            var p=catalogue.lockForSale(s.tenant,item.productId);
+            if(stock.atBranch(s.tenant,s.branch,item.productId)<item.quantity) fail("Insufficient stock");
+            BigDecimal price=p.price(), rate=p.taxRate();
             var calculated=pricing.line(price,rate,item.quantity);
             BigDecimal tax=calculated.tax(),amount=calculated.total();total=total.add(amount);
-            lines.add(Map.of("id",item.productId,"name",p.get("name"),"quantity",item.quantity,"price",price,"rate",rate,"tax",tax,"total",amount));
+            lines.add(Map.of("id",item.productId,"name",p.name(),"quantity",item.quantity,"price",price,"rate",rate,"tax",tax,"total",amount));
         }
         if(request.cashReceived.compareTo(total)<0) fail("Cash received is below amount due");
         String id=UUID.randomUUID().toString(); long number=((Number)branch.get("receipt_sequence")).longValue()+1;
@@ -104,11 +109,11 @@ public class PosService {
         for(var line:lines) {
             db.update("INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?,?)",s.tenant,id,line.get("id"),line.get("name"),line.get("quantity"),line.get("price"),line.get("rate"),line.get("tax"),line.get("total"));
             int q=(Integer)line.get("quantity");
-            if(db.update("UPDATE inventory SET quantity=quantity-? WHERE tenant_id=? AND branch_id=? AND product_id=? AND quantity>=?",q,s.tenant,s.branch,line.get("id"),q)!=1) fail("Insufficient stock");
+            stock.issue(s.tenant,s.branch,((Number)line.get("id")).longValue(),q);
             db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,line.get("id"),id,-q);
         }
         if(request.invoiceRequested || Boolean.TRUE.equals(branch.get("invoice_required"))) {
-            String seller=db.queryForObject("SELECT name FROM tenants WHERE id=?",String.class,s.tenant);
+            String seller=catalogue.vendor(s.tenant).name();
             db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+number,seller,branch.get("name"),total);
             audit(s,"INVOICE_ISSUE",id);
         }

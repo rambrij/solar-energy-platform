@@ -1,5 +1,7 @@
 spring:
   jpa:
+    properties:
+      hibernate.jdbc.time_zone: UTC
     open-in-view: false
     hibernate:
       ddl-auto: validate
@@ -16,3 +18,7 @@ server:
       cookie:
         http-only: true
         same-site: strict
+checkout:
+  reservation-ttl-seconds: 600
+  cleanup-enabled: true
+  cleanup-delay-ms: 60000

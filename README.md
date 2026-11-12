@@ -180,7 +180,19 @@ For a local customer demonstration, run [docs/demo/setup-local-customer.sql](doc
 
 Select a product quantity and **Add or update … in cart**. The entered quantity replaces that product's cart quantity, making retries safe. The backend rejects mixed-vendor additions. The UI offers **Keep current cart** or **Confirm vendor switch** before archiving the old cart and starting the new vendor cart. Removing the last item clears the active vendor binding. No other customer's or vendor-private data is exposed.
 
-**Preview checkout** rechecks current prices, tax and shared stock. A POS sale may make a cart item unavailable; cart items do not reserve stock. Online payment/order finalization is deliberately unavailable until vendor merchant and provider configuration, fulfilment and reservations are implemented. The preview does not claim an order or payment succeeded. See [marketplace API and remaining gates](docs/implementation/MARKETPLACE_API.md).
+**Preview checkout** rechecks current prices, tax and shared stock. A POS sale may make a cart item unavailable; cart items do not reserve stock. Online payment/order finalization is deliberately unavailable until vendor merchant/provider configuration and paid-order fulfilment are implemented. The preview does not claim an order or payment succeeded. See [marketplace API and remaining gates](docs/implementation/MARKETPLACE_API.md).
+
+## Reserved checkout drafts (V8)
+
+Flyway V8 upgrades existing sales in place as PAID and adds shared stock reservations. For the existing local demo, run `docs/demo/enable-reserved-drafts.sql` in Workbench after rebuilding. This explicitly selects branch `900001` as the demo vendor's online stock source and grants the demo cashier cancellation permission. It does not reset sales, sessions, passwords or stock. Real vendors must configure their own same-tenant designated branch; online reservation fails closed without it.
+
+In the marketplace, sign in as the customer, add items, then choose **Reserve cart without payment**. The server snapshots current catalogue prices and holds stock for 10 minutes. This creates an unpaid ONLINE order with the global customer attached and no cashier/register/cash fields. Online payment remains unavailable. A cart or preview alone does not hold stock. Refresh drafts to see their status, or cancel with a reason to release the hold.
+
+In POS, open/resume your register, select products, then choose **Reserve walk-in sale without payment**. Enter cash in the reserved draft's cash field and choose **Complete reserved cash sale**. The same order becomes PAID, consumes its reservation and issues the receipt/conditional invoice once. Direct cash checkout remains available when you have no unresolved draft. Resolve the draft before closing the session or switching registers. Walk-in sales still require no customer account.
+
+Holds expire after `checkout.reservation-ttl-seconds` (default 600; allowed 60–3600). Background cleanup releases them on its next pass (default every 60 seconds), including after an application restart. Expired drafts cannot finalize; cancel or wait for cleanup before creating another. Stock availability excludes held quantities for both online and walk-in channels. No external charge is initiated.
+
+Unknown network outcomes retain the exact request locally. Retry that request before collecting cash again or changing sessions. Server history can recover completed receipts. If cleanup/cancellation resolved a pending attempt, inspect the server status and use the explicit acknowledgment control; reconcile any physical cash separately. See [draft API and transaction rules](docs/implementation/CHECKOUT_DRAFTS_API.md).
 
 ## Behavior
 

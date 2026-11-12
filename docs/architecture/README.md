@@ -7,9 +7,10 @@ One Spring Boot application, one MySQL 8.4 shared schema and one transaction bou
 | Package under `com.saumya.pos` | Public application API | Persistence ownership |
 |---|---|---|
 | `marketplace` | HTTP marketplace/customer adapters | Calls application APIs; no persistence |
+| `checkout` | `CheckoutService` and draft HTTP adapters | JPA canonical draft orders/lines, lifecycle and scheduled expiry |
 | `cart` | `CartService` and its command/result records | JPA cart aggregate/items, lifecycle `@Version`, active-customer uniqueness |
 | `catalog` | `CatalogService` DTOs and locked sale-product lookup | JPA products; immutable public directory read model over tenants |
-| `inventory` | `InventoryService` availability and scoped issue | JPA balances with pessimistic tenant/branch/product locks |
+| `inventory` | `InventoryService` availability and scoped issue | JPA balances and reservation ledger with pessimistic tenant/branch/product locks |
 | `identity` | `CustomerAccess` resolution/transactional customer lock | JPA customer profile repository; global user resolution projection |
 | `retail` | `PosService` and POS HTTP adapter | Existing cashier sessions, cash sale/order/receipt/invoice, shift review and audit SQL |
 | `shared` | `Pricing` | Tax-exclusive per-line HALF_UP pricing; no persistence |
@@ -26,4 +27,12 @@ The auto-configured `JpaTransactionManager` binds JPA and JDBC work to the same 
 
 Legacy POS/session accounting and the technical authentication/membership bridge continue to use JDBC. The POS issue-ledger record is still written with the order accounting in the same transaction. Authentication reads legacy employee grants and global user credentials through the existing bootstrap adapter; employee/tenant membership validation is retained in retail during this migration. These are documented existing-boundary exceptions, not permission for new modules to import other repositories. They remain candidates for later module-owned JPA migration. This change does not claim a complete ORM or JWT identity migration.
 
-Online paid checkout, reservations, approved provider adapters and fulfilment remain separate release gates. Archived-cart recovery does not reserve stock or create an order/payment. API routes remain backward compatible.
+Online paid checkout, approved provider adapters and fulfilment remain separate release gates. Archived-cart recovery does not reserve stock or create an order/payment. API routes remain backward compatible.
+
+## Checkout draft ownership
+
+The checkout module writes canonical orders/order_items through Spring Data JPA. The existing direct cash path remains a staged JDBC writer to those tables; new reserved checkout transitions are JPA-owned and call public retail APIs for session/receipt/audit accounting. Both use the same transaction manager. Inventory owns reserved balances and reservation rows; checkout never imports its entities or repositories.
+
+V8 is a Java Flyway migration because the legacy anonymous channel check has database-generated names. It locates and replaces that check while retaining the cash equation, makes POS-only columns nullable for ONLINE orders, preserves existing paid orders, and adds same-tenant foreign keys. Hibernate still validates the migrated schema. UTC is configured for JDBC timestamps.
+
+Creation serializes on the customer (online) or owned open session (POS), locks catalogue products in ID order and then inventory. Cash finalization locks the outlet sequence, owned order, session, products and stock; cancellation/expiry lock the order and stock. Cleanup scans at most 100 expired drafts per pass and performs a separate transaction per persisted tenant/order, without relying on a request tenant context. Terminal state and hold release commit together. Session close refuses unresolved drafts. Database constraints enforce one active draft per actor/vendor, nonnegative free stock and channel-specific identity fields. Existing aggregate storefront availability remains informational; an online hold requires stock in the configured designated branch.

@@ -7,6 +7,8 @@ public class Vendor {
     @Column(length=100) private String slug;
     @Column(nullable=false,length=160) private String name;
     @Column(nullable=false) private boolean active;
+    @Column(name="online_branch_id") private Long onlineBranchId;
     protected Vendor() {}
     public Long id(){return id;} public String slug(){return slug;} public String name(){return name;} public boolean active(){return active;}
+    public Long onlineBranchId(){return onlineBranchId;}
 }

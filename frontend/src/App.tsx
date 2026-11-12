@@ -4,6 +4,7 @@ import CashDrawer from './CashDrawer';
 import SessionStart from './SessionStart';
 import ShiftClose from './ShiftClose';
 import ShiftReviews from './ShiftReviews';
+import ReservedDrafts from './ReservedDrafts';
 type Product = {id:number;name:string;sku:string;barcode:string;price:number;tax_rate:number;quantity:number};
 type Receipt = {id:string;receipt_number:number;branch_id:number;total:number;cash_received:number;change_given:number;tax_invoice:boolean;copy?:boolean;invoices:{invoice_number:string;seller_name:string;outlet_name:string}[];items:{name:string;quantity:number;price:number;tax:number;tax_rate:number;total:number}[]};
 export default function App() {
@@ -20,6 +21,9 @@ export default function App() {
   const [checkingSession,setCheckingSession]=useState(()=>!!sessionStorage.getItem('pos-session-v1'));
   const [sessionCheckFailed,setSessionCheckFailed]=useState(false),[checkRevision,setCheckRevision]=useState(0);
   const [sessionState,setSessionState]=useState('OPEN');
+  const [reservedBlocked,setReservedBlocked]=useState(()=>{
+    const stored=sessionStorage.getItem('pos-session-v1');return !!stored&&!!sessionStorage.getItem(`pos-reserved-attempt-v1:${stored}`);
+  });
   const [pending,setPending]=useState<{key:string;body:unknown}|undefined>(()=>{
     try {return JSON.parse(sessionStorage.getItem('pos-attempt-v1')??'null')??undefined;} catch {return undefined;}
   });
@@ -31,7 +35,7 @@ export default function App() {
     setCheckingSession(true);setSessionCheckFailed(false);
     api(`/sessions/${stored}`).then(details=>{
       if(!active)return;
-      const hasAttempt=!!sessionStorage.getItem('pos-attempt-v1')||!!sessionStorage.getItem(`pos-drawer-attempt-v1:${stored}`)||!!sessionStorage.getItem(`pos-close-attempt-v1:${stored}`);
+      const hasAttempt=!!sessionStorage.getItem('pos-attempt-v1')||!!sessionStorage.getItem(`pos-drawer-attempt-v1:${stored}`)||!!sessionStorage.getItem(`pos-close-attempt-v1:${stored}`)||!!sessionStorage.getItem(`pos-reserved-attempt-v1:${stored}`);
       if(details.state==='CLOSED'&&!hasAttempt){
         sessionStorage.removeItem('pos-session-v1');setSession('');
         setError('Your previous session is closed. Open or resume a session below.');
@@ -42,7 +46,7 @@ export default function App() {
       setCheckingSession(false);
     }).catch(e=>{
       if(!active)return;
-      const hasAttempt=!!sessionStorage.getItem('pos-attempt-v1')||!!sessionStorage.getItem(`pos-drawer-attempt-v1:${stored}`)||!!sessionStorage.getItem(`pos-close-attempt-v1:${stored}`);
+      const hasAttempt=!!sessionStorage.getItem('pos-attempt-v1')||!!sessionStorage.getItem(`pos-drawer-attempt-v1:${stored}`)||!!sessionStorage.getItem(`pos-close-attempt-v1:${stored}`)||!!sessionStorage.getItem(`pos-reserved-attempt-v1:${stored}`);
       if(e instanceof ApiError&&e.status===404&&!hasAttempt){
         sessionStorage.removeItem('pos-session-v1');setSession('');setCheckingSession(false);
         setError('The saved session is unavailable for your account. Choose an authorized session below.');
@@ -73,13 +77,14 @@ export default function App() {
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
       <label>Search name, SKU or scan barcode <input value={search} onChange={e=>setSearch(e.target.value)} /></label>
-      <ul>{products.filter(p=>[p.name,p.sku,p.barcode??''].some(v=>v.toLowerCase().includes(search.toLowerCase()))).map(p=><li key={p.id}>{p.name} · {p.sku} · {Number(p.price).toFixed(2)} + {p.tax_rate}% tax · {p.quantity} available <button disabled={busy||!!pending||sessionState!=='OPEN'||p.quantity<1} onClick={()=>setCart({...cart,[p.id]:(cart[p.id]??0)+1})}>Add {p.name}</button></li>)}</ul>
-      <h2>Current sale</h2><fieldset disabled={busy||!!pending}>{Object.entries(cart).map(([id,q])=><label key={id}>{products.find(p=>p.id===Number(id))?.name}<input aria-label={`Quantity ${id}`} type="number" min="1" max="10000" value={q} onChange={e=>setCart({...cart,[id]:Number(e.target.value)})}/><button onClick={()=>setCart(Object.fromEntries(Object.entries(cart).filter(([key])=>key!==id)))}>Remove</button></label>)}
+      <ul>{products.filter(p=>[p.name,p.sku,p.barcode??''].some(v=>v.toLowerCase().includes(search.toLowerCase()))).map(p=><li key={p.id}>{p.name} · {p.sku} · {Number(p.price).toFixed(2)} + {p.tax_rate}% tax · {p.quantity} available <button disabled={busy||!!pending||reservedBlocked||sessionState!=='OPEN'||p.quantity<1} onClick={()=>setCart({...cart,[p.id]:(cart[p.id]??0)+1})}>Add {p.name}</button></li>)}</ul>
+      <h2>Current sale</h2><fieldset disabled={busy||!!pending||reservedBlocked}>{Object.entries(cart).map(([id,q])=><label key={id}>{products.find(p=>p.id===Number(id))?.name}<input aria-label={`Quantity ${id}`} type="number" min="1" max="10000" value={q} onChange={e=>setCart({...cart,[id]:Number(e.target.value)})}/><button onClick={()=>setCart(Object.fromEntries(Object.entries(cart).filter(([key])=>key!==id)))}>Remove</button></label>)}
       <p>Estimated total: {Object.entries(cart).reduce((sum,[id,q])=>{const p=products.find(p=>p.id===Number(id));if(!p)return sum;const net=Number(p.price)*q;return sum+net+Math.round(net*Number(p.tax_rate))/100;},0).toFixed(2)}. Final prices, tax and change are calculated by the server.</p><label>Cash received <input type="number" min="0" step="0.01" value={cash} onChange={e=>setCash(e.target.value)}/></label><label><input type="checkbox" checked={invoice} onChange={e=>setInvoice(e.target.checked)}/> Request tax invoice</label></fieldset>
-      <button disabled={busy||movementPending||closePending||(!pending&&(sessionState!=='OPEN'||!Object.keys(cart).length||!cash))} onClick={checkout}>{busy?'Checking sale…':pending?'Retry same sale':'Complete cash sale'}</button>
+      <button disabled={busy||movementPending||closePending||reservedBlocked||(!pending&&(sessionState!=='OPEN'||!Object.keys(cart).length||!cash))} onClick={checkout}>{busy?'Checking sale…':pending?'Retry same sale':'Complete cash sale'}</button>
+      <ReservedDrafts key={`drafts-${session}`} mode="pos" session={session} items={Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity}))} invoiceRequested={invoice} disabled={busy||!!pending||movementPending||closePending||sessionState!=='OPEN'} onBlocked={setReservedBlocked} onReceipt={(value,finalized)=>{setReceipt(value);if(finalized){setCart({});setCash('');setDrawerRevision(value=>value+1);}}} onStockChange={()=>{api('/products').then(setProducts).catch(()=>setError('Reload product stock after restoring connectivity.'));}}/>
       <CashDrawer key={session} session={session} revision={drawerRevision} disabled={busy||!!pending||closePending} readOnly={sessionState!=='OPEN'} onPendingChange={setMovementPending} onBusyChange={setBusy}/>
-      <ShiftClose key={`close-${session}`} session={session} disabled={busy||!!pending||movementPending} onStateChange={setSessionState} onPendingChange={setClosePending} onBusyChange={setBusy}/>
-      {sessionState!=='OPEN'&&<button disabled={busy||!!pending||movementPending||closePending} onClick={()=>{sessionStorage.removeItem('pos-session-v1');setSession('');setError('');}}>Choose another session</button>}
+      <ShiftClose key={`close-${session}`} session={session} disabled={busy||!!pending||movementPending||reservedBlocked} onStateChange={setSessionState} onPendingChange={setClosePending} onBusyChange={setBusy}/>
+      {sessionState!=='OPEN'&&<button disabled={busy||!!pending||movementPending||closePending||reservedBlocked} onClick={()=>{sessionStorage.removeItem('pos-session-v1');setSession('');setError('');}}>Choose another session</button>}
     </>}
     {receipt && <section aria-label="Sale receipt"><h2>{receipt.copy?'COPY · ':''}Receipt {receipt.branch_id}/{receipt.receipt_number}</h2><p>Sale {receipt.id}</p>{receipt.items.map((i,n)=><p key={n}>{i.name} × {i.quantity} at {Number(i.price).toFixed(2)} + tax {Number(i.tax).toFixed(2)} ({i.tax_rate}%): {Number(i.total).toFixed(2)}</p>)}<p>Total: {Number(receipt.total).toFixed(2)} · Cash: {Number(receipt.cash_received).toFixed(2)} · Change: {Number(receipt.change_given).toFixed(2)}</p>{receipt.invoices.map(i=><p key={i.invoice_number}>Tax invoice {i.invoice_number} · {i.seller_name} · {i.outlet_name}</p>)}<button disabled={busy} onClick={async()=>{setBusy(true);try{setReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Reprint copy</button></section>}
     <ShiftReviews/>

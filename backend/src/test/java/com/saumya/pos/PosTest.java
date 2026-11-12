@@ -16,7 +16,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"spring.datasource.url=${TEST_DB_URL:jdbc:h2:mem:pos;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}","spring.datasource.username=${TEST_DB_USER:sa}","spring.datasource.password=${TEST_DB_PASSWORD:}"})
+@SpringBootTest(properties={"spring.datasource.url=${TEST_DB_URL:jdbc:h2:mem:pos;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}","spring.datasource.username=${TEST_DB_USER:sa}","spring.datasource.password=${TEST_DB_PASSWORD:}","checkout.cleanup-enabled=false"})
 @AutoConfigureMockMvc
 @org.springframework.test.context.TestExecutionListeners(listeners=org.springframework.test.context.support.DependencyInjectionTestExecutionListener.class,inheritListeners=false)
 class PosTest {
@@ -26,16 +26,18 @@ class PosTest {
  @Autowired com.saumya.pos.inventory.InventoryService stock;
  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
+ @Autowired com.saumya.pos.checkout.CheckoutService checkout;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
-  for(String table:List.of("cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","vendor_invoices","inventory_ledger","order_items","orders","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  db.update("UPDATE tenants SET online_branch_id=NULL");
+  for(String table:List.of("stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
   db.update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
   db.update("INSERT INTO products VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
-  db.update("INSERT INTO inventory VALUES(1,1,1,1),(2,2,2,1)");
+  db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,1,1),(2,2,2,1)");
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("50"))).get("id");
  }
  PosService.Checkout sale(long product,String cash){return new PosService.Checkout(session,List.of(new PosService.Line(product,1)),new BigDecimal(cash),false);}
@@ -94,7 +96,7 @@ class PosTest {
    .andExpect(status().isOk()).andExpect(jsonPath("$.customer_id").doesNotExist()).andExpect(jsonPath("$.total").value(110)).andExpect(jsonPath("$.invoices[0].seller_name").value("Vendor A"));
  }
  @Test void databaseRejectsMixedTenantReferences(){
-  assertThatThrownBy(()->db.update("INSERT INTO inventory VALUES(1,1,2,10)"))
+  assertThatThrownBy(()->db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,2,10)"))
    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   assertThatThrownBy(()->db.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float) VALUES('forged',1,1,'bob',1,'OPEN',0)"))
    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
@@ -505,4 +507,125 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM cart_items",Integer.class)).isEqualTo(3);
  }
  boolean restoreAttempt(String archived,String current){try{marketplace.restore(100,new CartService.Restore(archived,current));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
+ com.saumya.pos.checkout.CheckoutService.PosDraft posDraft(){return new com.saumya.pos.checkout.CheckoutService.PosDraft(session,List.of(new com.saumya.pos.checkout.CheckoutService.Item(1,1)),true);}
+ com.saumya.pos.checkout.CheckoutService.Draft onlineDraft(String key){
+  var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  return checkout.online("customer",key,new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id()));
+ }
+ void configureOnline(){customers();db.update("UPDATE tenants SET online_branch_id=id");}
+ @Test void onlineDraftReservesCanonicalStockAndCancelReleasesExactlyOnce(){
+  configureOnline();var draft=onlineDraft("online-hold1");
+  assertThat(draft.channel()).isEqualTo("ONLINE");assertThat(draft.status()).isEqualTo("DRAFT");assertThat(draft.paymentAvailable()).isFalse();
+  assertThat(db.queryForObject("SELECT customer_id FROM orders",Long.class)).isEqualTo(100);
+  assertThat(db.queryForMap("SELECT branch_id,cashier,session_id,cash_received,receipt_number FROM orders").values()).allMatch(Objects::isNull);
+  assertThat(stock.available(1,1)).isZero();assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
+  assertThatThrownBy(()->service.checkout(a,"competing-pos",sale(1,"110")));
+  var cart=marketplace.cart(100);
+  assertThat(checkout.online("customer","online-hold1",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id())).id()).isEqualTo(draft.id());
+  assertThatThrownBy(()->checkout.online("customer","online-new1",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id())));
+  assertThatThrownBy(()->checkout.cancelOnline("other-customer",draft.id(),"Not mine"));
+  checkout.cancelOnline("customer",draft.id(),"Changed mind");checkout.cancelOnline("customer",draft.id(),"Retry");
+  assertThat(stock.available(1,1)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
+  service.checkout(a,"after-release",sale(1,"110"));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE status='PAID'",Integer.class)).isEqualTo(1);
+ }
+ @Test void posReservedCashFinalizationKeepsOneOrderReceiptAndInvoice(){
+  var draft=checkout.pos("alice","pos-reserve1",posDraft());
+  assertThat(checkout.pos("alice","pos-reserve1",posDraft()).id()).isEqualTo(draft.id());
+  assertThatThrownBy(()->service.close(a,session,new BigDecimal("50")));
+  assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),BigDecimal.ONE));
+  assertThatThrownBy(()->checkout.finalizeCash("bob",draft.id(),new BigDecimal("120")));
+  db.update("UPDATE products SET price=101 WHERE id=1");
+  assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));
+  db.update("UPDATE products SET price=100 WHERE id=1");
+  var receipt=checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));
+  assertThat(receipt.get("id")).isEqualTo(draft.id());assertThat(receipt.get("customer_id")).isNull();
+  assertThat((BigDecimal)receipt.get("change_given")).isEqualByComparingTo("10");
+  assertThat(checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")).get("id")).isEqualTo(draft.id());
+  service.close(a,session,new BigDecimal("160"));
+  assertThat(checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")).get("id")).isEqualTo(draft.id());
+  assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("130")));
+  assertThatThrownBy(()->checkout.cancelPos("alice",draft.id(),"Already paid"));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
+ }
+ @Test void expiryReleasesHoldsWithoutPaymentAndIsIdempotent(){
+  var draft=checkout.pos("alice","expire-pos1",posDraft());
+  db.update("UPDATE orders SET expires_at=TIMESTAMP '2020-01-01 00:00:00' WHERE id=?",draft.id());
+  assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("110")));
+  checkout.expire(1,draft.id());checkout.expire(1,draft.id());
+  assertThat(stock.available(1,1)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("EXPIRED");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isZero();
+  checkout.pos("alice","after-expiry",posDraft());
+ }
+ @Test void reservationFailureRollsBackEveryLineAndOrder(){
+  db.update("INSERT INTO products VALUES(3,1,'P3',NULL,'Missing stock',100,0,TRUE)");
+  var request=new com.saumya.pos.checkout.CheckoutService.PosDraft(session,List.of(new com.saumya.pos.checkout.CheckoutService.Item(1,1),new com.saumya.pos.checkout.CheckoutService.Item(3,1)),false);
+  assertThatThrownBy(()->checkout.pos("alice","rollback-hold",request));
+  assertThat(stock.available(1,1)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations",Integer.class)).isZero();
+ }
+ @Test void onlineReservationRacingWalkInSaleCannotOversell() throws Exception {
+  configureOnline();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  try(var pool=Executors.newFixedThreadPool(2)){
+   Callable<Boolean> online=()->{try{checkout.online("customer","race-online",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id()));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
+   Callable<Boolean> pos=()->attempt("race-pos-sale");int won=0;
+   for(var result:pool.invokeAll(List.of(online,pos)))if(result.get())won++;
+   assertThat(won).isEqualTo(1);
+  }
+  assertThat(stock.available(1,1)).isZero();
+  assertThat(db.queryForObject("SELECT quantity-reserved FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
+ }
+ @Test void draftHttpSecurityOwnershipAndContextConstraints() throws Exception {
+  configureOnline();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  String payload="{\"expectedCartId\":\""+cart.id()+"\"}";
+  mvc.perform(post("/api/customer/checkout/drafts").with(csrf()).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isUnauthorized());
+  mvc.perform(post("/api/customer/checkout/drafts").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isForbidden());
+  mvc.perform(post("/api/customer/checkout/drafts").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.paymentAvailable").value(false));
+  mvc.perform(get("/api/customer/checkout/drafts").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+  var draft=checkout.onlineList("customer").getFirst();
+  mvc.perform(post("/api/customer/checkout/drafts/"+draft.id()+"/cancel").with(csrf()).with(user("other-customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{\"reason\":\"Not mine\"}")).andExpect(status().isNotFound());
+  assertThatThrownBy(()->db.update("UPDATE orders SET branch_id=1 WHERE id=?",draft.id())).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE inventory SET reserved=2 WHERE tenant_id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+ }
+ @Test void competingCashFinalizationAndCancellationCannotBothCommit() throws Exception {
+  var draft=checkout.pos("alice","cash-cancel-race",posDraft());
+  try(var pool=Executors.newFixedThreadPool(2)){
+   Callable<Boolean> cash=()->{try{checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
+   Callable<Boolean> cancel=()->{try{checkout.cancelPos("alice",draft.id(),"Customer cancelled");return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
+   int won=0;for(var result:pool.invokeAll(List.of(cash,cancel)))if(result.get())won++;assertThat(won).isEqualTo(1);
+  }
+  String status=db.queryForObject("SELECT status FROM orders",String.class);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(status.equals("PAID")?0:1);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(status.equals("PAID")?1:0);
+ }
+ @Test void concurrentReservedCashRetriesIssueOneReceipt() throws Exception {
+  var draft=checkout.pos("alice","cash-retry-race",posDraft());
+  try(var pool=Executors.newFixedThreadPool(2)){
+   Callable<Map<String,Object>> pay=()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));
+   for(var result:pool.invokeAll(List.of(pay,pay)))assertThat(result.get().get("id")).isEqualTo(draft.id());
+  }
+  assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);
+ }
+ @Test void posDraftEndpointEnforcesPermissionsAndRejectsForgedContext() throws Exception {
+  String body="{\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}]}";
+  mvc.perform(post("/api/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post("/api/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SALE_CREATE")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body.replace("\"items\"","\"tenantId\":2,\"items\""))).andExpect(status().isBadRequest());
+  mvc.perform(post("/api/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SALE_CREATE")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body)).andExpect(status().isOk());
+  var draft=checkout.posList("alice",session).getFirst();
+  mvc.perform(post("/api/vendor/pos/drafts/"+draft.id()+"/cancel").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content("{\"reason\":\"Cancel\"}")).andExpect(status().isForbidden());
+  mvc.perform(post("/api/vendor/pos/drafts/"+draft.id()+"/finalize-cash").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"cashReceived\":120}")).andExpect(status().isForbidden());
+  assertThat(checkout.posList("bob",session)).isEmpty();
+ }
 }

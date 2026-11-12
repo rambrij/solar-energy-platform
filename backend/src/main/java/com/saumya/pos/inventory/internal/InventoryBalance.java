@@ -14,6 +14,11 @@ public class InventoryBalance {
     }
     @EmbeddedId private Key id;
     @Column(nullable=false) private int quantity;
+    @Column(nullable=false) private int reserved;
     protected InventoryBalance() {}
-    public void issue(int amount){if(amount<=0||amount>quantity)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Insufficient stock");quantity-=amount;}
+    private void available(int amount){if(amount<=0||amount>quantity-reserved)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Insufficient available stock");}
+    public void issue(int amount){available(amount);quantity-=amount;}
+    public void reserve(int amount){available(amount);reserved+=amount;}
+    public void release(int amount){if(amount<=0||amount>reserved)throw new IllegalStateException("Reservation balance mismatch");reserved-=amount;}
+    public void consume(int amount){release(amount);quantity-=amount;}
 }

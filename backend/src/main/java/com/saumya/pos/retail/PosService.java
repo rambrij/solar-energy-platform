@@ -79,6 +79,27 @@ public class PosService {
         var row=one("SELECT state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
         if (!"OPEN".equals(row.get("state"))) fail("Session is closed");
     }
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireOpen(Scope s,String id){session(s,id);}
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void lockOutlet(Scope s){one("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);}
+    public record ReceiptAllocation(long number,boolean invoiceRequired,String outlet) {}
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public ReceiptAllocation allocateReceipt(Scope s){
+        var branch=one("SELECT * FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
+        long number=((Number)branch.get("receipt_sequence")).longValue()+1;
+        db.update("UPDATE branches SET receipt_sequence=? WHERE tenant_id=? AND id=?",number,s.tenant,s.branch);
+        return new ReceiptAllocation(number,Boolean.TRUE.equals(branch.get("invoice_required")),(String)branch.get("name"));
+    }
+    public record StockIssue(long product,int quantity) {}
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void draftDocuments(Scope s,String id,List<StockIssue> items,ReceiptAllocation receipt,BigDecimal total,boolean invoice){
+        for(var item:items)db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,item.product,id,-item.quantity);
+        if(invoice)db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+receipt.number,catalogue.vendor(s.tenant).name(),receipt.outlet,total);
+        audit(s,"CASH_SALE",id);
+    }
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void draftAudit(Scope s,String action,String id){audit(s,action,id);}
     @Transactional
     public Map<String,Object> checkout(Scope s,String key,Checkout request) {
         if(key==null || !key.matches("[A-Za-z0-9_-]{8,80}")) throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");
@@ -159,6 +180,7 @@ public class PosService {
             fail("Close count is already frozen; supervisor review or a new corrected count is required");
         }
         BigDecimal expected=reconciliation(s,id).expectedCash(),variance=counted.subtract(expected);
+        if(!db.queryForList("SELECT id FROM orders WHERE tenant_id=? AND session_id=? AND status='DRAFT'",s.tenant,id).isEmpty())fail("Resolve reserved draft sales before closing the session");
         if(variance.signum()!=0&&normalized==null)throw new ResponseStatusException(BAD_REQUEST,"A variance reason is required");
         String state=variance.signum()==0?"CLOSED":"CLOSING";
         db.update("UPDATE pos_sessions SET state=?,expected_cash=?,counted_cash=?,cash_variance=?,variance_reason=?,close_request_id=?,close_requested_at=CURRENT_TIMESTAMP,reviewed_by=NULL,review_reason=NULL,reviewed_at=NULL,closed_at=CASE WHEN ?='CLOSED' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE tenant_id=? AND id=?",

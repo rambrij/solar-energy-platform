@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { marketplaceApi, MarketplaceError } from './marketplaceApi';
+import ReservedDrafts from './ReservedDrafts';
 
 type Vendor = { id: number; slug: string; name: string };
 type Product = { id: number; sku: string; name: string; price: number; taxRate: number; inStock: boolean };
@@ -15,13 +16,14 @@ export default function Marketplace() {
   const [search, setSearch] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [switchTarget, setSwitchTarget] = useState<Target>();
   const [history, setHistory] = useState<Cart[]>(), [restoreTarget, setRestoreTarget] = useState<Cart>();
+  const [stockRevision,setStockRevision] = useState(0);
   const confirming = !!switchTarget || !!restoreTarget;
   useEffect(() => {
     let active = true;
     marketplaceApi('/api/marketplace/vendors').then(value => { if (active) setVendors(value); }).catch(() => { if (active) setError('Vendor directory unavailable.'); });
     if (slug) marketplaceApi(`/api/marketplace/vendors/${encodeURIComponent(slug)}/products`).then(value => { if (active) setProducts(value); }).catch(() => { if (active) setError('Vendor storefront unavailable.'); });
     return () => { active = false; };
-  }, [slug]);
+  }, [slug,stockRevision]);
   function failure(e: unknown) {
     setError(e instanceof MarketplaceError && [401,403].includes(e.status)
       ? 'Sign in with your global customer account to manage your cart. Staff credentials are separate.'
@@ -101,6 +103,7 @@ export default function Marketplace() {
         <p>{cart.message}</p>
       </>}
     </section>
+    <ReservedDrafts mode="online" cartId={cart?.id} disabled={busy||confirming} onStockChange={()=>setStockRevision(value=>value+1)}/>
     <section aria-label="Archived carts"><h2>Saved vendor carts</h2>
       <button disabled={busy || confirming} onClick={loadHistory}>Load archived carts</button>
       {history && (history.length ? <ul>{history.map(saved => <li key={saved.id}><h3>{saved.vendorName}</h3>

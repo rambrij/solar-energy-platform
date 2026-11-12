@@ -186,8 +186,10 @@ class PosTest {
   assertThatThrownBy(()->db.update(sql,"foreign",2,2,"bob",session,"CASH_IN",1,"Float","db-foreign"))
    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   assertThatThrownBy(()->db.update(sql,"zero",1,1,"alice",session,"CASH_IN",0,"Float","db-zero1"))
-   .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+   .isInstanceOf(org.springframework.dao.DataAccessException.class)
+   .rootCause().hasMessageContaining("chk_cash_movement_amount");
   assertThatThrownBy(()->db.update(sql,"refund",1,1,"alice",session,"CASH_REFUND",1,"Float","db-refund"))
-   .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+   .isInstanceOf(org.springframework.dao.DataAccessException.class)
+   .rootCause().hasMessageContaining("chk_cash_movement_type");
  }
 }

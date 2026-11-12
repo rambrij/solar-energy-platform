@@ -33,7 +33,10 @@ BEGIN
         ('local-cashier', 'POS_SALE_CREATE'),
         ('local-cashier', 'POS_TENDER_CASH_RECORD'),
         ('local-cashier', 'POS_RECEIPT_VIEW'),
-        ('local-cashier', 'POS_RECEIPT_REPRINT');
+        ('local-cashier', 'POS_RECEIPT_REPRINT'),
+        ('local-cashier', 'POS_CASH_IN'),
+        ('local-cashier', 'POS_CASH_OUT'),
+        ('local-cashier', 'POS_SAFE_DROP');
 
     INSERT INTO registers (id, tenant_id, branch_id)
     VALUES (900001, 900001, 900001);

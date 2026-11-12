@@ -22,6 +22,15 @@ public class PosService {
                            @NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived,
                            boolean invoiceRequested) {}
     public record OpenSession(@Positive long registerId, @NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal openingFloat) {}
+    public enum MovementType { CASH_IN, CASH_OUT, SAFE_DROP }
+    public record CashMovement(
+        @NotNull MovementType type,
+        @NotNull @DecimalMin(value="0.00", inclusive=false) @Digits(integer=12,fraction=2) BigDecimal amount,
+        @NotBlank @Size(max=250) String reason) {}
+    public record Reconciliation(String sessionId, String state, BigDecimal openingFloat,
+        BigDecimal cashReceived, BigDecimal changeGiven, BigDecimal cashIn,
+        BigDecimal cashOut, BigDecimal safeDrops, BigDecimal expectedCash,
+        BigDecimal countedCash, BigDecimal variance, List<Map<String,Object>> movements) {}
     public Scope scope(String user) {
         return db.query("SELECT e.* FROM employees e JOIN tenants t ON t.id=e.tenant_id WHERE e.username=? AND e.enabled=TRUE AND t.active=TRUE",
             (r,n)->new Scope(r.getLong("tenant_id"),r.getLong("branch_id"),user),user)
@@ -94,13 +103,66 @@ public class PosService {
     }
     @Transactional public Map<String,Object> close(Scope s,String id,BigDecimal counted) {
         session(s,id);
-        var shift=one("SELECT opening_float FROM pos_sessions WHERE tenant_id=? AND id=?",s.tenant,id);
-        BigDecimal sales=db.queryForObject("SELECT COALESCE(SUM(cash_received-change_given),0) FROM orders WHERE tenant_id=? AND session_id=?",BigDecimal.class,s.tenant,id);
-        BigDecimal expected=((BigDecimal)shift.get("opening_float")).add(sales);
+        BigDecimal expected=reconciliation(s,id).expectedCash();
         if(counted.compareTo(expected)!=0) fail("Cash variance requires supervisor workflow; session remains open");
         db.update("UPDATE pos_sessions SET state='CLOSED',expected_cash=?,counted_cash=?,closed_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND id=?",expected,counted,s.tenant,id);
         audit(s,"SESSION_CLOSE",id);
         return Map.of("expectedCash",expected,"countedCash",counted,"variance",BigDecimal.ZERO);
+    }
+    @Transactional
+    public Map<String,Object> cashMovement(Scope s, String sessionId, String key, CashMovement request) {
+        if(key==null || !key.matches("[A-Za-z0-9_-]{8,80}"))
+            throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");
+        // The same session lock protects sales, closing and all drawer movements.
+        var shift=one("SELECT state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",
+            s.tenant,s.branch,s.cashier,sessionId);
+        String reason=request.reason().strip();
+        var existing=db.queryForList("SELECT * FROM pos_cash_movements WHERE tenant_id=? AND session_id=? AND idempotency_key=?",
+            s.tenant,sessionId,key);
+        // An acknowledged retry is safe even after closing; no closed-session data is changed.
+        if(!existing.isEmpty()) {
+            var row=existing.getFirst();
+            if(!request.type().name().equals(row.get("movement_type")) ||
+                request.amount().compareTo((BigDecimal)row.get("amount"))!=0 || !reason.equals(row.get("reason")))
+                fail("Idempotency key already used for a different cash movement");
+            return movement(s,sessionId,(String)row.get("id"));
+        }
+        if(!"OPEN".equals(shift.get("state"))) fail("Session is closed");
+        if(request.type()!=MovementType.CASH_IN &&
+            request.amount().compareTo(reconciliation(s,sessionId).expectedCash())>0)
+            fail("Cash removal exceeds expected drawer cash");
+        String id=UUID.randomUUID().toString();
+        db.update("INSERT INTO pos_cash_movements(id,tenant_id,branch_id,cashier,session_id,movement_type,amount,reason,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?)",
+            id,s.tenant,s.branch,s.cashier,sessionId,request.type().name(),request.amount(),reason,key);
+        audit(s,request.type().name(),id);
+        return movement(s,sessionId,id);
+    }
+    private Map<String,Object> movement(Scope s,String sessionId,String id) {
+        return one("SELECT id,movement_type,amount,reason,cashier,created_at FROM pos_cash_movements WHERE tenant_id=? AND session_id=? AND id=?",
+            s.tenant,sessionId,id);
+    }
+    @Transactional
+    public Reconciliation reconciliation(Scope s,String id) {
+        var shift=one("SELECT state,opening_float,counted_cash FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",
+            s.tenant,s.branch,s.cashier,id);
+        var sales=one("SELECT COALESCE(SUM(cash_received),0) AS received,COALESCE(SUM(change_given),0) AS change_total FROM orders WHERE tenant_id=? AND session_id=?",
+            s.tenant,id);
+        var movements=db.queryForList("SELECT id,movement_type,amount,reason,cashier,created_at FROM pos_cash_movements WHERE tenant_id=? AND session_id=? ORDER BY created_at,id",
+            s.tenant,id);
+        BigDecimal cashIn=BigDecimal.ZERO,cashOut=BigDecimal.ZERO,drops=BigDecimal.ZERO;
+        for(var row:movements) {
+            BigDecimal amount=(BigDecimal)row.get("amount");
+            switch(MovementType.valueOf((String)row.get("movement_type"))) {
+                case CASH_IN -> cashIn=cashIn.add(amount);
+                case CASH_OUT -> cashOut=cashOut.add(amount);
+                case SAFE_DROP -> drops=drops.add(amount);
+            }
+        }
+        BigDecimal opening=(BigDecimal)shift.get("opening_float"),received=(BigDecimal)sales.get("received"),change=(BigDecimal)sales.get("change_total");
+        BigDecimal expected=opening.add(received).subtract(change).add(cashIn).subtract(cashOut).subtract(drops);
+        BigDecimal counted=(BigDecimal)shift.get("counted_cash");
+        return new Reconciliation(id,(String)shift.get("state"),opening,received,change,cashIn,cashOut,drops,expected,counted,
+            counted==null?null:counted.subtract(expected),movements);
     }
     @Transactional public Map<String,Object> reprint(Scope s,String id) {
         var result=receipt(s,id); audit(s,"RECEIPT_REPRINT",id);result.put("copy",true);return result;

@@ -21,7 +21,7 @@ class PosTest {
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
-  for(String table:List.of("vendor_invoices","inventory_ledger","order_items","orders","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("pos_cash_movements","vendor_invoices","inventory_ledger","order_items","orders","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -89,6 +89,105 @@ class PosTest {
   assertThatThrownBy(()->db.update("INSERT INTO inventory VALUES(1,1,2,10)"))
    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   assertThatThrownBy(()->db.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float) VALUES('forged',1,1,'bob',1,'OPEN',0)"))
+   .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+ }
+ PosService.CashMovement movement(PosService.MovementType type,String amount,String reason) {
+  return new PosService.CashMovement(type,new BigDecimal(amount),reason);
+ }
+ @Test void drawerFormulaIncludesMovementsWithoutDoubleCountingSales(){
+  service.checkout(a,"drawer-sale",sale(1,"120"));
+  var cashIn=movement(PosService.MovementType.CASH_IN,"100"," Extra float ");
+  var first=service.cashMovement(a,session,"drawer-in1",cashIn);
+  assertThat(service.cashMovement(a,session,"drawer-in1",cashIn).get("id")).isEqualTo(first.get("id"));
+  service.cashMovement(a,session,"drawer-out",movement(PosService.MovementType.CASH_OUT,"25","Supplies"));
+  service.cashMovement(a,session,"drawer-drop",movement(PosService.MovementType.SAFE_DROP,"100","Move to safe"));
+  var report=service.reconciliation(a,session);
+  assertThat(report.cashReceived()).isEqualByComparingTo("120");
+  assertThat(report.changeGiven()).isEqualByComparingTo("10");
+  assertThat(report.cashIn()).isEqualByComparingTo("100");
+  assertThat(report.cashOut()).isEqualByComparingTo("25");
+  assertThat(report.safeDrops()).isEqualByComparingTo("100");
+  assertThat(report.expectedCash()).isEqualByComparingTo("135");
+  assertThat(report.countedCash()).isNull();assertThat(report.variance()).isNull();
+  assertThat(report.movements()).hasSize(3);
+  assertThatThrownBy(()->service.close(a,session,new BigDecimal("160")));
+  assertThat(service.reconciliation(a,session).state()).isEqualTo("OPEN");
+  service.close(a,session,new BigDecimal("135"));
+  assertThat(service.reconciliation(a,session).variance()).isEqualByComparingTo("0");
+  assertThat(service.cashMovement(a,session,"drawer-in1",cashIn).get("id")).isEqualTo(first.get("id"));
+  assertThatThrownBy(()->service.cashMovement(a,session,"afterclose",cashIn));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CASH_IN'",Integer.class)).isEqualTo(1);
+ }
+ @Test void cashMovementsRejectPayloadReuseAndOtherCashiers(){
+  service.cashMovement(a,session,"movement-1",movement(PosService.MovementType.CASH_IN,"5","Float"));
+  assertThatThrownBy(()->service.cashMovement(a,session,"movement-1",movement(PosService.MovementType.CASH_IN,"6","Float")));
+  assertThatThrownBy(()->service.cashMovement(a,session,"movement-1",movement(PosService.MovementType.CASH_OUT,"5","Float")));
+  assertThatThrownBy(()->service.cashMovement(a,session,"movement-1",movement(PosService.MovementType.CASH_IN,"5","Changed reason")));
+  assertThatThrownBy(()->service.cashMovement(b,session,"other-tenant",movement(PosService.MovementType.CASH_IN,"5","Float")));
+  db.update("INSERT INTO employees VALUES('charlie','unused',1,1,TRUE)");
+  var colleague=new PosService.Scope(1,1,"charlie");
+  assertThatThrownBy(()->service.cashMovement(colleague,session,"other-user",movement(PosService.MovementType.CASH_IN,"5","Float")));
+  assertThatThrownBy(()->service.reconciliation(colleague,session));
+  assertThatThrownBy(()->service.reconciliation(b,session));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_movements",Integer.class)).isEqualTo(1);
+ }
+ @Test void concurrentCashRemovalsCannotOverdraw() throws Exception {
+  try(var pool=Executors.newFixedThreadPool(2)) {
+   var results=pool.invokeAll(List.of((Callable<Boolean>)()->removeCash("remove-01"),()->removeCash("remove-02")));
+   int successes=0;for(var result:results)if(result.get())successes++;
+   assertThat(successes).isEqualTo(1);
+  }
+  assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("10");
+ }
+ boolean removeCash(String key) {
+  try {service.cashMovement(a,session,key,movement(PosService.MovementType.CASH_OUT,"40","Supplies"));return true;}
+  catch(org.springframework.web.server.ResponseStatusException e){return false;}
+ }
+ @Test void concurrentMovementRetriesHaveOneLedgerAndAuditEntry() throws Exception {
+  try(var pool=Executors.newFixedThreadPool(2)) {
+   Callable<Map<String,Object>> call=()->service.cashMovement(a,session,"retry-move",movement(PosService.MovementType.CASH_IN,"10","Float"));
+   var results=pool.invokeAll(List.of(call,call));
+   assertThat(results.get(0).get().get("id")).isEqualTo(results.get(1).get().get("id"));
+  }
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_movements",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CASH_IN'",Integer.class)).isEqualTo(1);
+ }
+ @Test void movementEndpointsEnforceTypeSpecificPermissionsAndScope() throws Exception {
+  String path="/api/vendor/pos/sessions/"+session+"/cash-movements";
+  String body="{\"type\":\"CASH_OUT\",\"amount\":10,\"reason\":\"Supplies\"}";
+  mvc.perform(post(path).with(csrf()).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isUnauthorized());
+  mvc.perform(post(path).with(user("alice").authorities(()->"POS_CASH_OUT")).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_CASH_IN")).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_CASH_OUT")).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isNotFound());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_CASH_OUT")).contentType("application/json").content(body).header("Idempotency-Key","http-move1"))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.cashier").value("alice")).andExpect(jsonPath("$.movement_type").value("CASH_OUT"));
+  String report="/api/vendor/pos/sessions/"+session+"/reconciliation";
+  mvc.perform(get(report).with(user("alice"))).andExpect(status().isForbidden());
+  mvc.perform(get(report).with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+  mvc.perform(get(report).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.expectedCash").value(40));
+ }
+ @Test void invalidCashMovementInputsAreRejected() throws Exception {
+  String path="/api/vendor/pos/sessions/"+session+"/cash-movements";
+  for(String body:List.of(
+   "{\"type\":\"CASH_IN\",\"amount\":0,\"reason\":\"Float\"}",
+   "{\"type\":\"CASH_IN\",\"amount\":-1,\"reason\":\"Float\"}",
+   "{\"type\":\"CASH_IN\",\"amount\":1.001,\"reason\":\"Float\"}",
+   "{\"type\":\"CASH_IN\",\"amount\":1,\"reason\":\" \"}",
+   "{\"amount\":1,\"reason\":\"Float\"}",
+   "{\"type\":\"CASH_REFUND\",\"amount\":1,\"reason\":\"Float\"}",
+   "{\"type\":\"CASH_IN\",\"amount\":1,\"reason\":\"Float\",\"tenantId\":2}")) {
+   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_CASH_IN")).contentType("application/json").content(body).header("Idempotency-Key","invalid-move")).andExpect(status().isBadRequest());
+  }
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_movements",Integer.class)).isZero();
+ }
+ @Test void movementDatabaseConstraintsRejectForgedContextAndInvalidAmounts(){
+  String sql="INSERT INTO pos_cash_movements(id,tenant_id,branch_id,cashier,session_id,movement_type,amount,reason,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?)";
+  assertThatThrownBy(()->db.update(sql,"foreign",2,2,"bob",session,"CASH_IN",1,"Float","db-foreign"))
+   .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThatThrownBy(()->db.update(sql,"zero",1,1,"alice",session,"CASH_IN",0,"Float","db-zero1"))
+   .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThatThrownBy(()->db.update(sql,"refund",1,1,"alice",session,"CASH_REFUND",1,"Float","db-refund"))
    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
  }
 }

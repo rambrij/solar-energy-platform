@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
+import ReturnAuditTimeline from './ReturnAuditTimeline';
 type Line = { productId: number; name: string; quantity: number; condition: string | null; disposition: string | null; note: string | null };
 type ReturnView = { id: string; orderId: string; state: string; requester: string; reason: string; proof: string; proofNote: string; createdAt: string; reviewedBy: string | null; reviewReason: string | null; inspectedBy: string | null; refundStatus: string; items: Line[] };
 type Sale = { orderId: string; paidAt: string; windowDays: number; eligibleUntil: string | null; eligible: boolean; message: string; items: { productId: number; name: string; sold: number; remaining: number }[] };
@@ -49,6 +50,7 @@ export default function PosReturns({ session, sessionState, disabled, initialOrd
    {current.state==='REQUESTED'&&<><label>Independent review reason<input maxLength={250} value={reviewReason} disabled={locked} onChange={e=>setReviewReason(e.target.value)}/></label><button disabled={locked||!reviewReason.trim()} onClick={()=>void run({action:'review',id:current.id,body:{decision:'APPROVED',reason:reviewReason.trim()}})}>Approve stock intake</button><button className="secondary" disabled={locked||!reviewReason.trim()} onClick={()=>void run({action:'review',id:current.id,body:{decision:'REJECTED',reason:reviewReason.trim()}})}>Reject intake</button><p>A different authorized employee must decide. Approval does not refund money.</p></>}
    {current.state==='APPROVED'&&<><button disabled={locked||!inspectionReady} onClick={()=>void run({action:'inspect',id:current.id,body:{items:current.items.map(line=>({productId:line.productId,...inspectionFor(line.productId),note:inspectionFor(line.productId).note.trim()}))}})}>Record inspection & disposition</button><p>Damaged/incomplete goods remain quarantined. Only a different authorized inspector can release sellable goods.</p></>}
    {current.state==='INSPECTED'&&<p>Inspection recorded by {current.inspectedBy}. Stock disposition is complete; financial refund status: {current.id===refundedReturnId?'PAID':current.refundStatus}. Use the separate Cash refunds panel for an authorized payout.</p>}
+   <ReturnAuditTimeline returnId={current.id} revision={`${current.state}:${refundedReturnId===current.id?'PAID':''}`} disabled={busy||disabled}/>
   </section>}
  </section>;
 }

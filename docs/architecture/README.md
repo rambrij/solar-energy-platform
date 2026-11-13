@@ -79,3 +79,7 @@ Catalogue owns a Spring Data JPA native read projection joining products/offers/
 ## POS catalogue read boundary
 
 Retail's POS catalogue controller resolves canonical employee/branch scope and invokes the public catalogue service. The catalogue-owned JPA read projection binds that branch, approved offer and published product predicates for bounded staff pages and at-most-two exact scan matches. It exposes staff-only barcode/free-quantity DTO fields without extending the public marketplace DTO. Category metadata has a tenant-based catalogue gateway so physical POS does not depend on a public storefront slug or online stock configuration. Bill metadata is retained only for selected lines, separately from the current catalogue page; inventory/financial write services remain authoritative.
+
+## Reservation status recovery
+
+Checkout owns direct-reference recovery through current shared JPA order locks/refresh and current line reads. Customer lookup binds verified global principal plus ONLINE channel; POS lookup binds canonical tenant/branch/cashier plus IN_STORE and a reservation expiry. A pure policy distinguishes recorded terminal state from elapsed-but-not-yet-released holds. GET reads never mutate inventory or finance. Existing checkout write services retain cancellation, expiry and finalization ownership. UI status lookup is pinned independently of bounded recent lists, and cannot replace or clear an uncertain cash command.

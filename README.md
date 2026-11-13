@@ -301,3 +301,9 @@ Online availability now uses the vendor's designated online stock branch and sub
 In an open Store POS session, search by product name/SKU/barcode, choose a category, sort or enable **POS in stock only**. The panel loads 24 products at a time; the current bill stays intact when you use **Next POS products** or change filters. Only selected bill metadata is retained, and checkout still validates current stock/prices on the server.
 
 Scan a barcode or enter a full SKU and press Enter / **Add exact match**. Lookup searches beyond the current page. A partial or unknown code adds nothing; an ambiguous code requires manual selection. Stock/quantity limits and saved financial-attempt locks still apply. Scanner focus returns after lookup. Use **Retry POS catalogue** after a read failure without rebuilding your bill. POS uses the cashier's assigned branch, independently of online stock setup. See [POS catalogue API and recovery](docs/implementation/POS_CATALOGUE.md).
+
+### Recover a reservation by reference
+
+In the marketplace reservation panel or POS **Reserve and complete a walk-in sale**, enter the known ID in **Reservation reference**, then click **Recover reservation by reference**. The server checks ownership and loads the saved lines even when the reservation is outside the recent list. Lookup does not pay, cancel or release stock.
+
+Expired DRAFTs cannot be paid: reload or cancel with an appropriate reason to resolve a remaining hold. A reservation from another POS session cannot be paid from the current register. PAID means recover the original receipt, not collect money again. A saved uncertain cash/create command still needs its exact retry; reading a status never clears it automatically. If refresh fails, known holds stay blocked until reverified. See [reservation recovery API and state rules](docs/implementation/DRAFT_REFERENCE_RECOVERY.md).

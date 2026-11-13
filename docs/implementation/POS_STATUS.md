@@ -51,3 +51,7 @@ The public marketplace uses bounded server-side name/SKU search, category/stock 
 ## Paged POS catalogue increment
 
 POS-005/POS-006/POS-033/POS-035 now include bounded server-side staff search/filter/sort, assigned-branch free stock and exact SKU/barcode lookup across the full published tenant catalogue. The billing panel preserves selected lines across pages, restores scanner focus, rejects ambiguous/unconfirmed codes and pauses financial actions while scanning. Legacy unpaged products API remains for compatibility but is no longer called by the POS UI. See [POS_CATALOGUE.md](POS_CATALOGUE.md).
+
+## Reservation reference recovery increment
+
+POS-010/POS-042 now include direct owned-reservation status lookup for customer ONLINE and assigned tenant/branch/cashier POS records, independent of recent-list limits. Current JPA order/line reads retain immutable snapshots, accurate terminal-state messages and an elapsed-expiry hint without stock/payment writes. The responsive reference form pins recovered records, preserves financial retry locks and known holds on refresh failure, and blocks old-session/expired cash commands. See [DRAFT_REFERENCE_RECOVERY.md](DRAFT_REFERENCE_RECOVERY.md).

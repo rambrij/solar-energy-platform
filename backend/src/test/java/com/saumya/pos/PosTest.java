@@ -1257,4 +1257,21 @@ class PosTest {
   db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isForbidden());
  }
 
+ @Test void registerDirectoryIsPagedScopedAndHidesDrawerDetails() throws Exception {
+  for(int id=3;id<=26;id++)db.update("INSERT INTO registers VALUES(?,1,1)",id);
+  db.update("INSERT INTO employees VALUES('register-colleague','unused',1,1,TRUE)");var colleague=new PosService.Scope(1,1,"register-colleague");String closing=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("50"))).get("id");service.close(colleague,closing,new BigDecimal("49"),"Count discrepancy",UUID.randomUUID().toString());String closed=(String)service.open(a,new PosService.OpenSession(4,BigDecimal.ZERO)).get("id");service.close(a,closed,BigDecimal.ZERO);
+  int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);var ids=db.queryForList("SELECT id FROM registers WHERE tenant_id=1 ORDER BY id",Long.class);String path="/api/vendor/pos/registers";
+  for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].cashier").doesNotExist()).andExpect(jsonPath("$.items[0].openingFloat").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist()).andExpect(jsonPath("$.items[0].state").doesNotExist());
+  mvc.perform(get(path).param("size","48").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].available").value(false)).andExpect(jsonPath("$.items[1].available").value(false)).andExpect(jsonPath("$.items[2].available").value(true));
+  mvc.perform(get(path).param("tenantId","1").param("branchId","1").with(user("bob").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(2)).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(2));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other register branch')");db.update("INSERT INTO employees VALUES('register-other','unused',1,4,TRUE)");db.update("INSERT INTO registers VALUES(99,1,4)");mvc.perform(get(path).param("branchId","1").with(user("register-other").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(99));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
+  service.close(a,session,new BigDecimal("50"));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].available").value(true));
+  mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+ }
+ @Test void registerDirectoryRejectsMissingRightsBadBoundsAndInactiveMembership() throws Exception {
+  String path="/api/vendor/pos/registers";mvc.perform(get(path)).andExpect(status().isUnauthorized());for(String right:List.of("POS_VIEW","POS_SESSION_OPEN"))mvc.perform(get(path).with(user("alice").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority(right)))).andExpect(status().isForbidden());
+  for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isBadRequest());db.update("UPDATE employees SET enabled=FALSE WHERE username='alice'");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isForbidden());
+ }
+
 }

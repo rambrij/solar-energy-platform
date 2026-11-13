@@ -351,3 +351,7 @@ Rebuild backend/frontend and open the marketplace. **Search solar vendors** find
 ### Workspace menus
 
 Rebuild the frontend for grouped POS/marketplace section navigation. The desktop sidebar highlights the selected section and shows breadcrumbs. On mobile/tablet, use **Open workspace menu**; Escape closes it and returns focus. Section links move within the existing page and keep carts, unsent forms and saved commands mounted. Links appear when their target panels are available. See [navigation behavior and tests](docs/implementation/WORKSPACE_NAVIGATION.md).
+
+### Review approved product discount changes
+
+Rebuild/restart backend for V17 and rebuild frontend. Choose **Discount history for …** on a POS product card, then **Load discount audit**, or open **Reports → Discount audit** and enter a product ID. Existing `POS_VIEW`, `CATALOG_PROMOTION_MANAGE` and `POS_DISCOUNT_APPROVE` rights are all required; no automatic grant is added. Records are tenant-wide, including withdrawn products. Reading this screen does not change prices or clear saved commands. See [promotion audit contract and limits](docs/implementation/PROMOTION_AUDIT.md).

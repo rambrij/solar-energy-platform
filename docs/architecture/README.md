@@ -111,3 +111,7 @@ Retail owns a read-only Spring Data Repository and immutable JPA mapping of exis
 ## Public vendor directory read model
 
 Catalogue owns an explicit JPA vendor-card projection with identical active/nonblank-slug/search predicates for page and count. A read-only repeatable-read public application service validates bounds and escapes literal SQL LIKE characters. Marketplace depends only on that service; no identity/cart/payment repository or command is used. Fixed lower-name/ID ordering and bounded pages replace the UI's unbounded vendor fetch while preserving its legacy API. See VENDOR_DIRECTORY.md for live-offset and scale limits.
+
+## Product promotion audit read model
+
+Catalogue owns a paged JPA change DTO and identical tenant/product page/count predicates. A repeatable-read service checks parent ownership and reads current product labels separately from historical percentage facts. Marketplace resolves canonical employee tenant scope; same-tenant branches share catalogue history. V17 adds a history index without changing writers. UI product selection and reads cannot mutate financial commands or catalogue state. See PROMOTION_AUDIT.md.

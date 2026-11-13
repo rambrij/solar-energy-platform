@@ -87,3 +87,7 @@ Marketplace vendor selection now uses an anonymous bounded JPA directory with na
 ## Responsive navigation increment
 
 Grouped marketplace/POS sidebars, active fragment/workspace states, breadcrumbs and mobile hamburger disclosure now navigate existing mounted sections. Keyboard focus, Escape, browser history and delayed session targets preserve current bills and saved commands. No service/schema/authorization change is introduced. See [WORKSPACE_NAVIGATION.md](WORKSPACE_NAVIGATION.md).
+
+## Product discount audit increment
+
+CAT-006/POS-036/POS-037 now include a tenant-scoped paged JPA history of existing approved percentage-change events, with existing approver grants, withdrawn-product support, responsive read-only screen and Reports navigation. V17 adds an index only; catalogue approvals/checkout/recovery remain unchanged. See [PROMOTION_AUDIT.md](PROMOTION_AUDIT.md).

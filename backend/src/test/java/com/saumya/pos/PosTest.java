@@ -1028,4 +1028,24 @@ class PosTest {
   mvc.perform(get("/api/marketplace/vendors/vendor-1/catalogue").param("q","tiny")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].price").value(0.05));
   mvc.perform(get("/api/marketplace/vendors/vendor-1/catalogue").param("sort","price-low").param("size","2").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(3)).andExpect(jsonPath("$.items[1].id").value(8)).andExpect(jsonPath("$.totalElements").value(6));
  }
+
+ @Test void posCatalogueUsesAssignedBranchAndExactServerSideScans() throws Exception {
+  searchableCatalogue();String path="/api/vendor/pos/catalogue";
+  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).param("tenantId","2").param("branchId","3").param("inStock","true").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+  db.update("INSERT INTO employees VALUES('store3','unused',1,3,TRUE)");
+  mvc.perform(get(path).param("inStock","true").with(user("store3").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(4)).andExpect(jsonPath("$.items[0].quantity").value(5));
+  mvc.perform(get(path).with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(2));
+  mvc.perform(get(path+"/scan").param("code","  INV  ").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(3)).andExpect(jsonPath("$.price").value(50)).andExpect(jsonPath("$.quantity").value(1));
+  mvc.perform(get(path+"/scan").param("code","123").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.barcode").value("123")).andExpect(jsonPath("$.quantity").value(0));
+  for(String code:List.of("12","P2","HIDDEN"))mvc.perform(get(path+"/scan").param("code",code).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+  db.update("UPDATE products SET barcode='123' WHERE id=3");mvc.perform(get(path+"/scan").param("code","123").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isConflict());
+  db.update("UPDATE tenants SET online_branch_id=NULL WHERE id=1");mvc.perform(get(path).param("q","inv").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].quantity").value(1));
+ }
+ @Test void posCatalogueRejectsMalformedFiltersAndUnknownMembership() throws Exception {
+  String path="/api/vendor/pos/catalogue";
+  for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"},new String[]{"category","-1"},new String[]{"sort","unknown"},new String[]{"q","x".repeat(121)}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isBadRequest());
+  mvc.perform(get(path+"/scan").param("code"," ").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isBadRequest());
+  mvc.perform(get(path).with(user("unknown").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+ }
 }

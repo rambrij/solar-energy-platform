@@ -26,7 +26,8 @@ public class CatalogService {
         var quote=promotions.price(tenant,p.id(),p.price(),locked);var category=categories.forProduct(tenant,p.id());
         return new ProductInfo(p.id(),p.sku(),p.barcode(),p.name(),quote.price(),p.taxRate(),p.published(),stock.available(tenant,p.id())>0,p.price(),quote.percent(),category.map(CategoryRow::id).orElse(null),category.map(CategoryRow::name).orElse("Other"));
     }
-    public List<CategoryInfo> categories(String slug){return categories.published(activeVendor(slug).id()).stream().map(c->new CategoryInfo(c.id(),c.name(),c.slug(),c.products())).toList();}
+    public List<CategoryInfo> categories(String slug){return publishedCategories(activeVendor(slug).id());}
+    public List<CategoryInfo> publishedCategories(long tenant){return categories.published(tenant).stream().map(c->new CategoryInfo(c.id(),c.name(),c.slug(),c.products())).toList();}
     private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Catalogue resource unavailable");}
     public List<VendorInfo> vendors(){return vendors.findByActiveTrueAndSlugIsNotNullOrderByNameAscIdAsc().stream().map(this::info).toList();}
     public VendorInfo activeVendor(String slug){return info(vendors.findBySlugAndActiveTrue(slug).orElseThrow(this::missing));}

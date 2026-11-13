@@ -319,3 +319,9 @@ Files contain assigned-branch aggregates and an audited export reference. Buyer 
 Choose **Cashier sales** in Store POS, select inclusive UTC dates and the page size, then click **Load selling cashier insights**. Cards show original paid walk-in sales, saved tax/discounts, units/invoices and cash applied, including closed shifts. The KPI totals cover only the displayed page; use Sales insights with IN_STORE for whole-branch totals. Refund payouts remain attributed separately to their paying employee.
 
 Access requires `POS_VIEW`, `POS_REPORT_VIEW` and `POS_CASHIER_REPORT_VIEW`. For the existing local demo supervisor, optionally run [enable-cashier-sales-insights.sql](docs/demo/enable-cashier-sales-insights.sql). It grants view rights only. No migration/reset is required, and the new view does not add employee identities to sales CSV exports. See [cashier report API, attribution and limits](docs/implementation/CASHIER_SALES_REPORT.md).
+
+### Search older cash refunds
+
+In **Cash refunds → Cash refund journal**, choose UTC payout dates, an optional refund/return/order reference prefix or original receipt number, and page size. Click **Load cash refund journal**, then use Previous/Next/First to browse beyond the old latest-20 view. Opening a row loads the existing acknowledgement; it does not pay, print or clear a saved handover attempt.
+
+An uncertain handover restricts the journal to its return ID. Explicit cash reconciliation is still required before unlocking that attempt. The direct **Recover paid refund** lookup remains available for references outside the selected dates. No migration or extra grant is required beyond existing POS_VIEW/POS_REFUND_VIEW. See [journal API and recovery boundaries](docs/implementation/REFUND_JOURNAL_HISTORY.md).

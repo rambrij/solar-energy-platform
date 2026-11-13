@@ -91,3 +91,7 @@ Reporting depends on public checkout/returns/retail application APIs, with no re
 ## Original selling cashier read model
 
 Checkout owns a paged JPQL header aggregate and distinct-cashier count, plus line aggregates limited to the selected cashier page. All predicates bind tenant/branch, PAID IN_STORE and shared UTC event bounds. One read-only repeatable-read snapshot protects count/header/line consistency without financial writes or foreign repository dependencies. Original seller attribution and gross order values remain separate from returns-owned cash-payout reporting. Page KPIs are not whole-branch totals. See CASHIER_SALES_REPORT.md for authorization and pagination semantics.
+
+## Paged cash-refund journal
+
+Returns owns a read-only repeatable-read history service using private JPA specifications for both page data and count. Mandatory tenant/branch and half-open UTC payout bounds are combined with bounded reference/exact-return predicates, sorted by payout time then immutable ID. Summary DTOs omit retry/session/reason internals; full details remain behind the existing scoped acknowledgement endpoint. UI history selection cannot mutate or automatically reconcile a saved cash command. See REFUND_JOURNAL_HISTORY.md for live-offset and date-window semantics.

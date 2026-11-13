@@ -63,3 +63,7 @@ POS-032/POS-040 now include explicitly permissioned, CSRF-protected sales/cash-r
 ## Selling cashier report increment
 
 POS-032/POS-040 now include paged original-selling-cashier paid POS totals with saved tax/discount/unit/invoice/cash facts, closed-shift history and canonical assigned-branch scope. A dedicated POS_CASHIER_REPORT_VIEW gate protects employee data. Separate header/count and page-bounded line JPA aggregates prevent multiplication; page-only totals are explicitly labelled. Refund-paying cashiers and existing sales exports remain separate. See [CASHIER_SALES_REPORT.md](CASHIER_SALES_REPORT.md).
+
+## Refund journal history increment
+
+POS-028/POS-040 now include a bounded server-side cash-payout journal with UTC dates, ID/return/order prefixes, receipt-number search and deterministic timestamp/ID ordering. Canonical tenant/branch scope applies to data and counts. Summary rows omit reasons/session/retry details; explicit selection uses the existing acknowledgement API and retains saved-handover reconciliation controls. Legacy latest-20 routes remain for compatibility. See [REFUND_JOURNAL_HISTORY.md](REFUND_JOURNAL_HISTORY.md).

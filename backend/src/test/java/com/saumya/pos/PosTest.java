@@ -1048,4 +1048,30 @@ class PosTest {
   mvc.perform(get(path+"/scan").param("code"," ").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isBadRequest());
   mvc.perform(get(path).with(user("unknown").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
  }
+
+ @Test void reservationReferenceRecoveryRetainsSnapshotsAndEnforcesOwnership() throws Exception {
+  configureOnline();var draft=checkout.pos("alice","recover-pos-draft",posDraft());supervisor("manager");
+  String path="/api/vendor/pos/drafts/"+draft.id();
+  mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.sessionId").value(session)).andExpect(jsonPath("$.expired").value(false)).andExpect(jsonPath("$.total").value(110));
+  for(String actor:List.of("bob","manager"))mvc.perform(get(path).with(user(actor).authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
+  db.update("UPDATE products SET price=999 WHERE id=1");mvc.perform(get(path).param("tenantId","2").param("cashier","bob").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].unitPrice").value(100));
+  checkout.cancelPos("alice",draft.id(),"Buyer cancelled");var online=onlineDraft("recover-online-draft");
+  String customerPath="/api/customer/checkout/drafts/"+online.id();mvc.perform(get(customerPath).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.channel").value("ONLINE"));
+  mvc.perform(get(customerPath).with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/customer/checkout/drafts/"+draft.id()).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/vendor/pos/drafts/"+online.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+ }
+ @Test void elapsedDraftRecoveryDoesNotReleaseStockOrPayAndCanRecoverAfterClose() throws Exception {
+  var draft=checkout.pos("alice","recover-expiry-draft",posDraft());db.update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),draft.id());
+  String path="/api/vendor/pos/drafts/"+draft.id();
+  mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.expired").value(true));
+  assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isZero();
+  checkout.expire(1,draft.id());service.close(a,session,new BigDecimal("50"));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("EXPIRED"));assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
+ }
+ @Test void paidDraftReferenceRecoveryNeverCreatesAnotherReceiptOrSale() throws Exception {
+  var draft=checkout.pos("alice","recover-paid-draft",posDraft());checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));service.close(a,session,new BigDecimal("160"));
+  for(int i=0;i<2;i++)mvc.perform(get("/api/vendor/pos/drafts/"+draft.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PAID")).andExpect(jsonPath("$.expired").value(false));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);
+ }
 }

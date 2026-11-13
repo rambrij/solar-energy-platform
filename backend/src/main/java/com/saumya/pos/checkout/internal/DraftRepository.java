@@ -14,4 +14,8 @@ public interface DraftRepository extends JpaRepository<DraftOrder,String>, JpaSp
     Optional<DraftOrder> lock(long tenant,String id);
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select d from DraftOrder d where d.customerId=:customer and d.id=:id and d.channel='ONLINE'")
     Optional<DraftOrder> lockCustomer(long customer,String id);
+    @Lock(LockModeType.PESSIMISTIC_READ) @Query("select d from DraftOrder d where d.tenantId=:tenant and d.branchId=:branch and d.cashier=:cashier and d.channel='IN_STORE' and d.expiresAt is not null and d.id=:id")
+    Optional<DraftOrder> recoverPos(long tenant,long branch,String cashier,String id);
+    @Lock(LockModeType.PESSIMISTIC_READ) @Query("select d from DraftOrder d where d.customerId=:customer and d.channel='ONLINE' and d.expiresAt is not null and d.id=:id")
+    Optional<DraftOrder> recoverCustomer(long customer,String id);
 }

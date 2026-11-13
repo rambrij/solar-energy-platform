@@ -34,7 +34,7 @@ class PosTest {
  String session;
  @BeforeEach void seed(){
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -1073,5 +1073,32 @@ class PosTest {
   var draft=checkout.pos("alice","recover-paid-draft",posDraft());checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));service.close(a,session,new BigDecimal("160"));
   for(int i=0;i<2;i++)mvc.perform(get("/api/vendor/pos/drafts/"+draft.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PAID")).andExpect(jsonPath("$.expired").value(false));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);
+ }
+
+ @Test void salesCsvExportIsScopedAuditedAndContainsNoBuyerFields() throws Exception {
+  service.checkout(a,"export-sale",sale(1,"120"));String path="/api/vendor/pos/reports/sales/export",body="{\"channel\":\"ALL\",\"reason\":\"Branch review\"}";
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  var response=mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(header().exists("Content-Disposition")).andReturn().getResponse();
+  String csv=response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);assertThat(csv).contains("\"1\",\"1\"","\"110.00\"").doesNotContain("customer_id","cashier","password","buyer","Panel");
+  var audit=db.queryForMap("SELECT * FROM report_export_audit WHERE id=?",response.getHeader("X-Export-Reference"));assertThat(((Number)audit.get("tenant_id")).longValue()).isEqualTo(1);assertThat(audit.get("actor")).isEqualTo("alice");assertThat(audit.get("content_sha256")).isEqualTo(HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(response.getContentAsByteArray())));
+  var foreign=mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);assertThat(foreign).contains("\"2\",\"2\"").doesNotContain("110.00");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other export branch')");db.update("INSERT INTO employees VALUES('export-other','unused',1,3,TRUE)");
+  String other=mvc.perform(post(path).with(csrf()).with(user("export-other").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);assertThat(other).contains("\"1\",\"3\"").doesNotContain("110.00");
+
+ }
+ @Test void exportsRejectForgedScopeInvalidRangeAndMissingRefundGrant() throws Exception {
+  String sales="/api/vendor/pos/reports/sales/export",refund="/api/vendor/pos/reports/cash-refunds/export";
+  for(String body:List.of("{\"reason\":\" \"}","{\"reason\":\"Review\",\"tenantId\":2}","{\"reason\":\"Review\",\"from\":\"2026-11-14\",\"to\":\"2026-11-13\"}"))mvc.perform(post(sales).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isBadRequest());
+  mvc.perform(post(refund).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content("{\"reason\":\"Review\"}")).andExpect(status().isForbidden());
+  mvc.perform(post(refund).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT",()->"POS_REFUND_VIEW")).contentType("application/json").content("{\"reason\":\"Review\"}")).andExpect(status().isOk());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM report_export_audit",Integer.class)).isEqualTo(1);
+ }
+
+ @Test void cashRefundCsvExportsOnlyScopedPayoutAggregatesWithoutChangingFinances() throws Exception {
+  String returned=inspectedRefundReturn(),paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");refunds.pay("manager","export-refund-paid",refundPay(returned,paying));
+  String csv=mvc.perform(post("/api/vendor/pos/reports/cash-refunds/export").with(csrf()).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT",()->"POS_REFUND_VIEW")).contentType("application/json").content("{\"reason\":\"Payout review\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+  assertThat(csv).contains("\"CASHIER\",\"manager\"","\"110.00\"").doesNotContain("Panel","Independent cash handover","return_id","session_id");
+  assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("90");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
  }
 }

@@ -3,6 +3,7 @@ import { api, ApiError } from './api';
 import CashDrawer from './CashDrawer';
 import SessionStart from './SessionStart';
 import ShiftClose from './ShiftClose';
+import ShiftHistory from './ShiftHistory';
 import ShiftReviews from './ShiftReviews';
 import ReservedDrafts from './ReservedDrafts';
 import Shell from './Shell';
@@ -121,6 +122,7 @@ export default function App() {
     <SalesInsights/>
     <RefundInsights/>
     <CashierSalesInsights/>
+    <ShiftHistory disabled={busy||checkingSession} revision={`${session}:${sessionState}`}/>
     <ShiftReviews/>
   </Shell>;
 }

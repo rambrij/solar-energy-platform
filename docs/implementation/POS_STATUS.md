@@ -91,3 +91,7 @@ Grouped marketplace/POS sidebars, active fragment/workspace states, breadcrumbs 
 ## Product discount audit increment
 
 CAT-006/POS-036/POS-037 now include a tenant-scoped paged JPA history of existing approved percentage-change events, with existing approver grants, withdrawn-product support, responsive read-only screen and Reports navigation. V17 adds an index only; catalogue approvals/checkout/recovery remain unchanged. See [PROMOTION_AUDIT.md](PROMOTION_AUDIT.md).
+
+## Fast cash tender increment
+
+POS-005/POS-014/POS-035 now include responsive exact/rounded cash entry, cent-based validation, explicit amount-still-due feedback and a local new-sale readiness guard. Existing server calculation and saved retry payloads remain authoritative/unchanged. No schema/service/grant change is introduced. See [FAST_CASH_TENDER.md](FAST_CASH_TENDER.md).

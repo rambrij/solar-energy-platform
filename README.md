@@ -355,3 +355,7 @@ Rebuild the frontend for grouped POS/marketplace section navigation. The desktop
 ### Review approved product discount changes
 
 Rebuild/restart backend for V17 and rebuild frontend. Choose **Discount history for …** on a POS product card, then **Load discount audit**, or open **Reports → Discount audit** and enter a product ID. Existing `POS_VIEW`, `CATALOG_PROMOTION_MANAGE` and `POS_DISCOUNT_APPROVE` rights are all required; no automatic grant is added. Records are tenant-wide, including withdrawn products. Reading this screen does not change prices or clear saved commands. See [promotion audit contract and limits](docs/implementation/PROMOTION_AUDIT.md).
+
+### Fast cash billing
+
+Rebuild the frontend to use **Exact amount** and rounded cash shortcuts in Current bill. They only fill **Cash received**; check physical cash before completing the sale. Short/invalid entries show what remains due and block a new sale locally. The server receipt remains authoritative for final change. Saved retries retain their original payload. No migration or new permission is needed. See [cash entry behavior and tests](docs/implementation/FAST_CASH_TENDER.md).

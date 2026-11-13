@@ -39,3 +39,7 @@ Session recovery extends the SRS §25.8 named-cashier, one-active-session-per-re
 ## Cash-refund increment
 
 V12 adds a default-disabled, independent supervisor cash refund for inspected non-tax-invoice cash POS returns. Immutable JPA refund lines retain original discounted price/tax allocations and cumulative caps. Exactly-once retry recovery, journal-aware drawer close/removal, audited copy printing and responsive cash-reconciliation UI are implemented. Marketplace gains a server quote review invalidated by cart changes. See [CASH_REFUNDS.md](CASH_REFUNDS.md) for contract, test scope and finance release gates. Gross sales analytics is not a net financial report.
+
+## Cash refund reporting increment
+
+POS-032/POS-040 now include a dedicated branch-scoped cash-payout report with inclusive UTC filters, paid count/units/cash/net/tax allocations, daily zero buckets and paying-cashier totals. Two JPA aggregates in one consistent read snapshot prevent line multiplication. Explicit POS_VIEW/POS_REPORT_VIEW/POS_REFUND_VIEW checks and canonical membership protect employee data. The responsive screen is explicitly loaded, clears stale filters/results and leaves gross online/POS sales and drawer reconciliation separate. See [CASH_REFUND_REPORTS.md](CASH_REFUND_REPORTS.md). Provider refunds, complete net financial reports and statutory credit-note reporting remain release work.

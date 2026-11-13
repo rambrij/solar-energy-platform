@@ -283,3 +283,9 @@ Create a cash sale **without requesting a tax invoice**, then complete return in
 The paying drawer includes cash refunds as an outflow. The original sale receipt, original selling drawer, stock disposition and gross paid-sales report remain unchanged. This is a cash acknowledgement, not a statutory credit note. See [policy, APIs, recovery and remaining finance decisions](docs/implementation/CASH_REFUNDS.md).
 
 Marketplace **Preview checkout** now displays a distinct seller/item/tax/savings review using server totals. Editing or reloading the cart invalidates it. It remains an unpaid quote; online payment requires the vendor payment adapter.
+
+### Cash refund insights
+
+Open **Refund insights** in the POS navigation, choose an inclusive UTC date range (up to 366 days), then select **Load cash refund insights**. The report shows paid cash, saved before-tax/tax allocations, refunded units, daily totals (including zero days) and the paying cashier breakdown. It loads only when requested and requires `POS_VIEW`, `POS_REPORT_VIEW` and `POS_REFUND_VIEW` in the assigned active branch.
+
+Refunds of older sales appear on the date cash was paid, not the original sale date. This report is separate from gross marketplace/POS sales, physical stock-return state and counted drawer cash. It does not issue credit notes or calculate net accounting revenue. See [cash refund report API and semantics](docs/implementation/CASH_REFUND_REPORTS.md). The optional demo script grants these reporting rights to `local-supervisor`; rerun it after updating if that account already exists.

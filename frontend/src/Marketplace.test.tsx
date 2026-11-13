@@ -10,14 +10,14 @@ const cart = { id: 'cart-a', vendorSlug: 'vendor-1', vendorName: 'Vendor A', ite
 beforeEach(() => { window.history.replaceState({}, '', '/vendors/vendor-1'); });
 afterEach(() => { cleanup(); vi.resetAllMocks(); window.history.replaceState({}, '', '/'); });
 function publicResult(path:string,source=products){
- if(path==='/api/marketplace/vendors')return vendors;
+ if(path.startsWith('/api/marketplace/directory?'))return {items:vendors,query:'',page:0,size:12,totalElements:2,totalPages:1};
  const params=new URL(path,'http://localhost').searchParams;
  const typed=source as (typeof products[number]&{categoryId?:number;categoryName?:string})[];
  let items=typed.filter(p=>`${p.name} ${p.sku}`.toLowerCase().includes((params.get('q')??'').toLowerCase())&&(!params.has('category')||params.get('category')==='all'||String(p.categoryId??'other')===params.get('category'))&&(params.get('inStock')!=='true'||p.inStock));
  items=[...items].sort((a,b)=>params.get('sort')==='price-high'?b.price-a.price:params.get('sort')==='price-low'?a.price-b.price:a.name.localeCompare(b.name));
  const categories=Array.from(new Set(typed.map(p=>String(p.categoryId??'other')))).map(id=>({id,name:typed.find(p=>String(p.categoryId??'other')===id)?.categoryName??'Other',count:typed.filter(p=>String(p.categoryId??'other')===id).length}));
  const page=Number(params.get('page')??0),size=Number(params.get('size')??24);
- return {items:items.slice(page*size,(page+1)*size),page,size,totalElements:items.length,totalPages:Math.ceil(items.length/size),catalogueTotal:source.length,categories};
+ return {items:items.slice(page*size,(page+1)*size),page,size,totalElements:items.length,totalPages:Math.ceil(items.length/size),catalogueTotal:source.length,categories,vendorSlug:'vendor-1',vendorName:'Vendor A storefront'};
 }
 it('browses publicly without requesting a customer account or cart', async () => {
   vi.mocked(marketplaceApi).mockImplementation(async path => publicResult(path));
@@ -150,4 +150,8 @@ it('ignores stale catalogue responses after another filter is selected',async()=
 it('preserves cart contents when catalogue refresh fails and allows a read-only retry',async()=>{
  let failed=false;
  vi.mocked(marketplaceApi).mockImplementation(async path=>{if(path==='/api/customer/cart/items')return cart;if(path.includes('/catalogue?')&&failed)throw new Error('Offline');return publicResult(path);});render(<Marketplace/>);fireEvent.click(await screen.findByText('Add or update Solar Panel in cart'));await screen.findByText(/Current estimate: 110.00/);failed=true;fireEvent.change(screen.getByLabelText('Sort products'),{target:{value:'price-low'}});await screen.findByText('Retry catalogue');expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();expect(screen.queryByText('Add or update Solar Panel in cart')).toBeNull();failed=false;fireEvent.click(screen.getByText('Retry catalogue'));await screen.findByText('Add or update Solar Panel in cart');
+});
+
+it('keeps the open storefront identity when directory search returns no vendors',async()=>{
+ vi.mocked(marketplaceApi).mockImplementation(async path=>path.startsWith('/api/marketplace/directory?')&&path.includes('q=missing')?{items:[],query:'missing',page:0,size:12,totalElements:0,totalPages:0}:publicResult(path));render(<Marketplace/>);await screen.findByRole('heading',{name:'Vendor A storefront'});await screen.findByRole('link',{name:'Vendor B'});fireEvent.change(screen.getByLabelText('Search solar vendors'),{target:{value:'missing'}});fireEvent.click(screen.getByText('Search vendors'));await screen.findByText('No vendors found');expect(screen.getByRole('heading',{name:'Vendor A storefront'})).toBeTruthy();expect(screen.getByText('Add or update Solar Panel in cart')).toBeTruthy();expect(vi.mocked(marketplaceApi).mock.calls.every(call=>call[0].startsWith('/api/marketplace/'))).toBe(true);
 });

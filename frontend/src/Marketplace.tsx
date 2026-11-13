@@ -4,11 +4,11 @@ import ReservedDrafts from './ReservedDrafts';
 import Shell from './Shell';
 import OrderHistory from './OrderHistory';
 import ProductDetails from './ProductDetails';
+import VendorDirectory from './VendorDirectory';
 import CategoryNav, { type CategoryChoice } from './CategoryNav';
 
-type Vendor = { id: number; slug: string; name: string };
 type Product = { id: number; sku: string; name: string; price: number; taxRate: number; inStock: boolean; listPrice?: number; discountPercent?: number; categoryId?: number | null; categoryName?: string };
-type Catalogue = {items:Product[];page:number;size:number;totalElements:number;totalPages:number;catalogueTotal:number;categories:CategoryChoice[]};
+type Catalogue = {items:Product[];page:number;size:number;totalElements:number;totalPages:number;catalogueTotal:number;categories:CategoryChoice[];vendorName?:string;vendorSlug?:string};
 type Line = { productId: number; name: string; quantity: number; unitPrice: number | null; tax: number | null; total: number | null; available: boolean; listPrice?: number | null; discount?: number | null };
 type Cart = { id: string | null; vendorSlug: string | null; vendorName: string | null; items: Line[]; total: number; checkoutAvailable: boolean; message: string };
 type Target = { vendorSlug: string; productId: number; quantity: number };
@@ -18,7 +18,7 @@ function readProductId() { const value = new URLSearchParams(window.location.sea
 
 export default function Marketplace() {
   const slug = window.location.pathname.startsWith('/vendors/') ? decodeURIComponent(window.location.pathname.split('/')[2]) : '';
-  const [vendors, setVendors] = useState<Vendor[]>([]), [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [review, setReview] = useState<Cart>();
   const [cart, setCart] = useState<Cart>(), [quantities, setQuantities] = useState<Record<number, number>>({});
   const [search, setSearch] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
@@ -41,11 +41,6 @@ export default function Marketplace() {
   const categories=catalogue?.categories??[];
   function categoryChanged(value:string){setSelectedCategory(value);setPage(0);}
   const confirming = !!switchTarget || !!restoreTarget;
-  useEffect(() => {
-    let active=true;
-    marketplaceApi('/api/marketplace/vendors').then(value=>{if(active)setVendors(value);}).catch(()=>{if(active)setError('Vendor directory unavailable.');});
-    return()=>{active=false;};
-  },[]);
   useEffect(()=>{
     let active=true;
     setProducts([]);setCatalogueLoading(true);setCatalogueError('');
@@ -123,8 +118,8 @@ export default function Marketplace() {
   return <Shell mode="online">
     <header className="workspace-hero marketplace-hero grocery-hero"><div><span className="eyebrow">A brighter way to shop</span><h1>Saumya Solar Marketplace</h1><p>Choose a vendor. Your customer account works across vendors; each cart belongs to one vendor.</p><a className="hero-link" href="#vendor-directory">Explore solar vendors <span aria-hidden="true">↗</span></a></div><div className="solar-scene" aria-hidden="true"><span className="scene-sun"/><span className="scene-orbit"/><span className="scene-panels"/></div></header>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
-    <section id="vendor-directory" className="vendor-directory"><div className="section-heading"><div><span className="eyebrow">Find your energy partner</span><h2>Vendors</h2></div><span className="badge">{vendors.length} available</span></div><ul className="vendor-grid">{vendors.map((vendor,index) => <li key={vendor.id} className={vendor.slug === slug ? 'selected-vendor' : ''}><span className="vendor-monogram" aria-hidden="true">{vendor.name.slice(0,1)}</span><div><small>Solar energy vendor · {String(index+1).padStart(2,'0')}</small><a href={`/vendors/${encodeURIComponent(vendor.slug)}`} aria-current={vendor.slug === slug ? 'page' : undefined}>{vendor.name}</a></div><span aria-hidden="true">↗</span></li>)}</ul>{!vendors.length && <p>No vendors to display. Refresh after checking your connection.</p>}</section>
-    <ol className="shopping-steps" aria-label="Shopping steps"><li><strong>1</strong> Choose your solar essentials</li><li><strong>2</strong> Review one vendor cart</li><li><strong>3</strong> Reserve at checkout</li></ol><div className="marketplace-grid grocery-workspace"><div className="storefront-column">{slug && <section className="catalogue-panel" aria-label="Vendor products" aria-busy={catalogueBusy}><h2>{vendors.find(vendor => vendor.slug === slug)?.name ?? 'Vendor storefront'}</h2>
+    <VendorDirectory selectedSlug={slug}/>
+    <ol className="shopping-steps" aria-label="Shopping steps"><li><strong>1</strong> Choose your solar essentials</li><li><strong>2</strong> Review one vendor cart</li><li><strong>3</strong> Reserve at checkout</li></ol><div className="marketplace-grid grocery-workspace"><div className="storefront-column">{slug && <section className="catalogue-panel" aria-label="Vendor products" aria-busy={catalogueBusy}><h2>{catalogue?.vendorSlug===slug?catalogue.vendorName:'Vendor storefront'}</h2>
       <div className="market-search"><label>Search products <input placeholder="Search panels, inverters, batteries and more" maxLength={120} value={search} onChange={e => setSearch(e.target.value)} /></label></div>
       <div className="retail-catalogue-layout"><CategoryNav categories={categories} selected={selectedCategory} onSelect={categoryChanged} total={catalogue?.catalogueTotal??0}/><div className="catalogue-results"><div className="catalogue-toolbar"><label>Sort products<select value={sort} onChange={event=>{setSort(event.target.value);setPage(0);}}><option value="name">Name A–Z</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></label><label className="check-label"><input type="checkbox" checked={inStockOnly} onChange={event=>{setInStockOnly(event.target.checked);setPage(0);}}/> In stock only</label><span role="status">{catalogueBusy?'Searching catalogue...':catalogueError?'Results unavailable':`${catalogue?.totalElements??0} products found`}</span></div>
       {catalogueBusy&&<p role="status">Loading products...</p>}{!catalogueBusy&&catalogueError&&<p role="alert">{catalogueError} <button onClick={()=>setStockRevision(value=>value+1)}>Retry catalogue</button></p>}

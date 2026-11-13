@@ -31,3 +31,7 @@ it('ignores a stale page response after a newer branch filter read completes',as
  let finish!:(value:typeof page)=>void;
  vi.mocked(api).mockImplementation(async path=>{const params=new URL(path,'http://localhost').searchParams;if(params.get('sort')==='price-high'&&params.get('inStock')==='false')return new Promise(resolve=>{finish=resolve;});return page;});render(<PosCatalogue {...props}/>);await screen.findByText('Add Panel');fireEvent.change(screen.getByLabelText('POS sort products'),{target:{value:'price-high'}});await waitFor(()=>expect(finish).toBeTruthy());fireEvent.click(screen.getByLabelText('POS in stock only'));await screen.findByText('Add Panel');finish({...page,items:[{...product,name:'Stale inverter'}]});await waitFor(()=>expect(screen.queryByText('Add Stale inverter')).toBeNull());expect(props.onAdd).not.toHaveBeenCalled();
 });
+
+it('selects audit reference without adding a bill line or fetching audit data',async()=>{
+ const audit=vi.fn();vi.mocked(api).mockResolvedValue(page);render(<PosCatalogue {...props} onPromotionHistory={audit}/>);fireEvent.click(await screen.findByText('Discount history for Panel'));expect(audit).toHaveBeenCalledWith(1);expect(props.onAdd).not.toHaveBeenCalled();expect(vi.mocked(api).mock.calls.some(([path])=>path.includes('/history'))).toBe(false);
+});

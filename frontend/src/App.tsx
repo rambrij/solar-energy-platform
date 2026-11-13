@@ -7,6 +7,7 @@ import ShiftHistory from './ShiftHistory';
 import ShiftReviews from './ShiftReviews';
 import ReservedDrafts from './ReservedDrafts';
 import Shell from './Shell';
+import PromotionHistory from './PromotionHistory';
 import OrderHistory from './OrderHistory';
 import SalesInsights from './SalesInsights';
 import RefundInsights from './RefundInsights';
@@ -23,6 +24,7 @@ import { printDocument } from './printDocument';
 export default function App() {
   const [refundPending,setRefundPending]=useState(()=>!!sessionStorage.getItem(refundStorageKey));
   const [refundReceipt,setRefundReceipt]=useState<CashRefundView>();
+  const [promotionProduct,setPromotionProduct]=useState<number>();
   const [returnOrderId,setReturnOrderId]=useState('');
   function startReturn(id:string){setReturnOrderId(id);requestAnimationFrame(()=>document.getElementById('pos-returns')?.scrollIntoView?.({behavior:'smooth',block:'start'}));}
   const [printRequested,setPrintRequested]=useState(false),[catalogueRevision,setCatalogueRevision]=useState(0);
@@ -106,7 +108,7 @@ export default function App() {
   return <Shell mode="pos"><header className="workspace-hero"><div><span className="eyebrow">Powering your everyday business</span><h1>Saumya Solar · Store POS</h1><p>Walk-in cash checkout · No customer account required</p></div><div className="hero-status"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>Live pricing & shared inventory</span></div></header>
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
-      <div className="checkout-grid"><PosCatalogue key={session} locked={saleLocked} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onAdd={addProduct} onBusyChange={setBusy}/>
+      <div className="checkout-grid"><PosCatalogue key={session} locked={saleLocked} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onPromotionHistory={id=>{setPromotionProduct(id);window.location.hash='promotion-history';}} onAdd={addProduct} onBusyChange={setBusy}/>
       <section id="current-sale" className="sale-panel retail-bill-panel" aria-labelledby="sale-title"><div className="section-heading"><h2 id="sale-title">Current sale</h2><span className="badge">{Object.values(cart).reduce((sum, q) => sum + q, 0)} items</span></div>{!Object.keys(cart).length && <div className="empty-state"><p>Your next solar sale starts here.</p><small>Add products from the catalogue.</small></div>}<BillingBasket products={products} cart={cart} locked={saleLocked} onQuantity={(id,q)=>setCart(value=>({...value,[id]:q}))} onRemove={id=>{setCart(value=>Object.fromEntries(Object.entries(value).filter(([key])=>key!==String(id))));setProducts(value=>value.filter(product=>product.id!==id));}} cash={cash} onCash={setCash} invoice={invoice} onInvoice={setInvoice}/>
       <button disabled={refundPending||busy||movementPending||closePending||reservedBlocked||(!pending&&(sessionState!=='OPEN'||invalidCart||!Object.keys(cart).length||!cash))} onClick={checkout}>{busy?'Checking sale…':pending?'Retry same sale':'Complete cash sale'}</button>
       <ReservedDrafts key={`drafts-${session}`} mode="pos" session={session} createDisabled={invalidCart} items={Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity}))} invoiceRequested={invoice} disabled={refundPending||busy||!!pending||movementPending||closePending||sessionState!=='OPEN'} onBlocked={setReservedBlocked} onReceipt={(value,finalized)=>{displayReceipt(value);if(finalized){setCart({});setProducts([]);setCash('');setDrawerRevision(value=>value+1);}}} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/>
@@ -119,6 +121,7 @@ export default function App() {
     <PosReturns session={session} sessionState={sessionState} disabled={refundPending||busy||!!pending||movementPending||closePending} initialOrderId={returnOrderId} refundedReturnId={refundReceipt?.returnId} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/>
     <CashRefunds session={session} sessionState={sessionState} disabled={busy||!!pending||movementPending||closePending||reservedBlocked||checkingSession} onPendingChange={setRefundPending} onBusyChange={setBusy} onRecorded={value=>{setRefundReceipt(value);setDrawerRevision(previous=>previous+1);}}/>
     {refundReceipt&&<CashRefundReceipt value={refundReceipt} disabled={busy||refundPending} onCopy={setRefundReceipt}/>}
+    <PromotionHistory initialProduct={promotionProduct} disabled={busy||checkingSession}/>
     <SalesInsights/>
     <RefundInsights/>
     <CashierSalesInsights/>

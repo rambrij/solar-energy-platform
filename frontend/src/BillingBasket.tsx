@@ -1,3 +1,4 @@
+import CashTender from './CashTender';
 export type BillingProduct = { id: number; name: string; price: number; list_price?: number; tax_rate: number; quantity: number };
 export function billEstimate(products: BillingProduct[], cart: Record<number, number>) {
   let subtotal = 0, discount = 0, tax = 0, net = 0;
@@ -12,6 +13,7 @@ export function billEstimate(products: BillingProduct[], cart: Record<number, nu
 }
 export default function BillingBasket({ products, cart, locked, onQuantity, onRemove, cash, onCash, invoice, onInvoice }: { products: BillingProduct[]; cart: Record<number, number>; locked: boolean; onQuantity: (id: number, quantity: number) => void; onRemove: (id: number) => void; cash: string; onCash: (value: string) => void; invoice: boolean; onInvoice: (value: boolean) => void }) {
   const amounts = billEstimate(products, cart);
+  const validBill=Object.keys(cart).length>0&&Object.entries(cart).every(([id,q])=>{const product=products.find(item=>item.id===Number(id));return !!product&&Number.isInteger(q)&&q>=1&&q<=Math.min(10000,product.quantity);});
   return <fieldset className="billing-basket" disabled={locked}>
     <div className="bill-columns" aria-hidden="true"><span>Item</span><span>Qty</span><span>Amount</span></div>
     <ul className="bill-lines">{Object.entries(cart).map(([id, quantity]) => {
@@ -21,8 +23,7 @@ export default function BillingBasket({ products, cart, locked, onQuantity, onRe
     <dl className="bill-summary"><div><dt>Subtotal before discounts</dt><dd>{amounts.subtotal.toFixed(2)}</dd></div><div className="saving-label"><dt>Promotion discounts</dt><dd>−{amounts.discount.toFixed(2)}</dd></div><div><dt>Tax</dt><dd>{amounts.tax.toFixed(2)}</dd></div><div className="amount-due"><dt>Amount due (estimate)</dt><dd>{amounts.total.toFixed(2)}</dd></div></dl>
     <p className="bill-hint">Final prices, approved discounts, tax and change are calculated by the server.</p>
     <div className="payment-methods" role="group" aria-label="Payment method"><label><input type="radio" name="pos-payment" checked readOnly/>Cash</label><label><input type="radio" name="pos-payment" disabled/>UPI</label><label><input type="radio" name="pos-payment" disabled/>Card</label></div><p className="bill-hint">UPI and card need configured vendor payment verification. Cash is available now.</p>
-    <label>Cash received <input type="number" min="0" step="0.01" value={cash} onChange={event => onCash(event.target.value)}/></label>
-    <div className="change-due"><span>Estimated change</span><strong>{Math.max(0, Number(cash || 0) - amounts.total).toFixed(2)}</strong></div>
+    <CashTender amountDue={amounts.total} cash={cash} onCash={onCash} validBill={validBill} locked={locked}/>
     <label className="check-label"><input type="checkbox" checked={invoice} onChange={event => onInvoice(event.target.checked)}/> Request tax invoice</label>
   </fieldset>;
 }

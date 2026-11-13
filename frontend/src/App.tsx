@@ -9,6 +9,7 @@ import Shell from './Shell';
 import OrderHistory from './OrderHistory';
 import SalesInsights from './SalesInsights';
 import RefundInsights from './RefundInsights';
+import CashierSalesInsights from './CashierSalesInsights';
 import type { Receipt } from './types';
 import BillingBasket from './BillingBasket';
 import PosCatalogue,{type PosProduct as Product} from './PosCatalogue';
@@ -119,6 +120,7 @@ export default function App() {
     {refundReceipt&&<CashRefundReceipt value={refundReceipt} disabled={busy||refundPending} onCopy={setRefundReceipt}/>}
     <SalesInsights/>
     <RefundInsights/>
+    <CashierSalesInsights/>
     <ShiftReviews/>
   </Shell>;
 }

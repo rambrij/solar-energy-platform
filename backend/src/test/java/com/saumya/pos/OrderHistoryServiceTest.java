@@ -28,7 +28,7 @@ class OrderHistoryServiceTest {
         });
         var lines=(DraftLineRepository)Proxy.newProxyInstance(DraftLineRepository.class.getClassLoader(),new Class<?>[]{DraftLineRepository.class},(proxy,method,args)->{lineReads++;throw new AssertionError("Unexpected line access");});
         var customers=new CustomerAccess(null){@Override public long resolve(String username){resolved=username;return 7;}};
-        var retail=new PosService(null,null,null,null){@Override public Scope scope(String username){if(disabled)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);return new Scope(1,2,username);}};
+        var retail=new PosService(null,null){@Override public Scope scope(String username){if(disabled)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);return new Scope(1,2,username);}};
         var catalog=new CatalogService(null,null,null){@Override public VendorInfo vendor(long id){vendorReads++;return new VendorInfo(id,"vendor","Solar vendor",true);}};
         service=new OrderHistoryService(orders,lines,customers,retail,catalog);
     }

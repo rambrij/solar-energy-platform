@@ -55,8 +55,6 @@ class PosController {
     Object reconciliation(Principal p,@PathVariable String id) {
         return service.reconciliation(service.scope(p.getName()),id);
     }
-    @PostMapping("/sales") @PreAuthorize("hasAuthority('POS_SALE_CREATE') and hasAuthority('POS_TENDER_CASH_RECORD') and hasAuthority('POS_RECEIPT_VIEW')")
-    Object sale(Principal p,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody PosService.Checkout r) { return service.checkout(service.scope(p.getName()),key,r); }
     @GetMapping("/receipts/{id}") @PreAuthorize("hasAuthority('POS_RECEIPT_VIEW')")
     Object receipt(Principal p,@PathVariable String id) { return service.receipt(service.scope(p.getName()),id); }
     @PostMapping("/receipts/{id}/reprint") @PreAuthorize("hasAuthority('POS_RECEIPT_REPRINT')")

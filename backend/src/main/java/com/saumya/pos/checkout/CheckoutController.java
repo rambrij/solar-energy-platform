@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 public class CheckoutController {
     private final CheckoutService checkout;
     public CheckoutController(CheckoutService checkout){this.checkout=checkout;}
+    @PostMapping("/api/vendor/pos/sales") @PreAuthorize("hasAuthority('POS_SALE_CREATE') and hasAuthority('POS_TENDER_CASH_RECORD') and hasAuthority('POS_RECEIPT_VIEW')")
+    Object cashSale(Principal p,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CheckoutService.CashSale request){return checkout.cashSale(p.getName(),key,request);}
     @PostMapping("/api/customer/checkout/drafts") @PreAuthorize("hasAuthority('CUSTOMER')")
     Object online(Principal p,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CheckoutService.OnlineDraft r){return checkout.online(p.getName(),key,r);}
     @GetMapping("/api/customer/checkout/drafts") @PreAuthorize("hasAuthority('CUSTOMER')")

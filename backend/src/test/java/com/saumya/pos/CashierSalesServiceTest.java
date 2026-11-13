@@ -16,7 +16,7 @@ class CashierSalesServiceTest {
  final LocalDate day=LocalDate.of(2026,11,13);
  @BeforeEach void setup(){
   var repo=(CashierSalesRepository)Proxy.newProxyInstance(CashierSalesRepository.class.getClassLoader(),new Class<?>[]{CashierSalesRepository.class},(p,m,args)->{reads++;if(m.getName().equals("headers")){headerArgs=args;return new PageImpl<>(headers,(Pageable)args[4],headers.size());}lineArgs=args;return lines;});
-  var retail=new PosService(null,null,null,null){@Override public Scope scope(String user){if(denied)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);return new Scope(7,9,user);}};
+  var retail=new PosService(null,null){@Override public Scope scope(String user){if(denied)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);return new Scope(7,9,user);}};
   service=new CashierSalesService(repo,retail,Clock.fixed(Instant.parse("2026-11-13T00:30:00Z"),ZoneOffset.ofHours(-8)));
  }
  @Test void usesUtcDefaultsAndCanonicalScopeWithoutReadingEmptyLines(){var result=service.report("manager",null,null,0,12);assertThat(result.to()).isEqualTo(day);assertThat(result.from()).isEqualTo(day.minusDays(6));assertThat(headerArgs).containsExactly(7L,9L,Instant.parse("2026-11-07T00:00:00Z"),Instant.parse("2026-11-14T00:00:00Z"),PageRequest.of(0,12));assertThat(reads).isEqualTo(1);assertThat(result.pageTotals().sales()).isEqualByComparingTo("0");}

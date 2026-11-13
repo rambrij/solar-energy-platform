@@ -15,7 +15,7 @@ class SalesReportServiceTest {
     Object[] arguments;SalesReportService service;
     @BeforeEach void setup(){
         var repo=(SalesReportRepository)Proxy.newProxyInstance(SalesReportRepository.class.getClassLoader(),new Class<?>[]{SalesReportRepository.class},(proxy,method,args)->{reads++;arguments=args;return method.getName().equals("orders")?orders:lines;});
-        var retail=new PosService(null,null,null,null){@Override public Scope scope(String username){assertThat(username).isEqualTo("cashier");if(forbidden)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);return new Scope(7,9,username);}};
+        var retail=new PosService(null,null){@Override public Scope scope(String username){assertThat(username).isEqualTo("cashier");if(forbidden)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);return new Scope(7,9,username);}};
         service=new SalesReportService(repo,retail,Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"),ZoneOffset.UTC));
     }
     @Test void defaultsToSevenUtcDaysAndServerMembership(){

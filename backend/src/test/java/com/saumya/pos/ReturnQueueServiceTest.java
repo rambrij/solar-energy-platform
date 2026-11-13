@@ -13,7 +13,7 @@ class ReturnQueueServiceTest {
  int reads;Object[] arguments;ReturnQueueService service;
  @BeforeEach void setup(){
   var cases=(ReturnRepository)Proxy.newProxyInstance(ReturnRepository.class.getClassLoader(),new Class<?>[]{ReturnRepository.class},(p,m,args)->{reads++;arguments=args;return new PageImpl<>(List.of(new ReturnQueueRow("return","order","REQUESTED",Instant.EPOCH)),(Pageable)args[6],1);});
-  var retail=new PosService(null,null,null,null){@Override public Scope scope(String user){return new Scope(7,9,user);}};
+  var retail=new PosService(null,null){@Override public Scope scope(String user){return new Scope(7,9,user);}};
   service=new ReturnQueueService(cases,retail,Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"),ZoneOffset.UTC));
  }
  @Test void canonicalScopeAndDefaultUtcRangeAreUsed(){var r=service.queue("viewer","REQUESTED",null,null," ReTuRn ",0,12);assertThat(arguments).containsExactly(7L,9L,"REQUESTED",Instant.parse("2026-10-15T00:00:00Z"),Instant.parse("2026-11-14T00:00:00Z"),"return%",PageRequest.of(0,12));assertThat(r.branchId()).isEqualTo(9);assertThat(r.totalElements()).isEqualTo(1);assertThat(r.reference()).isEqualTo("ReTuRn");}

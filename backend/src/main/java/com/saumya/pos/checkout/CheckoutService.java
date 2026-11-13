@@ -32,6 +32,7 @@ public class CheckoutService {
     public record Item(@Positive long productId,@Min(1) @Max(10000) int quantity) {}
     public record PosDraft(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,boolean invoiceRequested) {}
     public record OnlineDraft(@NotBlank @Size(max=36) String expectedCartId) {}
+    public record CashSale(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived,boolean invoiceRequested) {}
     public record Cash(@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived) {}
     public record Cancel(@NotBlank @Size(max=250) String reason) {}
     public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal discount) {}
@@ -51,9 +52,17 @@ public class CheckoutService {
         return create(vendor.id(),customer,null,null,null,"ONLINE",key,hash,branch,"ONLINE:"+customer,
             cart.items().stream().map(i->new Item(i.productId(),i.quantity())).toList(),false);
     }
-    public Draft pos(String username,String clientKey,PosDraft request){
-        var scope=retail.scope(username);String key=key("POS:"+scope.cashier(),clientKey);
-        String hash=sha(request.sessionId()+"|"+request.items().stream().sorted(Comparator.comparingLong(Item::productId)).toList()+"|"+request.invoiceRequested());
+    public Draft pos(String username,String clientKey,PosDraft request){return reservePos(retail.scope(username),clientKey,request,"POS","");}
+    public Map<String,Object> cashSale(String username,String clientKey,CashSale request){
+        validateCash(request.cashReceived());
+        var scope=retail.scope(username);retail.lockOutlet(scope);
+        var draft=reservePos(scope,clientKey,new PosDraft(request.sessionId(),request.items(),request.invoiceRequested()),"POS_CASH","|CASH|"+request.cashReceived().setScale(2).toPlainString());
+        return finalizeOwnedCash(scope,draft.id(),request.cashReceived());
+    }
+    private void validateCash(BigDecimal cash){if(cash==null||cash.signum()<0||cash.scale()>2||cash.precision()-cash.scale()>12)throw new ResponseStatusException(BAD_REQUEST,"Cash must be non-negative with at most 12 integer and two fractional digits");}
+    private Draft reservePos(PosService.Scope scope,String clientKey,PosDraft request,String operation,String cashFingerprint){
+        String key=key(operation+":"+scope.cashier(),clientKey);
+        String hash=sha(request.sessionId()+"|"+request.items().stream().sorted(Comparator.comparingLong(Item::productId)).toList()+"|"+request.invoiceRequested()+cashFingerprint);
         var prior=orders.findByTenantIdAndKey(scope.tenant(),key);if(prior.isPresent()){owned(scope,prior.get());return replay(prior.get(),hash);}
         retail.requireOpen(scope,request.sessionId());
         var result=create(scope.tenant(),null,scope.branch(),scope.cashier(),request.sessionId(),"IN_STORE",key,hash,scope.branch(),"POS:"+sha(scope.cashier()+"|"+request.sessionId()),request.items(),request.invoiceRequested());
@@ -81,7 +90,11 @@ public class CheckoutService {
     public Draft cancelPos(String username,String id,String reason){var s=retail.scope(username);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);if(cancel(order,reason))retail.draftAudit(s,"DRAFT_CANCEL",id);return view(order);}
     private boolean cancel(DraftOrder order,String reason){if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();return true;}return false;}
     public Map<String,Object> finalizeCash(String username,String id,BigDecimal cash){
-        var s=retail.scope(username);retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);
+        validateCash(cash);
+        return finalizeOwnedCash(retail.scope(username),id,cash);
+    }
+    private Map<String,Object> finalizeOwnedCash(PosService.Scope s,String id,BigDecimal cash){
+        retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);
         if("PAID".equals(order.status())){if(cash.compareTo(order.cash())!=0)conflict("Cash amount differs from completed sale");return retail.receipt(s,id);}
         retail.requireOpen(s,order.session());
         if(!"DRAFT".equals(order.status())||!order.expires().isAfter(clock.instant()))conflict("Draft is cancelled or expired; refresh/cancel it before starting another sale");

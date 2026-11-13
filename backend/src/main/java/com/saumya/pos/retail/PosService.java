@@ -1,13 +1,8 @@
 package com.saumya.pos.retail;
 import com.saumya.pos.catalog.CatalogService;
-import com.saumya.pos.inventory.InventoryService;
-import com.saumya.pos.shared.Pricing;
 
 import java.math.*;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -18,15 +13,9 @@ import static org.springframework.http.HttpStatus.*;
 @Service
 public class PosService {
     private final JdbcTemplate db;
-    private final Pricing pricing;
     private final CatalogService catalogue;
-    private final InventoryService stock;
-    public PosService(JdbcTemplate db,Pricing pricing,CatalogService catalogue,InventoryService stock) { this.db=db;this.pricing=pricing;this.catalogue=catalogue;this.stock=stock; }
+    public PosService(JdbcTemplate db,CatalogService catalogue) { this.db=db;this.catalogue=catalogue; }
     public record Scope(long tenant, long branch, String cashier) {}
-    public record Line(@Positive long productId, @Min(1) @Max(10000) int quantity) {}
-    public record Checkout(@NotBlank String sessionId, @NotEmpty @Size(max=100) List<@Valid Line> items,
-                           @NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived,
-                           boolean invoiceRequested) {}
     public record OpenSession(@Positive long registerId, @NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal openingFloat) {}
     public enum MovementType { CASH_IN, CASH_OUT, SAFE_DROP }
     public record CashMovement(
@@ -97,53 +86,11 @@ public class PosService {
         for(var item:items)db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,item.product,id,-item.quantity);
         String seller=catalogue.vendor(s.tenant).name();
         db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=? WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' AND receipt_seller_name IS NULL AND receipt_outlet_name IS NULL",seller,receipt.outlet,s.tenant,s.branch,id);
-        if(invoice)db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+receipt.number,seller,receipt.outlet,total);
+        if(invoice){db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+receipt.number,seller,receipt.outlet,total);audit(s,"INVOICE_ISSUE",id);}
         audit(s,"CASH_SALE",id);
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void draftAudit(Scope s,String action,String id){audit(s,action,id);}
-    @Transactional
-    public Map<String,Object> checkout(Scope s,String key,Checkout request) {
-        if(key==null || !key.matches("[A-Za-z0-9_-]{8,80}")) throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");
-        // Outlet lock serializes receipt numbers and concurrent retries; stock rows are shared with any future online checkout.
-        var branch=one("SELECT * FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
-        String fingerprint=hash(request);
-        var previous=db.queryForList("SELECT id,request_hash,cashier FROM orders WHERE tenant_id=? AND idempotency_key=?",s.tenant,key);
-        if(!previous.isEmpty()) {
-            if(!fingerprint.equals(previous.getFirst().get("request_hash")) || !s.cashier.equals(previous.getFirst().get("cashier"))) fail("Idempotency key already used");
-            return receipt(s,(String)previous.getFirst().get("id"));
-        }
-        session(s,request.sessionId);
-        var lines=new ArrayList<Map<String,Object>>();
-        var seen=new HashSet<Long>(); BigDecimal total=BigDecimal.ZERO;
-        for(var item:request.items.stream().sorted(Comparator.comparingLong(Line::productId)).toList()) {
-            if(!seen.add(item.productId)) fail("Duplicate product");
-            var p=catalogue.lockForSale(s.tenant,item.productId);
-            if(stock.atBranch(s.tenant,s.branch,item.productId)<item.quantity) fail("Insufficient stock");
-            BigDecimal price=p.price(), rate=p.taxRate();
-            var calculated=pricing.line(price,rate,item.quantity);
-            BigDecimal tax=calculated.tax(),amount=calculated.total();total=total.add(amount);
-            lines.add(Map.of("id",item.productId,"name",p.name(),"quantity",item.quantity,"price",price,"rate",rate,"tax",tax,"total",amount,"list_price",p.listPrice(),"discount",p.listPrice().subtract(price).multiply(BigDecimal.valueOf(item.quantity)),"discount_percent",p.discountPercent()));
-        }
-        if(request.cashReceived.compareTo(total)<0) fail("Cash received is below amount due");
-        String id=UUID.randomUUID().toString(); long number=((Number)branch.get("receipt_sequence")).longValue()+1;
-        db.update("UPDATE branches SET receipt_sequence=? WHERE tenant_id=? AND id=?",number,s.tenant,s.branch);
-        db.update("INSERT INTO orders(id,tenant_id,branch_id,cashier,session_id,sales_channel,idempotency_key,request_hash,total,cash_received,change_given,receipt_number,tax_invoice) VALUES(?,?,?,?,?,'IN_STORE',?,?,?,?,?,?,?)",id,s.tenant,s.branch,s.cashier,request.sessionId,key,fingerprint,total,request.cashReceived,request.cashReceived.subtract(total),number,request.invoiceRequested || Boolean.TRUE.equals(branch.get("invoice_required")));
-        for(var line:lines) {
-            db.update("INSERT INTO order_items(tenant_id,order_id,product_id,name,quantity,price,tax_rate,tax,total,list_price,discount,discount_percent) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",s.tenant,id,line.get("id"),line.get("name"),line.get("quantity"),line.get("price"),line.get("rate"),line.get("tax"),line.get("total"),line.get("list_price"),line.get("discount"),line.get("discount_percent"));
-            int q=(Integer)line.get("quantity");
-            stock.issue(s.tenant,s.branch,((Number)line.get("id")).longValue(),q);
-            db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,line.get("id"),id,-q);
-        }
-        String seller=catalogue.vendor(s.tenant).name();
-        db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=? WHERE tenant_id=? AND branch_id=? AND id=?",seller,branch.get("name"),s.tenant,s.branch,id);
-        if(request.invoiceRequested || Boolean.TRUE.equals(branch.get("invoice_required"))) {
-            db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+number,seller,branch.get("name"),total);
-            audit(s,"INVOICE_ISSUE",id);
-        }
-        audit(s,"CASH_SALE",id);
-        return receipt(s,id);
-    }
     @Transactional
     public Map<String,Object> receipt(Scope s,String id) {
         var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,receipt_number,tax_invoice,created_at,COALESCE(status_changed_at,created_at) AS issued_at,receipt_seller_name,receipt_outlet_name FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' FOR UPDATE",s.tenant,s.branch,id);
@@ -282,12 +229,6 @@ public class PosService {
     }
     @Transactional public Map<String,Object> reprint(Scope s,String id) {
         var result=receipt(s,id); audit(s,"RECEIPT_REPRINT",id);result.put("copy",true);return result;
-    }
-    private String hash(Checkout r) {
-        try {
-            String value=r.sessionId+"|"+r.items.stream().sorted(Comparator.comparingLong(Line::productId)).toList()+"|"+r.cashReceived.setScale(2)+"|"+r.invoiceRequested;
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch(java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }
     private Map<String,Object> one(String sql,Object...args) {
         return db.queryForList(sql,args).stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Resource unavailable"));

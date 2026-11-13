@@ -17,7 +17,7 @@ class ReportExportServiceTest {
  ReportExportAudit audit;int reads;long branch=9;boolean large;ReportExportService service;
  @BeforeEach void setup(){
   var audits=(ReportExportAuditRepository)Proxy.newProxyInstance(ReportExportAuditRepository.class.getClassLoader(),new Class<?>[]{ReportExportAuditRepository.class},(p,m,args)->{audit=(ReportExportAudit)args[0];return audit;});
-  var retail=new PosService(null,null,null,null){@Override public Scope scope(String user){return new Scope(7,9,user);}};
+  var retail=new PosService(null,null){@Override public Scope scope(String user){return new Scope(7,9,user);}};
   var sales=new SalesReportService(null,null,clock){@Override public Report report(String user,LocalDate from,LocalDate to,String channel){reads++;var zero=BigDecimal.ZERO;var totals=new Totals(1,new BigDecimal("110"),BigDecimal.TEN,new BigDecimal("100"),new BigDecimal("120"),BigDecimal.TEN,new BigDecimal("110"),2,1,0,zero,0,0,zero);return new Report(branch,date,date,"ALL",clock.instant(),totals,List.of(new Channel("IN_STORE",totals)),List.of(new Day(date,totals)));}};
   var refunds=new RefundReportService(null,null,clock){@Override public Report report(String user,LocalDate from,LocalDate to){reads++;var totals=new Totals(1,2,new BigDecimal("110"),new BigDecimal("100"),BigDecimal.TEN);var cashiers=large?Collections.nCopies(5000,new Cashier("manager",totals)):List.of(new Cashier("=unsafe",totals));return new Report(branch,date,date,clock.instant(),totals,List.of(new Day(date,totals)),cashiers);}};
   service=new ReportExportService(sales,refunds,retail,audits,new CsvWriter(),clock);

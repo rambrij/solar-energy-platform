@@ -13,7 +13,7 @@ class DraftRecoveryServiceTest {
  int reads;Object[] arguments;DraftRecoveryService service;
  @BeforeEach void setup(){
   var repo=(DraftRepository)Proxy.newProxyInstance(DraftRepository.class.getClassLoader(),new Class<?>[]{DraftRepository.class},(p,m,args)->{reads++;arguments=args;return Optional.empty();});
-  var retail=new PosService(null,null,null,null){@Override public Scope scope(String username){assertThat(username).isEqualTo("cashier");return new Scope(7,9,username);}};
+  var retail=new PosService(null,null){@Override public Scope scope(String username){assertThat(username).isEqualTo("cashier");return new Scope(7,9,username);}};
   var customers=new CustomerAccess(null){@Override public long resolve(String username){assertThat(username).isEqualTo("buyer");return 101;}};
   service=new DraftRecoveryService(repo,null,customers,retail,null,new DraftRecoveryPolicy(),Clock.systemUTC());
  }

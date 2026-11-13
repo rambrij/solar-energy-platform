@@ -107,3 +107,7 @@ Returns owns metadata-only JPQL page/count queries with identical mandatory tena
 ## Immutable own-shift read model
 
 Retail owns a read-only Spring Data Repository and immutable JPA mapping of existing pos_sessions snapshot columns. Explicit DTO page/count predicates require canonical tenant, branch, cashier, CLOSED state and half-open UTC close-time bounds. A repeatable-read service supplies one response snapshot; V16 adds a traversal index. Existing session commands stay on their shared-transaction JDBC path. ArchUnit now also guards retail internals. See CLOSED_SHIFT_HISTORY.md for NULL/legacy timestamps, ownership and live-pagination semantics.
+
+## Public vendor directory read model
+
+Catalogue owns an explicit JPA vendor-card projection with identical active/nonblank-slug/search predicates for page and count. A read-only repeatable-read public application service validates bounds and escapes literal SQL LIKE characters. Marketplace depends only on that service; no identity/cart/payment repository or command is used. Fixed lower-name/ID ordering and bounded pages replace the UI's unbounded vendor fetch while preserving its legacy API. See VENDOR_DIRECTORY.md for live-offset and scale limits.

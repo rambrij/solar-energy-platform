@@ -343,3 +343,7 @@ Existing `POS_VIEW` + `POS_RETURN_VIEW` grants apply; no new demo SQL is needed.
 Rebuild/restart the backend to apply V16 and rebuild the frontend. With your named POS login, open **My closed shifts**, choose inclusive UTC close dates or a session reference prefix, then **Load my closed shifts**. Default: last 30 UTC days; choose earlier dates for older records. Next/Previous browse more records.
 
 `POS_VIEW` grants access only to your own closed sessions in your assigned branch. Stored opening/expected/counted/variance values are historical snapshots. Reading history does not resume a shift or clear a saved financial command. See [closed-shift API and operating limits](docs/implementation/CLOSED_SHIFT_HISTORY.md).
+
+### Find solar vendors
+
+Rebuild backend/frontend and open the marketplace. **Search solar vendors** finds active storefronts by public name or slug. Submit **Search vendors**, browse **Next/Previous vendors**, or clear the search. Search and paging leave your cart intact; cross-vendor cart changes still require the existing explicit confirmation. No database migration or new grant is needed. See [directory API and limits](docs/implementation/VENDOR_DIRECTORY.md).

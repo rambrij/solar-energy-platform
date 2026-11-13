@@ -79,3 +79,7 @@ POS-028/POS-033/POS-040 now include a scoped, read-only JPA worklist beyond the 
 ## Own closed-shift history increment
 
 POS-022/POS-023/POS-025/POS-040 now include a cashier-owned, assigned-branch paged JPA history of recorded CLOSED drawer snapshots. UTC close-date/session-prefix filters, deterministic paging and a read-only responsive screen preserve saved command recovery. V16 adds an index only; pending-review and other-cashier shifts are excluded. See [CLOSED_SHIFT_HISTORY.md](CLOSED_SHIFT_HISTORY.md).
+
+## Marketplace vendor discovery increment
+
+Marketplace vendor selection now uses an anonymous bounded JPA directory with name/slug substring search, stable name/ID pages and public-card projections. The responsive UI preserves the selected storefront/cart and existing explicit vendor-switch controls; the legacy vendor-list API remains compatible. No schema or payment-policy change is introduced. See [VENDOR_DIRECTORY.md](VENDOR_DIRECTORY.md).

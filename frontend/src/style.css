@@ -1242,3 +1242,5 @@ button+button {
 .refund-journal{margin-top:1.5rem;padding:1rem;border:1px solid var(--line);border-radius:12px;background:#f8fbfd;overflow-wrap:anywhere}.refund-journal .history-filters{margin:1rem 0}.refund-journal .return-queue p{margin:.4rem 0;font-size:.85rem}
 
 .return-audit-timeline{margin-top:1rem;padding:1rem;background:#f4f8fc;border:1px solid var(--line);border-radius:12px}.return-audit-events{list-style:none;padding:0;display:grid;gap:.8rem}.return-audit-events li{padding:.8rem 1rem;border-left:3px solid #e7ad27;background:white;border-radius:0 10px 10px 0;overflow-wrap:anywhere}.return-audit-events span,.return-audit-events time,.return-audit-events small{display:block;margin-top:.3rem}.return-audit-events time,.return-audit-events small{font-size:.8rem;color:#526779}
+
+.return-worklist{overflow-wrap:anywhere}.return-worklist-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.return-worklist-filters label{margin:0}.return-worklist-filters button{grid-column:1/-1}.return-worklist .return-queue{max-height:none}@media(max-width:600px){.return-worklist-filters{grid-template-columns:1fr}}

@@ -40,3 +40,8 @@ it('audits refund copy before printing only the refund document',async()=>{
 it('keeps unreadable saved handover locked instead of starting a replacement payout',async()=>{
  sessionStorage.setItem(refundStorageKey,'{broken');render(<CashRefunds {...props}/>);expect(screen.getByRole('alert').textContent).toContain('cannot be read');expect(props.onPendingChange).toHaveBeenCalledWith(true);expect((screen.getByText('Calculate cash refund') as HTMLButtonElement).disabled).toBe(true);expect(api).not.toHaveBeenCalled();
 });
+
+it('opening a matching journal acknowledgement does not clear an uncertain handover automatically',async()=>{
+ const body={returnId:'return-1',sessionId:'shift-1',reason:'Goods returned',quoteHash:quote.quoteHash,confirmation:'CASH_HANDED_TO_BUYER'};sessionStorage.setItem(refundStorageKey,JSON.stringify({key:'saved-key',body,safeToDiscard:false}));
+ vi.mocked(api).mockImplementation(async path=>path.startsWith('/refunds/history?')?{branchId:1,from:'2026-11-12',to:'2026-11-13',page:0,size:12,totalElements:1,totalPages:1,items:[paid]}:paid);render(<CashRefunds {...props}/>);fireEvent.click(screen.getByText('Load cash refund journal'));fireEvent.click(await screen.findByText('Open refund refund-1'));await screen.findByText(/Recorded PAID refund/);expect(sessionStorage.getItem(refundStorageKey)).not.toBeNull();expect(props.onRecorded).not.toHaveBeenCalled();fireEvent.click(screen.getByText('Acknowledge recorded refund & cash reconciliation'));expect(props.onRecorded).toHaveBeenCalledWith(paid);expect(sessionStorage.getItem(refundStorageKey)).toBeNull();
+});

@@ -1238,3 +1238,5 @@ button+button {
 .draft-reference-recovery{display:flex;align-items:end;gap:.75rem;flex-wrap:wrap;padding:1rem;background:#f3f8fc;border:1px solid var(--line);border-radius:12px;margin:1rem 0}.draft-reference-recovery label{flex:1;min-width:180px;margin:0}.draft-reference-recovery small,.draft-reference-recovery [role=alert]{flex-basis:100%}@media(max-width:520px){.draft-reference-recovery{align-items:stretch;flex-direction:column}.draft-reference-recovery label{min-width:0}}
 
 .report-export{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:end;background:#f3f8fc;border:1px solid var(--line);border-radius:12px;padding:1rem;margin-top:1.2rem}.report-export>div,.report-export>[role]{grid-column:1/-1}.report-export label{margin:0}.report-export p{font-size:.85rem}@media(max-width:600px){.report-export{grid-template-columns:1fr}}
+
+.refund-journal{margin-top:1.5rem;padding:1rem;border:1px solid var(--line);border-radius:12px;background:#f8fbfd;overflow-wrap:anywhere}.refund-journal .history-filters{margin:1rem 0}.refund-journal .return-queue p{margin:.4rem 0;font-size:.85rem}

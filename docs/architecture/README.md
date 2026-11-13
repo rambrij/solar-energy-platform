@@ -119,3 +119,7 @@ Catalogue owns a paged JPA change DTO and identical tenant/product page/count pr
 ## Assigned-branch register directory
 
 Retail owns a read-only immutable register mapping and JPA DTO page/count query joined to active session occupancy, exposing only id/availability. Canonical membership binds tenant/branch in one repeatable-read response. Existing unique active-register guards prevent join multiplication; V18 indexes lookup without changing writers. The UI clears stale choices and uses the existing server-authoritative open/resume path. See REGISTER_SELECTION.md.
+
+## Immutable receipt display identity
+
+Retail captures new receipt seller/outlet display snapshots in its existing direct-sale/document JDBC writes, sharing the JPA transaction manager with checkout/inventory. Reserved checkout flushes PAID before the same document writer; retries bypass new capture. V19 adds nullable columns and preserves unknown legacy data. Receipt reads expose original paid/created issue time and saved identity without new foreign persistence imports or current-name fallback. UI rendering/printing does not recalculate financial facts. See RECEIPT_PRESENTATION.md.

@@ -363,3 +363,7 @@ Rebuild the frontend to use **Exact amount** and rounded cash shortcuts in Curre
 ### Choose an assigned register
 
 Rebuild/restart backend for V18 and rebuild frontend. After **Your open sessions** loads, click **Load assigned registers**, choose an available register from **Assigned register**, enter **Opening float**, then **Open session**. The demo register is `900001` when the optional setup script has been applied. In-use registers cannot be selected; resume your own existing session instead. Availability is a hint and the server checks again on opening. A failed own-session lookup must be refreshed before opening. See [register selection API and setup limits](docs/implementation/REGISTER_SELECTION.md).
+
+### Itemized sale receipts
+
+Rebuild/restart backend for V19 and rebuild frontend. New paid POS receipts save seller/outlet names and show an itemized cash/tax/discount layout. Open **Sell → Current receipt** after a sale/recovery; **Print receipt copy** still requires the existing audited copy permission. Renames do not change new saved receipt names. Legacy receipts use existing invoice identity where available and otherwise show missing information explicitly. See [receipt identity, printing and compatibility](docs/implementation/RECEIPT_PRESENTATION.md).

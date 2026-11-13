@@ -99,3 +99,7 @@ POS-005/POS-014/POS-035 now include responsive exact/rounded cash entry, cent-ba
 ## Assigned register selection increment
 
 POS-007/POS-020/POS-025/POS-043 now include paged, canonical assigned-branch JPA register availability and an explicit-load dropdown. Only register ID/availability is exposed. OPEN/CLOSING sessions occupy registers; server opening locks remain authoritative. Unknown own-session lookup blocks new opening. V18 adds a lookup index only; existing recovery/configuration/permissions are preserved. See [REGISTER_SELECTION.md](REGISTER_SELECTION.md).
+
+## Receipt presentation and identity increment
+
+POS-009/POS-026/POS-027/POS-035/POS-046 now include paid seller/outlet display snapshots, stable original issue-time projection and a shared itemized responsive/printable receipt with conditional Sell navigation. V19 adds nullable fields without guessing legacy identity. Existing JPA/JDBC transaction, pricing, invoice policy, scope and copy audits remain intact. See [RECEIPT_PRESENTATION.md](RECEIPT_PRESENTATION.md).

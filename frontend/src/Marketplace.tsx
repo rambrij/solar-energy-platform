@@ -4,10 +4,11 @@ import ReservedDrafts from './ReservedDrafts';
 import Shell from './Shell';
 import OrderHistory from './OrderHistory';
 import ProductDetails from './ProductDetails';
-import CategoryNav from './CategoryNav';
+import CategoryNav, { type CategoryChoice } from './CategoryNav';
 
 type Vendor = { id: number; slug: string; name: string };
 type Product = { id: number; sku: string; name: string; price: number; taxRate: number; inStock: boolean; listPrice?: number; discountPercent?: number; categoryId?: number | null; categoryName?: string };
+type Catalogue = {items:Product[];page:number;size:number;totalElements:number;totalPages:number;catalogueTotal:number;categories:CategoryChoice[]};
 type Line = { productId: number; name: string; quantity: number; unitPrice: number | null; tax: number | null; total: number | null; available: boolean; listPrice?: number | null; discount?: number | null };
 type Cart = { id: string | null; vendorSlug: string | null; vendorName: string | null; items: Line[]; total: number; checkoutAvailable: boolean; message: string };
 type Target = { vendorSlug: string; productId: number; quantity: number };
@@ -26,20 +27,33 @@ export default function Marketplace() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [cartEdits,setCartEdits]=useState<Record<number,string>>({});
   const [stockRevision,setStockRevision] = useState(0);
+  const [page,setPage]=useState(0),[query,setQuery]=useState(''),[catalogue,setCatalogue]=useState<Catalogue>(),[catalogueLoading,setCatalogueLoading]=useState(true),[catalogueError,setCatalogueError]=useState(''),[loadedKey,setLoadedKey]=useState('');
+  const searchPending=search.trim()!==query;
+  useEffect(()=>{if(search.trim()===query)return;const timer=setTimeout(()=>{setQuery(search.trim());setPage(0);},250);return()=>clearTimeout(timer);},[search,query]);
   const [sort, setSort] = useState('name'), [inStockOnly, setInStockOnly] = useState(false);
-  const visibleProducts = products.filter(product => `${product.name} ${product.sku}`.toLowerCase().includes(search.toLowerCase()) && (selectedCategory==='all'||String(product.categoryId??'other')===selectedCategory) && (!inStockOnly || product.inStock)).sort((a,b)=>sort === 'price-low' ? Number(a.price)-Number(b.price)||a.id-b.id : sort === 'price-high' ? Number(b.price)-Number(a.price)||a.id-b.id : a.name.localeCompare(b.name)||a.id-b.id);
+  const requestKey=JSON.stringify([slug,query,selectedCategory,sort,inStockOnly,page,stockRevision]);
+  const catalogueBusy=catalogueLoading||searchPending||loadedKey!==requestKey;
+  const visibleProducts = catalogueBusy?[]:products;
   const [detailId, setDetailId] = useState<number | undefined>(readProductId);
   useEffect(() => { const sync = () => setDetailId(readProductId()); window.addEventListener('popstate', sync); return () => window.removeEventListener('popstate', sync); }, []);
   function openDetails(id: number) { const url = new URL(window.location.href); url.searchParams.set('product', String(id)); window.history.pushState({}, '', url); setDetailId(id); }
   function closeDetails() { const url = new URL(window.location.href); url.searchParams.delete('product'); window.history.replaceState({}, '', url); setDetailId(undefined); }
-  const categories=Array.from(new Set(products.map(product=>String(product.categoryId??'other')))).map(id=>({id,name:products.find(product=>String(product.categoryId??'other')===id)?.categoryName??'Other',count:products.filter(product=>String(product.categoryId??'other')===id).length}));
+  const categories=catalogue?.categories??[];
+  function categoryChanged(value:string){setSelectedCategory(value);setPage(0);}
   const confirming = !!switchTarget || !!restoreTarget;
   useEffect(() => {
-    let active = true;
-    marketplaceApi('/api/marketplace/vendors').then(value => { if (active) setVendors(value); }).catch(() => { if (active) setError('Vendor directory unavailable.'); });
-    if (slug) marketplaceApi(`/api/marketplace/vendors/${encodeURIComponent(slug)}/products`).then(value => { if (active) setProducts(value); }).catch(() => { if (active) setError('Vendor storefront unavailable.'); });
-    return () => { active = false; };
-  }, [slug,stockRevision]);
+    let active=true;
+    marketplaceApi('/api/marketplace/vendors').then(value=>{if(active)setVendors(value);}).catch(()=>{if(active)setError('Vendor directory unavailable.');});
+    return()=>{active=false;};
+  },[]);
+  useEffect(()=>{
+    let active=true;
+    setProducts([]);setCatalogueLoading(true);setCatalogueError('');
+    if(!slug||searchPending)return()=>{active=false;};
+    const params=new URLSearchParams({q:query,category:selectedCategory,sort,inStock:String(inStockOnly),page:String(page),size:'24'});
+    marketplaceApi(`/api/marketplace/vendors/${encodeURIComponent(slug)}/catalogue?${params}`).then((value:Catalogue)=>{if(active){setCatalogue(value);setProducts(value.items);setLoadedKey(requestKey);setCatalogueLoading(false);}}).catch(()=>{if(active){setLoadedKey(requestKey);setCatalogueLoading(false);setCatalogueError('Catalogue unavailable. Check your connection and retry the catalogue.');}});
+    return()=>{active=false;};
+  },[slug,query,selectedCategory,sort,inStockOnly,page,stockRevision,searchPending,requestKey]);
   function failure(e: unknown) {
     setError(e instanceof MarketplaceError && [401,403].includes(e.status)
       ? 'Sign in with your global customer account to manage your cart. Staff credentials are separate.'
@@ -110,10 +124,11 @@ export default function Marketplace() {
     <header className="workspace-hero marketplace-hero grocery-hero"><div><span className="eyebrow">A brighter way to shop</span><h1>Saumya Solar Marketplace</h1><p>Choose a vendor. Your customer account works across vendors; each cart belongs to one vendor.</p><a className="hero-link" href="#vendor-directory">Explore solar vendors <span aria-hidden="true">↗</span></a></div><div className="solar-scene" aria-hidden="true"><span className="scene-sun"/><span className="scene-orbit"/><span className="scene-panels"/></div></header>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     <section id="vendor-directory" className="vendor-directory"><div className="section-heading"><div><span className="eyebrow">Find your energy partner</span><h2>Vendors</h2></div><span className="badge">{vendors.length} available</span></div><ul className="vendor-grid">{vendors.map((vendor,index) => <li key={vendor.id} className={vendor.slug === slug ? 'selected-vendor' : ''}><span className="vendor-monogram" aria-hidden="true">{vendor.name.slice(0,1)}</span><div><small>Solar energy vendor · {String(index+1).padStart(2,'0')}</small><a href={`/vendors/${encodeURIComponent(vendor.slug)}`} aria-current={vendor.slug === slug ? 'page' : undefined}>{vendor.name}</a></div><span aria-hidden="true">↗</span></li>)}</ul>{!vendors.length && <p>No vendors to display. Refresh after checking your connection.</p>}</section>
-    <ol className="shopping-steps" aria-label="Shopping steps"><li><strong>1</strong> Choose your solar essentials</li><li><strong>2</strong> Review one vendor cart</li><li><strong>3</strong> Reserve at checkout</li></ol><div className="marketplace-grid grocery-workspace"><div className="storefront-column">{slug && <section className="catalogue-panel" aria-label="Vendor products"><h2>{vendors.find(vendor => vendor.slug === slug)?.name ?? 'Vendor storefront'}</h2>
-      <div className="market-search"><label>Search products <input placeholder="Search panels, inverters, batteries and more" value={search} onChange={e => setSearch(e.target.value)} /></label></div>
-      <div className="retail-catalogue-layout"><CategoryNav categories={categories} selected={selectedCategory} onSelect={setSelectedCategory} total={products.length}/><div className="catalogue-results"><div className="catalogue-toolbar"><label>Sort products<select value={sort} onChange={event=>setSort(event.target.value)}><option value="name">Name A–Z</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></label><label className="check-label"><input type="checkbox" checked={inStockOnly} onChange={event=>setInStockOnly(event.target.checked)}/> In stock only</label><span role="status">{visibleProducts.length} products shown</span></div>
-      {!visibleProducts.length && <div className="empty-state"><h3>No matching products</h3><p>Try another search or turn off the stock filter.</p></div>}
+    <ol className="shopping-steps" aria-label="Shopping steps"><li><strong>1</strong> Choose your solar essentials</li><li><strong>2</strong> Review one vendor cart</li><li><strong>3</strong> Reserve at checkout</li></ol><div className="marketplace-grid grocery-workspace"><div className="storefront-column">{slug && <section className="catalogue-panel" aria-label="Vendor products" aria-busy={catalogueBusy}><h2>{vendors.find(vendor => vendor.slug === slug)?.name ?? 'Vendor storefront'}</h2>
+      <div className="market-search"><label>Search products <input placeholder="Search panels, inverters, batteries and more" maxLength={120} value={search} onChange={e => setSearch(e.target.value)} /></label></div>
+      <div className="retail-catalogue-layout"><CategoryNav categories={categories} selected={selectedCategory} onSelect={categoryChanged} total={catalogue?.catalogueTotal??0}/><div className="catalogue-results"><div className="catalogue-toolbar"><label>Sort products<select value={sort} onChange={event=>{setSort(event.target.value);setPage(0);}}><option value="name">Name A–Z</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></label><label className="check-label"><input type="checkbox" checked={inStockOnly} onChange={event=>{setInStockOnly(event.target.checked);setPage(0);}}/> In stock only</label><span role="status">{catalogueBusy?'Searching catalogue...':catalogueError?'Results unavailable':`${catalogue?.totalElements??0} products found`}</span></div>
+      {catalogueBusy&&<p role="status">Loading products...</p>}{!catalogueBusy&&catalogueError&&<p role="alert">{catalogueError} <button onClick={()=>setStockRevision(value=>value+1)}>Retry catalogue</button></p>}
+      {!catalogueBusy&&!catalogueError&&!visibleProducts.length && <div className="empty-state"><h3>No matching products</h3><p>Try another search or turn off the stock filter.</p></div>}
       <ul className="product-grid">{visibleProducts.map(product => {
         const quantity = quantities[product.id] ?? 1;
         return <li key={product.id} className="product-card"><div className="product-art" aria-hidden="true"><span className="panel-illustration"/></div><h3>{product.name}</h3><p>{product.sku} · {Number(product.listPrice??product.price)>Number(product.price)&&<><del>{money(product.listPrice??null)}</del> </>}{money(product.price)} + {product.taxRate}% tax · {product.inStock ? 'In stock' : 'Out of stock'}</p>
@@ -121,7 +136,7 @@ export default function Marketplace() {
           <label>Quantity for {product.name} <input type="number" min="1" max="10000" value={quantity} onChange={e => setQuantities({ ...quantities, [product.id]: Number(e.target.value) })} /></label>
           <button disabled={busy || confirming || !product.inStock || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000} onClick={() => put(product)}>Add or update {product.name} in cart</button>
         </li>;
-      })}</ul></div></div>
+      })}</ul>{!catalogueBusy&&!catalogueError&&catalogue&&<nav className="catalogue-pagination" aria-label="Catalogue pages"><button className="secondary" disabled={busy||confirming||page===0} onClick={()=>setPage(value=>Math.max(0,value-1))}>Previous products</button><span>Page {page+1} of {Math.max(1,catalogue.totalPages)}</span><button disabled={busy||confirming||page>=catalogue.totalPages-1} onClick={()=>setPage(value=>value+1)}>Next products</button>{page>0&&<button className="secondary" disabled={busy||confirming} onClick={()=>setPage(0)}>First product page</button>}</nav>}</div></div>
     </section>}
     </div><aside className="cart-column"><section className="customer-cart" aria-label="Customer cart"><h2>My single-vendor cart</h2>
       <button disabled={busy || confirming} onClick={loadCart}>Sign in / reload my cart</button>

@@ -9,7 +9,16 @@ const gate = 'Online payment is not configured. No paid order was created.';
 const cart = { id: 'cart-a', vendorSlug: 'vendor-1', vendorName: 'Vendor A', items: [{ productId: 1, name: 'Solar Panel', quantity: 1, unitPrice: 100, tax: 10, total: 110, available: true }], total: 110, checkoutAvailable: false, message: gate };
 beforeEach(() => { window.history.replaceState({}, '', '/vendors/vendor-1'); });
 afterEach(() => { cleanup(); vi.resetAllMocks(); window.history.replaceState({}, '', '/'); });
-function publicResult(path: string) { return path === '/api/marketplace/vendors' ? vendors : products; }
+function publicResult(path:string,source=products){
+ if(path==='/api/marketplace/vendors')return vendors;
+ const params=new URL(path,'http://localhost').searchParams;
+ const typed=source as (typeof products[number]&{categoryId?:number;categoryName?:string})[];
+ let items=typed.filter(p=>`${p.name} ${p.sku}`.toLowerCase().includes((params.get('q')??'').toLowerCase())&&(!params.has('category')||params.get('category')==='all'||String(p.categoryId??'other')===params.get('category'))&&(params.get('inStock')!=='true'||p.inStock));
+ items=[...items].sort((a,b)=>params.get('sort')==='price-high'?b.price-a.price:params.get('sort')==='price-low'?a.price-b.price:a.name.localeCompare(b.name));
+ const categories=Array.from(new Set(typed.map(p=>String(p.categoryId??'other')))).map(id=>({id,name:typed.find(p=>String(p.categoryId??'other')===id)?.categoryName??'Other',count:typed.filter(p=>String(p.categoryId??'other')===id).length}));
+ const page=Number(params.get('page')??0),size=Number(params.get('size')??24);
+ return {items:items.slice(page*size,(page+1)*size),page,size,totalElements:items.length,totalPages:Math.ceil(items.length/size),catalogueTotal:source.length,categories};
+}
 it('browses publicly without requesting a customer account or cart', async () => {
   vi.mocked(marketplaceApi).mockImplementation(async path => publicResult(path));
   render(<Marketplace />); await screen.findByText('Solar Panel');
@@ -83,11 +92,11 @@ it('keeps active cart contents after a stale restore is rejected', async () => {
 
 it('sorts products by price, filters stock and explains empty searches', async () => {
   const catalogue = [...products, { id: 2, sku: 'INV', name: 'Solar Inverter', price: 250, taxRate: 10, inStock: true }, { id: 3, sku: 'BAT', name: 'Battery', price: 50, taxRate: 10, inStock: false }];
-  vi.mocked(marketplaceApi).mockImplementation(async path => path === '/api/marketplace/vendors' ? vendors : catalogue);
+  vi.mocked(marketplaceApi).mockImplementation(async path => publicResult(path,catalogue));
   render(<Marketplace/>); await screen.findByText('Solar Panel');
   fireEvent.change(screen.getByLabelText('Sort products'), { target: { value: 'price-high' } });
   const region = within(screen.getByLabelText('Vendor products'));
-  expect(within(region.getByRole('list')).getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual(['Solar Inverter', 'Solar Panel', 'Battery']);
+  await waitFor(()=>expect(within(region.getByRole('list')).getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual(['Solar Inverter', 'Solar Panel', 'Battery']));
   fireEvent.click(screen.getByLabelText('In stock only')); expect(region.queryByText('Battery')).toBeNull();
   fireEvent.change(screen.getByLabelText('Search products'), { target: { value: 'not found' } }); await screen.findByText('No matching products');
   expect(vi.mocked(marketplaceApi).mock.calls.every(call => call[0].startsWith('/api/marketplace/'))).toBe(true);
@@ -105,10 +114,10 @@ it('supports public product deep links and adds the selected detail quantity thr
 
 it('navigates tenant catalogue categories and shows approved offers without modifying the cart', async () => {
  const catalogue = [{ ...products[0], categoryId: 1, categoryName: 'Panels', price: 90, listPrice: 100, discountPercent: 10 }, { id: 2, sku: 'INV', name: 'Inverter', price: 200, taxRate: 0, inStock: true, categoryId: 2, categoryName: 'Inverters' }];
- vi.mocked(marketplaceApi).mockImplementation(async path => path === '/api/marketplace/vendors' ? vendors : catalogue);
+ vi.mocked(marketplaceApi).mockImplementation(async path => publicResult(path,catalogue));
  render(<Marketplace/>); await screen.findByText('Solar Panel'); const navigation = within(screen.getByRole('navigation', { name: 'Product categories' }));
  expect(screen.getByText('10% approved offer')).toBeTruthy(); fireEvent.click(navigation.getByRole('button', { name: /Inverters/ }));
- expect(screen.queryByText('Solar Panel')).toBeNull(); expect(screen.getByText('Inverter')).toBeTruthy();
+ expect(screen.queryByText('Solar Panel')).toBeNull(); expect(await screen.findByText('Inverter')).toBeTruthy();
  fireEvent.click(navigation.getByRole('button', { name: /All products/ })); await screen.findByText('Solar Panel');
  expect(vi.mocked(marketplaceApi).mock.calls.every(call => call[0].startsWith('/api/marketplace/'))).toBe(true);
 });
@@ -126,4 +135,19 @@ it('allows reducing an unavailable stock quantity and validates direct quantity 
 it('shows server checkout review and invalidates it when quantities are edited',async()=>{
  vi.mocked(marketplaceApi).mockImplementation(async path=>path.startsWith('/api/customer/')?cart:publicResult(path));render(<Marketplace/>);fireEvent.click(await screen.findByText('Add or update Solar Panel in cart'));await screen.findByText(/Current estimate/);fireEvent.click(screen.getByText('Preview checkout'));
  const review=await screen.findByRole('region',{name:'Checkout review'});expect(within(review).getByText(/Seller: Vendor A/)).toBeTruthy();expect(within(review).getByText(/No payment has been taken/)).toBeTruthy();fireEvent.change(screen.getByLabelText('Cart quantity for Solar Panel'),{target:{value:'2'}});expect(screen.queryByRole('region',{name:'Checkout review'})).toBeNull();
+});
+
+it('pages a bounded server catalogue and resets to page zero for new search',async()=>{
+ const many=Array.from({length:26},(_,index)=>({id:index+1,sku:`P${index+1}`,name:`Panel ${String(index+1).padStart(2,'0')}`,price:100,taxRate:10,inStock:true}));
+ vi.mocked(marketplaceApi).mockImplementation(async path=>publicResult(path,many));render(<Marketplace/>);await screen.findByText('Panel 01');expect(screen.queryByText('Panel 25')).toBeNull();fireEvent.click(screen.getByText('Next products'));await screen.findByText('Panel 25');expect(screen.queryByText('Panel 01')).toBeNull();expect(screen.getByText('Page 2 of 2')).toBeTruthy();
+ fireEvent.change(screen.getByLabelText('Search products'),{target:{value:'Panel 01'}});await screen.findByText('Panel 01');expect(screen.getByText('Page 1 of 1')).toBeTruthy();expect(vi.mocked(marketplaceApi).mock.calls.some(([path])=>path.includes('page=0')&&path.includes('q=Panel+01')&&path.includes('size=24'))).toBe(true);
+});
+it('ignores stale catalogue responses after another filter is selected',async()=>{
+ let finish!:(value:ReturnType<typeof publicResult>)=>void;
+ vi.mocked(marketplaceApi).mockImplementation(async path=>{const params=new URL(path,'http://localhost').searchParams;if(params.get('sort')==='price-high'&&params.get('inStock')==='false')return new Promise(resolve=>{finish=resolve;});return publicResult(path);});
+ render(<Marketplace/>);await screen.findByText('Solar Panel');fireEvent.change(screen.getByLabelText('Sort products'),{target:{value:'price-high'}});await waitFor(()=>expect(finish).toBeTruthy());fireEvent.click(screen.getByLabelText('In stock only'));await screen.findByText('Solar Panel');finish(publicResult('/catalogue',[{...products[0],name:'Stale product'}]));await waitFor(()=>expect(screen.queryByText('Stale product')).toBeNull());expect(screen.getByText('Solar Panel')).toBeTruthy();
+});
+it('preserves cart contents when catalogue refresh fails and allows a read-only retry',async()=>{
+ let failed=false;
+ vi.mocked(marketplaceApi).mockImplementation(async path=>{if(path==='/api/customer/cart/items')return cart;if(path.includes('/catalogue?')&&failed)throw new Error('Offline');return publicResult(path);});render(<Marketplace/>);fireEvent.click(await screen.findByText('Add or update Solar Panel in cart'));await screen.findByText(/Current estimate: 110.00/);failed=true;fireEvent.change(screen.getByLabelText('Sort products'),{target:{value:'price-low'}});await screen.findByText('Retry catalogue');expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();expect(screen.queryByText('Add or update Solar Panel in cart')).toBeNull();failed=false;fireEvent.click(screen.getByText('Retry catalogue'));await screen.findByText('Add or update Solar Panel in cart');
 });

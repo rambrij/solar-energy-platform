@@ -24,7 +24,7 @@ export default function ShiftReviews() {
     }
     finally { setBusy(false); }
   }
-  return <details><summary>Supervisor shift review</summary>
+  return <details id="shift-reviews"><summary>Supervisor shift review</summary>
     <p>A different authorized supervisor in the same tenant and branch must review discrepancies.</p>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     <button disabled={busy} onClick={load}>Load pending shift reviews</button>

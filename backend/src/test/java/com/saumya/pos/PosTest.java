@@ -1239,4 +1239,22 @@ class PosTest {
   assertThat(marketplace.cart(100)).isEqualTo(cart);assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
  }
 
+ @Test void promotionAuditHistoryIsTenantScopedPagedAndReadOnlyForWithdrawnProducts() throws Exception {
+  for(int i=1;i<=25;i++)promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal(i),"Approved offer "+i));promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("25"),"No change"));promotions.approve(2,"bob",2,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Foreign tenant offer"));
+  db.update("UPDATE catalog_promotion_audit SET created_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z")));var ids=db.queryForList("SELECT id FROM catalog_promotion_audit WHERE tenant_id=1",String.class).stream().sorted(Comparator.reverseOrder()).toList();
+  db.update("UPDATE products SET name='Renamed panel',published=FALSE WHERE id=1");String path="/api/vendor/pos/promotions/1/history";
+  for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.currentName").value("Renamed panel")).andExpect(jsonPath("$.published").value(false)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].actor").value("alice")).andExpect(jsonPath("$.items[0].tenantId").doesNotExist());
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other catalogue branch')");db.update("INSERT INTO employees VALUES('promotion-viewer','unused',1,4,TRUE)");mvc.perform(get(path).with(user("promotion-viewer").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25));
+  mvc.perform(get(path).param("tenantId","1").with(user("bob").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/vendor/pos/promotions/2/history").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
+  mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(26);assertThat(promotions.price(1,1,new BigDecimal("100"),false).price()).isEqualByComparingTo("75");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
+ }
+ @Test void promotionAuditRejectsMissingRightsInactiveMembershipAndBadBounds() throws Exception {
+  String path="/api/vendor/pos/promotions/1/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  for(String missing:List.of("POS_VIEW","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE")){var rights=List.of("POS_VIEW","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE").stream().filter(p->!p.equals(missing)).map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList();mvc.perform(get(path).with(user("alice").authorities(rights))).andExpect(status().isForbidden());}
+  for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isBadRequest());
+  db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isForbidden());
+ }
+
 }

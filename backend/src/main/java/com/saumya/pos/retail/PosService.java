@@ -121,14 +121,14 @@ public class PosService {
             BigDecimal price=p.price(), rate=p.taxRate();
             var calculated=pricing.line(price,rate,item.quantity);
             BigDecimal tax=calculated.tax(),amount=calculated.total();total=total.add(amount);
-            lines.add(Map.of("id",item.productId,"name",p.name(),"quantity",item.quantity,"price",price,"rate",rate,"tax",tax,"total",amount));
+            lines.add(Map.of("id",item.productId,"name",p.name(),"quantity",item.quantity,"price",price,"rate",rate,"tax",tax,"total",amount,"list_price",p.listPrice(),"discount",p.listPrice().subtract(price).multiply(BigDecimal.valueOf(item.quantity)),"discount_percent",p.discountPercent()));
         }
         if(request.cashReceived.compareTo(total)<0) fail("Cash received is below amount due");
         String id=UUID.randomUUID().toString(); long number=((Number)branch.get("receipt_sequence")).longValue()+1;
         db.update("UPDATE branches SET receipt_sequence=? WHERE tenant_id=? AND id=?",number,s.tenant,s.branch);
         db.update("INSERT INTO orders(id,tenant_id,branch_id,cashier,session_id,sales_channel,idempotency_key,request_hash,total,cash_received,change_given,receipt_number,tax_invoice) VALUES(?,?,?,?,?,'IN_STORE',?,?,?,?,?,?,?)",id,s.tenant,s.branch,s.cashier,request.sessionId,key,fingerprint,total,request.cashReceived,request.cashReceived.subtract(total),number,request.invoiceRequested || Boolean.TRUE.equals(branch.get("invoice_required")));
         for(var line:lines) {
-            db.update("INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?,?)",s.tenant,id,line.get("id"),line.get("name"),line.get("quantity"),line.get("price"),line.get("rate"),line.get("tax"),line.get("total"));
+            db.update("INSERT INTO order_items(tenant_id,order_id,product_id,name,quantity,price,tax_rate,tax,total,list_price,discount,discount_percent) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",s.tenant,id,line.get("id"),line.get("name"),line.get("quantity"),line.get("price"),line.get("rate"),line.get("tax"),line.get("total"),line.get("list_price"),line.get("discount"),line.get("discount_percent"));
             int q=(Integer)line.get("quantity");
             stock.issue(s.tenant,s.branch,((Number)line.get("id")).longValue(),q);
             db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,line.get("id"),id,-q);
@@ -144,7 +144,7 @@ public class PosService {
     @Transactional
     public Map<String,Object> receipt(Scope s,String id) {
         var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,receipt_number,tax_invoice,created_at FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' FOR UPDATE",s.tenant,s.branch,id);
-        order.put("items",db.queryForList("SELECT name,quantity,price,tax_rate,tax,total FROM order_items WHERE tenant_id=? AND order_id=? ORDER BY product_id FOR UPDATE",s.tenant,id));
+        order.put("items",db.queryForList("SELECT name,quantity,price,tax_rate,tax,total,list_price,discount,discount_percent FROM order_items WHERE tenant_id=? AND order_id=? ORDER BY product_id FOR UPDATE",s.tenant,id));
         order.put("invoices",db.queryForList("SELECT invoice_number,seller_name,outlet_name,total,issued_at FROM vendor_invoices WHERE tenant_id=? AND order_id=? FOR UPDATE",s.tenant,id));
         return order;
     }

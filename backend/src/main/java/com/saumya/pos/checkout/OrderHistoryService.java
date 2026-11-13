@@ -40,7 +40,7 @@ public class OrderHistoryService {
     public record Order(String id,String vendorName,String channel,String status,Instant createdAt,Instant expiresAt,
                         BigDecimal total,Long receiptNumber,boolean taxInvoice){}
     public record History(List<Order> items,int page,int size,long totalElements,int totalPages){}
-    public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total){}
+    public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal discount){}
     public record Detail(Order order,List<Line> items,BigDecimal cashReceived,BigDecimal changeGiven,String cancellationReason,Instant statusChangedAt){}
     private static void bad(String reason){throw new ResponseStatusException(HttpStatus.BAD_REQUEST,reason);}
     private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Order unavailable");}
@@ -73,7 +73,7 @@ public class OrderHistoryService {
     public Detail posDetail(String username,String id){return detail(branchScope(retail.scope(username)),id);}
     private Detail detail(Specification<DraftOrder> scope,String id){
         var order=orders.findOne(scope.and((r,q,b)->b.equal(r.get("id"),id))).orElseThrow(this::missing);
-        var snapshots=lines.lines(order.tenant(),order.id()).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total())).toList();
+        var snapshots=lines.lines(order.tenant(),order.id()).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList();
         return new Detail(view(order,new HashMap<>()),snapshots,order.cash(),order.change(),order.cancellationReason(),order.changed());
     }
 }

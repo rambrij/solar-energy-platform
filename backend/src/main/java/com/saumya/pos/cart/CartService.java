@@ -23,7 +23,7 @@ public class CartService {
     public record Item(@NotBlank @Size(max=100) String vendorSlug,@Positive long productId,@Min(1) @Max(10000) int quantity) {}
     public record Switch(@NotBlank String expectedCartId,@NotBlank @Size(max=100) String vendorSlug,@Positive long productId,@Min(1) @Max(10000) int quantity) {}
     public record Restore(@NotBlank @Size(max=36) String archivedCartId,@Size(max=36) String expectedCartId) {}
-    public record CartLine(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,boolean available) {}
+    public record CartLine(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,boolean available,BigDecimal listPrice,BigDecimal discount) {}
     public record Cart(String id,String vendorSlug,String vendorName,List<CartLine> items,BigDecimal total,boolean checkoutAvailable,String message) {}
     private static final String PAYMENT_GATE="Online payment is not configured. This preview does not reserve stock or create a paid order. Contact the vendor or buy in-store.";
     private ShoppingCart active(long customer){return carts.findByCustomerIdAndState(customer,"ACTIVE").orElse(null);}
@@ -36,7 +36,7 @@ public class CartService {
             var amount=pricing.line(product.price(),product.taxRate(),item.quantity());
             lines.add(new CartLine(product.id(),published?product.name():"Product unavailable",item.quantity(),published?product.price():null,
                 published?product.taxRate():null,published?amount.tax():null,published?amount.total():null,
-                published&&stock.available(cart.tenantId(),product.id())>=item.quantity()));
+                published&&stock.available(cart.tenantId(),product.id())>=item.quantity(),published?product.listPrice():null,published?product.listPrice().subtract(product.price()).multiply(BigDecimal.valueOf(item.quantity())):null));
             if(published)total=total.add(amount.total());
         }
         return new Cart(cart.id(),vendor.slug(),vendor.active()?vendor.name():"Vendor unavailable",lines,total,false,PAYMENT_GATE);

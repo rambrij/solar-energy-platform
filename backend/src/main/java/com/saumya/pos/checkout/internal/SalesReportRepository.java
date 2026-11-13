@@ -18,7 +18,7 @@ public interface SalesReportRepository extends Repository<DraftOrder,String> {
     List<SalesAggregate> orders(long tenant,long branch,String channel,Instant from,Instant until);
     @Query("""
         select new com.saumya.pos.checkout.internal.SalesLineAggregate(
-          cast(coalesce(o.statusChangedAt,o.createdAt) as LocalDate),o.channel,sum(l.tax),sum(l.quantity))
+          cast(coalesce(o.statusChangedAt,o.createdAt) as LocalDate),o.channel,sum(l.tax),sum(l.quantity),sum(l.discount))
         from DraftLine l join DraftOrder o on o.id=l.id.order and o.tenantId=l.id.tenant
         where o.tenantId=:tenant
           and ((o.channel='IN_STORE' and o.branchId=:branch) or (o.channel='ONLINE' and o.stockBranch=:branch))

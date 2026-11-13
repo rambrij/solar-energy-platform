@@ -27,11 +27,12 @@ class PosTest {
  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
+ @Autowired com.saumya.pos.catalog.PromotionService promotions;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -354,7 +355,12 @@ class PosTest {
   legacy.update("INSERT INTO employees VALUES('legacy','unused',1,1,TRUE)");
   legacy.update("INSERT INTO registers VALUES(1,1,1)");
   legacy.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float,expected_cash,counted_cash,closed_at) VALUES('legacy',1,1,'legacy',1,'CLOSED',50,50,50,CURRENT_TIMESTAMP)");
+  legacy.update("INSERT INTO products VALUES(1,1,'OLD',NULL,'Legacy panel',100,10,TRUE)");
+  legacy.update("INSERT INTO orders(id,tenant_id,branch_id,cashier,session_id,sales_channel,idempotency_key,request_hash,total,cash_received,change_given,receipt_number,tax_invoice) VALUES('legacy-order',1,1,'legacy','legacy','IN_STORE','legacy-key','hash',110,120,10,1,FALSE)");
+  legacy.update("INSERT INTO order_items VALUES(1,'legacy-order',1,'Legacy panel',1,100,10,10,110)");
   org.flywaydb.core.Flyway.configure().dataSource(url,"sa","").locations("classpath:db/migration").load().migrate();
+  assertThat(legacy.queryForObject("SELECT list_price FROM order_items",BigDecimal.class)).isEqualByComparingTo("100");
+  assertThat(legacy.queryForObject("SELECT discount FROM order_items",BigDecimal.class)).isEqualByComparingTo("0");
   assertThat(legacy.queryForObject("SELECT cash_variance FROM pos_sessions",BigDecimal.class)).isEqualByComparingTo("0");
   assertThat(legacy.queryForObject("SELECT close_request_id FROM pos_sessions",String.class)).isEqualTo("legacy");
   assertThat(legacy.queryForObject("SELECT state FROM pos_sessions",String.class)).isEqualTo("CLOSED");
@@ -716,5 +722,53 @@ class PosTest {
   mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/vendor/pos/reports/sales").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
   for(String[] param:List.of(new String[]{"channel","UNKNOWN"},new String[]{"from","2000-01-01"},new String[]{"to","invalid"}))mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param(param[0],param[1])).andExpect(status().isBadRequest());
+ }
+
+ @Test void retailCategoriesArePublishedTenantOwnedAndForeignAssignmentsFail() throws Exception {
+  customers();db.update("INSERT INTO catalog_categories VALUES(1,1,'Panels','panels'),(2,2,'Private','private'),(3,1,'Hidden','hidden')");
+  db.update("INSERT INTO products VALUES(3,1,'HIDDEN',NULL,'Hidden item',100,10,FALSE)");
+  db.update("INSERT INTO product_categories VALUES(1,1,1),(2,2,2),(1,3,3)");
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/categories")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panels")).andExpect(jsonPath("$[0].products").value(1));
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$[0].categoryId").value(1)).andExpect(jsonPath("$[0].categoryName").value("Panels"));
+  assertThatThrownBy(()->db.update("UPDATE product_categories SET category_id=2 WHERE tenant_id=1 AND product_id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get("/api/marketplace/vendors/vendor-1/categories")).andExpect(status().isNotFound());
+ }
+ @Test void approvedPromotionsAreSharedAuditedAndSavedOnCashReceiptsAndReports() throws Exception {
+  configureOnline();db.update("UPDATE inventory SET quantity=5 WHERE tenant_id=1");supervisor("manager");
+  String path="/api/vendor/catalog/products/1/promotion",body="{\"percent\":10,\"reason\":\"Approved solar offer\"}";
+  mvc.perform(put(path).with(csrf()).with(user("manager").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.price").value(90));
+  mvc.perform(put(path).with(csrf()).with(user("manager").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT actor FROM catalog_promotion_audit",String.class)).isEqualTo("manager");
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.listPrice").value(100)).andExpect(jsonPath("$.unitTotal").value(99));
+  var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));assertThat(cart.total()).isEqualByComparingTo("99");assertThat(cart.items().getFirst().discount()).isEqualByComparingTo("10");
+  var receipt=service.checkout(a,"promotion-cash",sale(1,"100"));assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo("99");
+  var item=(Map<?,?>)((List<?>)receipt.get("items")).getFirst();assertThat((BigDecimal)item.get("list_price")).isEqualByComparingTo("100");assertThat((BigDecimal)item.get("discount")).isEqualByComparingTo("10");
+  promotions.approve(1,"manager",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("20"),"New approved offer"));
+  var copy=service.reprint(a,(String)receipt.get("id"));assertThat((BigDecimal)copy.get("total")).isEqualByComparingTo("99");
+  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.discounts").value(10)).andExpect(jsonPath("$.totals.tax").value(9)).andExpect(jsonPath("$.totals.sales").value(99));
+ }
+ @Test void promotionCommandsEnforceApprovalCsrfInputAndTenantScope() throws Exception {
+  String path="/api/vendor/catalog/products/1/promotion",body="{\"percent\":10,\"reason\":\"Approved offer\"}";
+  mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(put(path).with(user("alice").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(put(path).with(csrf()).with(user("bob").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isNotFound());
+  for(String invalid:List.of(body.replace("10","101"),body.replace("10","1.111"),body.replace("Approved offer"," "),body.replace("\"percent\"","\"tenantId\":2,\"percent\"")))mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(invalid)).andExpect(status().isBadRequest());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotions",Integer.class)).isZero();
+ }
+ @Test void reservedPromotionsAreImmutableAndChangesRequireFreshReservation(){
+  promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Approved offer"));
+  var draft=checkout.pos("alice","promotion-draft",posDraft());assertThat(draft.total()).isEqualByComparingTo("99");assertThat(draft.items().getFirst().discount()).isEqualByComparingTo("10");
+  promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("20"),"Changed offer"));
+  assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("100"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
+  checkout.cancelPos("alice",draft.id(),"Requote changed promotion");var next=checkout.pos("alice","promotion-next",posDraft());checkout.finalizeCash("alice",next.id(),new BigDecimal("100"));assertThat(next.total()).isEqualByComparingTo("88");
+ }
+ @Test void promotionAndCashSaleSerializeOnTheSameProduct() throws Exception {
+  try(var pool=Executors.newFixedThreadPool(2)){
+   Callable<Object> approve=()->promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Concurrent approved offer"));
+   Callable<Object> pay=()->service.checkout(a,"promotion-race",sale(1,"120"));
+   for(var result:pool.invokeAll(List.of(approve,pay)))result.get();
+  }
+  BigDecimal total=db.queryForObject("SELECT total FROM orders",BigDecimal.class);assertThat(total).isIn(new BigDecimal("110.00"),new BigDecimal("99.00"));assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(1);
  }
 }

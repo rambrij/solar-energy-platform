@@ -20,15 +20,15 @@ public class SalesReportService {
     public SalesReportService(SalesReportRepository reports,PosService retail,Clock clock){this.reports=reports;this.retail=retail;this.clock=clock;}
     public record Totals(long paidOrders,BigDecimal sales,BigDecimal tax,BigDecimal beforeTax,BigDecimal cashReceived,
                          BigDecimal changeGiven,BigDecimal cashApplied,long units,long invoices,long unpaidOrders,
-                         BigDecimal unpaidAmount,long cancelledOrders,long expiredOrders){}
+                         BigDecimal unpaidAmount,long cancelledOrders,long expiredOrders,BigDecimal discounts){}
     public record Channel(String channel,Totals totals){}
     public record Day(LocalDate date,Totals totals){}
     public record Report(long branchId,LocalDate from,LocalDate to,String channel,Instant generatedAt,Totals totals,List<Channel> channels,List<Day> days){}
     private static class Bucket {
         long paid,units,invoices,unpaid,cancelled,expired;
-        BigDecimal sales=BigDecimal.ZERO,tax=BigDecimal.ZERO,cash=BigDecimal.ZERO,change=BigDecimal.ZERO,unpaidAmount=BigDecimal.ZERO;
-        void add(Bucket b){paid+=b.paid;units+=b.units;invoices+=b.invoices;unpaid+=b.unpaid;cancelled+=b.cancelled;expired+=b.expired;sales=sales.add(b.sales);tax=tax.add(b.tax);cash=cash.add(b.cash);change=change.add(b.change);unpaidAmount=unpaidAmount.add(b.unpaidAmount);}
-        Totals view(){return new Totals(paid,sales,tax,sales.subtract(tax),cash,change,cash.subtract(change),units,invoices,unpaid,unpaidAmount,cancelled,expired);}
+        BigDecimal discounts=BigDecimal.ZERO,sales=BigDecimal.ZERO,tax=BigDecimal.ZERO,cash=BigDecimal.ZERO,change=BigDecimal.ZERO,unpaidAmount=BigDecimal.ZERO;
+        void add(Bucket b){discounts=discounts.add(b.discounts);paid+=b.paid;units+=b.units;invoices+=b.invoices;unpaid+=b.unpaid;cancelled+=b.cancelled;expired+=b.expired;sales=sales.add(b.sales);tax=tax.add(b.tax);cash=cash.add(b.cash);change=change.add(b.change);unpaidAmount=unpaidAmount.add(b.unpaidAmount);}
+        Totals view(){return new Totals(paid,sales,tax,sales.subtract(tax),cash,change,cash.subtract(change),units,invoices,unpaid,unpaidAmount,cancelled,expired,discounts);}
     }
     public Report report(String username,LocalDate requestedFrom,LocalDate requestedTo,String requestedChannel){
         LocalDate to=requestedTo==null?LocalDate.now(clock):requestedTo;
@@ -52,7 +52,7 @@ public class SalesReportService {
                 default -> throw new IllegalStateException("Unsupported recorded order state");
             }
         }
-        for(var row:reports.lines(scope.tenant(),scope.branch(),channel,start,until)){var b=buckets.get(row.day()).get(row.channel());b.tax=b.tax.add(row.tax());b.units+=row.units();}
+        for(var row:reports.lines(scope.tenant(),scope.branch(),channel,start,until)){var b=buckets.get(row.day()).get(row.channel());b.tax=b.tax.add(row.tax());b.units+=row.units();b.discounts=b.discounts.add(row.discounts());}
         var total=new Bucket();var byChannel=new LinkedHashMap<String,Bucket>();for(String name:names)byChannel.put(name,new Bucket());
         var days=new ArrayList<Day>();
         buckets.forEach((day,values)->{var daily=new Bucket();values.forEach((name,b)->{daily.add(b);byChannel.get(name).add(b);});total.add(daily);days.add(new Day(day,daily.view()));});

@@ -34,14 +34,14 @@ public class CheckoutService {
     public record OnlineDraft(@NotBlank @Size(max=36) String expectedCartId) {}
     public record Cash(@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived) {}
     public record Cancel(@NotBlank @Size(max=250) String reason) {}
-    public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total) {}
+    public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal discount) {}
     public record Draft(String id,String vendorName,String channel,String status,Instant expiresAt,BigDecimal total,List<Line> items,boolean paymentAvailable,String message) {}
     private ResponseStatusException missing(){return new ResponseStatusException(NOT_FOUND,"Draft unavailable");}
     private void conflict(String message){throw new ResponseStatusException(CONFLICT,message);}
     private String sha(String value){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
     private String key(String actor,String key){if(key==null||!key.matches("[A-Za-z0-9_-]{8,80}"))throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");return "draft-"+sha(actor+"|"+key);}
     private List<DraftLine> stored(DraftOrder order){return lines.lines(order.tenant(),order.id());}
-    private Draft view(DraftOrder order){return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total())).toList(),false,
+    private Draft view(DraftOrder order){return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList(),false,
         "PAID".equals(order.status())?"Cash sale completed. Receipt is available.":"Unpaid stock reservation. Online/terminal payments are not configured; no external charge was made.");}
     private Draft replay(DraftOrder order,String hash){if(!hash.equals(order.hash()))conflict("Idempotency key already used for a different draft request");return view(order);}
     public Draft online(String username,String clientKey,OnlineDraft request){
@@ -68,7 +68,7 @@ public class CheckoutService {
         for(var item:items.stream().sorted(Comparator.comparingLong(Item::productId)).toList()){
             if(!seen.add(item.productId()))conflict("Duplicate product");
             var p=catalogue.lockForSale(tenant,item.productId());var amount=pricing.line(p.price(),p.taxRate(),item.quantity());total=total.add(amount.total());
-            saved.add(new DraftLine(tenant,id,p.id(),p.name(),item.quantity(),p.price(),p.taxRate(),amount.tax(),amount.total()));
+            saved.add(new DraftLine(tenant,id,p.id(),p.name(),item.quantity(),p.price(),p.taxRate(),amount.tax(),amount.total(),p.listPrice(),p.discountPercent()));
         }
         var order=orders.saveAndFlush(new DraftOrder(id,tenant,customer,posBranch,cashier,session,channel,key,hash,total,branch,owner,expires,invoice));
         lines.saveAllAndFlush(saved);
@@ -88,7 +88,7 @@ public class CheckoutService {
         if(!"DRAFT".equals(order.status())||!order.expires().isAfter(clock.instant()))conflict("Draft is cancelled or expired; refresh/cancel it before starting another sale");
         if(cash.compareTo(order.total())<0)conflict("Cash received is below amount due");
         var stored=stored(order);
-        for(var line:stored){var p=catalogue.lockForSale(s.tenant(),line.product());if(p.price().compareTo(line.price())!=0||p.taxRate().compareTo(line.rate())!=0)conflict("Catalogue price/tax changed; cancel and recreate the draft");}
+        for(var line:stored){var p=catalogue.lockForSale(s.tenant(),line.product());if(p.price().compareTo(line.price())!=0||p.taxRate().compareTo(line.rate())!=0||p.listPrice().compareTo(line.listPrice())!=0||p.discountPercent().compareTo(line.discountPercent())!=0)conflict("Catalogue price/tax changed; cancel and recreate the draft");}
         if(!order.expires().isAfter(clock.instant()))conflict("Draft expired while validating catalogue; refresh/cancel it");
         var consumed=stock.consume(s.tenant(),id);
         var expected=new LinkedHashMap<Long,Integer>();for(var line:stored)expected.put(line.product(),line.quantity());

@@ -15,6 +15,7 @@ public class MarketplaceController {
     public MarketplaceController(CartService service,CatalogService catalogue,CustomerAccess customers){this.service=service;this.catalogue=catalogue;this.customers=customers;}
     @GetMapping("/api/marketplace/vendors") Object vendors(){return catalogue.vendors();}
     @GetMapping("/api/marketplace/vendors/{slug}/products") Object products(@PathVariable String slug){return catalogue.products(slug);}
+    @GetMapping("/api/marketplace/vendors/{slug}/categories") Object categories(@PathVariable String slug){return catalogue.categories(slug);}
     @GetMapping("/api/customer/csrf") @PreAuthorize("hasAuthority('CUSTOMER')")
     Object csrf(CsrfToken token){return Map.of("token",token.getToken());}
     @GetMapping("/api/customer/cart") @PreAuthorize("hasAuthority('CUSTOMER')")

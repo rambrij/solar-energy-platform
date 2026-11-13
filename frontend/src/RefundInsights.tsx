@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
+import ReportExport from './ReportExport';
 type Totals = { refunds:number; units:number; cash:number; beforeTax:number; tax:number };
 type Report = { branchId:number; from:string; to:string; generatedAt:string; totals:Totals; days:{date:string;totals:Totals}[]; cashiers:{cashier:string;totals:Totals}[] };
 const money=(value:number)=>Number(value).toFixed(2);
@@ -29,6 +30,7 @@ export default function RefundInsights(){
    {!report.totals.refunds&&<div className="empty-state"><h3>No paid cash refunds in this period</h3><p>Pending stock returns and rejected/uncertain requests are not recorded payouts.</p></div>}
    <h3>Paying cashier breakdown</h3><div className="refund-cashiers">{report.cashiers.map(row=><article key={row.cashier} aria-label={`Refunds paid by ${row.cashier}`}><h4>{row.cashier}</h4><dl><dt>Cash paid</dt><dd>{money(row.totals.cash)}</dd><dt>Refunds / units</dt><dd>{row.totals.refunds} / {row.totals.units}</dd><dt>Before tax / allocated tax</dt><dd>{money(row.totals.beforeTax)} / {money(row.totals.tax)}</dd></dl></article>)}</div>
    <h3>Daily cash refunds</h3><ul className="sales-trend">{report.days.map(day=><li key={day.date}><time dateTime={day.date}>{day.date}</time><meter min="0" max={maximum} value={Number(day.totals.cash)} aria-label={`Cash refunded on ${day.date}`}/><span>{money(day.totals.cash)} | {day.totals.refunds} paid refunds</span></li>)}</ul><p>Use the refund journal for individual acknowledgements and the cash drawer for counted cash and reconciliation. The paying cashier can differ from the original seller.</p>
+   <ReportExport kind="cash-refunds" from={report.from} to={report.to} disabled={busy}/>
   </>}
  </section>;
 }

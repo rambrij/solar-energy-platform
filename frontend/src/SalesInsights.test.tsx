@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, expect, it, vi } from 'vitest';
 import SalesInsights from './SalesInsights';
 import { api } from './api';
+import {requestReportExport} from './reportExportApi';
+vi.mock('./reportExportApi',()=>({requestReportExport:vi.fn(),downloadReportCsv:vi.fn()}));
 vi.mock('./api', () => ({ api: vi.fn() }));
 const totals = { paidOrders: 1, sales: 110, tax: 10, beforeTax: 100, cashReceived: 120, changeGiven: 10, cashApplied: 110, units: 1, invoices: 1, unpaidOrders: 2, unpaidAmount: 500, cancelledOrders: 3, expiredOrders: 4 };
 const report = { branchId: 1, from: '2026-11-12', to: '2026-11-13', channel: 'ALL', generatedAt: '2026-11-13T12:00:00Z', totals, channels: [{ channel: 'IN_STORE', totals }], days: [{ date: '2026-11-13', totals }] };
@@ -20,8 +22,12 @@ it('rejects reversed and oversized date ranges locally', async () => {
 });
 it('keeps the prior report and its server date labels on refresh failure', async () => {
   vi.mocked(api).mockResolvedValueOnce(report).mockRejectedValueOnce(new Error('Denied')); render(<SalesInsights/>); dates(); fireEvent.click(screen.getByText('Load sales insights')); await screen.findByText('500.00 excluded from sales');
-  dates('2026-11-10', '2026-11-11'); fireEvent.click(screen.getByText('Refresh sales insights')); await screen.findByRole('alert'); expect(screen.getByText(/2026-11-12 to 2026-11-13 UTC/)).toBeTruthy();
+  dates('2026-11-10', '2026-11-11'); fireEvent.click(screen.getByText('Refresh sales insights')); await screen.findByRole('alert'); expect(screen.getByRole('status').textContent).toContain('2026-11-12 to 2026-11-13 UTC');
 });
 it('does not describe unpaid orders as revenue in an empty paid period', async () => {
   vi.mocked(api).mockResolvedValue({ ...report, totals: { ...totals, paidOrders: 0, sales: 0, tax: 0, beforeTax: 0, cashApplied: 0 } }); render(<SalesInsights/>); dates(); fireEvent.click(screen.getByText('Load sales insights')); await screen.findByText('No paid sales in this period'); expect(screen.getByText('500.00 excluded from sales')).toBeTruthy();
+});
+
+it('exports the displayed report period rather than unsaved filter edits',async()=>{
+ vi.mocked(api).mockResolvedValue(report);vi.mocked(requestReportExport).mockResolvedValue({blob:new Blob(['csv']),filename:'sales.csv',reference:'11111111-1111-4111-8111-111111111111'});render(<SalesInsights/>);dates();fireEvent.click(screen.getByText('Load sales insights'));await screen.findByText('500.00 excluded from sales');dates('2026-11-10','2026-11-11');fireEvent.change(screen.getByLabelText('Sales export reason'),{target:{value:'Review loaded period'}});fireEvent.click(screen.getByText('Download sales CSV'));await waitFor(()=>expect(requestReportExport).toHaveBeenCalledWith('sales',{from:'2026-11-12',to:'2026-11-13',channel:'ALL',reason:'Review loaded period'}));
 });

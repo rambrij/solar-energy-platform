@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
+import ReportExport from './ReportExport';
 type Totals = { paidOrders: number; sales: number; tax: number; beforeTax: number; cashReceived: number; changeGiven: number; cashApplied: number; units: number; invoices: number; unpaidOrders: number; unpaidAmount: number; cancelledOrders: number; expiredOrders: number; discounts?: number };
 type Report = { branchId: number; from: string; to: string; channel: string; generatedAt: string; totals: Totals; channels: { channel: string; totals: Totals }[]; days: { date: string; totals: Totals }[] };
 const money = (value: number) => Number(value).toFixed(2);
@@ -30,6 +31,7 @@ export default function SalesInsights() {
       {!report.totals.paidOrders && <div className="empty-state"><h3>No paid sales in this period</h3><p>Unpaid reservations and cancellations are shown separately. They are not revenue.</p></div>}
       <div className="channel-grid">{report.channels.map(item => <section key={item.channel} aria-label={channelName(item.channel)}><h3>{channelName(item.channel)}</h3><dl className="channel-facts"><div><dt>Recorded sales</dt><dd>{money(item.totals.sales)}</dd></div><div><dt>Paid orders / units</dt><dd>{item.totals.paidOrders} / {item.totals.units}</dd></div><div><dt>Promotion discounts</dt><dd>{money(item.totals.discounts??0)}</dd></div><div><dt>Tax / invoices</dt><dd>{money(item.totals.tax)} / {item.totals.invoices}</dd></div><div><dt>Unpaid / cancelled / expired</dt><dd>{item.totals.unpaidOrders} / {item.totals.cancelledOrders} / {item.totals.expiredOrders}</dd></div></dl></section>)}</div>
       <h3>Daily recorded sales</h3><ul className="sales-trend">{report.days.map(day => <li key={day.date}><time dateTime={day.date}>{day.date}</time><meter min="0" max={maximum} value={Number(day.totals.sales)} aria-label={`Recorded sales on ${day.date}`}/><span>{money(day.totals.sales)} · {day.totals.paidOrders} paid</span></li>)}</ul><p>Cash applied is an order tender total, not a till balance. Use the cash drawer for opening float, movements and reconciliation.</p>
+      <ReportExport kind="sales" from={report.from} to={report.to} channel={report.channel} disabled={busy}/>
     </>}
   </section>;
 }

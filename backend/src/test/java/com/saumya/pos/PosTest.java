@@ -1130,4 +1130,21 @@ class PosTest {
   db.update("UPDATE orders SET status_changed_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T00:00:00Z")));db.update("UPDATE employees SET enabled=FALSE WHERE username='alice'");
   for(String day:List.of("2026-11-12","2026-11-13"))mvc.perform(get(path).param("from",day).param("to",day).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.pageTotals.paidOrders").value(day.endsWith("13")?1:0));
  }
+
+ @Test void refundHistoryPagesSearchesAndDatesRemainBranchScoped() throws Exception {
+  enableReturns();supervisor("manager");db.update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");var receipt=service.checkout(a,"history-original",new PosService.Checkout(session,List.of(new PosService.Line(1,3)),new BigDecimal("400"),false));String paying=refundSession("500");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
+  var records=new ArrayList<com.saumya.pos.returns.CashRefundService.View>();for(int i=0;i<3;i++){var r=returns.create("alice","history-return"+i,returnRequest((String)receipt.get("id"),1));returns.review("manager",r.id(),approveReturn());returns.inspect("manager",r.id(),inspectReturn("DAMAGED","QUARANTINE"));records.add(refunds.pay("manager","history-refund"+i,refundPay(r.id(),paying)));}
+  db.update("UPDATE pos_cash_refunds SET paid_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")));
+  String path="/api/vendor/pos/refunds/history";var ids=records.stream().map(com.saumya.pos.returns.CashRefundService.View::id).sorted(Comparator.reverseOrder()).toList();
+  for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("size","1").param("page",Integer.toString(page)).param("tenantId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page))).andExpect(jsonPath("$.items[0].reason").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist());
+  for(String ref:List.of(records.getFirst().id().substring(0,8),records.getFirst().returnId()))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",ref).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+  mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",receipt.get("receipt_number").toString()).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3));
+  mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other history branch')");db.update("INSERT INTO employees VALUES('history-other','unused',1,4,TRUE)");for(String actor:List.of("bob","history-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("170");assertThat(stock.atBranch(1,1,1)).isZero();
+ }
+ @Test void refundHistoryRejectsInvalidFiltersAndMissingPermissions() throws Exception {
+  String path="/api/vendor/pos/refunds/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  for(String[] bad:List.of(new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isBadRequest());
+ }
 }

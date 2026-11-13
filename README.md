@@ -75,6 +75,14 @@ There is **no automatically created application account or store data**. For a l
 
 Assign the employee to one tenant and branch and grant explicit `employee_permissions`: `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SESSION_CLOSE`, `POS_SALE_CREATE`, `POS_TENDER_CASH_RECORD`, `POS_RECEIPT_VIEW`, `POS_RECEIPT_REPRINT`. Drawer actions additionally require their matching permission: `POS_CASH_IN`, `POS_CASH_OUT`, `POS_SAFE_DROP`. After provisioning, use the employee credentials at the browser's HTTP Basic sign-in prompt, open the assigned register with an opening float, and choose stocked products for a cash sale. General onboarding tooling is still outstanding. No production mock payments are shipped.
 
+#### Add more solar demo products
+
+After the original local store exists and Flyway V10 has run, open [add-solar-demo-products.sql](docs/demo/add-solar-demo-products.sql) in MySQL Workbench, select the `solar` schema, and execute the **entire script**. It adds **18 products** across solar panels, mounting structures, solar lights, inverters, batteries and accessories, with unique SKUs/barcodes and initial stock in demo branch `900001`. All are published for the POS and [demo storefront](http://localhost:8080/vendors/vendor-900001).
+
+The script preserves existing prices, category assignments, promotions, sales and stock/reserved quantities on reruns; it never replenishes an existing inventory row. It creates no users or permissions. Prices and zero tax are illustrative demo data. Refresh the browser after loading. Scan/enter `900101` for the 550W panel, `900104` for the rooftop structure, `900107` for the street light, `900110` for the inverter or `900113` for the battery. Online reservations still require the separately configured online stock branch.
+
+If nothing is inserted, verify active tenant `900001` and its branch `900001` already exist. The final result set shows matching demo items. Conflicting product IDs, SKUs or barcodes are skipped rather than overwritten. Run the script in one Workbench connection; after an error, roll back and reconnect before retrying so session-owned staging tables are cleared.
+
 #### Optional local demo setup
 
 After the backend has created the tables, connect Workbench to the local database, select **File → Open SQL Script**, and open [docs/demo/pos-local-demo-setup.sql](docs/demo/pos-local-demo-setup.sql). Execute the entire script **once** using the lightning bolt. It creates a demo tenant/outlet, cashier permissions, register and 10 units of a demo product. It stores a BCrypt password hash and runs data inserts in a transaction; errors roll the inserts back. It does not overwrite existing records or run automatically on startup.

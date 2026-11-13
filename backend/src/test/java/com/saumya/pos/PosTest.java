@@ -771,4 +771,45 @@ class PosTest {
   }
   BigDecimal total=db.queryForObject("SELECT total FROM orders",BigDecimal.class);assertThat(total).isIn(new BigDecimal("110.00"),new BigDecimal("99.00"));assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(1);
  }
+
+ void loadSolarDemoSeed() throws Exception {
+  var file=java.nio.file.Path.of(System.getProperty("basedir"),"..","docs","demo","add-solar-demo-products.sql");
+  String sql=java.nio.file.Files.readString(file).replace("USE solar;","");
+  try(var connection=db.getDataSource().getConnection()){
+   // H2 lacks MySQL's START TRANSACTION spelling; all seed DML is identical in both jobs.
+   if(connection.getMetaData().getDatabaseProductName().equals("H2"))sql=sql.replace("START TRANSACTION;","SET AUTOCOMMIT FALSE;");
+   boolean autoCommit=connection.getAutoCommit();
+   try{new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(new org.springframework.core.io.ByteArrayResource(sql.getBytes(java.nio.charset.StandardCharsets.UTF_8))).populate(connection);}
+   finally{if(!connection.getAutoCommit())connection.rollback();connection.setAutoCommit(autoCommit);}
+  }
+ }
+ void demoStore(){db.update("INSERT INTO tenants(id,name,active,slug) VALUES(900001,'Demo store',TRUE,'vendor-900001')");db.update("INSERT INTO branches(id,tenant_id,name) VALUES(900001,900001,'Demo outlet')");}
+ @Test void solarDemoSeedAddsCategorizedProductsAndPreservesEditsStockHoldsAndSales() throws Exception {
+  var receipt=service.checkout(a,"demo-existing",sale(1,"120"));demoStore();loadSolarDemoSeed();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM product_categories WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_categories WHERE tenant_id=900001",Integer.class)).isEqualTo(6);
+  promotions.approve(900001,"demo-manager",900101,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Preserve demo offer"));
+  db.update("UPDATE products SET price=77,published=FALSE WHERE id=900101");
+  db.update("UPDATE inventory SET quantity=23,reserved=3 WHERE tenant_id=900001 AND product_id=900101");
+  db.update("UPDATE product_categories SET category_id=900024 WHERE tenant_id=900001 AND product_id=900101");loadSolarDemoSeed();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
+  assertThat(db.queryForObject("SELECT price FROM products WHERE id=900101",BigDecimal.class)).isEqualByComparingTo("77");
+  assertThat(db.queryForObject("SELECT published FROM products WHERE id=900101",Boolean.class)).isFalse();
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=900001 AND product_id=900101",Integer.class)).isEqualTo(23);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=900001 AND product_id=900101",Integer.class)).isEqualTo(3);
+  assertThat(db.queryForObject("SELECT category_id FROM product_categories WHERE tenant_id=900001 AND product_id=900101",Long.class)).isEqualTo(900024);
+  assertThat(db.queryForObject("SELECT percent FROM catalog_promotions WHERE tenant_id=900001",BigDecimal.class)).isEqualByComparingTo("10");
+  assertThat(service.receipt(a,(String)receipt.get("id")).get("id")).isEqualTo(receipt.get("id"));
+ }
+ @Test void solarDemoSeedDoesNothingWithoutAnActiveAssignedDemoBranch() throws Exception {
+  loadSolarDemoSeed();assertThat(db.queryForObject("SELECT COUNT(*) FROM products",Integer.class)).isEqualTo(2);
+  demoStore();db.update("UPDATE tenants SET active=FALSE WHERE id=900001");loadSolarDemoSeed();assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_categories",Integer.class)).isZero();
+ }
+ @Test void solarDemoSeedSkipsForeignProductIdCollisions() throws Exception {
+  demoStore();db.update("INSERT INTO products VALUES(900101,1,'FOREIGN',NULL,'Keep foreign product',9,0,TRUE)");loadSolarDemoSeed();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(17);
+  assertThat(db.queryForObject("SELECT tenant_id FROM products WHERE id=900101",Long.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory WHERE tenant_id=900001 AND product_id=900101",Integer.class)).isZero();
+ }
 }

@@ -140,7 +140,7 @@ it('shows server checkout review and invalidates it when quantities are edited',
 it('pages a bounded server catalogue and resets to page zero for new search',async()=>{
  const many=Array.from({length:26},(_,index)=>({id:index+1,sku:`P${index+1}`,name:`Panel ${String(index+1).padStart(2,'0')}`,price:100,taxRate:10,inStock:true}));
  vi.mocked(marketplaceApi).mockImplementation(async path=>publicResult(path,many));render(<Marketplace/>);await screen.findByText('Panel 01');expect(screen.queryByText('Panel 25')).toBeNull();fireEvent.click(screen.getByText('Next products'));await screen.findByText('Panel 25');expect(screen.queryByText('Panel 01')).toBeNull();expect(screen.getByText('Page 2 of 2')).toBeTruthy();
- fireEvent.change(screen.getByLabelText('Search products'),{target:{value:'Panel 01'}});await screen.findByText('Panel 01');expect(screen.getByText('Page 1 of 1')).toBeTruthy();expect(vi.mocked(marketplaceApi).mock.calls.some(([path])=>path.includes('page=0')&&path.includes('q=Panel+01')&&path.includes('size=24'))).toBe(true);
+ fireEvent.change(screen.getByLabelText('Search products'),{target:{value:'Panel 01'}});await screen.findByText('Panel 01');expect(within(screen.getByRole('navigation',{name:'Catalogue pages'})).getByText('Page 1 of 1')).toBeTruthy();expect(vi.mocked(marketplaceApi).mock.calls.some(([path])=>path.includes('page=0')&&path.includes('q=Panel+01')&&path.includes('size=24'))).toBe(true);
 });
 it('ignores stale catalogue responses after another filter is selected',async()=>{
  let finish!:(value:ReturnType<typeof publicResult>)=>void;

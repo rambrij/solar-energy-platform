@@ -6,7 +6,7 @@ export default function Shell({ mode, children }: { mode: 'pos' | 'online'; chil
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="site-header"><a className="brand" href={mode === 'pos' ? '/' : '/vendors'}><span className="brand-mark"><SolarMark/></span><span>Saumya Solar<small>ENERGY FOR A BRIGHTER TOMORROW</small></span></a>
-      <nav aria-label="Main navigation"><a href="/vendors" aria-current={mode === 'online' ? 'page' : undefined}>Marketplace</a><a href="/" aria-current={mode === 'pos' ? 'page' : undefined}>Store POS</a><a href="#order-history">{mode === 'pos' ? 'Sales history' : 'My orders'}</a>{mode === 'pos' && <a href="#sales-insights">Sales insights</a>}</nav>
+      <nav aria-label="Main navigation"><a href="/vendors" aria-current={mode === 'online' ? 'page' : undefined}>Marketplace</a><a href="/" aria-current={mode === 'pos' ? 'page' : undefined}>Store POS</a><a href="#order-history">{mode === 'pos' ? 'Sales history' : 'My orders'}</a>{mode === 'pos' && <><a href="#sales-insights">Sales insights</a><a href="#pos-returns">Returns</a></>}</nav>
     </header>
     <div className="workspace-bar"><span className="workspace-label"><span className="status-dot"/>{mode === 'pos' ? 'Retail workspace' : 'Solar marketplace'}</span><span>Shared stock · Vendor-owned sales</span></div>
     <main tabIndex={-1} id="main-content" className={mode === 'pos' ? 'workspace pos-workspace' : 'workspace marketplace-workspace'}>{children}</main>

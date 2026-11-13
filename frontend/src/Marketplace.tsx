@@ -23,6 +23,7 @@ export default function Marketplace() {
   const [switchTarget, setSwitchTarget] = useState<Target>();
   const [history, setHistory] = useState<Cart[]>(), [restoreTarget, setRestoreTarget] = useState<Cart>();
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [cartEdits,setCartEdits]=useState<Record<number,string>>({});
   const [stockRevision,setStockRevision] = useState(0);
   const [sort, setSort] = useState('name'), [inStockOnly, setInStockOnly] = useState(false);
   const visibleProducts = products.filter(product => `${product.name} ${product.sku}`.toLowerCase().includes(search.toLowerCase()) && (selectedCategory==='all'||String(product.categoryId??'other')===selectedCategory) && (!inStockOnly || product.inStock)).sort((a,b)=>sort === 'price-low' ? Number(a.price)-Number(b.price)||a.id-b.id : sort === 'price-high' ? Number(b.price)-Number(a.price)||a.id-b.id : a.name.localeCompare(b.name)||a.id-b.id);
@@ -43,9 +44,12 @@ export default function Marketplace() {
       ? 'Sign in with your global customer account to manage your cart. Staff credentials are separate.'
       : 'Request was not confirmed. Reload your cart before retrying. No payment has been taken.');
   }
+  useEffect(()=>{setCartEdits({});},[cart?.id]);
+  const cartQuantity=(line:Line)=>Number(cartEdits[line.productId]??line.quantity);
+  const validCartQuantity=(line:Line)=>Number.isInteger(cartQuantity(line))&&cartQuantity(line)>=1&&cartQuantity(line)<=10000;
   async function loadCart() {
     setBusy(true); setError(''); setNotice('');
-    try { setCart(await marketplaceApi('/api/customer/cart')); } catch (e) { failure(e); } finally { setBusy(false); }
+    try { setCart(await marketplaceApi('/api/customer/cart'));setCartEdits({}); } catch (e) { failure(e); } finally { setBusy(false); }
   }
   async function put(product: Pick<Product, 'id'>, selectedQuantity?: number) {
     const target = { vendorSlug: slug, productId: product.id, quantity: selectedQuantity ?? quantities[product.id] ?? 1 };
@@ -58,6 +62,13 @@ export default function Marketplace() {
         } catch (loadError) { failure(loadError); }
       } else failure(e);
     } finally { setBusy(false); }
+  }
+  async function updateCartQuantity(productId:number,quantity:number) {
+    if(!cart?.vendorSlug||!Number.isInteger(quantity)||quantity<1||quantity>10000)return;
+    const vendorSlug=cart.vendorSlug;
+    setBusy(true);setError('');setNotice('');
+    try{setCart(await marketplaceApi('/api/customer/cart/items','POST',{vendorSlug,productId,quantity}));setCartEdits(value=>{const next={...value};delete next[productId];return next;});}
+    catch(e){failure(e);}finally{setBusy(false);}
   }
   async function confirmSwitch() {
     if (!cart?.id || !switchTarget) return;
@@ -113,7 +124,7 @@ export default function Marketplace() {
     </section>}
     </div><aside className="cart-column"><section className="customer-cart" aria-label="Customer cart"><h2>My single-vendor cart</h2>
       <button disabled={busy || confirming} onClick={loadCart}>Sign in / reload my cart</button>
-      {cart && <><h3>{cart.vendorName ?? 'Your cart is empty'}</h3><ul>{cart.items.map(line => <li key={line.productId}>{line.name} × {line.quantity} · Unit price {money(line.unitPrice)} · Tax {money(line.tax)} · Total {money(line.total)} {Number(line.discount??0)>0&&<span className="saving-label"> · Saved {money(line.discount??null)}</span>} {!line.available && '· Unavailable for checkout'} <button disabled={busy || confirming} onClick={() => remove(line.productId)}>Remove {line.name}</button></li>)}</ul>
+      {cart && <><h3>{cart.vendorName ?? 'Your cart is empty'}</h3><ul>{cart.items.map(line => <li key={line.productId}>{line.name} × {line.quantity} · Unit price {money(line.unitPrice)} · Tax {money(line.tax)} · Total {money(line.total)} {Number(line.discount??0)>0&&<span className="saving-label"> · Saved {money(line.discount??null)}</span>} {!line.available && '· Unavailable for checkout'} <div className="cart-quantity-editor"><button disabled={busy||confirming||line.unitPrice===null||!validCartQuantity(line)||cartQuantity(line)<=1} aria-label={`Decrease cart ${line.name}`} onClick={()=>updateCartQuantity(line.productId,cartQuantity(line)-1)}>−</button><label>Cart quantity for {line.name}<input type="number" min="1" max="10000" disabled={busy||confirming||line.unitPrice===null} value={cartEdits[line.productId]??String(line.quantity)} onChange={event=>setCartEdits(value=>({...value,[line.productId]:event.target.value}))}/></label><button disabled={busy||confirming||line.unitPrice===null||!validCartQuantity(line)||cartQuantity(line)>=10000} aria-label={`Increase cart ${line.name}`} onClick={()=>updateCartQuantity(line.productId,cartQuantity(line)+1)}>+</button><button className="secondary" disabled={busy||confirming||line.unitPrice===null||!Number.isInteger(Number(cartEdits[line.productId]??line.quantity))||Number(cartEdits[line.productId]??line.quantity)<1||Number(cartEdits[line.productId]??line.quantity)>10000} onClick={()=>updateCartQuantity(line.productId,Number(cartEdits[line.productId]??line.quantity))}>Update cart {line.name}</button></div> <button disabled={busy || confirming} onClick={() => remove(line.productId)}>Remove {line.name}</button></li>)}</ul>
         <p>Current estimate: {money(cart.total)}. Prices and stock are rechecked on preview; cart items do not reserve stock.</p>
         <button disabled={busy || confirming || !cart.items.length} onClick={preview}>Preview checkout</button>
         <a className="checkout-link" href="#online-checkout">Review checkout →</a><p>{cart.message}</p>

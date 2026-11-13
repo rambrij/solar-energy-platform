@@ -1205,3 +1205,23 @@ button+button {
 @media print { .print-receipt,.shopping-steps { display:none!important; } }
 
 @media print { .workspace>p,.receipt-error { display:none!important; } }
+
+/* After-sale stock intake and absolute customer-cart edits. */
+.cart-quantity-editor { display:flex; align-items:end; gap:6px; flex-wrap:wrap; margin:10px 0; }
+.cart-quantity-editor label { margin:0; flex:1; min-width:90px; font-size:.7rem; }
+.cart-quantity-editor input { text-align:center; }
+.customer-cart .cart-quantity-editor button { display:block; margin:0; min-height:44px; padding:8px 12px; }
+.cart-quantity-editor .secondary { width:100%; }
+.return-workspace { display:grid; grid-template-columns:1.2fr 1fr; gap:20px; margin:20px 0; align-items:start; }
+.return-workspace>section { margin:0; background:#f8fafc; }
+.return-sale-search { display:flex; gap:12px; align-items:end; }
+.return-sale-search label { flex:1; min-width:0; margin:0; }
+.return-lines,.return-queue { list-style:none; padding:0; margin:14px 0; }
+.return-lines>li,.return-queue>li { border-bottom:1px solid var(--line); padding:14px 0; }
+.return-lines small { display:block; margin:5px 0; }
+.return-lines input[type=number] { max-width:130px; }
+.return-inspection-fields { display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:14px; }
+.return-recovery { padding:18px; border:1px solid #e5c87e; border-radius:10px; background:#fff8e3; }
+.return-details { border-top:3px solid #e9be47; }
+@media(max-width:900px) { .return-workspace { grid-template-columns:1fr; } .return-inspection-fields { grid-template-columns:1fr 1fr; } .return-inspection-fields label:last-child { grid-column:1/-1; } }
+@media(max-width:520px) { .return-sale-search { flex-direction:column; align-items:stretch; } .return-inspection-fields { grid-template-columns:1fr; gap:0; } .return-inspection-fields label:last-child { grid-column:auto; } .return-details .section-heading { flex-wrap:wrap; } }

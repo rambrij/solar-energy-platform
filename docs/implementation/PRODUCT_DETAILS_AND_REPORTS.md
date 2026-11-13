@@ -1,10 +1,10 @@
 # Public product details and branch channel reporting
 
-Traceability: requirements published vendor catalogue/prices and vendor analytics; SRS active-vendor/tenant-isolation rules, responsive web UI and POS-032 separate/combined channel reporting. This increment supplies basic read-only visibility over the existing canonical order, tax and cash data. It does not add online paid checkout, external tenders, discounts or refund accounting.
+Traceability: requirements published vendor catalogue/prices and vendor analytics; SRS active-vendor/tenant-isolation rules, responsive web UI and POS-032 separate/combined channel reporting. This increment supplies basic read-only visibility over the existing canonical order, tax and cash data. It does not add online paid checkout, external tenders or refund accounting; V10 adds approved catalogue promotion savings.
 
 ## Public product details
 
-GET `/api/marketplace/vendors/{slug}/products/{id}` is public and read-only. It returns `{id,vendorSlug,vendorName,sku,name,unitPrice,taxRate,unitTax,unitTotal,inStock}` for a published product belonging to an active vendor. Invalid, foreign-vendor, unpublished and inactive-vendor resources return generic 404. Barcode, stock location/quantities, customer and employee data are absent. Unit tax uses shared HALF_UP line pricing; current stock is aggregate informational availability across the vendor’s locations, not a guarantee at the designated reservation branch.
+GET `/api/marketplace/vendors/{slug}/products/{id}` is public and read-only. It returns `{id,vendorSlug,vendorName,sku,name,unitPrice,taxRate,unitTax,unitTotal,inStock,listPrice,discountPercent,categoryName}` for a published product belonging to an active vendor. Invalid, foreign-vendor, unpublished and inactive-vendor resources return generic 404. Barcode, stock location/quantities, customer and employee data are absent. Unit tax uses shared HALF_UP line pricing; current stock is aggregate informational availability across the vendor’s locations, not a guarantee at the designated reservation branch.
 
 The storefront opens a native modal with `?product=ID` as a shareable URL. It focuses Close, supports Escape when no parent request is busy and restores prior focus. Add/update submits an absolute quantity through the existing customer cart endpoint; public detail browsing does not fetch customer APIs. No new registration or payment flow is introduced. Unavailable products fail closed, retry is explicit and stale detail responses are discarded. Solar artwork is decorative, not a product photograph.
 
@@ -18,7 +18,7 @@ GET `/api/vendor/pos/reports/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&channel=ALL` re
 - Event date is `COALESCE(status_changed_at,created_at)`. DRAFT uses creation; finalization/cancellation/expiry uses its last persisted transition time. Direct/legacy cash orders without a transition timestamp use creation. A draft created yesterday but paid today contributes to today’s sales.
 - This is a report of current recorded states, not an as-of snapshot: a draft later cancelled moves to its cancellation day/status. Fully reconstructed lifecycle history and audited financial-period closing remain separate work.
 
-Response includes server branch, inclusive range, channel, generation time, combined totals, per-channel totals and zero-filled ascending daily totals. Totals contain paid order count, sales including tax, saved tax, before-tax amount, cash received/change/applied, saved sold units, tax-invoice count, unpaid count/amount, cancelled count and expired count.
+Response includes server branch, inclusive range, channel, generation time, combined totals, per-channel totals and zero-filled ascending daily totals. Totals contain paid order count, sales including tax, saved tax, before-tax amount, cash received/change/applied, saved sold units, tax-invoice count, saved pre-tax promotion discounts, unpaid count/amount, cancelled count and expired count.
 
 Only PAID orders contribute to sales, tax, units, invoices or cash. DRAFT, CANCELLED and EXPIRED rows are separate counters; unpaid amount is not revenue. Order totals and paid-line tax/quantity are aggregated independently to avoid fan-out/double counting. Catalogue edits never change saved amounts. Cash applied equals recorded cash received minus change and is not added again to sales or drawer balances. No platform settlement, subscription billing, refund or external-tender ledger is fabricated.
 
@@ -36,4 +36,6 @@ Component tests cover public product deep links, quantity updates, stock/quantit
 
 - Which production roles should receive POS_REPORT_VIEW? Demo grants are optional and do not define production policy.
 - Confirm whether analytics should ultimately offer paid-event dates, creation dates or both. Current paid figures use finalization time; current-state reservation counts are not historical lifecycle snapshots.
-- Which approved currency/tax display, vendor payment provider and statutory credit-note policy should enable paid online checkout and refunds? Until implemented, reporting cannot claim full POS-032 tender/discount/refund coverage or statutory financial statements.
+- Which approved currency/tax display, vendor payment provider and statutory credit-note policy should enable paid online checkout and refunds? Until implemented, reporting cannot claim full POS-032 external-tender/manual-override/refund coverage or statutory financial statements.
+
+V10 retail catalogue and pricing details are documented in [RETAIL_BILLING.md](RETAIL_BILLING.md). Approved line savings are included only for PAID sales and are not added again to sales or cash totals.

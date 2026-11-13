@@ -214,6 +214,20 @@ Reports require both `POS_VIEW` and the new `POS_REPORT_VIEW` permission. For ex
 
 Reports use the order’s latest recorded state change time, falling back to creation time for legacy/direct cash orders. Paid drafts appear on their finalization day. They are current-state reports, not historical as-of snapshots. Online reservations are not paid sales, and refund/external-tender reporting is not available yet. See [product detail and reporting APIs](docs/implementation/PRODUCT_DETAILS_AND_REPORTS.md).
 
+## Retail catalogue, billing and approved offers (V10)
+
+Pull the branch and rebuild. The marketplace now has a compact retail-style grid, category navigation, search/sort, one-vendor cart and three clear steps: choose products, review cart, reserve checkout. Saumya’s solar logo and blue/yellow/white/green palette remain independent; no DMart logo, branding, assets or exact color scheme is used. On tablets/mobile, category choices become a horizontal rail, cards reflow, and checkout/bill panels stack.
+
+POS supports scanning a barcode or entering an exact SKU followed by Enter. Only one exact barcode/SKU match is added; partial or ambiguous matches require manual product selection. Successful scans keep focus in the search field. Quick +/− controls and direct quantity entry update the bill; quantities are bounded by available stock and 10000. The bill separates list-price subtotal, approved promotion savings, tax, amount due, cash received and estimated change. Server prices and stock remain authoritative. Saved uncertain requests keep their original body/key and freeze edits.
+
+**Discounts are approved catalogue offers, not arbitrary cashier overrides.** A privileged manager with both `CATALOG_PROMOTION_MANAGE` and `POS_DISCOUNT_APPROVE` can PUT a reasoned product promotion. Every promotion change requires approval (effective zero override threshold). Effective unit price rounds HALF_UP to two decimals before per-line tax; marketplace cart, direct POS and reserved POS use the same price. Orders preserve original unit price, discount percentage and line savings. A changed promotion blocks finalizing an old draft until cancellation/recreation. Existing orders migrate with zero savings and their saved original price intact.
+
+For a local category/permissions demonstration, run [enable-retail-catalog.sql](docs/demo/enable-retail-catalog.sql) after the demo supervisor exists. It categorizes the existing DEMO-PANEL and grants only the named demo supervisor the approval rights; it does not activate an offer, replace category assignments, reset stock or change passwords. Use the authenticated/CSRF-protected [promotion API example](docs/implementation/RETAIL_BILLING.md) to approve an offer. Production category and role provisioning remain administrator responsibilities.
+
+Cash is the enabled payment method. UPI/card choices explain that vendor verification configuration is required and remain disabled. Online checkout still reserves an unpaid draft and cannot collect a payment. After a completed cash sale, **Print receipt copy** first requests an audited reprint, preserves document identity, marks COPY and opens the browser print dialog. A denied reprint never prints. Print CSS isolates the receipt; browser/device paper sizing still requires target-printer QA.
+
+See [retail billing APIs, pricing and tests](docs/implementation/RETAIL_BILLING.md). V10 adds tenant-owned category/promotion tables, immutable promotion audit rows and order-line savings snapshots. No existing sale, invoice, session or inventory is reset.
+
 ## Behavior
 
 ### Recover a saved vendor cart

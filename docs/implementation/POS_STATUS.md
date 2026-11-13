@@ -59,3 +59,7 @@ POS-010/POS-042 now include direct owned-reservation status lookup for customer 
 ## Aggregate report export increment
 
 POS-032/POS-040 now include explicitly permissioned, CSRF-protected sales/cash-refund CSV generation with canonical tenant/branch scope, bounded rows, spreadsheet formula protection and buyer-field exclusion. The reporting module owns immutable JPA V13 generation audits with exact-byte hashes; report writes do not change finance/inventory. Responsive export panels use loaded report filters and ignore stale/abandoned responses. See [REPORT_EXPORTS.md](REPORT_EXPORTS.md). General customer/detail exports, platform-wide masking, async export scale and statutory accounting remain release work.
+
+## Selling cashier report increment
+
+POS-032/POS-040 now include paged original-selling-cashier paid POS totals with saved tax/discount/unit/invoice/cash facts, closed-shift history and canonical assigned-branch scope. A dedicated POS_CASHIER_REPORT_VIEW gate protects employee data. Separate header/count and page-bounded line JPA aggregates prevent multiplication; page-only totals are explicitly labelled. Refund-paying cashiers and existing sales exports remain separate. See [CASHIER_SALES_REPORT.md](CASHIER_SALES_REPORT.md).

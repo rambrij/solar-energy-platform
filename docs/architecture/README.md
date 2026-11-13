@@ -87,3 +87,7 @@ Checkout owns direct-reference recovery through current shared JPA order locks/r
 ## Audited report export module
 
 Reporting depends on public checkout/returns/retail application APIs, with no reverse dependency or foreign persistence imports. It regenerates aggregate reports and writes its own immutable JPA export audit in one repeatable-read transaction. Canonical scope is stamped on every CSV row and checked against report scope; successful audit persistence precedes response delivery. CSV files are not stored server-side, only exact-byte hashes and bounded audit metadata. V13 and ArchUnit protect ownership/module boundaries. See REPORT_EXPORTS.md for aggregation-section semantics and download/retention limits.
+
+## Original selling cashier read model
+
+Checkout owns a paged JPQL header aggregate and distinct-cashier count, plus line aggregates limited to the selected cashier page. All predicates bind tenant/branch, PAID IN_STORE and shared UTC event bounds. One read-only repeatable-read snapshot protects count/header/line consistency without financial writes or foreign repository dependencies. Original seller attribution and gross order values remain separate from returns-owned cash-payout reporting. Page KPIs are not whole-branch totals. See CASHIER_SALES_REPORT.md for authorization and pagination semantics.

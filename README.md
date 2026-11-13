@@ -313,3 +313,9 @@ Expired DRAFTs cannot be paid: reload or cancel with an appropriate reason to re
 Rebuild/restart the backend to apply V13. Load **Sales insights** or **Cash refund insights**, enter a business export reason, then select **Download sales CSV** / **Download cash refund CSV**. Export requires `POS_REPORT_EXPORT` in addition to normal report permissions; refund exports also require `POS_REFUND_VIEW`. For the named local demo supervisor, optionally run [enable-report-exports.sql](docs/demo/enable-report-exports.sql). This grant script changes no cash/refund policy or stock.
 
 Files contain assigned-branch aggregates and an audited export reference. Buyer contact/tax and payment credentials are excluded. TOTAL, DAY and breakdown sections show the same activity from different views: do not sum those sections together. CSV is regenerated using current server data and is not a tax return or a drawer balance. See [export API, audit and spreadsheet handling](docs/implementation/REPORT_EXPORTS.md).
+
+### Selling cashier insights
+
+Choose **Cashier sales** in Store POS, select inclusive UTC dates and the page size, then click **Load selling cashier insights**. Cards show original paid walk-in sales, saved tax/discounts, units/invoices and cash applied, including closed shifts. The KPI totals cover only the displayed page; use Sales insights with IN_STORE for whole-branch totals. Refund payouts remain attributed separately to their paying employee.
+
+Access requires `POS_VIEW`, `POS_REPORT_VIEW` and `POS_CASHIER_REPORT_VIEW`. For the existing local demo supervisor, optionally run [enable-cashier-sales-insights.sql](docs/demo/enable-cashier-sales-insights.sql). It grants view rights only. No migration/reset is required, and the new view does not add employee identities to sales CSV exports. See [cashier report API, attribution and limits](docs/implementation/CASHIER_SALES_REPORT.md).

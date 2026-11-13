@@ -325,3 +325,9 @@ Access requires `POS_VIEW`, `POS_REPORT_VIEW` and `POS_CASHIER_REPORT_VIEW`. For
 In **Cash refunds → Cash refund journal**, choose UTC payout dates, an optional refund/return/order reference prefix or original receipt number, and page size. Click **Load cash refund journal**, then use Previous/Next/First to browse beyond the old latest-20 view. Opening a row loads the existing acknowledgement; it does not pay, print or clear a saved handover attempt.
 
 An uncertain handover restricts the journal to its return ID. Explicit cash reconciliation is still required before unlocking that attempt. The direct **Recover paid refund** lookup remains available for references outside the selected dates. No migration or extra grant is required beyond existing POS_VIEW/POS_REFUND_VIEW. See [journal API and recovery boundaries](docs/implementation/REFUND_JOURNAL_HISTORY.md).
+
+### View recorded return activity
+
+Rebuild/restart the backend to apply V14's return-event index. Open a POS return from the queue or by reference, then select **Load return audit** in **Recorded return activity**. The paged timeline shows event ID, actor, action and local time; notes and financial details are excluded. Copy generation is not proof of physical printing.
+
+Access requires `POS_VIEW`, `POS_RETURN_VIEW` and `POS_RETURN_AUDIT_VIEW`. Optionally grant the named demo supervisor view access using [enable-return-audit-view.sql](docs/demo/enable-return-audit-view.sql). Timeline reads work after shift close, change no financial/stock state and never clear saved commands. See [audit API, ordering and access limits](docs/implementation/RETURN_AUDIT_TIMELINE.md).

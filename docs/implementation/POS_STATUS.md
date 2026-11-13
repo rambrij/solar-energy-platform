@@ -67,3 +67,7 @@ POS-032/POS-040 now include paged original-selling-cashier paid POS totals with 
 ## Refund journal history increment
 
 POS-028/POS-040 now include a bounded server-side cash-payout journal with UTC dates, ID/return/order prefixes, receipt-number search and deterministic timestamp/ID ordering. Canonical tenant/branch scope applies to data and counts. Summary rows omit reasons/session/retry details; explicit selection uses the existing acknowledgement API and retains saved-handover reconciliation controls. Legacy latest-20 routes remain for compatibility. See [REFUND_JOURNAL_HISTORY.md](REFUND_JOURNAL_HISTORY.md).
+
+## Return audit timeline increment
+
+POS-037/POS-040 now include a paged metadata-only event timeline protected by POS_RETURN_AUDIT_VIEW and canonical tenant/branch scope. The JPA projection excludes notes/financial details; V14 adds a lookup/sort index only. The UI distinguishes copy generation from printing, clears stale data and preserves uncertain workflow commands. Equal-time ID ordering is deterministic, not proof of causal sequence. See [RETURN_AUDIT_TIMELINE.md](RETURN_AUDIT_TIMELINE.md).

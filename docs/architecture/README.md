@@ -95,3 +95,7 @@ Checkout owns a paged JPQL header aggregate and distinct-cashier count, plus lin
 ## Paged cash-refund journal
 
 Returns owns a read-only repeatable-read history service using private JPA specifications for both page data and count. Mandatory tenant/branch and half-open UTC payout bounds are combined with bounded reference/exact-return predicates, sorted by payout time then immutable ID. Summary DTOs omit retry/session/reason internals; full details remain behind the existing scoped acknowledgement endpoint. UI history selection cannot mutate or automatically reconcile a saved cash command. See REFUND_JOURNAL_HISTORY.md for live-offset and date-window semantics.
+
+## Read-only return audit projection
+
+Returns owns a paged JPQL projection joined to the canonical tenant/branch return case, with current case and page/count read in one repeatable-read snapshot. Only actor/action/time/ID are projected; note and financial workflow payloads are excluded. V14 indexes tenant/return/time/ID without changing event writers. Timeline reads never append events, reconcile commands or invoke inventory/financial writes. See RETURN_AUDIT_TIMELINE.md for precision, live-offset and role-policy boundaries.

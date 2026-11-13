@@ -1216,4 +1216,27 @@ class PosTest {
   assertThat(db.queryForObject("SELECT state FROM pos_sessions WHERE id=?",String.class,session)).isEqualTo("CLOSED");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isEqualTo(1);
  }
 
+ @Test void publicVendorDirectoryIsPagedSearchableAndContainsOnlyActivePublicCards() throws Exception {
+  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id)");
+  for(int i=3;i<=27;i++)db.update("INSERT INTO tenants(id,name,active,slug) VALUES(?,? ,TRUE,?)",i,"Solar Partner", "solar-"+i);
+  db.update("INSERT INTO tenants(id,name,active,slug) VALUES(28,'Hidden inactive',FALSE,'hidden-inactive'),(29,'Hidden null',TRUE,NULL),(30,'Hidden blank',TRUE,'')");
+  String path="/api/marketplace/directory";
+  for(int page=0;page<3;page++)mvc.perform(get(path).param("q","sOlAr").param("size","12").param("page",Integer.toString(page))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(3+page*12)).andExpect(jsonPath("$.items[0].active").doesNotExist()).andExpect(jsonPath("$.items[0].onlineBranchId").doesNotExist());
+  mvc.perform(get(path).param("q","solar-27")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].slug").value("solar-27"));
+  mvc.perform(get(path).param("q","hidden")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  db.update("UPDATE tenants SET name='100%_! Solar' WHERE id=27");mvc.perform(get(path).param("q","%_!")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(27));
+  mvc.perform(get(path).param("page","9999")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+  db.update("UPDATE tenants SET active=FALSE WHERE id=27");mvc.perform(get(path).param("q","solar-27")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isZero();
+ }
+ @Test void publicVendorDirectoryRejectsUnboundedInput() throws Exception {
+  for(String[] bad:List.of(new String[]{"q","x".repeat(121)},new String[]{"q","bad\nquery"},new String[]{"size","49"},new String[]{"page","-1"}))mvc.perform(get("/api/marketplace/directory").param(bad[0],bad[1])).andExpect(status().isBadRequest());
+ }
+
+ @Test void browsingAnotherVendorDirectoryPagePreservesExistingCustomerCart() throws Exception {
+  customers();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  mvc.perform(get("/api/marketplace/directory").param("q","vendor-2")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+  assertThat(marketplace.cart(100)).isEqualTo(cart);assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
+ }
+
 }

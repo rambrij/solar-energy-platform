@@ -7,6 +7,7 @@ One Spring Boot application, one MySQL 8.4 shared schema and one transaction bou
 | Package under `com.saumya.pos` | Public application API | Persistence ownership |
 |---|---|---|
 | `marketplace` | HTTP marketplace/customer adapters | Calls application APIs; no persistence |
+| `returns` | `ReturnService`, `ReturnRules` and scoped HTTP adapter | JPA intake aggregate/items/events; original-sale/stock calls use public APIs |
 | `checkout` | `CheckoutService`, `OrderHistoryService` and HTTP adapters | JPA canonical draft orders/lines, lifecycle and scheduled expiry |
 | `cart` | `CartService` and its command/result records | JPA cart aggregate/items, lifecycle `@Version`, active-customer uniqueness |
 | `catalog` | `CatalogService` DTOs and locked sale-product lookup | JPA products; immutable public directory read model over tenants |
@@ -56,3 +57,13 @@ V10 adds same-tenant category assignments and catalogue promotions with separate
 Promotion mutation is a catalogue-owned JPA application service reached through an authenticated adapter that resolves employee/tenant scope and requires both catalogue-management and discount-approval grants plus CSRF. All changes require supervisor-level approval, using an effective zero override threshold. The service locks the same product row as checkout, then the rule, validates percentage/reason, and records old/new percent, actor, reason and UTC time. Identical percentage PUTs are no-ops. Product locks and a refreshed locked promotion lookup prevent stale first-level/session snapshots during concurrent checkout. New modules still import only public application APIs.
 
 Shared PromotionPricing rounds the discounted unit price HALF_UP to currency scale before the existing shared line-tax calculation. Catalogue/cart/preview and both POS paths consume it. Order lines persist list price, nominal percent and actual line savings; V10 backfills legacy list prices from saved price with zero savings. A database check enforces nonnegative, quantity-consistent savings. Reserved finalization rechecks effective price, list price, nominal promotion and tax before consuming stock. History, receipts and paid-only JPA reporting use saved savings, never today’s offer. No arbitrary client discount field or unaudited cashier override is introduced.
+
+## POS stock return intake
+
+The returns module owns intake/line/event JPA persistence and uses public `checkout.ReturnSaleAccess`, retail context/session APIs and inventory disposition APIs. It does not import foreign entities/repositories. ArchUnit now includes returns internals and its no-JDBC boundary. Checkout exposes immutable original paid POS sale/line quantities and the branch window; it does not expose customer accounts or mutable order entities.
+
+V11 defaults branch return windows to disabled. Intake references an original same-branch order and sold items through composite foreign keys; its own named employee/session is independently linked. Original-sale and outlet locks serialize quantity claims. Non-rejected requests consume the original returnable quantity; rejecting an uninspected request releases that entitlement. Repeat create keys, immutable review decisions and inspection fingerprints recover uncertain outcomes without duplicate stock changes.
+
+Mutation lock order is outlet → owned intake session (new intake only) → original sale → return → return lines → inventory. Current locked reads/refreshes avoid MySQL repeatable-read stale recovery/quantity snapshots. Reads of return details use an authoritative return lock and current lines. The mutation transaction contains case/line state, immutable event and inventory disposition/balance updates; a failure on any line rolls all back. Sellable RESTOCK increases physical quantity without touching existing holds. QUARANTINE writes a separate disposition row and never increases free stock. Dispositions have tenant/branch/source-line foreign keys and unique return/product identity.
+
+No financial module depends on returns and no return mutation changes cash, orders, receipts, invoices or paid sales metrics. There is no refund state transition: the DTO explicitly reports NOT_INITIATED. Future refunds/credit notes must be implemented against original verified tenders and approved tax configuration rather than inferred from stock acceptance.

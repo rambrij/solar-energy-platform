@@ -236,6 +236,20 @@ Cash is the enabled payment method. UPI/card choices explain that vendor verific
 
 See [retail billing APIs, pricing and tests](docs/implementation/RETAIL_BILLING.md). V10 adds tenant-owned category/promotion tables, immutable promotion audit rows and order-line savings snapshots. No existing sale, invoice, session or inventory is reset.
 
+## POS return intake and cart quantity editing (V11)
+
+Marketplace carts now support +/− quantity controls and direct quantity updates inside the cart. Edits use the **cart’s vendor**, even when browsing another storefront. Updates set an absolute quantity, so retrying an unknown increment does not add it twice. Published items with insufficient stock can be reduced; withdrawn items can be removed. Preview and reservation still recheck availability.
+
+V11 adds **stock return intake, independent review and inspection**, separate from refunds. Branch returns are disabled by default (`branches.pos_return_window_days=0`). A trusted administrator must set an approved 1–365-day window. For the existing local demo only, run [enable-pos-return-intake.sql](docs/demo/enable-pos-return-intake.sql) after creating the demo supervisor; this explicitly enables a 30-day demo window and distinct cashier/supervisor grants. It does not reset financial or stock data, activate refunds or change passwords.
+
+1. As the cashier in an open register, use **Start a stock return** on a receipt, **Start return …** in sales history, or enter the original order ID in **Returns**. Check eligibility, select quantities, and record reason plus receipt/item proof. Do not enter buyer contact details.
+2. As a **different** authorized supervisor, load the REQUESTED queue and approve/reject with a reason. Rejection releases the claim against the original sold quantity; approval alone does not restock.
+3. Load the APPROVED queue and inspect every line. Sellable goods can be explicitly restocked; damaged/incomplete goods must stay in quarantine. Restock updates the same stock used by online and POS. Quarantined quantities remain separate and unavailable.
+
+Pending queues show up to 20 oldest requests first; inspected/rejected lists show the latest 20. Any known return reference can be loaded directly. Failed/uncertain commands retain exact retry details in sessionStorage. Retry using the original authorized employee, including after the original session closes. Reconcile an already recorded terminal review/inspection before acknowledging local recovery state.
+
+**No refund or credit note is issued by this workflow.** Return state INSPECTED means goods disposition is recorded; refund status remains NOT_INITIATED. Original orders stay financially PAID, drawer totals and paid-sales reports are unchanged. Cash refunds, original-tender verification, statutory credit notes and exchanges remain release work. See [return API, locks and verification](docs/implementation/POS_RETURN_INTAKE.md).
+
 ## Behavior
 
 ### Recover a saved vendor cart

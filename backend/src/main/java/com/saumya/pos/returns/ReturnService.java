@@ -18,6 +18,7 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service @Transactional
 public class ReturnService {
+ @org.springframework.beans.factory.annotation.Autowired private CashRefundRepository refunds;
  @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager em;
  private final ReturnRepository cases;private final ReturnItemRepository items;private final ReturnEventRepository events;
  private final ReturnSaleAccess sales;private final PosService retail;private final InventoryService stock;private final ReturnRules rules;private final Clock clock;
@@ -37,7 +38,7 @@ public class ReturnService {
  private String text(String value){if(value==null||value.isBlank()||value.length()>250)bad("Nonblank reason/proof/inspection notes up to 250 characters required");return value.strip();}
  private String hash(List<String> values){try{var digest=MessageDigest.getInstance("SHA-256");for(String value:values){byte[] bytes=value.getBytes(StandardCharsets.UTF_8);digest.update(ByteBuffer.allocate(4).putInt(bytes.length).array());digest.update(bytes);}return HexFormat.of().formatHex(digest.digest());}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
  private void event(ReturnCase c,String actor,String action,String note){events.save(new ReturnEvent(c.tenant(),c.id(),actor,action,note,clock.instant()));}
- private View view(ReturnCase c){return new View(c.id(),c.order(),c.state(),c.requester(),c.reason(),c.proof(),c.proofNote(),c.created(),c.reviewer(),c.reviewReason(),c.inspector(),"NOT_INITIATED",items.items(c.tenant(),c.id()).stream().map(i->new Line(i.product(),i.name(),i.quantity(),i.condition(),i.disposition(),i.note())).toList());}
+ private View view(ReturnCase c){return new View(c.id(),c.order(),c.state(),c.requester(),c.reason(),c.proof(),c.proofNote(),c.created(),c.reviewer(),c.reviewReason(),c.inspector(),refunds.forReturn(c.tenant(),c.id()).isPresent()?"PAID":"NOT_INITIATED",items.items(c.tenant(),c.id()).stream().map(i->new Line(i.product(),i.name(),i.quantity(),i.condition(),i.disposition(),i.note())).toList());}
  private Map<Long,Long> used(long tenant,String order){var result=new HashMap<Long,Long>();for(var line:items.used(tenant,order))result.merge(line.product(),(long)line.quantity(),Long::sum);return result;}
  public Eligibility eligibility(String username,String order){var scope=retail.scope(username);var sale=sales.read(scope.tenant(),scope.branch(),order);var used=used(scope.tenant(),order);boolean eligible=rules.eligible(sale.paidAt(),sale.windowDays(),clock.instant());return new Eligibility(order,sale.paidAt(),sale.windowDays(),sale.windowDays()>0?sale.paidAt().plus(Duration.ofDays(sale.windowDays())):null,eligible,eligible?"Receipt/item proof and independent review are required. No refund will be initiated.":"Returns are disabled or this sale is outside the configured window.",sale.items().stream().map(i->new AvailableLine(i.productId(),i.name(),i.quantity(),Math.max(0,i.quantity()-used.getOrDefault(i.productId(),0L).intValue()))).toList());}
  private View replay(PosService.Scope scope,ReturnCase prior,String fingerprint){if(prior.branch()!=scope.branch()||!prior.requester().equals(scope.cashier())||!prior.hash().equals(fingerprint))conflict("Idempotency key already used for a different return");return view(prior);}

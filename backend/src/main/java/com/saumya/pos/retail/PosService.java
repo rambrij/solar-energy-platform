@@ -36,7 +36,7 @@ public class PosService {
     public record Reconciliation(String sessionId, String state, BigDecimal openingFloat,
         BigDecimal cashReceived, BigDecimal changeGiven, BigDecimal cashIn,
         BigDecimal cashOut, BigDecimal safeDrops, BigDecimal expectedCash,
-        BigDecimal countedCash, BigDecimal variance, List<Map<String,Object>> movements) {}
+        BigDecimal countedCash, BigDecimal variance, List<Map<String,Object>> movements,BigDecimal cashRefunds) {}
     public Scope scope(String user) {
         return db.query("SELECT e.* FROM employees e JOIN tenants t ON t.id=e.tenant_id WHERE e.username=? AND e.enabled=TRUE AND t.active=TRUE",
             (r,n)->new Scope(r.getLong("tenant_id"),r.getLong("branch_id"),r.getString("username")),user)
@@ -256,9 +256,9 @@ public class PosService {
     public Reconciliation reconciliation(Scope s,String id) {
         var shift=one("SELECT state,opening_float,counted_cash FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",
             s.tenant,s.branch,s.cashier,id);
-        var sales=one("SELECT COALESCE(SUM(cash_received),0) AS received,COALESCE(SUM(change_given),0) AS change_total FROM orders WHERE tenant_id=? AND session_id=?",
-            s.tenant,id);
-        var movements=db.queryForList("SELECT id,movement_type,amount,reason,cashier,created_at FROM pos_cash_movements WHERE tenant_id=? AND session_id=? ORDER BY created_at,id",
+        var sales=db.queryForList("SELECT cash_received,change_given FROM orders WHERE tenant_id=? AND session_id=? AND status='PAID' ORDER BY id FOR UPDATE",s.tenant,id);
+        var refunds=db.queryForList("SELECT amount FROM pos_cash_refunds WHERE tenant_id=? AND session_id=? ORDER BY id FOR UPDATE",s.tenant,id);
+        var movements=db.queryForList("SELECT id,movement_type,amount,reason,cashier,created_at FROM pos_cash_movements WHERE tenant_id=? AND session_id=? ORDER BY created_at,id FOR UPDATE",
             s.tenant,id);
         BigDecimal cashIn=BigDecimal.ZERO,cashOut=BigDecimal.ZERO,drops=BigDecimal.ZERO;
         for(var row:movements) {
@@ -269,11 +269,13 @@ public class PosService {
                 case SAFE_DROP -> drops=drops.add(amount);
             }
         }
-        BigDecimal opening=(BigDecimal)shift.get("opening_float"),received=(BigDecimal)sales.get("received"),change=(BigDecimal)sales.get("change_total");
-        BigDecimal expected=opening.add(received).subtract(change).add(cashIn).subtract(cashOut).subtract(drops);
+        BigDecimal opening=(BigDecimal)shift.get("opening_float"),received=BigDecimal.ZERO,change=BigDecimal.ZERO,cashRefunds=BigDecimal.ZERO;
+        for(var sale:sales){received=received.add((BigDecimal)sale.get("cash_received"));change=change.add((BigDecimal)sale.get("change_given"));}
+        for(var refund:refunds)cashRefunds=cashRefunds.add((BigDecimal)refund.get("amount"));
+        BigDecimal expected=opening.add(received).subtract(change).add(cashIn).subtract(cashOut).subtract(drops).subtract(cashRefunds);
         BigDecimal counted=(BigDecimal)shift.get("counted_cash");
         return new Reconciliation(id,(String)shift.get("state"),opening,received,change,cashIn,cashOut,drops,expected,counted,
-            counted==null?null:counted.subtract(expected),movements);
+            counted==null?null:counted.subtract(expected),movements,cashRefunds);
     }
     @Transactional public Map<String,Object> reprint(Scope s,String id) {
         var result=receipt(s,id); audit(s,"RECEIPT_REPRINT",id);result.put("copy",true);return result;

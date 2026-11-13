@@ -6,6 +6,7 @@ const pos:NavigationItem[]=[
  {id:'current-sale',label:'Current bill',group:'Sell'},
  {id:'reserved-pos-checkout',label:'Reserved sales',group:'Sell'},
  {id:'order-history',label:'Sales history',group:'Sell'},
+ {id:'sale-receipt',label:'Current receipt',group:'Sell'},
  {id:'register',label:'Drawer & shift closing',group:'Register'},
  {id:'shift-history',label:'My closed shifts',group:'Register'},
  {id:'shift-reviews',label:'Supervisor shift review',group:'Register'},

@@ -71,3 +71,7 @@ POS-028/POS-040 now include a bounded server-side cash-payout journal with UTC d
 ## Return audit timeline increment
 
 POS-037/POS-040 now include a paged metadata-only event timeline protected by POS_RETURN_AUDIT_VIEW and canonical tenant/branch scope. The JPA projection excludes notes/financial details; V14 adds a lookup/sort index only. The UI distinguishes copy generation from printing, clears stale data and preserves uncertain workflow commands. Equal-time ID ordering is deterministic, not proof of causal sequence. See [RETURN_AUDIT_TIMELINE.md](RETURN_AUDIT_TIMELINE.md).
+
+## Paged return worklist increment
+
+POS-028/POS-033/POS-040 now include a scoped, read-only JPA worklist beyond the legacy 20-row queue, with state, inclusive UTC intake dates and return/order prefix search. Metadata-only summaries open fresh case details; live oldest-first pages preserve saved command recovery controls. V15 adds a lookup index without changing financial or stock data. See [RETURN_WORKLIST.md](RETURN_WORKLIST.md) for API bounds, default 30-day range, tests and operating limits.

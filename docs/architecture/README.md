@@ -99,3 +99,7 @@ Returns owns a read-only repeatable-read history service using private JPA speci
 ## Read-only return audit projection
 
 Returns owns a paged JPQL projection joined to the canonical tenant/branch return case, with current case and page/count read in one repeatable-read snapshot. Only actor/action/time/ID are projected; note and financial workflow payloads are excluded. V14 indexes tenant/return/time/ID without changing event writers. Timeline reads never append events, reconcile commands or invoke inventory/financial writes. See RETURN_AUDIT_TIMELINE.md for precision, live-offset and role-policy boundaries.
+
+## Paged return worklist
+
+Returns owns metadata-only JPQL page/count queries with identical mandatory tenant/branch, state, UTC intake-time and reference-prefix predicates. A read-only repeatable-read service resolves canonical employee scope through the public retail API. V15 indexes the stable oldest-intake-first traversal; no other module internals or command services are imported. UI summaries pass only the selected reference into existing fresh-detail recovery. The legacy queue remains compatible. See RETURN_WORKLIST.md for bounds and live-pagination semantics.

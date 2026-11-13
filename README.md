@@ -331,3 +331,9 @@ An uncertain handover restricts the journal to its return ID. Explicit cash reco
 Rebuild/restart the backend to apply V14's return-event index. Open a POS return from the queue or by reference, then select **Load return audit** in **Recorded return activity**. The paged timeline shows event ID, actor, action and local time; notes and financial details are excluded. Copy generation is not proof of physical printing.
 
 Access requires `POS_VIEW`, `POS_RETURN_VIEW` and `POS_RETURN_AUDIT_VIEW`. Optionally grant the named demo supervisor view access using [enable-return-audit-view.sql](docs/demo/enable-return-audit-view.sql). Timeline reads work after shift close, change no financial/stock state and never clear saved commands. See [audit API, ordering and access limits](docs/implementation/RETURN_AUDIT_TIMELINE.md).
+
+### Search the POS return worklist
+
+Rebuild/restart the backend for V15 and rebuild the frontend. In **POS returns & inspection**, use **Review queue** to filter stock-intake state, return/original-order reference prefix and inclusive UTC dates. **Load return queue** defaults to the last 30 UTC days; choose earlier dates for older cases (maximum 366-day range). Next/Previous reach cases beyond the former 20-row limit. **Open return** loads current case details before any review or inspection.
+
+Existing `POS_VIEW` + `POS_RETURN_VIEW` grants apply; no new demo SQL is needed. Reads work after shift close, do not change stock/cash and do not clear saved commands. State describes stock intake, not refund status. See [worklist API, tests and limits](docs/implementation/RETURN_WORKLIST.md).

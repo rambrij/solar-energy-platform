@@ -1147,4 +1147,21 @@ class PosTest {
   String path="/api/vendor/pos/refunds/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isBadRequest());
  }
+
+ @Test void returnAuditTimelineIncludesStockAndFinancialEventsWithoutPrivateNotes() throws Exception {
+  String returned=inspectedRefundReturn(),paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var paid=refunds.pay("manager","audit-refund-paid",refundPay(returned,paying));refunds.copy("manager",paid.id());
+  int sequence=0;for(String action:List.of("REQUESTED","APPROVED","INSPECTED","CASH_REFUND","REFUND_COPY"))db.update("UPDATE pos_return_events SET created_at=? WHERE return_id=? AND action=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z").plusSeconds(sequence++)),returned,action);
+  service.close(new PosService.Scope(1,1,"manager"),paying,new BigDecimal("90"));service.close(a,session,new BigDecimal("160"));
+  String path="/api/vendor/pos/returns/"+returned+"/events";
+  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).param("size","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("INSPECTED")).andExpect(jsonPath("$.totalElements").value(5)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].action").value("REFUND_COPY")).andExpect(jsonPath("$.items[0].note").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist());
+  mvc.perform(get(path).param("page","2").param("size","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].action").value("REQUESTED"));
+  db.update("UPDATE pos_return_events SET created_at=? WHERE return_id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z")),returned);
+  var eventIds=db.queryForList("SELECT id FROM pos_return_events WHERE return_id=?",String.class,returned).stream().sorted(Comparator.reverseOrder()).toList();
+  for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).param("size","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(eventIds.get(page*2)));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other audit branch')");db.update("INSERT INTO employees VALUES('audit-other','unused',1,4,TRUE)");
+  for(String actor:List.of("bob","audit-other"))mvc.perform(get(path).param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isNotFound());
+  mvc.perform(get(path).param("size","49").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isBadRequest());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(5);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("90");
+ }
 }

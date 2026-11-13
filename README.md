@@ -289,3 +289,9 @@ Marketplace **Preview checkout** now displays a distinct seller/item/tax/savings
 Open **Refund insights** in the POS navigation, choose an inclusive UTC date range (up to 366 days), then select **Load cash refund insights**. The report shows paid cash, saved before-tax/tax allocations, refunded units, daily totals (including zero days) and the paying cashier breakdown. It loads only when requested and requires `POS_VIEW`, `POS_REPORT_VIEW` and `POS_REFUND_VIEW` in the assigned active branch.
 
 Refunds of older sales appear on the date cash was paid, not the original sale date. This report is separate from gross marketplace/POS sales, physical stock-return state and counted drawer cash. It does not issue credit notes or calculate net accounting revenue. See [cash refund report API and semantics](docs/implementation/CASH_REFUND_REPORTS.md). The optional demo script grants these reporting rights to `local-supervisor`; rerun it after updating if that account already exists.
+
+### Paged marketplace browsing
+
+The marketplace now loads 24 products per page. Search by name or SKU, choose a category, sort by the approved promotional price, or enable **In stock only**. Filters run on the server and reset to the first page; Previous/Next/First page keep your cart intact. Search waits briefly while you type, and **Retry catalogue** retries a failed read without changing the cart.
+
+Online availability now uses the vendor's designated online stock branch and subtracts reservations. Goods held only at another physical branch do not show as online stock. Configure `tenants.online_branch_id` using the existing trusted setup before testing online availability; an unconfigured vendor can be browsed but has no online-available products. POS stock remains scoped to the cashier's branch. See [catalogue API, limits and read model](docs/implementation/CATALOGUE_SEARCH.md).

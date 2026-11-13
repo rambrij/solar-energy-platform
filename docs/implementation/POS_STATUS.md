@@ -43,3 +43,7 @@ V12 adds a default-disabled, independent supervisor cash refund for inspected no
 ## Cash refund reporting increment
 
 POS-032/POS-040 now include a dedicated branch-scoped cash-payout report with inclusive UTC filters, paid count/units/cash/net/tax allocations, daily zero buckets and paying-cashier totals. Two JPA aggregates in one consistent read snapshot prevent line multiplication. Explicit POS_VIEW/POS_REPORT_VIEW/POS_REFUND_VIEW checks and canonical membership protect employee data. The responsive screen is explicitly loaded, clears stale filters/results and leaves gross online/POS sales and drawer reconciliation separate. See [CASH_REFUND_REPORTS.md](CASH_REFUND_REPORTS.md). Provider refunds, complete net financial reports and statutory credit-note reporting remain release work.
+
+## Paged marketplace catalogue increment
+
+The public marketplace uses bounded server-side name/SKU search, category/stock filters, effective promotion-price sorting and stable product-ID ties. Stock booleans on the new catalogue and product details use designated online free stock; POS remains assigned-branch scoped. A read-only JPA projection supplies page/count/facets without exposing internal stock or importing inventory persistence classes. The responsive storefront preserves the cart across paging and ignores stale requests. See [CATALOGUE_SEARCH.md](CATALOGUE_SEARCH.md); legacy unpaged routes remain for compatibility.

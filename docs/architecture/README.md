@@ -71,3 +71,7 @@ Stock-intake mutations do not change finances. V12 adds an explicit cash refund 
 ## Refund payout reporting
 
 The returns module owns the cash-refund report service and JPA aggregate repository. Header/date/cashier and line/date/cashier aggregates use the same tenant/branch/payout-time predicates inside one read-only repeatable-read transaction. Keeping header totals separate from the line join prevents multi-line count/cash duplication. No checkout-to-returns Java dependency or reporting write model is introduced. The report groups by UTC payout date, while existing checkout reporting retains gross sale/current-state dates. See CASH_REFUND_REPORTS.md for public response semantics and incomplete financial-reporting gates.
+
+## Public catalogue search read model
+
+Catalogue owns a Spring Data JPA native read projection joining products/offers/categories and the designated online inventory row. Tenant/publication/active-vendor and branch predicates constrain both page and count. This deliberate read-model table join avoids exposing inventory internals or materializing an unbounded list of stock product IDs. It never writes inventory; all cart/reservation/POS issue/reversal mutations retain public inventory service boundaries. Repeatable-read keeps metadata and data consistent, and explicit DTOs omit internal barcode/quantity fields. See CATALOGUE_SEARCH.md for the compatibility boundary and scale limitations.

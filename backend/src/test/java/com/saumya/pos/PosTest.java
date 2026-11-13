@@ -1101,4 +1101,33 @@ class PosTest {
   assertThat(csv).contains("\"CASHIER\",\"manager\"","\"110.00\"").doesNotContain("Panel","Independent cash handover","return_id","session_id");
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("90");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
  }
+
+ @Test void cashierSalesPagesRetainOriginalSellerAndSavedAmountsAcrossClosedShifts() throws Exception {
+  configureOnline();db.update("UPDATE inventory SET quantity=10 WHERE tenant_id=1");db.update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,10)");
+  promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Approved offer"));
+  service.checkout(a,"cashier-alice-sale",new PosService.Checkout(session,List.of(new PosService.Line(1,1),new PosService.Line(3,2)),new BigDecimal("200"),true));
+  var manager=supervisor("manager");db.update("INSERT INTO registers VALUES(3,1,1)");String managerSession=(String)service.open(manager,new PosService.OpenSession(3,BigDecimal.ZERO)).get("id");
+  service.checkout(manager,"cashier-manager-sale",new PosService.Checkout(managerSession,List.of(new PosService.Line(3,1)),new BigDecimal("25"),false));
+  service.close(a,session,new BigDecimal("193"));onlineDraft("cashier-online-unpaid");db.update("UPDATE products SET price=999,tax_rate=50 WHERE tenant_id=1");
+  String path="/api/vendor/pos/reports/cashier-sales";
+  mvc.perform(get(path).param("size","1").param("tenantId","2").param("branchId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2)).andExpect(jsonPath("$.totalPages").value(2)).andExpect(jsonPath("$.items[0].cashier").value("alice")).andExpect(jsonPath("$.pageTotals.paidOrders").value(1)).andExpect(jsonPath("$.pageTotals.units").value(3)).andExpect(jsonPath("$.pageTotals.sales").value(143)).andExpect(jsonPath("$.pageTotals.tax").value(13)).andExpect(jsonPath("$.pageTotals.beforeTax").value(130)).andExpect(jsonPath("$.pageTotals.cashApplied").value(143)).andExpect(jsonPath("$.pageTotals.discounts").value(10));
+  mvc.perform(get(path).param("size","1").param("page","1").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].cashier").value("manager")).andExpect(jsonPath("$.pageTotals.sales").value(22));
+  mvc.perform(get(path).param("size","48").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.pageTotals.sales").value(165)).andExpect(jsonPath("$.pageTotals.units").value(4));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other report branch')");db.update("INSERT INTO employees VALUES('other-seller-report','unused',1,4,TRUE)");
+  for(String actor:List.of("bob","other-seller-report"))mvc.perform(get(path).with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0)).andExpect(jsonPath("$.items.length()").value(0));
+ }
+ @Test void cashierSalesReportRequiresItsOwnPermissionAndUtcBounds() throws Exception {
+  String path="/api/vendor/pos/reports/cashier-sales";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).with(user("unknown").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isForbidden());
+  for(String[] param:List.of(new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","invalid"}))mvc.perform(get(path).param(param[0],param[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isBadRequest());
+ }
+
+ @Test void sellingCashierReportUsesUtcPaidEventsAndDoesNotSubtractOtherCashierRefunds() throws Exception {
+  String returned=inspectedRefundReturn(),paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");refunds.pay("manager","cashier-insights-refund",refundPay(returned,paying));String path="/api/vendor/pos/reports/cashier-sales";
+  mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].cashier").value("alice")).andExpect(jsonPath("$.pageTotals.sales").value(110));
+  db.update("UPDATE orders SET status_changed_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")));
+  mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.pageTotals.paidOrders").value(1));
+  db.update("UPDATE orders SET status_changed_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T00:00:00Z")));db.update("UPDATE employees SET enabled=FALSE WHERE username='alice'");
+  for(String day:List.of("2026-11-12","2026-11-13"))mvc.perform(get(path).param("from",day).param("to",day).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.pageTotals.paidOrders").value(day.endsWith("13")?1:0));
+ }
 }

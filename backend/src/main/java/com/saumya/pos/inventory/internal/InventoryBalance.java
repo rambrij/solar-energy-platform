@@ -20,5 +20,6 @@ public class InventoryBalance {
     public void issue(int amount){available(amount);quantity-=amount;}
     public void reserve(int amount){available(amount);reserved+=amount;}
     public void release(int amount){if(amount<=0||amount>reserved)throw new IllegalStateException("Reservation balance mismatch");reserved-=amount;}
+    public void restock(int amount){if(amount<=0||quantity>Integer.MAX_VALUE-amount)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Restock exceeds stock capacity");quantity+=amount;}
     public void consume(int amount){release(amount);quantity-=amount;}
 }

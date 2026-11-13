@@ -28,11 +28,12 @@ class PosTest {
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
  @Autowired com.saumya.pos.catalog.PromotionService promotions;
+ @Autowired com.saumya.pos.returns.ReturnService returns;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -811,5 +812,80 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(17);
   assertThat(db.queryForObject("SELECT tenant_id FROM products WHERE id=900101",Long.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory WHERE tenant_id=900001 AND product_id=900101",Integer.class)).isZero();
+ }
+
+ com.saumya.pos.returns.ReturnService.Create returnRequest(String order,int quantity){return new com.saumya.pos.returns.ReturnService.Create(order,session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,quantity)),"Buyer returned item","ORIGINAL_RECEIPT","Original receipt and matching goods checked");}
+ void enableReturns(){db.update("UPDATE branches SET pos_return_window_days=30 WHERE id=1");}
+ com.saumya.pos.returns.ReturnService.Review approveReturn(){return new com.saumya.pos.returns.ReturnService.Review("APPROVED","Independent receipt and item review");}
+ com.saumya.pos.returns.ReturnService.Inspect inspectReturn(String condition,String disposition){return new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,condition,disposition,"Inspected received goods")));}
+ @Test void returnIntakeIsDisabledByDefaultAndRetryAfterShiftCloseDoesNotRefund(){
+  var receipt=service.checkout(a,"return-sale1",sale(1,"120"));String order=(String)receipt.get("id");
+  assertThat(returns.eligibility("alice",order).eligible()).isFalse();assertThatThrownBy(()->returns.create("alice","return-start1",returnRequest(order,1))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  enableReturns();var returned=returns.create("alice","return-start1",returnRequest(order,1));assertThat(returned.state()).isEqualTo("REQUESTED");assertThat(returned.refundStatus()).isEqualTo("NOT_INITIATED");
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isZero();
+  assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("160");service.close(a,session,new BigDecimal("160"));
+  assertThat(returns.create("alice","return-start1",returnRequest(order,1)).id()).isEqualTo(returned.id());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_movements",Integer.class)).isZero();
+  assertThatThrownBy(()->returns.create("alice","return-start1",returnRequest(order,2))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+ @Test void independentReviewAndQuarantineAreIdempotentAndNeverRestockDamagedGoods(){
+  enableReturns();supervisor("manager");var receipt=service.checkout(a,"return-sale2",sale(1,"120"));var request=returns.create("alice","return-case2",returnRequest((String)receipt.get("id"),1));
+  assertThatThrownBy(()->returns.review("alice",request.id(),approveReturn())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->returns.inspect("manager",request.id(),inspectReturn("SELLABLE","RESTOCK"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  returns.review("manager",request.id(),approveReturn());returns.review("manager",request.id(),approveReturn());
+  assertThatThrownBy(()->returns.inspect("manager",request.id(),inspectReturn("DAMAGED","RESTOCK"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  var inspected=returns.inspect("manager",request.id(),inspectReturn("DAMAGED","QUARANTINE"));assertThat(inspected.state()).isEqualTo("INSPECTED");assertThat(inspected.refundStatus()).isEqualTo("NOT_INITIATED");
+  returns.inspect("manager",request.id(),inspectReturn("DAMAGED","QUARANTINE"));returns.review("manager",request.id(),approveReturn());
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(3);
+  assertThatThrownBy(()->returns.inspect("manager",request.id(),inspectReturn("SELLABLE","RESTOCK"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->returns.create("alice","return-again",returnRequest((String)receipt.get("id"),1))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+ @Test void rejectedIntakeReleasesTheOriginalQuantityBalanceWithoutIssuingStock(){
+  enableReturns();supervisor("manager");var receipt=service.checkout(a,"return-sale3",sale(1,"120"));String order=(String)receipt.get("id");var request=returns.create("alice","return-case3",returnRequest(order,1));
+  assertThat(returns.eligibility("alice",order).items().getFirst().remaining()).isZero();returns.review("manager",request.id(),new com.saumya.pos.returns.ReturnService.Review("REJECTED","Proof did not match the original goods"));
+  assertThat(returns.eligibility("alice",order).items().getFirst().remaining()).isEqualTo(1);returns.create("alice","return-new3",returnRequest(order,1));assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
+ }
+ @Test void inspectionRollsBackAllStockAndDispositionRowsIfAnyRestockFails(){
+  enableReturns();supervisor("manager");db.update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
+  var receipt=service.checkout(a,"return-sale4",new PosService.Checkout(session,List.of(new PosService.Line(1,1),new PosService.Line(3,1)),new BigDecimal("150"),false));
+  var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Goods returned","ORIGINAL_RECEIPT","Receipt and both goods checked");var request=returns.create("alice","return-case4",command);returns.review("manager",request.id(),approveReturn());
+  var inspection=new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"SELLABLE","RESTOCK","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"SELLABLE","RESTOCK","Cable checked")));
+  db.update("UPDATE inventory SET quantity=? WHERE tenant_id=1 AND product_id=3",Integer.MAX_VALUE);assertThatThrownBy(()->returns.inspect("manager",request.id(),inspection)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND product_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isZero();assertThat(returns.get("alice",request.id()).state()).isEqualTo("APPROVED");
+  db.update("UPDATE inventory SET quantity=0 WHERE tenant_id=1 AND product_id=3");returns.inspect("manager",request.id(),inspection);returns.inspect("manager",request.id(),inspection);
+  assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(stock.atBranch(1,1,3)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(2);assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("180");
+ }
+ @Test void returnWindowAndOriginalPaidPosChannelAreEnforced(){
+  configureOnline();enableReturns();var draft=checkout.pos("alice","not-paid-return",posDraft());assertThatThrownBy(()->returns.eligibility("alice",draft.id())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);checkout.cancelPos("alice",draft.id(),"Not sold");
+  var online=onlineDraft("online-no-return");assertThatThrownBy(()->returns.eligibility("alice",online.id())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);checkout.cancelOnline("customer",online.id(),"Cancel hold");
+  var receipt=service.checkout(a,"return-sale5",sale(1,"120"));String order=(String)receipt.get("id");db.update("UPDATE orders SET status_changed_at=? WHERE id=?",java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(31),order);
+  assertThat(returns.eligibility("alice",order).eligible()).isFalse();assertThatThrownBy(()->returns.create("alice","return-old5",returnRequest(order,1))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+ @Test void returnHttpPermissionsCsrfOriginalOwnershipAndForgedFieldsFailClosed() throws Exception {
+  enableReturns();supervisor("manager");var receipt=service.checkout(a,"return-sale6",sale(1,"120"));String order=(String)receipt.get("id"),path="/api/vendor/pos/returns";
+  String body="{\"orderId\":\""+order+"\",\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}],\"reason\":\"Buyer return\",\"proof\":\"ORIGINAL_RECEIPT\",\"proofNote\":\"Receipt checked\"}";
+  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(body)).andExpect(status().isForbidden());
+  for(String forged:List.of(body.replace("\"items\"","\"tenantId\":2,\"items\""),body.replace("[{\"productId\":1,\"quantity\":1}]","[null]")))mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(forged)).andExpect(status().isBadRequest());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.refundStatus").value("NOT_INITIATED"));
+  var request=returns.list("alice","REQUESTED").getFirst();mvc.perform(get(path+"/"+request.id()).with(user("bob").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isNotFound());
+  mvc.perform(get(path).with(user("bob").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+  mvc.perform(post(path+"/"+request.id()+"/review").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_APPROVE")).contentType("application/json").content("{\"decision\":\"APPROVED\",\"reason\":\"Reviewed\"}")).andExpect(status().isForbidden());
+ }
+ @Test void concurrentReturnClaimsCannotExceedSoldQuantity() throws Exception {
+  enableReturns();var receipt=service.checkout(a,"return-sale7",sale(1,"120"));String order=(String)receipt.get("id");
+  try(var pool=Executors.newFixedThreadPool(2)){Callable<Boolean> first=()->{try{returns.create("alice","return-race1",returnRequest(order,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};Callable<Boolean> second=()->{try{returns.create("alice","return-race2",returnRequest(order,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};int successes=0;for(var result:pool.invokeAll(List.of(first,second)))if(result.get())successes++;assertThat(successes).isEqualTo(1);}
+  assertThat(db.queryForObject("SELECT SUM(quantity) FROM pos_return_items",Integer.class)).isEqualTo(1);
+ }
+ @Test void concurrentIdenticalInspectionsRestockOnlyOnce() throws Exception {
+  enableReturns();supervisor("manager");var receipt=service.checkout(a,"return-sale8",sale(1,"120"));var request=returns.create("alice","return-case8",returnRequest((String)receipt.get("id"),1));returns.review("manager",request.id(),approveReturn());
+  try(var pool=Executors.newFixedThreadPool(2)){Callable<String> inspect=()->returns.inspect("manager",request.id(),inspectReturn("SELLABLE","RESTOCK")).id();for(var result:pool.invokeAll(List.of(inspect,inspect)))assertThat(result.get()).isEqualTo(request.id());}
+  assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(3);
+ }
+
+ @Test void newReturnCanReferenceAClosedOriginalSaleFromANewOwnedShift(){
+  enableReturns();var receipt=service.checkout(a,"return-old-shift",sale(1,"120"));service.close(a,session,new BigDecimal("160"));
+  session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("20"))).get("id");
+  var request=returns.create("alice","return-new-shift",returnRequest((String)receipt.get("id"),1));assertThat(request.state()).isEqualTo("REQUESTED");assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("20");
  }
 }

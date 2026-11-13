@@ -966,4 +966,28 @@ class PosTest {
   for(int i=1;i<3;i++)refunds.pay("manager","partial-refund"+i,refundPay(ids.get(i),paying));
   assertThat(db.queryForObject("SELECT SUM(amount) FROM pos_cash_refunds",BigDecimal.class)).isEqualByComparingTo((BigDecimal)receipt.get("total"));
  }
+
+ @Test void refundReportUsesPayoutUtcDatesAndDoesNotMultiplyMultiLineCash() throws Exception {
+  enableReturns();supervisor("manager");db.update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
+  var receipt=service.checkout(a,"refund-report-sale",new PosService.Checkout(session,List.of(new PosService.Line(1,1),new PosService.Line(3,1)),new BigDecimal("150"),false));
+  var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Returned goods","ORIGINAL_RECEIPT","Receipt checked");
+  var returned=returns.create("alice","refund-report-return",command);returns.review("manager",returned.id(),approveReturn());
+  returns.inspect("manager",returned.id(),new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"DAMAGED","QUARANTINE","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"DAMAGED","QUARANTINE","Cable checked"))));
+  String paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var paid=refunds.pay("manager","refund-report-paid",refundPay(returned.id(),paying));
+  db.update("UPDATE pos_cash_refunds SET paid_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")),paid.id());
+  String path="/api/vendor/pos/reports/cash-refunds";
+  mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-13").param("tenantId","2").param("branchId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totals.refunds").value(1)).andExpect(jsonPath("$.totals.units").value(2)).andExpect(jsonPath("$.totals.cash").value(132)).andExpect(jsonPath("$.totals.beforeTax").value(120)).andExpect(jsonPath("$.totals.tax").value(12)).andExpect(jsonPath("$.days[0].totals.refunds").value(1)).andExpect(jsonPath("$.days[1].totals.refunds").value(0)).andExpect(jsonPath("$.cashiers[0].cashier").value("manager"));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");db.update("INSERT INTO employees VALUES('other-report','unused',1,3,TRUE)");
+  for(String actor:List.of("bob","other-report"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-13").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.cash").value(0)).andExpect(jsonPath("$.cashiers.length()").value(0));
+  db.update("UPDATE pos_cash_refunds SET paid_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T00:00:00Z")),paid.id());
+  for(String day:List.of("2026-11-12","2026-11-13"))mvc.perform(get(path).param("from",day).param("to",day).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.refunds").value(day.endsWith("13")?1:0));
+  assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("68");
+ }
+ @Test void refundReportRequiresAllGrantsAndValidDates() throws Exception {
+  String path="/api/vendor/pos/reports/cash-refunds";mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).with(user("non-employee").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isForbidden());
+  for(String[] range:List.of(new String[]{"2026-11-14","2026-11-13"},new String[]{"2025-01-01","2026-11-13"},new String[]{"invalid","2026-11-13"}))mvc.perform(get(path).param("from",range[0]).param("to",range[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isBadRequest());
+ }
 }

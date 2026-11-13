@@ -95,7 +95,9 @@ public class PosService {
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void draftDocuments(Scope s,String id,List<StockIssue> items,ReceiptAllocation receipt,BigDecimal total,boolean invoice){
         for(var item:items)db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,item.product,id,-item.quantity);
-        if(invoice)db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+receipt.number,catalogue.vendor(s.tenant).name(),receipt.outlet,total);
+        String seller=catalogue.vendor(s.tenant).name();
+        db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=? WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' AND receipt_seller_name IS NULL AND receipt_outlet_name IS NULL",seller,receipt.outlet,s.tenant,s.branch,id);
+        if(invoice)db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+receipt.number,seller,receipt.outlet,total);
         audit(s,"CASH_SALE",id);
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
@@ -133,8 +135,9 @@ public class PosService {
             stock.issue(s.tenant,s.branch,((Number)line.get("id")).longValue(),q);
             db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,line.get("id"),id,-q);
         }
+        String seller=catalogue.vendor(s.tenant).name();
+        db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=? WHERE tenant_id=? AND branch_id=? AND id=?",seller,branch.get("name"),s.tenant,s.branch,id);
         if(request.invoiceRequested || Boolean.TRUE.equals(branch.get("invoice_required"))) {
-            String seller=catalogue.vendor(s.tenant).name();
             db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+number,seller,branch.get("name"),total);
             audit(s,"INVOICE_ISSUE",id);
         }
@@ -143,7 +146,7 @@ public class PosService {
     }
     @Transactional
     public Map<String,Object> receipt(Scope s,String id) {
-        var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,receipt_number,tax_invoice,created_at FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' FOR UPDATE",s.tenant,s.branch,id);
+        var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,receipt_number,tax_invoice,created_at,COALESCE(status_changed_at,created_at) AS issued_at,receipt_seller_name,receipt_outlet_name FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' FOR UPDATE",s.tenant,s.branch,id);
         order.put("items",db.queryForList("SELECT name,quantity,price,tax_rate,tax,total,list_price,discount,discount_percent FROM order_items WHERE tenant_id=? AND order_id=? ORDER BY product_id FOR UPDATE",s.tenant,id));
         order.put("invoices",db.queryForList("SELECT invoice_number,seller_name,outlet_name,total,issued_at FROM vendor_invoices WHERE tenant_id=? AND order_id=? FOR UPDATE",s.tenant,id));
         return order;

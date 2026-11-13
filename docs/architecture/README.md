@@ -7,7 +7,7 @@ One Spring Boot application, one MySQL 8.4 shared schema and one transaction bou
 | Package under `com.saumya.pos` | Public application API | Persistence ownership |
 |---|---|---|
 | `marketplace` | HTTP marketplace/customer adapters | Calls application APIs; no persistence |
-| `checkout` | `CheckoutService` and draft HTTP adapters | JPA canonical draft orders/lines, lifecycle and scheduled expiry |
+| `checkout` | `CheckoutService`, `OrderHistoryService` and HTTP adapters | JPA canonical draft orders/lines, lifecycle and scheduled expiry |
 | `cart` | `CartService` and its command/result records | JPA cart aggregate/items, lifecycle `@Version`, active-customer uniqueness |
 | `catalog` | `CatalogService` DTOs and locked sale-product lookup | JPA products; immutable public directory read model over tenants |
 | `inventory` | `InventoryService` availability and scoped issue | JPA balances and reservation ledger with pessimistic tenant/branch/product locks |
@@ -36,3 +36,9 @@ The checkout module writes canonical orders/order_items through Spring Data JPA.
 V8 is a Java Flyway migration because the legacy anonymous channel check has database-generated names. It locates and replaces that check while retaining the cash equation, makes POS-only columns nullable for ONLINE orders, preserves existing paid orders, and adds same-tenant foreign keys. Hibernate still validates the migrated schema. UTC is configured for JDBC timestamps.
 
 Creation serializes on the customer (online) or owned open session (POS), locks catalogue products in ID order and then inventory. Cash finalization locks the outlet sequence, owned order, session, products and stock; cancellation/expiry lock the order and stock. Cleanup scans at most 100 expired drafts per pass and performs a separate transaction per persisted tenant/order, without relying on a request tenant context. Terminal state and hold release commit together. Session close refuses unresolved drafts. Database constraints enforce one active draft per actor/vendor, nonnegative free stock and channel-specific identity fields. Existing aggregate storefront availability remains informational; an online hold requires stock in the configured designated branch.
+
+## Scoped history read model
+
+History is a read-only application API inside the checkout module. It reuses JPA canonical orders and line snapshots rather than copying the sales ledger into a second database or reaching into retail internals. Spring Data Specifications combine mandatory customer/channel or tenant/branch/channel predicates with validated optional filters. Pagination sorts by created timestamp and ID descending for deterministic equal-time ordering. Vendor display names are resolved once per tenant per page; line snapshots are loaded only for a scoped detail request. V9 adds customer/channel/time and tenant/branch/channel/time indexes. Read APIs cannot transition orders, issue stock or change payments. Paid receipt recovery delegates to the existing authorized retail API.
+
+Pooled MySQL and H2 connections initialize their database session timezone to UTC, matching Hibernate JDBC timestamp mapping and server-generated JDBC created_at defaults. This does not rewrite persisted MySQL TIMESTAMP instants. History date-boundary and pooled-clock regressions run in both database jobs.

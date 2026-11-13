@@ -194,6 +194,16 @@ Holds expire after `checkout.reservation-ttl-seconds` (default 600; allowed 60�
 
 Unknown network outcomes retain the exact request locally. Retry that request before collecting cash again or changing sessions. Server history can recover completed receipts. If cleanup/cancellation resolved a pending attempt, inspect the server status and use the explicit acknowledgment control; reconcile any physical cash separately. See [draft API and transaction rules](docs/implementation/CHECKOUT_DRAFTS_API.md).
 
+## Order history and refreshed workspace (V9)
+
+Rebuild after pulling the branch. The shared navigation now links the marketplace, store POS and order history. The interface uses deep blue, sun yellow/orange, white and green status accents, responsive grids, touch-sized controls, keyboard focus indicators, a skip link and reduced-motion support. The marketplace adds alphabetical/price sorting, an in-stock filter and clear empty-search feedback. These filters operate on the published storefront catalogue; they do not change prices or reserve stock.
+
+Choose **My orders** in the marketplace or **Sales history** in POS, then **Load order history**. History is loaded only when requested, so anonymous browsing does not prompt for customer login. Filter by status, order-reference prefix (at least four characters), receipt number or inclusive UTC date range. Dates display in your browser's local time; the filter labels explicitly use UTC. The UI shows 10 orders per page, newest first. Use **View order …** for immutable line snapshots and cancellation details.
+
+Customer history contains only that customer's ONLINE orders across vendors. Guest POS sales are not added to a global customer account. Authorized staff with `POS_VIEW` can inspect IN_STORE orders in their assigned tenant/branch across cashiers and closed shifts; another branch or vendor is unavailable. **Open receipt …** additionally requires `POS_RECEIPT_VIEW` and a paid sale. Reprint remains separately permissioned and audited. Recovering a receipt does not clear the current cart or create another sale.
+
+Flyway V9 adds scoped history query indexes without changing sales or lifecycle states. No extra demo seed or data reset is needed. See [history API and verification](docs/implementation/ORDER_HISTORY_API.md).
+
 ## Behavior
 
 ### Recover a saved vendor cart

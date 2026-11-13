@@ -27,6 +27,7 @@ public class DraftOrder {
     @Column(name="draft_owner",length=80) private String draftOwner;
     @Column(name="cancellation_reason",length=250) private String cancellationReason;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="status_changed_at") private Instant statusChangedAt;
+    @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="created_at",insertable=false,updatable=false) private Instant createdAt;
     protected DraftOrder(){}
     public DraftOrder(String id,long tenant,Long customer,Long branch,String cashier,String session,String channel,String key,String hash,BigDecimal total,long stockBranch,String owner,Instant expires,boolean invoice){
         this.id=id;tenantId=tenant;customerId=customer;branchId=branch;this.cashier=cashier;sessionId=session;this.channel=channel;this.key=key;this.hash=hash;this.total=total;this.stockBranch=stockBranch;draftOwner=owner;expiresAt=expires;invoiceRequested=invoice;status="DRAFT";
@@ -34,6 +35,7 @@ public class DraftOrder {
     public String id(){return id;} public long tenant(){return tenantId;} public Long customer(){return customerId;} public Long branch(){return branchId;}
     public String cashier(){return cashier;} public String session(){return sessionId;} public String channel(){return channel;} public String hash(){return hash;}
     public BigDecimal total(){return total;} public BigDecimal cash(){return cashReceived;} public String status(){return status;} public Instant expires(){return expiresAt;}
+    public Instant created(){return createdAt;} public Long receiptNumber(){return receiptNumber;} public BigDecimal change(){return changeGiven;} public boolean taxInvoice(){return taxInvoice;} public String cancellationReason(){return cancellationReason;} public Instant changed(){return statusChangedAt;}
     public boolean invoiceRequested(){return invoiceRequested;}
     public void finish(String state,Instant now){status=state;draftOwner=null;statusChangedAt=now;}
     public void cancel(String reason,Instant now){cancellationReason=reason;finish("CANCELLED",now);}

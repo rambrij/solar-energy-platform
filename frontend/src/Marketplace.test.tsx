@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Marketplace from './Marketplace';
 import { marketplaceApi, MarketplaceError } from './marketplaceApi';
@@ -79,4 +79,16 @@ it('keeps active cart contents after a stale restore is rejected', async () => {
   await screen.findByText(/The cart changed or archived products are unavailable/);
   expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();
   expect(screen.queryByText(/Archived cart restored with current prices/)).toBeNull();
+});
+
+it('sorts products by price, filters stock and explains empty searches', async () => {
+  const catalogue = [...products, { id: 2, sku: 'INV', name: 'Solar Inverter', price: 250, taxRate: 10, inStock: true }, { id: 3, sku: 'BAT', name: 'Battery', price: 50, taxRate: 10, inStock: false }];
+  vi.mocked(marketplaceApi).mockImplementation(async path => path === '/api/marketplace/vendors' ? vendors : catalogue);
+  render(<Marketplace/>); await screen.findByText('Solar Panel');
+  fireEvent.change(screen.getByLabelText('Sort products'), { target: { value: 'price-high' } });
+  const region = within(screen.getByLabelText('Vendor products'));
+  expect(region.getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual(['Solar Inverter', 'Solar Panel', 'Battery']);
+  fireEvent.click(screen.getByLabelText('In stock only')); expect(region.queryByText('Battery')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Search products'), { target: { value: 'not found' } }); await screen.findByText('No matching products');
+  expect(vi.mocked(marketplaceApi).mock.calls.every(call => call[0].startsWith('/api/marketplace/'))).toBe(true);
 });

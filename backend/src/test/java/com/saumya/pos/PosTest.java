@@ -629,4 +629,55 @@ class PosTest {
   mvc.perform(post("/api/vendor/pos/drafts/"+draft.id()+"/finalize-cash").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"cashReceived\":120}")).andExpect(status().isForbidden());
   assertThat(checkout.posList("bob",session)).isEmpty();
  }
+
+ @Test void orderHistoryScopesPaginationDatesAndImmutableDetails() throws Exception {
+  var receipt=service.checkout(a,"history-cash1",sale(1,"120"));String id=(String)receipt.get("id");
+  db.update("INSERT INTO employees VALUES('colleague','unused',1,1,TRUE)");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");
+  db.update("INSERT INTO employees VALUES('other-branch','unused',1,3,TRUE)");
+  db.update("UPDATE products SET name='Renamed',price=999 WHERE tenant_id=1");
+  mvc.perform(get("/api/vendor/pos/orders").with(user("colleague").authorities(()->"POS_VIEW")).param("status","PAID").param("size","1").param("reference",receipt.get("receipt_number").toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(id));
+  mvc.perform(get("/api/vendor/pos/orders/"+id).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].name").value("Panel")).andExpect(jsonPath("$.items[0].unitPrice").value(100)).andExpect(jsonPath("$.cashReceived").value(120));
+  for(String who:List.of("bob","other-branch")){
+   mvc.perform(get("/api/vendor/pos/orders").with(user(who).authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+   mvc.perform(get("/api/vendor/pos/orders/"+id).with(user(who).authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+  }
+  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("from","2000-01-01").param("to","2000-01-01")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("reference",id.substring(0,8))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("page","1").param("size","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+ }
+ @Test void customerHistoryKeepsCancelledOrdersAndHidesOtherChannels() throws Exception {
+  configureOnline();var draft=onlineDraft("history-online");
+  checkout.cancelOnline("customer",draft.id(),"Buying later");
+  mvc.perform(get("/api/customer/orders").with(user("customer").authorities(()->"CUSTOMER")).param("status","CANCELLED")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].channel").value("ONLINE"));
+  mvc.perform(get("/api/customer/orders/"+draft.id()).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.cancellationReason").value("Buying later")).andExpect(jsonPath("$.cashReceived").doesNotExist());
+  mvc.perform(get("/api/customer/orders").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get("/api/customer/orders/"+draft.id()).with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/vendor/pos/orders/"+draft.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+  var cash=service.checkout(a,"history-guest",sale(1,"120"));
+  mvc.perform(get("/api/customer/orders/"+cash.get("id")).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+ }
+ @Test void orderHistoryRequiresPermissionsAndRejectsInvalidFilters() throws Exception {
+  mvc.perform(get("/api/vendor/pos/orders")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/customer/orders").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/vendor/pos/orders").with(user("alice"))).andExpect(status().isForbidden());
+  for(String[] parameter:List.of(new String[]{"size","51"},new String[]{"page","-1"},new String[]{"status","REFUNDED"},new String[]{"reference","%"},new String[]{"from","invalid"}))
+   mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param(parameter[0],parameter[1])).andExpect(status().isBadRequest());
+ }
+
+ @Test void orderHistoryPaginationIsStableForEqualTimestampsAndUtcDayBounds() throws Exception {
+  db.update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");var ids=new ArrayList<String>();
+  for(int n=0;n<3;n++)ids.add((String)service.checkout(a,"history-page"+n,sale(1,"120")).get("id"));
+  db.update("UPDATE orders SET created_at=? WHERE tenant_id=1",java.time.LocalDateTime.parse("2026-11-12T23:59:59"));
+  ids.sort(Comparator.reverseOrder());
+  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("size","2").param("from","2026-11-12").param("to","2026-11-12")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(2)).andExpect(jsonPath("$.items[0].id").value(ids.get(0))).andExpect(jsonPath("$.items[1].id").value(ids.get(1)));
+  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("size","2").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].id").value(ids.get(2)));
+  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("from","2026-11-13")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+ }
+
+ @Test void pooledDatabaseClockUsesUtcForJdbcAndJpaHistory() {
+  String databaseClock=db.queryForObject("SELECT CURRENT_TIMESTAMP",String.class);
+  var local=java.time.LocalDateTime.parse(databaseClock.substring(0,19).replace(' ','T'));
+  assertThat(java.time.Duration.between(local.toInstant(java.time.ZoneOffset.UTC),java.time.Instant.now()).abs()).isLessThan(java.time.Duration.ofSeconds(10));
+ }
 }

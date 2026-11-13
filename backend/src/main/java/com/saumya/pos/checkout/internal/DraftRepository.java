@@ -3,7 +3,7 @@ import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.data.jpa.repository.*;
-public interface DraftRepository extends JpaRepository<DraftOrder,String> {
+public interface DraftRepository extends JpaRepository<DraftOrder,String>, JpaSpecificationExecutor<DraftOrder> {
     Optional<DraftOrder> findByTenantIdAndKey(long tenant,String key);
     Optional<DraftOrder> findByCustomerIdAndKey(long customer,String key);
     boolean existsByTenantIdAndDraftOwner(long tenant,String owner);

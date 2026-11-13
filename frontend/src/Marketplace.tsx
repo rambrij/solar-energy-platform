@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { marketplaceApi, MarketplaceError } from './marketplaceApi';
 import ReservedDrafts from './ReservedDrafts';
+import Shell from './Shell';
+import OrderHistory from './OrderHistory';
 
 type Vendor = { id: number; slug: string; name: string };
 type Product = { id: number; sku: string; name: string; price: number; taxRate: number; inStock: boolean };
@@ -17,6 +19,8 @@ export default function Marketplace() {
   const [switchTarget, setSwitchTarget] = useState<Target>();
   const [history, setHistory] = useState<Cart[]>(), [restoreTarget, setRestoreTarget] = useState<Cart>();
   const [stockRevision,setStockRevision] = useState(0);
+  const [sort, setSort] = useState('name'), [inStockOnly, setInStockOnly] = useState(false);
+  const visibleProducts = products.filter(product => `${product.name} ${product.sku}`.toLowerCase().includes(search.toLowerCase()) && (!inStockOnly || product.inStock)).sort((a,b)=>sort === 'price-low' ? Number(a.price)-Number(b.price)||a.id-b.id : sort === 'price-high' ? Number(b.price)-Number(a.price)||a.id-b.id : a.name.localeCompare(b.name)||a.id-b.id);
   const confirming = !!switchTarget || !!restoreTarget;
   useEffect(() => {
     let active = true;
@@ -80,22 +84,23 @@ export default function Marketplace() {
       else failure(e);
     } finally { setBusy(false); }
   }
-  return <main>
-    <nav><a href="/vendors">Vendor directory</a> · <a href="/">Physical store POS</a></nav>
-    <h1>Saumya Solar Marketplace</h1><p>Choose a vendor. Your customer account works across vendors; each cart belongs to one vendor.</p>
+  return <Shell mode="online">
+    <header className="workspace-hero marketplace-hero"><div><span className="eyebrow">A brighter way to shop</span><h1>Saumya Solar Marketplace</h1><p>Choose a vendor. Your customer account works across vendors; each cart belongs to one vendor.</p><a className="hero-link" href="#vendor-directory">Explore solar vendors <span aria-hidden="true">↗</span></a></div><div className="solar-scene" aria-hidden="true"><span className="scene-sun"/><span className="scene-orbit"/><span className="scene-panels"/></div></header>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
-    <h2>Vendors</h2><ul>{vendors.map(vendor => <li key={vendor.id}><a href={`/vendors/${encodeURIComponent(vendor.slug)}`}>{vendor.name}</a></li>)}</ul>
-    {slug && <section aria-label="Vendor products"><h2>{vendors.find(vendor => vendor.slug === slug)?.name ?? 'Vendor storefront'}</h2>
+    <section id="vendor-directory" className="vendor-directory"><div className="section-heading"><div><span className="eyebrow">Find your energy partner</span><h2>Vendors</h2></div><span className="badge">{vendors.length} available</span></div><ul className="vendor-grid">{vendors.map((vendor,index) => <li key={vendor.id} className={vendor.slug === slug ? 'selected-vendor' : ''}><span className="vendor-monogram" aria-hidden="true">{vendor.name.slice(0,1)}</span><div><small>Solar energy vendor · {String(index+1).padStart(2,'0')}</small><a href={`/vendors/${encodeURIComponent(vendor.slug)}`} aria-current={vendor.slug === slug ? 'page' : undefined}>{vendor.name}</a></div><span aria-hidden="true">↗</span></li>)}</ul>{!vendors.length && <p>No vendors to display. Refresh after checking your connection.</p>}</section>
+    <div className="marketplace-grid"><div className="storefront-column">{slug && <section className="catalogue-panel" aria-label="Vendor products"><h2>{vendors.find(vendor => vendor.slug === slug)?.name ?? 'Vendor storefront'}</h2>
       <label>Search products <input value={search} onChange={e => setSearch(e.target.value)} /></label>
-      <ul>{products.filter(product => `${product.name} ${product.sku}`.toLowerCase().includes(search.toLowerCase())).map(product => {
+      <div className="catalogue-toolbar"><label>Sort products<select value={sort} onChange={event=>setSort(event.target.value)}><option value="name">Name A–Z</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></label><label className="check-label"><input type="checkbox" checked={inStockOnly} onChange={event=>setInStockOnly(event.target.checked)}/> In stock only</label><span role="status">{visibleProducts.length} products shown</span></div>
+      {!visibleProducts.length && <div className="empty-state"><h3>No matching products</h3><p>Try another search or turn off the stock filter.</p></div>}
+      <ul className="product-grid">{visibleProducts.map(product => {
         const quantity = quantities[product.id] ?? 1;
-        return <li key={product.id}><h3>{product.name}</h3><p>{product.sku} · {money(product.price)} + {product.taxRate}% tax · {product.inStock ? 'In stock' : 'Out of stock'}</p>
+        return <li key={product.id} className="product-card"><div className="product-art" aria-hidden="true"><span className="panel-illustration"/></div><h3>{product.name}</h3><p>{product.sku} · {money(product.price)} + {product.taxRate}% tax · {product.inStock ? 'In stock' : 'Out of stock'}</p>
           <label>Quantity for {product.name} <input type="number" min="1" max="10000" value={quantity} onChange={e => setQuantities({ ...quantities, [product.id]: Number(e.target.value) })} /></label>
           <button disabled={busy || confirming || !product.inStock || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000} onClick={() => put(product)}>Add or update {product.name} in cart</button>
         </li>;
       })}</ul>
     </section>}
-    <section aria-label="Customer cart"><h2>My single-vendor cart</h2>
+    </div><aside className="cart-column"><section className="customer-cart" aria-label="Customer cart"><h2>My single-vendor cart</h2>
       <button disabled={busy || confirming} onClick={loadCart}>Sign in / reload my cart</button>
       {cart && <><h3>{cart.vendorName ?? 'Your cart is empty'}</h3><ul>{cart.items.map(line => <li key={line.productId}>{line.name} × {line.quantity} · Unit price {money(line.unitPrice)} · Tax {money(line.tax)} · Total {money(line.total)} {!line.available && '· Unavailable for checkout'} <button disabled={busy || confirming} onClick={() => remove(line.productId)}>Remove {line.name}</button></li>)}</ul>
         <p>Current estimate: {money(cart.total)}. Prices and stock are rechecked on preview; cart items do not reserve stock.</p>
@@ -104,13 +109,14 @@ export default function Marketplace() {
       </>}
     </section>
     <ReservedDrafts mode="online" cartId={cart?.id} disabled={busy||confirming} onStockChange={()=>setStockRevision(value=>value+1)}/>
-    <section aria-label="Archived carts"><h2>Saved vendor carts</h2>
+    </aside></div><section aria-label="Archived carts"><h2>Saved vendor carts</h2>
       <button disabled={busy || confirming} onClick={loadHistory}>Load archived carts</button>
       {history && (history.length ? <ul>{history.map(saved => <li key={saved.id}><h3>{saved.vendorName}</h3>
         <p>{saved.items.map(line => `${line.name} × ${line.quantity}`).join(', ')} · Current estimate {money(saved.total)}</p>
         <button disabled={busy || confirming || !saved.items.length} onClick={() => setRestoreTarget(saved)}>Restore {saved.vendorName} cart</button>
       </li>)}</ul> : <p>No archived carts found.</p>)}
     </section>
+    <OrderHistory mode="online"/>
     {restoreTarget && <section role="dialog" aria-modal="true" aria-labelledby="restore-title"><h2 id="restore-title">Restore archived vendor cart?</h2>
       <p>Restore your saved {restoreTarget.vendorName} cart using current prices. Your active cart will be archived with its items retained. This does not reserve stock or place an order.</p>
       <button disabled={busy} onClick={() => setRestoreTarget(undefined)}>Keep active cart</button><button disabled={busy} onClick={restore}>Confirm cart restore</button>
@@ -119,5 +125,5 @@ export default function Marketplace() {
       <p>Your current cart belongs to {cart?.vendorName}. Confirming archives that cart and starts a new cart for this vendor. Existing cart items are retained as archived data.</p>
       <button disabled={busy} onClick={() => setSwitchTarget(undefined)}>Keep current cart</button><button disabled={busy} onClick={confirmSwitch}>Confirm vendor switch</button>
     </section>}
-  </main>;
+  </Shell>;
 }

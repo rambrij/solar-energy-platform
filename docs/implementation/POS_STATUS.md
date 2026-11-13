@@ -83,3 +83,7 @@ POS-022/POS-023/POS-025/POS-040 now include a cashier-owned, assigned-branch pag
 ## Marketplace vendor discovery increment
 
 Marketplace vendor selection now uses an anonymous bounded JPA directory with name/slug substring search, stable name/ID pages and public-card projections. The responsive UI preserves the selected storefront/cart and existing explicit vendor-switch controls; the legacy vendor-list API remains compatible. No schema or payment-policy change is introduced. See [VENDOR_DIRECTORY.md](VENDOR_DIRECTORY.md).
+
+## Responsive navigation increment
+
+Grouped marketplace/POS sidebars, active fragment/workspace states, breadcrumbs and mobile hamburger disclosure now navigate existing mounted sections. Keyboard focus, Escape, browser history and delayed session targets preserve current bills and saved commands. No service/schema/authorization change is introduced. See [WORKSPACE_NAVIGATION.md](WORKSPACE_NAVIGATION.md).

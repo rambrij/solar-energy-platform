@@ -347,3 +347,7 @@ Rebuild/restart the backend to apply V16 and rebuild the frontend. With your nam
 ### Find solar vendors
 
 Rebuild backend/frontend and open the marketplace. **Search solar vendors** finds active storefronts by public name or slug. Submit **Search vendors**, browse **Next/Previous vendors**, or clear the search. Search and paging leave your cart intact; cross-vendor cart changes still require the existing explicit confirmation. No database migration or new grant is needed. See [directory API and limits](docs/implementation/VENDOR_DIRECTORY.md).
+
+### Workspace menus
+
+Rebuild the frontend for grouped POS/marketplace section navigation. The desktop sidebar highlights the selected section and shows breadcrumbs. On mobile/tablet, use **Open workspace menu**; Escape closes it and returns focus. Section links move within the existing page and keep carts, unsent forms and saved commands mounted. Links appear when their target panels are available. See [navigation behavior and tests](docs/implementation/WORKSPACE_NAVIGATION.md).

@@ -359,3 +359,7 @@ Rebuild/restart backend for V17 and rebuild frontend. Choose **Discount history 
 ### Fast cash billing
 
 Rebuild the frontend to use **Exact amount** and rounded cash shortcuts in Current bill. They only fill **Cash received**; check physical cash before completing the sale. Short/invalid entries show what remains due and block a new sale locally. The server receipt remains authoritative for final change. Saved retries retain their original payload. No migration or new permission is needed. See [cash entry behavior and tests](docs/implementation/FAST_CASH_TENDER.md).
+
+### Choose an assigned register
+
+Rebuild/restart backend for V18 and rebuild frontend. After **Your open sessions** loads, click **Load assigned registers**, choose an available register from **Assigned register**, enter **Opening float**, then **Open session**. The demo register is `900001` when the optional setup script has been applied. In-use registers cannot be selected; resume your own existing session instead. Availability is a hint and the server checks again on opening. A failed own-session lookup must be refreshed before opening. See [register selection API and setup limits](docs/implementation/REGISTER_SELECTION.md).

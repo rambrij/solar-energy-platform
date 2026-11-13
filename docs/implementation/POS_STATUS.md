@@ -95,3 +95,7 @@ CAT-006/POS-036/POS-037 now include a tenant-scoped paged JPA history of existin
 ## Fast cash tender increment
 
 POS-005/POS-014/POS-035 now include responsive exact/rounded cash entry, cent-based validation, explicit amount-still-due feedback and a local new-sale readiness guard. Existing server calculation and saved retry payloads remain authoritative/unchanged. No schema/service/grant change is introduced. See [FAST_CASH_TENDER.md](FAST_CASH_TENDER.md).
+
+## Assigned register selection increment
+
+POS-007/POS-020/POS-025/POS-043 now include paged, canonical assigned-branch JPA register availability and an explicit-load dropdown. Only register ID/availability is exposed. OPEN/CLOSING sessions occupy registers; server opening locks remain authoritative. Unknown own-session lookup blocks new opening. V18 adds a lookup index only; existing recovery/configuration/permissions are preserved. See [REGISTER_SELECTION.md](REGISTER_SELECTION.md).

@@ -115,3 +115,7 @@ Catalogue owns an explicit JPA vendor-card projection with identical active/nonb
 ## Product promotion audit read model
 
 Catalogue owns a paged JPA change DTO and identical tenant/product page/count predicates. A repeatable-read service checks parent ownership and reads current product labels separately from historical percentage facts. Marketplace resolves canonical employee tenant scope; same-tenant branches share catalogue history. V17 adds a history index without changing writers. UI product selection and reads cannot mutate financial commands or catalogue state. See PROMOTION_AUDIT.md.
+
+## Assigned-branch register directory
+
+Retail owns a read-only immutable register mapping and JPA DTO page/count query joined to active session occupancy, exposing only id/availability. Canonical membership binds tenant/branch in one repeatable-read response. Existing unique active-register guards prevent join multiplication; V18 indexes lookup without changing writers. The UI clears stale choices and uses the existing server-authoritative open/resume path. See REGISTER_SELECTION.md.

@@ -55,3 +55,7 @@ POS-005/POS-006/POS-033/POS-035 now include bounded server-side staff search/fil
 ## Reservation reference recovery increment
 
 POS-010/POS-042 now include direct owned-reservation status lookup for customer ONLINE and assigned tenant/branch/cashier POS records, independent of recent-list limits. Current JPA order/line reads retain immutable snapshots, accurate terminal-state messages and an elapsed-expiry hint without stock/payment writes. The responsive reference form pins recovered records, preserves financial retry locks and known holds on refresh failure, and blocks old-session/expired cash commands. See [DRAFT_REFERENCE_RECOVERY.md](DRAFT_REFERENCE_RECOVERY.md).
+
+## Aggregate report export increment
+
+POS-032/POS-040 now include explicitly permissioned, CSRF-protected sales/cash-refund CSV generation with canonical tenant/branch scope, bounded rows, spreadsheet formula protection and buyer-field exclusion. The reporting module owns immutable JPA V13 generation audits with exact-byte hashes; report writes do not change finance/inventory. Responsive export panels use loaded report filters and ignore stale/abandoned responses. See [REPORT_EXPORTS.md](REPORT_EXPORTS.md). General customer/detail exports, platform-wide masking, async export scale and statutory accounting remain release work.

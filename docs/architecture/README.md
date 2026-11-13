@@ -83,3 +83,7 @@ Retail's POS catalogue controller resolves canonical employee/branch scope and i
 ## Reservation status recovery
 
 Checkout owns direct-reference recovery through current shared JPA order locks/refresh and current line reads. Customer lookup binds verified global principal plus ONLINE channel; POS lookup binds canonical tenant/branch/cashier plus IN_STORE and a reservation expiry. A pure policy distinguishes recorded terminal state from elapsed-but-not-yet-released holds. GET reads never mutate inventory or finance. Existing checkout write services retain cancellation, expiry and finalization ownership. UI status lookup is pinned independently of bounded recent lists, and cannot replace or clear an uncertain cash command.
+
+## Audited report export module
+
+Reporting depends on public checkout/returns/retail application APIs, with no reverse dependency or foreign persistence imports. It regenerates aggregate reports and writes its own immutable JPA export audit in one repeatable-read transaction. Canonical scope is stamped on every CSV row and checked against report scope; successful audit persistence precedes response delivery. CSV files are not stored server-side, only exact-byte hashes and bounded audit metadata. V13 and ArchUnit protect ownership/module boundaries. See REPORT_EXPORTS.md for aggregation-section semantics and download/retention limits.

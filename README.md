@@ -307,3 +307,9 @@ Scan a barcode or enter a full SKU and press Enter / **Add exact match**. Lookup
 In the marketplace reservation panel or POS **Reserve and complete a walk-in sale**, enter the known ID in **Reservation reference**, then click **Recover reservation by reference**. The server checks ownership and loads the saved lines even when the reservation is outside the recent list. Lookup does not pay, cancel or release stock.
 
 Expired DRAFTs cannot be paid: reload or cancel with an appropriate reason to resolve a remaining hold. A reservation from another POS session cannot be paid from the current register. PAID means recover the original receipt, not collect money again. A saved uncertain cash/create command still needs its exact retry; reading a status never clears it automatically. If refresh fails, known holds stay blocked until reverified. See [reservation recovery API and state rules](docs/implementation/DRAFT_REFERENCE_RECOVERY.md).
+
+### Download sales and cash-refund CSV reports
+
+Rebuild/restart the backend to apply V13. Load **Sales insights** or **Cash refund insights**, enter a business export reason, then select **Download sales CSV** / **Download cash refund CSV**. Export requires `POS_REPORT_EXPORT` in addition to normal report permissions; refund exports also require `POS_REFUND_VIEW`. For the named local demo supervisor, optionally run [enable-report-exports.sql](docs/demo/enable-report-exports.sql). This grant script changes no cash/refund policy or stock.
+
+Files contain assigned-branch aggregates and an audited export reference. Buyer contact/tax and payment credentials are excluded. TOTAL, DAY and breakdown sections show the same activity from different views: do not sum those sections together. CSV is regenerated using current server data and is not a tax return or a drawer balance. See [export API, audit and spreadsheet handling](docs/implementation/REPORT_EXPORTS.md).

@@ -1164,4 +1164,26 @@ class PosTest {
   mvc.perform(get(path).param("size","49").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isBadRequest());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(5);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("90");
  }
+ @Test void pagedReturnQueueFindsCasesBeyondTwentyAndEnforcesReadOnlyBranchScope() throws Exception {
+  db.update("UPDATE branches SET pos_return_window_days=30 WHERE id=1");db.update("UPDATE inventory SET quantity=25 WHERE tenant_id=1");
+  String order=(String)service.checkout(a,"queue-sale",new PosService.Checkout(session,List.of(new PosService.Line(1,25)),new BigDecimal("2750"),false)).get("id");
+  var ids=new ArrayList<String>();for(int i=0;i<25;i++)ids.add(returns.create("alice","queue-case-"+i,returnRequest(order,1)).id());
+  db.update("UPDATE pos_returns SET created_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")));ids.sort(Comparator.naturalOrder());
+  service.close(a,session,new BigDecimal("2800"));String path="/api/vendor/pos/returns/queue";
+  for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].reason").doesNotExist()).andExpect(jsonPath("$.items[0].requester").doesNotExist()).andExpect(jsonPath("$.items[0].items").doesNotExist());
+  mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",ids.getLast()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+  mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",order.toUpperCase(Locale.ROOT)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25));
+  mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("state","APPROVED").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  db.update("INSERT INTO employees VALUES('queue-manager','unused',1,1,TRUE)");returns.review("queue-manager",ids.getFirst(),approveReturn());
+  for(String state:List.of("ALL","REQUESTED","APPROVED"))mvc.perform(get(path).param("state",state).param("from","2026-11-12").param("to","2026-11-12").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(state.equals("ALL")?25:state.equals("REQUESTED")?24:1));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other queue branch')");db.update("INSERT INTO employees VALUES('queue-other','unused',1,4,TRUE)");
+  for(String actor:List.of("bob","queue-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(26);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("2800");
+ }
+ @Test void returnQueueRejectsMissingPermissionsAndInvalidFilters() throws Exception {
+  String path="/api/vendor/pos/returns/queue";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  for(String[] bad:List.of(new String[]{"state","PAID"},new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","bad-date"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isBadRequest());
+ }
+
 }

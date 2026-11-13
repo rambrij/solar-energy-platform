@@ -1,0 +1,4 @@
+import {expect,it} from 'vitest';
+import {availableNavigation,navigationItems,selectedNavigation} from './navigation';
+it('groups unique workspace-specific destinations without dead targets',()=>{for(const mode of ['pos','online'] as const){const items=navigationItems(mode);expect(new Set(items.map(item=>item.id)).size).toBe(items.length);const available=availableNavigation(mode,new Set(['main-content','order-history']));expect(available.map(item=>item.id)).toEqual(['main-content','order-history']);}expect(navigationItems('online').some(item=>item.id==='cash-refunds')).toBe(false);});
+it('selects a known destination or falls back to overview',()=>{const items=availableNavigation('pos',new Set(['main-content','register']));expect(selectedNavigation(items,'#register')?.label).toBe('Drawer & shift closing');expect(selectedNavigation(items,'#missing')?.id).toBe('main-content');expect(selectedNavigation(items,'#checkout')?.id).toBe('main-content');});

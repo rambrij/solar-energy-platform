@@ -1203,3 +1203,5 @@ button+button {
  .payment-methods label { padding:9px 7px; }
 }
 @media print { .print-receipt,.shopping-steps { display:none!important; } }
+
+@media print { .workspace>p,.receipt-error { display:none!important; } }

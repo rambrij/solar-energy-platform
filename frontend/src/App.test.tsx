@@ -145,10 +145,10 @@ it('can finalize an owned reservation after its hold reduces free catalogue stoc
  fireEvent.change(screen.getByLabelText('Cash received for reserved sale'), { target: { value: '100' } }); const complete = screen.getByText('Complete reserved cash sale'); expect((complete as HTMLButtonElement).disabled).toBe(false); fireEvent.click(complete);
  await screen.findByLabelText('Sale receipt'); expect(api).toHaveBeenCalledWith('/drafts/d1/finalize-cash', { cashReceived: '100' }, undefined);
 });
-it('does not print when the server denies the audited reprint', async () => {
+it('does not print a denied reprint and clears the old error before a successful retry', async () => {
  retailMock(); const receipt = { id: 'order-1', branch_id: 1, receipt_number: 1, total: 99, cash_received: 100, change_given: 1, tax_invoice: false, items: [], invoices: [] };
- const original = vi.mocked(api).getMockImplementation()!;
- vi.mocked(api).mockImplementation(async (path, body, key) => { if (path === '/sales') return receipt; if (path === '/receipts/order-1/reprint') throw new ApiError(403); return original(path, body, key); });
+ const original = vi.mocked(api).getMockImplementation()!; let denied = true;
+ vi.mocked(api).mockImplementation(async (path, body, key) => { if (path === '/sales') return receipt; if (path === '/receipts/order-1/reprint') { if (denied) throw new ApiError(403); return { ...receipt, copy: true }; } return original(path, body, key); });
  const print = vi.spyOn(window, 'print').mockImplementation(() => {}); render(<App/>); fireEvent.click(await screen.findByText('Add Panel')); fireEvent.change(screen.getByLabelText('Cash received'), { target: { value: '100' } }); fireEvent.click(screen.getByText('Complete cash sale')); fireEvent.click(await screen.findByText('Print receipt copy'));
- await screen.findByText('Request failed (403).'); expect(print).not.toHaveBeenCalled();
+ await screen.findByText('Request failed (403).'); expect(print).not.toHaveBeenCalled(); denied = false; fireEvent.click(screen.getByText('Print receipt copy')); await waitFor(() => expect(print).toHaveBeenCalledOnce()); expect(screen.queryByText('Request failed (403).')).toBeNull();
 });

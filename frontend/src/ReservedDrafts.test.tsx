@@ -1,11 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import ReservedDrafts from './ReservedDrafts';
 import { api } from './api';
 import { marketplaceApi } from './marketplaceApi';
 vi.mock('./api', async original => ({ ...await original<typeof import('./api')>(), api: vi.fn() }));
 vi.mock('./marketplaceApi', async original => ({ ...await original<typeof import('./marketplaceApi')>(), marketplaceApi: vi.fn() }));
-const draft = { id: 'd1', vendorName: 'Vendor A', channel: 'IN_STORE', status: 'DRAFT', total: 110, expiresAt: '2030-01-01T00:00:00Z', message: 'Unpaid reservation', items: [{ productId: 1, name: 'Panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }] };
+const draft = { id: 'd1', vendorName: 'Vendor A', channel: 'IN_STORE', sessionId:'s1', status: 'DRAFT', total: 110, expiresAt: '2030-01-01T00:00:00Z', message: 'Unpaid reservation', items: [{ productId: 1, name: 'Panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }] };
 afterEach(() => { cleanup(); vi.resetAllMocks(); sessionStorage.clear(); });
 it('does not prompt anonymous marketplace visitors until they reserve or load drafts', async () => {
   vi.mocked(marketplaceApi).mockImplementation(async (_path, method) => method === 'POST' ? { ...draft, channel: 'ONLINE' } : [{ ...draft, channel: 'ONLINE' }]);
@@ -74,4 +74,11 @@ it('keeps an uncertain cash command locked when a reference lookup finds PAID',a
 
 it('retains the known hold and blocks new commands after status refresh fails',async()=>{
  let denied=false;vi.mocked(api).mockImplementation(async path=>{if(denied)throw new Error('Offline');return path==='/drafts/d1'?draft:[draft];});const onBlocked=vi.fn();render(<ReservedDrafts mode="pos" session="s1" onBlocked={onBlocked}/>);await screen.findByLabelText('Draft d1');fireEvent.change(screen.getByLabelText('Cancellation reason'),{target:{value:'Buyer cancelled'}});denied=true;fireEvent.click(screen.getByText('Reload reserved drafts'));await screen.findByText(/Displayed records are last known/);expect(screen.getByLabelText('Draft d1')).toBeTruthy();expect((screen.getByText('Cancel draft d1') as HTMLButtonElement).disabled).toBe(true);expect(onBlocked).toHaveBeenLastCalledWith(true);
+});
+
+it('keeps cash and cancellation reason attached to each reservation instead of shared inputs',async()=>{
+ vi.mocked(api).mockResolvedValue([draft,{...draft,id:'d2',total:220}]);render(<ReservedDrafts mode="pos" session="s1"/>);const first=await screen.findByLabelText('Draft d1'),second=screen.getByLabelText('Draft d2');fireEvent.change(within(first).getByLabelText('Cash received for reserved sale'),{target:{value:'110'}});fireEvent.change(within(first).getByLabelText('Cancellation reason'),{target:{value:'First only'}});expect((within(first).getByText('Complete reserved cash sale') as HTMLButtonElement).disabled).toBe(false);expect((within(second).getByText('Complete reserved cash sale') as HTMLButtonElement).disabled).toBe(true);expect((within(second).getByLabelText('Cancellation reason') as HTMLInputElement).value).toBe('');const descriptions=screen.getAllByLabelText('Cash received for reserved sale').map(input=>input.getAttribute('aria-describedby'));expect(new Set(descriptions).size).toBe(2);
+});
+it('offers exact cash for the selected reservation and blocks a short amount',async()=>{
+ vi.mocked(api).mockResolvedValue([draft]);render(<ReservedDrafts mode="pos" session="s1"/>);await screen.findByLabelText('Draft d1');fireEvent.change(screen.getByLabelText('Cash received for reserved sale'),{target:{value:'109.99'}});expect((screen.getByText('Complete reserved cash sale') as HTMLButtonElement).disabled).toBe(true);fireEvent.click(screen.getByRole('button',{name:/Exact amount/}));expect((screen.getByLabelText('Cash received for reserved sale') as HTMLInputElement).value).toBe('110.00');expect((screen.getByText('Complete reserved cash sale') as HTMLButtonElement).disabled).toBe(false);expect(vi.mocked(api).mock.calls.every(call=>call[1]===undefined)).toBe(true);
 });

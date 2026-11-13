@@ -1,1 +1,1 @@
-export type Draft={id:string;vendorName:string;channel:string;status:string;expiresAt:string;total:number;message:string;sessionId?:string|null;expired?:boolean;items:{productId:number;name:string;quantity:number;unitPrice:number;tax:number;total:number;discount?:number}[]};
+export type Draft={id:string;vendorName:string;channel:string;status:string;expiresAt:string;total:number;message:string;sessionId:string|null;expired?:boolean;items:{productId:number;name:string;quantity:number;unitPrice:number;tax:number;total:number;discount?:number}[]};

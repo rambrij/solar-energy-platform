@@ -146,7 +146,7 @@ it('prints only after an audited copy response and keeps the saved receipt ident
 it('can finalize an owned reservation after its hold reduces free catalogue stock to zero', async () => {
  retailMock(); let held = false, paid = false;
  const original = vi.mocked(api).getMockImplementation()!;
- const draft = { id: 'd1', vendorName: 'Store', channel: 'IN_STORE', status: 'DRAFT', expiresAt: '2099-01-01T00:00:00Z', total: 99, message: 'Unpaid reservation', items: [{ productId: 1, name: 'Panel', quantity: 1, unitPrice: 90, tax: 9, total: 99, discount: 10 }] };
+ const draft = { id: 'd1', vendorName: 'Store', channel: 'IN_STORE', sessionId:'session', status: 'DRAFT', expiresAt: '2099-01-01T00:00:00Z', total: 99, message: 'Unpaid reservation', items: [{ productId: 1, name: 'Panel', quantity: 1, unitPrice: 90, tax: 9, total: 99, discount: 10 }] };
  const receipt = { id: 'd1', branch_id: 1, receipt_number: 1, total: 99, cash_received: 100, change_given: 1, tax_invoice: false, items: [{ name: 'Panel', quantity: 1, price: 90, tax: 9, tax_rate: 10, total: 99, discount: 10 }], invoices: [] };
  mockBackend(async (path, body, key) => {
   if (path === '/products') return [{ id: 1, name: 'Panel', sku: 'P1', barcode: '123', price: 90, list_price: 100, tax_rate: 10, quantity: held ? 0 : 1 }];

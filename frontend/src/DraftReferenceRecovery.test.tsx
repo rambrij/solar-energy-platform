@@ -6,7 +6,7 @@ import {marketplaceApi} from './marketplaceApi';
 import type {Draft} from './draftTypes';
 vi.mock('./api',async original=>({...await original<typeof import('./api')>(),api:vi.fn()}));
 vi.mock('./marketplaceApi',()=>({marketplaceApi:vi.fn()}));
-const draft:Draft={id:'old-draft',vendorName:'Vendor',channel:'ONLINE',status:'DRAFT',expiresAt:'2099-01-01T00:00:00Z',total:110,items:[],message:'Unpaid'};
+const draft:Draft={id:'old-draft',vendorName:'Vendor',channel:'ONLINE',sessionId:null,status:'DRAFT',expiresAt:'2099-01-01T00:00:00Z',total:110,items:[],message:'Unpaid'};
 afterEach(()=>{cleanup();vi.resetAllMocks();});
 it('requests an owned marketplace reference only on explicit action and performs no payment',async()=>{
  const onRecovered=vi.fn();vi.mocked(marketplaceApi).mockResolvedValue(draft);render(<DraftReferenceRecovery mode="online" disabled={false} onRecovered={onRecovered}/>);expect(marketplaceApi).not.toHaveBeenCalled();fireEvent.change(screen.getByLabelText('Reservation reference'),{target:{value:'old-draft'}});fireEvent.click(screen.getByText('Recover reservation by reference'));await waitFor(()=>expect(onRecovered).toHaveBeenCalledWith(draft));expect(marketplaceApi).toHaveBeenCalledWith('/api/customer/checkout/drafts/old-draft');expect(api).not.toHaveBeenCalled();

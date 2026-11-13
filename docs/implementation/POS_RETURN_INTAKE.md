@@ -31,7 +31,7 @@ REQUESTED → APPROVED → INSPECTED, or REQUESTED → REJECTED. Requested, appr
 
 View DTOs include original order, state, requester/proof/reason, review actor/reason, inspection actor and saved line dispositions. Immutable event rows record intake/review/inspection actor, action, note and time. Customer contacts and payment credentials are not requested. Keep notes limited to goods/proof checks; do not enter buyer personal details.
 
-**Refund status is NOT_INITIATED throughout.** This is a physical stock workflow, not an original-tender refund, financial approval, exchange, statutory credit note or order cancellation. Original PAID order/receipt/invoice identity, drawer balances, cash movements and paid-sales metrics remain unchanged. Do not represent acceptance or restocking as returning money. Refund eligibility, cumulative monetary allocation, original merchant/tender verification and statutory credit notes must be implemented separately before production financial returns.
+**Stock intake does not initiate a refund.** The returned refundStatus is NOT_INITIATED until a separate cash refund is PAID. See [cash refunds](CASH_REFUNDS.md). This is a physical stock workflow, not an original-tender refund, financial approval, exchange, statutory credit note or order cancellation. Original PAID order/receipt/invoice identity, drawer balances, cash movements and paid-sales metrics remain unchanged. Do not represent acceptance or restocking as returning money. The separate cash workflow implements original-sale cumulative monetary allocation for explicitly enabled non-invoice cash sales. Provider verification and statutory credit notes remain production release gates.
 
 ## UI and recovery
 

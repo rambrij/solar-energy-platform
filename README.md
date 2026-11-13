@@ -106,7 +106,7 @@ Pull the updated feature branch and rebuild with `docker compose up --build -d`.
 
 Inside an open session, the **Cash drawer** section shows server-calculated totals and movement history. Select **Cash-in**, **Cash-out** or **Safe drop**, enter a positive amount and a reason, and record the movement. For example, opening float `500.00`, cash-in `100.00`, cash-out `25.00` and safe drop `100.00` leave expected drawer cash `475.00` before any sales. A sale receiving `120.00` with `10.00` change then increases it to `585.00`. Cash removals cannot exceed the expected balance. Movements are not sales or customer payments.
 
-When a response is uncertain, use **Retry same cash movement**; do not move cash again. Its request/key survives a page reload, and sale completion/session close is blocked while it remains unresolved. Close the session with the actual counted cash; an exact match closes it, while a discrepancy with a reason enters CLOSING for a separate supervisor review. Cash refunds remain part of the outstanding original-payment return/refund feature.
+When a response is uncertain, use **Retry same cash movement**; do not move cash again. Its request/key survives a page reload, and sale completion/session close is blocked while it remains unresolved. Close the session with the actual counted cash; an exact match closes it, while a discrepancy with a reason enters CLOSING for a separate supervisor review. Enabled cash refunds now reduce the paying session drawer; see the cash-refund steps below.
 
 #### Close a shift with a cash variance
 
@@ -248,7 +248,7 @@ V11 adds **stock return intake, independent review and inspection**, separate fr
 
 Pending queues show up to 20 oldest requests first; inspected/rejected lists show the latest 20. Any known return reference can be loaded directly. Failed/uncertain commands retain exact retry details in sessionStorage. Retry using the original authorized employee, including after the original session closes. Reconcile an already recorded terminal review/inspection before acknowledging local recovery state.
 
-**No refund or credit note is issued by this workflow.** Return state INSPECTED means goods disposition is recorded; refund status remains NOT_INITIATED. Original orders stay financially PAID, drawer totals and paid-sales reports are unchanged. Cash refunds, original-tender verification, statutory credit notes and exchanges remain release work. See [return API, locks and verification](docs/implementation/POS_RETURN_INTAKE.md).
+**Stock intake does not automatically issue money or credit notes.** INSPECTED means goods disposition is recorded. Refund status is NOT_INITIATED until a separate authorized cash refund is paid, then PAID. Original orders stay financially PAID. The separate cash workflow reduces the paying drawer; gross paid-sales reports remain unchanged. Provider original-tender refunds, statutory credit notes and exchanges remain release work. See [return API, locks and verification](docs/implementation/POS_RETURN_INTAKE.md).
 
 ## Behavior
 
@@ -273,3 +273,13 @@ Frontend: `cd frontend`, `npm ci`, `npm test`, `npm run build`. Component tests 
 ## Remaining Version 2.0 release gates
 
 See [POS implementation status](docs/implementation/POS_STATUS.md). This is a draft foundation PR until those gates pass, including provider adapters, external tender reservations/reconciliation, split tender, verified customer association, refund/exchange/credit notes, full JWT/refresh identity, statutory invoice configuration and Playwright end-to-end tests. The platform cannot take purchase payments or own vendor inventory.
+
+### Inspected-return cash refund demo (V12)
+
+Rebuild/restart the backend to apply V12. Cash refunds default to disabled. For local demonstration only, run [enable-pos-cash-refunds.sql](docs/demo/enable-pos-cash-refunds.sql) in MySQL Workbench after the demo staff and [return-intake setup](docs/demo/enable-pos-return-intake.sql) exist. It enables only demo branch 900001 and grants the named local supervisor cash-refund permissions. No cash, passwords, sales or stock are reset.
+
+Create a cash sale **without requesting a tax invoice**, then complete return intake, independent review and inspection. In a separate browser profile/private window, sign in as `local-supervisor`, open register `900002`, and enter its actual counted opening float. Use **Cash refunds**, paste the inspected return ID, calculate/review the original-sale amount, enter a reason and confirm a single cash handover. A supervisor cannot approve their own intake. Tax-invoice refunds are blocked. Use the same saved retry after a timeout; do not hand cash over twice. Print the audited refund copy from its acknowledgement.
+
+The paying drawer includes cash refunds as an outflow. The original sale receipt, original selling drawer, stock disposition and gross paid-sales report remain unchanged. This is a cash acknowledgement, not a statutory credit note. See [policy, APIs, recovery and remaining finance decisions](docs/implementation/CASH_REFUNDS.md).
+
+Marketplace **Preview checkout** now displays a distinct seller/item/tax/savings review using server totals. Editing or reloading the cart invalidates it. It remains an unpaid quote; online payment requires the vendor payment adapter.

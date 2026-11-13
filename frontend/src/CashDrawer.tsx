@@ -12,6 +12,7 @@ type Reconciliation = {
   cashOut: number;
   safeDrops: number;
   expectedCash: number;
+  cashRefunds?: number;
   movements: { id: string; movement_type: MovementType; amount: number; reason: string; cashier: string; created_at: string }[];
 };
 type Props = {
@@ -94,6 +95,7 @@ export default function CashDrawer({ session, revision, disabled, readOnly = fal
         <dt>Opening float</dt><dd>{money(summary.openingFloat)}</dd>
         <dt>Cash received from sales</dt><dd>{money(summary.cashReceived)}</dd>
         <dt>Change given</dt><dd>{money(summary.changeGiven)}</dd>
+        <dt>Cash refunds paid</dt><dd>{money(summary.cashRefunds??0)}</dd>
         <dt>Cash-in</dt><dd>{money(summary.cashIn)}</dd>
         <dt>Cash-out</dt><dd>{money(summary.cashOut)}</dd>
         <dt>Safe drops</dt><dd>{money(summary.safeDrops)}</dd>

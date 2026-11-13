@@ -1225,3 +1225,8 @@ button+button {
 .return-details { border-top:3px solid #e9be47; }
 @media(max-width:900px) { .return-workspace { grid-template-columns:1fr; } .return-inspection-fields { grid-template-columns:1fr 1fr; } .return-inspection-fields label:last-child { grid-column:1/-1; } }
 @media(max-width:520px) { .return-sale-search { flex-direction:column; align-items:stretch; } .return-inspection-fields { grid-template-columns:1fr; gap:0; } .return-inspection-fields label:last-child { grid-column:auto; } .return-details .section-heading { flex-wrap:wrap; } }
+
+.cash-refunds{border-top:4px solid #e7aa18}.refund-quote,.refund-recovery{padding:1rem;margin-top:1rem;background:#f4f8fc;border:1px solid #d8e4ee;border-radius:12px}.refund-total{font-size:1.2rem;font-weight:700;color:#153d60}.refund-actions{display:flex;gap:.6rem;flex-wrap:wrap}.cash-refunds label{display:block;margin:.8rem 0}.cash-refunds input:not([type=checkbox]){width:100%;max-width:36rem}.checkbox-label input{width:auto}.refund-receipt{border-color:#209166;overflow-wrap:anywhere}
+@media print{body[data-print-document=sale] .refund-receipt,body[data-print-document=refund] .sale-receipt:not(.refund-receipt){display:none!important}.refund-receipt button,.refund-receipt [role=alert]{display:none!important}}
+
+.checkout-review{padding:1rem;border:1px solid #dfb846;border-radius:12px;background:#fffcf0}.checkout-review dl{display:grid;grid-template-columns:1fr auto;gap:.5rem}.checkout-review dd{margin:0;font-weight:700}

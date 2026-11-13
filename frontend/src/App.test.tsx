@@ -152,3 +152,9 @@ it('does not print a denied reprint and clears the old error before a successful
  const print = vi.spyOn(window, 'print').mockImplementation(() => {}); render(<App/>); fireEvent.click(await screen.findByText('Add Panel')); fireEvent.change(screen.getByLabelText('Cash received'), { target: { value: '100' } }); fireEvent.click(screen.getByText('Complete cash sale')); fireEvent.click(await screen.findByText('Print receipt copy'));
  await screen.findByText('Request failed (403).'); expect(print).not.toHaveBeenCalled(); denied = false; fireEvent.click(screen.getByText('Print receipt copy')); await waitFor(() => expect(print).toHaveBeenCalledOnce()); expect(screen.queryByText('Request failed (403).')).toBeNull();
 });
+
+it('blocks other cash operations while a refund handover needs recovery',async()=>{
+ sessionStorage.setItem('pos-session-v1','session');sessionStorage.setItem('pos-cash-refund-attempt-v1',JSON.stringify({key:'refund-saved',body:{returnId:'return-1',sessionId:'session',reason:'Returned',quoteHash:'a'.repeat(64),confirmation:'CASH_HANDED_TO_BUYER'},safeToDiscard:false}));
+ vi.mocked(api).mockImplementation(async path=>{if(path==='/products')return [{id:1,name:'Panel',sku:'P1',price:100,tax_rate:10,quantity:1}];if(path==='/sessions/session')return {state:'OPEN'};return {state:'OPEN',openingFloat:200,cashReceived:0,changeGiven:0,cashIn:0,cashOut:0,safeDrops:0,cashRefunds:0,expectedCash:200,movements:[]};});
+ render(<App/>);await screen.findByText('Retry same cash refund');await screen.findByText('Complete cash sale');expect((screen.getByText('Complete cash sale') as HTMLButtonElement).disabled).toBe(true);expect((screen.getByText('Record cash movement') as HTMLButtonElement).disabled).toBe(true);expect((screen.getByText('Add Panel') as HTMLButtonElement).disabled).toBe(true);
+});

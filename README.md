@@ -204,6 +204,16 @@ Customer history contains only that customer's ONLINE orders across vendors. Gue
 
 Flyway V9 adds scoped history query indexes without changing sales or lifecycle states. No extra demo seed or data reset is needed. See [history API and verification](docs/implementation/ORDER_HISTORY_API.md).
 
+## Product details and sales insights
+
+In a vendor storefront, choose **View details for …** to inspect the public product’s SKU, current unit price, tax and tax-inclusive unit total. The mobile-friendly dialog supports Escape, focus return, unavailable/retry states and absolute cart quantity updates through the existing single-vendor flow. Share the resulting `?product=ID` URL to open the same product directly. Only published products from active vendors are available; viewing details never creates a cart, reserves stock or requests customer login.
+
+In POS, choose **Sales insights** and **Load sales insights**. Authorized staff can filter their assigned branch by online/walk-in channel and inclusive UTC date range (default 7 days, maximum 366). The dashboard separates paid totals, before-tax amounts, tax, cash received/change/applied, sold units, invoice counts and unpaid/cancelled/expired orders. Daily charts and channel cards show recorded data, including zero-activity days. Changes to catalogue prices do not rewrite historical amounts. Cash applied is not a till balance; use the existing cash-drawer controls for float and reconciliation.
+
+Reports require both `POS_VIEW` and the new `POS_REPORT_VIEW` permission. For existing local demonstration accounts, manually run [enable-sales-insights.sql](docs/demo/enable-sales-insights.sql). This grants read-only reporting to the named demo staff in tenant/branch 900001 and changes no financial data or passwords. Production role assignment remains an administrator decision. No new schema migration or inventory reset is needed.
+
+Reports use the order’s latest recorded state change time, falling back to creation time for legacy/direct cash orders. Paid drafts appear on their finalization day. They are current-state reports, not historical as-of snapshots. Online reservations are not paid sales, and refund/external-tender reporting is not available yet. See [product detail and reporting APIs](docs/implementation/PRODUCT_DETAILS_AND_REPORTS.md).
+
 ## Behavior
 
 ### Recover a saved vendor cart

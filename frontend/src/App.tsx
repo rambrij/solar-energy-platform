@@ -7,6 +7,7 @@ import ShiftReviews from './ShiftReviews';
 import ReservedDrafts from './ReservedDrafts';
 import Shell from './Shell';
 import OrderHistory from './OrderHistory';
+import SalesInsights from './SalesInsights';
 import type { Receipt } from './types';
 type Product = {id:number;name:string;sku:string;barcode:string;price:number;tax_rate:number;quantity:number};
 
@@ -91,6 +92,7 @@ export default function App() {
     </>}
     {receipt && <section id="sale-receipt" className="sale-receipt" aria-label="Sale receipt"><h2>{receipt.copy?'COPY · ':''}Receipt {receipt.branch_id}/{receipt.receipt_number}</h2><p>Sale {receipt.id}</p>{receipt.items.map((i,n)=><p key={n}>{i.name} × {i.quantity} at {Number(i.price).toFixed(2)} + tax {Number(i.tax).toFixed(2)} ({i.tax_rate}%): {Number(i.total).toFixed(2)}</p>)}<p>Total: {Number(receipt.total).toFixed(2)} · Cash: {Number(receipt.cash_received).toFixed(2)} · Change: {Number(receipt.change_given).toFixed(2)}</p>{receipt.invoices.map(i=><p key={i.invoice_number}>Tax invoice {i.invoice_number} · {i.seller_name} · {i.outlet_name}</p>)}<button disabled={busy} onClick={async()=>{setBusy(true);try{setReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Reprint copy</button></section>}
     <OrderHistory mode="pos" onReceipt={value=>{setReceipt(value);requestAnimationFrame(()=>document.getElementById('sale-receipt')?.scrollIntoView?.({behavior:'smooth',block:'start'}));}}/>
+    <SalesInsights/>
     <ShiftReviews/>
   </Shell>;
 }

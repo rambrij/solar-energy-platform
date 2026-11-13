@@ -680,4 +680,41 @@ class PosTest {
   var local=java.time.LocalDateTime.parse(databaseClock.substring(0,19).replace(' ','T'));
   assertThat(java.time.Duration.between(local.toInstant(java.time.ZoneOffset.UTC),java.time.Instant.now()).abs()).isLessThan(java.time.Duration.ofSeconds(10));
  }
+
+ @Test void publicProductDetailsArePublishedScopedAndUseSharedTax() throws Exception {
+  customers();
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.vendorName").value("Vendor A")).andExpect(jsonPath("$.unitPrice").value(100)).andExpect(jsonPath("$.unitTax").value(10)).andExpect(jsonPath("$.unitTotal").value(110)).andExpect(jsonPath("$.inStock").value(true)).andExpect(jsonPath("$.barcode").doesNotExist());
+  mvc.perform(get("/api/marketplace/vendors/vendor-2/products/1")).andExpect(status().isNotFound());
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/0")).andExpect(status().isNotFound());
+  db.update("UPDATE inventory SET quantity=0 WHERE tenant_id=1");
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.inStock").value(false));
+  db.update("UPDATE products SET published=FALSE WHERE id=1");
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isNotFound());
+  db.update("UPDATE products SET published=TRUE WHERE id=1");db.update("UPDATE tenants SET active=FALSE WHERE id=1");
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isNotFound());
+ }
+ @Test void salesReportSeparatesPaidTaxCashAndOnlineReservationsWithoutDoubleCounting() throws Exception {
+  configureOnline();db.update("UPDATE inventory SET quantity=10 WHERE tenant_id=1");
+  db.update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,5)");
+  service.checkout(a,"report-paid1",new PosService.Checkout(session,List.of(new PosService.Line(1,1),new PosService.Line(3,2)),new BigDecimal("200"),true));
+  var cancelled=onlineDraft("report-cancel");checkout.cancelOnline("customer",cancelled.id(),"Buying later");onlineDraft("report-unpaid");
+  db.update("UPDATE products SET price=999,tax_rate=80 WHERE tenant_id=1");
+  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("tenantId","2").param("branchId","2"))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totals.paidOrders").value(1)).andExpect(jsonPath("$.totals.sales").value(150)).andExpect(jsonPath("$.totals.tax").value(10)).andExpect(jsonPath("$.totals.beforeTax").value(140)).andExpect(jsonPath("$.totals.cashReceived").value(200)).andExpect(jsonPath("$.totals.changeGiven").value(50)).andExpect(jsonPath("$.totals.cashApplied").value(150)).andExpect(jsonPath("$.totals.units").value(3)).andExpect(jsonPath("$.totals.invoices").value(1)).andExpect(jsonPath("$.totals.unpaidOrders").value(1)).andExpect(jsonPath("$.totals.unpaidAmount").value(110)).andExpect(jsonPath("$.totals.cancelledOrders").value(1));
+  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("channel","ONLINE")).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0)).andExpect(jsonPath("$.totals.sales").value(0)).andExpect(jsonPath("$.totals.unpaidOrders").value(1)).andExpect(jsonPath("$.channels.length()").value(1));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(3);assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
+ }
+ @Test void salesReportUsesFinalizationDayAndRejectsForeignBranchesAndMissingGrants() throws Exception {
+  var draft=checkout.pos("alice","report-finalize",posDraft());
+  var today=java.time.LocalDate.now(java.time.ZoneOffset.UTC);var yesterday=today.minusDays(1);
+  db.update("UPDATE orders SET created_at=? WHERE id=?",yesterday.atStartOfDay(),draft.id());checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));
+  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",today.toString()).param("to",today.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(1)).andExpect(jsonPath("$.days.length()").value(1));
+  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",yesterday.toString()).param("to",yesterday.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");db.update("INSERT INTO employees VALUES('other-branch','unused',1,3,TRUE)");
+  for(String actor:List.of("bob","other-branch"))mvc.perform(get("/api/vendor/pos/reports/sales").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
+  mvc.perform(get("/api/vendor/pos/reports/sales")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
+  for(String[] param:List.of(new String[]{"channel","UNKNOWN"},new String[]{"from","2000-01-01"},new String[]{"to","invalid"}))mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param(param[0],param[1])).andExpect(status().isBadRequest());
+ }
 }

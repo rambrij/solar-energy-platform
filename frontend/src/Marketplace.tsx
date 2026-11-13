@@ -3,6 +3,7 @@ import { marketplaceApi, MarketplaceError } from './marketplaceApi';
 import ReservedDrafts from './ReservedDrafts';
 import Shell from './Shell';
 import OrderHistory from './OrderHistory';
+import ProductDetails from './ProductDetails';
 
 type Vendor = { id: number; slug: string; name: string };
 type Product = { id: number; sku: string; name: string; price: number; taxRate: number; inStock: boolean };
@@ -10,6 +11,8 @@ type Line = { productId: number; name: string; quantity: number; unitPrice: numb
 type Cart = { id: string | null; vendorSlug: string | null; vendorName: string | null; items: Line[]; total: number; checkoutAvailable: boolean; message: string };
 type Target = { vendorSlug: string; productId: number; quantity: number };
 const money = (amount: number | null) => amount === null ? 'Unavailable' : Number(amount).toFixed(2);
+
+function readProductId() { const value = new URLSearchParams(window.location.search).get('product'); const id = Number(value); return value && /^[1-9][0-9]*$/.test(value) && Number.isSafeInteger(id) ? id : undefined; }
 
 export default function Marketplace() {
   const slug = window.location.pathname.startsWith('/vendors/') ? decodeURIComponent(window.location.pathname.split('/')[2]) : '';
@@ -21,6 +24,10 @@ export default function Marketplace() {
   const [stockRevision,setStockRevision] = useState(0);
   const [sort, setSort] = useState('name'), [inStockOnly, setInStockOnly] = useState(false);
   const visibleProducts = products.filter(product => `${product.name} ${product.sku}`.toLowerCase().includes(search.toLowerCase()) && (!inStockOnly || product.inStock)).sort((a,b)=>sort === 'price-low' ? Number(a.price)-Number(b.price)||a.id-b.id : sort === 'price-high' ? Number(b.price)-Number(a.price)||a.id-b.id : a.name.localeCompare(b.name)||a.id-b.id);
+  const [detailId, setDetailId] = useState<number | undefined>(readProductId);
+  useEffect(() => { const sync = () => setDetailId(readProductId()); window.addEventListener('popstate', sync); return () => window.removeEventListener('popstate', sync); }, []);
+  function openDetails(id: number) { const url = new URL(window.location.href); url.searchParams.set('product', String(id)); window.history.pushState({}, '', url); setDetailId(id); }
+  function closeDetails() { const url = new URL(window.location.href); url.searchParams.delete('product'); window.history.replaceState({}, '', url); setDetailId(undefined); }
   const confirming = !!switchTarget || !!restoreTarget;
   useEffect(() => {
     let active = true;
@@ -37,8 +44,8 @@ export default function Marketplace() {
     setBusy(true); setError(''); setNotice('');
     try { setCart(await marketplaceApi('/api/customer/cart')); } catch (e) { failure(e); } finally { setBusy(false); }
   }
-  async function put(product: Product) {
-    const target = { vendorSlug: slug, productId: product.id, quantity: quantities[product.id] ?? 1 };
+  async function put(product: Pick<Product, 'id'>, selectedQuantity?: number) {
+    const target = { vendorSlug: slug, productId: product.id, quantity: selectedQuantity ?? quantities[product.id] ?? 1 };
     setBusy(true); setError(''); setNotice('');
     try { setCart(await marketplaceApi('/api/customer/cart/items', 'POST', target)); }
     catch (e) {
@@ -95,6 +102,7 @@ export default function Marketplace() {
       <ul className="product-grid">{visibleProducts.map(product => {
         const quantity = quantities[product.id] ?? 1;
         return <li key={product.id} className="product-card"><div className="product-art" aria-hidden="true"><span className="panel-illustration"/></div><h3>{product.name}</h3><p>{product.sku} · {money(product.price)} + {product.taxRate}% tax · {product.inStock ? 'In stock' : 'Out of stock'}</p>
+          <button className="secondary" disabled={busy || confirming} onClick={() => openDetails(product.id)}>View details for {product.name}</button>
           <label>Quantity for {product.name} <input type="number" min="1" max="10000" value={quantity} onChange={e => setQuantities({ ...quantities, [product.id]: Number(e.target.value) })} /></label>
           <button disabled={busy || confirming || !product.inStock || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000} onClick={() => put(product)}>Add or update {product.name} in cart</button>
         </li>;
@@ -117,6 +125,7 @@ export default function Marketplace() {
       </li>)}</ul> : <p>No archived carts found.</p>)}
     </section>
     <OrderHistory mode="online"/>
+    {slug && detailId !== undefined && <ProductDetails slug={slug} productId={detailId} disabled={busy || confirming} onClose={closeDetails} onAdd={(id, quantity) => { closeDetails(); setQuantities(value => ({ ...value, [id]: quantity })); void put({ id }, quantity); }}/>}
     {restoreTarget && <section role="dialog" aria-modal="true" aria-labelledby="restore-title"><h2 id="restore-title">Restore archived vendor cart?</h2>
       <p>Restore your saved {restoreTarget.vendorName} cart using current prices. Your active cart will be archived with its items retained. This does not reserve stock or place an order.</p>
       <button disabled={busy} onClick={() => setRestoreTarget(undefined)}>Keep active cart</button><button disabled={busy} onClick={restore}>Confirm cart restore</button>

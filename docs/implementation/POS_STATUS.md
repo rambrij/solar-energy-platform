@@ -75,3 +75,7 @@ POS-037/POS-040 now include a paged metadata-only event timeline protected by PO
 ## Paged return worklist increment
 
 POS-028/POS-033/POS-040 now include a scoped, read-only JPA worklist beyond the legacy 20-row queue, with state, inclusive UTC intake dates and return/order prefix search. Metadata-only summaries open fresh case details; live oldest-first pages preserve saved command recovery controls. V15 adds a lookup index without changing financial or stock data. See [RETURN_WORKLIST.md](RETURN_WORKLIST.md) for API bounds, default 30-day range, tests and operating limits.
+
+## Own closed-shift history increment
+
+POS-022/POS-023/POS-025/POS-040 now include a cashier-owned, assigned-branch paged JPA history of recorded CLOSED drawer snapshots. UTC close-date/session-prefix filters, deterministic paging and a read-only responsive screen preserve saved command recovery. V16 adds an index only; pending-review and other-cashier shifts are excluded. See [CLOSED_SHIFT_HISTORY.md](CLOSED_SHIFT_HISTORY.md).

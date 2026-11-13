@@ -337,3 +337,9 @@ Access requires `POS_VIEW`, `POS_RETURN_VIEW` and `POS_RETURN_AUDIT_VIEW`. Optio
 Rebuild/restart the backend for V15 and rebuild the frontend. In **POS returns & inspection**, use **Review queue** to filter stock-intake state, return/original-order reference prefix and inclusive UTC dates. **Load return queue** defaults to the last 30 UTC days; choose earlier dates for older cases (maximum 366-day range). Next/Previous reach cases beyond the former 20-row limit. **Open return** loads current case details before any review or inspection.
 
 Existing `POS_VIEW` + `POS_RETURN_VIEW` grants apply; no new demo SQL is needed. Reads work after shift close, do not change stock/cash and do not clear saved commands. State describes stock intake, not refund status. See [worklist API, tests and limits](docs/implementation/RETURN_WORKLIST.md).
+
+### Review your closed drawer counts
+
+Rebuild/restart the backend to apply V16 and rebuild the frontend. With your named POS login, open **My closed shifts**, choose inclusive UTC close dates or a session reference prefix, then **Load my closed shifts**. Default: last 30 UTC days; choose earlier dates for older records. Next/Previous browse more records.
+
+`POS_VIEW` grants access only to your own closed sessions in your assigned branch. Stored opening/expected/counted/variance values are historical snapshots. Reading history does not resume a shift or clear a saved financial command. See [closed-shift API and operating limits](docs/implementation/CLOSED_SHIFT_HISTORY.md).

@@ -103,3 +103,7 @@ Returns owns a paged JPQL projection joined to the canonical tenant/branch retur
 ## Paged return worklist
 
 Returns owns metadata-only JPQL page/count queries with identical mandatory tenant/branch, state, UTC intake-time and reference-prefix predicates. A read-only repeatable-read service resolves canonical employee scope through the public retail API. V15 indexes the stable oldest-intake-first traversal; no other module internals or command services are imported. UI summaries pass only the selected reference into existing fresh-detail recovery. The legacy queue remains compatible. See RETURN_WORKLIST.md for bounds and live-pagination semantics.
+
+## Immutable own-shift read model
+
+Retail owns a read-only Spring Data Repository and immutable JPA mapping of existing pos_sessions snapshot columns. Explicit DTO page/count predicates require canonical tenant, branch, cashier, CLOSED state and half-open UTC close-time bounds. A repeatable-read service supplies one response snapshot; V16 adds a traversal index. Existing session commands stay on their shared-transaction JDBC path. ArchUnit now also guards retail internals. See CLOSED_SHIFT_HISTORY.md for NULL/legacy timestamps, ownership and live-pagination semantics.

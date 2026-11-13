@@ -20,11 +20,13 @@ it('resumes an existing shift explicitly without posting a new float', async () 
 it('refreshes recoverable sessions after an occupied register conflict', async () => {
   let conflicted = false;
   vi.mocked(api).mockImplementation(async path => {
+    if(path.startsWith('/registers?'))return {branchId:1,page:0,size:12,totalElements:1,totalPages:1,items:[{id:900001,available:true}]};
     if (path === '/sessions') { conflicted = true; throw new ApiError(409); }
     return conflicted ? [openShift] : [];
   });
   render(<SessionStart onSession={vi.fn()} />);
   await screen.findByText('No open sessions found for your account.');
+  fireEvent.click(screen.getByText('Load assigned registers'));await screen.findByRole('option',{name:'Register 900001 · Available'});
   fireEvent.change(screen.getByLabelText('Assigned register'), { target: { value: '900001' } });
   fireEvent.change(screen.getByLabelText('Opening float'), { target: { value: '0' } });
   fireEvent.click(screen.getByText('Open session'));
@@ -34,11 +36,13 @@ it('refreshes recoverable sessions after an occupied register conflict', async (
 it('finds the created shift after an uncertain opening response', async () => {
   let attempted = false;
   vi.mocked(api).mockImplementation(async path => {
+    if(path.startsWith('/registers?'))return {branchId:1,page:0,size:12,totalElements:1,totalPages:1,items:[{id:900001,available:true}]};
     if (path === '/sessions') { attempted = true; throw new Error('Lost response'); }
     return attempted ? [openShift] : [];
   });
   render(<SessionStart onSession={vi.fn()} />);
   await screen.findByText('No open sessions found for your account.');
+  fireEvent.click(screen.getByText('Load assigned registers'));await screen.findByRole('option',{name:'Register 900001 · Available'});
   fireEvent.change(screen.getByLabelText('Assigned register'), { target: { value: '900001' } });
   fireEvent.change(screen.getByLabelText('Opening float'), { target: { value: '50' } });
   fireEvent.click(screen.getByText('Open session'));
@@ -64,4 +68,8 @@ it('does not activate a shift that closed before resume', async () => {
   await screen.findByText(/Could not resume this session/);
   await screen.findByText('No open sessions found for your account.');
   expect(onSession).not.toHaveBeenCalled();
+});
+
+it('blocks new session selection after a failed own-session lookup until refresh succeeds',async()=>{
+ let failed=true;vi.mocked(api).mockImplementation(async()=>{if(failed)throw new Error('offline');return [];});render(<SessionStart onSession={vi.fn()}/>);await screen.findByText(/Could not load your open sessions/);expect(screen.getByText('Load assigned registers').matches(':disabled')).toBe(true);expect(screen.getByText('Open session').matches(':disabled')).toBe(true);failed=false;fireEvent.click(screen.getByText('Refresh open sessions'));await screen.findByText('No open sessions found for your account.');await waitFor(()=>expect(screen.getByText('Load assigned registers').matches(':disabled')).toBe(false));
 });

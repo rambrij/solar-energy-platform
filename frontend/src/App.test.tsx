@@ -5,6 +5,7 @@ import {api,ApiError} from './api';
 vi.mock('./api',async importOriginal=>({...await importOriginal<typeof import('./api')>(),api:vi.fn()}));
 function mockBackend(implementation:typeof api){
  vi.mocked(api).mockImplementation(async(path,body,key)=>{
+  if(path.startsWith('/registers?'))return {branchId:1,page:0,size:12,totalElements:1,totalPages:1,items:[{id:1,available:true}]};
   if(path.startsWith('/catalogue?')){
    const products=await implementation('/products');const params=new URL(path,'http://localhost').searchParams;
    const items=(products as {id:number;name:string;sku:string;barcode?:string;quantity:number}[]).filter(p=>`${p.name} ${p.sku} ${p.barcode??''}`.toLowerCase().includes((params.get('q')??'').toLowerCase()));
@@ -103,7 +104,7 @@ it('shows a closing drawer as frozen until supervisor review',async()=>{
 });
 it('preserves a sale key after an uncertain failure and does not claim completion',async()=>{
  mockBackend(async(path)=>{if(path==='/products')return [{id:1,name:'Panel',sku:'P1',price:10,tax_rate:0,quantity:2}];if(path==='/sessions/active')return [];if(path==='/sessions')return {id:'session'};if(path.startsWith('/drafts'))return [];throw new Error('Connection lost');});
- render(<App/>);await screen.findByText('No open sessions found for your account.');fireEvent.change(screen.getByLabelText('Assigned register'),{target:{value:'1'}});fireEvent.change(screen.getByLabelText('Opening float'),{target:{value:'0'}});fireEvent.click(screen.getByText('Open session'));
+ render(<App/>);await screen.findByText('No open sessions found for your account.');fireEvent.click(screen.getByText('Load assigned registers'));await screen.findByRole('option',{name:'Register 1 · Available'});fireEvent.change(screen.getByLabelText('Assigned register'),{target:{value:'1'}});fireEvent.change(screen.getByLabelText('Opening float'),{target:{value:'0'}});fireEvent.click(screen.getByText('Open session'));
  fireEvent.click(await screen.findByText('Add Panel'));fireEvent.change(screen.getByLabelText('Cash received'),{target:{value:'10'}});fireEvent.click(screen.getByText('Complete cash sale'));
  await screen.findByText('Retry same sale');expect(screen.queryByLabelText('Sale receipt')).toBeNull();fireEvent.click(screen.getByText('Retry same sale'));
  await waitFor(()=>expect(vi.mocked(api).mock.calls.filter(c=>c[0]==='/sales')).toHaveLength(2));

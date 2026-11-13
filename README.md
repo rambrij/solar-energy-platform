@@ -367,3 +367,9 @@ Rebuild/restart backend for V18 and rebuild frontend. After **Your open sessions
 ### Itemized sale receipts
 
 Rebuild/restart backend for V19 and rebuild frontend. New paid POS receipts save seller/outlet names and show an itemized cash/tax/discount layout. Open **Sell → Current receipt** after a sale/recovery; **Print receipt copy** still requires the existing audited copy permission. Renames do not change new saved receipt names. Legacy receipts use existing invoice identity where available and otherwise show missing information explicitly. See [receipt identity, printing and compatibility](docs/implementation/RECEIPT_PRESENTATION.md).
+
+### Unified cash checkout and reserved-sale cash entry
+
+Rebuild backend/frontend. Fast cash and explicit reserved cash sales now use the shared JPA checkout/reservation/finalization path; the duplicate retail checkout implementation is removed. Each reservation has its own cash shortcuts and cancellation reason. New cash finalization requires a valid future reservation in the exact current session; unknown/malformed session/expiry data cannot bypass that guard. Existing uncertain retries replay their original payload.
+
+This is a pre-prod intent-key refactor, with no compatibility lookup for old direct-cash keys. Finish/reconcile existing demo attempts before switching builds; start fresh test workflows after the cutover. No data/config reset runs automatically. See [architecture, cutover and tests](docs/implementation/UNIFIED_CASH_CHECKOUT.md).

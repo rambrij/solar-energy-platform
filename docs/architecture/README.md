@@ -123,3 +123,7 @@ Retail owns a read-only immutable register mapping and JPA DTO page/count query 
 ## Immutable receipt display identity
 
 Retail captures new receipt seller/outlet display snapshots in its existing direct-sale/document JDBC writes, sharing the JPA transaction manager with checkout/inventory. Reserved checkout flushes PAID before the same document writer; retries bypass new capture. V19 adds nullable columns and preserves unknown legacy data. Receipt reads expose original paid/created issue time and saved identity without new foreign persistence imports or current-name fallback. UI rendering/printing does not recalculate financial facts. See RECEIPT_PRESENTATION.md.
+
+## One cash checkout application owner
+
+CheckoutController owns fast cash /sales; CheckoutService resolves canonical scope, locks the outlet, reserves through its JPA order/line/shared inventory flow and invokes the same owned cash finalizer. Retail's duplicate checkout/DTO/hash and unused pricing/stock dependencies are removed. Retail retains sequence/documents/drawer responsibilities with no reverse checkout dependency. Cash intent namespaces are distinct and amounts are fingerprinted; failures roll back reservation/stock/documents together. Reserved UI uses per-draft state and strict session/expiry eligibility. See UNIFIED_CASH_CHECKOUT.md.

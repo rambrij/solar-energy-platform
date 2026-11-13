@@ -295,3 +295,9 @@ Refunds of older sales appear on the date cash was paid, not the original sale d
 The marketplace now loads 24 products per page. Search by name or SKU, choose a category, sort by the approved promotional price, or enable **In stock only**. Filters run on the server and reset to the first page; Previous/Next/First page keep your cart intact. Search waits briefly while you type, and **Retry catalogue** retries a failed read without changing the cart.
 
 Online availability now uses the vendor's designated online stock branch and subtracts reservations. Goods held only at another physical branch do not show as online stock. Configure `tenants.online_branch_id` using the existing trusted setup before testing online availability; an unconfigured vendor can be browsed but has no online-available products. POS stock remains scoped to the cashier's branch. See [catalogue API, limits and read model](docs/implementation/CATALOGUE_SEARCH.md).
+
+### Paged POS search and barcode lookup
+
+In an open Store POS session, search by product name/SKU/barcode, choose a category, sort or enable **POS in stock only**. The panel loads 24 products at a time; the current bill stays intact when you use **Next POS products** or change filters. Only selected bill metadata is retained, and checkout still validates current stock/prices on the server.
+
+Scan a barcode or enter a full SKU and press Enter / **Add exact match**. Lookup searches beyond the current page. A partial or unknown code adds nothing; an ambiguous code requires manual selection. Stock/quantity limits and saved financial-attempt locks still apply. Scanner focus returns after lookup. Use **Retry POS catalogue** after a read failure without rebuilding your bill. POS uses the cashier's assigned branch, independently of online stock setup. See [POS catalogue API and recovery](docs/implementation/POS_CATALOGUE.md).

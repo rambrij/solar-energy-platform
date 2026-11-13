@@ -47,3 +47,7 @@ POS-032/POS-040 now include a dedicated branch-scoped cash-payout report with in
 ## Paged marketplace catalogue increment
 
 The public marketplace uses bounded server-side name/SKU search, category/stock filters, effective promotion-price sorting and stable product-ID ties. Stock booleans on the new catalogue and product details use designated online free stock; POS remains assigned-branch scoped. A read-only JPA projection supplies page/count/facets without exposing internal stock or importing inventory persistence classes. The responsive storefront preserves the cart across paging and ignores stale requests. See [CATALOGUE_SEARCH.md](CATALOGUE_SEARCH.md); legacy unpaged routes remain for compatibility.
+
+## Paged POS catalogue increment
+
+POS-005/POS-006/POS-033/POS-035 now include bounded server-side staff search/filter/sort, assigned-branch free stock and exact SKU/barcode lookup across the full published tenant catalogue. The billing panel preserves selected lines across pages, restores scanner focus, rejects ambiguous/unconfirmed codes and pauses financial actions while scanning. Legacy unpaged products API remains for compatibility but is no longer called by the POS UI. See [POS_CATALOGUE.md](POS_CATALOGUE.md).

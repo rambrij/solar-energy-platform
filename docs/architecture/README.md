@@ -75,3 +75,7 @@ The returns module owns the cash-refund report service and JPA aggregate reposit
 ## Public catalogue search read model
 
 Catalogue owns a Spring Data JPA native read projection joining products/offers/categories and the designated online inventory row. Tenant/publication/active-vendor and branch predicates constrain both page and count. This deliberate read-model table join avoids exposing inventory internals or materializing an unbounded list of stock product IDs. It never writes inventory; all cart/reservation/POS issue/reversal mutations retain public inventory service boundaries. Repeatable-read keeps metadata and data consistent, and explicit DTOs omit internal barcode/quantity fields. See CATALOGUE_SEARCH.md for the compatibility boundary and scale limitations.
+
+## POS catalogue read boundary
+
+Retail's POS catalogue controller resolves canonical employee/branch scope and invokes the public catalogue service. The catalogue-owned JPA read projection binds that branch, approved offer and published product predicates for bounded staff pages and at-most-two exact scan matches. It exposes staff-only barcode/free-quantity DTO fields without extending the public marketplace DTO. Category metadata has a tenant-based catalogue gateway so physical POS does not depend on a public storefront slug or online stock configuration. Bill metadata is retained only for selected lines, separately from the current catalogue page; inventory/financial write services remain authoritative.

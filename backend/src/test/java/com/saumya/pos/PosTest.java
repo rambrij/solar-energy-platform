@@ -690,7 +690,7 @@ class PosTest {
  }
 
  @Test void publicProductDetailsArePublishedScopedAndUseSharedTax() throws Exception {
-  customers();
+  configureOnline();
   mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.vendorName").value("Vendor A")).andExpect(jsonPath("$.unitPrice").value(100)).andExpect(jsonPath("$.unitTax").value(10)).andExpect(jsonPath("$.unitTotal").value(110)).andExpect(jsonPath("$.inStock").value(true)).andExpect(jsonPath("$.barcode").doesNotExist());
   mvc.perform(get("/api/marketplace/vendors/vendor-2/products/1")).andExpect(status().isNotFound());
   mvc.perform(get("/api/marketplace/vendors/vendor-1/products/0")).andExpect(status().isNotFound());
@@ -989,5 +989,43 @@ class PosTest {
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).with(user("non-employee").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isForbidden());
   for(String[] range:List.of(new String[]{"2026-11-14","2026-11-13"},new String[]{"2025-01-01","2026-11-13"},new String[]{"invalid","2026-11-13"}))mvc.perform(get(path).param("from",range[0]).param("to",range[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isBadRequest());
+ }
+
+ void searchableCatalogue(){
+  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id)");
+  db.update("UPDATE tenants SET online_branch_id=1 WHERE id=1");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other stock')");
+  db.update("INSERT INTO products VALUES(3,1,'INV',NULL,'Inverter',200,10,TRUE),(4,1,'BAT',NULL,'Battery',75,0,TRUE),(5,1,'HIDDEN',NULL,'Private Panel',1,0,FALSE),(6,1,'CABLE',NULL,'100%_Cable!',10,0,TRUE)");
+  db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity,reserved) VALUES(1,1,3,2,1),(1,3,4,5,0),(1,1,6,1,0)");db.update("UPDATE inventory SET reserved=1 WHERE tenant_id=1 AND product_id=1");
+  db.update("INSERT INTO catalog_categories VALUES(101,1,'Panels','panels'),(102,1,'Inverters','inverters'),(201,2,'Private category','private')");
+  db.update("INSERT INTO product_categories VALUES(1,1,101),(1,3,102),(1,5,101),(2,2,201)");
+  promotions.approve(1,"alice",3,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("75"),"Approved inverter offer"));
+ }
+ @Test void publicCataloguePagesUseEffectivePricesAndDesignatedFreeStock() throws Exception {
+  searchableCatalogue();String path="/api/marketplace/vendors/vendor-1/catalogue";
+  mvc.perform(get(path).param("sort","price-low").param("size","1")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(4)).andExpect(jsonPath("$.totalPages").value(4)).andExpect(jsonPath("$.catalogueTotal").value(4)).andExpect(jsonPath("$.items[0].id").value(6)).andExpect(jsonPath("$.categories.length()").value(3));
+  mvc.perform(get(path).param("sort","price-low").param("size","1").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(3)).andExpect(jsonPath("$.items[0].price").value(50)).andExpect(jsonPath("$.items[0].discountPercent").value(75)).andExpect(jsonPath("$.items[0].inStock").value(true)).andExpect(jsonPath("$.items[0].barcode").doesNotExist()).andExpect(jsonPath("$.items[0].available").doesNotExist());
+  mvc.perform(get(path).param("inStock","true")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/4")).andExpect(status().isOk()).andExpect(jsonPath("$.inStock").value(false));
+  mvc.perform(get(path).param("category","101")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].inStock").value(false));
+  mvc.perform(get(path).param("category","other")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+  mvc.perform(get(path).param("category","201")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("q","%_Cable!")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+  mvc.perform(get(path).param("q","inv")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+  mvc.perform(get(path).param("q","private")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("page","20")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0)).andExpect(jsonPath("$.totalElements").value(4));
+  db.update("UPDATE tenants SET online_branch_id=NULL WHERE id=1");mvc.perform(get(path).param("inStock","true")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+ }
+ @Test void catalogueRejectsInvalidFiltersAndInactiveVendors() throws Exception {
+  String path="/api/marketplace/vendors/vendor-1/catalogue";
+  for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"},new String[]{"sort","price;DROP"},new String[]{"category","-1"},new String[]{"category","9999999999999999999"},new String[]{"q","x".repeat(121)}))mvc.perform(get(path).param(bad[0],bad[1])).andExpect(status().isBadRequest());
+  db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path)).andExpect(status().isNotFound());mvc.perform(get("/api/marketplace/vendors/unknown/catalogue")).andExpect(status().isNotFound());
+ }
+
+ @Test void cataloguePriceSortingUsesRoundedPromotionsAndStableIdTies() throws Exception {
+  searchableCatalogue();db.update("INSERT INTO products VALUES(7,1,'TINY',NULL,'Tiny connector',0.05,10,TRUE),(8,1,'TIE',NULL,'Tie inverter',50,0,TRUE)");
+  promotions.approve(1,"alice",7,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("10"),"Approved connector offer"));
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/catalogue").param("q","tiny")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].price").value(0.05));
+  mvc.perform(get("/api/marketplace/vendors/vendor-1/catalogue").param("sort","price-low").param("size","2").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(3)).andExpect(jsonPath("$.items[1].id").value(8)).andExpect(jsonPath("$.totalElements").value(6));
  }
 }

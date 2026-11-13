@@ -9,6 +9,7 @@ class ProductDetailServiceTest {
     @Test void detailUsesActiveVendorPublicationAndSharedPerLineRounding(){
         var catalog=new CatalogService(null,null,null){
             @Override public VendorInfo activeVendor(String slug){assertThat(slug).isEqualTo("solar");return new VendorInfo(7,"solar","Solar vendor",true);}
+            @Override public boolean onlineInStock(long tenant,long product){assertThat(tenant).isEqualTo(7);assertThat(product).isEqualTo(9);return true;}
             @Override public ProductInfo published(long tenant,long id){assertThat(tenant).isEqualTo(7);assertThat(id).isEqualTo(9);return new ProductInfo(9,"SKU","private-barcode","Panel",new BigDecimal("0.05"),BigDecimal.TEN,true,true);}
         };
         var detail=new ProductDetailService(catalog,new Pricing()).detail("solar",9);

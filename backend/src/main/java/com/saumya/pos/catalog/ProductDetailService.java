@@ -20,6 +20,6 @@ public class ProductDetailService {
         var vendor=catalog.activeVendor(slug);
         var product=catalog.published(vendor.id(),id);
         var amount=pricing.line(product.price(),product.taxRate(),1);
-        return new Detail(product.id(),vendor.slug(),vendor.name(),product.sku(),product.name(),product.price(),product.taxRate(),amount.tax(),amount.total(),product.inStock(),product.listPrice(),product.discountPercent(),product.categoryName());
+        return new Detail(product.id(),vendor.slug(),vendor.name(),product.sku(),product.name(),product.price(),product.taxRate(),amount.tax(),amount.total(),catalog.onlineInStock(vendor.id(),product.id()),product.listPrice(),product.discountPercent(),product.categoryName());
     }
 }

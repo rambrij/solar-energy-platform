@@ -77,6 +77,6 @@ public class ReturnService {
   for(var line:saved){var command=selected.get(line.product());line.inspect(command.condition(),command.disposition(),command.note().strip());stock.inspectReturn(scope.tenant(),scope.branch(),id,line.product(),line.quantity(),command.disposition(),command.condition(),scope.cashier(),clock.instant());}
   c.inspect(scope.cashier(),fingerprint,clock.instant());cases.flush();event(c,scope.cashier(),"INSPECTED","Goods inspected; refund not initiated");return view(c);
  }
- public View get(String username,String id){var scope=retail.scope(username);var c=cases.findByTenantAndBranchAndId(scope.tenant(),scope.branch(),id).orElseThrow(this::missing);return view(c);}
+ public View get(String username,String id){var scope=retail.scope(username);var c=cases.locked(scope.tenant(),scope.branch(),id).orElseThrow(this::missing);em.refresh(c,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);return view(c);}
  public List<View> list(String username,String state){if(state==null||!Set.of("REQUESTED","APPROVED","REJECTED","INSPECTED").contains(state))bad("Valid return state required");var scope=retail.scope(username);return (Set.of("REQUESTED","APPROVED").contains(state)?cases.findTop20ByTenantAndBranchAndStateOrderByCreatedAscIdAsc(scope.tenant(),scope.branch(),state):cases.findTop20ByTenantAndBranchAndStateOrderByCreatedDescIdDesc(scope.tenant(),scope.branch(),state)).stream().map(this::view).toList();}
 }

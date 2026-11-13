@@ -1304,4 +1304,9 @@ class PosTest {
   var draft=checkout.pos("alice","same-operation-key",posDraft());assertThatThrownBy(()->checkout.cashSale("alice","same-operation-key",sale(1,"120"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
  }
 
+ @Test void paidStatusTimestampRetainsMicrosecondsInsteadOfRoundingIntoTheFuture(){
+  var receipt=checkout.cashSale("alice","paid-precision",sale(1,"120"));String id=(String)receipt.get("id");var paid=java.time.Instant.parse("2026-11-13T12:00:00.654321Z");db.update("UPDATE orders SET status_changed_at=? WHERE id=?",java.sql.Timestamp.from(paid),id);
+  assertThat(db.queryForObject("SELECT status_changed_at FROM orders WHERE id=?",java.sql.Timestamp.class,id).toInstant()).isEqualTo(paid);assertThat(((java.sql.Timestamp)service.receipt(a,id).get("issued_at")).toInstant()).isEqualTo(paid);
+ }
+
 }

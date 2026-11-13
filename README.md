@@ -370,6 +370,6 @@ Rebuild/restart backend for V19 and rebuild frontend. New paid POS receipts save
 
 ### Unified cash checkout and reserved-sale cash entry
 
-Rebuild backend/frontend. Fast cash and explicit reserved cash sales now use the shared JPA checkout/reservation/finalization path; the duplicate retail checkout implementation is removed. Each reservation has its own cash shortcuts and cancellation reason. New cash finalization requires a valid future reservation in the exact current session; unknown/malformed session/expiry data cannot bypass that guard. Existing uncertain retries replay their original payload.
+Rebuild/restart backend for V20 paid-time precision and rebuild frontend. Fast cash and explicit reserved cash sales now use the shared JPA checkout/reservation/finalization path; the duplicate retail checkout implementation is removed. Each reservation has its own cash shortcuts and cancellation reason. New cash finalization requires a valid future reservation in the exact current session; unknown/malformed session/expiry data cannot bypass that guard. Existing uncertain retries replay their original payload.
 
 This is a pre-prod intent-key refactor, with no compatibility lookup for old direct-cash keys. Finish/reconcile existing demo attempts before switching builds; start fresh test workflows after the cutover. No data/config reset runs automatically. See [architecture, cutover and tests](docs/implementation/UNIFIED_CASH_CHECKOUT.md).

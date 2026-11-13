@@ -12,7 +12,7 @@ Remove PosService.checkout, its request/line DTOs, request hashing and unused pr
 
 Fast-cash and explicit-reservation idempotency intents have distinct POS_CASH/POS namespaces. Cash fingerprints include canonical received amount. Matching retries return the same paid receipt even after shift close; changed cash/body conflicts rather than creates a second sale. Outlet-first lock ordering is consistent with reserved finalization. Cash bounds are validated before persistence for both paths.
 
-No schema/config migration is needed. This pre-prod cutover does not recognize former direct-JDBC raw-key records through a fallback. Finish/reconcile pre-cutover demo attempts before changing builds; do not replay old browser cash attempts across this refactor. Fresh workflows and their exact retries are covered. No database/browser data is cleared automatically.
+V20 changes orders.status_changed_at to TIMESTAMP(6). MySQL second-precision rounding can otherwise put a freshly paid JPA sale in the future and incorrectly fail an immediate return-window check. The schema stores microseconds directly; no time tolerance or relaxed return rule is added. No runtime config change is needed. This pre-prod cutover does not recognize former direct-JDBC raw-key records through a fallback. Finish/reconcile pre-cutover demo attempts before changing builds; do not replay old browser cash attempts across this refactor. Fresh workflows and their exact retries are covered. No database/browser data is cleared automatically.
 
 ## Per-reservation cash UI
 

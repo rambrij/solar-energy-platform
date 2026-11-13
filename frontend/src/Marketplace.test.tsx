@@ -87,7 +87,7 @@ it('sorts products by price, filters stock and explains empty searches', async (
   render(<Marketplace/>); await screen.findByText('Solar Panel');
   fireEvent.change(screen.getByLabelText('Sort products'), { target: { value: 'price-high' } });
   const region = within(screen.getByLabelText('Vendor products'));
-  expect(region.getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual(['Solar Inverter', 'Solar Panel', 'Battery']);
+  expect(within(region.getByRole('list')).getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual(['Solar Inverter', 'Solar Panel', 'Battery']);
   fireEvent.click(screen.getByLabelText('In stock only')); expect(region.queryByText('Battery')).toBeNull();
   fireEvent.change(screen.getByLabelText('Search products'), { target: { value: 'not found' } }); await screen.findByText('No matching products');
   expect(vi.mocked(marketplaceApi).mock.calls.every(call => call[0].startsWith('/api/marketplace/'))).toBe(true);
@@ -101,4 +101,14 @@ it('supports public product deep links and adds the selected detail quantity thr
   fireEvent.change(within(dialog).getByLabelText('Product detail quantity'), { target: { value: '2' } }); fireEvent.click(within(dialog).getByText('Add or update this product in cart'));
   await waitFor(() => expect(marketplaceApi).toHaveBeenCalledWith('/api/customer/cart/items', 'POST', { vendorSlug: 'vendor-1', productId: 1, quantity: 2 }));
   expect(screen.queryByRole('dialog')).toBeNull(); expect(window.location.search).toBe('');
+});
+
+it('navigates tenant catalogue categories and shows approved offers without modifying the cart', async () => {
+ const catalogue = [{ ...products[0], categoryId: 1, categoryName: 'Panels', price: 90, listPrice: 100, discountPercent: 10 }, { id: 2, sku: 'INV', name: 'Inverter', price: 200, taxRate: 0, inStock: true, categoryId: 2, categoryName: 'Inverters' }];
+ vi.mocked(marketplaceApi).mockImplementation(async path => path === '/api/marketplace/vendors' ? vendors : catalogue);
+ render(<Marketplace/>); await screen.findByText('Solar Panel'); const navigation = within(screen.getByRole('navigation', { name: 'Product categories' }));
+ expect(screen.getByText('10% approved offer')).toBeTruthy(); fireEvent.click(navigation.getByRole('button', { name: /Inverters/ }));
+ expect(screen.queryByText('Solar Panel')).toBeNull(); expect(screen.getByText('Inverter')).toBeTruthy();
+ fireEvent.click(navigation.getByRole('button', { name: /All products/ })); await screen.findByText('Solar Panel');
+ expect(vi.mocked(marketplaceApi).mock.calls.every(call => call[0].startsWith('/api/marketplace/'))).toBe(true);
 });

@@ -3,7 +3,7 @@ import {afterEach,expect,it,vi} from 'vitest';
 import App from './App';
 import {api,ApiError} from './api';
 vi.mock('./api',async importOriginal=>({...await importOriginal<typeof import('./api')>(),api:vi.fn()}));
-afterEach(()=>{cleanup();vi.resetAllMocks();sessionStorage.clear();});
+afterEach(()=>{cleanup();vi.resetAllMocks();vi.restoreAllMocks();sessionStorage.clear();});
 it('does not request customer identity for guest checkout',async()=>{
  vi.mocked(api).mockResolvedValue([]);render(<App/>);
  expect(screen.queryByLabelText(/email|phone|customer/i)).toBeNull();
@@ -95,4 +95,60 @@ it('preserves a sale key after an uncertain failure and does not claim completio
  await screen.findByText('Retry same sale');expect(screen.queryByLabelText('Sale receipt')).toBeNull();fireEvent.click(screen.getByText('Retry same sale'));
  await waitFor(()=>expect(vi.mocked(api).mock.calls.filter(c=>c[0]==='/sales')).toHaveLength(2));
  const calls=vi.mocked(api).mock.calls.filter(c=>c[0]==='/sales');expect(calls[0][2]).toBe(calls[1][2]);expect(calls[0][1]).toEqual(calls[1][1]);
+});
+
+function retailMock() {
+ sessionStorage.setItem('pos-session-v1', 'session');
+ const products = [{ id: 1, name: 'Panel', sku: 'P1', barcode: '123', price: 90, list_price: 100, tax_rate: 10, quantity: 2 }];
+ vi.mocked(api).mockImplementation(async path => {
+  if (path === '/products') return products;
+  if (path.startsWith('/drafts')) return [];
+  if (path === '/sessions/session') return { state: 'OPEN' };
+  return { state: 'OPEN', openingFloat: 50, cashReceived: 0, changeGiven: 0, cashIn: 0, cashOut: 0, safeDrops: 0, expectedCash: 50, movements: [] };
+ });
+}
+it('adds exact barcode and SKU matches quickly, caps quantities and keeps scanner focus', async () => {
+ retailMock(); render(<App/>); const search = await screen.findByLabelText('Search name, SKU or scan barcode');
+ fireEvent.change(search, { target: { value: '123' } }); fireEvent.submit(search.closest('form')!); await screen.findByText('Added Panel');
+ expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1'); expect(document.activeElement).toBe(search); expect((search as HTMLInputElement).value).toBe('');
+ fireEvent.change(search, { target: { value: 'P1' } }); fireEvent.submit(search.closest('form')!); expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('2');
+ fireEvent.change(search, { target: { value: '123' } }); fireEvent.submit(search.closest('form')!); await screen.findByText('Available stock or quantity limit reached.'); expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('2');
+ expect(vi.mocked(api).mock.calls.some(call => call[0] === '/sales')).toBe(false);
+});
+it('does not add a partial barcode match and blocks invalid bill quantities', async () => {
+ retailMock(); render(<App/>); const search = await screen.findByLabelText('Search name, SKU or scan barcode');
+ fireEvent.change(search, { target: { value: '12' } }); fireEvent.submit(search.closest('form')!); await screen.findByText(/No exact SKU or barcode match/); expect(screen.queryByLabelText('Quantity 1')).toBeNull();
+ fireEvent.change(search, { target: { value: '' } }); fireEvent.click(screen.getByText('Add Panel')); fireEvent.change(screen.getByLabelText('Quantity 1'), { target: { value: '0' } }); fireEvent.change(screen.getByLabelText('Cash received'), { target: { value: '100' } });
+ expect((screen.getByText('Complete cash sale') as HTMLButtonElement).disabled).toBe(true); expect((screen.getByText('Reserve walk-in sale without payment') as HTMLButtonElement).disabled).toBe(true);
+});
+it('prints only after an audited copy response and keeps the saved receipt identity', async () => {
+ retailMock(); const receipt = { id: 'order-1', branch_id: 1, receipt_number: 1, total: 99, cash_received: 100, change_given: 1, tax_invoice: false, items: [{ name: 'Panel', quantity: 1, price: 90, tax: 9, tax_rate: 10, total: 99, discount: 10 }], invoices: [] };
+ const original = vi.mocked(api).getMockImplementation()!;
+ vi.mocked(api).mockImplementation(async (path, body, key) => path === '/sales' ? receipt : path === '/receipts/order-1/reprint' ? { ...receipt, copy: true } : original(path, body, key));
+ const print = vi.spyOn(window, 'print').mockImplementation(() => {}); render(<App/>); fireEvent.click(await screen.findByText('Add Panel')); fireEvent.change(screen.getByLabelText('Cash received'), { target: { value: '100' } }); fireEvent.click(screen.getByText('Complete cash sale'));
+ fireEvent.click(await screen.findByText('Print receipt copy')); await waitFor(() => expect(print).toHaveBeenCalledOnce()); expect(api).toHaveBeenCalledWith('/receipts/order-1/reprint', {}); expect(screen.getByText('COPY · Receipt 1/1')).toBeTruthy();
+});
+
+it('can finalize an owned reservation after its hold reduces free catalogue stock to zero', async () => {
+ retailMock(); let held = false, paid = false;
+ const original = vi.mocked(api).getMockImplementation()!;
+ const draft = { id: 'd1', vendorName: 'Store', channel: 'IN_STORE', status: 'DRAFT', expiresAt: '2099-01-01T00:00:00Z', total: 99, message: 'Unpaid reservation', items: [{ productId: 1, name: 'Panel', quantity: 1, unitPrice: 90, tax: 9, total: 99, discount: 10 }] };
+ const receipt = { id: 'd1', branch_id: 1, receipt_number: 1, total: 99, cash_received: 100, change_given: 1, tax_invoice: false, items: [{ name: 'Panel', quantity: 1, price: 90, tax: 9, tax_rate: 10, total: 99, discount: 10 }], invoices: [] };
+ vi.mocked(api).mockImplementation(async (path, body, key) => {
+  if (path === '/products') return [{ id: 1, name: 'Panel', sku: 'P1', barcode: '123', price: 90, list_price: 100, tax_rate: 10, quantity: held ? 0 : 1 }];
+  if (path === '/drafts') { held = true; return draft; }
+  if (path.startsWith('/drafts?')) return held ? [{ ...draft, status: paid ? 'PAID' : 'DRAFT' }] : [];
+  if (path === '/drafts/d1/finalize-cash') { paid = true; return receipt; }
+  return original(path, body, key);
+ });
+ render(<App/>); fireEvent.click(await screen.findByText('Add Panel')); fireEvent.click(screen.getByText('Reserve walk-in sale without payment')); await screen.findByText('0 available');
+ fireEvent.change(screen.getByLabelText('Cash received for reserved sale'), { target: { value: '100' } }); const complete = screen.getByText('Complete reserved cash sale'); expect((complete as HTMLButtonElement).disabled).toBe(false); fireEvent.click(complete);
+ await screen.findByLabelText('Sale receipt'); expect(api).toHaveBeenCalledWith('/drafts/d1/finalize-cash', { cashReceived: '100' }, undefined);
+});
+it('does not print when the server denies the audited reprint', async () => {
+ retailMock(); const receipt = { id: 'order-1', branch_id: 1, receipt_number: 1, total: 99, cash_received: 100, change_given: 1, tax_invoice: false, items: [], invoices: [] };
+ const original = vi.mocked(api).getMockImplementation()!;
+ vi.mocked(api).mockImplementation(async (path, body, key) => { if (path === '/sales') return receipt; if (path === '/receipts/order-1/reprint') throw new ApiError(403); return original(path, body, key); });
+ const print = vi.spyOn(window, 'print').mockImplementation(() => {}); render(<App/>); fireEvent.click(await screen.findByText('Add Panel')); fireEvent.change(screen.getByLabelText('Cash received'), { target: { value: '100' } }); fireEvent.click(screen.getByText('Complete cash sale')); fireEvent.click(await screen.findByText('Print receipt copy'));
+ await screen.findByText('Request failed (403).'); expect(print).not.toHaveBeenCalled();
 });

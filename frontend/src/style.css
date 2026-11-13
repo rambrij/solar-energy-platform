@@ -1230,3 +1230,5 @@ button+button {
 @media print{body[data-print-document=sale] .refund-receipt,body[data-print-document=refund] .sale-receipt:not(.refund-receipt){display:none!important}.refund-receipt button,.refund-receipt [role=alert]{display:none!important}}
 
 .checkout-review{padding:1rem;border:1px solid #dfb846;border-radius:12px;background:#fffcf0}.checkout-review dl{display:grid;grid-template-columns:1fr auto;gap:.5rem}.checkout-review dd{margin:0;font-weight:700}
+
+.refund-cashiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:1rem}.refund-cashiers article{padding:1rem;border:1px solid var(--line);border-radius:12px;background:#f5faf7;overflow-wrap:anywhere}.refund-cashiers dl{display:grid;grid-template-columns:1fr auto;gap:.6rem;font-size:.85rem}.refund-cashiers dd{margin:0;text-align:right}.refund-insights .insight-filters{grid-template-columns:1fr 1fr auto}@media(max-width:600px){.refund-insights .insight-filters{grid-template-columns:1fr}.refund-cashiers dl{grid-template-columns:1fr}.refund-cashiers dd{text-align:left}}

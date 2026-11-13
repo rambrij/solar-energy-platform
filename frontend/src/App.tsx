@@ -8,6 +8,7 @@ import ReservedDrafts from './ReservedDrafts';
 import Shell from './Shell';
 import OrderHistory from './OrderHistory';
 import SalesInsights from './SalesInsights';
+import RefundInsights from './RefundInsights';
 import type { Receipt } from './types';
 import BillingBasket from './BillingBasket';
 import CategoryNav from './CategoryNav';
@@ -122,6 +123,7 @@ export default function App() {
     <CashRefunds session={session} sessionState={sessionState} disabled={busy||!!pending||movementPending||closePending||reservedBlocked||checkingSession} onPendingChange={setRefundPending} onBusyChange={setBusy} onRecorded={value=>{setRefundReceipt(value);setDrawerRevision(previous=>previous+1);}}/>
     {refundReceipt&&<CashRefundReceipt value={refundReceipt} disabled={busy||refundPending} onCopy={setRefundReceipt}/>}
     <SalesInsights/>
+    <RefundInsights/>
     <ShiftReviews/>
   </Shell>;
 }

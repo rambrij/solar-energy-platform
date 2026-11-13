@@ -1186,4 +1186,34 @@ class PosTest {
   for(String[] bad:List.of(new String[]{"state","PAID"},new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","bad-date"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isBadRequest());
  }
 
+ @Test void ownClosedShiftHistoryIsPagedAndDoesNotExposeOtherCashiersOrChangeDrawers() throws Exception {
+  var ids=new ArrayList<String>();ids.add(session);service.close(a,session,new BigDecimal("50"));
+  for(int i=0;i<24;i++){String id=(String)service.open(a,new PosService.OpenSession(1,BigDecimal.ZERO)).get("id");service.close(a,id,BigDecimal.ZERO);ids.add(id);}
+  db.update("UPDATE pos_sessions SET closed_at=? WHERE cashier='alice'",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")));ids.sort(Comparator.reverseOrder());
+  String open=(String)service.open(a,new PosService.OpenSession(1,BigDecimal.TEN)).get("id");
+  db.update("INSERT INTO employees VALUES('shift-colleague','unused',1,1,TRUE)");db.update("INSERT INTO registers VALUES(3,1,1)");var colleague=new PosService.Scope(1,1,"shift-colleague");String other=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("99"))).get("id");service.close(colleague,other,new BigDecimal("99"));db.update("UPDATE pos_sessions SET closed_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")),other);
+  String path="/api/vendor/pos/sessions/history";
+  for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].cashier").doesNotExist()).andExpect(jsonPath("$.items[0].varianceReason").doesNotExist()).andExpect(jsonPath("$.items[0].closeRequestId").doesNotExist());
+  mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",session.toUpperCase(Locale.ROOT)).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].openingFloat").value(50)).andExpect(jsonPath("$.items[0].expectedCash").value(50)).andExpect(jsonPath("$.items[0].countedCash").value(50)).andExpect(jsonPath("$.items[0].variance").value(0));
+  for(String reference:List.of(open,other))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",reference).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other shift branch')");db.update("INSERT INTO employees VALUES('shift-other','unused',1,4,TRUE)");
+  for(String actor:List.of("bob","shift-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("cashier","alice").param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(service.reconciliation(a,open).expectedCash()).isEqualByComparingTo("10");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
+ }
+ @Test void ownShiftHistoryRejectsMissingPermissionsAndInvalidBounds() throws Exception {
+  String path="/api/vendor/pos/sessions/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
+  for(String[] bad:List.of(new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","bad-date"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isBadRequest());
+  db.update("UPDATE employees SET enabled=FALSE WHERE username='alice'");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+ }
+
+ @Test void shiftHistoryExcludesPendingReviewAndPreservesApprovedVarianceSnapshot() throws Exception {
+  String request=UUID.randomUUID().toString();service.close(a,session,new BigDecimal("49"),"Count difference",request);
+  String path="/api/vendor/pos/sessions/history";
+  mvc.perform(get(path).param("reference",session).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  db.update("INSERT INTO employees VALUES('history-supervisor','unused',1,1,TRUE)");service.reviewVariance(new PosService.Scope(1,1,"history-supervisor"),session,request,"Count independently checked",PosService.ReviewAction.APPROVE);
+  mvc.perform(get(path).param("reference",session).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].expectedCash").value(50)).andExpect(jsonPath("$.items[0].countedCash").value(49)).andExpect(jsonPath("$.items[0].variance").value(-1)).andExpect(jsonPath("$.items[0].reviewedBy").doesNotExist()).andExpect(jsonPath("$.items[0].reviewReason").doesNotExist());
+  assertThat(db.queryForObject("SELECT state FROM pos_sessions WHERE id=?",String.class,session)).isEqualTo("CLOSED");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isEqualTo(1);
+ }
+
 }

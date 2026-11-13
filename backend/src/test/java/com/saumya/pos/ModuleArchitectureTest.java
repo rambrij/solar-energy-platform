@@ -7,7 +7,7 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 class ModuleArchitectureTest {
     @Test void moduleInternalsArePrivateAndModuleDependenciesAreAcyclic(){
         var classes=new ClassFileImporter().withImportOption(new ImportOption.DoNotIncludeTests()).importPackages("com.saumya.pos");
-        for(String module:new String[]{"cart","catalog","identity","inventory","checkout","returns","reporting"}){
+        for(String module:new String[]{"cart","catalog","identity","inventory","checkout","returns","reporting","retail"}){
             noClasses().that().resideOutsideOfPackage("com.saumya.pos."+module+"..")
                 .should().dependOnClassesThat().resideInAnyPackage("com.saumya.pos."+module+".internal..")
                 .because("other modules must use the public application service").check(classes);

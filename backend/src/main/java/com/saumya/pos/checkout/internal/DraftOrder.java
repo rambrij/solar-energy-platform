@@ -21,6 +21,8 @@ public class DraftOrder {
     @Column(name="receipt_number") private Long receiptNumber;
     @Column(name="tax_invoice",nullable=false) private boolean taxInvoice;
     @Column(name="payment_method",nullable=false,length=16) private String paymentMethod="CASH";
+    @Column(name="receipt_seller_name",length=160) private String receiptSeller;
+    @Column(name="receipt_outlet_name",length=160) private String receiptOutlet;
     @Column(name="invoice_requested",nullable=false) private boolean invoiceRequested;
     @Column(nullable=false,length=24) private String status;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="expires_at") private Instant expiresAt;
@@ -40,6 +42,8 @@ public class DraftOrder {
     public boolean invoiceRequested(){return invoiceRequested;}
     public long stockBranch(){return stockBranch;}
     public String paymentMethod(){return paymentMethod;}
+    public String receiptSeller(){return receiptSeller;}
+    public String receiptOutlet(){return receiptOutlet;}
     public void payExternal(String method,Long receipt,boolean invoice,Instant now){paymentMethod="MOCK_"+method;receiptNumber=receipt;taxInvoice=invoice;if("IN_STORE".equals(channel)){cashReceived=BigDecimal.ZERO;changeGiven=BigDecimal.ZERO;}finish("PAID",now);}
     public void finish(String state,Instant now){status=state;draftOwner=null;statusChangedAt=now.truncatedTo(java.time.temporal.ChronoUnit.MICROS);}
     public void cancel(String reason,Instant now){cancellationReason=reason;finish("CANCELLED",now);}

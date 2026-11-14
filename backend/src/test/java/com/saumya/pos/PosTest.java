@@ -32,6 +32,7 @@ class PosTest {
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
  @Autowired com.saumya.pos.checkout.PaymentCheckoutService payments;
  @Autowired com.saumya.pos.checkout.ReturnSaleAccess returnSaleAccess;
+ @Autowired com.saumya.pos.checkout.OnlineReceiptService onlineReceipts;
  @Autowired com.saumya.pos.catalog.PromotionService promotions;
  @Autowired com.saumya.pos.returns.ReturnService returns;
  @Autowired com.saumya.pos.returns.CashRefundService refunds;
@@ -50,6 +51,24 @@ class PosTest {
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("50"))).get("id");
  }
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false);}
+ @Test void customerReceiptUsesSavedFactsAndCopiesDoNotCreateFinancialWrites(){
+  configureOnline();db.update("UPDATE branches SET invoice_required=TRUE WHERE id=1");var draft=onlineDraft("receipt-online");var attempt=payments.start("customer",draft.id(),true,"UPI");payments.confirm("customer",draft.id(),true,attempt.attemptId());
+  db.update("UPDATE tenants SET name='Renamed',active=FALSE WHERE id=1");db.update("UPDATE branches SET name='Changed outlet' WHERE id=1");db.update("UPDATE products SET name='Changed panel',price=999 WHERE id=1");
+  var receipt=onlineReceipts.read("customer",draft.id());assertThat(receipt.seller()).isEqualTo("Vendor A");assertThat(receipt.outlet()).isEqualTo("A");assertThat(receipt.items().getFirst().name()).isEqualTo("Panel");assertThat(receipt.total()).isEqualByComparingTo("110");assertThat(receipt.invoices().getFirst().seller()).isEqualTo("Vendor A");assertThat(receipt.copy()).isFalse();
+  for(int i=0;i<2;i++){var copy=onlineReceipts.copy("customer",draft.id());assertThat(copy.copy()).isTrue();assertThat(copy.orderId()).isEqualTo(receipt.orderId());assertThat(copy.issuedAt()).isEqualTo(receipt.issuedAt());}
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CUSTOMER_RECEIPT_COPY' AND actor='customer:100'",Integer.class)).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
+ }
+ @Test void onlineReceiptApiEnforcesCustomerOwnershipAndAuditedCopyCsrf() throws Exception {
+  configureOnline();var draft=onlineDraft("receipt-security");String path="/api/customer/orders/"+draft.id();
+  mvc.perform(get(path+"/receipt")).andExpect(status().isUnauthorized());mvc.perform(get(path+"/receipt").with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isForbidden());mvc.perform(get(path+"/receipt").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  var attempt=payments.start("customer",draft.id(),true,"CARD");payments.confirm("customer",draft.id(),true,attempt.attemptId());
+  db.update("INSERT INTO users VALUES(300,'other-buyer','unused',TRUE)");db.update("INSERT INTO customer_profiles VALUES(300,300)");mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(post(path+"/receipt-copy").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isForbidden());
+  mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{\"tenantId\":2}")).andExpect(status().isBadRequest());
+  mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isOk()).andExpect(jsonPath("$.copy").value(true)).andExpect(jsonPath("$.paymentMethod").value("MOCK_CARD")).andExpect(jsonPath("$.seller").value("Vendor A"));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CUSTOMER_RECEIPT_COPY'",Integer.class)).isEqualTo(1);
+ }
+ @Test void onlineReceiptCannotExposeGuestPosSale(){configureOnline();String id=(String)checkout.cashSale("alice","receipt-pos-private",sale(1,"120")).get("id");assertThatThrownBy(()->onlineReceipts.read("customer",id)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);}
  @Test void onlinePaymentIsDurableVendorOwnedAndConfirmedExactlyOnce(){
   configureOnline();var draft=onlineDraft("online-payment");var started=payments.start("customer",draft.id(),true,"UPI");
   assertThat(started.merchantAccount()).isEqualTo("mock-vendor-1");assertThat(started.state()).isEqualTo("PENDING");

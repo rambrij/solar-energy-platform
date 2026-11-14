@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { marketplaceApi } from './marketplaceApi';
 import type { Receipt } from './types';
+import OnlineReceipt from './OnlineReceipt';
 
 type Order = { id: string; vendorName: string; channel: string; status: string; createdAt: string; expiresAt: string | null; total: number; receiptNumber: number | null; taxInvoice: boolean };
 type Page = { items: Order[]; page: number; size: number; totalElements: number; totalPages: number };
@@ -11,6 +12,7 @@ const initial: Filters = { status: 'ALL', reference: '', from: '', to: '' };
 const money = (value: number) => Number(value).toFixed(2);
 const date = (value: string | null) => value ? new Date(value).toLocaleString() : 'Not recorded';
 export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos' | 'online'; onReceipt?: (value: Receipt) => void; onReturn?: (id: string) => void }) {
+  const [onlineReceipt,setOnlineReceipt]=useState<string>();
   const [filters, setFilters] = useState<Filters>(initial), [applied, setApplied] = useState<Filters>(initial);
   const [page, setPage] = useState<Page>(), [detail, setDetail] = useState<Detail>(), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const version = useRef(0);
@@ -62,5 +64,7 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
       {detail.order.status === 'DRAFT' && <p>Unpaid reservation · Expires {date(detail.order.expiresAt)}. Manage it in reserved drafts above.</p>}
       <p>Status updated {date(detail.statusChangedAt)}</p><p>Line details are saved order snapshots. Catalogue changes do not change this order.</p>
     </section>}
+    {mode==='online'&&detail?.order.status==='PAID'&&<button disabled={busy} onClick={()=>setOnlineReceipt(detail.order.id)}>Open online receipt</button>}
+    {mode==='online'&&onlineReceipt&&<OnlineReceipt key={onlineReceipt} orderId={onlineReceipt} onClose={()=>setOnlineReceipt(undefined)}/>}
   </section>;
 }

@@ -27,15 +27,15 @@ export default function SplitTenderCheckout({orderId,disabled=false,onComplete,o
   <h3>Payments and split tender</h3><p>Cash and terminal payments belong directly to this vendor. Only confirmed applied amounts count toward the bill.</p>
   {error&&<p role="alert">{error}</p>}<button className="secondary" disabled={busy} onClick={()=>void load()}>Load tender balance</button>
   {pending&&<div><p>A saved tender is awaiting acknowledgement. Do not take funds again.</p><button disabled={busy} onClick={()=>void post(pending)}>Retry same tender</button></div>}
-  {balance&&<><p role="status">{balance.orderStatus} · Paid {Number(balance.confirmed).toFixed(2)} · Remaining {Number(balance.remaining).toFixed(2)}</p>
-   <ul>{balance.tenders.map(t=><li key={t.attemptId}>{t.method} · {t.state} · {Number(t.amount).toFixed(2)} · Reference {t.attemptId}</li>)}</ul>
+  {balance&&<><p role="status">{balance.orderStatus} Â· Paid {Number(balance.confirmed).toFixed(2)} Â· Remaining {Number(balance.remaining).toFixed(2)}</p>
+   <ul>{balance.tenders.map(t=><li key={t.attemptId}>{t.method} Â· {t.state} Â· {Number(t.amount).toFixed(2)} Â· Reference {t.attemptId}</li>)}</ul>
    {unresolved&&<p role="alert">External payment is awaiting independent verification. Do not charge again or collect cash. Ask an authorized supervisor to reconcile this tender.</p>}
    {balance.tenders.filter(t=>t.state==='PENDING_VERIFICATION').map(t=><button key={t.attemptId} disabled={busy||!!pending} onClick={()=>void resolve(`/tenders/${encodeURIComponent(t.attemptId)}/unknown`)}>Mark {t.method} outcome unknown</button>)}
    {balance.orderStatus==='DRAFT'&&Number(balance.remaining)===0&&!unresolved&&<button disabled={busy||!!pending} onClick={()=>void resolve('/finalize')}>Retry saved sale finalization</button>}
    <fieldset disabled={busy||disabled||!!pending||unresolved||balance.orderStatus!=='DRAFT'}>
     <label>Tender method<select value={method} onChange={e=>setMethod(e.target.value)}><option value="CASH">Cash</option><option value="UPI">Vendor UPI</option><option value="CARD">Vendor card terminal</option></select></label>
     <label>Amount applied<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)}/></label>
-    {method==='CASH'&&<><label>Tender cash received<input inputMode="decimal" value={cash} onChange={e=>setCash(e.target.value)}/></label><p>Change {validAmount&&validCash?(Number(cash)-Number(amount)).toFixed(2):'—'}</p></>}
+    {method==='CASH'&&<><label>Tender cash received<input inputMode="decimal" value={cash} onChange={e=>setCash(e.target.value)}/></label><p>Change {validAmount&&validCash?(Number(cash)-Number(amount)).toFixed(2):'â€”'}</p></>}
     {!balance.splitEnabled&&<p>This outlet requires one tender for the full remaining amount.</p>}
     <button disabled={!validAmount||!validCash||(!balance.splitEnabled&&Number(amount)!==Number(balance.remaining))} onClick={()=>void post({key:crypto.randomUUID(),body:{method,appliedAmount:amount,...(method==='CASH'?{cashReceived:cash}:{})}})}>{method==='CASH'?'Record received cash':'Prepare vendor terminal tender'}</button>
    </fieldset>

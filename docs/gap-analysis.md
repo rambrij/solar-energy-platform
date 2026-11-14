@@ -1,6 +1,6 @@
 # Marketplace, Physical Store POS and Walk-in Sales â€” Phase 1 gap analysis
 
-Date: 2026-11-14. Status: implementation approved; Phases 2–4 in progress.
+Date: 2026-11-14. Status: implementation approved; Phases 2â€“4 in progress.
 
 ## 1. Baseline and scope
 
@@ -198,7 +198,7 @@ Phase 1 deliverable only: this gap analysis. No implementation code, schema migr
 
 ## Implementation progress (running PR notes)
 
-- `272d2d2`: R02 moved all commerce APIs/clients/tests/implementation docs to `/api/v1`; added domain Problem Details and stable CART_VENDOR_MISMATCH. R07 cart availability now uses designated online stock location. Backend: `mvn -B -f backend/pom.xml test` — 228 tests, zero failures/errors/skips. Frontend API-prefix rerun: 225 tests, 39 files passed; subsequent changes require another full run.
+- `272d2d2`: R02 moved all commerce APIs/clients/tests/implementation docs to `/api/v1`; added domain Problem Details and stable CART_VENDOR_MISMATCH. R07 cart availability now uses designated online stock location. Backend: `mvn -B -f backend/pom.xml test` â€” 228 tests, zero failures/errors/skips. Frontend API-prefix rerun: 225 tests, 39 files passed; subsequent changes require another full run.
 - Discount slice: R08 authorized line/bill discount snapshots and R10 discounted partial-refund allocation; scanner focus waits until the input is unlocked. `mvn -B -f backend/pom.xml clean test`: 236 tests passed; `npm test -- --reporter=dot`: 226 tests / 39 files passed; `npm --prefix frontend run build`: passed. Supervisor per-sale overrides remain outstanding.
 - Remote fetched: target now at 50588d6; four inherited local patches appear under different remote commit IDs. Docker named-pipe access is denied, so MySQL container/Compose validation is currently blocked.
 
@@ -217,3 +217,5 @@ Phase 1 deliverable only: this gap analysis. No implementation code, schema migr
 - Remote branch integration: preserved held-bill tabs/timers, dynamic checkout progress, shared-shell dropdown/group tabs and PDF tender breakdown. Consolidated competing order_tenders/finalize-split/percentage-only discount code into the canonical durable tender/authorized discount services; retained one Flyway V24 chain from target. No issued financial data is deleted. Integrated verification: mvn -B -f backend/pom.xml test: 262 passed; npm.cmd --prefix frontend test -- --run --reporter=dot: 256 passed / 50 files; npm.cmd --prefix frontend run build: passed. Git credential-helper execution remains denied by Windows; publication uses authenticated GitHub app tree/commit APIs with exact tree-hash verification and a non-forced branch update.
 
 - Drawer accounting slice (POS-014/022): confirmed cash tenders publish atomic immutable cash facts to a retail-owned projection, including partial unpaid bills. Removed retail reconciliation's cross-module orders query for sale cash. V32 backfills confirmed attempts and older paid cash exactly once. Full backend suite: 263 passed; focused CashDrawerProjectionTest and migration/rollback/partial-cash integration rerun: 4 passed. Frontend unchanged from validated 256-test/build baseline.
+
+- UI encoding refactor: normalized isolated Windows punctuation bytes to UTF-8 while preserving existing Unicode in authentication, receipt, tender, outlet-settings and walk-in screens. Focused affected-component suite: 17 tests / 6 files passed; production build passed. Initial whole-file conversion failed four existing text assertions and was corrected before this commit.

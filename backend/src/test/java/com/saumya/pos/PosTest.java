@@ -31,6 +31,7 @@ class PosTest {
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
  @Autowired com.saumya.pos.checkout.PaymentCheckoutService payments;
+ @Autowired com.saumya.pos.checkout.SplitTenderService split;
  @Autowired com.saumya.pos.checkout.ReturnSaleAccess returnSaleAccess;
  @Autowired com.saumya.pos.checkout.OnlineReceiptService onlineReceipts;
  @Autowired com.saumya.pos.catalog.PromotionService promotions;
@@ -41,7 +42,7 @@ class PosTest {
  @BeforeEach void seed(){
   db.update("DELETE FROM vendor_payment_attempts");
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("order_tenders","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -1390,4 +1391,101 @@ class PosTest {
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\"Copy request\"}")).andExpect(status().isConflict());assertThat(db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit",Integer.class)).isZero();
  }
 
+
+ // ---- Split tender (POS-013) ----
+ static com.saumya.pos.checkout.TenderPlan.Entry tender(com.saumya.pos.checkout.TenderPlan.Method m,String amount){return new com.saumya.pos.checkout.TenderPlan.Entry(m,new BigDecimal(amount));}
+ static final com.saumya.pos.checkout.SplitTenderService.Rights ALL_TENDERS=new com.saumya.pos.checkout.SplitTenderService.Rights(true,true);
+ @SuppressWarnings("unchecked") @Test void splitCashAndUpiSettlesAtomicallyAndOnlyCashEntersTheDrawer(){
+  var draft=checkout.pos("alice","split-sale-1",posDraft());
+  var receipt=split.pay("alice",draft.id(),List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.UPI,"60"),tender(com.saumya.pos.checkout.TenderPlan.Method.CASH,"60")),ALL_TENDERS);
+  assertThat(receipt.get("payment_method")).isEqualTo("SPLIT");assertThat((BigDecimal)receipt.get("cash_received")).isEqualByComparingTo("60");assertThat((BigDecimal)receipt.get("change_given")).isEqualByComparingTo("10");
+  var rows=(List<Map<String,Object>>)receipt.get("tenders");assertThat(rows).hasSize(2);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM order_tenders WHERE order_id=?",Integer.class,draft.id())).isEqualTo(2);
+  assertThat(db.queryForObject("SELECT SUM(applied_amount) FROM order_tenders WHERE order_id=?",BigDecimal.class,draft.id())).isEqualByComparingTo("110");
+  assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("100");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);
+ }
+ @Test void splitRetryReturnsSameReceiptButDifferentTendersConflictWithoutExtraWrites(){
+  var draft=checkout.pos("alice","split-sale-2",posDraft());var entries=List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.CARD,"50"),tender(com.saumya.pos.checkout.TenderPlan.Method.CASH,"60"));
+  var first=split.pay("alice",draft.id(),entries,ALL_TENDERS);var second=split.pay("alice",draft.id(),entries,ALL_TENDERS);
+  assertThat(second.get("receipt_number")).isEqualTo(first.get("receipt_number"));
+  assertThatThrownBy(()->split.pay("alice",draft.id(),List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.UPI,"50"),tender(com.saumya.pos.checkout.TenderPlan.Method.CASH,"60")),ALL_TENDERS)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM order_tenders",Integer.class)).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);
+ }
+ @Test void underOverAndSingleMethodTendersAreRejectedAndLeaveTheDraftPayable(){
+  var draft=checkout.pos("alice","split-sale-3",posDraft());
+  for(var bad:List.of(List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.UPI,"60"),tender(com.saumya.pos.checkout.TenderPlan.Method.CASH,"40")),
+    List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.UPI,"60"),tender(com.saumya.pos.checkout.TenderPlan.Method.CARD,"60")),
+    List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.CASH,"110"))))
+   assertThatThrownBy(()->split.pay("alice",draft.id(),bad,ALL_TENDERS)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");assertThat(db.queryForObject("SELECT COUNT(*) FROM order_tenders",Integer.class)).isZero();
+  assertThat(checkout.finalizeCash("alice",draft.id(),new BigDecimal("110")).get("payment_method")).isEqualTo("CASH");
+ }
+ @Test void splitRequiresTenderRightsAndRespectsOwnership(){
+  var draft=checkout.pos("alice","split-sale-4",posDraft());var entries=List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.UPI,"60"),tender(com.saumya.pos.checkout.TenderPlan.Method.CASH,"50"));
+  assertThatThrownBy(()->split.pay("alice",draft.id(),entries,new com.saumya.pos.checkout.SplitTenderService.Rights(false,true))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->split.pay("alice",draft.id(),entries,new com.saumya.pos.checkout.SplitTenderService.Rights(true,false))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->split.pay("bob",draft.id(),entries,ALL_TENDERS)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
+ }
+ @Test void splitSaleIsNotCashRefundableOrReturnable(){
+  var draft=checkout.pos("alice","split-sale-5",posDraft());split.pay("alice",draft.id(),List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.UPI,"60"),tender(com.saumya.pos.checkout.TenderPlan.Method.CASH,"50")),ALL_TENDERS);
+  assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx->returnSaleAccess.cashSale(1,1,draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+ @Test void splitEndpointEnforcesCsrfAndSplitPermission() throws Exception {
+  var draft=checkout.pos("alice","split-http",posDraft());String path="/api/vendor/pos/drafts/"+draft.id()+"/finalize-split",body="{\"tenders\":[{\"method\":\"UPI\",\"amount\":60.00},{\"method\":\"CASH\",\"amount\":50.00}]}";
+  mvc.perform(post(path).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_SPLIT",()->"POS_RECEIPT_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_RECEIPT_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_SPLIT",()->"POS_RECEIPT_VIEW",()->"POS_TENDER_CASH_RECORD",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"tenders\":[]}")).andExpect(status().isBadRequest());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_SPLIT",()->"POS_RECEIPT_VIEW",()->"POS_TENDER_CASH_RECORD",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.payment_method").value("SPLIT"));
+ }
+
+ // ---- Manual discounts (POS-024) ----
+ CheckoutService.PosDraft discounted(String line,String bill){return new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1,line==null?null:new BigDecimal(line))),false,bill==null?null:new BigDecimal(bill));}
+ @Test void discountRequiresPermissionAndIsBoundedByTheBranchLimit(){
+  assertThatThrownBy(()->checkout.pos("alice","disc-none",discounted("5",null),CheckoutService.DiscountAuthority.NONE)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->checkout.pos("alice","disc-zero-limit",discounted("5",null),new CheckoutService.DiscountAuthority(true,false))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  db.update("UPDATE branches SET manual_discount_limit_percent=10 WHERE id=1");
+  assertThatThrownBy(()->checkout.pos("alice","disc-over",discounted("10.01",null),new CheckoutService.DiscountAuthority(true,false))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE status='DRAFT'",Integer.class)).isZero();
+ }
+ @Test void lineDiscountWithinLimitReducesTaxAndTotalAndPaysCorrectly(){
+  db.update("UPDATE branches SET manual_discount_limit_percent=10 WHERE id=1");
+  var draft=checkout.pos("alice","disc-ok",discounted("10",null),new CheckoutService.DiscountAuthority(true,false));
+  assertThat(draft.total()).isEqualByComparingTo("99");
+  var receipt=checkout.finalizeCash("alice",draft.id(),new BigDecimal("100"));assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo("99");assertThat((BigDecimal)receipt.get("change_given")).isEqualByComparingTo("1");
+  var row=db.queryForMap("SELECT price,tax,total,discount,manual_discount_percent,manual_discount_unit FROM order_items WHERE order_id=?",draft.id());
+  assertThat((BigDecimal)row.get("price")).isEqualByComparingTo("90");assertThat((BigDecimal)row.get("tax")).isEqualByComparingTo("9");assertThat((BigDecimal)row.get("discount")).isEqualByComparingTo("10");assertThat((BigDecimal)row.get("manual_discount_unit")).isEqualByComparingTo("10");assertThat((BigDecimal)row.get("manual_discount_percent")).isEqualByComparingTo("10");
+  assertThat(db.queryForObject("SELECT discount_approved_by FROM orders WHERE id=?",String.class,draft.id())).isNull();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='MANUAL_DISCOUNT_APPLIED' AND resource_id=?",Integer.class,draft.id())).isEqualTo(1);
+ }
+ @Test void approverMayExceedTheLimitAndIsRecorded(){
+  db.update("UPDATE branches SET manual_discount_limit_percent=10 WHERE id=1");
+  var draft=checkout.pos("alice","disc-approved",discounted("20",null),new CheckoutService.DiscountAuthority(false,true));
+  assertThat(draft.total()).isEqualByComparingTo("88");assertThat(db.queryForObject("SELECT discount_approved_by FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("alice");
+ }
+ @Test void billAndLineDiscountsStackAndNeverMakeALineFree(){
+  var approver=new CheckoutService.DiscountAuthority(false,true);
+  var draft=checkout.pos("alice","disc-stack",discounted("10","10"),approver);assertThat(draft.total()).isEqualByComparingTo("89.1");
+  checkout.cancelPos("alice",draft.id(),"Re-quote");
+  assertThatThrownBy(()->checkout.pos("alice","disc-free",discounted("99.99","99.99"),approver)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+ @Test void discountedDraftReplaysByKeyButDifferentDiscountConflictsAndFastCashRejectsDiscounts(){
+  var approver=new CheckoutService.DiscountAuthority(false,true);
+  var draft=checkout.pos("alice","disc-replay",discounted("10",null),approver);
+  assertThat(checkout.pos("alice","disc-replay",discounted("10",null),approver).id()).isEqualTo(draft.id());
+  assertThatThrownBy(()->checkout.pos("alice","disc-replay",discounted("15",null),approver)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->checkout.cashSale("alice","disc-fast",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1,new BigDecimal("5"))),new BigDecimal("120"),false))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+ @Test void discountedDraftIsRevalidatedAgainstTheCatalogueAtPayment(){
+  var draft=checkout.pos("alice","disc-drift",discounted("10",null),new CheckoutService.DiscountAuthority(false,true));
+  db.update("UPDATE products SET price=120 WHERE id=1");
+  assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("200"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+ @Test void discountedSplitSaleSettlesTheDiscountedTotal(){
+  db.update("UPDATE branches SET manual_discount_limit_percent=10 WHERE id=1");
+  var draft=checkout.pos("alice","disc-split",discounted("10",null),new CheckoutService.DiscountAuthority(true,false));
+  var receipt=split.pay("alice",draft.id(),List.of(tender(com.saumya.pos.checkout.TenderPlan.Method.CARD,"49"),tender(com.saumya.pos.checkout.TenderPlan.Method.CASH,"50")),ALL_TENDERS);
+  assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo("99");assertThat(db.queryForObject("SELECT SUM(applied_amount) FROM order_tenders WHERE order_id=?",BigDecimal.class,draft.id())).isEqualByComparingTo("99");
+ }
 }

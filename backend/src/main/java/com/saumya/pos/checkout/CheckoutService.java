@@ -24,6 +24,7 @@ import static org.springframework.http.HttpStatus.*;
 public class CheckoutService {
     @org.springframework.beans.factory.annotation.Autowired private PaymentAttemptRepository paymentAttempts;
     @org.springframework.beans.factory.annotation.Autowired private PaymentPolicy paymentPolicy;
+    @org.springframework.beans.factory.annotation.Autowired private TerminalPolicyRepository terminalPolicies;
     private final DraftRepository orders;private final DraftLineRepository lines;private final CartService carts;
     private final CustomerAccess customers;private final CatalogService catalogue;private final InventoryService stock;
     private final PosService retail;private final Pricing pricing;private final Clock clock;private final long ttl;private final DraftRecoveryPolicy recoveryPolicy;
@@ -44,7 +45,7 @@ public class CheckoutService {
     private String sha(String value){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
     private String key(String actor,String key){if(key==null||!key.matches("[A-Za-z0-9_-]{8,80}"))throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");return "draft-"+sha(actor+"|"+key);}
     private List<DraftLine> stored(DraftOrder order){return lines.lines(order.tenant(),order.id());}
-    private Draft view(DraftOrder order){boolean expired=recoveryPolicy.expired(order.status(),order.expires(),clock.instant());return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList(),paymentPolicy.enabled()&&!expired&&"DRAFT".equals(order.status()),recoveryPolicy.message(order.status(),expired),order.session(),expired);}
+    private Draft view(DraftOrder order){boolean expired=recoveryPolicy.expired(order.status(),order.expires(),clock.instant());return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList(),("ONLINE".equals(order.channel())?paymentPolicy.enabled():terminalPolicies.findByTenantAndId(order.tenant(),order.branch()).map(TerminalPolicy::enabled).orElse(false))&&!expired&&"DRAFT".equals(order.status()),recoveryPolicy.message(order.status(),expired),order.session(),expired);}
     private Draft replay(DraftOrder order,String hash){if(!hash.equals(order.hash()))conflict("Idempotency key already used for a different draft request");return view(order);}
     public Draft online(String username,String clientKey,OnlineDraft request){
         long customer=customers.resolve(username);customers.lock(customer);String key=key("ONLINE:"+customer,clientKey),hash=sha(request.expectedCartId());
@@ -90,7 +91,8 @@ public class CheckoutService {
     public List<Draft> posList(String username,String session){var s=retail.scope(username);return orders.findTop20ByTenantIdAndBranchIdAndCashierAndSessionIdAndExpiresAtIsNotNullOrderByExpiresAtDesc(s.tenant(),s.branch(),s.cashier(),session).stream().map(this::view).toList();}
     public Draft cancelOnline(String username,String id,String reason){var order=orders.lockCustomer(customers.resolve(username),id).orElseThrow(this::missing);cancel(order,reason);return view(order);}
     public Draft cancelPos(String username,String id,String reason){var s=retail.scope(username);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);if(cancel(order,reason))retail.draftAudit(s,"DRAFT_CANCEL",id);return view(order);}
-    private boolean cancel(DraftOrder order,String reason){if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();return true;}return false;}
+    private boolean cancel(DraftOrder order,String reason){if(unresolvedTerminal(order))conflict("Reconcile the terminal payment before cancelling or releasing stock");if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();return true;}return false;}
+    private boolean unresolvedTerminal(DraftOrder order){return paymentAttempts.findByTenantAndOrder(order.tenant(),order.id()).map(PaymentAttempt::unresolved).orElse(false);}
     public Map<String,Object> finalizeCash(String username,String id,BigDecimal cash){
         validateCash(cash);
         return finalizeOwnedCash(retail.scope(username),id,cash);
@@ -113,5 +115,5 @@ public class CheckoutService {
         retail.draftDocuments(s,id,stored.stream().map(l->new PosService.StockIssue(l.product(),l.quantity())).toList(),receipt,order.total(),invoice);
         return retail.receipt(s,id);
     }
-    public void expire(long tenant,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())){stock.release(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();}}
+    public void expire(long tenant,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){stock.release(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();}}
 }

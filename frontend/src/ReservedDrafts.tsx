@@ -60,7 +60,7 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], invo
   function create() { void run({ action: 'create', key: crypto.randomUUID(), body: mode === 'pos' ? { sessionId: session, items, invoiceRequested } : { expectedCartId: cartId } }); }
   return <section id={mode === 'online' ? 'online-checkout' : 'reserved-pos-checkout'} aria-label={mode === 'pos' ? 'Reserved POS sales' : 'Reserved online drafts'}>
     <h2>{mode === 'pos' ? 'Reserve and complete a walk-in sale' : 'Reserve your vendor cart'}</h2>
-    <p>Stock is held until the displayed expiry. A draft is unpaid. Check vendor payment options on a reserved sale; test payments require explicit pre-production configuration.</p>
+    <p>Stock is held until the displayed expiry. A draft is unpaid. Check the reserved order payment status/options before taking funds. Online simulation is separate from independently verified vendor terminal tenders.</p>
     {error && <p role="alert">{error}</p>}
     <button disabled={busy || disabled || statusFailed || createDisabled || !!pending || held || (mode === 'pos' ? !items.length : !cartId)} onClick={create}>Reserve {mode === 'pos' ? 'walk-in sale' : 'cart'} without payment</button>
     <button disabled={busy||paymentBusy} onClick={() => { setError(''); void reload(); }}>Reload reserved drafts</button>

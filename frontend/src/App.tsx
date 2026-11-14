@@ -22,6 +22,7 @@ import PosReturns from './PosReturns';
 import CashRefunds, { refundStorageKey, type CashRefundView } from './CashRefunds';
 import CashRefundReceipt from './CashRefundReceipt';
 import { printDocument } from './printDocument';
+import TerminalTenderReview from './TerminalTenderReview';
 
 
 export default function App() {
@@ -110,7 +111,7 @@ export default function App() {
       } else setError((e as Error).message+' Retry uses the same sale key. Do not collect cash again.');
     }finally{setBusy(false);}
   }
-  return <Shell mode="pos"><header className="workspace-hero"><div><span className="eyebrow">Powering your everyday business</span><h1>Saumya Solar · Store POS</h1><p>Walk-in cash checkout · No customer account required</p></div><div className="hero-status"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>Live pricing & shared inventory</span></div></header>
+  return <Shell mode="pos"><header className="workspace-hero"><div><span className="eyebrow">Powering your everyday business</span><h1>Saumya Solar · Store POS</h1><p>Walk-in billing · No customer account required</p></div><div className="hero-status"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>Live pricing & shared inventory</span></div></header>
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
       <div className="checkout-grid"><PosCatalogue key={session} locked={saleLocked} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onPromotionHistory={id=>{setPromotionProduct(id);window.location.hash='promotion-history';}} onAdd={addProduct} onBusyChange={setBusy}/>
@@ -132,5 +133,6 @@ export default function App() {
     <CashierSalesInsights/>
     <ShiftHistory disabled={busy||checkingSession} revision={`${session}:${sessionState}`}/>
     <ShiftReviews/>
+    <TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/>
   </Shell>;
 }

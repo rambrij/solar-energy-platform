@@ -10,6 +10,7 @@ const pos:NavigationItem[]=[
  {id:'register',label:'Drawer & shift closing',group:'Register'},
  {id:'shift-history',label:'My closed shifts',group:'Register'},
  {id:'shift-reviews',label:'Supervisor shift review',group:'Register'},
+ {id:'terminal-tender-review',label:'Terminal verification',group:'Register'},
  {id:'pos-returns',label:'Returns & inspection',group:'After-sale service'},
  {id:'cash-refunds',label:'Cash refunds',group:'After-sale service'},
  {id:'promotion-history',label:'Discount audit',group:'Reports'},

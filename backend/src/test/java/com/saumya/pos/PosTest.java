@@ -84,32 +84,53 @@ class PosTest {
   marketplace.put(100,new CartService.Item("vendor-1",1,2));payments.confirm("customer",draft.id(),true,attempt.attemptId());
   assertThat(marketplace.cart(100).items().getFirst().quantity()).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT seller_name FROM vendor_invoices",String.class)).isEqualTo("Vendor A");
  }
+ void enableTerminal(){supervisor("manager");db.update("UPDATE branches SET manual_tender_enabled=TRUE,upi_merchant_reference='vendor-upi-account',card_merchant_reference='vendor-card-account' WHERE id=1");}
+ com.saumya.pos.checkout.PaymentCheckoutService.Review terminalReview(String attempt,String decision){return new com.saumya.pos.checkout.PaymentCheckoutService.Review(attempt,decision,"terminal-result-123","evidence-record-123","Independent account and amount verification");}
+ @Test void terminalVerificationIsDefaultDisabledAndOnlineSimulationCannotConfirmPos(){
+  var draft=checkout.pos("alice","terminal-disabled",posDraft());assertThat(payments.status("alice",draft.id(),false).terminalEnabled()).isFalse();assertThatThrownBy(()->payments.start("alice",draft.id(),false,"UPI"));assertThatThrownBy(()->payments.confirm("alice",draft.id(),false,"arbitrary"));assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isZero();
+ }
+ @Test void terminalUnknownCanConfirmAfterOriginalTtlWithoutRechargingOrReleasingStock(){
+  enableTerminal();var draft=checkout.pos("alice","terminal-late-result",posDraft());var attempt=payments.start("alice",draft.id(),false,"UPI");payments.unknown("alice",draft.id(),attempt.attemptId());db.update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));checkout.expire(1,draft.id());
+  assertThat(stock.atBranch(1,1,1)).isZero();assertThatThrownBy(()->checkout.cancelPos("alice",draft.id(),"Cannot discard funds"));assertThatThrownBy(()->payments.start("alice",draft.id(),false,"CARD"));assertThatThrownBy(()->payments.review("bob",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));
+  assertThat(payments.awaitingReview("manager")).hasSize(1);payments.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"));assertThat(payments.awaitingReview("manager")).isEmpty();assertThat(payments.reviewStatus("manager",draft.id()).state()).isEqualTo("CONFIRMED");assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts",String.class)).isEqualTo("manager");assertThat(db.queryForObject("SELECT evidence_reference FROM vendor_payment_attempts",String.class)).isEqualTo("evidence-record-123");assertThat(db.queryForObject("SELECT reviewed_at FROM vendor_payment_attempts",java.sql.Timestamp.class)).isNotNull();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
+ }
+ @Test void terminalReviewApiRequiresIndependentPermissionCsrfAndSafeEvidence() throws Exception {
+  enableTerminal();var draft=checkout.pos("alice","terminal-review-api",posDraft());var attempt=payments.start("alice",draft.id(),false,"CARD");String path="/api/vendor/pos/payments/review/"+draft.id();String body="{\"attemptId\":\""+attempt.attemptId()+"\",\"decision\":\"CONFIRM\",\"reference\":\"terminal-123\",\"evidence\":\"proof-123\",\"reason\":\"Verified original vendor account and full amount\"}";
+  mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());mvc.perform(post(path).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body.replace("terminal-123","4111111111111111"))).andExpect(status().isBadRequest());
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CONFIRMED"));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_CONFIRM'",Integer.class)).isEqualTo(1);
+ }
  @Test void posCardPaymentIssuesReceiptWithoutIncreasingCashDrawer(){
+  enableTerminal();
   var draft=checkout.pos("alice","pos-card-payment",posDraft());var attempt=payments.start("alice",draft.id(),false,"CARD");
   assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));
   assertThatThrownBy(()->payments.status("bob",draft.id(),false));assertThatThrownBy(()->payments.confirm("alice",draft.id(),false,"forged"));
-  payments.confirm("alice",draft.id(),false,attempt.attemptId());var receipt=service.receipt(a,draft.id());assertThat(receipt.get("payment_method")).isEqualTo("MOCK_CARD");assertThat(receipt.get("cash_received")).isEqualTo(new BigDecimal("0.00"));assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
+  assertThatThrownBy(()->payments.review("alice",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));
+  payments.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"));var receipt=service.receipt(a,draft.id());assertThat(receipt.get("payment_method")).isEqualTo("CARD");assertThat(receipt.get("payment_reference")).isEqualTo("terminal-result-123");assertThat(receipt.get("cash_received")).isEqualTo(new BigDecimal("0.00"));assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx->returnSaleAccess.cashSale(1,1,draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
  @Test void expiredOrChangedPaymentCannotConsumeStockOrConfirm(){
+  enableTerminal();
   var draft=checkout.pos("alice","expire-payment",posDraft());var attempt=payments.start("alice",draft.id(),false,"UPI");
-  db.update("UPDATE products SET price=200 WHERE id=1");assertThatThrownBy(()->payments.confirm("alice",draft.id(),false,attempt.attemptId()));assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts",String.class)).isEqualTo("PENDING");
+  db.update("UPDATE products SET price=200 WHERE id=1");assertThatThrownBy(()->payments.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts",String.class)).isEqualTo("PENDING_VERIFICATION");payments.unknown("alice",draft.id(),attempt.attemptId());
   db.update("UPDATE products SET price=100 WHERE id=1");db.update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));checkout.expire(1,draft.id());
-  assertThatThrownBy(()->payments.confirm("alice",draft.id(),false,attempt.attemptId()));assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
+  assertThatThrownBy(()->checkout.cancelPos("alice",draft.id(),"Do not discard uncertain payment"));assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("DRAFT");payments.review("manager",draft.id(),terminalReview(attempt.attemptId(),"FAIL"));assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
  }
  @Test void concurrentPaymentConfirmationIssuesOneReceiptAndOneStockMovement() throws Exception {
+  enableTerminal();
   var draft=checkout.pos("alice","concurrent-payment",posDraft());var attempt=payments.start("alice",draft.id(),false,"UPI");
-  try(var pool=Executors.newFixedThreadPool(2)){Callable<String> confirm=()->payments.confirm("alice",draft.id(),false,attempt.attemptId()).state();for(var result:pool.invokeAll(List.of(confirm,confirm)))assertThat(result.get()).isEqualTo("CONFIRMED");}
+  try(var pool=Executors.newFixedThreadPool(2)){Callable<String> confirm=()->payments.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")).state();for(var result:pool.invokeAll(List.of(confirm,confirm)))assertThat(result.get()).isEqualTo("CONFIRMED");}
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Integer.class)).isEqualTo(1);
  }
  @Test void paymentApiEnforcesPermissionsCsrfAndStrictPayloads() throws Exception {
+  enableTerminal();
   var draft=checkout.pos("alice","http-payment",posDraft());String path="/api/vendor/pos/drafts/"+draft.id()+"/payment";
   mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isForbidden());
   mvc.perform(post(path).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"amount\":1}")).andExpect(status().isBadRequest());
-  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.merchantAccount").value("mock-vendor-1"));
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.merchantAccount").value("vendor-upi-account")).andExpect(jsonPath("$.mockEnabled").value(false));
  }
  @Test void guestCashIsAtomicAndIdempotent(){
   var r=checkout.cashSale(a.cashier(),"checkout-1",sale(1,"120"));

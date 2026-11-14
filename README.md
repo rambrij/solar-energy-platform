@@ -1,6 +1,6 @@
 # Saumya Solar Energy — POS foundation
 
-This branch implements the solar marketplace, single-vendor carts, shared inventory reservations, guest walk-in POS, cash checkout, receipts, returns and shift reconciliation. Explicitly enabled pre-production UPI/card simulation now completes reserved online/POS orders with durable vendor-scoped payment attempts. Live payment integration and the full Commercial MVP release gates remain outstanding. See [vendor payment checkout](docs/implementation/VENDOR_PAYMENT_CHECKOUT.md) for configuration, APIs, recovery and remaining requirements.
+This branch implements the solar marketplace, single-vendor carts, shared inventory reservations, guest walk-in POS, cash checkout, receipts, returns and shift reconciliation. Explicitly enabled pre-production online payment simulation and independently verified vendor-terminal POS tenders use durable vendor-scoped attempts. POS never uses the online simulation adapter. Live payment integration and the full Commercial MVP release gates remain outstanding. See [vendor payment checkout](docs/implementation/VENDOR_PAYMENT_CHECKOUT.md) for configuration, APIs, recovery and remaining requirements.
 
 ## Run locally with Docker Desktop (recommended)
 

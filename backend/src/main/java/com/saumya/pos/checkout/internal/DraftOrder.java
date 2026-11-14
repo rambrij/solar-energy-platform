@@ -21,6 +21,7 @@ public class DraftOrder {
     @Column(name="receipt_number") private Long receiptNumber;
     @Column(name="tax_invoice",nullable=false) private boolean taxInvoice;
     @Column(name="payment_method",nullable=false,length=16) private String paymentMethod="CASH";
+    @Column(name="payment_reference",length=80) private String paymentReference;
     @Column(name="receipt_seller_name",length=160) private String receiptSeller;
     @Column(name="receipt_outlet_name",length=160) private String receiptOutlet;
     @Column(name="invoice_requested",nullable=false) private boolean invoiceRequested;
@@ -44,7 +45,8 @@ public class DraftOrder {
     public String paymentMethod(){return paymentMethod;}
     public String receiptSeller(){return receiptSeller;}
     public String receiptOutlet(){return receiptOutlet;}
-    public void payExternal(String method,Long receipt,boolean invoice,Instant now){paymentMethod="MOCK_"+method;receiptNumber=receipt;taxInvoice=invoice;if("IN_STORE".equals(channel)){cashReceived=BigDecimal.ZERO;changeGiven=BigDecimal.ZERO;}finish("PAID",now);}
+    public void payOnlineMock(String method,boolean invoice,Instant now){if(!"ONLINE".equals(channel))throw new IllegalStateException("Online simulation cannot confirm a POS tender");paymentMethod="MOCK_"+method;taxInvoice=invoice;finish("PAID",now);}
+    public void payTerminal(String method,String reference,long receipt,boolean invoice,Instant now){paymentMethod=method;paymentReference=reference;receiptNumber=receipt;taxInvoice=invoice;cashReceived=BigDecimal.ZERO;changeGiven=BigDecimal.ZERO;finish("PAID",now);}
     public void finish(String state,Instant now){status=state;draftOwner=null;statusChangedAt=now.truncatedTo(java.time.temporal.ChronoUnit.MICROS);}
     public void cancel(String reason,Instant now){cancellationReason=reason;finish("CANCELLED",now);}
     public void pay(BigDecimal cash,long receipt,boolean invoice,Instant now){cashReceived=cash;changeGiven=cash.subtract(total);receiptNumber=receipt;taxInvoice=invoice;finish("PAID",now);}

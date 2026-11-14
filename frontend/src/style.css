@@ -1284,3 +1284,9 @@ button+button {
 .workspace-tabs{padding:0 24px;border-bottom:1px solid var(--line);overflow-x:auto}.workspace-tabs ul{display:flex;gap:4px;list-style:none;margin:0;padding:0;min-width:max-content}.workspace-tabs a{display:block;padding:10px 16px;color:var(--navy);text-decoration:none;font-weight:600;font-size:.85rem;border-bottom:3px solid transparent}.workspace-tabs a:hover{background:#f1f6fb}.workspace-tabs a[aria-current=true]{border-bottom-color:#e6a515;color:#674800;background:#fff8e1}
 @media(max-width:700px){.split-summary{grid-template-columns:1fr}.split-row{grid-template-columns:1fr}.workspace-tabs{padding:0 12px}.quick-jump{margin-left:0}#quick-jump-menu{right:auto;left:0}}
 @media print{.quick-jump,.workspace-tabs{display:none!important}}
+
+/* --- Checkout progress and held-bill tabs --- */
+.shopping-steps li.step-current{border-color:#e6a515;background:#fff8e1;font-weight:700}.shopping-steps li.step-current strong{background:#e6a515;color:#fff}.shopping-steps li.step-done{border-color:#1d7b65;background:#eef8f4}.shopping-steps li.step-done strong{background:#1d7b65;color:#fff}
+.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.held-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:12px 0;overflow-x:auto}.held-tab{background:none;border:0;border-bottom:3px solid transparent;border-radius:0;padding:10px 14px;color:var(--navy);font-weight:600;cursor:pointer;white-space:nowrap}.held-tab-active{border-bottom-color:#e6a515;color:#674800;background:#fff8e1}.held-tab:focus-visible{outline:3px solid #1d7b65;outline-offset:2px}.hold-timer{font-weight:700;color:#8a4b00;font-variant-numeric:tabular-nums}
+@media print{.held-tabs{display:none!important}}

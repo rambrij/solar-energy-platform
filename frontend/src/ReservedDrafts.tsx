@@ -9,6 +9,7 @@ import {canTenderReservation} from './reservedTenderPolicy';
 import DraftReferenceRecovery from './DraftReferenceRecovery';
 import PaymentCheckout from './PaymentCheckout';
 import SplitPayment from './SplitPayment';
+import {countDrafts,filterDrafts,formatTimeLeft,heldTabs,type HeldTab} from './heldBills';
 import type {TenderPayload} from './splitTenderMath';
 
 type Attempt = { action: 'create' | 'cancel' | 'cash' | 'split'; id?: string; body: unknown; key?: string };
@@ -20,9 +21,11 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], bill
   const [recovered,setRecovered]=useState<Draft>(),[now,setNow]=useState(Date.now);
   const visibleDrafts=recovered?[recovered,...drafts.filter(draft=>draft.id!==recovered.id)]:drafts;
   const [cashByDraft,setCashByDraft]=useState<Record<string,string>>({}),[reasonByDraft,setReasonByDraft]=useState<Record<string,string>>({});
+  const [tab,setTab]=useState<HeldTab>('all');
   const generation = useRef(0);
   const [paymentBusy,setPaymentBusy]=useState(false);
   const held = visibleDrafts.some(draft => draft.status === 'DRAFT');
+  const counts=countDrafts(visibleDrafts),shownDrafts=filterDrafts(visibleDrafts,tab);
   const resolvedPending = pending?.id && pending.action !== 'create' ? visibleDrafts.find(draft => draft.id === pending.id && ['PAID','CANCELLED','EXPIRED'].includes(draft.status) && !(['cash','split'].includes(pending.action) && draft.status === 'PAID')) : undefined;
   useEffect(()=>{if(!held)return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[held]);
   useEffect(() => { onBlocked?.(!!pending || held || statusFailed); }, [pending, held, statusFailed, onBlocked]);
@@ -69,8 +72,11 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], bill
     <DraftReferenceRecovery mode={mode} requiredId={pending?.id} disabled={busy} onRecovered={value=>{generation.current++;setRecovered(value);setStatusFailed(false);setError('');setNow(Date.now());}}/>
     {pending && <button disabled={busy} onClick={() => void run(pending)}>Retry same draft operation</button>}
     {resolvedPending && <div><p>Server status is {resolvedPending.status}. Reconcile any cash already received before starting another sale. Paid sales require the return/refund workflow.</p><button disabled={busy} onClick={() => { sessionStorage.removeItem(storageKey); setPending(undefined); setError(''); }}>Acknowledge resolved draft status</button></div>}
-    {visibleDrafts.map(draft => <section key={draft.id} aria-label={`Draft ${draft.id}`}>
-      <h3>{draft.vendorName} · {draft.status}</h3><p>Reference {draft.id} · Expires {new Date(draft.expiresAt).toLocaleString()} · Total {Number(draft.total).toFixed(2)}</p>
+    {mode==='pos'&&visibleDrafts.length>0&&<div className="held-tabs" role="tablist" aria-label="Held and completed bills" onKeyDown={event=>{const index=heldTabs.findIndex(item=>item.id===tab);if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();const next=heldTabs[(index+(event.key==='ArrowRight'?1:heldTabs.length-1))%heldTabs.length];setTab(next.id);document.getElementById(`held-tab-${next.id}`)?.focus();}}}>{heldTabs.map(item=><button type="button" role="tab" key={item.id} id={`held-tab-${item.id}`} aria-selected={tab===item.id} aria-controls="held-tab-panel" tabIndex={tab===item.id?0:-1} className={tab===item.id?'held-tab held-tab-active':'held-tab'} onClick={()=>setTab(item.id)}>{item.label} <span className="badge">{counts[item.id]}</span></button>)}</div>}
+    {mode==='pos'&&visibleDrafts.length>0&&shownDrafts.length===0&&<p role="status">{tab==='held'?'No bills are on hold. Reserve a sale to hold it with its stock.':'No completed bills yet.'}</p>}
+    <div id="held-tab-panel" role={mode==='pos'&&visibleDrafts.length>0?'tabpanel':undefined} aria-labelledby={mode==='pos'&&visibleDrafts.length>0?`held-tab-${tab}`:undefined}>
+    {shownDrafts.map(draft => <section key={draft.id} aria-label={`Draft ${draft.id}`}>
+      <h3>{draft.vendorName} · {draft.status}</h3><p>Reference {draft.id} · Expires {new Date(draft.expiresAt).toLocaleString()} · Total {Number(draft.total).toFixed(2)}</p>{mode==='pos'&&draft.status==='DRAFT'&&<p className="hold-timer" role="timer" aria-label="Time left on hold">Time left on hold: {formatTimeLeft(Date.parse(draft.expiresAt)-now)}</p>}
       <ul>{draft.items.map(line => <li key={line.productId}>{line.name} × {line.quantity}: {Number(line.total).toFixed(2)} (tax {Number(line.tax).toFixed(2)}){Number(line.discount??0)>0&&<> · Discount {Number(line.discount).toFixed(2)}</>}</li>)}</ul><p>{draft.message}</p>
       {draft.status==='DRAFT'&&(draft.expired||Date.parse(draft.expiresAt)<=now)&&<p role="status">Reservation time elapsed. Do not collect cash; cancel or reload to release/check the hold.</p>}
       {mode==='pos'&&draft.status==='DRAFT'&&draft.sessionId!==session&&<p>Reserved under another cashier session. It cannot be paid from the current session; cancel it if appropriate.</p>}
@@ -84,5 +90,6 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], bill
       </fieldset>}
       {mode === 'pos' && draft.status === 'PAID' && <button disabled={busy||disabled} onClick={async () => { try { onReceipt?.(await api(`/receipts/${draft.id}`),false); } catch { setError('Receipt unavailable. Check receipt-view permission and retry.'); } }}>Recover sale receipt</button>}
     </section>)}
+    </div>
   </section>;
 }

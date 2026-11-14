@@ -108,3 +108,26 @@ it('sends manual discounts with the reservation and explains a permission refusa
   fireEvent.click(screen.getByText('Reserve walk-in sale without payment')); await screen.findByText(/Discount not permitted/);
   expect(vi.mocked(api)).toHaveBeenCalledWith('/drafts', { sessionId: 's1', items: [{ productId: 1, quantity: 1, discountPercent: 10 }], invoiceRequested: false, billDiscountPercent: 5 }, expect.any(String));
 });
+it('shows held and completed bills in tabs with counts, a hold timer and arrow-key navigation', async () => {
+  const paid = { ...draft, id: 'd2', status: 'PAID' };
+  vi.mocked(api).mockImplementation(async () => [draft, paid]);
+  render(<ReservedDrafts mode="pos" session="s1" />); await screen.findByText('Vendor A · DRAFT');
+  const tabs = screen.getByRole('tablist', { name: 'Held and completed bills' });
+  expect(within(tabs).getByRole('tab', { name: /^All 2/ }).getAttribute('aria-selected')).toBe('true');
+  expect(within(tabs).getByRole('tab', { name: /^Held bills 1/ })).toBeTruthy(); expect(within(tabs).getByRole('tab', { name: /^Completed 1/ })).toBeTruthy();
+  expect(screen.getByRole('timer').textContent).toMatch(/Time left on hold: \d+d \d+h/);
+  fireEvent.click(within(tabs).getByRole('tab', { name: /^Held bills/ }));
+  expect(screen.getByText('Vendor A · DRAFT')).toBeTruthy(); expect(screen.queryByText('Vendor A · PAID')).toBeNull();
+  fireEvent.keyDown(within(tabs).getByRole('tab', { name: /^Held bills/ }), { key: 'ArrowRight' });
+  expect(within(tabs).getByRole('tab', { name: /^Completed/ }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByText('Vendor A · PAID')).toBeTruthy(); expect(screen.queryByText('Vendor A · DRAFT')).toBeNull();
+  expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe('held-tab-done');
+});
+it('explains an empty Held bills tab and offers no tabs for online drafts', async () => {
+  vi.mocked(api).mockImplementation(async () => [{ ...draft, status: 'PAID' }]);
+  const view = render(<ReservedDrafts mode="pos" session="s1" />); await screen.findByText('Vendor A · PAID');
+  fireEvent.click(screen.getByRole('tab', { name: /^Held bills/ })); expect(screen.getByRole('status').textContent).toContain('No bills are on hold');
+  view.unmount(); vi.mocked(marketplaceApi).mockImplementation(async () => [{ ...draft, channel: 'ONLINE' }]);
+  render(<ReservedDrafts mode="online" cartId="c" />); fireEvent.click(screen.getByText('Reload reserved drafts')); await screen.findByText('Vendor A · DRAFT');
+  expect(screen.queryByRole('tablist')).toBeNull();
+});

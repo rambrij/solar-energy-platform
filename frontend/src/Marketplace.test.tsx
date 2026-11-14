@@ -155,3 +155,11 @@ it('preserves cart contents when catalogue refresh fails and allows a read-only 
 it('keeps the open storefront identity when directory search returns no vendors',async()=>{
  vi.mocked(marketplaceApi).mockImplementation(async path=>path.startsWith('/api/marketplace/directory?')&&path.includes('q=missing')?{items:[],query:'missing',page:0,size:12,totalElements:0,totalPages:0}:publicResult(path));render(<Marketplace/>);await screen.findByRole('heading',{name:'Vendor A storefront'});await screen.findByRole('link',{name:'Vendor B'});fireEvent.change(screen.getByLabelText('Search solar vendors'),{target:{value:'missing'}});fireEvent.click(screen.getByText('Search vendors'));await screen.findByText('No vendors found');expect(screen.getByRole('heading',{name:'Vendor A storefront'})).toBeTruthy();expect(screen.getByText('Add or update Solar Panel in cart')).toBeTruthy();expect(vi.mocked(marketplaceApi).mock.calls.every(call=>call[0].startsWith('/api/marketplace/'))).toBe(true);
 });
+it('tracks checkout progress from the cart through to review', async () => {
+  vi.mocked(marketplaceApi).mockImplementation(async path => path.startsWith('/api/customer/') ? cart : publicResult(path));
+  render(<Marketplace />); await screen.findByText('Solar Panel');
+  const current = () => screen.getByRole('list', { name: 'Shopping steps' }).querySelector('[aria-current="step"]')?.textContent ?? '';
+  expect(current()).toContain('Choose your solar essentials');
+  fireEvent.click(screen.getByText('Add or update Solar Panel in cart'));
+  await waitFor(() => expect(current()).toContain('Review one vendor cart'));
+});

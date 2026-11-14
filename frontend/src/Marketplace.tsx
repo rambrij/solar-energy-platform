@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { marketplaceApi, MarketplaceError } from './marketplaceApi';
 import ReservedDrafts from './ReservedDrafts';
+import CheckoutSteps from './CheckoutSteps';
 import Shell from './Shell';
 import OrderHistory from './OrderHistory';
 import ProductDetails from './ProductDetails';
@@ -19,7 +20,7 @@ function readProductId() { const value = new URLSearchParams(window.location.sea
 export default function Marketplace() {
   const slug = window.location.pathname.startsWith('/vendors/') ? decodeURIComponent(window.location.pathname.split('/')[2]) : '';
   const [products, setProducts] = useState<Product[]>([]);
-  const [review, setReview] = useState<Cart>();
+  const [review, setReview] = useState<Cart>(), [reservedHeld, setReservedHeld] = useState(false), [paid, setPaid] = useState(false);
   const [cart, setCart] = useState<Cart>(), [quantities, setQuantities] = useState<Record<number, number>>({});
   const [search, setSearch] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [switchTarget, setSwitchTarget] = useState<Target>();
@@ -119,7 +120,7 @@ export default function Marketplace() {
     <header className="workspace-hero marketplace-hero grocery-hero"><div><span className="eyebrow">A brighter way to shop</span><h1>Saumya Solar Marketplace</h1><p>Choose a vendor. Your customer account works across vendors; each cart belongs to one vendor.</p><a className="hero-link" href="#vendor-directory">Explore solar vendors <span aria-hidden="true">↗</span></a></div><div className="solar-scene" aria-hidden="true"><span className="scene-sun"/><span className="scene-orbit"/><span className="scene-panels"/></div></header>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     <VendorDirectory selectedSlug={slug}/>
-    <ol className="shopping-steps" aria-label="Shopping steps"><li><strong>1</strong> Choose your solar essentials</li><li><strong>2</strong> Review one vendor cart</li><li><strong>3</strong> Reserve at checkout</li></ol><div className="marketplace-grid grocery-workspace"><div className="storefront-column">{slug && <section id="storefront-products" className="catalogue-panel" aria-label="Vendor products" aria-busy={catalogueBusy}><h2>{catalogue?.vendorSlug===slug?catalogue.vendorName:'Vendor storefront'}</h2>
+    <CheckoutSteps cartItems={cart?.items.length??0} reviewing={!!review&&review===cart} reserved={reservedHeld} paid={paid}/><div className="marketplace-grid grocery-workspace"><div className="storefront-column">{slug && <section id="storefront-products" className="catalogue-panel" aria-label="Vendor products" aria-busy={catalogueBusy}><h2>{catalogue?.vendorSlug===slug?catalogue.vendorName:'Vendor storefront'}</h2>
       <div className="market-search"><label>Search products <input placeholder="Search panels, inverters, batteries and more" maxLength={120} value={search} onChange={e => setSearch(e.target.value)} /></label></div>
       <div className="retail-catalogue-layout"><CategoryNav categories={categories} selected={selectedCategory} onSelect={categoryChanged} total={catalogue?.catalogueTotal??0}/><div className="catalogue-results"><div className="catalogue-toolbar"><label>Sort products<select value={sort} onChange={event=>{setSort(event.target.value);setPage(0);}}><option value="name">Name A–Z</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></label><label className="check-label"><input type="checkbox" checked={inStockOnly} onChange={event=>{setInStockOnly(event.target.checked);setPage(0);}}/> In stock only</label><span role="status">{catalogueBusy?'Searching catalogue...':catalogueError?'Results unavailable':`${catalogue?.totalElements??0} products found`}</span></div>
       {catalogueBusy&&<p role="status">Loading products...</p>}{!catalogueBusy&&catalogueError&&<p role="alert">{catalogueError} <button onClick={()=>setStockRevision(value=>value+1)}>Retry catalogue</button></p>}
@@ -142,7 +143,7 @@ export default function Marketplace() {
         <a className="checkout-link" href="#online-checkout">Review checkout →</a><p>{cart.message}</p>
       </>}
     </section>
-    <ReservedDrafts mode="online" onPaymentComplete={()=>{setReview(undefined);setNotice("Test payment completed. No funds were collected. View the saved order in order history.");void marketplaceApi("/api/customer/cart").then(value=>{setCart(value);setCartEdits({});}).catch(()=>setNotice("Check order history and reload your cart before another payment."));}} cartId={cart?.id} disabled={busy||confirming} onStockChange={()=>setStockRevision(value=>value+1)}/>
+    <ReservedDrafts mode="online" onBlocked={setReservedHeld} onPaymentComplete={()=>{setPaid(true);setReview(undefined);setNotice("Test payment completed. No funds were collected. View the saved order in order history.");void marketplaceApi("/api/customer/cart").then(value=>{setCart(value);setCartEdits({});}).catch(()=>setNotice("Check order history and reload your cart before another payment."));}} cartId={cart?.id} disabled={busy||confirming} onStockChange={()=>setStockRevision(value=>value+1)}/>
     </aside></div><section id="saved-vendor-carts" aria-label="Archived carts"><h2>Saved vendor carts</h2>
       <button disabled={busy || confirming} onClick={loadHistory}>Load archived carts</button>
       {history && (history.length ? <ul>{history.map(saved => <li key={saved.id}><h3>{saved.vendorName}</h3>

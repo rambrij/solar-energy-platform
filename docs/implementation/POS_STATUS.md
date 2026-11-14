@@ -107,3 +107,7 @@ POS-009/POS-026/POS-027/POS-035/POS-046 now include paid seller/outlet display s
 ## Unified cash checkout increment
 
 POS-005/POS-010/POS-014/POS-030/POS-035/POS-042 now use one JPA checkout owner for fast cash and reserved finalization. The duplicate JDBC checkout/DTO/hash path is removed, with outlet-first locking and distinct intent keys. Reserved UI uses per-draft cash/reason state, shared cash controls, strict canonical session/expiry eligibility and typed receipts. No compatibility adapter is added; V20 stores paid status at microsecond precision without relaxing return rules. See [UNIFIED_CASH_CHECKOUT.md](UNIFIED_CASH_CHECKOUT.md) for pre-prod cutover and test scope.
+
+## Audited receipt PDF increment
+
+DOC-001/DOC-003/POS-026/POS-027/POS-036/POS-040 now include a documents-owned OpenPDF COPY renderer, scoped reasoned POST generation and immutable JPA exact-byte audit. V21 adds ownership-constrained generation records only. A responsive receipt action uses the shared CSV/PDF save helper and preserves financial recovery. Existing browser copy/print remains separate from generation/download evidence. See [RECEIPT_PDF.md](RECEIPT_PDF.md).

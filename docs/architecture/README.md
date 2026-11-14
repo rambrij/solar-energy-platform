@@ -127,3 +127,7 @@ Retail captures new receipt seller/outlet display snapshots in its existing dire
 ## One cash checkout application owner
 
 CheckoutController owns fast cash /sales; CheckoutService resolves canonical scope, locks the outlet, reserves through its JPA order/line/shared inventory flow and invokes the same owned cash finalizer. Retail's duplicate checkout/DTO/hash and unused pricing/stock dependencies are removed. Retail retains sequence/documents/drawer responsibilities with no reverse checkout dependency. Cash intent namespaces are distinct and amounts are fingerprinted; failures roll back reservation/stock/documents together. Reserved UI uses per-draft state and strict session/expiry eligibility. See UNIFIED_CASH_CHECKOUT.md.
+
+## Receipt document module
+
+Documents calls the public scoped retail receipt API, maps saved facts to a typed renderer input, and owns its private immutable JPA PDF-generation audit. No foreign repository/JDBC dependency is imported. Exact-byte hash/reason/actor/ownership are persisted before delivery in one repeatable-read transaction; V21 enforces composite ownership. Rendering is bounded and embeds a configured font; unsupported glyphs fail instead of dropping facts. ArchUnit covers document internals/cycles. Frontend CSV/PDF share a browser-save helper with direct caller refactors. See RECEIPT_PDF.md.

@@ -373,3 +373,7 @@ Rebuild/restart backend for V19 and rebuild frontend. New paid POS receipts save
 Rebuild/restart backend for V20 paid-time precision and rebuild frontend. Fast cash and explicit reserved cash sales now use the shared JPA checkout/reservation/finalization path; the duplicate retail checkout implementation is removed. Each reservation has its own cash shortcuts and cancellation reason. New cash finalization requires a valid future reservation in the exact current session; unknown/malformed session/expiry data cannot bypass that guard. Existing uncertain retries replay their original payload.
 
 This is a pre-prod intent-key refactor, with no compatibility lookup for old direct-cash keys. Finish/reconcile existing demo attempts before switching builds; start fresh test workflows after the cutover. No data/config reset runs automatically. See [architecture, cutover and tests](docs/implementation/UNIFIED_CASH_CHECKOUT.md).
+
+### Download an audited receipt PDF
+
+Rebuild/restart backend for V21 and rebuild frontend. Open a paid Sale receipt, enter **PDF copy reason**, then **Generate PDF copy**. The action requires `POS_VIEW`, `POS_RECEIPT_VIEW` and `POS_RECEIPT_REPRINT` plus CSRF; no new grant is assigned. It generates a reasoned, hashed PDF COPY of saved facts, not a new sale/invoice. Browser saving and physical printing are not confirmed by generation. See [PDF scope, audit and font/paper limits](docs/implementation/RECEIPT_PDF.md).

@@ -49,6 +49,7 @@ public class DraftOrder {
     public String receiptOutlet(){return receiptOutlet;}
     public void payOnlineMock(String method,boolean invoice,Instant now){if(!"ONLINE".equals(channel))throw new IllegalStateException("Online simulation cannot confirm a POS tender");paymentMethod="MOCK_"+method;taxInvoice=invoice;finish("PAID",now);}
     public void payTerminal(String method,String reference,long receipt,boolean invoice,Instant now){paymentMethod=method;paymentReference=reference;receiptNumber=receipt;taxInvoice=invoice;cashReceived=BigDecimal.ZERO;changeGiven=BigDecimal.ZERO;finish("PAID",now);}
+    public void payTenders(String method,String reference,BigDecimal received,BigDecimal change,long receipt,boolean invoice,Instant now){paymentMethod=method;paymentReference=reference;cashReceived=received;changeGiven=change;receiptNumber=receipt;taxInvoice=invoice;finish("PAID",now);}
     public void finish(String state,Instant now){status=state;draftOwner=null;statusChangedAt=now.truncatedTo(java.time.temporal.ChronoUnit.MICROS);}
     public void cancel(String reason,Instant now){cancellationReason=reason;finish("CANCELLED",now);}
     public void pay(BigDecimal cash,long receipt,boolean invoice,Instant now){cashReceived=cash;changeGiven=cash.subtract(total);receiptNumber=receipt;taxInvoice=invoice;finish("PAID",now);}

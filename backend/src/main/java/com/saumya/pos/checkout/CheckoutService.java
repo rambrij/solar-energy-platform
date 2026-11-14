@@ -97,15 +97,15 @@ public class CheckoutService {
     public Draft cancelOnline(String username,String id,String reason){var order=orders.lockCustomer(customers.resolve(username),id).orElseThrow(this::missing);cancel(order,reason);return view(order);}
     public Draft cancelPos(String username,String id,String reason){var s=retail.scope(username);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);if(cancel(order,reason))retail.draftAudit(s,"DRAFT_CANCEL",id);return view(order);}
     private boolean cancel(DraftOrder order,String reason){if(unresolvedTerminal(order))conflict("Reconcile the terminal payment before cancelling or releasing stock");if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();return true;}return false;}
-    private boolean unresolvedTerminal(DraftOrder order){return paymentAttempts.findByTenantAndOrder(order.tenant(),order.id()).map(PaymentAttempt::unresolved).orElse(false);}
+    private boolean unresolvedTerminal(DraftOrder order){return paymentAttempts.findAllByTenantAndOrderOrderByCreatedAscIdAsc(order.tenant(),order.id()).stream().anyMatch(a->a.unresolved()||"CONFIRMED".equals(a.state()));}
     public Map<String,Object> finalizeCash(String username,String id,BigDecimal cash){
         validateCash(cash);
         return finalizeOwnedCash(retail.scope(username),id,cash);
     }
     private Map<String,Object> finalizeOwnedCash(PosService.Scope s,String id,BigDecimal cash){
         retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);
-        if(paymentAttempts.findByTenantAndOrder(s.tenant(),id).isPresent())conflict("This draft uses an external payment attempt; recover that payment instead of collecting cash");
         if("PAID".equals(order.status())){if(cash.compareTo(order.cash())!=0)conflict("Cash amount differs from completed sale");return retail.receipt(s,id);}
+        if(paymentAttempts.findByTenantAndOrder(s.tenant(),id).isPresent())conflict("This draft uses an external payment attempt; recover that payment instead of collecting cash");
         retail.requireOpen(s,order.session());
         if(!"DRAFT".equals(order.status())||!order.expires().isAfter(clock.instant()))conflict("Draft is cancelled or expired; refresh/cancel it before starting another sale");
         if(cash.compareTo(order.total())<0)conflict("Cash received is below amount due");
@@ -116,6 +116,7 @@ public class CheckoutService {
         var expected=new LinkedHashMap<Long,Integer>();for(var line:stored)expected.put(line.product(),line.quantity());
         if(consumed.isEmpty()||!consumed.equals(expected))throw new IllegalStateException("Reservation does not match draft snapshots");
         var receipt=retail.allocateReceipt(s);boolean invoice=receipt.invoiceRequired()||order.invoiceRequested();
+        paymentAttempts.saveAndFlush(PaymentAttempt.cash(order.tenant(),id,order.total(),cash,"cash-finalize",sha(cash.setScale(2).toPlainString()),clock.instant()));
         order.pay(cash,receipt.number(),invoice,clock.instant());orders.flush();
         retail.draftDocuments(s,id,stored.stream().map(l->new PosService.StockIssue(l.product(),l.quantity())).toList(),receipt,order.total(),invoice);
         return retail.receipt(s,id);

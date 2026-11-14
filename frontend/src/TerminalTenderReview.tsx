@@ -1,6 +1,6 @@
 import {useRef,useEffect,useState} from 'react';
 import {api,ApiError} from './api';
-type Tender={orderId:string;attemptId:string;method:string;state:string;amount:number;merchantAccount:string;cashier:string;reviewedBy?:string;reviewedAt?:string;evidenceReference?:string;reference?:string};
+type Tender={orderId:string;orderStatus?:string;attemptId:string;method:string;state:string;amount:number;merchantAccount:string;cashier:string;reviewedBy?:string;reviewedAt?:string;evidenceReference?:string;reference?:string};
 type Command={id:string;body:{attemptId:string;decision:string;reference:string;evidence:string;reason:string}};
 const storageKey='pos-terminal-review-v1';
 export default function TerminalTenderReview({onResolved}:{onResolved:()=>void}){
@@ -12,7 +12,7 @@ export default function TerminalTenderReview({onResolved}:{onResolved:()=>void})
  async function submit(command:Command){
   try{sessionStorage.setItem(storageKey,JSON.stringify(command));}catch{setError('Could not save retry details. No verification was submitted.');return;}
   const retry=!!pending;setPending(command);setBusy(true);setError('');
-  try{const result:Tender=await api(`/payments/review/${encodeURIComponent(command.id)}`,command.body);if(!alive.current)return;if(result.orderId!==command.id||result.attemptId!==command.body.attemptId||result.state!==(command.body.decision==="CONFIRM"?"CONFIRMED":"FAILED"))throw Error("Verification not confirmed");sessionStorage.removeItem(storageKey);setPending(undefined);setSelected(undefined);setRows(values=>values.filter(item=>item.orderId!==command.id));setNotice(`${result.state} · Order ${result.orderId}. ${result.state==='CONFIRMED'?'Sale completed once.':'No funds confirmed; draft cancelled and stock released.'}`);onResolved();}
+  try{const result:Tender=await api(`/payments/review/${encodeURIComponent(command.id)}`,command.body);if(!alive.current)return;if(result.orderId!==command.id||result.attemptId!==command.body.attemptId||result.state!==(command.body.decision==="CONFIRM"?"CONFIRMED":"FAILED"))throw Error("Verification not confirmed");sessionStorage.removeItem(storageKey);setPending(undefined);setSelected(undefined);setRows(values=>values.filter(item=>item.orderId!==command.id));setNotice(`${result.state} · Order ${result.orderId}. ${result.state==='CONFIRMED'?(result.orderStatus==='PAID'?'Sale completed once.':'Evidence saved. Sale remains unpaid until the full bill is confirmed and finalization succeeds; do not charge again.'):'Failed tender recorded. Check the sale balance before releasing stock or collecting another payment.'}`);onResolved();}
   catch(e){if(alive.current){if(!retry&&e instanceof ApiError&&[400,403,404,409].includes(e.status)){sessionStorage.removeItem(storageKey);setPending(undefined);setError('Verification rejected. Check independent reviewer, evidence, session and current order status.');}else setError('Verification outcome is uncertain. Retry the saved decision unchanged; do not collect or refund funds again.');}}
   finally{if(alive.current)setBusy(false);}
  }

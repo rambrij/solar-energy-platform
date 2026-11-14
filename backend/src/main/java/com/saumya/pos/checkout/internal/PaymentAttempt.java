@@ -23,8 +23,16 @@ public class PaymentAttempt {
     @Column(name="provider_reference",length=80) private String reference;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="created_at",nullable=false) private Instant created;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="confirmed_at") private Instant confirmed;
+    @Column(name="idempotency_key",nullable=false,length=80) private String key;
+    @Column(name="request_hash",nullable=false,length=64) private String hash;
+    @Column(name="cash_received",precision=19,scale=2) private BigDecimal cash;
+    @Column(name="change_given",precision=19,scale=2) private BigDecimal change;
+    public String key(){return key;} public String hash(){return hash;}
+    public BigDecimal cash(){return cash==null?BigDecimal.ZERO:cash;} public BigDecimal change(){return change==null?BigDecimal.ZERO:change;}
+    public void command(String key,String hash){this.key=key;this.hash=hash;}
+    public static PaymentAttempt cash(long tenant,String order,BigDecimal applied,BigDecimal received,String key,String hash,Instant now){var a=new PaymentAttempt(tenant,order,"CASH",applied,now);a.origin="POS_CASH";a.merchant="vendor-cash-"+tenant;a.state="CONFIRMED";a.cash=received;a.change=received.subtract(applied);a.confirmed=now;a.command(key,hash);return a;}
     protected PaymentAttempt(){}
-    public PaymentAttempt(long tenant,String order,String method,BigDecimal amount,Instant now){this.id=java.util.UUID.randomUUID().toString();this.tenant=tenant;this.order=order;this.method=method;this.amount=amount;this.merchant="mock-vendor-"+tenant;state="PENDING";created=now;}
+    public PaymentAttempt(long tenant,String order,String method,BigDecimal amount,Instant now){this.id=java.util.UUID.randomUUID().toString();this.key=this.id;this.hash=this.id;this.tenant=tenant;this.order=order;this.method=method;this.amount=amount;this.merchant="mock-vendor-"+tenant;state="PENDING";created=now;}
     public String id(){return id;} public String order(){return order;} public String method(){return method;} public String merchant(){return merchant;} public String state(){return state;} public BigDecimal amount(){return amount;}
     public void confirm(Instant now,String reference){state="CONFIRMED";confirmed=now;this.reference=reference;}
     public static PaymentAttempt terminal(long tenant,String order,String method,String merchant,BigDecimal amount,Instant now){var a=new PaymentAttempt(tenant,order,method,amount,now);a.origin="POS_TERMINAL";a.merchant=merchant;a.state="PENDING_VERIFICATION";return a;}

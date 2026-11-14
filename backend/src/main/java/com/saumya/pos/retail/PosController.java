@@ -55,8 +55,4 @@ class PosController {
     Object reconciliation(Principal p,@PathVariable String id) {
         return service.reconciliation(service.scope(p.getName()),id);
     }
-    @GetMapping("/receipts/{id}") @PreAuthorize("hasAuthority('POS_RECEIPT_VIEW')")
-    Object receipt(Principal p,@PathVariable String id) { return service.receipt(service.scope(p.getName()),id); }
-    @PostMapping("/receipts/{id}/reprint") @PreAuthorize("hasAuthority('POS_RECEIPT_REPRINT')")
-    Object reprint(Principal p,@PathVariable String id) { return service.reprint(service.scope(p.getName()),id); }
 }

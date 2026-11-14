@@ -44,8 +44,8 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
     finally { if (current === version.current) setBusy(false); }
   }
   return <section id="order-history" className="order-history" aria-labelledby="history-title" aria-busy={busy}>
-    <div className="section-heading"><div><span className="eyebrow">{mode === 'pos' ? 'Branch activity' : 'Your purchases'}</span><h2 id="history-title">{mode === 'pos' ? 'Sales history' : 'My online orders'}</h2></div><span className="badge">{mode === 'pos' ? 'Branch scoped' : 'Private to you'}</span></div>
-    <p>{mode === 'pos' ? 'Find walk-in sales across your branch, including closed shifts. No customer account lookup is exposed.' : 'Track your online reservations across vendors. Unpaid drafts are not confirmed purchases.'}</p>
+    <div className="section-heading"><div><span className="eyebrow">{mode === 'pos' ? 'Branch activity' : 'Your purchases'}</span><h2 id="history-title">{mode === 'pos' ? 'Sales history' : 'My orders'}</h2></div><span className="badge">{mode === 'pos' ? 'Branch scoped' : 'Private to you'}</span></div>
+    <p>{mode === 'pos' ? 'Find walk-in sales across your branch, including closed shifts. No customer account lookup is exposed.' : 'Track your online purchases and verified in-store purchases across vendors. Unpaid drafts are not confirmed purchases.'}</p>
     <form className="history-filters" onSubmit={event => { event.preventDefault(); void load(0, filters); }}>
       <label>Order status<select value={filters.status} disabled={busy} onChange={event => setFilters({ ...filters, status: event.target.value })}>{['ALL', 'DRAFT', 'PAID', 'CANCELLED', 'EXPIRED'].map(status => <option key={status} value={status}>{status === 'ALL' ? 'All statuses' : status}</option>)}</select></label>
       <label>Order reference or receipt<input placeholder="Reference prefix or receipt number" maxLength={36} value={filters.reference} disabled={busy} onChange={event => setFilters({ ...filters, reference: event.target.value })}/></label>

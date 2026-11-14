@@ -21,8 +21,8 @@ public class OnlineReceiptService {
  private ResponseStatusException missing(){return new ResponseStatusException(NOT_FOUND,"Online receipt unavailable");}
  private DraftOrder owned(String username,String id){
   if(id==null||!id.matches("[A-Za-z0-9-]{1,36}"))throw missing();
-  long customer=customers.resolve(username);var order=orders.lockCustomer(customer,id).orElseThrow(this::missing);
-  if(!"ONLINE".equals(order.channel())||!"PAID".equals(order.status()))throw missing();
+  long customer=customers.resolve(username);var order=orders.lockLinkedCustomer(customer,id).orElseThrow(this::missing);
+  if(!"PAID".equals(order.status()))throw missing();
   return order;
  }
  private Receipt view(DraftOrder order,boolean copy){

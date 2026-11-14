@@ -15,7 +15,7 @@ it('opens an owned online receipt from paid customer order details',async()=>{
 it('does not request protected history until explicitly loaded', () => {
   render(<OrderHistory mode="online"/>);
   expect(api).not.toHaveBeenCalled(); expect(marketplaceApi).not.toHaveBeenCalled();
-  expect(screen.getByText('My online orders')).toBeTruthy();
+  expect(screen.getByText('My orders')).toBeTruthy();
 });
 it('keeps pagination bound to applied filters rather than unsubmitted edits', async () => {
   vi.mocked(api).mockResolvedValue(page);

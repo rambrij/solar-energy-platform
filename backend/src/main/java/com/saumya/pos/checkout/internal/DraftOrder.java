@@ -38,6 +38,7 @@ public class DraftOrder {
     public DraftOrder(String id,long tenant,Long customer,Long branch,String cashier,String session,String channel,String key,String hash,BigDecimal total,long stockBranch,String owner,Instant expires,boolean invoice){
         this.id=id;tenantId=tenant;customerId=customer;branchId=branch;this.cashier=cashier;sessionId=session;this.channel=channel;this.key=key;this.hash=hash;this.total=total;this.stockBranch=stockBranch;draftOwner=owner;expiresAt=expires;invoiceRequested=invoice;status="DRAFT";
     }
+    public void associate(long customer){if(!"IN_STORE".equals(channel)||customerId!=null)throw new IllegalStateException("Order cannot be associated");customerId=customer;}
     public String id(){return id;} public long tenant(){return tenantId;} public Long customer(){return customerId;} public Long branch(){return branchId;}
     public String cashier(){return cashier;} public String session(){return sessionId;} public String channel(){return channel;} public String hash(){return hash;}
     public BigDecimal total(){return total;} public BigDecimal cash(){return cashReceived;} public String status(){return status;} public Instant expires(){return expiresAt;}

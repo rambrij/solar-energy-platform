@@ -44,7 +44,7 @@ public class OrderHistoryService {
     public record Detail(Order order,List<Line> items,BigDecimal cashReceived,BigDecimal changeGiven,String cancellationReason,Instant statusChangedAt){}
     private static void bad(String reason){throw new ResponseStatusException(HttpStatus.BAD_REQUEST,reason);}
     private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Order unavailable");}
-    private Specification<DraftOrder> customerScope(long customer){return (r,q,b)->b.and(b.equal(r.get("customerId"),customer),b.equal(r.get("channel"),"ONLINE"));}
+    private Specification<DraftOrder> customerScope(long customer){return (r,q,b)->b.equal(r.get("customerId"),customer);}
     private Specification<DraftOrder> branchScope(PosService.Scope scope){return (r,q,b)->b.and(b.equal(r.get("tenantId"),scope.tenant()),b.equal(r.get("branchId"),scope.branch()),b.equal(r.get("channel"),"IN_STORE"));}
     private Specification<DraftOrder> filtered(Specification<DraftOrder> scope,Filter filter){
         return scope.and((r,q,b)->{

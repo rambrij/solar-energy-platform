@@ -10,6 +10,7 @@ import {canTenderReservation} from './reservedTenderPolicy';
 import DraftReferenceRecovery from './DraftReferenceRecovery';
 import PaymentCheckout from './PaymentCheckout';
 import SplitTenderCheckout from './SplitTenderCheckout';
+import WalkInCustomer from './WalkInCustomer';
 
 type Attempt = { action: 'create' | 'cancel' | 'cash'; id?: string; body: unknown; key?: string };
 type Props = { mode: 'online' | 'pos'; session?: string; cartId?: string | null; items?: { productId: number; quantity: number }[]; invoiceRequested?: boolean; discounts?:SaleDiscounts; disabled?: boolean; createDisabled?: boolean; onBlocked?: (value: boolean) => void; onReceipt?: (value: Receipt, finalized: boolean) => void; onStockChange?: () => void; onPaymentComplete?: () => void };
@@ -74,6 +75,7 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], invo
       <ul>{draft.items.map(line => <li key={line.productId}>{line.name} × {line.quantity}: {Number(line.total).toFixed(2)} (tax {Number(line.tax).toFixed(2)}){Number(line.discount??0)>0&&<> · Discount {Number(line.discount).toFixed(2)}</>}</li>)}</ul><p>{draft.message}</p>
       {draft.status==='DRAFT'&&(draft.expired||Date.parse(draft.expiresAt)<=now)&&<p role="status">Reservation time elapsed. Do not collect cash; cancel or reload to release/check the hold.</p>}
       {mode==='pos'&&draft.status==='DRAFT'&&draft.sessionId!==session&&<p>Reserved under another cashier session. It cannot be paid from the current session; cancel it if appropriate.</p>}
+      {mode==='pos'&&draft.status==='DRAFT'&&<WalkInCustomer orderId={draft.id} disabled={busy||disabled||paymentBusy||draft.expired}/>}
       {draft.status === 'DRAFT' && <fieldset disabled={paymentBusy}>
         <label>Cancellation reason <input maxLength={250} disabled={busy||disabled||!!pending} value={reasonByDraft[draft.id]??''} onChange={event=>setReasonByDraft(values=>({...values,[draft.id]:event.target.value}))}/></label>
         {mode==='pos'&&<CashTender amountDue={draft.total} cash={cashByDraft[draft.id]??''} onCash={value=>setCashByDraft(values=>({...values,[draft.id]:value}))} eligible={canTenderReservation(draft,session,now)} locked={busy||disabled||statusFailed||!!pending||!canTenderReservation(draft,session,now)} label="Cash received for reserved sale"/>}

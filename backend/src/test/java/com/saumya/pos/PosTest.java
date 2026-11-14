@@ -37,12 +37,13 @@ class PosTest {
  @Autowired com.saumya.pos.returns.ReturnService returns;
  @Autowired com.saumya.pos.returns.CashRefundService refunds;
  @Autowired com.saumya.pos.checkout.TenderReviewService tenderReviews;
+ @Autowired com.saumya.pos.checkout.CustomerAssociationService associations;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
   db.update("DELETE FROM vendor_payment_attempts");
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -53,6 +54,23 @@ class PosTest {
  }
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=payments.tenderStatus(username,id).remaining();var result=payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null));return result.tenders().getLast();}
+ @Test void guestAssociationRequiresCustomerProofAndOnlyCreatesCurrentVendorRelationship(){
+  configureOnline();var draft=checkout.pos("alice","customer-association",posDraft());
+  assertThat(db.queryForObject("SELECT customer_id FROM orders WHERE id=?",Long.class,draft.id())).isNull();
+  assertThatThrownBy(()->associations.create("alice",draft.id(),false));
+  var challenge=associations.create("alice",draft.id(),true);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();
+  assertThatThrownBy(()->associations.approve("alice",challenge.token(),true));
+  assertThatThrownBy(()->associations.approve("customer",challenge.token(),false));
+  assertThat(associations.approve("customer",challenge.token(),true).status()).isEqualTo("ASSOCIATED");
+  assertThat(associations.approve("customer",challenge.token(),true).status()).isEqualTo("ASSOCIATED");
+  assertThatThrownBy(()->associations.approve("other-customer",challenge.token(),true));
+  assertThat(db.queryForObject("SELECT customer_id FROM orders WHERE id=?",Long.class,draft.id())).isEqualTo(100L);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE tenant_id=1 AND customer_id=100",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE tenant_id=2",Integer.class)).isZero();
+  checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));assertThat(onlineReceipts.read("customer",draft.id()).orderId()).isEqualTo(draft.id());
+ }
+ @Test void expiredAssociationTokenCannotAttachCustomer(){configureOnline();var draft=checkout.pos("alice","expired-association",posDraft());var challenge=associations.create("alice",draft.id(),true);db.update("UPDATE pos_customer_challenges SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));assertThatThrownBy(()->associations.approve("customer",challenge.token(),true));assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();}
  @Test void splitTenderLimitsAndChangedRetryPayloadAreRejected(){
   enableTerminal();var draft=checkout.pos("alice","tender-limits",posDraft());
   assertThatThrownBy(()->payments.tender("alice",draft.id(),"split-disabled",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40")))).hasMessageContaining("disabled");

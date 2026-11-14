@@ -38,7 +38,7 @@ The branch is already far past a greenfield build. Marketplace browsing, carts, 
 - `POST /api/pos/checkout/{draftId}/finalize` requires sum(tenders) == due (cash may exceed; change computed).
 - `POST /api/pos/checkout/{draftId}/discounts` body `{lineId?, type, value, reason, approvalToken?}`.
 - `POST /api/pos/checkout/{draftId}/customer` body `{customerId, verification}`.
-All mutations: CSRF, tenant/branch/session scoping, idempotency key, type-specific permissions (new: `POS_DISCOUNT_APPLY`, `POS_DISCOUNT_APPROVE`, `POS_TENDER_SPLIT`).
+All mutations: CSRF, tenant/branch/session scoping, idempotency key, type-specific permissions (new: `POS_DISCOUNT_APPLY`, `POS_DISCOUNT_OVERRIDE`, `POS_TENDER_SPLIT`).
 
 ## 7. Existing code likely to conflict (fix directly, no shims)
 - `PaymentCheckoutService` / `PaymentPolicy` assume one attempt per order ("order ID is the initiation idempotency boundary"); this must become per-tender.

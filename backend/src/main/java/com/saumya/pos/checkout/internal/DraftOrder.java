@@ -32,6 +32,8 @@ public class DraftOrder {
     @Column(name="cancellation_reason",length=250) private String cancellationReason;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="status_changed_at") private Instant statusChangedAt;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="created_at",insertable=false,updatable=false) private Instant createdAt;
+    @Column(name="discount_reason",length=250) private String discountReason;
+    public void discountReason(String value){discountReason=value==null?null:value.strip();}
     protected DraftOrder(){}
     public DraftOrder(String id,long tenant,Long customer,Long branch,String cashier,String session,String channel,String key,String hash,BigDecimal total,long stockBranch,String owner,Instant expires,boolean invoice){
         this.id=id;tenantId=tenant;customerId=customer;branchId=branch;this.cashier=cashier;sessionId=session;this.channel=channel;this.key=key;this.hash=hash;this.total=total;this.stockBranch=stockBranch;draftOwner=owner;expiresAt=expires;invoiceRequested=invoice;status="DRAFT";

@@ -23,6 +23,9 @@ public class DraftLine {
     @Column(name="list_price",nullable=false,precision=19,scale=2) private BigDecimal listPrice;
     @Column(nullable=false,precision=19,scale=2) private BigDecimal discount;
     @Column(name="discount_percent",nullable=false,precision=5,scale=2) private BigDecimal discountPercent;
+    @Column(name="manual_discount",nullable=false,precision=19,scale=2) private BigDecimal manualDiscount=BigDecimal.ZERO;
+    public BigDecimal manualDiscount(){return manualDiscount;}
+    public void manualDiscount(BigDecimal amount,BigDecimal tax,BigDecimal total){this.manualDiscount=amount;this.discount=listPrice.subtract(price).multiply(BigDecimal.valueOf(quantity)).add(amount);this.tax=tax;this.total=total;}
     protected DraftLine(){}
     public DraftLine(long tenant,String order,long product,String name,int quantity,BigDecimal price,BigDecimal rate,BigDecimal tax,BigDecimal total){id=new Key(tenant,order,product);this.name=name;this.quantity=quantity;this.price=price;taxRate=rate;this.tax=tax;this.total=total;listPrice=price;discount=BigDecimal.ZERO;discountPercent=BigDecimal.ZERO;}
     public DraftLine(long tenant,String order,long product,String name,int quantity,BigDecimal price,BigDecimal rate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal percent){this(tenant,order,product,name,quantity,price,rate,tax,total);this.listPrice=listPrice;discountPercent=percent;discount=listPrice.subtract(price).multiply(BigDecimal.valueOf(quantity));}

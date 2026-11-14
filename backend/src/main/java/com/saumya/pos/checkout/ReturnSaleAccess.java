@@ -20,7 +20,7 @@ public class ReturnSaleAccess {
   var order=orders.lock(tenant,id).orElseThrow(this::missing);em.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),branch)||!"PAID".equals(order.status())||!"CASH".equals(order.paymentMethod())||order.cash()==null||order.change()==null||order.cash().subtract(order.change()).compareTo(order.total())!=0)throw missing();
   var policy=policies.locked(tenant,branch).orElseThrow(this::missing);em.refresh(policy,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-  return new CashSale(id,order.receiptNumber(),order.total(),order.taxInvoice(),policy.cashRefunds(),items.lockedLines(tenant,id).stream().map(i->new CashLine(i.product(),i.name(),i.quantity(),i.price(),i.tax())).toList());
+  return new CashSale(id,order.receiptNumber(),order.total(),order.taxInvoice(),policy.cashRefunds(),items.lockedLines(tenant,id).stream().map(i->new CashLine(i.product(),i.name(),i.quantity(),i.total().subtract(i.tax()),i.tax())).toList());
  }
  private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Paid POS sale unavailable");}
  @Transactional(readOnly=true) public Sale read(long tenant,long branch,String id){return sale(tenant,branch,orders.findOne((r,q,b)->b.and(b.equal(r.get("tenantId"),tenant),b.equal(r.get("branchId"),branch),b.equal(r.get("id"),id))).orElseThrow(this::missing),false);}

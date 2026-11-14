@@ -9,7 +9,7 @@ export default function PosCatalogue({locked,quantities,revision,onProducts,onAd
  const [result,setResult]=useState<Page>(),[loaded,setLoaded]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[scanning,setScanning]=useState(false),[focusRequested,setFocusRequested]=useState(false);
  const input=useRef<HTMLInputElement>(null),alive=useRef(true);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
- useEffect(()=>{if(focusRequested&&!scanning){input.current?.focus();input.current?.select();setFocusRequested(false);}},[focusRequested,scanning]);
+ useEffect(()=>{if(focusRequested&&!scanning&&!locked){input.current?.focus();input.current?.select();setFocusRequested(false);}},[focusRequested,scanning,locked]);
  useEffect(()=>{if(search.trim()===query)return;const timer=setTimeout(()=>{setQuery(search.trim());setPage(0);},250);return()=>clearTimeout(timer);},[search,query]);
  const key=JSON.stringify([query,category,sort,stockOnly,page,revision,retry]);
  const loading=loaded!==key||search.trim()!==query;

@@ -25,6 +25,7 @@ public class CheckoutService {
     @org.springframework.beans.factory.annotation.Autowired private PaymentAttemptRepository paymentAttempts;
     @org.springframework.beans.factory.annotation.Autowired private PaymentPolicy paymentPolicy;
     @org.springframework.beans.factory.annotation.Autowired private TerminalPolicyRepository terminalPolicies;
+    @org.springframework.beans.factory.annotation.Autowired private SaleDiscountService discounts;
     private final DraftRepository orders;private final DraftLineRepository lines;private final CartService carts;
     private final CustomerAccess customers;private final CatalogService catalogue;private final InventoryService stock;
     private final PosService retail;private final Pricing pricing;private final Clock clock;private final long ttl;private final DraftRecoveryPolicy recoveryPolicy;
@@ -33,9 +34,9 @@ public class CheckoutService {
         this.orders=orders;this.lines=lines;this.carts=carts;this.customers=customers;this.catalogue=catalogue;this.stock=stock;this.retail=retail;this.pricing=pricing;this.clock=clock;this.ttl=ttl;this.recoveryPolicy=recoveryPolicy;
     }
     public record Item(@Positive long productId,@Min(1) @Max(10000) int quantity) {}
-    public record PosDraft(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,boolean invoiceRequested) {}
+    public record PosDraft(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,boolean invoiceRequested,SaleDiscountService.Request discounts) {}
     public record OnlineDraft(@NotBlank @Size(max=36) String expectedCartId) {}
-    public record CashSale(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived,boolean invoiceRequested) {}
+    public record CashSale(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived,boolean invoiceRequested,SaleDiscountService.Request discounts) {}
     public record Cash(@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived) {}
     public record Cancel(@NotBlank @Size(max=250) String reason) {}
     public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal discount) {}
@@ -53,25 +54,25 @@ public class CheckoutService {
         var cart=carts.cart(customer);if(!Objects.equals(cart.id(),request.expectedCartId())||cart.items().isEmpty())conflict("Cart changed or is empty; reload first");
         var vendor=catalogue.activeVendor(cart.vendorSlug());long branch=catalogue.onlineBranch(vendor.id());
         return create(vendor.id(),customer,null,null,null,"ONLINE",key,hash,branch,"ONLINE:"+customer,
-            cart.items().stream().map(i->new Item(i.productId(),i.quantity())).toList(),false);
+            cart.items().stream().map(i->new Item(i.productId(),i.quantity())).toList(),false,null);
     }
     public Draft pos(String username,String clientKey,PosDraft request){return reservePos(retail.scope(username),clientKey,request,"POS","");}
     public Map<String,Object> cashSale(String username,String clientKey,CashSale request){
         validateCash(request.cashReceived());
         var scope=retail.scope(username);retail.lockOutlet(scope);
-        var draft=reservePos(scope,clientKey,new PosDraft(request.sessionId(),request.items(),request.invoiceRequested()),"POS_CASH","|CASH|"+request.cashReceived().setScale(2).toPlainString());
+        var draft=reservePos(scope,clientKey,new PosDraft(request.sessionId(),request.items(),request.invoiceRequested(),request.discounts()),"POS_CASH","|CASH|"+request.cashReceived().setScale(2).toPlainString());
         return finalizeOwnedCash(scope,draft.id(),request.cashReceived());
     }
     private void validateCash(BigDecimal cash){if(cash==null||cash.signum()<0||cash.scale()>2||cash.precision()-cash.scale()>12)throw new ResponseStatusException(BAD_REQUEST,"Cash must be non-negative with at most 12 integer and two fractional digits");}
     private Draft reservePos(PosService.Scope scope,String clientKey,PosDraft request,String operation,String cashFingerprint){
         String key=key(operation+":"+scope.cashier(),clientKey);
-        String hash=sha(request.sessionId()+"|"+request.items().stream().sorted(Comparator.comparingLong(Item::productId)).toList()+"|"+request.invoiceRequested()+cashFingerprint);
+        String hash=sha(request.sessionId()+"|"+request.items().stream().sorted(Comparator.comparingLong(Item::productId)).toList()+"|"+request.invoiceRequested()+"|"+request.discounts()+cashFingerprint);
         var prior=orders.findByTenantIdAndKey(scope.tenant(),key);if(prior.isPresent()){owned(scope,prior.get());return replay(prior.get(),hash);}
         retail.requireOpen(scope,request.sessionId());
-        var result=create(scope.tenant(),null,scope.branch(),scope.cashier(),request.sessionId(),"IN_STORE",key,hash,scope.branch(),"POS:"+sha(scope.cashier()+"|"+request.sessionId()),request.items(),request.invoiceRequested());
+        var result=create(scope.tenant(),null,scope.branch(),scope.cashier(),request.sessionId(),"IN_STORE",key,hash,scope.branch(),"POS:"+sha(scope.cashier()+"|"+request.sessionId()),request.items(),request.invoiceRequested(),request.discounts());
         retail.draftAudit(scope,"DRAFT_RESERVE",result.id());return result;
     }
-    private Draft create(long tenant,Long customer,Long posBranch,String cashier,String session,String channel,String key,String hash,long branch,String owner,List<Item> items,boolean invoice){
+    private Draft create(long tenant,Long customer,Long posBranch,String cashier,String session,String channel,String key,String hash,long branch,String owner,List<Item> items,boolean invoice,SaleDiscountService.Request discountRequest){
         if(items.isEmpty()||items.size()>100)throw new ResponseStatusException(BAD_REQUEST,"Draft requires 1..100 distinct products");
         if(orders.existsByTenantIdAndDraftOwner(tenant,owner))conflict("Resolve the existing reserved draft first");
         String id=UUID.randomUUID().toString();Instant expires=clock.instant().plusSeconds(ttl);BigDecimal total=BigDecimal.ZERO;
@@ -81,7 +82,11 @@ public class CheckoutService {
             var p=catalogue.lockForSale(tenant,item.productId());var amount=pricing.line(p.price(),p.taxRate(),item.quantity());total=total.add(amount.total());
             saved.add(new DraftLine(tenant,id,p.id(),p.name(),item.quantity(),p.price(),p.taxRate(),amount.tax(),amount.total(),p.listPrice(),p.discountPercent()));
         }
+        var priced=discounts.calculate(tenant,saved.stream().map(l->new com.saumya.pos.shared.BillPricing.Input(l.product(),l.price(),l.quantity(),l.rate(),BigDecimal.ZERO)).toList(),discountRequest);
+        total=BigDecimal.ZERO;
+        for(int i=0;i<saved.size();i++){var value=priced.get(i);saved.get(i).manualDiscount(value.manualDiscount(),value.tax(),value.total());total=total.add(value.total());}
         var order=orders.saveAndFlush(new DraftOrder(id,tenant,customer,posBranch,cashier,session,channel,key,hash,total,branch,owner,expires,invoice));
+        if(discountRequest!=null)order.discountReason(discountRequest.reason());
         lines.saveAllAndFlush(saved);
         for(var line:saved)stock.reserve(tenant,branch,line.product(),line.quantity(),id,expires);
         return view(order);

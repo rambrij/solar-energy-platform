@@ -41,7 +41,7 @@ class PosTest {
  @BeforeEach void seed(){
   db.update("DELETE FROM vendor_payment_attempts");
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -50,7 +50,18 @@ class PosTest {
   db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,1,1),(2,2,2,1)");
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("50"))).get("id");
  }
- CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false);}
+ CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null);}
+ @Test void cashierDiscountIsAuthorizedAndStoredBeforePayment() throws Exception {
+  db.update("INSERT INTO catalog_discount_policy VALUES(1,20)");
+  String body="{\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}],\"invoiceRequested\":false,\"discounts\":{\"linePercent\":{\"1\":10},\"billPercent\":10,\"reason\":\"Approved sale\"}}";
+  mvc.perform(post("/api/v1/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SALE_CREATE"))
+   .header("Idempotency-Key","discount-no-grant").contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SALE_CREATE",()->"POS_DISCOUNT_APPLY"))
+   .header("Idempotency-Key","discount-approved").contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.total").value(89.10));
+  assertThat(db.queryForObject("SELECT manual_discount FROM order_items",BigDecimal.class)).isEqualByComparingTo("19");
+  assertThat(db.queryForObject("SELECT discount_reason FROM orders",String.class)).isEqualTo("Approved sale");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
+ }
  @Test void mixedVendorCartReturnsStableProblem() throws Exception {
   configureOnline();marketplace.put(100,new CartService.Item("vendor-1",1,1));
   mvc.perform(post("/api/v1/customer/cart/items").with(csrf()).with(user("customer").authorities(()->"CUSTOMER"))
@@ -611,7 +622,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM cart_items",Integer.class)).isEqualTo(3);
  }
  boolean restoreAttempt(String archived,String current){try{marketplace.restore(100,new CartService.Restore(archived,current));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
- com.saumya.pos.checkout.CheckoutService.PosDraft posDraft(){return new com.saumya.pos.checkout.CheckoutService.PosDraft(session,List.of(new com.saumya.pos.checkout.CheckoutService.Item(1,1)),true);}
+ com.saumya.pos.checkout.CheckoutService.PosDraft posDraft(){return new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1)),true,null);}
  com.saumya.pos.checkout.CheckoutService.Draft onlineDraft(String key){
   var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
   return checkout.online("customer",key,new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id()));
@@ -671,7 +682,7 @@ class PosTest {
  }
  @Test void reservationFailureRollsBackEveryLineAndOrder(){
   db.update("INSERT INTO products VALUES(3,1,'P3',NULL,'Missing stock',100,0,TRUE)");
-  var request=new com.saumya.pos.checkout.CheckoutService.PosDraft(session,List.of(new com.saumya.pos.checkout.CheckoutService.Item(1,1),new com.saumya.pos.checkout.CheckoutService.Item(3,1)),false);
+  var request=new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),false,null);
   assertThatThrownBy(()->checkout.pos("alice","rollback-hold",request));
   assertThat(stock.available(1,1)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
@@ -800,7 +811,7 @@ class PosTest {
  @Test void salesReportSeparatesPaidTaxCashAndOnlineReservationsWithoutDoubleCounting() throws Exception {
   configureOnline();db.update("UPDATE inventory SET quantity=10 WHERE tenant_id=1");
   db.update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,5)");
-  checkout.cashSale(a.cashier(),"report-paid1",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,2)),new BigDecimal("200"),true));
+  checkout.cashSale(a.cashier(),"report-paid1",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,2)),new BigDecimal("200"),true,null));
   var cancelled=onlineDraft("report-cancel");checkout.cancelOnline("customer",cancelled.id(),"Buying later");onlineDraft("report-unpaid");
   db.update("UPDATE products SET price=999,tax_rate=80 WHERE tenant_id=1");
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("tenantId","2").param("branchId","2"))
@@ -944,7 +955,7 @@ class PosTest {
  }
  @Test void inspectionRollsBackAllStockAndDispositionRowsIfAnyRestockFails(){
   enableReturns();supervisor("manager");db.update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
-  var receipt=checkout.cashSale(a.cashier(),"return-sale4",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),new BigDecimal("150"),false));
+  var receipt=checkout.cashSale(a.cashier(),"return-sale4",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),new BigDecimal("150"),false,null));
   var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Goods returned","ORIGINAL_RECEIPT","Receipt and both goods checked");var request=returns.create("alice","return-case4",command);returns.review("manager",request.id(),approveReturn());
   var inspection=new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"SELLABLE","RESTOCK","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"SELLABLE","RESTOCK","Cable checked")));
   db.update("UPDATE inventory SET quantity=? WHERE tenant_id=1 AND product_id=3",Integer.MAX_VALUE);assertThatThrownBy(()->returns.inspect("manager",request.id(),inspection)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
@@ -1052,7 +1063,7 @@ class PosTest {
  }
  @Test void stalePartialRefundQuoteCannotPayAndFullAllocationMatchesOriginal() {
   enableReturns();supervisor("manager");db.update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");db.update("UPDATE products SET price=0.05,tax_rate=10 WHERE id=1");
-  var receipt=checkout.cashSale(a.cashier(),"partial-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),BigDecimal.ONE,false));
+  var receipt=checkout.cashSale(a.cashier(),"partial-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),BigDecimal.ONE,false,null));
   String order=(String)receipt.get("id"),paying=refundSession("10");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
   var ids=new ArrayList<String>();for(int i=0;i<3;i++){var r=returns.create("alice","partial-return"+i,returnRequest(order,1));returns.review("manager",r.id(),approveReturn());returns.inspect("manager",r.id(),inspectReturn("DAMAGED","QUARANTINE"));ids.add(r.id());}
   var first=refundPay(ids.get(0),paying);var stale=refundPay(ids.get(1),paying);
@@ -1065,7 +1076,7 @@ class PosTest {
 
  @Test void refundReportUsesPayoutUtcDatesAndDoesNotMultiplyMultiLineCash() throws Exception {
   enableReturns();supervisor("manager");db.update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
-  var receipt=checkout.cashSale(a.cashier(),"refund-report-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),new BigDecimal("150"),false));
+  var receipt=checkout.cashSale(a.cashier(),"refund-report-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),new BigDecimal("150"),false,null));
   var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Returned goods","ORIGINAL_RECEIPT","Receipt checked");
   var returned=returns.create("alice","refund-report-return",command);returns.review("manager",returned.id(),approveReturn());
   returns.inspect("manager",returned.id(),new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"DAMAGED","QUARANTINE","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"DAMAGED","QUARANTINE","Cable checked"))));
@@ -1201,9 +1212,9 @@ class PosTest {
  @Test void cashierSalesPagesRetainOriginalSellerAndSavedAmountsAcrossClosedShifts() throws Exception {
   configureOnline();db.update("UPDATE inventory SET quantity=10 WHERE tenant_id=1");db.update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,10)");
   promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Approved offer"));
-  checkout.cashSale(a.cashier(),"cashier-alice-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,2)),new BigDecimal("200"),true));
+  checkout.cashSale(a.cashier(),"cashier-alice-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,2)),new BigDecimal("200"),true,null));
   var manager=supervisor("manager");db.update("INSERT INTO registers VALUES(3,1,1)");String managerSession=(String)service.open(manager,new PosService.OpenSession(3,BigDecimal.ZERO)).get("id");
-  checkout.cashSale(manager.cashier(),"cashier-manager-sale",new CheckoutService.CashSale(managerSession,List.of(new CheckoutService.Item(3,1)),new BigDecimal("25"),false));
+  checkout.cashSale(manager.cashier(),"cashier-manager-sale",new CheckoutService.CashSale(managerSession,List.of(new CheckoutService.Item(3,1)),new BigDecimal("25"),false,null));
   service.close(a,session,new BigDecimal("193"));onlineDraft("cashier-online-unpaid");db.update("UPDATE products SET price=999,tax_rate=50 WHERE tenant_id=1");
   String path="/api/v1/vendor/pos/reports/cashier-sales";
   mvc.perform(get(path).param("size","1").param("tenantId","2").param("branchId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2)).andExpect(jsonPath("$.totalPages").value(2)).andExpect(jsonPath("$.items[0].cashier").value("alice")).andExpect(jsonPath("$.pageTotals.paidOrders").value(1)).andExpect(jsonPath("$.pageTotals.units").value(3)).andExpect(jsonPath("$.pageTotals.sales").value(143)).andExpect(jsonPath("$.pageTotals.tax").value(13)).andExpect(jsonPath("$.pageTotals.beforeTax").value(130)).andExpect(jsonPath("$.pageTotals.cashApplied").value(143)).andExpect(jsonPath("$.pageTotals.discounts").value(10));
@@ -1228,7 +1239,7 @@ class PosTest {
  }
 
  @Test void refundHistoryPagesSearchesAndDatesRemainBranchScoped() throws Exception {
-  enableReturns();supervisor("manager");db.update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");var receipt=checkout.cashSale(a.cashier(),"history-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),new BigDecimal("400"),false));String paying=refundSession("500");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
+  enableReturns();supervisor("manager");db.update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");var receipt=checkout.cashSale(a.cashier(),"history-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),new BigDecimal("400"),false,null));String paying=refundSession("500");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
   var records=new ArrayList<com.saumya.pos.returns.CashRefundService.View>();for(int i=0;i<3;i++){var r=returns.create("alice","history-return"+i,returnRequest((String)receipt.get("id"),1));returns.review("manager",r.id(),approveReturn());returns.inspect("manager",r.id(),inspectReturn("DAMAGED","QUARANTINE"));records.add(refunds.pay("manager","history-refund"+i,refundPay(r.id(),paying)));}
   db.update("UPDATE pos_cash_refunds SET paid_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")));
   String path="/api/v1/vendor/pos/refunds/history";var ids=records.stream().map(com.saumya.pos.returns.CashRefundService.View::id).sorted(Comparator.reverseOrder()).toList();
@@ -1262,7 +1273,7 @@ class PosTest {
  }
  @Test void pagedReturnQueueFindsCasesBeyondTwentyAndEnforcesReadOnlyBranchScope() throws Exception {
   db.update("UPDATE branches SET pos_return_window_days=30 WHERE id=1");db.update("UPDATE inventory SET quantity=25 WHERE tenant_id=1");
-  String order=(String)checkout.cashSale(a.cashier(),"queue-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,25)),new BigDecimal("2750"),false)).get("id");
+  String order=(String)checkout.cashSale(a.cashier(),"queue-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,25)),new BigDecimal("2750"),false,null)).get("id");
   var ids=new ArrayList<String>();for(int i=0;i<25;i++)ids.add(returns.create("alice","queue-case-"+i,returnRequest(order,1)).id());
   db.update("UPDATE pos_returns SET created_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")));ids.sort(Comparator.naturalOrder());
   service.close(a,session,new BigDecimal("2800"));String path="/api/v1/vendor/pos/returns/queue";
@@ -1377,7 +1388,7 @@ class PosTest {
   mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("bob").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(stock.atBranch(1,1,1)).isZero();
  }
  @Test void reservedReceiptIdentityIsCapturedAtPaymentAndInvoiceUsesTheSameNames(){
-  var draft=checkout.pos("alice","identity-draft",new com.saumya.pos.checkout.CheckoutService.PosDraft(session,List.of(new com.saumya.pos.checkout.CheckoutService.Item(1,1)),true));assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,draft.id())).isNull();
+  var draft=checkout.pos("alice","identity-draft",new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1)),true,null));assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,draft.id())).isNull();
   db.update("UPDATE tenants SET name='Seller at payment' WHERE id=1");db.update("UPDATE branches SET name='Outlet at payment' WHERE id=1");db.update("UPDATE orders SET created_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-01-01T00:00:00Z")),draft.id());
   var receipt=checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));assertThat(receipt.get("receipt_seller_name")).isEqualTo("Seller at payment");assertThat(receipt.get("receipt_outlet_name")).isEqualTo("Outlet at payment");assertThat(receipt.get("issued_at")).isEqualTo(db.queryForObject("SELECT status_changed_at FROM orders WHERE id=?",java.sql.Timestamp.class,draft.id()));
   assertThat(db.queryForObject("SELECT seller_name FROM vendor_invoices WHERE order_id=?",String.class,draft.id())).isEqualTo("Seller at payment");

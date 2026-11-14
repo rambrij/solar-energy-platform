@@ -4,14 +4,15 @@ import { marketplaceApi, MarketplaceError } from './marketplaceApi';
 import type {Draft} from './draftTypes';
 import type {Receipt} from './types';
 import CashTender from './CashTender';
+import type {SaleDiscounts} from './BillingBasket';
 import {assessCash} from './cashTenderMath';
 import {canTenderReservation} from './reservedTenderPolicy';
 import DraftReferenceRecovery from './DraftReferenceRecovery';
 import PaymentCheckout from './PaymentCheckout';
 
 type Attempt = { action: 'create' | 'cancel' | 'cash'; id?: string; body: unknown; key?: string };
-type Props = { mode: 'online' | 'pos'; session?: string; cartId?: string | null; items?: { productId: number; quantity: number }[]; invoiceRequested?: boolean; disabled?: boolean; createDisabled?: boolean; onBlocked?: (value: boolean) => void; onReceipt?: (value: Receipt, finalized: boolean) => void; onStockChange?: () => void; onPaymentComplete?: () => void };
-export default function ReservedDrafts({ mode, session, cartId, items = [], invoiceRequested = false, disabled = false, createDisabled = false, onBlocked, onReceipt, onStockChange, onPaymentComplete }: Props) {
+type Props = { mode: 'online' | 'pos'; session?: string; cartId?: string | null; items?: { productId: number; quantity: number }[]; invoiceRequested?: boolean; discounts?:SaleDiscounts; disabled?: boolean; createDisabled?: boolean; onBlocked?: (value: boolean) => void; onReceipt?: (value: Receipt, finalized: boolean) => void; onStockChange?: () => void; onPaymentComplete?: () => void };
+export default function ReservedDrafts({ mode, session, cartId, items = [], invoiceRequested = false, discounts, disabled = false, createDisabled = false, onBlocked, onReceipt, onStockChange, onPaymentComplete }: Props) {
   const storageKey = mode === 'pos' ? `pos-reserved-attempt-v1:${session}` : 'online-reserved-attempt-v1';
   const [pending, setPending] = useState<Attempt | undefined>(() => { try { return JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') ?? undefined; } catch { return undefined; } });
   const [drafts, setDrafts] = useState<Draft[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState(''),[statusFailed,setStatusFailed]=useState(false);
@@ -57,7 +58,7 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], invo
       } else setError('Draft outcome is uncertain. Retry the same operation; do not collect cash again or create another draft.');
     } finally { setBusy(false); }
   }
-  function create() { void run({ action: 'create', key: crypto.randomUUID(), body: mode === 'pos' ? { sessionId: session, items, invoiceRequested } : { expectedCartId: cartId } }); }
+  function create() { void run({ action: 'create', key: crypto.randomUUID(), body: mode === 'pos' ? { sessionId: session, items, invoiceRequested, discounts } : { expectedCartId: cartId } }); }
   return <section id={mode === 'online' ? 'online-checkout' : 'reserved-pos-checkout'} aria-label={mode === 'pos' ? 'Reserved POS sales' : 'Reserved online drafts'}>
     <h2>{mode === 'pos' ? 'Reserve and complete a walk-in sale' : 'Reserve your vendor cart'}</h2>
     <p>Stock is held until the displayed expiry. A draft is unpaid. Check the reserved order payment status/options before taking funds. Online simulation is separate from independently verified vendor terminal tenders.</p>

@@ -1,6 +1,6 @@
 # Marketplace, Physical Store POS and Walk-in Sales â€” Phase 1 gap analysis
 
-Date: 2026-11-14. Status: analysis complete; implementation awaits user approval.
+Date: 2026-11-14. Status: implementation approved; Phases 2–4 in progress.
 
 ## 1. Baseline and scope
 
@@ -195,3 +195,9 @@ Expected commands (record actual output/counts in later PR): `mvn -B -f backend/
 ## 13. Approval checkpoint
 
 Phase 1 deliverable only: this gap analysis. No implementation code, schema migration or provider activation has been changed. After the user's go-ahead, proceed with logical backend, frontend and verification commits, then open a PR using gh against `feature/v2-physical-store-pos`. PR description must include modules/screens built, exact test commands/counts/coverage evidence, completed R01â€“R14 refactors and open assumptions. Push only `feature/v2-marketplace-pos-walkin`.
+
+## Implementation progress (running PR notes)
+
+- `272d2d2`: R02 moved all commerce APIs/clients/tests/implementation docs to `/api/v1`; added domain Problem Details and stable CART_VENDOR_MISMATCH. R07 cart availability now uses designated online stock location. Backend: `mvn -B -f backend/pom.xml test` — 228 tests, zero failures/errors/skips. Frontend API-prefix rerun: 225 tests, 39 files passed; subsequent changes require another full run.
+- Discount slice: R08 authorized line/bill discount snapshots and R10 discounted partial-refund allocation; scanner focus waits until the input is unlocked. `mvn -B -f backend/pom.xml clean test`: 236 tests passed; `npm test -- --reporter=dot`: 226 tests / 39 files passed; `npm --prefix frontend run build`: passed. Supervisor per-sale overrides remain outstanding.
+- Remote fetched: target now at 50588d6; four inherited local patches appear under different remote commit IDs. Docker named-pipe access is denied, so MySQL container/Compose validation is currently blocked.

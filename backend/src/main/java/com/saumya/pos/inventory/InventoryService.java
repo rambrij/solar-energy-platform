@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 @Service
 public class InventoryService {
+    @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.inventory.internal.InventoryIssueRepository issues;
     private final InventoryRepository balances;
     private final ReservationRepository reservations;
     private final com.saumya.pos.inventory.internal.ReturnDispositionRepository returns;
@@ -22,7 +23,7 @@ public class InventoryService {
     }
     /** Caller holds the canonical order lock; reservation rows never outlive that owner state. */
     @Transactional public void release(long tenant,String order){for(var r:reservations.held(tenant,order)){balances.lock(tenant,r.branch(),r.product()).orElseThrow().release(r.quantity());r.release();}balances.flush();}
-    @Transactional public java.util.Map<Long,Integer> consume(long tenant,String order){var consumed=new java.util.LinkedHashMap<Long,Integer>();for(var r:reservations.held(tenant,order)){balances.lock(tenant,r.branch(),r.product()).orElseThrow().consume(r.quantity());r.consume();consumed.put(r.product(),r.quantity());}balances.flush();return consumed;}
+    @Transactional public java.util.Map<Long,Integer> consume(long tenant,String order){var consumed=new java.util.LinkedHashMap<Long,Integer>();for(var r:reservations.held(tenant,order)){balances.lock(tenant,r.branch(),r.product()).orElseThrow().consume(r.quantity());r.consume();issues.saveAndFlush(new com.saumya.pos.inventory.internal.InventoryIssue(tenant,order,r.product(),r.branch(),r.quantity()));consumed.put(r.product(),r.quantity());}balances.flush();return consumed;}
     @Transactional public void inspectReturn(long tenant,long branch,String id,long product,int quantity,String disposition,String condition,String actor,Instant time){
         if(quantity<1||!java.util.Set.of("RESTOCK","QUARANTINE").contains(disposition)||!java.util.Set.of("SELLABLE","DAMAGED","INCOMPLETE").contains(condition)||("RESTOCK".equals(disposition)&&!"SELLABLE".equals(condition)))throw new ResponseStatusException(HttpStatus.CONFLICT,"Invalid return disposition");
         var key=new com.saumya.pos.inventory.internal.ReturnDisposition.Key(tenant,id,product);

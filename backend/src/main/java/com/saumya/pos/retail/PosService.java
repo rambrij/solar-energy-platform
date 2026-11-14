@@ -83,7 +83,6 @@ public class PosService {
     public record StockIssue(long product,int quantity) {}
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void draftDocuments(Scope s,String id,List<StockIssue> items,ReceiptAllocation receipt,BigDecimal total,boolean invoice){
-        for(var item:items)db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,item.product,id,-item.quantity);
         String seller=catalogue.vendor(s.tenant).name();
         db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=? WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' AND receipt_seller_name IS NULL AND receipt_outlet_name IS NULL",seller,receipt.outlet,s.tenant,s.branch,id);
         if(invoice){db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+receipt.number,seller,receipt.outlet,total);audit(s,"INVOICE_ISSUE",id);}
@@ -91,7 +90,6 @@ public class PosService {
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void onlineDocuments(Scope s,String id,List<StockIssue> items,BigDecimal total,ReceiptAllocation allocation){
-        for(var item:items)db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,item.product,id,-item.quantity);
         db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=(SELECT name FROM branches WHERE tenant_id=? AND id=?) WHERE tenant_id=? AND id=?",catalogue.vendor(s.tenant).name(),s.tenant,s.branch,s.tenant,id);
         if(allocation.invoiceRequired())db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+allocation.number(),catalogue.vendor(s.tenant).name(),allocation.outlet(),total);
         audit(s,"MOCK_ONLINE_PAYMENT",id);

@@ -4,16 +4,16 @@ Traceability: Product Requirements §§3, 5–6, 9.2 and SRS one-vendor cart/ten
 
 | Method/path | Access | Behavior |
 |---|---|---|
-| GET `/api/marketplace/vendors` | Public | Active vendors with configured slugs |
-| GET `/api/marketplace/vendors/{slug}/products` | Public | Active vendor's published products, tax-exclusive price/tax and in-stock flag |
-| GET `/api/customer/csrf` | CUSTOMER | CSRF token for customer mutations |
-| GET `/api/customer/cart` | CUSTOMER | Current customer's single active cart, current prices/tax and availability |
-| POST `/api/customer/cart/items` | CUSTOMER + CSRF | `{vendorSlug,productId,quantity}` sets absolute quantity; creates the cart on first valid item |
-| DELETE `/api/customer/cart/items/{productId}` | CUSTOMER + CSRF | Removes from the authenticated customer's active cart; removing the last item releases vendor binding |
-| POST `/api/customer/cart/switch` | CUSTOMER + CSRF | `{expectedCartId,vendorSlug,productId,quantity}` deliberately archives the old cart and starts another after validating the target |
-| POST `/api/customer/cart/quote` | CUSTOMER + CSRF | Revalidates publication, current price/tax and aggregate stock; returns provider gate and totals, not an order/payment |
-| GET `/api/customer/cart/history` | CUSTOMER | Up to 20 own archived carts, stable ID order, with current prices and availability |
-| POST `/api/customer/cart/restore` | CUSTOMER + CSRF | `{archivedCartId,expectedCartId}`; expected ID is null only when no active cart exists; restores an owned nonempty cart and archives the current one |
+| GET `/api/v1/marketplace/vendors` | Public | Active vendors with configured slugs |
+| GET `/api/v1/marketplace/vendors/{slug}/products` | Public | Active vendor's published products, tax-exclusive price/tax and in-stock flag |
+| GET `/api/v1/customer/csrf` | CUSTOMER | CSRF token for customer mutations |
+| GET `/api/v1/customer/cart` | CUSTOMER | Current customer's single active cart, current prices/tax and availability |
+| POST `/api/v1/customer/cart/items` | CUSTOMER + CSRF | `{vendorSlug,productId,quantity}` sets absolute quantity; creates the cart on first valid item |
+| DELETE `/api/v1/customer/cart/items/{productId}` | CUSTOMER + CSRF | Removes from the authenticated customer's active cart; removing the last item releases vendor binding |
+| POST `/api/v1/customer/cart/switch` | CUSTOMER + CSRF | `{expectedCartId,vendorSlug,productId,quantity}` deliberately archives the old cart and starts another after validating the target |
+| POST `/api/v1/customer/cart/quote` | CUSTOMER + CSRF | Revalidates publication, current price/tax and aggregate stock; returns provider gate and totals, not an order/payment |
+| GET `/api/v1/customer/cart/history` | CUSTOMER | Up to 20 own archived carts, stable ID order, with current prices and availability |
+| POST `/api/v1/customer/cart/restore` | CUSTOMER + CSRF | `{archivedCartId,expectedCartId}`; expected ID is null only when no active cart exists; restores an owned nonempty cart and archives the current one |
 
 Customer identity is resolved from enabled global `users`/`customer_profiles`, not request fields. Profile and user mapping are unique; no tenant ID is attached to these global records. Tenant ownership is mandatory on carts/items and composite foreign keys prohibit foreign-vendor product references. JPA pessimistic customer locking and an active-cart uniqueness guard serialize concurrent changes across vendors. Another customer's cart ID cannot authorize access, switching or restoring. Quantity updates are absolute so a retry cannot increment them twice. A stale switch/restore ID conflicts without altering the newer cart. Archived contents are retained and can now be listed/restored through the UI.
 

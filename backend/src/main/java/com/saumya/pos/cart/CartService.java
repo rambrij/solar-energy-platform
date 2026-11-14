@@ -36,7 +36,7 @@ public class CartService {
             var amount=pricing.line(product.price(),product.taxRate(),item.quantity());
             lines.add(new CartLine(product.id(),published?product.name():"Product unavailable",item.quantity(),published?product.price():null,
                 published?product.taxRate():null,published?amount.tax():null,published?amount.total():null,
-                published&&stock.available(cart.tenantId(),product.id())>=item.quantity(),published?product.listPrice():null,published?product.listPrice().subtract(product.price()).multiply(BigDecimal.valueOf(item.quantity())):null));
+                published&&catalogue.onlineAvailable(cart.tenantId(),product.id())>=item.quantity(),published?product.listPrice():null,published?product.listPrice().subtract(product.price()).multiply(BigDecimal.valueOf(item.quantity())):null));
             if(published)total=total.add(amount.total());
         }
         return new Cart(cart.id(),vendor.slug(),vendor.active()?vendor.name():"Vendor unavailable",lines,total,false,PAYMENT_GATE);
@@ -44,7 +44,7 @@ public class CartService {
     public Cart put(long customer,Item request){
         customers.lock(customer);var vendor=catalogue.activeVendor(request.vendorSlug());catalogue.published(vendor.id(),request.productId());
         var current=active(customer);
-        if(current!=null&&current.tenantId()!=vendor.id())throw new ResponseStatusException(CONFLICT,"Confirm a vendor cart switch");
+        if(current!=null&&current.tenantId()!=vendor.id())throw new com.saumya.pos.shared.DomainProblem("CART_VENDOR_MISMATCH", "Confirm a vendor cart switch");
         if(current==null)current=carts.saveAndFlush(new ShoppingCart(UUID.randomUUID().toString(),vendor.id(),customer));
         var key=new CartItem.Key(vendor.id(),current.id(),request.productId());
         var item=items.findById(key).orElseGet(()->new CartItem(key,request.quantity()));item.quantity(request.quantity());items.saveAndFlush(item);

@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 public class SalesReportController {
     private final SalesReportService reports;
     public SalesReportController(SalesReportService reports){this.reports=reports;}
-    @GetMapping("/api/vendor/pos/reports/sales")
+    @GetMapping("/api/v1/vendor/pos/reports/sales")
     @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_REPORT_VIEW')")
     Object sales(Principal p,@RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
         @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to,@RequestParam(defaultValue="ALL") String channel){

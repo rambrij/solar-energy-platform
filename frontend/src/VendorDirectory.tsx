@@ -6,7 +6,7 @@ export default function VendorDirectory({selectedSlug}:{selectedSlug:string}){
  const [input,setInput]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(0),[revision,setRevision]=useState(0),[directory,setDirectory]=useState<Directory>(),[busy,setBusy]=useState(true),[error,setError]=useState('');const generation=useRef(0);
  useEffect(()=>{
   const current=++generation.current;setDirectory(undefined);setBusy(true);setError('');const params=new URLSearchParams({q:query,page:String(page),size:'12'});
-  marketplaceApi(`/api/marketplace/directory?${params}`).then((value:Directory)=>{if(current===generation.current)setDirectory(value);}).catch(()=>{if(current===generation.current)setError('Vendor directory unavailable. Check your connection and retry.');}).finally(()=>{if(current===generation.current)setBusy(false);});
+  marketplaceApi(`/api/v1/marketplace/directory?${params}`).then((value:Directory)=>{if(current===generation.current)setDirectory(value);}).catch(()=>{if(current===generation.current)setError('Vendor directory unavailable. Check your connection and retry.');}).finally(()=>{if(current===generation.current)setBusy(false);});
   return()=>{generation.current++;};
  },[query,page,revision]);
  return <section id="vendor-directory" className="vendor-directory" aria-labelledby="vendor-directory-title" aria-busy={busy}><div className="section-heading"><div><span className="eyebrow">Find your energy partner</span><h2 id="vendor-directory-title">Vendors</h2></div>{directory&&<span className="badge">{directory.totalElements} matching vendors</span>}</div>

@@ -2,7 +2,7 @@
 
 Traces requirements §9.2 and SRS POS-022/POS-023/POS-025/POS-040. Cashiers can review completed drawer-count snapshots without resuming or changing a drawer. This is separate from branch sales reports and supervisor variance review.
 
-`GET /api/vendor/pos/sessions/history?from=2026-11-01&to=2026-11-30&reference=&page=0&size=12`
+`GET /api/v1/vendor/pos/sessions/history?from=2026-11-01&to=2026-11-30&reference=&page=0&size=12`
 
 - Requires POS_VIEW and persisted enabled employee/active tenant membership. Tenant, assigned branch and cashier all come from canonical membership, including count queries. A colleague's shift is excluded even in the same branch; manager rights do not turn this route into a cross-cashier report.
 - CLOSED sessions with recorded closed_at only. OPEN and CLOSING are excluded. Old rows without a known close time are not assigned invented dates. Register ID does not imply current register ownership.

@@ -6,7 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 
-@RestController @RequestMapping("/api/vendor/pos")
+@RestController @RequestMapping("/api/v1/vendor/pos")
 class PosController {
     private final PosService service;
     PosController(PosService service) { this.service=service; }

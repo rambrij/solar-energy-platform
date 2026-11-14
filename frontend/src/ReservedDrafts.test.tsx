@@ -12,7 +12,7 @@ it('does not prompt anonymous marketplace visitors until they reserve or load dr
   render(<ReservedDrafts mode="online" cartId="cart-1" />);
   expect(marketplaceApi).not.toHaveBeenCalled(); fireEvent.click(screen.getByText('Reserve cart without payment'));
   await screen.findByText('Vendor A · DRAFT');
-  expect(marketplaceApi).toHaveBeenCalledWith('/api/customer/checkout/drafts', 'POST', { expectedCartId: 'cart-1' }, expect.any(String));
+  expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/checkout/drafts', 'POST', { expectedCartId: 'cart-1' }, expect.any(String));
   expect(screen.queryByText('Complete reserved cash sale')).toBeNull();
 });
 it('persists the original create request and key across reloads and edited selections', async () => {

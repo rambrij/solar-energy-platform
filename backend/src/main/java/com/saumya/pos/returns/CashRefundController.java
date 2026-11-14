@@ -3,7 +3,7 @@ import java.security.Principal;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-@RestController @RequestMapping("/api/vendor/pos/refunds")
+@RestController @RequestMapping("/api/v1/vendor/pos/refunds")
 @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_REFUND_VIEW')")
 public class CashRefundController {
  private final CashRefundService service;

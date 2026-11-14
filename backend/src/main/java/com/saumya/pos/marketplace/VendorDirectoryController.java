@@ -5,6 +5,6 @@ import org.springframework.web.bind.annotation.*;
 public class VendorDirectoryController {
  private final VendorDirectoryService service;
  public VendorDirectoryController(VendorDirectoryService service){this.service=service;}
- @GetMapping("/api/marketplace/directory")
+ @GetMapping("/api/v1/marketplace/directory")
  Object search(@RequestParam(defaultValue="") String q,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="12") int size){return service.search(q,page,size);}
 }

@@ -8,11 +8,11 @@ export default function OnlineReceipt({orderId,onClose}:{orderId:string;onClose:
  const alive=useRef(true);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  useEffect(()=>{let active=true;setReceipt(undefined);setError('');setBusy(true);
-  marketplaceApi(`/api/customer/orders/${encodeURIComponent(orderId)}/receipt`).then((value:OnlineReceiptData)=>{if(active){if(value.orderId!==orderId)throw Error('Receipt mismatch');setReceipt(value);}}).catch(()=>{if(active)setError('Receipt unavailable. Check your account and connection, then retry.');}).finally(()=>{if(active)setBusy(false);});
+  marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(orderId)}/receipt`).then((value:OnlineReceiptData)=>{if(active){if(value.orderId!==orderId)throw Error('Receipt mismatch');setReceipt(value);}}).catch(()=>{if(active)setError('Receipt unavailable. Check your account and connection, then retry.');}).finally(()=>{if(active)setBusy(false);});
   return()=>{active=false;};
  },[orderId,revision]);
  useEffect(()=>{if(printRequested&&receipt?.copy){printDocument('online');setPrintRequested(false);}},[printRequested,receipt]);
- async function print(){setBusy(true);setError('');try{const value:OnlineReceiptData=await marketplaceApi(`/api/customer/orders/${encodeURIComponent(orderId)}/receipt-copy`,'POST',{});if(!alive.current)return;if(value.orderId!==orderId||!value.copy)throw Error('Copy not confirmed');setReceipt(value);setPrintRequested(true);}catch{if(alive.current)setError('Receipt copy was not confirmed. Printing was not started. Retry to generate another audited copy.');}finally{if(alive.current)setBusy(false);}}
+ async function print(){setBusy(true);setError('');try{const value:OnlineReceiptData=await marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(orderId)}/receipt-copy`,'POST',{});if(!alive.current)return;if(value.orderId!==orderId||!value.copy)throw Error('Copy not confirmed');setReceipt(value);setPrintRequested(true);}catch{if(alive.current)setError('Receipt copy was not confirmed. Printing was not started. Retry to generate another audited copy.');}finally{if(alive.current)setBusy(false);}}
  return <section className="online-receipt sale-receipt structured-receipt" aria-label="Online order receipt" aria-busy={busy}>
   <div className="receipt-actions"><button className="secondary" onClick={onClose}>Close online receipt</button></div>
   {error&&<p role="alert" className="receipt-error">{error}</p>}{!receipt&&<button disabled={busy} onClick={()=>setRevision(value=>value+1)}>{busy?'Loading receipt…':'Retry online receipt'}</button>}

@@ -3,7 +3,7 @@ import java.security.Principal;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-@RestController @RequestMapping("/api/vendor/pos/returns")
+@RestController @RequestMapping("/api/v1/vendor/pos/returns")
 @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_RETURN_VIEW')")
 public class ReturnController {
  private final ReturnService service;

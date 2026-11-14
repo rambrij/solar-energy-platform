@@ -3,7 +3,7 @@ import com.saumya.pos.catalog.PosCatalogService;
 import java.security.Principal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-@RestController @RequestMapping("/api/vendor/pos/catalogue") @PreAuthorize("hasAuthority('POS_VIEW')")
+@RestController @RequestMapping("/api/v1/vendor/pos/catalogue") @PreAuthorize("hasAuthority('POS_VIEW')")
 public class PosCatalogController {
  private final PosService retail;private final PosCatalogService catalogue;
  public PosCatalogController(PosService retail,PosCatalogService catalogue){this.retail=retail;this.catalogue=catalogue;}

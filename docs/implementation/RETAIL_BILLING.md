@@ -4,9 +4,9 @@ Traceability: requirements tenant catalogue, shared prices/tax, guest checkout a
 
 ## Category and price APIs
 
-GET `/api/marketplace/vendors/{slug}/categories` is public. It lists `{id,name,slug,products}` only for categories with published products under the active vendor. Product lists also include nullable categoryId/categoryName, original listPrice and discountPercent. Unclassified legacy products retain their availability and appear under Other. Category assignments and products have same-tenant composite foreign keys; foreign assignments are rejected by the database. Category/product administration beyond approved promotions is not introduced in this increment.
+GET `/api/v1/marketplace/vendors/{slug}/categories` is public. It lists `{id,name,slug,products}` only for categories with published products under the active vendor. Product lists also include nullable categoryId/categoryName, original listPrice and discountPercent. Unclassified legacy products retain their availability and appear under Other. Category assignments and products have same-tenant composite foreign keys; foreign assignments are rejected by the database. Category/product administration beyond approved promotions is not introduced in this increment.
 
-PUT `/api/vendor/catalog/products/{id}/promotion` accepts `{percent,reason}`. Both CATALOG_PROMOTION_MANAGE and POS_DISCOUNT_APPROVE are mandatory, with authenticated enabled employee membership in an active tenant and CSRF. Tenant, cashier, price and approval identity are never accepted from the body. Percent is 0–100 with at most two decimals; reason is nonblank and at most 250 characters. Every changed percent requires this supervisor approval, equivalent to an override threshold of zero. There is no cashier-entered line/basket discount endpoint.
+PUT `/api/v1/vendor/catalog/products/{id}/promotion` accepts `{percent,reason}`. Both CATALOG_PROMOTION_MANAGE and POS_DISCOUNT_APPROVE are mandatory, with authenticated enabled employee membership in an active tenant and CSRF. Tenant, cashier, price and approval identity are never accepted from the body. Percent is 0–100 with at most two decimals; reason is nonblank and at most 250 characters. Every changed percent requires this supervisor approval, equivalent to an override threshold of zero. There is no cashier-entered line/basket discount endpoint.
 
 The command locks the scoped published product then its rule and records immutable previous/new percentage, named actor, reason and UTC timestamp in the same transaction. Repeating an identical percentage is a no-op and does not duplicate an audit row. Setting percent to 0 removes the effective offer without deleting its history. Offers remain in effect until explicitly changed; no expiry scheduler or unapproved temporary rule is implied. A foreign/unpublished product is unavailable. Production grants are administrator-owned; optional demo setup grants only the named demo supervisor and never a cashier.
 
@@ -14,8 +14,8 @@ For the public demo credentials after setup-local-supervisor.sql and enable-reta
 
 ```powershell
 $demoAuthorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('local-supervisor:LocalSupervisor2026!'))
-$demoCsrf = Invoke-RestMethod -Uri 'http://localhost:8080/api/vendor/pos/csrf' -Headers @{ Authorization = $demoAuthorization } -SessionVariable retailDemoSession
-Invoke-RestMethod -Method Put -Uri 'http://localhost:8080/api/vendor/catalog/products/900001/promotion' -WebSession $retailDemoSession -Headers @{ Authorization = $demoAuthorization; 'X-XSRF-TOKEN' = $demoCsrf.token } -ContentType 'application/json' -Body '{"percent":10,"reason":"Approved local demo offer"}'
+$demoCsrf = Invoke-RestMethod -Uri 'http://localhost:8080/api/v1/vendor/pos/csrf' -Headers @{ Authorization = $demoAuthorization } -SessionVariable retailDemoSession
+Invoke-RestMethod -Method Put -Uri 'http://localhost:8080/api/v1/vendor/catalog/products/900001/promotion' -WebSession $retailDemoSession -Headers @{ Authorization = $demoAuthorization; 'X-XSRF-TOKEN' = $demoCsrf.token } -ContentType 'application/json' -Body '{"percent":10,"reason":"Approved local demo offer"}'
 ```
 
 These are the existing public local demonstration credentials, not production provisioning. Do not reuse them for real staff. Refresh the catalogue after changing an offer.

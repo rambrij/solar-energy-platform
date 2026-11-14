@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 public class PromotionController {
  private final PromotionService promotions; private final PosService retail;
  public PromotionController(PromotionService promotions,PosService retail){this.promotions=promotions;this.retail=retail;}
- @PutMapping("/api/vendor/catalog/products/{id}/promotion")
+ @PutMapping("/api/v1/vendor/catalog/products/{id}/promotion")
  @PreAuthorize("hasAuthority('CATALOG_PROMOTION_MANAGE') and hasAuthority('POS_DISCOUNT_APPROVE')")
  Object approve(Principal principal,@PathVariable long id,@Valid @RequestBody PromotionService.Change request){var scope=retail.scope(principal.getName());return promotions.approve(scope.tenant(),scope.cashier(),id,request);}
 }

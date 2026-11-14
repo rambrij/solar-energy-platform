@@ -4,7 +4,7 @@ This read-only increment extends SRS POS-032/POS-040 and the existing cash-refun
 
 ## API and access
 
-`GET /api/vendor/pos/reports/cash-refunds?from=2026-11-07&to=2026-11-13`
+`GET /api/v1/vendor/pos/reports/cash-refunds?from=2026-11-07&to=2026-11-13`
 
 Required grants: `POS_VIEW`, `POS_REPORT_VIEW` and `POS_REFUND_VIEW`, plus active canonical employee/tenant/branch membership. There is no client-selected tenant/branch/cashier scope. Extra tenantId/branchId query parameters do not override membership. No buyer contact details, original return reasons, payment credentials or other-branch staff identities are returned. The reporting endpoint does not grant refund approval or cash-recording rights.
 

@@ -4,7 +4,7 @@ This increment extends SRS POS-028/POS-040 and bounded server-side pagination to
 
 ## API and scope
 
-`GET /api/vendor/pos/refunds/history?from=2026-11-07&to=2026-11-13&reference=&returnId=&page=0&size=24`
+`GET /api/v1/vendor/pos/refunds/history?from=2026-11-07&to=2026-11-13&reference=&returnId=&page=0&size=24`
 
 Requires POS_VIEW and POS_REFUND_VIEW plus active canonical employee/tenant/assigned-branch membership. Every data/count query binds both tenant and branch. A different cashier's branch-owned payout may be viewed under the same existing journal-view permission, as before; no payout/approval/printing rights are granted by this read endpoint. Client tenant/branch parameters cannot select another scope.
 

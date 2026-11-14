@@ -46,7 +46,7 @@ export default function Marketplace() {
     setProducts([]);setCatalogueLoading(true);setCatalogueError('');
     if(!slug||searchPending)return()=>{active=false;};
     const params=new URLSearchParams({q:query,category:selectedCategory,sort,inStock:String(inStockOnly),page:String(page),size:'24'});
-    marketplaceApi(`/api/marketplace/vendors/${encodeURIComponent(slug)}/catalogue?${params}`).then((value:Catalogue)=>{if(active){setCatalogue(value);setProducts(value.items);setLoadedKey(requestKey);setCatalogueLoading(false);}}).catch(()=>{if(active){setLoadedKey(requestKey);setCatalogueLoading(false);setCatalogueError('Catalogue unavailable. Check your connection and retry the catalogue.');}});
+    marketplaceApi(`/api/v1/marketplace/vendors/${encodeURIComponent(slug)}/catalogue?${params}`).then((value:Catalogue)=>{if(active){setCatalogue(value);setProducts(value.items);setLoadedKey(requestKey);setCatalogueLoading(false);}}).catch(()=>{if(active){setLoadedKey(requestKey);setCatalogueLoading(false);setCatalogueError('Catalogue unavailable. Check your connection and retry the catalogue.');}});
     return()=>{active=false;};
   },[slug,query,selectedCategory,sort,inStockOnly,page,stockRevision,searchPending,requestKey]);
   function failure(e: unknown) {
@@ -59,15 +59,15 @@ export default function Marketplace() {
   const validCartQuantity=(line:Line)=>Number.isInteger(cartQuantity(line))&&cartQuantity(line)>=1&&cartQuantity(line)<=10000;
   async function loadCart() {
     setReview(undefined); setBusy(true); setError(''); setNotice('');
-    try { setCart(await marketplaceApi('/api/customer/cart'));setCartEdits({}); } catch (e) { failure(e); } finally { setBusy(false); }
+    try { setCart(await marketplaceApi('/api/v1/customer/cart'));setCartEdits({}); } catch (e) { failure(e); } finally { setBusy(false); }
   }
   async function put(product: Pick<Product, 'id'>, selectedQuantity?: number) {
     const target = { vendorSlug: slug, productId: product.id, quantity: selectedQuantity ?? quantities[product.id] ?? 1 };
     setReview(undefined); setBusy(true); setError(''); setNotice('');
-    try { setCart(await marketplaceApi('/api/customer/cart/items', 'POST', target)); }
+    try { setCart(await marketplaceApi('/api/v1/customer/cart/items', 'POST', target)); }
     catch (e) {
       if (e instanceof MarketplaceError && e.status === 409) {
-        try { const current: Cart = await marketplaceApi('/api/customer/cart'); setCart(current);
+        try { const current: Cart = await marketplaceApi('/api/v1/customer/cart'); setCart(current);
           if (current.id && current.vendorSlug !== slug) setSwitchTarget(target); else setError('Cart changed. Review its current contents and try again.');
         } catch (loadError) { failure(loadError); }
       } else failure(e);
@@ -77,29 +77,29 @@ export default function Marketplace() {
     if(!cart?.vendorSlug||!Number.isInteger(quantity)||quantity<1||quantity>10000)return;
     const vendorSlug=cart.vendorSlug;
     setReview(undefined); setBusy(true);setError('');setNotice('');
-    try{setCart(await marketplaceApi('/api/customer/cart/items','POST',{vendorSlug,productId,quantity}));setCartEdits(value=>{const next={...value};delete next[productId];return next;});}
+    try{setCart(await marketplaceApi('/api/v1/customer/cart/items','POST',{vendorSlug,productId,quantity}));setCartEdits(value=>{const next={...value};delete next[productId];return next;});}
     catch(e){failure(e);}finally{setBusy(false);}
   }
   async function confirmSwitch() {
     if (!cart?.id || !switchTarget) return;
     setReview(undefined); setBusy(true); setError('');
-    try { setCart(await marketplaceApi('/api/customer/cart/switch', 'POST', { expectedCartId: cart.id, ...switchTarget })); setSwitchTarget(undefined); }
+    try { setCart(await marketplaceApi('/api/v1/customer/cart/switch', 'POST', { expectedCartId: cart.id, ...switchTarget })); setSwitchTarget(undefined); }
     catch (e) { setSwitchTarget(undefined); failure(e); } finally { setBusy(false); }
   }
   async function remove(id: number) {
     setReview(undefined); setBusy(true); setError(''); setNotice('');
-    try { setCart(await marketplaceApi(`/api/customer/cart/items/${id}`, 'DELETE')); } catch (e) { failure(e); } finally { setBusy(false); }
+    try { setCart(await marketplaceApi(`/api/v1/customer/cart/items/${id}`, 'DELETE')); } catch (e) { failure(e); } finally { setBusy(false); }
   }
   async function preview() {
     setReview(undefined); setBusy(true); setError(''); setNotice('');
-    try { const quote: Cart = await marketplaceApi('/api/customer/cart/quote', 'POST', {}); setCart(quote); setReview(quote); setCartEdits({}); setNotice(quote.message); }
+    try { const quote: Cart = await marketplaceApi('/api/v1/customer/cart/quote', 'POST', {}); setCart(quote); setReview(quote); setCartEdits({}); setNotice(quote.message); }
     catch (e) { if (e instanceof MarketplaceError && e.status === 409) setError('A cart item is unavailable or the cart is empty. Reload it to check stock and prices.'); else failure(e); }
     finally { setBusy(false); }
   }
   async function loadHistory() {
     setReview(undefined); setBusy(true); setError(''); setNotice('');
     try {
-      const [current, archived] = await Promise.all([marketplaceApi('/api/customer/cart'), marketplaceApi('/api/customer/cart/history')]);
+      const [current, archived] = await Promise.all([marketplaceApi('/api/v1/customer/cart'), marketplaceApi('/api/v1/customer/cart/history')]);
       setCart(current); setHistory(archived);
     } catch (e) { failure(e); } finally { setBusy(false); }
   }
@@ -107,7 +107,7 @@ export default function Marketplace() {
     if (!restoreTarget?.id) return;
     setReview(undefined); setBusy(true); setError(''); setNotice('');
     try {
-      setCart(await marketplaceApi('/api/customer/cart/restore', 'POST', { archivedCartId: restoreTarget.id, expectedCartId: cart?.id ?? null }));
+      setCart(await marketplaceApi('/api/v1/customer/cart/restore', 'POST', { archivedCartId: restoreTarget.id, expectedCartId: cart?.id ?? null }));
       setHistory(undefined); setRestoreTarget(undefined); setNotice('Archived cart restored with current prices. Stock is not reserved.');
     } catch (e) {
       setRestoreTarget(undefined);
@@ -142,7 +142,7 @@ export default function Marketplace() {
         <a className="checkout-link" href="#online-checkout">Review checkout →</a><p>{cart.message}</p>
       </>}
     </section>
-    <ReservedDrafts mode="online" onPaymentComplete={()=>{setReview(undefined);setNotice("Test payment completed. No funds were collected. View the saved order in order history.");void marketplaceApi("/api/customer/cart").then(value=>{setCart(value);setCartEdits({});}).catch(()=>setNotice("Check order history and reload your cart before another payment."));}} cartId={cart?.id} disabled={busy||confirming} onStockChange={()=>setStockRevision(value=>value+1)}/>
+    <ReservedDrafts mode="online" onPaymentComplete={()=>{setReview(undefined);setNotice("Test payment completed. No funds were collected. View the saved order in order history.");void marketplaceApi("/api/v1/customer/cart").then(value=>{setCart(value);setCartEdits({});}).catch(()=>setNotice("Check order history and reload your cart before another payment."));}} cartId={cart?.id} disabled={busy||confirming} onStockChange={()=>setStockRevision(value=>value+1)}/>
     </aside></div><section id="saved-vendor-carts" aria-label="Archived carts"><h2>Saved vendor carts</h2>
       <button disabled={busy || confirming} onClick={loadHistory}>Load archived carts</button>
       {history && (history.length ? <ul>{history.map(saved => <li key={saved.id}><h3>{saved.vendorName}</h3>

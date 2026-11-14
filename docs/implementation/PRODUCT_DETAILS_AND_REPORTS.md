@@ -4,13 +4,13 @@ Traceability: requirements published vendor catalogue/prices and vendor analytic
 
 ## Public product details
 
-GET `/api/marketplace/vendors/{slug}/products/{id}` is public and read-only. It returns `{id,vendorSlug,vendorName,sku,name,unitPrice,taxRate,unitTax,unitTotal,inStock,listPrice,discountPercent,categoryName}` for a published product belonging to an active vendor. Invalid, foreign-vendor, unpublished and inactive-vendor resources return generic 404. Barcode, stock location/quantities, customer and employee data are absent. Unit tax uses shared HALF_UP line pricing; current stock is aggregate informational availability across the vendor’s locations, not a guarantee at the designated reservation branch.
+GET `/api/v1/marketplace/vendors/{slug}/products/{id}` is public and read-only. It returns `{id,vendorSlug,vendorName,sku,name,unitPrice,taxRate,unitTax,unitTotal,inStock,listPrice,discountPercent,categoryName}` for a published product belonging to an active vendor. Invalid, foreign-vendor, unpublished and inactive-vendor resources return generic 404. Barcode, stock location/quantities, customer and employee data are absent. Unit tax uses shared HALF_UP line pricing; current stock is aggregate informational availability across the vendor’s locations, not a guarantee at the designated reservation branch.
 
 The storefront opens a native modal with `?product=ID` as a shareable URL. It focuses Close, supports Escape when no parent request is busy and restores prior focus. Add/update submits an absolute quantity through the existing customer cart endpoint; public detail browsing does not fetch customer APIs. No new registration or payment flow is introduced. Unavailable products fail closed, retry is explicit and stale detail responses are discarded. Solar artwork is decorative, not a product photograph.
 
 ## Staff report
 
-GET `/api/vendor/pos/reports/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&channel=ALL` requires `POS_VIEW` and `POS_REPORT_VIEW`. Scope is the authenticated enabled employee’s active tenant and assigned branch, even if different tenant/branch query parameters are supplied. Customers and ungranted employees cannot use it. No open cashier session is needed for read-only reports.
+GET `/api/v1/vendor/pos/reports/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&channel=ALL` requires `POS_VIEW` and `POS_REPORT_VIEW`. Scope is the authenticated enabled employee’s active tenant and assigned branch, even if different tenant/branch query parameters are supplied. Customers and ungranted employees cannot use it. No open cashier session is needed for read-only reports.
 
 - `to` defaults to UTC today; `from` defaults to six days before `to`. Both boundaries are inclusive UTC days. Maximum range: 366 days. Invalid dates, reversed/oversized ranges and invalid channels return 400.
 - `channel` is ALL, ONLINE or IN_STORE (case-insensitive).

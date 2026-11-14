@@ -15,7 +15,7 @@ export default function ProductDetails({ slug, productId, disabled, onClose, onA
   }, []);
   useEffect(() => {
     let active = true; setProduct(undefined); setQuantity(1); setError('');
-    marketplaceApi(`/api/marketplace/vendors/${encodeURIComponent(slug)}/products/${productId}`)
+    marketplaceApi(`/api/v1/marketplace/vendors/${encodeURIComponent(slug)}/products/${productId}`)
       .then(value => { if (active) setProduct(value); })
       .catch(() => { if (active) setError('This product is unavailable. It may have been withdrawn, or the storefront could not be reached.'); });
     return () => { active = false; };

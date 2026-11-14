@@ -2,7 +2,7 @@
 
 Traces SRS POS-028/POS-033/POS-040 and requirements §9.2. This extends the existing return intake/review/inspection flow; it does not add a financial command.
 
-`GET /api/vendor/pos/returns/queue?state=REQUESTED&from=2026-11-01&to=2026-11-30&reference=&page=0&size=12`
+`GET /api/v1/vendor/pos/returns/queue?state=REQUESTED&from=2026-11-01&to=2026-11-30&reference=&page=0&size=12`
 
 - Requires both `POS_VIEW` and `POS_RETURN_VIEW`. Persisted active employee membership supplies tenant and assigned branch for both rows and count. No session needs to be open; closed-shift cases remain searchable. Review/inspection/refund rights are separately enforced by existing command APIs.
 - States: REQUESTED (default), APPROVED, REJECTED, INSPECTED, ALL. These describe stock intake, not refund/payment state.

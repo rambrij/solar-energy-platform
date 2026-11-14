@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 public class PromotionHistoryController {
  private final PromotionHistoryService history;private final PosService retail;
  public PromotionHistoryController(PromotionHistoryService history,PosService retail){this.history=history;this.retail=retail;}
- @GetMapping("/api/vendor/pos/promotions/{product}/history")
+ @GetMapping("/api/v1/vendor/pos/promotions/{product}/history")
  @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('CATALOG_PROMOTION_MANAGE') and hasAuthority('POS_DISCOUNT_APPROVE')")
  Object history(Principal p,@PathVariable long product,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="12") int size){var scope=retail.scope(p.getName());return history.history(scope.tenant(),product,page,size);}
 }

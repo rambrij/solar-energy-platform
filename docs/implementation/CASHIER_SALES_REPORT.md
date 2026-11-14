@@ -4,7 +4,7 @@ This increment extends SRS POS-032 original cashier totals and POS-040 branch/re
 
 ## API and access
 
-`GET /api/vendor/pos/reports/cashier-sales?from=2026-11-07&to=2026-11-13&page=0&size=12`
+`GET /api/v1/vendor/pos/reports/cashier-sales?from=2026-11-07&to=2026-11-13&page=0&size=12`
 
 Requires POS_VIEW, POS_REPORT_VIEW and the new **POS_CASHIER_REPORT_VIEW**, plus canonical active employee/tenant/assigned-branch membership. No grant is automatically assigned. The response exposes operational employee usernames only within the assigned branch's paid sale activity. It is not a global staff/customer directory and includes no buyer/contact/receipt/session data. Former/disabled sellers remain in their historical sale attribution; the viewer must be active. Client tenant/branch/cashier overrides cannot broaden the query.
 

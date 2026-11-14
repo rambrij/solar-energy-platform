@@ -51,6 +51,14 @@ class PosTest {
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("50"))).get("id");
  }
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false);}
+ @Test void mixedVendorCartReturnsStableProblem() throws Exception {
+  configureOnline();marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  mvc.perform(post("/api/v1/customer/cart/items").with(csrf()).with(user("customer").authorities(()->"CUSTOMER"))
+   .contentType("application/json").content("{\"vendorSlug\":\"vendor-2\",\"productId\":2,\"quantity\":1}"))
+   .andExpect(status().isConflict()).andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+   .andExpect(jsonPath("$.code").value("CART_VENDOR_MISMATCH"));
+  assertThat(marketplace.cart(100).vendorSlug()).isEqualTo("vendor-1");
+ }
  @Test void customerReceiptUsesSavedFactsAndCopiesDoNotCreateFinancialWrites(){
   configureOnline();db.update("UPDATE branches SET invoice_required=TRUE WHERE id=1");var draft=onlineDraft("receipt-online");var attempt=payments.start("customer",draft.id(),true,"UPI");payments.confirm("customer",draft.id(),true,attempt.attemptId());
   db.update("UPDATE tenants SET name='Renamed',active=FALSE WHERE id=1");db.update("UPDATE branches SET name='Changed outlet' WHERE id=1");db.update("UPDATE products SET name='Changed panel',price=999 WHERE id=1");
@@ -59,7 +67,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CUSTOMER_RECEIPT_COPY' AND actor='customer:100'",Integer.class)).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
  }
  @Test void onlineReceiptApiEnforcesCustomerOwnershipAndAuditedCopyCsrf() throws Exception {
-  configureOnline();var draft=onlineDraft("receipt-security");String path="/api/customer/orders/"+draft.id();
+  configureOnline();var draft=onlineDraft("receipt-security");String path="/api/v1/customer/orders/"+draft.id();
   mvc.perform(get(path+"/receipt")).andExpect(status().isUnauthorized());mvc.perform(get(path+"/receipt").with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isForbidden());mvc.perform(get(path+"/receipt").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   var attempt=payments.start("customer",draft.id(),true,"CARD");payments.confirm("customer",draft.id(),true,attempt.attemptId());
   db.update("INSERT INTO users VALUES(300,'other-buyer','unused',TRUE)");db.update("INSERT INTO customer_profiles VALUES(300,300)");mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
@@ -95,7 +103,7 @@ class PosTest {
   assertThat(payments.awaitingReview("manager")).hasSize(1);payments.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"));assertThat(payments.awaitingReview("manager")).isEmpty();assertThat(payments.reviewStatus("manager",draft.id()).state()).isEqualTo("CONFIRMED");assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts",String.class)).isEqualTo("manager");assertThat(db.queryForObject("SELECT evidence_reference FROM vendor_payment_attempts",String.class)).isEqualTo("evidence-record-123");assertThat(db.queryForObject("SELECT reviewed_at FROM vendor_payment_attempts",java.sql.Timestamp.class)).isNotNull();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
  }
  @Test void terminalReviewApiRequiresIndependentPermissionCsrfAndSafeEvidence() throws Exception {
-  enableTerminal();var draft=checkout.pos("alice","terminal-review-api",posDraft());var attempt=payments.start("alice",draft.id(),false,"CARD");String path="/api/vendor/pos/payments/review/"+draft.id();String body="{\"attemptId\":\""+attempt.attemptId()+"\",\"decision\":\"CONFIRM\",\"reference\":\"terminal-123\",\"evidence\":\"proof-123\",\"reason\":\"Verified original vendor account and full amount\"}";
+  enableTerminal();var draft=checkout.pos("alice","terminal-review-api",posDraft());var attempt=payments.start("alice",draft.id(),false,"CARD");String path="/api/v1/vendor/pos/payments/review/"+draft.id();String body="{\"attemptId\":\""+attempt.attemptId()+"\",\"decision\":\"CONFIRM\",\"reference\":\"terminal-123\",\"evidence\":\"proof-123\",\"reason\":\"Verified original vendor account and full amount\"}";
   mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());mvc.perform(post(path).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body.replace("terminal-123","4111111111111111"))).andExpect(status().isBadRequest());
   mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CONFIRMED"));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_CONFIRM'",Integer.class)).isEqualTo(1);
@@ -125,7 +133,7 @@ class PosTest {
  }
  @Test void paymentApiEnforcesPermissionsCsrfAndStrictPayloads() throws Exception {
   enableTerminal();
-  var draft=checkout.pos("alice","http-payment",posDraft());String path="/api/vendor/pos/drafts/"+draft.id()+"/payment";
+  var draft=checkout.pos("alice","http-payment",posDraft());String path="/api/v1/vendor/pos/drafts/"+draft.id()+"/payment";
   mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isForbidden());
   mvc.perform(post(path).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isForbidden());
@@ -173,16 +181,16 @@ class PosTest {
   assertThatThrownBy(()->checkout.cashSale(a.cashier(),"closed-01",sale(1,"110")));
  }
  @Test void authenticationPermissionsCsrfAndForgedFields() throws Exception {
-  mvc.perform(get("/api/vendor/pos/products")).andExpect(status().isUnauthorized());
-  mvc.perform(get("/api/vendor/pos/products").with(user("alice"))).andExpect(status().isForbidden());
-  mvc.perform(post("/api/vendor/pos/sales").with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
-  mvc.perform(post("/api/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
+  mvc.perform(get("/api/v1/vendor/pos/products")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/products").with(user("alice"))).andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/vendor/pos/sales").with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
    .header("Idempotency-Key","forged-01").contentType("application/json").content("{\"tenantId\":2,\"sessionId\":\"x\",\"items\":[{\"productId\":1,\"quantity\":1}],\"cashReceived\":110}"))
    .andExpect(status().isBadRequest());
  }
  @Test void httpCheckoutUsesAuthenticatedMembership() throws Exception {
   String payload="{\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}],\"cashReceived\":120,\"invoiceRequested\":true}";
-  mvc.perform(post("/api/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
+  mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
    .header("Idempotency-Key","http-sale1").contentType("application/json").content(payload))
    .andExpect(status().isOk()).andExpect(jsonPath("$.customer_id").doesNotExist()).andExpect(jsonPath("$.total").value(110)).andExpect(jsonPath("$.invoices[0].seller_name").value("Vendor A"));
  }
@@ -255,7 +263,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CASH_IN'",Integer.class)).isEqualTo(1);
  }
  @Test void movementEndpointsEnforceTypeSpecificPermissionsAndScope() throws Exception {
-  String path="/api/vendor/pos/sessions/"+session+"/cash-movements";
+  String path="/api/v1/vendor/pos/sessions/"+session+"/cash-movements";
   String body="{\"type\":\"CASH_OUT\",\"amount\":10,\"reason\":\"Supplies\"}";
   mvc.perform(post(path).with(csrf()).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isUnauthorized());
   mvc.perform(post(path).with(user("alice").authorities(()->"POS_CASH_OUT")).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isForbidden());
@@ -263,13 +271,13 @@ class PosTest {
   mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_CASH_OUT")).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isNotFound());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_CASH_OUT")).contentType("application/json").content(body).header("Idempotency-Key","http-move1"))
    .andExpect(status().isOk()).andExpect(jsonPath("$.cashier").value("alice")).andExpect(jsonPath("$.movement_type").value("CASH_OUT"));
-  String report="/api/vendor/pos/sessions/"+session+"/reconciliation";
+  String report="/api/v1/vendor/pos/sessions/"+session+"/reconciliation";
   mvc.perform(get(report).with(user("alice"))).andExpect(status().isForbidden());
   mvc.perform(get(report).with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
   mvc.perform(get(report).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.expectedCash").value(40));
  }
  @Test void invalidCashMovementInputsAreRejected() throws Exception {
-  String path="/api/vendor/pos/sessions/"+session+"/cash-movements";
+  String path="/api/v1/vendor/pos/sessions/"+session+"/cash-movements";
   for(String body:List.of(
    "{\"type\":\"CASH_IN\",\"amount\":0,\"reason\":\"Float\"}",
    "{\"type\":\"CASH_IN\",\"amount\":-1,\"reason\":\"Float\"}",
@@ -327,11 +335,11 @@ class PosTest {
   assertThat(service.sessionDetails(a,session).state()).isEqualTo("CLOSED");
  }
  @Test void sessionRecoveryHttpPermissionsAndForgedBodyAreEnforced() throws Exception {
-  String path="/api/vendor/pos/sessions/"+session;
-  mvc.perform(get("/api/vendor/pos/sessions/active")).andExpect(status().isUnauthorized());
-  mvc.perform(get("/api/vendor/pos/sessions/active").with(user("alice"))).andExpect(status().isForbidden());
-  mvc.perform(get("/api/vendor/pos/sessions/active").with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
-  mvc.perform(get("/api/vendor/pos/sessions/active").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].registerId").value(1));
+  String path="/api/v1/vendor/pos/sessions/"+session;
+  mvc.perform(get("/api/v1/vendor/pos/sessions/active")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/sessions/active").with(user("alice"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/vendor/pos/sessions/active").with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+  mvc.perform(get("/api/v1/vendor/pos/sessions/active").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].registerId").value(1));
   mvc.perform(get(path).with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.openingFloat").value(50));
   mvc.perform(post(path+"/resume").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN")).contentType("application/json").content("{}"))
@@ -422,7 +430,7 @@ class PosTest {
  }
  @Test void reviewHttpAuthorizationCsrfAndCanonicalIdentityAreEnforced() throws Exception {
   supervisor("manager");var closing=service.close(a,session,BigDecimal.ZERO,"Shortage");
-  String list="/api/vendor/pos/sessions/pending-variances",path="/api/vendor/pos/sessions/"+session+"/approve-variance";
+  String list="/api/v1/vendor/pos/sessions/pending-variances",path="/api/v1/vendor/pos/sessions/"+session+"/approve-variance";
   String body="{\"requestId\":\""+closing.requestId()+"\",\"reason\":\"Reviewed drawer\"}";
   mvc.perform(get(list)).andExpect(status().isUnauthorized());
   mvc.perform(get(list).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
@@ -456,7 +464,7 @@ class PosTest {
   assertThat(legacy.queryForObject("SELECT state FROM pos_sessions",String.class)).isEqualTo("CLOSED");
  }
  @Test void httpCloseRequiresVarianceReasonAndPreservesClientRetryIdentity() throws Exception {
-  String path="/api/vendor/pos/sessions/"+session+"/close",key=UUID.randomUUID().toString();
+  String path="/api/v1/vendor/pos/sessions/"+session+"/close",key=UUID.randomUUID().toString();
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content("{\"countedCash\":0}"))
    .andExpect(status().isBadRequest());
   String body="{\"countedCash\":0,\"reason\":\"Shortage\",\"requestId\":\""+key+"\"}";
@@ -465,16 +473,16 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SHIFT_VARIANCE_SUBMIT'",Integer.class)).isEqualTo(1);
  }
  void customers(){
-  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id)");
+  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
   db.update("INSERT INTO users VALUES(100,'customer',?,TRUE),(101,'other-customer',?,TRUE)",encoder.encode("CustomerPassword"),encoder.encode("OtherPassword"));
   db.update("INSERT INTO customer_profiles VALUES(100,100),(101,101)");
  }
  @Test void anonymousMarketplaceExposesOnlyActivePublishedCatalogue() throws Exception {
   customers();db.update("INSERT INTO products VALUES(3,1,'SECRET',NULL,'Private draft',1,0,FALSE)");
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panel"));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panel"));
   db.update("UPDATE tenants SET active=FALSE WHERE id=2");
-  mvc.perform(get("/api/marketplace/vendors")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
-  mvc.perform(get("/api/marketplace/vendors/vendor-2/products")).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/marketplace/vendors")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-2/products")).andExpect(status().isNotFound());
  }
  @Test void singleVendorCartSwitchIsExplicitScopedAndRetainsOldItems(){
   customers();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
@@ -509,15 +517,15 @@ class PosTest {
   assertThatThrownBy(()->marketplace.quote(100));
  }
  @Test void customerAuthenticationPermissionsAndCsrfProtectCart() throws Exception {
-  customers();String path="/api/customer/cart/items",body="{\"vendorSlug\":\"vendor-1\",\"productId\":1,\"quantity\":1}";
-  mvc.perform(get("/api/customer/cart")).andExpect(status().isUnauthorized());
-  mvc.perform(get("/api/customer/cart").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
-  mvc.perform(get("/api/customer/cart").with(user("unknown").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
-  mvc.perform(get("/api/customer/cart").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isOk());
-  mvc.perform(get("/api/vendor/pos/products").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isForbidden());
+  customers();String path="/api/v1/customer/cart/items",body="{\"vendorSlug\":\"vendor-1\",\"productId\":1,\"quantity\":1}";
+  mvc.perform(get("/api/v1/customer/cart")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/customer/cart").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/customer/cart").with(user("unknown").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/customer/cart").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isOk());
+  mvc.perform(get("/api/v1/vendor/pos/products").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isForbidden());
   mvc.perform(post(path).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body)).andExpect(status().isOk());
-  mvc.perform(get("/api/customer/cart").with(httpBasic("other-customer","OtherPassword"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+  mvc.perform(get("/api/v1/customer/cart").with(httpBasic("other-customer","OtherPassword"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
   mvc.perform(post(path).with(csrf()).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body.replace("\"quantity\":1","\"quantity\":1,\"customerId\":101"))).andExpect(status().isBadRequest());
  }
  @Test void cartQuantityUpdatesAreIdempotentAndDatabaseRejectsMixedTenantItems(){
@@ -541,9 +549,9 @@ class PosTest {
  boolean cartAttempt(String slug,long product){try{marketplace.put(100,new CartService.Item(slug,product,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
  @Test void conflictingLegacyStaffAndCustomerLoginsFailClosed() throws Exception {
   customers();db.update("INSERT INTO users VALUES(102,'alice',?,TRUE)",encoder.encode("CustomerPassword"));db.update("INSERT INTO customer_profiles VALUES(102,102)");
-  mvc.perform(get("/api/customer/cart").with(httpBasic("alice","CustomerPassword"))).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/customer/cart").with(httpBasic("alice","CustomerPassword"))).andExpect(status().isUnauthorized());
   db.update("UPDATE users SET enabled=FALSE WHERE username='customer'");
-  mvc.perform(get("/api/customer/cart").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/customer/cart").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isUnauthorized());
  }
  @Test void archivedCartRestorePreservesBothVendorCartsAndScopesOwnership(){
   customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
@@ -583,12 +591,12 @@ class PosTest {
  @Test void archivedCartHttpPermissionsAndCsrfAreEnforced() throws Exception {
   customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
   var second=marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1));
-  mvc.perform(get("/api/customer/cart/history")).andExpect(status().isUnauthorized());
-  mvc.perform(get("/api/customer/cart/history").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
-  mvc.perform(get("/api/customer/cart/history").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+  mvc.perform(get("/api/v1/customer/cart/history")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/customer/cart/history").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/customer/cart/history").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
   String payload="{\"archivedCartId\":\""+first.id()+"\",\"expectedCartId\":\""+second.id()+"\"}";
-  mvc.perform(post("/api/customer/cart/restore").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload)).andExpect(status().isForbidden());
-  mvc.perform(post("/api/customer/cart/restore").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload)).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(first.id()));
+  mvc.perform(post("/api/v1/customer/cart/restore").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload)).andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/customer/cart/restore").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload)).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(first.id()));
  }
  @Test void concurrentRestoresCannotReplaceANewerActiveCart() throws Exception {
   customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
@@ -683,12 +691,12 @@ class PosTest {
  @Test void draftHttpSecurityOwnershipAndContextConstraints() throws Exception {
   configureOnline();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
   String payload="{\"expectedCartId\":\""+cart.id()+"\"}";
-  mvc.perform(post("/api/customer/checkout/drafts").with(csrf()).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isUnauthorized());
-  mvc.perform(post("/api/customer/checkout/drafts").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isForbidden());
-  mvc.perform(post("/api/customer/checkout/drafts").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.paymentAvailable").value(true));
-  mvc.perform(get("/api/customer/checkout/drafts").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+  mvc.perform(post("/api/v1/customer/checkout/drafts").with(csrf()).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isUnauthorized());
+  mvc.perform(post("/api/v1/customer/checkout/drafts").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/customer/checkout/drafts").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.paymentAvailable").value(true));
+  mvc.perform(get("/api/v1/customer/checkout/drafts").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
   var draft=checkout.onlineList("customer").getFirst();
-  mvc.perform(post("/api/customer/checkout/drafts/"+draft.id()+"/cancel").with(csrf()).with(user("other-customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{\"reason\":\"Not mine\"}")).andExpect(status().isNotFound());
+  mvc.perform(post("/api/v1/customer/checkout/drafts/"+draft.id()+"/cancel").with(csrf()).with(user("other-customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{\"reason\":\"Not mine\"}")).andExpect(status().isNotFound());
   assertThatThrownBy(()->db.update("UPDATE orders SET branch_id=1 WHERE id=?",draft.id())).isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("UPDATE inventory SET reserved=2 WHERE tenant_id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
  }
@@ -716,13 +724,13 @@ class PosTest {
  }
  @Test void posDraftEndpointEnforcesPermissionsAndRejectsForgedContext() throws Exception {
   String body="{\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}]}";
-  mvc.perform(post("/api/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body)).andExpect(status().isForbidden());
-  mvc.perform(post("/api/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SALE_CREATE")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body.replace("\"items\"","\"tenantId\":2,\"items\""))).andExpect(status().isBadRequest());
-  mvc.perform(post("/api/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SALE_CREATE")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body)).andExpect(status().isOk());
+  mvc.perform(post("/api/v1/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SALE_CREATE")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body.replace("\"items\"","\"tenantId\":2,\"items\""))).andExpect(status().isBadRequest());
+  mvc.perform(post("/api/v1/vendor/pos/drafts").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SALE_CREATE")).header("Idempotency-Key","pos-http-key").contentType("application/json").content(body)).andExpect(status().isOk());
   var draft=checkout.posList("alice",session).getFirst();
-  mvc.perform(get("/api/vendor/pos/receipts/"+draft.id()).with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());
-  mvc.perform(post("/api/vendor/pos/drafts/"+draft.id()+"/cancel").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content("{\"reason\":\"Cancel\"}")).andExpect(status().isForbidden());
-  mvc.perform(post("/api/vendor/pos/drafts/"+draft.id()+"/finalize-cash").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"cashReceived\":120}")).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/vendor/pos/receipts/"+draft.id()).with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());
+  mvc.perform(post("/api/v1/vendor/pos/drafts/"+draft.id()+"/cancel").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content("{\"reason\":\"Cancel\"}")).andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/vendor/pos/drafts/"+draft.id()+"/finalize-cash").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"cashReceived\":120}")).andExpect(status().isForbidden());
   assertThat(checkout.posList("bob",session)).isEmpty();
  }
 
@@ -732,33 +740,33 @@ class PosTest {
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");
   db.update("INSERT INTO employees VALUES('other-branch','unused',1,3,TRUE)");
   db.update("UPDATE products SET name='Renamed',price=999 WHERE tenant_id=1");
-  mvc.perform(get("/api/vendor/pos/orders").with(user("colleague").authorities(()->"POS_VIEW")).param("status","PAID").param("size","1").param("reference",receipt.get("receipt_number").toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(id));
-  mvc.perform(get("/api/vendor/pos/orders/"+id).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].name").value("Panel")).andExpect(jsonPath("$.items[0].unitPrice").value(100)).andExpect(jsonPath("$.cashReceived").value(120));
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(user("colleague").authorities(()->"POS_VIEW")).param("status","PAID").param("size","1").param("reference",receipt.get("receipt_number").toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(id));
+  mvc.perform(get("/api/v1/vendor/pos/orders/"+id).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].name").value("Panel")).andExpect(jsonPath("$.items[0].unitPrice").value(100)).andExpect(jsonPath("$.cashReceived").value(120));
   for(String who:List.of("bob","other-branch")){
-   mvc.perform(get("/api/vendor/pos/orders").with(user(who).authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-   mvc.perform(get("/api/vendor/pos/orders/"+id).with(user(who).authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+   mvc.perform(get("/api/v1/vendor/pos/orders").with(user(who).authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+   mvc.perform(get("/api/v1/vendor/pos/orders/"+id).with(user(who).authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
   }
-  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("from","2000-01-01").param("to","2000-01-01")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("reference",id.substring(0,8))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
-  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("page","1").param("size","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("from","2000-01-01").param("to","2000-01-01")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("reference",id.substring(0,8))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("page","1").param("size","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
  }
  @Test void customerHistoryKeepsCancelledOrdersAndHidesOtherChannels() throws Exception {
   configureOnline();var draft=onlineDraft("history-online");
   checkout.cancelOnline("customer",draft.id(),"Buying later");
-  mvc.perform(get("/api/customer/orders").with(user("customer").authorities(()->"CUSTOMER")).param("status","CANCELLED")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].channel").value("ONLINE"));
-  mvc.perform(get("/api/customer/orders/"+draft.id()).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.cancellationReason").value("Buying later")).andExpect(jsonPath("$.cashReceived").doesNotExist());
-  mvc.perform(get("/api/customer/orders").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  mvc.perform(get("/api/customer/orders/"+draft.id()).with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
-  mvc.perform(get("/api/vendor/pos/orders/"+draft.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/customer/orders").with(user("customer").authorities(()->"CUSTOMER")).param("status","CANCELLED")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].channel").value("ONLINE"));
+  mvc.perform(get("/api/v1/customer/orders/"+draft.id()).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.cancellationReason").value("Buying later")).andExpect(jsonPath("$.cashReceived").doesNotExist());
+  mvc.perform(get("/api/v1/customer/orders").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get("/api/v1/customer/orders/"+draft.id()).with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/vendor/pos/orders/"+draft.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
   var cash=checkout.cashSale(a.cashier(),"history-guest",sale(1,"120"));
-  mvc.perform(get("/api/customer/orders/"+cash.get("id")).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/customer/orders/"+cash.get("id")).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
  }
  @Test void orderHistoryRequiresPermissionsAndRejectsInvalidFilters() throws Exception {
-  mvc.perform(get("/api/vendor/pos/orders")).andExpect(status().isUnauthorized());
-  mvc.perform(get("/api/customer/orders").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
-  mvc.perform(get("/api/vendor/pos/orders").with(user("alice"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/vendor/pos/orders")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/customer/orders").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice"))).andExpect(status().isForbidden());
   for(String[] parameter:List.of(new String[]{"size","51"},new String[]{"page","-1"},new String[]{"status","REFUNDED"},new String[]{"reference","%"},new String[]{"from","invalid"}))
-   mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param(parameter[0],parameter[1])).andExpect(status().isBadRequest());
+   mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param(parameter[0],parameter[1])).andExpect(status().isBadRequest());
  }
 
  @Test void orderHistoryPaginationIsStableForEqualTimestampsAndUtcDayBounds() throws Exception {
@@ -766,9 +774,9 @@ class PosTest {
   for(int n=0;n<3;n++)ids.add((String)checkout.cashSale(a.cashier(),"history-page"+n,sale(1,"120")).get("id"));
   db.update("UPDATE orders SET created_at=? WHERE tenant_id=1",java.time.LocalDateTime.parse("2026-11-12T23:59:59"));
   ids.sort(Comparator.reverseOrder());
-  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("size","2").param("from","2026-11-12").param("to","2026-11-12")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(2)).andExpect(jsonPath("$.items[0].id").value(ids.get(0))).andExpect(jsonPath("$.items[1].id").value(ids.get(1)));
-  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("size","2").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].id").value(ids.get(2)));
-  mvc.perform(get("/api/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("from","2026-11-13")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("size","2").param("from","2026-11-12").param("to","2026-11-12")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(2)).andExpect(jsonPath("$.items[0].id").value(ids.get(0))).andExpect(jsonPath("$.items[1].id").value(ids.get(1)));
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("size","2").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].id").value(ids.get(2)));
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("from","2026-11-13")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
  }
 
  @Test void pooledDatabaseClockUsesUtcForJdbcAndJpaHistory() {
@@ -779,15 +787,15 @@ class PosTest {
 
  @Test void publicProductDetailsArePublishedScopedAndUseSharedTax() throws Exception {
   configureOnline();
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.vendorName").value("Vendor A")).andExpect(jsonPath("$.unitPrice").value(100)).andExpect(jsonPath("$.unitTax").value(10)).andExpect(jsonPath("$.unitTotal").value(110)).andExpect(jsonPath("$.inStock").value(true)).andExpect(jsonPath("$.barcode").doesNotExist());
-  mvc.perform(get("/api/marketplace/vendors/vendor-2/products/1")).andExpect(status().isNotFound());
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/0")).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.vendorName").value("Vendor A")).andExpect(jsonPath("$.unitPrice").value(100)).andExpect(jsonPath("$.unitTax").value(10)).andExpect(jsonPath("$.unitTotal").value(110)).andExpect(jsonPath("$.inStock").value(true)).andExpect(jsonPath("$.barcode").doesNotExist());
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-2/products/1")).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/0")).andExpect(status().isNotFound());
   db.update("UPDATE inventory SET quantity=0 WHERE tenant_id=1");
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.inStock").value(false));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.inStock").value(false));
   db.update("UPDATE products SET published=FALSE WHERE id=1");
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isNotFound());
   db.update("UPDATE products SET published=TRUE WHERE id=1");db.update("UPDATE tenants SET active=FALSE WHERE id=1");
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isNotFound());
  }
  @Test void salesReportSeparatesPaidTaxCashAndOnlineReservationsWithoutDoubleCounting() throws Exception {
   configureOnline();db.update("UPDATE inventory SET quantity=10 WHERE tenant_id=1");
@@ -795,50 +803,50 @@ class PosTest {
   checkout.cashSale(a.cashier(),"report-paid1",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,2)),new BigDecimal("200"),true));
   var cancelled=onlineDraft("report-cancel");checkout.cancelOnline("customer",cancelled.id(),"Buying later");onlineDraft("report-unpaid");
   db.update("UPDATE products SET price=999,tax_rate=80 WHERE tenant_id=1");
-  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("tenantId","2").param("branchId","2"))
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("tenantId","2").param("branchId","2"))
    .andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totals.paidOrders").value(1)).andExpect(jsonPath("$.totals.sales").value(150)).andExpect(jsonPath("$.totals.tax").value(10)).andExpect(jsonPath("$.totals.beforeTax").value(140)).andExpect(jsonPath("$.totals.cashReceived").value(200)).andExpect(jsonPath("$.totals.changeGiven").value(50)).andExpect(jsonPath("$.totals.cashApplied").value(150)).andExpect(jsonPath("$.totals.units").value(3)).andExpect(jsonPath("$.totals.invoices").value(1)).andExpect(jsonPath("$.totals.unpaidOrders").value(1)).andExpect(jsonPath("$.totals.unpaidAmount").value(110)).andExpect(jsonPath("$.totals.cancelledOrders").value(1));
-  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("channel","ONLINE")).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0)).andExpect(jsonPath("$.totals.sales").value(0)).andExpect(jsonPath("$.totals.unpaidOrders").value(1)).andExpect(jsonPath("$.channels.length()").value(1));
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("channel","ONLINE")).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0)).andExpect(jsonPath("$.totals.sales").value(0)).andExpect(jsonPath("$.totals.unpaidOrders").value(1)).andExpect(jsonPath("$.channels.length()").value(1));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(3);assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
  }
  @Test void salesReportUsesFinalizationDayAndRejectsForeignBranchesAndMissingGrants() throws Exception {
   var draft=checkout.pos("alice","report-finalize",posDraft());
   var today=java.time.LocalDate.now(java.time.ZoneOffset.UTC);var yesterday=today.minusDays(1);
   db.update("UPDATE orders SET created_at=? WHERE id=?",yesterday.atStartOfDay(),draft.id());checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));
-  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",today.toString()).param("to",today.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(1)).andExpect(jsonPath("$.days.length()").value(1));
-  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",yesterday.toString()).param("to",yesterday.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",today.toString()).param("to",today.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(1)).andExpect(jsonPath("$.days.length()").value(1));
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",yesterday.toString()).param("to",yesterday.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");db.update("INSERT INTO employees VALUES('other-branch','unused',1,3,TRUE)");
-  for(String actor:List.of("bob","other-branch"))mvc.perform(get("/api/vendor/pos/reports/sales").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
-  mvc.perform(get("/api/vendor/pos/reports/sales")).andExpect(status().isUnauthorized());
-  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
-  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
-  for(String[] param:List.of(new String[]{"channel","UNKNOWN"},new String[]{"from","2000-01-01"},new String[]{"to","invalid"}))mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param(param[0],param[1])).andExpect(status().isBadRequest());
+  for(String actor:List.of("bob","other-branch"))mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
+  for(String[] param:List.of(new String[]{"channel","UNKNOWN"},new String[]{"from","2000-01-01"},new String[]{"to","invalid"}))mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param(param[0],param[1])).andExpect(status().isBadRequest());
  }
 
  @Test void retailCategoriesArePublishedTenantOwnedAndForeignAssignmentsFail() throws Exception {
   customers();db.update("INSERT INTO catalog_categories VALUES(1,1,'Panels','panels'),(2,2,'Private','private'),(3,1,'Hidden','hidden')");
   db.update("INSERT INTO products VALUES(3,1,'HIDDEN',NULL,'Hidden item',100,10,FALSE)");
   db.update("INSERT INTO product_categories VALUES(1,1,1),(2,2,2),(1,3,3)");
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/categories")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panels")).andExpect(jsonPath("$[0].products").value(1));
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$[0].categoryId").value(1)).andExpect(jsonPath("$[0].categoryName").value("Panels"));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/categories")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panels")).andExpect(jsonPath("$[0].products").value(1));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$[0].categoryId").value(1)).andExpect(jsonPath("$[0].categoryName").value("Panels"));
   assertThatThrownBy(()->db.update("UPDATE product_categories SET category_id=2 WHERE tenant_id=1 AND product_id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
-  db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get("/api/marketplace/vendors/vendor-1/categories")).andExpect(status().isNotFound());
+  db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/categories")).andExpect(status().isNotFound());
  }
  @Test void approvedPromotionsAreSharedAuditedAndSavedOnCashReceiptsAndReports() throws Exception {
   configureOnline();db.update("UPDATE inventory SET quantity=5 WHERE tenant_id=1");supervisor("manager");
-  String path="/api/vendor/catalog/products/1/promotion",body="{\"percent\":10,\"reason\":\"Approved solar offer\"}";
+  String path="/api/v1/vendor/catalog/products/1/promotion",body="{\"percent\":10,\"reason\":\"Approved solar offer\"}";
   mvc.perform(put(path).with(csrf()).with(user("manager").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.price").value(90));
   mvc.perform(put(path).with(csrf()).with(user("manager").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT actor FROM catalog_promotion_audit",String.class)).isEqualTo("manager");
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.listPrice").value(100)).andExpect(jsonPath("$.unitTotal").value(99));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.listPrice").value(100)).andExpect(jsonPath("$.unitTotal").value(99));
   var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));assertThat(cart.total()).isEqualByComparingTo("99");assertThat(cart.items().getFirst().discount()).isEqualByComparingTo("10");
   var receipt=checkout.cashSale(a.cashier(),"promotion-cash",sale(1,"100"));assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo("99");
   var item=(Map<?,?>)((List<?>)receipt.get("items")).getFirst();assertThat((BigDecimal)item.get("list_price")).isEqualByComparingTo("100");assertThat((BigDecimal)item.get("discount")).isEqualByComparingTo("10");
   promotions.approve(1,"manager",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("20"),"New approved offer"));
   var copy=service.reprint(a,(String)receipt.get("id"));assertThat((BigDecimal)copy.get("total")).isEqualByComparingTo("99");
-  mvc.perform(get("/api/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.discounts").value(10)).andExpect(jsonPath("$.totals.tax").value(9)).andExpect(jsonPath("$.totals.sales").value(99));
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.discounts").value(10)).andExpect(jsonPath("$.totals.tax").value(9)).andExpect(jsonPath("$.totals.sales").value(99));
  }
  @Test void promotionCommandsEnforceApprovalCsrfInputAndTenantScope() throws Exception {
-  String path="/api/vendor/catalog/products/1/promotion",body="{\"percent\":10,\"reason\":\"Approved offer\"}";
+  String path="/api/v1/vendor/catalog/products/1/promotion",body="{\"percent\":10,\"reason\":\"Approved offer\"}";
   mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(put(path).with(user("alice").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(put(path).with(csrf()).with(user("bob").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isNotFound());
@@ -951,7 +959,7 @@ class PosTest {
   assertThat(returns.eligibility("alice",order).eligible()).isFalse();assertThatThrownBy(()->returns.create("alice","return-old5",returnRequest(order,1))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
  @Test void returnHttpPermissionsCsrfOriginalOwnershipAndForgedFieldsFailClosed() throws Exception {
-  enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale6",sale(1,"120"));String order=(String)receipt.get("id"),path="/api/vendor/pos/returns";
+  enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale6",sale(1,"120"));String order=(String)receipt.get("id"),path="/api/v1/vendor/pos/returns";
   String body="{\"orderId\":\""+order+"\",\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}],\"reason\":\"Buyer return\",\"proof\":\"ORIGINAL_RECEIPT\",\"proofNote\":\"Receipt checked\"}";
   mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(post(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(body)).andExpect(status().isForbidden());
@@ -1026,7 +1034,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items",Integer.class)).isEqualTo(1);
  }
  @Test void refundHttpRequiresIndependentPrivilegesAndCsrf() throws Exception {
-  String returned=inspectedRefundReturn(),paying=refundSession("200"),path="/api/vendor/pos/refunds";db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
+  String returned=inspectedRefundReturn(),paying=refundSession("200"),path="/api/v1/vendor/pos/refunds";db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
   mvc.perform(get(path)).andExpect(status().isUnauthorized());
   mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path+"/quote/"+returned).param("sessionId",paying).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW",()->"POS_REFUND_APPROVE",()->"POS_REFUND_CASH_RECORD"))).andExpect(status().isOk());
@@ -1063,7 +1071,7 @@ class PosTest {
   returns.inspect("manager",returned.id(),new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"DAMAGED","QUARANTINE","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"DAMAGED","QUARANTINE","Cable checked"))));
   String paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var paid=refunds.pay("manager","refund-report-paid",refundPay(returned.id(),paying));
   db.update("UPDATE pos_cash_refunds SET paid_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")),paid.id());
-  String path="/api/vendor/pos/reports/cash-refunds";
+  String path="/api/v1/vendor/pos/reports/cash-refunds";
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-13").param("tenantId","2").param("branchId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totals.refunds").value(1)).andExpect(jsonPath("$.totals.units").value(2)).andExpect(jsonPath("$.totals.cash").value(132)).andExpect(jsonPath("$.totals.beforeTax").value(120)).andExpect(jsonPath("$.totals.tax").value(12)).andExpect(jsonPath("$.days[0].totals.refunds").value(1)).andExpect(jsonPath("$.days[1].totals.refunds").value(0)).andExpect(jsonPath("$.cashiers[0].cashier").value("manager"));
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");db.update("INSERT INTO employees VALUES('other-report','unused',1,3,TRUE)");
   for(String actor:List.of("bob","other-report"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-13").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.cash").value(0)).andExpect(jsonPath("$.cashiers.length()").value(0));
@@ -1072,7 +1080,7 @@ class PosTest {
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("68");
  }
  @Test void refundReportRequiresAllGrantsAndValidDates() throws Exception {
-  String path="/api/vendor/pos/reports/cash-refunds";mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  String path="/api/v1/vendor/pos/reports/cash-refunds";mvc.perform(get(path)).andExpect(status().isUnauthorized());
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).with(user("non-employee").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isForbidden());
@@ -1080,7 +1088,7 @@ class PosTest {
  }
 
  void searchableCatalogue(){
-  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id)");
+  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
   db.update("UPDATE tenants SET online_branch_id=1 WHERE id=1");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other stock')");
   db.update("INSERT INTO products VALUES(3,1,'INV',NULL,'Inverter',200,10,TRUE),(4,1,'BAT',NULL,'Battery',75,0,TRUE),(5,1,'HIDDEN',NULL,'Private Panel',1,0,FALSE),(6,1,'CABLE',NULL,'100%_Cable!',10,0,TRUE)");
@@ -1090,11 +1098,11 @@ class PosTest {
   promotions.approve(1,"alice",3,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("75"),"Approved inverter offer"));
  }
  @Test void publicCataloguePagesUseEffectivePricesAndDesignatedFreeStock() throws Exception {
-  searchableCatalogue();String path="/api/marketplace/vendors/vendor-1/catalogue";
+  searchableCatalogue();String path="/api/v1/marketplace/vendors/vendor-1/catalogue";
   mvc.perform(get(path).param("sort","price-low").param("size","1")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(4)).andExpect(jsonPath("$.totalPages").value(4)).andExpect(jsonPath("$.catalogueTotal").value(4)).andExpect(jsonPath("$.items[0].id").value(6)).andExpect(jsonPath("$.categories.length()").value(3));
   mvc.perform(get(path).param("sort","price-low").param("size","1").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(3)).andExpect(jsonPath("$.items[0].price").value(50)).andExpect(jsonPath("$.items[0].discountPercent").value(75)).andExpect(jsonPath("$.items[0].inStock").value(true)).andExpect(jsonPath("$.items[0].barcode").doesNotExist()).andExpect(jsonPath("$.items[0].available").doesNotExist());
   mvc.perform(get(path).param("inStock","true")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/products/4")).andExpect(status().isOk()).andExpect(jsonPath("$.inStock").value(false));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/4")).andExpect(status().isOk()).andExpect(jsonPath("$.inStock").value(false));
   mvc.perform(get(path).param("category","101")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].inStock").value(false));
   mvc.perform(get(path).param("category","other")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
   mvc.perform(get(path).param("category","201")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
@@ -1105,20 +1113,20 @@ class PosTest {
   db.update("UPDATE tenants SET online_branch_id=NULL WHERE id=1");mvc.perform(get(path).param("inStock","true")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
  }
  @Test void catalogueRejectsInvalidFiltersAndInactiveVendors() throws Exception {
-  String path="/api/marketplace/vendors/vendor-1/catalogue";
+  String path="/api/v1/marketplace/vendors/vendor-1/catalogue";
   for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"},new String[]{"sort","price;DROP"},new String[]{"category","-1"},new String[]{"category","9999999999999999999"},new String[]{"q","x".repeat(121)}))mvc.perform(get(path).param(bad[0],bad[1])).andExpect(status().isBadRequest());
-  db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path)).andExpect(status().isNotFound());mvc.perform(get("/api/marketplace/vendors/unknown/catalogue")).andExpect(status().isNotFound());
+  db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/marketplace/vendors/unknown/catalogue")).andExpect(status().isNotFound());
  }
 
  @Test void cataloguePriceSortingUsesRoundedPromotionsAndStableIdTies() throws Exception {
   searchableCatalogue();db.update("INSERT INTO products VALUES(7,1,'TINY',NULL,'Tiny connector',0.05,10,TRUE),(8,1,'TIE',NULL,'Tie inverter',50,0,TRUE)");
   promotions.approve(1,"alice",7,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("10"),"Approved connector offer"));
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/catalogue").param("q","tiny")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].price").value(0.05));
-  mvc.perform(get("/api/marketplace/vendors/vendor-1/catalogue").param("sort","price-low").param("size","2").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(3)).andExpect(jsonPath("$.items[1].id").value(8)).andExpect(jsonPath("$.totalElements").value(6));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/catalogue").param("q","tiny")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].price").value(0.05));
+  mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/catalogue").param("sort","price-low").param("size","2").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(3)).andExpect(jsonPath("$.items[1].id").value(8)).andExpect(jsonPath("$.totalElements").value(6));
  }
 
  @Test void posCatalogueUsesAssignedBranchAndExactServerSideScans() throws Exception {
-  searchableCatalogue();String path="/api/vendor/pos/catalogue";
+  searchableCatalogue();String path="/api/v1/vendor/pos/catalogue";
   mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
   mvc.perform(get(path).param("tenantId","2").param("branchId","3").param("inStock","true").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
   db.update("INSERT INTO employees VALUES('store3','unused',1,3,TRUE)");
@@ -1131,7 +1139,7 @@ class PosTest {
   db.update("UPDATE tenants SET online_branch_id=NULL WHERE id=1");mvc.perform(get(path).param("q","inv").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].quantity").value(1));
  }
  @Test void posCatalogueRejectsMalformedFiltersAndUnknownMembership() throws Exception {
-  String path="/api/vendor/pos/catalogue";
+  String path="/api/v1/vendor/pos/catalogue";
   for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"},new String[]{"category","-1"},new String[]{"sort","unknown"},new String[]{"q","x".repeat(121)}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isBadRequest());
   mvc.perform(get(path+"/scan").param("code"," ").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isBadRequest());
   mvc.perform(get(path).with(user("unknown").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
@@ -1139,32 +1147,32 @@ class PosTest {
 
  @Test void reservationReferenceRecoveryRetainsSnapshotsAndEnforcesOwnership() throws Exception {
   configureOnline();var draft=checkout.pos("alice","recover-pos-draft",posDraft());supervisor("manager");
-  String path="/api/vendor/pos/drafts/"+draft.id();
+  String path="/api/v1/vendor/pos/drafts/"+draft.id();
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.sessionId").value(session)).andExpect(jsonPath("$.expired").value(false)).andExpect(jsonPath("$.total").value(110));
   for(String actor:List.of("bob","manager"))mvc.perform(get(path).with(user(actor).authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
   mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
   db.update("UPDATE products SET price=999 WHERE id=1");mvc.perform(get(path).param("tenantId","2").param("cashier","bob").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].unitPrice").value(100));
   checkout.cancelPos("alice",draft.id(),"Buyer cancelled");var online=onlineDraft("recover-online-draft");
-  String customerPath="/api/customer/checkout/drafts/"+online.id();mvc.perform(get(customerPath).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.channel").value("ONLINE"));
+  String customerPath="/api/v1/customer/checkout/drafts/"+online.id();mvc.perform(get(customerPath).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.channel").value("ONLINE"));
   mvc.perform(get(customerPath).with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
-  mvc.perform(get("/api/customer/checkout/drafts/"+draft.id()).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
-  mvc.perform(get("/api/vendor/pos/drafts/"+online.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/customer/checkout/drafts/"+draft.id()).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/vendor/pos/drafts/"+online.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
  }
  @Test void elapsedDraftRecoveryDoesNotReleaseStockOrPayAndCanRecoverAfterClose() throws Exception {
   var draft=checkout.pos("alice","recover-expiry-draft",posDraft());db.update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),draft.id());
-  String path="/api/vendor/pos/drafts/"+draft.id();
+  String path="/api/v1/vendor/pos/drafts/"+draft.id();
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.expired").value(true));
   assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isZero();
   checkout.expire(1,draft.id());service.close(a,session,new BigDecimal("50"));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("EXPIRED"));assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
  }
  @Test void paidDraftReferenceRecoveryNeverCreatesAnotherReceiptOrSale() throws Exception {
   var draft=checkout.pos("alice","recover-paid-draft",posDraft());checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));service.close(a,session,new BigDecimal("160"));
-  for(int i=0;i<2;i++)mvc.perform(get("/api/vendor/pos/drafts/"+draft.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PAID")).andExpect(jsonPath("$.expired").value(false));
+  for(int i=0;i<2;i++)mvc.perform(get("/api/v1/vendor/pos/drafts/"+draft.id()).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PAID")).andExpect(jsonPath("$.expired").value(false));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);
  }
 
  @Test void salesCsvExportIsScopedAuditedAndContainsNoBuyerFields() throws Exception {
-  checkout.cashSale(a.cashier(),"export-sale",sale(1,"120"));String path="/api/vendor/pos/reports/sales/export",body="{\"channel\":\"ALL\",\"reason\":\"Branch review\"}";
+  checkout.cashSale(a.cashier(),"export-sale",sale(1,"120"));String path="/api/v1/vendor/pos/reports/sales/export",body="{\"channel\":\"ALL\",\"reason\":\"Branch review\"}";
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(post(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   var response=mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(header().exists("Content-Disposition")).andReturn().getResponse();
@@ -1176,7 +1184,7 @@ class PosTest {
 
  }
  @Test void exportsRejectForgedScopeInvalidRangeAndMissingRefundGrant() throws Exception {
-  String sales="/api/vendor/pos/reports/sales/export",refund="/api/vendor/pos/reports/cash-refunds/export";
+  String sales="/api/v1/vendor/pos/reports/sales/export",refund="/api/v1/vendor/pos/reports/cash-refunds/export";
   for(String body:List.of("{\"reason\":\" \"}","{\"reason\":\"Review\",\"tenantId\":2}","{\"reason\":\"Review\",\"from\":\"2026-11-14\",\"to\":\"2026-11-13\"}"))mvc.perform(post(sales).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isBadRequest());
   mvc.perform(post(refund).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content("{\"reason\":\"Review\"}")).andExpect(status().isForbidden());
   mvc.perform(post(refund).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT",()->"POS_REFUND_VIEW")).contentType("application/json").content("{\"reason\":\"Review\"}")).andExpect(status().isOk());
@@ -1185,7 +1193,7 @@ class PosTest {
 
  @Test void cashRefundCsvExportsOnlyScopedPayoutAggregatesWithoutChangingFinances() throws Exception {
   String returned=inspectedRefundReturn(),paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");refunds.pay("manager","export-refund-paid",refundPay(returned,paying));
-  String csv=mvc.perform(post("/api/vendor/pos/reports/cash-refunds/export").with(csrf()).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT",()->"POS_REFUND_VIEW")).contentType("application/json").content("{\"reason\":\"Payout review\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+  String csv=mvc.perform(post("/api/v1/vendor/pos/reports/cash-refunds/export").with(csrf()).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT",()->"POS_REFUND_VIEW")).contentType("application/json").content("{\"reason\":\"Payout review\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
   assertThat(csv).contains("\"CASHIER\",\"manager\"","\"110.00\"").doesNotContain("Panel","Independent cash handover","return_id","session_id");
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("90");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
  }
@@ -1197,7 +1205,7 @@ class PosTest {
   var manager=supervisor("manager");db.update("INSERT INTO registers VALUES(3,1,1)");String managerSession=(String)service.open(manager,new PosService.OpenSession(3,BigDecimal.ZERO)).get("id");
   checkout.cashSale(manager.cashier(),"cashier-manager-sale",new CheckoutService.CashSale(managerSession,List.of(new CheckoutService.Item(3,1)),new BigDecimal("25"),false));
   service.close(a,session,new BigDecimal("193"));onlineDraft("cashier-online-unpaid");db.update("UPDATE products SET price=999,tax_rate=50 WHERE tenant_id=1");
-  String path="/api/vendor/pos/reports/cashier-sales";
+  String path="/api/v1/vendor/pos/reports/cashier-sales";
   mvc.perform(get(path).param("size","1").param("tenantId","2").param("branchId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2)).andExpect(jsonPath("$.totalPages").value(2)).andExpect(jsonPath("$.items[0].cashier").value("alice")).andExpect(jsonPath("$.pageTotals.paidOrders").value(1)).andExpect(jsonPath("$.pageTotals.units").value(3)).andExpect(jsonPath("$.pageTotals.sales").value(143)).andExpect(jsonPath("$.pageTotals.tax").value(13)).andExpect(jsonPath("$.pageTotals.beforeTax").value(130)).andExpect(jsonPath("$.pageTotals.cashApplied").value(143)).andExpect(jsonPath("$.pageTotals.discounts").value(10));
   mvc.perform(get(path).param("size","1").param("page","1").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].cashier").value("manager")).andExpect(jsonPath("$.pageTotals.sales").value(22));
   mvc.perform(get(path).param("size","48").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.pageTotals.sales").value(165)).andExpect(jsonPath("$.pageTotals.units").value(4));
@@ -1205,13 +1213,13 @@ class PosTest {
   for(String actor:List.of("bob","other-seller-report"))mvc.perform(get(path).with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0)).andExpect(jsonPath("$.items.length()").value(0));
  }
  @Test void cashierSalesReportRequiresItsOwnPermissionAndUtcBounds() throws Exception {
-  String path="/api/vendor/pos/reports/cashier-sales";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/reports/cashier-sales";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).with(user("unknown").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isForbidden());
   for(String[] param:List.of(new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","invalid"}))mvc.perform(get(path).param(param[0],param[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isBadRequest());
  }
 
  @Test void sellingCashierReportUsesUtcPaidEventsAndDoesNotSubtractOtherCashierRefunds() throws Exception {
-  String returned=inspectedRefundReturn(),paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");refunds.pay("manager","cashier-insights-refund",refundPay(returned,paying));String path="/api/vendor/pos/reports/cashier-sales";
+  String returned=inspectedRefundReturn(),paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");refunds.pay("manager","cashier-insights-refund",refundPay(returned,paying));String path="/api/v1/vendor/pos/reports/cashier-sales";
   mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].cashier").value("alice")).andExpect(jsonPath("$.pageTotals.sales").value(110));
   db.update("UPDATE orders SET status_changed_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")));
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.pageTotals.paidOrders").value(1));
@@ -1223,7 +1231,7 @@ class PosTest {
   enableReturns();supervisor("manager");db.update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");var receipt=checkout.cashSale(a.cashier(),"history-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),new BigDecimal("400"),false));String paying=refundSession("500");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
   var records=new ArrayList<com.saumya.pos.returns.CashRefundService.View>();for(int i=0;i<3;i++){var r=returns.create("alice","history-return"+i,returnRequest((String)receipt.get("id"),1));returns.review("manager",r.id(),approveReturn());returns.inspect("manager",r.id(),inspectReturn("DAMAGED","QUARANTINE"));records.add(refunds.pay("manager","history-refund"+i,refundPay(r.id(),paying)));}
   db.update("UPDATE pos_cash_refunds SET paid_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")));
-  String path="/api/vendor/pos/refunds/history";var ids=records.stream().map(com.saumya.pos.returns.CashRefundService.View::id).sorted(Comparator.reverseOrder()).toList();
+  String path="/api/v1/vendor/pos/refunds/history";var ids=records.stream().map(com.saumya.pos.returns.CashRefundService.View::id).sorted(Comparator.reverseOrder()).toList();
   for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("size","1").param("page",Integer.toString(page)).param("tenantId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page))).andExpect(jsonPath("$.items[0].reason").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist());
   for(String ref:List.of(records.getFirst().id().substring(0,8),records.getFirst().returnId()))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",ref).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",receipt.get("receipt_number").toString()).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3));
@@ -1232,7 +1240,7 @@ class PosTest {
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("170");assertThat(stock.atBranch(1,1,1)).isZero();
  }
  @Test void refundHistoryRejectsInvalidFiltersAndMissingPermissions() throws Exception {
-  String path="/api/vendor/pos/refunds/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/refunds/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isBadRequest());
  }
 
@@ -1240,7 +1248,7 @@ class PosTest {
   String returned=inspectedRefundReturn(),paying=refundSession("200");db.update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var paid=refunds.pay("manager","audit-refund-paid",refundPay(returned,paying));refunds.copy("manager",paid.id());
   int sequence=0;for(String action:List.of("REQUESTED","APPROVED","INSPECTED","CASH_REFUND","REFUND_COPY"))db.update("UPDATE pos_return_events SET created_at=? WHERE return_id=? AND action=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z").plusSeconds(sequence++)),returned,action);
   service.close(new PosService.Scope(1,1,"manager"),paying,new BigDecimal("90"));service.close(a,session,new BigDecimal("160"));
-  String path="/api/vendor/pos/returns/"+returned+"/events";
+  String path="/api/v1/vendor/pos/returns/"+returned+"/events";
   mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).param("size","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("INSPECTED")).andExpect(jsonPath("$.totalElements").value(5)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].action").value("REFUND_COPY")).andExpect(jsonPath("$.items[0].note").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist());
   mvc.perform(get(path).param("page","2").param("size","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].action").value("REQUESTED"));
@@ -1257,7 +1265,7 @@ class PosTest {
   String order=(String)checkout.cashSale(a.cashier(),"queue-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,25)),new BigDecimal("2750"),false)).get("id");
   var ids=new ArrayList<String>();for(int i=0;i<25;i++)ids.add(returns.create("alice","queue-case-"+i,returnRequest(order,1)).id());
   db.update("UPDATE pos_returns SET created_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")));ids.sort(Comparator.naturalOrder());
-  service.close(a,session,new BigDecimal("2800"));String path="/api/vendor/pos/returns/queue";
+  service.close(a,session,new BigDecimal("2800"));String path="/api/v1/vendor/pos/returns/queue";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].reason").doesNotExist()).andExpect(jsonPath("$.items[0].requester").doesNotExist()).andExpect(jsonPath("$.items[0].items").doesNotExist());
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",ids.getLast()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",order.toUpperCase(Locale.ROOT)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25));
@@ -1270,7 +1278,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(26);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("2800");
  }
  @Test void returnQueueRejectsMissingPermissionsAndInvalidFilters() throws Exception {
-  String path="/api/vendor/pos/returns/queue";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/returns/queue";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"state","PAID"},new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","bad-date"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isBadRequest());
  }
 
@@ -1280,7 +1288,7 @@ class PosTest {
   db.update("UPDATE pos_sessions SET closed_at=? WHERE cashier='alice'",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")));ids.sort(Comparator.reverseOrder());
   String open=(String)service.open(a,new PosService.OpenSession(1,BigDecimal.TEN)).get("id");
   db.update("INSERT INTO employees VALUES('shift-colleague','unused',1,1,TRUE)");db.update("INSERT INTO registers VALUES(3,1,1)");var colleague=new PosService.Scope(1,1,"shift-colleague");String other=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("99"))).get("id");service.close(colleague,other,new BigDecimal("99"));db.update("UPDATE pos_sessions SET closed_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")),other);
-  String path="/api/vendor/pos/sessions/history";
+  String path="/api/v1/vendor/pos/sessions/history";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].cashier").doesNotExist()).andExpect(jsonPath("$.items[0].varianceReason").doesNotExist()).andExpect(jsonPath("$.items[0].closeRequestId").doesNotExist());
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",session.toUpperCase(Locale.ROOT)).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].openingFloat").value(50)).andExpect(jsonPath("$.items[0].expectedCash").value(50)).andExpect(jsonPath("$.items[0].countedCash").value(50)).andExpect(jsonPath("$.items[0].variance").value(0));
   for(String reference:List.of(open,other))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",reference).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
@@ -1290,14 +1298,14 @@ class PosTest {
   int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(service.reconciliation(a,open).expectedCash()).isEqualByComparingTo("10");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
  }
  @Test void ownShiftHistoryRejectsMissingPermissionsAndInvalidBounds() throws Exception {
-  String path="/api/vendor/pos/sessions/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/sessions/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","bad-date"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isBadRequest());
   db.update("UPDATE employees SET enabled=FALSE WHERE username='alice'");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
  }
 
  @Test void shiftHistoryExcludesPendingReviewAndPreservesApprovedVarianceSnapshot() throws Exception {
   String request=UUID.randomUUID().toString();service.close(a,session,new BigDecimal("49"),"Count difference",request);
-  String path="/api/vendor/pos/sessions/history";
+  String path="/api/v1/vendor/pos/sessions/history";
   mvc.perform(get(path).param("reference",session).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   db.update("INSERT INTO employees VALUES('history-supervisor','unused',1,1,TRUE)");service.reviewVariance(new PosService.Scope(1,1,"history-supervisor"),session,request,"Count independently checked",PosService.ReviewAction.APPROVE);
   mvc.perform(get(path).param("reference",session).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].expectedCash").value(50)).andExpect(jsonPath("$.items[0].countedCash").value(49)).andExpect(jsonPath("$.items[0].variance").value(-1)).andExpect(jsonPath("$.items[0].reviewedBy").doesNotExist()).andExpect(jsonPath("$.items[0].reviewReason").doesNotExist());
@@ -1305,10 +1313,10 @@ class PosTest {
  }
 
  @Test void publicVendorDirectoryIsPagedSearchableAndContainsOnlyActivePublicCards() throws Exception {
-  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id)");
+  db.update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
   for(int i=3;i<=27;i++)db.update("INSERT INTO tenants(id,name,active,slug) VALUES(?,? ,TRUE,?)",i,"Solar Partner", "solar-"+i);
   db.update("INSERT INTO tenants(id,name,active,slug) VALUES(28,'Hidden inactive',FALSE,'hidden-inactive'),(29,'Hidden null',TRUE,NULL),(30,'Hidden blank',TRUE,'')");
-  String path="/api/marketplace/directory";
+  String path="/api/v1/marketplace/directory";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("q","sOlAr").param("size","12").param("page",Integer.toString(page))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(3+page*12)).andExpect(jsonPath("$.items[0].active").doesNotExist()).andExpect(jsonPath("$.items[0].onlineBranchId").doesNotExist());
   mvc.perform(get(path).param("q","solar-27")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].slug").value("solar-27"));
   mvc.perform(get(path).param("q","hidden")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
@@ -1318,28 +1326,28 @@ class PosTest {
   assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isZero();
  }
  @Test void publicVendorDirectoryRejectsUnboundedInput() throws Exception {
-  for(String[] bad:List.of(new String[]{"q","x".repeat(121)},new String[]{"q","bad\nquery"},new String[]{"size","49"},new String[]{"page","-1"}))mvc.perform(get("/api/marketplace/directory").param(bad[0],bad[1])).andExpect(status().isBadRequest());
+  for(String[] bad:List.of(new String[]{"q","x".repeat(121)},new String[]{"q","bad\nquery"},new String[]{"size","49"},new String[]{"page","-1"}))mvc.perform(get("/api/v1/marketplace/directory").param(bad[0],bad[1])).andExpect(status().isBadRequest());
  }
 
  @Test void browsingAnotherVendorDirectoryPagePreservesExistingCustomerCart() throws Exception {
   customers();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
-  mvc.perform(get("/api/marketplace/directory").param("q","vendor-2")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+  mvc.perform(get("/api/v1/marketplace/directory").param("q","vendor-2")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
   assertThat(marketplace.cart(100)).isEqualTo(cart);assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
  }
 
  @Test void promotionAuditHistoryIsTenantScopedPagedAndReadOnlyForWithdrawnProducts() throws Exception {
   for(int i=1;i<=25;i++)promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal(i),"Approved offer "+i));promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("25"),"No change"));promotions.approve(2,"bob",2,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Foreign tenant offer"));
   db.update("UPDATE catalog_promotion_audit SET created_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z")));var ids=db.queryForList("SELECT id FROM catalog_promotion_audit WHERE tenant_id=1",String.class).stream().sorted(Comparator.reverseOrder()).toList();
-  db.update("UPDATE products SET name='Renamed panel',published=FALSE WHERE id=1");String path="/api/vendor/pos/promotions/1/history";
+  db.update("UPDATE products SET name='Renamed panel',published=FALSE WHERE id=1");String path="/api/v1/vendor/pos/promotions/1/history";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.currentName").value("Renamed panel")).andExpect(jsonPath("$.published").value(false)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].actor").value("alice")).andExpect(jsonPath("$.items[0].tenantId").doesNotExist());
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other catalogue branch')");db.update("INSERT INTO employees VALUES('promotion-viewer','unused',1,4,TRUE)");mvc.perform(get(path).with(user("promotion-viewer").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25));
   mvc.perform(get(path).param("tenantId","1").with(user("bob").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
-  mvc.perform(get("/api/vendor/pos/promotions/2/history").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/vendor/pos/promotions/2/history").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
   mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(26);assertThat(promotions.price(1,1,new BigDecimal("100"),false).price()).isEqualByComparingTo("75");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
  }
  @Test void promotionAuditRejectsMissingRightsInactiveMembershipAndBadBounds() throws Exception {
-  String path="/api/vendor/pos/promotions/1/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  String path="/api/v1/vendor/pos/promotions/1/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());
   for(String missing:List.of("POS_VIEW","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE")){var rights=List.of("POS_VIEW","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE").stream().filter(p->!p.equals(missing)).map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList();mvc.perform(get(path).with(user("alice").authorities(rights))).andExpect(status().isForbidden());}
   for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isBadRequest());
   db.update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isForbidden());
@@ -1348,7 +1356,7 @@ class PosTest {
  @Test void registerDirectoryIsPagedScopedAndHidesDrawerDetails() throws Exception {
   for(int id=3;id<=26;id++)db.update("INSERT INTO registers VALUES(?,1,1)",id);
   db.update("INSERT INTO employees VALUES('register-colleague','unused',1,1,TRUE)");var colleague=new PosService.Scope(1,1,"register-colleague");String closing=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("50"))).get("id");service.close(colleague,closing,new BigDecimal("49"),"Count discrepancy",UUID.randomUUID().toString());String closed=(String)service.open(a,new PosService.OpenSession(4,BigDecimal.ZERO)).get("id");service.close(a,closed,BigDecimal.ZERO);
-  int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);var ids=db.queryForList("SELECT id FROM registers WHERE tenant_id=1 ORDER BY id",Long.class);String path="/api/vendor/pos/registers";
+  int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);var ids=db.queryForList("SELECT id FROM registers WHERE tenant_id=1 ORDER BY id",Long.class);String path="/api/v1/vendor/pos/registers";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].cashier").doesNotExist()).andExpect(jsonPath("$.items[0].openingFloat").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist()).andExpect(jsonPath("$.items[0].state").doesNotExist());
   mvc.perform(get(path).param("size","48").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].available").value(false)).andExpect(jsonPath("$.items[1].available").value(false)).andExpect(jsonPath("$.items[2].available").value(true));
   mvc.perform(get(path).param("tenantId","1").param("branchId","1").with(user("bob").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(2)).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(2));
@@ -1358,7 +1366,7 @@ class PosTest {
   mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
  }
  @Test void registerDirectoryRejectsMissingRightsBadBoundsAndInactiveMembership() throws Exception {
-  String path="/api/vendor/pos/registers";mvc.perform(get(path)).andExpect(status().isUnauthorized());for(String right:List.of("POS_VIEW","POS_SESSION_OPEN"))mvc.perform(get(path).with(user("alice").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority(right)))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/registers";mvc.perform(get(path)).andExpect(status().isUnauthorized());for(String right:List.of("POS_VIEW","POS_SESSION_OPEN"))mvc.perform(get(path).with(user("alice").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority(right)))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isBadRequest());db.update("UPDATE employees SET enabled=FALSE WHERE username='alice'");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isForbidden());
  }
 
@@ -1366,7 +1374,7 @@ class PosTest {
   var receipt=checkout.cashSale(a.cashier(),"identity-cash",sale(1,"120"));String id=(String)receipt.get("id");assertThat(receipt.get("receipt_seller_name")).isEqualTo("Vendor A");assertThat(receipt.get("receipt_outlet_name")).isEqualTo("A");assertThat(receipt.get("issued_at")).isNotNull();
   db.update("UPDATE tenants SET name='New seller' WHERE id=1");db.update("UPDATE branches SET name='New outlet' WHERE id=1");
   for(var copy:List.of(checkout.cashSale(a.cashier(),"identity-cash",sale(1,"120")),service.reprint(a,id))){assertThat(copy.get("receipt_seller_name")).isEqualTo("Vendor A");assertThat(copy.get("receipt_outlet_name")).isEqualTo("A");assertThat(copy.get("issued_at")).isEqualTo(receipt.get("issued_at"));assertThat(copy.get("receipt_number")).isEqualTo(receipt.get("receipt_number"));}
-  mvc.perform(get("/api/vendor/pos/receipts/"+id).with(user("bob").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(stock.atBranch(1,1,1)).isZero();
+  mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("bob").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(stock.atBranch(1,1,1)).isZero();
  }
  @Test void reservedReceiptIdentityIsCapturedAtPaymentAndInvoiceUsesTheSameNames(){
   var draft=checkout.pos("alice","identity-draft",new com.saumya.pos.checkout.CheckoutService.PosDraft(session,List.of(new com.saumya.pos.checkout.CheckoutService.Item(1,1)),true));assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,draft.id())).isNull();
@@ -1398,12 +1406,12 @@ class PosTest {
 
  @Test void receiptPdfCopiesAreScopedAuditedAndMatchExactReturnedBytes() throws Exception {
   var sale=checkout.cashSale("alice","pdf-original",sale(1,"120"));String id=(String)sale.get("id");db.update("UPDATE tenants SET name='Renamed seller' WHERE id=1");service.close(a,session,new BigDecimal("160"));int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);
-  var response=mvc.perform(post("/api/vendor/pos/receipts/"+id+"/document").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\" Customer requested copy \"}")).andExpect(status().isOk()).andExpect(content().contentType("application/pdf")).andExpect(header().string("Cache-Control","no-store")).andReturn().getResponse();
+  var response=mvc.perform(post("/api/v1/vendor/pos/receipts/"+id+"/document").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\" Customer requested copy \"}")).andExpect(status().isOk()).andExpect(content().contentType("application/pdf")).andExpect(header().string("Cache-Control","no-store")).andReturn().getResponse();
   byte[] bytes=response.getContentAsByteArray();String reference=response.getHeader("X-Document-Reference");assertThat(reference).matches("[0-9a-f-]{36}");assertThat(response.getHeader("Content-Disposition")).contains(".pdf");String text;try(var reader=new org.openpdf.text.pdf.PdfReader(bytes)){text=new org.openpdf.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1);}assertThat(text).contains("COPY - Receipt 1/1","Vendor A","110.00",reference).doesNotContain("Renamed seller","Customer requested copy");
   assertThat(db.queryForObject("SELECT content_sha256 FROM receipt_document_audit WHERE id=?",String.class,reference)).isEqualTo(HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));assertThat(db.queryForObject("SELECT content_length FROM receipt_document_audit WHERE id=?",Integer.class,reference)).isEqualTo(bytes.length);assertThat(db.queryForObject("SELECT reason FROM receipt_document_audit WHERE id=?",String.class,reference)).isEqualTo("Customer requested copy");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(1);assertThat(stock.atBranch(1,1,1)).isZero();
  }
  @Test void receiptPdfRejectsMissingRightsCsrfBadReasonForeignScopeAndUnsupportedGlyphs() throws Exception {
-  db.update("UPDATE products SET name='Panel 😀' WHERE id=1");String id=(String)checkout.cashSale("alice","pdf-unsupported",sale(1,"120")).get("id"),path="/api/vendor/pos/receipts/"+id+"/document";
+  db.update("UPDATE products SET name='Panel 😀' WHERE id=1");String id=(String)checkout.cashSale("alice","pdf-unsupported",sale(1,"120")).get("id"),path="/api/v1/vendor/pos/receipts/"+id+"/document";
   mvc.perform(post(path).contentType("application/json").content("{\"reason\":\"Copy request\"}")).andExpect(status().isForbidden());
   for(String missing:List.of("POS_VIEW","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT")){var rights=List.of("POS_VIEW","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT").stream().filter(p->!p.equals(missing)).map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList();mvc.perform(post(path).with(csrf()).with(user("alice").authorities(rights)).contentType("application/json").content("{\"reason\":\"Copy request\"}")).andExpect(status().isForbidden());}
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\" \"}")).andExpect(status().isBadRequest());

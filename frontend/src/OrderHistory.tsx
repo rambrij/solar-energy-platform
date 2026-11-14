@@ -17,7 +17,7 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
   const [page, setPage] = useState<Page>(), [detail, setDetail] = useState<Detail>(), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const version = useRef(0);
   useEffect(() => () => { version.current += 1; }, []);
-  const request = (suffix: string) => mode === 'pos' ? api(`/orders${suffix}`) : marketplaceApi(`/api/customer/orders${suffix}`);
+  const request = (suffix: string) => mode === 'pos' ? api(`/orders${suffix}`) : marketplaceApi(`/api/v1/customer/orders${suffix}`);
   async function load(index: number, query: Filters) {
     if (query.from && query.to && query.from > query.to) { setError('From date must not follow to date.'); return; }
     const current = ++version.current;

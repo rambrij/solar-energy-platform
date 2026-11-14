@@ -27,12 +27,12 @@ V24 adds default-disabled branch settings `manual_tender_enabled`, `upi_merchant
 
 | Route | Purpose |
 | --- | --- |
-| `GET /api/vendor/pos/drafts/{id}/payment` | Own current tender/options |
-| `POST /api/vendor/pos/drafts/{id}/payment` `{method: UPI or CARD}` | Persist/recover preparation before collection |
-| `POST /api/vendor/pos/drafts/{id}/payment/unknown` `{attemptId}` | Record ambiguous outcome without a new charge |
-| `GET /api/vendor/pos/payments/awaiting-review` | Oldest 20 unresolved outlet tenders |
-| `GET /api/vendor/pos/payments/review/{orderId}` | Fresh scoped lookup, including completed decision metadata |
-| `POST /api/vendor/pos/payments/review/{orderId}` `{attemptId, decision, reference, evidence, reason}` | Independent CONFIRM or FAIL decision |
+| `GET /api/v1/vendor/pos/drafts/{id}/payment` | Own current tender/options |
+| `POST /api/v1/vendor/pos/drafts/{id}/payment` `{method: UPI or CARD}` | Persist/recover preparation before collection |
+| `POST /api/v1/vendor/pos/drafts/{id}/payment/unknown` `{attemptId}` | Record ambiguous outcome without a new charge |
+| `GET /api/v1/vendor/pos/payments/awaiting-review` | Oldest 20 unresolved outlet tenders |
+| `GET /api/v1/vendor/pos/payments/review/{orderId}` | Fresh scoped lookup, including completed decision metadata |
+| `POST /api/v1/vendor/pos/payments/review/{orderId}` `{attemptId, decision, reference, evidence, reason}` | Independent CONFIRM or FAIL decision |
 
 The previous POS `/payment/mock-confirm` route is removed. V24 explicitly labels existing demo POS attempts `RETIRED_POS_SIMULATION`; their historical mock receipt facts are retained and cannot be reused as real terminal tenders. No compatibility route or simulated success fallback is added. Online-only mock checkout remains separately flag/profile controlled.
 

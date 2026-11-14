@@ -13,7 +13,7 @@ export default function PaymentCheckout({mode,orderId,disabled=false,onComplete,
   try{
    const suffix=action==='confirm'?'/mock-confirm':action==='unknown'?'/unknown':'';
    const body=action==='status'?undefined:action==='confirm'||action==='unknown'?{attemptId:payment?.attemptId}:{method:action};
-   const value:Payment=mode==='pos'?await api(base+suffix,body):await marketplaceApi('/api/customer/checkout'+base+suffix,body===undefined?'GET':'POST',body);
+   const value:Payment=mode==='pos'?await api(base+suffix,body):await marketplaceApi('/api/v1/customer/checkout'+base+suffix,body===undefined?'GET':'POST',body);
    if(!alive.current)return;
    if(value.orderId!==orderId)throw Error('Payment order mismatch');
    setPayment(value);setUncertain(false);

@@ -16,7 +16,7 @@ Do not enable the demo policy as production tax or finance approval. Do not crea
 
 ## HTTP contract and permissions
 
-All paths start `/api/vendor/pos/refunds`; employee membership derives tenant/branch/actor. `POS_VIEW` and `POS_REFUND_VIEW` are always required.
+All paths start `/api/v1/vendor/pos/refunds`; employee membership derives tenant/branch/actor. `POS_VIEW` and `POS_REFUND_VIEW` are always required.
 
 | Route | Additional permission / behavior |
 |---|---|

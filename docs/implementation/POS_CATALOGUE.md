@@ -6,8 +6,8 @@ This increment extends SRS POS-005/POS-006/POS-033/POS-035 and server-side bound
 
 Both routes require POS_VIEW and canonical active employee/tenant/assigned-branch membership. There is no accepted tenant/branch/cashier override.
 
-- `GET /api/vendor/pos/catalogue?q=panel&category=all&sort=name&inStock=false&page=0&size=24`
-- `GET /api/vendor/pos/catalogue/scan?code=PANEL-550`
+- `GET /api/v1/vendor/pos/catalogue?q=panel&category=all&sort=name&inStock=false&page=0&size=24`
+- `GET /api/v1/vendor/pos/catalogue/scan?code=PANEL-550`
 
 Search matches case-insensitive name, SKU or barcode substrings, with percent/underscore/exclamation treated literally. Query length is at most 120 characters; category is all, other or a positive ID; sort is name/price-low/price-high; page is 0-10000 and size is 1-48 (default 24). Effective approved promotional prices are rounded before sorting and product ID breaks ties. Counts/categories cover published products in the assigned tenant, independent of the selected page/filters.
 
@@ -19,7 +19,7 @@ Exact scan trims/lowercases a code up to 80 characters, searches the entire publ
 
 PosCatalogService and its Spring Data JPA native projection remain inside catalogue. Retail's controller resolves principal scope and calls the public catalogue API; catalogue never depends on retail persistence or imports inventory entities/repositories. The read model joins only the selected tenant/branch inventory row, products, categories and approved offers, using existing composite uniqueness to avoid multiplying count rows. Read-only repeatable-read keeps page/count/facets consistent. Inventory reservations/issues/reversals remain exclusively behind shared inventory write services; scans never reserve stock or create sales. No new schema, secrets or payment adapter is needed.
 
-The legacy GET /api/vendor/pos/products remains available for compatibility. The billing screen no longer calls it or downloads the complete catalogue. Marketplace continues to use its separate public DTO and designated online branch, so staff barcode/quantity fields do not enter the public route.
+The legacy GET /api/v1/vendor/pos/products remains available for compatibility. The billing screen no longer calls it or downloads the complete catalogue. Marketplace continues to use its separate public DTO and designated online branch, so staff barcode/quantity fields do not enter the public route.
 
 ## Billing UI
 

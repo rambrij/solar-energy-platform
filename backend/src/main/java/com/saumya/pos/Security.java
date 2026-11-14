@@ -28,7 +28,7 @@ class Security {
             .stream().findFirst().orElseThrow(()->new UsernameNotFoundException("Invalid login")));
     }
     @Bean SecurityFilterChain chain(HttpSecurity http) throws Exception {
-        return http.authorizeHttpRequests(a -> a.requestMatchers(org.springframework.http.HttpMethod.GET,"/api/marketplace/**").permitAll().anyRequest().authenticated())
+        return http.authorizeHttpRequests(a -> a.requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/marketplace/**").permitAll().anyRequest().authenticated())
             .httpBasic(b -> {}).csrf(c -> c.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())).build();
     }

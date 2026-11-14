@@ -6,8 +6,8 @@ This increment extends the requirements' recoverable idempotent draft/reservatio
 
 | Route | Authorization / ownership |
 |---|---|
-| GET /api/customer/checkout/drafts/{id} | CUSTOMER and active global principal; own ONLINE reservation only |
-| GET /api/vendor/pos/drafts/{id} | POS_VIEW and active canonical employee/tenant/branch; same branch/cashier IN_STORE reservation only |
+| GET /api/v1/customer/checkout/drafts/{id} | CUSTOMER and active global principal; own ONLINE reservation only |
+| GET /api/v1/vendor/pos/drafts/{id} | POS_VIEW and active canonical employee/tenant/branch; same branch/cashier IN_STORE reservation only |
 
 Unknown/foreign IDs return the same generic 404. References are nonblank and at most 36 characters. Client tenant/customer/cashier/session parameters cannot override the principal or stored order. Legacy direct-cash sales with no reservation expiry are excluded from the reservation endpoint; use normal receipt/history recovery instead.
 

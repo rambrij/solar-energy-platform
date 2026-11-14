@@ -25,7 +25,7 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], invo
   useEffect(()=>{if(!held)return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[held]);
   useEffect(() => { onBlocked?.(!!pending || held || statusFailed); }, [pending, held, statusFailed, onBlocked]);
   function request(path: string, body?: unknown, key?: string) {
-    return mode === 'pos' ? api(`/drafts${path}`, body, key) : marketplaceApi(`/api/customer/checkout/drafts${path}`, body === undefined ? 'GET' : 'POST', body, key);
+    return mode === 'pos' ? api(`/drafts${path}`, body, key) : marketplaceApi(`/api/v1/customer/checkout/drafts${path}`, body === undefined ? 'GET' : 'POST', body, key);
   }
   async function reload() {
     const version = ++generation.current;

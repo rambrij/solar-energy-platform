@@ -6,6 +6,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 public class ReturnAuditController {
  private final ReturnAuditService service;
  public ReturnAuditController(ReturnAuditService service){this.service=service;}
- @GetMapping("/api/vendor/pos/returns/{id}/events") @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_RETURN_VIEW') and hasAuthority('POS_RETURN_AUDIT_VIEW')")
+ @GetMapping("/api/v1/vendor/pos/returns/{id}/events") @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_RETURN_VIEW') and hasAuthority('POS_RETURN_AUDIT_VIEW')")
  Object history(Principal p,@PathVariable String id,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="12") int size){return service.history(p.getName(),id,page,size);}
 }

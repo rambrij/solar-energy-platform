@@ -4,7 +4,7 @@ Traces SRS POS-005/POS-006/POS-009/POS-010/POS-014/POS-030/POS-035/POS-042 and r
 
 ## One checkout owner
 
-POST /api/vendor/pos/sales is now owned by CheckoutController and CheckoutService.CashSale. It retains the existing cash JSON fields and explicit sale/tender/receipt permissions. Canonical membership is resolved once; the outlet is locked first, then the shared POS reservation path persists JPA order/line snapshots and holds stock. The same transaction consumes the hold and finalizes PAID through the existing finalizer, receipt sequence/documents and inventory ledger. Receipt, invoice identity, stock and reservation state commit together. A failed cash command leaves no partial draft/hold/sequence allocation.
+POST /api/v1/vendor/pos/sales is now owned by CheckoutController and CheckoutService.CashSale. It retains the existing cash JSON fields and explicit sale/tender/receipt permissions. Canonical membership is resolved once; the outlet is locked first, then the shared POS reservation path persists JPA order/line snapshots and holds stock. The same transaction consumes the hold and finalizes PAID through the existing finalizer, receipt sequence/documents and inventory ledger. Receipt, invoice identity, stock and reservation state commit together. A failed cash command leaves no partial draft/hold/sequence allocation.
 
 Fast cash performs reserve/finalize atomically after the cashier confirms cash; it does not claim a separately durable unpaid stage between HTTP requests. The explicit Reserve walk-in sale path still persists an unpaid time-limited reservation for later review/payment. ONLINE reservations use the same inventory domain but remain unpaid; no new provider simulation or typed-reference payment verification is introduced.
 

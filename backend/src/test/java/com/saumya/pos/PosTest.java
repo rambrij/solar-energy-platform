@@ -40,15 +40,16 @@ class PosTest {
  @Autowired com.saumya.pos.checkout.CustomerAssociationService associations;
  @Autowired com.saumya.pos.identity.AuthenticationService authentication;
  @Autowired com.saumya.pos.identity.JwtService jwt;
+ @Autowired com.saumya.pos.retail.BranchPolicyService branchPolicies;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
   db.update("DELETE FROM vendor_payment_attempts");
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) db.update("DELETE FROM "+table);
+  for(String table:List.of("branch_settings_events","identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
-  employee("alice",1,1);employee("bob",2,2);db.update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");
+  employee("alice",1,1);employee("bob",2,2);db.update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");db.update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");
   db.update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
   db.update("INSERT INTO products VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
   db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,1,1),(2,2,2,1)");
@@ -58,6 +59,14 @@ class PosTest {
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=payments.tenderStatus(username,id).remaining();var result=payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null));return result.tenders().getLast();}
+ @Test void branchSettingsRequirePermissionAndVersionAndCreateAnAuditedTill() throws Exception {
+  String body="{\"name\":\"Updated outlet\",\"expectedVersion\":0,\"enabled\":true,\"upi\":\"vendor-upi\",\"card\":null,\"split\":true,\"days\":14,\"cashRefunds\":true,\"invoiceRequired\":false,\"buyerDetailsRequired\":false,\"creditNotesEnabled\":false,\"currency\":\"INR\",\"reason\":\"Approved operating setup\"}";
+  mvc.perform(post("/api/v1/vendor/pos/settings").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/vendor/pos/settings").with(csrf()).with(user("alice").authorities(()->"POS_SETTINGS_MANAGE")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1)).andExpect(jsonPath("$.split").value(true));
+  mvc.perform(post("/api/v1/vendor/pos/settings").with(csrf()).with(user("alice").authorities(()->"POS_SETTINGS_MANAGE")).contentType("application/json").content(body)).andExpect(status().isConflict());
+  long register=branchPolicies.createRegister("alice","New till approved");assertThat(db.queryForObject("SELECT tenant_id FROM registers WHERE id=?",Long.class,register)).isEqualTo(1L);
+  assertThat(branchPolicies.current("bob").name()).isEqualTo("B");assertThat(db.queryForObject("SELECT COUNT(*) FROM branch_settings_events",Integer.class)).isEqualTo(2);
+ }
  @Test void jwtRefreshRotationDetectsReuseAndRevokesTheWholeFamily() throws Exception {
   customers();var first=authentication.login("customer","CustomerPassword");assertThat(first.refreshToken()).hasSize(43);assertThat(first.accessToken()).contains(".");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM identity_refresh_tokens WHERE token_hash=?",Integer.class,first.refreshToken())).isZero();

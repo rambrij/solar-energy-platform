@@ -20,7 +20,7 @@ export default function PosCatalogue({locked,quantities,revision,onProducts,onAd
   onProducts([product]);
   if((quantities[product.id]??0)>=Math.min(10000,product.quantity)){setNotice('Available stock or quantity limit reached.');return;}
   if(!onAdd(product)){setNotice('Sale is locked or the bill line limit was reached.');return;}
-  setNotice(`Added ${product.name}`);if(scan){setSearch('');setCategory('all');setPage(0);setFocusRequested(true);}
+  setNotice(`Added ${product.name}`);if(scan){setSearch('');setQuery('');setCategory('all');setPage(0);setFocusRequested(true);}
  }
  async function scan(event:React.FormEvent){event.preventDefault();if(locked||scanning||!search.trim())return;setScanning(true);onBusyChange(true);setNotice('');
   try{const product:PosProduct=await api(`/catalogue/scan?${new URLSearchParams({code:search.trim()})}`);if(alive.current)add(product,true);}

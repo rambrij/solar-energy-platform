@@ -23,6 +23,7 @@ import CashRefunds, { refundStorageKey, type CashRefundView } from './CashRefund
 import CashRefundReceipt from './CashRefundReceipt';
 import { printDocument } from './printDocument';
 import TerminalTenderReview from './TerminalTenderReview';
+import StoreSettings from './StoreSettings';
 
 
 export default function App() {
@@ -134,6 +135,7 @@ export default function App() {
     <RefundInsights/>
     <CashierSalesInsights/>
     <ShiftHistory disabled={busy||checkingSession} revision={`${session}:${sessionState}`}/>
+    <StoreSettings/>
     <ShiftReviews/>
     <TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/>
   </Shell>;

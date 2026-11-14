@@ -1,6 +1,7 @@
 package com.saumya.pos.checkout;
 
 import com.saumya.pos.checkout.internal.*;
+import com.saumya.pos.retail.BranchPolicyService;
 import com.saumya.pos.cart.CartService;
 import com.saumya.pos.catalog.CatalogService;
 import com.saumya.pos.identity.CustomerAccess;
@@ -24,7 +25,7 @@ import static org.springframework.http.HttpStatus.*;
 public class CheckoutService {
     @org.springframework.beans.factory.annotation.Autowired private PaymentAttemptRepository paymentAttempts;
     @org.springframework.beans.factory.annotation.Autowired private PaymentPolicy paymentPolicy;
-    @org.springframework.beans.factory.annotation.Autowired private TerminalPolicyRepository terminalPolicies;
+    @org.springframework.beans.factory.annotation.Autowired private BranchPolicyService terminalPolicies;
     @org.springframework.beans.factory.annotation.Autowired private SaleDiscountService discounts;
     private final DraftRepository orders;private final DraftLineRepository lines;private final CartService carts;
     private final CustomerAccess customers;private final CatalogService catalogue;private final InventoryService stock;
@@ -46,7 +47,7 @@ public class CheckoutService {
     private String sha(String value){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
     private String key(String actor,String key){if(key==null||!key.matches("[A-Za-z0-9_-]{8,80}"))throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");return "draft-"+sha(actor+"|"+key);}
     private List<DraftLine> stored(DraftOrder order){return lines.lines(order.tenant(),order.id());}
-    private Draft view(DraftOrder order){boolean expired=recoveryPolicy.expired(order.status(),order.expires(),clock.instant());return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList(),("ONLINE".equals(order.channel())?paymentPolicy.enabled():terminalPolicies.findByTenantAndId(order.tenant(),order.branch()).map(TerminalPolicy::enabled).orElse(false))&&!expired&&"DRAFT".equals(order.status()),recoveryPolicy.message(order.status(),expired),order.session(),expired);}
+    private Draft view(DraftOrder order){boolean expired=recoveryPolicy.expired(order.status(),order.expires(),clock.instant());return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList(),("ONLINE".equals(order.channel())?paymentPolicy.enabled():terminalPolicies.find(order.tenant(),order.branch()).map(BranchPolicyService.Policy::enabled).orElse(false))&&!expired&&"DRAFT".equals(order.status()),recoveryPolicy.message(order.status(),expired),order.session(),expired);}
     private Draft replay(DraftOrder order,String hash){if(!hash.equals(order.hash()))conflict("Idempotency key already used for a different draft request");return view(order);}
     public Draft online(String username,String clientKey,OnlineDraft request){
         long customer=customers.resolve(username);customers.lock(customer);String key=key("ONLINE:"+customer,clientKey),hash=sha(request.expectedCartId());

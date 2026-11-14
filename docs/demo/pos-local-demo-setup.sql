@@ -39,6 +39,8 @@ BEGIN
     INSERT INTO registers (id, tenant_id, branch_id)
     VALUES (900001, 900001, 900001);
 
+    UPDATE retail_sequences SET next_id=GREATEST(next_id,900002) WHERE name='REGISTER';
+
     -- Demonstration price/tax only, not a production tax configuration.
     INSERT INTO products
         (id, tenant_id, sku, barcode, name, price, tax_rate, published)

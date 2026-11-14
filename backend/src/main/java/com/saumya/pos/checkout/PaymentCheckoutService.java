@@ -1,6 +1,7 @@
 package com.saumya.pos.checkout;
 
 import com.saumya.pos.checkout.internal.*;
+import com.saumya.pos.retail.BranchPolicyService;
 import com.saumya.pos.catalog.CatalogService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.inventory.InventoryService;
@@ -18,7 +19,7 @@ import static org.springframework.http.HttpStatus.*;
 @Service @Transactional
 public class PaymentCheckoutService {
  @org.springframework.beans.factory.annotation.Autowired private VendorPaymentAdapter adapter;
- @org.springframework.beans.factory.annotation.Autowired private TerminalPolicyRepository terminalPolicies;
+ @org.springframework.beans.factory.annotation.Autowired private BranchPolicyService terminalPolicies;
  @org.springframework.beans.factory.annotation.Autowired private TerminalTenderRules terminalRules;
  @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.cart.CartService carts;
  private final DraftRepository orders;private final DraftLineRepository lines;private final PaymentAttemptRepository attempts;
@@ -65,7 +66,7 @@ public class PaymentCheckoutService {
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),s.branch())||!username.equals(order.cashier()))throw missing();
   return order;
  }
- private TerminalPolicy terminalPolicy(DraftOrder order){return terminalPolicies.findByTenantAndId(order.tenant(),order.branch()).orElseThrow(this::missing);}
+ private BranchPolicyService.Policy terminalPolicy(DraftOrder order){return terminalPolicies.find(order.tenant(),order.branch()).orElseThrow(this::missing);}
  private View view(DraftOrder order){
   boolean online="ONLINE".equals(order.channel()),enabled=!online&&terminalPolicy(order).enabled();var attempt=attempts.findByTenantAndOrder(order.tenant(),order.id());
   String message=online?(policy.enabled()?"Pre-production online simulation. No real funds are collected.":"Online vendor payment provider is not configured."):"Prepare before collecting payment on the vendor's separate terminal. Only a different authorized supervisor can confirm external evidence. Unknown outcomes must be reconciled; do not charge again.";

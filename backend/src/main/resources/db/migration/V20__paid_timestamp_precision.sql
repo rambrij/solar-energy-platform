@@ -1,0 +1,1 @@
+ALTER TABLE orders MODIFY COLUMN status_changed_at TIMESTAMP(6) NULL;

@@ -16,6 +16,7 @@ import type { Receipt } from './types';
 import SaleReceipt from './SaleReceipt';
 import ReceiptPdfCopy from './ReceiptPdfCopy';
 import BillingBasket,{billEstimate} from './BillingBasket';
+import {discountsValid,draftPayload,hasManualDiscount,noDiscounts,parsePercent,type Discounts} from './discountMath';
 import {assessCash} from './cashTenderMath';
 import PosCatalogue,{type PosProduct as Product} from './PosCatalogue';
 import PosReturns from './PosReturns';
@@ -33,7 +34,7 @@ export default function App() {
   const [printRequested,setPrintRequested]=useState(false),[catalogueRevision,setCatalogueRevision]=useState(0);
   const refreshProducts=useCallback((items:Product[])=>setProducts(previous=>previous.map(product=>items.find(item=>item.id===product.id)??product)),[]);
   const [products,setProducts]=useState<Product[]>([]),[session,setSession]=useState(()=>sessionStorage.getItem('pos-session-v1')??'');
-  const [cart,setCart]=useState<Record<number,number>>({}),[cash,setCash]=useState(''),[invoice,setInvoice]=useState(false);
+  const [cart,setCart]=useState<Record<number,number>>({}),[cash,setCash]=useState(''),[invoice,setInvoice]=useState(false),[discounts,setDiscounts]=useState<Discounts>(noDiscounts);
   const [receiptError,setReceiptError]=useState('');
   const [error,setError]=useState(''),[busy,setBusy]=useState(false),[receipt,setReceipt]=useState<Receipt>();
   const [closePending,setClosePending]=useState(()=>{
@@ -84,11 +85,12 @@ export default function App() {
   },[checkRevision]);
   function activateSession(id:string,state='OPEN'){
     sessionStorage.setItem('pos-session-v1',id);setSession(id);setSessionState(state);
-    setCheckingSession(false);setSessionCheckFailed(false);setError('');setCart({});setCash('');setProducts([]);
+    setCheckingSession(false);setSessionCheckFailed(false);setError('');setCart({});setCash('');setDiscounts(noDiscounts);setProducts([]);
   }
   const saleLocked=refundPending||busy||!!pending||reservedBlocked||movementPending||closePending||sessionState!=='OPEN';
-  const invalidCart=Object.entries(cart).some(([id,q])=>!Number.isInteger(q)||q<1||q>Math.min(10000,products.find(product=>product.id===Number(id))?.quantity??0));
-  const cashReady=assessCash(cash,billEstimate(products,cart).total).status==='ready';
+  const invalidCart=Object.entries(cart).some(([id,q])=>!Number.isInteger(q)||q<1||q>Math.min(10000,products.find(product=>product.id===Number(id))?.quantity??0))||!discountsValid(discounts,Object.keys(cart).map(Number));
+  const discounted=hasManualDiscount(discounts);
+  const cashReady=assessCash(cash,billEstimate(products,cart,discounts).total).status==='ready'&&!discounted;
   function addProduct(product:Product){
     if(saleLocked||(!(product.id in cart)&&Object.keys(cart).length>=100))return false;
     const maximum=Math.min(10000,product.quantity);if((cart[product.id]??0)>=maximum)return false;
@@ -114,9 +116,9 @@ export default function App() {
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
       <div className="checkout-grid"><PosCatalogue key={session} locked={saleLocked} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onPromotionHistory={id=>{setPromotionProduct(id);window.location.hash='promotion-history';}} onAdd={addProduct} onBusyChange={setBusy}/>
-      <section id="current-sale" className="sale-panel retail-bill-panel" aria-labelledby="sale-title"><div className="section-heading"><h2 id="sale-title">Current sale</h2><span className="badge">{Object.values(cart).reduce((sum, q) => sum + q, 0)} items</span></div>{!Object.keys(cart).length && <div className="empty-state"><p>Your next solar sale starts here.</p><small>Add products from the catalogue.</small></div>}<BillingBasket products={products} cart={cart} locked={saleLocked} onQuantity={(id,q)=>setCart(value=>({...value,[id]:q}))} onRemove={id=>{setCart(value=>Object.fromEntries(Object.entries(value).filter(([key])=>key!==String(id))));setProducts(value=>value.filter(product=>product.id!==id));}} cash={cash} onCash={setCash} invoice={invoice} onInvoice={setInvoice}/>
+      <section id="current-sale" className="sale-panel retail-bill-panel" aria-labelledby="sale-title"><div className="section-heading"><h2 id="sale-title">Current sale</h2><span className="badge">{Object.values(cart).reduce((sum, q) => sum + q, 0)} items</span></div>{!Object.keys(cart).length && <div className="empty-state"><p>Your next solar sale starts here.</p><small>Add products from the catalogue.</small></div>}<BillingBasket products={products} cart={cart} locked={saleLocked} discounts={discounts} onDiscounts={setDiscounts} onQuantity={(id,q)=>setCart(value=>({...value,[id]:q}))} onRemove={id=>{setCart(value=>Object.fromEntries(Object.entries(value).filter(([key])=>key!==String(id))));setProducts(value=>value.filter(product=>product.id!==id));}} cash={cash} onCash={setCash} invoice={invoice} onInvoice={setInvoice}/>
       <button disabled={refundPending||busy||movementPending||closePending||reservedBlocked||(!pending&&(sessionState!=='OPEN'||invalidCart||!Object.keys(cart).length||!cashReady))} onClick={checkout}>{busy?'Checking sale…':pending?'Retry same sale':'Complete cash sale'}</button>
-      <ReservedDrafts key={`drafts-${session}`} mode="pos" session={session} createDisabled={invalidCart} items={Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity}))} invoiceRequested={invoice} disabled={refundPending||busy||!!pending||movementPending||closePending||sessionState!=='OPEN'} onBlocked={setReservedBlocked} onReceipt={(value,finalized)=>{displayReceipt(value);if(finalized){setCart({});setProducts([]);setCash('');setDrawerRevision(value=>value+1);}}} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/>
+      <ReservedDrafts key={`drafts-${session}`} mode="pos" session={session} createDisabled={invalidCart} items={draftPayload(cart,discounts).items} billDiscountPercent={parsePercent(discounts.bill)||undefined} invoiceRequested={invoice} disabled={refundPending||busy||!!pending||movementPending||closePending||sessionState!=='OPEN'} onBlocked={setReservedBlocked} onReceipt={(value,finalized)=>{displayReceipt(value);if(finalized){setCart({});setProducts([]);setCash('');setDiscounts(noDiscounts);setDrawerRevision(value=>value+1);}}} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/>
       </section></div><div className="operations-grid" id="register"><CashDrawer key={session} session={session} revision={drawerRevision} disabled={refundPending||busy||!!pending||closePending} readOnly={sessionState!=='OPEN'} onPendingChange={setMovementPending} onBusyChange={setBusy}/>
       <ShiftClose key={`close-${session}`} session={session} disabled={refundPending||busy||!!pending||movementPending||reservedBlocked} onStateChange={setSessionState} onPendingChange={setClosePending} onBusyChange={setBusy}/>
       </div>{sessionState!=='OPEN'&&<button disabled={refundPending||busy||!!pending||movementPending||closePending||reservedBlocked} onClick={()=>{sessionStorage.removeItem('pos-session-v1');setSession('');setError('');}}>Choose another session</button>}

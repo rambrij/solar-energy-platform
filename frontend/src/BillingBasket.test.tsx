@@ -4,8 +4,8 @@ import BillingBasket, { billEstimate } from './BillingBasket';
 const products = [{ id: 1, name: 'Panel', price: 90, list_price: 100, tax_rate: 10, quantity: 3 }];
 afterEach(cleanup);
 it('separates list subtotal, approved savings and tax using per-line cent rounding', () => {
- expect(billEstimate(products, { 1: 2 })).toEqual({ subtotal: 200, discount: 20, tax: 18, total: 198 });
- expect(billEstimate([{ ...products[0], price: .05, list_price: .1 }], { 1: 3 })).toEqual({ subtotal: .3, discount: .15, tax: .02, total: .17 });
+ expect(billEstimate(products, { 1: 2 })).toEqual({ subtotal: 200, discount: 20, manualDiscount: 0, tax: 18, total: 198 });
+ expect(billEstimate([{ ...products[0], price: .05, list_price: .1 }], { 1: 3 })).toEqual({ subtotal: .3, discount: .15, manualDiscount: 0, tax: .02, total: .17 });
 });
 it('supports quick quantity edits and preserves cash-only payment availability', () => {
  const quantity = vi.fn(), remove = vi.fn(); render(<BillingBasket products={products} cart={{ 1: 2 }} locked={false} onQuantity={quantity} onRemove={remove} cash="200" onCash={vi.fn()} invoice={false} onInvoice={vi.fn()}/>);

@@ -11,6 +11,7 @@ Traceability: requirements online single-vendor checkout/shared inventory and wa
 | GET `/api/vendor/pos/drafts?sessionId=...` | POS_VIEW; own tenant/branch/cashier/session; latest 20 reserved drafts |
 | POST `/api/vendor/pos/drafts/{id}/cancel` | POS_SALE_CANCEL; own tenant/branch/cashier; `{reason}` |
 | POST `/api/vendor/pos/drafts/{id}/finalize-cash` | POS_SALE_CREATE + POS_TENDER_CASH_RECORD + POS_RECEIPT_VIEW; `{cashReceived}` |
+| POST `/api/vendor/pos/drafts/{id}/finalize-split` | POS_SALE_CREATE + POS_TENDER_SPLIT + POS_RECEIPT_VIEW, plus POS_TENDER_CASH_RECORD for a CASH row and POS_TENDER_EXTERNAL_RECORD for UPI/CARD rows; `{tenders:[{method,amount}]}` |
 
 All mutations require CSRF. Client tenant, prices, cashier, customer or status overrides are rejected. Reasons are nonblank and at most 250 characters. Quantity is 1–10000, at most 100 distinct lines. Draft creation keys are 8–80 ASCII letters/digits/underscore/hyphen. Replaying the same key returns the original draft even after cancellation/payment; a changed command conflicts. Online retry fingerprints the explicit cart identity, so replay returns its original immutable snapshot even if cart contents subsequently changed. Use a new key for a new reservation after resolving the prior one.
 

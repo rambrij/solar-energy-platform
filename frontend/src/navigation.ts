@@ -4,7 +4,7 @@ const pos:NavigationItem[]=[
  {id:'main-content',label:'Overview',group:'Workspace'},
  {id:'checkout',label:'Product catalogue',group:'Sell'},
  {id:'current-sale',label:'Current bill',group:'Sell'},
- {id:'reserved-pos-checkout',label:'Reserved sales',group:'Sell'},
+ {id:'reserved-pos-checkout',label:'Held bills',group:'Sell'},
  {id:'order-history',label:'Sales history',group:'Sell'},
  {id:'sale-receipt',label:'Current receipt',group:'Sell'},
  {id:'register',label:'Drawer & shift closing',group:'Register'},

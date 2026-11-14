@@ -23,9 +23,16 @@ public class DraftLine {
     @Column(name="list_price",nullable=false,precision=19,scale=2) private BigDecimal listPrice;
     @Column(nullable=false,precision=19,scale=2) private BigDecimal discount;
     @Column(name="discount_percent",nullable=false,precision=5,scale=2) private BigDecimal discountPercent;
+    @Column(name="manual_discount_percent",nullable=false,precision=5,scale=2) private BigDecimal manualPercent=BigDecimal.ZERO;
+    @Column(name="manual_discount_unit",nullable=false,precision=19,scale=2) private BigDecimal manualUnit=BigDecimal.ZERO;
     protected DraftLine(){}
     public DraftLine(long tenant,String order,long product,String name,int quantity,BigDecimal price,BigDecimal rate,BigDecimal tax,BigDecimal total){id=new Key(tenant,order,product);this.name=name;this.quantity=quantity;this.price=price;taxRate=rate;this.tax=tax;this.total=total;listPrice=price;discount=BigDecimal.ZERO;discountPercent=BigDecimal.ZERO;}
     public DraftLine(long tenant,String order,long product,String name,int quantity,BigDecimal price,BigDecimal rate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal percent){this(tenant,order,product,name,quantity,price,rate,tax,total);this.listPrice=listPrice;discountPercent=percent;discount=listPrice.subtract(price).multiply(BigDecimal.valueOf(quantity));}
+    /** price is the effective unit price charged; manualUnit is the per-unit manual reduction already deducted from it. */
+    public DraftLine(long tenant,String order,long product,String name,int quantity,BigDecimal price,BigDecimal rate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal percent,BigDecimal manualPercent,BigDecimal manualUnit){this(tenant,order,product,name,quantity,price,rate,tax,total,listPrice,percent);this.manualPercent=manualPercent;this.manualUnit=manualUnit;}
+    public BigDecimal manualPercent(){return manualPercent;} public BigDecimal manualUnit(){return manualUnit;}
+    /** The catalogue price this line was priced from, before any manual discount. */
+    public BigDecimal catalogueUnit(){return price.add(manualUnit);}
     public BigDecimal listPrice(){return listPrice;} public BigDecimal discount(){return discount;} public BigDecimal discountPercent(){return discountPercent;}
     public long product(){return id.product;} public String name(){return name;} public int quantity(){return quantity;}
     public BigDecimal price(){return price;} public BigDecimal rate(){return taxRate;} public BigDecimal tax(){return tax;} public BigDecimal total(){return total;}

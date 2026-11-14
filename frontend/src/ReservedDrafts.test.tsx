@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import ReservedDrafts from './ReservedDrafts';
-import { api } from './api';
+import { api, ApiError } from './api';
 import { marketplaceApi } from './marketplaceApi';
 vi.mock('./api', async original => ({ ...await original<typeof import('./api')>(), api: vi.fn() }));
 vi.mock('./marketplaceApi', async original => ({ ...await original<typeof import('./marketplaceApi')>(), marketplaceApi: vi.fn() }));
@@ -81,4 +81,30 @@ it('keeps cash and cancellation reason attached to each reservation instead of s
 });
 it('offers exact cash for the selected reservation and blocks a short amount',async()=>{
  vi.mocked(api).mockResolvedValue([draft]);render(<ReservedDrafts mode="pos" session="s1"/>);await screen.findByLabelText('Draft d1');fireEvent.change(screen.getByLabelText('Cash received for reserved sale'),{target:{value:'109.99'}});expect((screen.getByText('Complete reserved cash sale') as HTMLButtonElement).disabled).toBe(true);fireEvent.click(screen.getByRole('button',{name:/Exact amount/}));expect((screen.getByLabelText('Cash received for reserved sale') as HTMLInputElement).value).toBe('110.00');expect((screen.getByText('Complete reserved cash sale') as HTMLButtonElement).disabled).toBe(false);expect(vi.mocked(api).mock.calls.every(call=>call[1]===undefined)).toBe(true);
+});
+it('completes a reserved sale by split tender and surfaces the receipt', async () => {
+  let paid = false; const receipt = { id: 'd1', total: 110, cash_received: 60, change_given: 10, payment_method: 'SPLIT' };
+  vi.mocked(api).mockImplementation(async path => {
+    if (path.endsWith('/finalize-split')) { paid = true; return receipt; }
+    return [{ ...draft, status: paid ? 'PAID' : 'DRAFT' }];
+  });
+  const onReceipt = vi.fn(); render(<ReservedDrafts mode="pos" session="s1" onReceipt={onReceipt} />);
+  await screen.findByText('Vendor A · DRAFT');
+  fireEvent.change(screen.getByLabelText(/^UPI amount/), { target: { value: '60' } }); fireEvent.change(screen.getByLabelText(/^Cash received$/), { target: { value: '60' } });
+  fireEvent.click(screen.getByText('Complete split payment')); await screen.findByText('Recover sale receipt');
+  expect(vi.mocked(api)).toHaveBeenCalledWith('/drafts/d1/finalize-split', { tenders: [{ method: 'CASH', amount: '60.00' }, { method: 'UPI', amount: '60.00' }] }, undefined);
+  expect(onReceipt).toHaveBeenCalledWith(receipt, true);
+});
+it('reports a rejected split without recording anything locally', async () => {
+  vi.mocked(api).mockImplementation(async path => { if (path.endsWith('/finalize-split')) throw new ApiError(400); return [draft]; });
+  render(<ReservedDrafts mode="pos" session="s1" />); await screen.findByText('Vendor A · DRAFT');
+  fireEvent.change(screen.getByLabelText(/^UPI amount/), { target: { value: '60' } }); fireEvent.change(screen.getByLabelText(/^Cash received$/), { target: { value: '60' } });
+  fireEvent.click(screen.getByText('Complete split payment')); await screen.findByText(/Split payment rejected \(400\)\. Nothing was recorded/);
+  expect(screen.queryByText('Retry same draft operation')).toBeNull();
+});
+it('sends manual discounts with the reservation and explains a permission refusal', async () => {
+  vi.mocked(api).mockImplementation(async (path, body) => { if (body) throw new ApiError(403); return []; });
+  render(<ReservedDrafts mode="pos" session="s1" items={[{ productId: 1, quantity: 1, discountPercent: 10 }]} billDiscountPercent={5} />);
+  fireEvent.click(screen.getByText('Reserve walk-in sale without payment')); await screen.findByText(/Discount not permitted/);
+  expect(vi.mocked(api)).toHaveBeenCalledWith('/drafts', { sessionId: 's1', items: [{ productId: 1, quantity: 1, discountPercent: 10 }], invoiceRequested: false, billDiscountPercent: 5 }, expect.any(String));
 });

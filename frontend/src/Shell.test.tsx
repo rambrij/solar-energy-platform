@@ -22,3 +22,35 @@ it('preserves modified-click browser behavior',()=>{render(<Shell mode="online">
 it('resolves an initial fragment once an asynchronous section is mounted',async()=>{
  window.history.replaceState({},'','/#checkout');const view=render(<Shell mode="pos"><p>Checking session</p></Shell>);expect(screen.queryByRole('link',{name:'Product catalogue'})).toBeNull();view.rerender(<Shell mode="pos"><section id="checkout">Products</section></Shell>);await waitFor(()=>expect(document.activeElement?.id).toBe('checkout'));await waitFor(()=>expect(screen.getByRole('link',{name:'Product catalogue'}).getAttribute('aria-current')).toBe('location'));
 });
+it('opens the Go to dropdown, groups sections, highlights the active one and navigates in place',()=>{
+ window.history.replaceState({},'','/#order-history');
+ render(<Shell mode="pos"><section id="current-sale"><h1>Bill</h1></section><section id="order-history">History</section></Shell>);
+ const toggle=screen.getByRole('button',{name:/Go to/});expect(toggle.getAttribute('aria-expanded')).toBe('false');expect(screen.queryByRole('menu')).toBeNull();
+ fireEvent.click(toggle);expect(toggle.getAttribute('aria-expanded')).toBe('true');
+ const menu=screen.getByRole('menu',{name:'Go to section'});expect(within(menu).getByRole('group',{name:'Sell'})).toBeTruthy();
+ expect(within(menu).getByRole('menuitem',{name:'Sales history'}).getAttribute('aria-current')).toBe('location');
+ expect(within(menu).queryByRole('menuitem',{name:'Cash refunds'})).toBeNull();
+ fireEvent.click(within(menu).getByRole('menuitem',{name:'Current bill'}));
+ expect(window.location.hash).toBe('#current-sale');expect(screen.queryByRole('menu')).toBeNull();expect(document.activeElement?.id).toBe('current-sale');
+});
+it('closes the Go to dropdown with Escape (returning focus) and on an outside click',()=>{
+ render(<Shell mode="online"><section id="order-history">Orders</section></Shell>);
+ const toggle=screen.getByRole('button',{name:/Go to/});fireEvent.click(toggle);expect(screen.getByRole('menu')).toBeTruthy();
+ fireEvent.keyDown(screen.getByRole('menu'),{key:'Escape'});expect(screen.queryByRole('menu')).toBeNull();expect(document.activeElement).toBe(toggle);
+ fireEvent.click(toggle);fireEvent.mouseDown(document.body);expect(screen.queryByRole('menu')).toBeNull();
+});
+it('shows one tab per available group, marks the active group and jumps to its first section',()=>{
+ window.history.replaceState({},'','/#order-history');
+ render(<Shell mode="pos"><section id="current-sale">Bill</section><section id="order-history">History</section><section id="register">Drawer</section></Shell>);
+ const tabs=screen.getByRole('navigation',{name:'Workspace tabs'});
+ expect(within(tabs).getByRole('link',{name:'Sell'}).getAttribute('aria-current')).toBe('true');expect(within(tabs).getByRole('link',{name:'Register'}).getAttribute('aria-current')).toBeNull();
+ expect(within(tabs).queryByRole('link',{name:'Reports'})).toBeNull();
+ fireEvent.click(within(tabs).getByRole('link',{name:'Register'}));
+ expect(window.location.hash).toBe('#register');expect(within(tabs).getByRole('link',{name:'Register'}).getAttribute('aria-current')).toBe('true');
+ expect(within(screen.getByRole('navigation',{name:'Breadcrumb'})).getByText('Drawer & shift closing')).toBeTruthy();
+});
+it('builds marketplace tabs and dropdown from the marketplace navigation',()=>{
+ render(<Shell mode="online"><section id="vendor-directory">Vendors</section><section id="customer-cart">Cart</section></Shell>);
+ const tabs=screen.getByRole('navigation',{name:'Workspace tabs'});expect(within(tabs).getByRole('link',{name:'Shop'})).toBeTruthy();expect(within(tabs).getByRole('link',{name:'Cart & checkout'})).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:/Go to/}));expect(within(screen.getByRole('menu')).getByRole('menuitem',{name:'My cart'})).toBeTruthy();
+});

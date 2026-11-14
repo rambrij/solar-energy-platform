@@ -115,3 +115,5 @@ DOC-001/DOC-003/POS-026/POS-027/POS-036/POS-040 now include a documents-owned Op
 ## Vendor payment and customer receipt increments
 
 Reserved ONLINE/IN_STORE checkout now supports default-disabled, explicitly labelled vendor-scoped UPI/card simulation, durable attempts, exact retries, current-read locks under MySQL REPEATABLE READ, atomic shared stock/receipt/invoice completion and cart preservation. See [VENDOR_PAYMENT_CHECKOUT.md](VENDOR_PAYMENT_CHECKOUT.md). Paid online orders also expose customer-owned saved receipt/invoice details and audited printable copies without financial writes; see [ONLINE_RECEIPTS.md](ONLINE_RECEIPTS.md). Live provider collection, split tender and original-provider refunds remain required release work.
+| Split tender (POS-013) | `TenderPlan`, `SplitTenderService`, `order_tenders` (V24), `PosTest` split tests, `TenderPlanTest`, `SplitPayment` component |
+| Manual line/bill discounts (POS-024) | `CheckoutService` discount authority + branch limit, `order_items.manual_discount_*` (V24), `PosTest` discount tests, `DiscountControls` |

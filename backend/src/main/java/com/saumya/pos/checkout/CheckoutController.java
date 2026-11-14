@@ -18,7 +18,7 @@ public class CheckoutController {
     Object cancelOnline(Principal p,@PathVariable String id,@Valid @RequestBody CheckoutService.Cancel r){return checkout.cancelOnline(p.getName(),id,r.reason());}
     @PostMapping("/api/vendor/pos/drafts") @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_SALE_CREATE')")
     Object pos(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CheckoutService.PosDraft r){
-        boolean apply=auth.getAuthorities().stream().anyMatch(a->"POS_DISCOUNT_APPLY".equals(a.getAuthority())),approve=auth.getAuthorities().stream().anyMatch(a->"POS_DISCOUNT_APPROVE".equals(a.getAuthority()));
+        boolean apply=auth.getAuthorities().stream().anyMatch(a->"POS_DISCOUNT_APPLY".equals(a.getAuthority())),approve=auth.getAuthorities().stream().anyMatch(a->"POS_DISCOUNT_OVERRIDE".equals(a.getAuthority()));
         return checkout.pos(auth.getName(),key,r,new CheckoutService.DiscountAuthority(apply,approve));}
     @GetMapping("/api/vendor/pos/drafts") @PreAuthorize("hasAuthority('POS_VIEW')")
     Object posList(Principal p,@RequestParam String sessionId){return checkout.posList(p.getName(),sessionId);}

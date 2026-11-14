@@ -26,11 +26,12 @@ The branch is already far past a greenfield build. Marketplace browsing, carts, 
 ## 4. Module boundaries (existing, to be kept)
 `catalog`, `cart`, `checkout`, `inventory`, `identity`, `retail`, `returns`, `documents`, `reporting`, `marketplace`, `shared`; each with `internal` for entities/repositories. ArchUnit rules already forbid cross-module internals and cycles. New split-tender and discount logic goes in `checkout` (tenders/payment attempts) and `catalog` (discount policy) and is exposed to `retail` via service interfaces.
 
-## 5. Data model changes (draft; next Flyway is V23)
+## 5. Data model changes (draft; next Flyway is V24: V22 is SQL and V23 is the Java migration `V23__order_payment_methods`)
 - `order_tenders` (id, tenant_id, order_id, method, amount, currency, status, reference, created_at) with composite tenant FK; unique (order_id, idempotency_key).
 - `order_discounts` (id, tenant_id, order_id, line_id nullable, type PERCENT|AMOUNT, value, reason, approved_by nullable, created_by, created_at).
 - `branch_policies.max_cashier_discount_percent` (default 0 = manual discounts disabled).
 - Possible `orders.customer_id` association audit row.
+- Replace `chk_sale_cash_amount` / `chk_sale_payment_method` (added in V23): they hard-code a single method per sale (`CASH` or `MOCK_UPI`/`MOCK_CARD`). Add a `SPLIT` method; for SPLIT, `cash_received - change_given` is the cash portion, so the drawer formula in `PosService` stays correct. Non-cash tenders live in `order_tenders`.
 
 ## 6. API contracts (draft)
 - `POST /api/pos/checkout/{draftId}/tenders` body `{method, amount, idempotencyKey, reference?}` -> tender + remaining due.
@@ -41,6 +42,7 @@ All mutations: CSRF, tenant/branch/session scoping, idempotency key, type-specif
 
 ## 7. Existing code likely to conflict (fix directly, no shims)
 - `PaymentCheckoutService` / `PaymentPolicy` assume one attempt per order ("order ID is the initiation idempotency boundary"); this must become per-tender.
+- `ReturnSaleAccess` and cash refunds require `payment_method='CASH'` and `cash-change=total`. SPLIT sales are therefore not cash-refundable (safe default); refunds of the non-cash part need provider refunds, which remain out of scope.
 - `CheckoutService.cashSale` finalization assumes a single cash tender (received minus change); generalise to tender rows.
 - Reserved-draft cash/cancellation values stored by draft ID; extend for tenders.
 - Receipt/PDF/online-receipt renderers print a single tender; update.

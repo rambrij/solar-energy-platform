@@ -9,7 +9,3 @@ export async function requestReportExport(kind:'sales'|'cash-refunds',body:{from
  const filename=response.headers.get('Content-Disposition')?.match(/filename="?([A-Za-z0-9._-]+)"?/)?.[1]??'report-export.csv';
  return {blob:await response.blob(),filename,reference};
 }
-export function downloadReportCsv(value:CsvDownload){
- const url=URL.createObjectURL(value.blob);const link=document.createElement('a');link.href=url;link.download=value.filename;document.body.append(link);
- try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-}

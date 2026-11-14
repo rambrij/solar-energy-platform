@@ -14,6 +14,7 @@ import RefundInsights from './RefundInsights';
 import CashierSalesInsights from './CashierSalesInsights';
 import type { Receipt } from './types';
 import SaleReceipt from './SaleReceipt';
+import ReceiptPdfCopy from './ReceiptPdfCopy';
 import BillingBasket,{billEstimate} from './BillingBasket';
 import {assessCash} from './cashTenderMath';
 import PosCatalogue,{type PosProduct as Product} from './PosCatalogue';
@@ -120,7 +121,7 @@ export default function App() {
       <ShiftClose key={`close-${session}`} session={session} disabled={refundPending||busy||!!pending||movementPending||reservedBlocked} onStateChange={setSessionState} onPendingChange={setClosePending} onBusyChange={setBusy}/>
       </div>{sessionState!=='OPEN'&&<button disabled={refundPending||busy||!!pending||movementPending||closePending||reservedBlocked} onClick={()=>{sessionStorage.removeItem('pos-session-v1');setSession('');setError('');}}>Choose another session</button>}
     </>}
-    {receipt && <SaleReceipt receipt={receipt} error={receiptError}><button disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Reprint copy</button><button className="secondary" disabled={busy} onClick={()=>startReturn(receipt.id)}>Start a stock return</button><button className="print-receipt" disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');setPrintRequested(true);}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Print receipt copy</button></SaleReceipt>}
+    {receipt && <SaleReceipt receipt={receipt} error={receiptError}><button disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Reprint copy</button><button className="secondary" disabled={busy} onClick={()=>startReturn(receipt.id)}>Start a stock return</button><button className="print-receipt" disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');setPrintRequested(true);}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Print receipt copy</button><ReceiptPdfCopy orderId={receipt.id} disabled={busy}/></SaleReceipt>}
     <OrderHistory mode="pos" onReturn={startReturn} onReceipt={value=>{displayReceipt(value);requestAnimationFrame(()=>document.getElementById('sale-receipt')?.scrollIntoView?.({behavior:'smooth',block:'start'}));}}/>
     <PosReturns session={session} sessionState={sessionState} disabled={refundPending||busy||!!pending||movementPending||closePending} initialOrderId={returnOrderId} refundedReturnId={refundReceipt?.returnId} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/>
     <CashRefunds session={session} sessionState={sessionState} disabled={busy||!!pending||movementPending||closePending||reservedBlocked||checkingSession} onPendingChange={setRefundPending} onBusyChange={setBusy} onRecorded={value=>{setRefundReceipt(value);setDrawerRevision(previous=>previous+1);}}/>

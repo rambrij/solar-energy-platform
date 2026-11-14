@@ -1,5 +1,6 @@
+import {downloadFile} from './fileDownload';
 import {afterEach,expect,it,vi} from 'vitest';
-import {requestReportExport,downloadReportCsv} from './reportExportApi';
+import {requestReportExport} from './reportExportApi';
 import {api,ApiError} from './api';
 vi.mock('./api',async original=>({...await original<typeof import('./api')>(),api:vi.fn()}));
 const reference='11111111-1111-4111-8111-111111111111';
@@ -16,5 +17,5 @@ it('does not download an HTML login response as a report',async()=>{
  vi.mocked(api).mockResolvedValue({token:'csrf'});vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('<html/>',{headers:{'Content-Type':'text/html','X-Export-Reference':reference}})));await expect(requestReportExport('sales',{from:'2026-11-12',to:'2026-11-13',reason:'Review'})).rejects.toThrow('Invalid export response');
 });
 it('cleans the temporary link and revokes the blob URL',()=>{
- vi.useFakeTimers();const create=vi.fn(()=> 'blob:report'),revoke=vi.fn();Object.defineProperty(URL,'createObjectURL',{configurable:true,value:create});Object.defineProperty(URL,'revokeObjectURL',{configurable:true,value:revoke});const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});downloadReportCsv({blob:new Blob(['csv']),filename:'sales.csv',reference});expect(click).toHaveBeenCalledOnce();expect(document.querySelector('a[download]')).toBeNull();vi.advanceTimersByTime(1000);expect(revoke).toHaveBeenCalledWith('blob:report');
+ vi.useFakeTimers();const create=vi.fn(()=> 'blob:report'),revoke=vi.fn();Object.defineProperty(URL,'createObjectURL',{configurable:true,value:create});Object.defineProperty(URL,'revokeObjectURL',{configurable:true,value:revoke});const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});downloadFile({blob:new Blob(['csv']),filename:'sales.csv',reference});expect(click).toHaveBeenCalledOnce();expect(document.querySelector('a[download]')).toBeNull();vi.advanceTimersByTime(1000);expect(revoke).toHaveBeenCalledWith('blob:report');
 });

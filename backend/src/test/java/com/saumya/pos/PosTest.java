@@ -35,7 +35,7 @@ class PosTest {
  String session;
  @BeforeEach void seed(){
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
@@ -1307,6 +1307,21 @@ class PosTest {
  @Test void paidStatusTimestampRetainsMicrosecondsInsteadOfRoundingIntoTheFuture(){
   var receipt=checkout.cashSale("alice","paid-precision",sale(1,"120"));String id=(String)receipt.get("id");var paid=java.time.Instant.parse("2026-11-13T12:00:00.654321Z");db.update("UPDATE orders SET status_changed_at=? WHERE id=?",java.sql.Timestamp.from(paid),id);
   assertThat(db.queryForObject("SELECT status_changed_at FROM orders WHERE id=?",java.sql.Timestamp.class,id).toInstant()).isEqualTo(paid);assertThat(((java.sql.Timestamp)service.receipt(a,id).get("issued_at")).toInstant()).isEqualTo(paid);
+ }
+
+ @Test void receiptPdfCopiesAreScopedAuditedAndMatchExactReturnedBytes() throws Exception {
+  var sale=checkout.cashSale("alice","pdf-original",sale(1,"120"));String id=(String)sale.get("id");db.update("UPDATE tenants SET name='Renamed seller' WHERE id=1");service.close(a,session,new BigDecimal("160"));int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);
+  var response=mvc.perform(post("/api/vendor/pos/receipts/"+id+"/document").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\" Customer requested copy \"}")).andExpect(status().isOk()).andExpect(content().contentType("application/pdf")).andExpect(header().string("Cache-Control","no-store")).andReturn().getResponse();
+  byte[] bytes=response.getContentAsByteArray();String reference=response.getHeader("X-Document-Reference");assertThat(reference).matches("[0-9a-f-]{36}");assertThat(response.getHeader("Content-Disposition")).contains(".pdf");String text;try(var reader=new org.openpdf.text.pdf.PdfReader(bytes)){text=new org.openpdf.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1);}assertThat(text).contains("COPY - Receipt 1/1","Vendor A","110.00",reference).doesNotContain("Renamed seller","Customer requested copy");
+  assertThat(db.queryForObject("SELECT content_sha256 FROM receipt_document_audit WHERE id=?",String.class,reference)).isEqualTo(HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));assertThat(db.queryForObject("SELECT content_length FROM receipt_document_audit WHERE id=?",Integer.class,reference)).isEqualTo(bytes.length);assertThat(db.queryForObject("SELECT reason FROM receipt_document_audit WHERE id=?",String.class,reference)).isEqualTo("Customer requested copy");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(1);assertThat(stock.atBranch(1,1,1)).isZero();
+ }
+ @Test void receiptPdfRejectsMissingRightsCsrfBadReasonForeignScopeAndUnsupportedGlyphs() throws Exception {
+  db.update("UPDATE products SET name='Panel 😀' WHERE id=1");String id=(String)checkout.cashSale("alice","pdf-unsupported",sale(1,"120")).get("id"),path="/api/vendor/pos/receipts/"+id+"/document";
+  mvc.perform(post(path).contentType("application/json").content("{\"reason\":\"Copy request\"}")).andExpect(status().isForbidden());
+  for(String missing:List.of("POS_VIEW","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT")){var rights=List.of("POS_VIEW","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT").stream().filter(p->!p.equals(missing)).map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList();mvc.perform(post(path).with(csrf()).with(user("alice").authorities(rights)).contentType("application/json").content("{\"reason\":\"Copy request\"}")).andExpect(status().isForbidden());}
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\" \"}")).andExpect(status().isBadRequest());
+  mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\"Copy request\"}")).andExpect(status().isNotFound());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\"Copy request\"}")).andExpect(status().isConflict());assertThat(db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit",Integer.class)).isZero();
  }
 
 }

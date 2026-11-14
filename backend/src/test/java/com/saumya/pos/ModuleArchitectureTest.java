@@ -7,12 +7,12 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 class ModuleArchitectureTest {
     @Test void moduleInternalsArePrivateAndModuleDependenciesAreAcyclic(){
         var classes=new ClassFileImporter().withImportOption(new ImportOption.DoNotIncludeTests()).importPackages("com.saumya.pos");
-        for(String module:new String[]{"cart","catalog","identity","inventory","checkout","returns","reporting","retail"}){
+        for(String module:new String[]{"cart","catalog","identity","inventory","checkout","returns","reporting","retail","documents"}){
             noClasses().that().resideOutsideOfPackage("com.saumya.pos."+module+"..")
                 .should().dependOnClassesThat().resideInAnyPackage("com.saumya.pos."+module+".internal..")
                 .because("other modules must use the public application service").check(classes);
         }
-        noClasses().that().resideInAnyPackage("..cart..","..catalog..","..identity..","..inventory..","..checkout..","..returns..","..reporting..")
+        noClasses().that().resideInAnyPackage("..cart..","..catalog..","..identity..","..inventory..","..checkout..","..returns..","..reporting..","..documents..")
             .should().dependOnClassesThat().resideInAnyPackage("org.springframework.jdbc..")
             .because("these modules own Spring Data JPA persistence").check(classes);
         slices().matching("com.saumya.pos.(*)..").should().beFreeOfCycles().check(classes);

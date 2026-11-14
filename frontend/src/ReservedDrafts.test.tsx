@@ -82,3 +82,27 @@ it('keeps cash and cancellation reason attached to each reservation instead of s
 it('offers exact cash for the selected reservation and blocks a short amount',async()=>{
  vi.mocked(api).mockResolvedValue([draft]);render(<ReservedDrafts mode="pos" session="s1"/>);await screen.findByLabelText('Draft d1');fireEvent.change(screen.getByLabelText('Cash received for reserved sale'),{target:{value:'109.99'}});expect((screen.getByText('Complete reserved cash sale') as HTMLButtonElement).disabled).toBe(true);fireEvent.click(screen.getByRole('button',{name:/Exact amount/}));expect((screen.getByLabelText('Cash received for reserved sale') as HTMLInputElement).value).toBe('110.00');expect((screen.getByText('Complete reserved cash sale') as HTMLButtonElement).disabled).toBe(false);expect(vi.mocked(api).mock.calls.every(call=>call[1]===undefined)).toBe(true);
 });
+
+it('shows held and completed bills in tabs with counts, a hold timer and arrow-key navigation', async () => {
+  const paid = { ...draft, id: 'd2', status: 'PAID' };
+  vi.mocked(api).mockImplementation(async () => [draft, paid]);
+  render(<ReservedDrafts mode="pos" session="s1" />); await screen.findByText('Vendor A · DRAFT');
+  const tabs = screen.getByRole('tablist', { name: 'Held and completed bills' });
+  expect(within(tabs).getByRole('tab', { name: /^All 2/ }).getAttribute('aria-selected')).toBe('true');
+  expect(within(tabs).getByRole('tab', { name: /^Held bills 1/ })).toBeTruthy(); expect(within(tabs).getByRole('tab', { name: /^Completed 1/ })).toBeTruthy();
+  expect(screen.getByRole('timer').textContent).toMatch(/Time left on hold: \d+d \d+h/);
+  fireEvent.click(within(tabs).getByRole('tab', { name: /^Held bills/ }));
+  expect(screen.getByText('Vendor A · DRAFT')).toBeTruthy(); expect(screen.queryByText('Vendor A · PAID')).toBeNull();
+  fireEvent.keyDown(within(tabs).getByRole('tab', { name: /^Held bills/ }), { key: 'ArrowRight' });
+  expect(within(tabs).getByRole('tab', { name: /^Completed/ }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByText('Vendor A · PAID')).toBeTruthy(); expect(screen.queryByText('Vendor A · DRAFT')).toBeNull();
+  expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe('held-tab-done');
+});
+it('explains an empty Held bills tab and offers no tabs for online drafts', async () => {
+  vi.mocked(api).mockImplementation(async () => [{ ...draft, status: 'PAID' }]);
+  const view = render(<ReservedDrafts mode="pos" session="s1" />); await screen.findByText('Vendor A · PAID');
+  fireEvent.click(screen.getByRole('tab', { name: /^Held bills/ })); expect(screen.getByRole('status').textContent).toContain('No bills are on hold');
+  view.unmount(); vi.mocked(marketplaceApi).mockImplementation(async () => [{ ...draft, channel: 'ONLINE' }]);
+  render(<ReservedDrafts mode="online" cartId="c" />); fireEvent.click(screen.getByText('Reload reserved drafts')); await screen.findByText('Vendor A · DRAFT');
+  expect(screen.queryByRole('tablist')).toBeNull();
+});

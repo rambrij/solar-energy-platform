@@ -208,7 +208,7 @@ public class PosService {
     public Reconciliation reconciliation(Scope s,String id) {
         var shift=one("SELECT state,opening_float,counted_cash FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",
             s.tenant,s.branch,s.cashier,id);
-        var sales=db.queryForList("SELECT cash_received,change_given FROM orders WHERE tenant_id=? AND session_id=? AND status='PAID' ORDER BY id FOR UPDATE",s.tenant,id);
+        var sales=db.queryForList("SELECT cash_received,change_given FROM pos_drawer_tenders WHERE tenant_id=? AND session_id=? ORDER BY id FOR UPDATE",s.tenant,id);
         var refunds=db.queryForList("SELECT amount FROM pos_cash_refunds WHERE tenant_id=? AND session_id=? ORDER BY id FOR UPDATE",s.tenant,id);
         var movements=db.queryForList("SELECT id,movement_type,amount,reason,cashier,created_at FROM pos_cash_movements WHERE tenant_id=? AND session_id=? ORDER BY created_at,id FOR UPDATE",
             s.tenant,id);

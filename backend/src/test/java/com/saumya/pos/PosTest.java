@@ -44,6 +44,7 @@ class PosTest {
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
+  update("DELETE FROM pos_drawer_tenders");
   update("DELETE FROM vendor_payment_attempts");
   update("UPDATE tenants SET online_branch_id=NULL");
   for(String table:List.of("catalog_change_events","branch_settings_events","identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
@@ -121,6 +122,17 @@ class PosTest {
   checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));assertThat(onlineReceipts.read("customer",draft.id()).orderId()).isEqualTo(draft.id());
  }
  @Test void expiredAssociationTokenCannotAttachCustomer(){configureOnline();var draft=checkout.pos("alice","expired-association",posDraft());var challenge=associations.create("alice",draft.id(),true);update("UPDATE pos_customer_challenges SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));assertThatThrownBy(()->associations.approve("customer",challenge.token(),true));assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();}
+ @Test void partialCashImmediatelyAppearsInDrawerAndRetriesCannotDoubleCount(){
+  enableTerminal();update("UPDATE branches SET split_tender_enabled=TRUE WHERE id=1");
+  var draft=checkout.pos("alice","drawer-partial",posDraft());var request=new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("50"));
+  payments.tender("alice",draft.id(),"drawer-cash",request);
+  var scope=new PosService.Scope(1,1,"alice");var first=service.reconciliation(scope,session);
+  assertThat(first.cashReceived()).isEqualByComparingTo("50");assertThat(first.changeGiven()).isEqualByComparingTo("10");assertThat(first.expectedCash()).isEqualByComparingTo("90");
+  payments.tender("alice",draft.id(),"drawer-cash",request);assertThat(service.reconciliation(scope,session)).isEqualTo(first);
+  payments.tender("alice",draft.id(),"drawer-rest",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("70"),new BigDecimal("70")));
+  assertThat(service.reconciliation(scope,session).expectedCash()).isEqualByComparingTo("160");
+  payments.finalizeTenders("alice",draft.id());assertThat(service.reconciliation(scope,session).expectedCash()).isEqualByComparingTo("160");
+ }
  @Test void splitTenderLimitsAndChangedRetryPayloadAreRejected(){
   enableTerminal();var draft=checkout.pos("alice","tender-limits",posDraft());
   assertThatThrownBy(()->payments.tender("alice",draft.id(),"split-disabled",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40")))).hasMessageContaining("disabled");
@@ -569,6 +581,7 @@ class PosTest {
   assertThat(legacy.queryForObject("SELECT cash_variance FROM pos_sessions",BigDecimal.class)).isEqualByComparingTo("0");
   assertThat(legacy.queryForObject("SELECT close_request_id FROM pos_sessions",String.class)).isEqualTo("legacy");
   assertThat(legacy.queryForObject("SELECT state FROM pos_sessions",String.class)).isEqualTo("CLOSED");
+  assertThat(legacy.queryForObject("SELECT cash_received-change_given FROM pos_drawer_tenders",BigDecimal.class)).isEqualByComparingTo("110");
  }
  @Test void httpCloseRequiresVarianceReasonAndPreservesClientRetryIdentity() throws Exception {
   String path="/api/v1/vendor/pos/sessions/"+session+"/close",key=UUID.randomUUID().toString();
@@ -1492,6 +1505,7 @@ class PosTest {
  }
  @Test void receiptIdentityRollsBackWithSaleAndLegacyReadNeverInventsNames(){
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{checkout.cashSale(a.cashier(),"identity-rollback",sale(1,"120"));throw new IllegalStateException("Rollback sale");})).isInstanceOf(IllegalStateException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders",Integer.class)).isZero();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isZero();
   String id=(String)checkout.cashSale(a.cashier(),"identity-legacy",sale(1,"120")).get("id");update("UPDATE orders SET receipt_seller_name=NULL,receipt_outlet_name=NULL WHERE id=?",id);update("UPDATE tenants SET name='Mutable current seller' WHERE id=1");assertThat(service.receipt(a,id).get("receipt_seller_name")).isNull();assertThat(service.reprint(a,id).get("receipt_outlet_name")).isNull();assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,id)).isNull();
  }

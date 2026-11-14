@@ -23,6 +23,7 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service @Transactional
 public class CheckoutService {
+ @org.springframework.beans.factory.annotation.Autowired private org.springframework.context.ApplicationEventPublisher events;
     @org.springframework.beans.factory.annotation.Autowired private PaymentAttemptRepository paymentAttempts;
     @org.springframework.beans.factory.annotation.Autowired private PaymentPolicy paymentPolicy;
     @org.springframework.beans.factory.annotation.Autowired private BranchPolicyService terminalPolicies;
@@ -117,7 +118,8 @@ public class CheckoutService {
         var expected=new LinkedHashMap<Long,Integer>();for(var line:stored)expected.put(line.product(),line.quantity());
         if(consumed.isEmpty()||!consumed.equals(expected))throw new IllegalStateException("Reservation does not match draft snapshots");
         var receipt=retail.allocateReceipt(s);boolean invoice=receipt.invoiceRequired()||order.invoiceRequested();
-        paymentAttempts.saveAndFlush(PaymentAttempt.cash(order.tenant(),id,order.total(),cash,"cash-finalize",sha(cash.setScale(2).toPlainString()),clock.instant()));
+        var tender=paymentAttempts.saveAndFlush(PaymentAttempt.cash(order.tenant(),id,order.total(),cash,"cash-finalize",sha(cash.setScale(2).toPlainString()),clock.instant()));
+        events.publishEvent(new com.saumya.pos.shared.CashTenderRecorded(tender.id(),order.tenant(),order.branch(),order.session(),id,tender.cash(),tender.change()));
         order.pay(cash,receipt.number(),invoice,clock.instant());orders.flush();
         retail.draftDocuments(s,id,stored.stream().map(l->new PosService.StockIssue(l.product(),l.quantity())).toList(),receipt,order.total(),invoice);
         return retail.receipt(s,id);

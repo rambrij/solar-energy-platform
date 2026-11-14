@@ -18,6 +18,7 @@ import static org.springframework.http.HttpStatus.*;
 /** Two requests separate durable initiation from explicit mock-provider confirmation. No real funds move. */
 @Service @Transactional
 public class PaymentCheckoutService {
+ @org.springframework.beans.factory.annotation.Autowired private org.springframework.context.ApplicationEventPublisher events;
  @org.springframework.beans.factory.annotation.Autowired private VendorPaymentAdapter adapter;
  @org.springframework.beans.factory.annotation.Autowired private BranchPolicyService terminalPolicies;
  @org.springframework.beans.factory.annotation.Autowired private TerminalTenderRules terminalRules;
@@ -52,7 +53,7 @@ public class PaymentCheckoutService {
    if(!configured.enabled())conflict("Manual terminal verification is disabled");
    attempt=PaymentAttempt.terminal(order.tenant(),id,request.method(),terminalRules.token(configured.merchant(request.method()),80),request.appliedAmount(),clock.instant());attempt.command(key,hash);
   }
-  attempts.saveAndFlush(attempt);retail.draftAudit(new PosService.Scope(order.tenant(),order.branch(),username),"TENDER_RECORD",id);
+  attempts.saveAndFlush(attempt);if("CASH".equals(attempt.method()))events.publishEvent(new com.saumya.pos.shared.CashTenderRecorded(attempt.id(),order.tenant(),order.branch(),order.session(),id,attempt.cash(),attempt.change()));retail.draftAudit(new PosService.Scope(order.tenant(),order.branch(),username),"TENDER_RECORD",id);
   if("CASH".equals(request.method())&&collected(order).compareTo(order.total())==0)complete(order,attempt,false);
   return summary(order);
  }

@@ -46,12 +46,12 @@ class PosTest {
  @BeforeEach void seed(){
   update("DELETE FROM vendor_payment_attempts");
   update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("branch_settings_events","identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
+  for(String table:List.of("catalog_change_events","branch_settings_events","identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
   update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
-  employee("alice",1,1);employee("bob",2,2);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");
+  employee("alice",1,1);employee("bob",2,2);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
   update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
-  update("INSERT INTO products VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
+  update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
   update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,1,1),(2,2,2,1)");
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("50"))).get("id");
  }
@@ -60,6 +60,21 @@ class PosTest {
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=payments.tenderStatus(username,id).remaining();var result=payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null));return result.tenders().getLast();}
+ @Test void categoryManagementEnforcesPermissionsTenantOwnershipVersionAndArchive() throws Exception {
+  String body="{\"name\":\"Panels\",\"slug\":\"panels\",\"expectedVersion\":0,\"active\":true,\"reason\":\"Approved catalogue setup\"}";
+  mvc.perform(post("/api/v1/vendor/categories").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  var response=mvc.perform(post("/api/v1/vendor/categories").with(csrf()).with(user("alice").authorities(()->"PRODUCT_CREATE")).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn();
+  long category=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("id").asLong();
+  mvc.perform(post("/api/v1/vendor/categories").with(csrf()).with(user("alice").authorities(()->"PRODUCT_CREATE")).contentType("application/json").content(body)).andExpect(status().isConflict());
+  mvc.perform(put("/api/v1/vendor/categories/"+category).with(csrf()).with(user("bob").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(body)).andExpect(status().isNotFound());
+  update("INSERT INTO product_categories VALUES(1,1,?)",category);
+  String archived=body.replace("\"active\":true","\"active\":false");
+  mvc.perform(put("/api/v1/vendor/categories/"+category).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(archived)).andExpect(status().isForbidden());
+  mvc.perform(put("/api/v1/vendor/categories/"+category).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE",()->"PRODUCT_ARCHIVE")).contentType("application/json").content(archived)).andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM product_categories WHERE tenant_id=1",Integer.class)).isZero();
+  mvc.perform(put("/api/v1/vendor/categories/"+category).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE",()->"PRODUCT_ARCHIVE")).contentType("application/json").content(archived)).andExpect(status().isConflict());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_change_events",Integer.class)).isEqualTo(2);
+ }
  @Test void branchSettingsRequirePermissionAndVersionAndCreateAnAuditedTill() throws Exception {
   String body="{\"name\":\"Updated outlet\",\"expectedVersion\":0,\"enabled\":true,\"upi\":\"vendor-upi\",\"card\":null,\"split\":true,\"days\":14,\"cashRefunds\":true,\"invoiceRequired\":false,\"buyerDetailsRequired\":false,\"creditNotesEnabled\":false,\"currency\":\"INR\",\"reason\":\"Approved operating setup\"}";
   mvc.perform(post("/api/v1/vendor/pos/settings").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
@@ -545,7 +560,7 @@ class PosTest {
   legacy.update("INSERT INTO employees VALUES('legacy','unused',1,1,TRUE)");
   legacy.update("INSERT INTO registers VALUES(1,1,1)");
   legacy.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float,expected_cash,counted_cash,closed_at) VALUES('legacy',1,1,'legacy',1,'CLOSED',50,50,50,CURRENT_TIMESTAMP)");
-  legacy.update("INSERT INTO products VALUES(1,1,'OLD',NULL,'Legacy panel',100,10,TRUE)");
+  legacy.update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(1,1,'OLD',NULL,'Legacy panel',100,10,TRUE)");
   legacy.update("INSERT INTO orders(id,tenant_id,branch_id,cashier,session_id,sales_channel,idempotency_key,request_hash,total,cash_received,change_given,receipt_number,tax_invoice) VALUES('legacy-order',1,1,'legacy','legacy','IN_STORE','legacy-key','hash',110,120,10,1,FALSE)");
   legacy.update("INSERT INTO order_items VALUES(1,'legacy-order',1,'Legacy panel',1,100,10,10,110)");
   org.flywaydb.core.Flyway.configure().dataSource(url,"sa","").locations("classpath:db/migration").load().migrate();
@@ -570,7 +585,7 @@ class PosTest {
   update("INSERT INTO customer_profiles VALUES(100,100),(101,101)");
  }
  @Test void anonymousMarketplaceExposesOnlyActivePublishedCatalogue() throws Exception {
-  customers();update("INSERT INTO products VALUES(3,1,'SECRET',NULL,'Private draft',1,0,FALSE)");
+  customers();update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'SECRET',NULL,'Private draft',1,0,FALSE)");
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panel"));
   update("UPDATE tenants SET active=FALSE WHERE id=2");
   mvc.perform(get("/api/v1/marketplace/vendors")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
@@ -762,7 +777,7 @@ class PosTest {
   checkout.pos("alice","after-expiry",posDraft());
  }
  @Test void reservationFailureRollsBackEveryLineAndOrder(){
-  update("INSERT INTO products VALUES(3,1,'P3',NULL,'Missing stock',100,0,TRUE)");
+  update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'P3',NULL,'Missing stock',100,0,TRUE)");
   var request=new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),false,null);
   assertThatThrownBy(()->checkout.pos("alice","rollback-hold",request));
   assertThat(stock.available(1,1)).isEqualTo(1);
@@ -891,7 +906,7 @@ class PosTest {
  }
  @Test void salesReportSeparatesPaidTaxCashAndOnlineReservationsWithoutDoubleCounting() throws Exception {
   configureOnline();update("UPDATE inventory SET quantity=10 WHERE tenant_id=1");
-  update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,5)");
+  update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,5)");
   checkout.cashSale(a.cashier(),"report-paid1",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,2)),new BigDecimal("200"),true,null));
   var cancelled=onlineDraft("report-cancel");checkout.cancelOnline("customer",cancelled.id(),"Buying later");onlineDraft("report-unpaid");
   update("UPDATE products SET price=999,tax_rate=80 WHERE tenant_id=1");
@@ -915,8 +930,8 @@ class PosTest {
  }
 
  @Test void retailCategoriesArePublishedTenantOwnedAndForeignAssignmentsFail() throws Exception {
-  customers();update("INSERT INTO catalog_categories VALUES(1,1,'Panels','panels'),(2,2,'Private','private'),(3,1,'Hidden','hidden')");
-  update("INSERT INTO products VALUES(3,1,'HIDDEN',NULL,'Hidden item',100,10,FALSE)");
+  customers();update("INSERT INTO catalog_categories(id,tenant_id,name,slug) VALUES(1,1,'Panels','panels'),(2,2,'Private','private'),(3,1,'Hidden','hidden')");
+  update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'HIDDEN',NULL,'Hidden item',100,10,FALSE)");
   update("INSERT INTO product_categories VALUES(1,1,1),(2,2,2),(1,3,3)");
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/categories")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panels")).andExpect(jsonPath("$[0].products").value(1));
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$[0].categoryId").value(1)).andExpect(jsonPath("$[0].categoryName").value("Panels"));
@@ -997,7 +1012,7 @@ class PosTest {
   demoStore();update("UPDATE tenants SET active=FALSE WHERE id=900001");loadSolarDemoSeed();assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_categories",Integer.class)).isZero();
  }
  @Test void solarDemoSeedSkipsForeignProductIdCollisions() throws Exception {
-  demoStore();update("INSERT INTO products VALUES(900101,1,'FOREIGN',NULL,'Keep foreign product',9,0,TRUE)");loadSolarDemoSeed();
+  demoStore();update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(900101,1,'FOREIGN',NULL,'Keep foreign product',9,0,TRUE)");loadSolarDemoSeed();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(17);
   assertThat(db.queryForObject("SELECT tenant_id FROM products WHERE id=900101",Long.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory WHERE tenant_id=900001 AND product_id=900101",Integer.class)).isZero();
@@ -1035,7 +1050,7 @@ class PosTest {
   assertThat(returns.eligibility("alice",order).items().getFirst().remaining()).isEqualTo(1);returns.create("alice","return-new3",returnRequest(order,1));assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
  }
  @Test void inspectionRollsBackAllStockAndDispositionRowsIfAnyRestockFails(){
-  enableReturns();supervisor("manager");update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
+  enableReturns();supervisor("manager");update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
   var receipt=checkout.cashSale(a.cashier(),"return-sale4",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),new BigDecimal("150"),false,null));
   var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Goods returned","ORIGINAL_RECEIPT","Receipt and both goods checked");var request=returns.create("alice","return-case4",command);returns.review("manager",request.id(),approveReturn());
   var inspection=new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"SELLABLE","RESTOCK","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"SELLABLE","RESTOCK","Cable checked")));
@@ -1156,7 +1171,7 @@ class PosTest {
  }
 
  @Test void refundReportUsesPayoutUtcDatesAndDoesNotMultiplyMultiLineCash() throws Exception {
-  enableReturns();supervisor("manager");update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
+  enableReturns();supervisor("manager");update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
   var receipt=checkout.cashSale(a.cashier(),"refund-report-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),new BigDecimal("150"),false,null));
   var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Returned goods","ORIGINAL_RECEIPT","Receipt checked");
   var returned=returns.create("alice","refund-report-return",command);returns.review("manager",returned.id(),approveReturn());
@@ -1183,9 +1198,9 @@ class PosTest {
   update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
   update("UPDATE tenants SET online_branch_id=1 WHERE id=1");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other stock')");
-  update("INSERT INTO products VALUES(3,1,'INV',NULL,'Inverter',200,10,TRUE),(4,1,'BAT',NULL,'Battery',75,0,TRUE),(5,1,'HIDDEN',NULL,'Private Panel',1,0,FALSE),(6,1,'CABLE',NULL,'100%_Cable!',10,0,TRUE)");
+  update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'INV',NULL,'Inverter',200,10,TRUE),(4,1,'BAT',NULL,'Battery',75,0,TRUE),(5,1,'HIDDEN',NULL,'Private Panel',1,0,FALSE),(6,1,'CABLE',NULL,'100%_Cable!',10,0,TRUE)");
   update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity,reserved) VALUES(1,1,3,2,1),(1,3,4,5,0),(1,1,6,1,0)");update("UPDATE inventory SET reserved=1 WHERE tenant_id=1 AND product_id=1");
-  update("INSERT INTO catalog_categories VALUES(101,1,'Panels','panels'),(102,1,'Inverters','inverters'),(201,2,'Private category','private')");
+  update("INSERT INTO catalog_categories(id,tenant_id,name,slug) VALUES(101,1,'Panels','panels'),(102,1,'Inverters','inverters'),(201,2,'Private category','private')");
   update("INSERT INTO product_categories VALUES(1,1,101),(1,3,102),(1,5,101),(2,2,201)");
   promotions.approve(1,"alice",3,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("75"),"Approved inverter offer"));
  }
@@ -1211,7 +1226,7 @@ class PosTest {
  }
 
  @Test void cataloguePriceSortingUsesRoundedPromotionsAndStableIdTies() throws Exception {
-  searchableCatalogue();update("INSERT INTO products VALUES(7,1,'TINY',NULL,'Tiny connector',0.05,10,TRUE),(8,1,'TIE',NULL,'Tie inverter',50,0,TRUE)");
+  searchableCatalogue();update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(7,1,'TINY',NULL,'Tiny connector',0.05,10,TRUE),(8,1,'TIE',NULL,'Tie inverter',50,0,TRUE)");
   promotions.approve(1,"alice",7,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("10"),"Approved connector offer"));
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/catalogue").param("q","tiny")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].price").value(0.05));
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/catalogue").param("sort","price-low").param("size","2").param("page","1")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(3)).andExpect(jsonPath("$.items[1].id").value(8)).andExpect(jsonPath("$.totalElements").value(6));
@@ -1291,7 +1306,7 @@ class PosTest {
  }
 
  @Test void cashierSalesPagesRetainOriginalSellerAndSavedAmountsAcrossClosedShifts() throws Exception {
-  configureOnline();update("UPDATE inventory SET quantity=10 WHERE tenant_id=1");update("INSERT INTO products VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,10)");
+  configureOnline();update("UPDATE inventory SET quantity=10 WHERE tenant_id=1");update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,10)");
   promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Approved offer"));
   checkout.cashSale(a.cashier(),"cashier-alice-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,2)),new BigDecimal("200"),true,null));
   var manager=supervisor("manager");update("INSERT INTO registers VALUES(3,1,1)");String managerSession=(String)service.open(manager,new PosService.OpenSession(3,BigDecimal.ZERO)).get("id");

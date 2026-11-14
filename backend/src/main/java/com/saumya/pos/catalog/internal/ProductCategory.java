@@ -8,10 +8,14 @@ public class ProductCategory {
   @Column(name="tenant_id") private long tenantId;
   @Column(name="product_id") private long productId;
   public Key(){}
+  public Key(long tenant,long product){tenantId=tenant;productId=product;}
+  public long product(){return productId;}
   @Override public boolean equals(Object other){return other instanceof Key k&&tenantId==k.tenantId&&productId==k.productId;}
   @Override public int hashCode(){return Objects.hash(tenantId,productId);}
  }
  @EmbeddedId private Key id;
  @Column(name="category_id",nullable=false) private long categoryId;
  protected ProductCategory(){}
+ public ProductCategory(long tenant,long product,long category){id=new Key(tenant,product);categoryId=category;}
+ public long product(){return id.product();}public long category(){return categoryId;}
 }

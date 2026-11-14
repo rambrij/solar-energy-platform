@@ -24,9 +24,12 @@ import CashRefundReceipt from './CashRefundReceipt';
 import { printDocument } from './printDocument';
 import TerminalTenderReview from './TerminalTenderReview';
 import StoreSettings from './StoreSettings';
+import CategoryManager from './CategoryManager';
+import {useSession} from './session';
 
 
 export default function App() {
+  const {account}=useSession();
   const [refundPending,setRefundPending]=useState(()=>!!sessionStorage.getItem(refundStorageKey));
   const [refundReceipt,setRefundReceipt]=useState<CashRefundView>();
   const [promotionProduct,setPromotionProduct]=useState<number>();
@@ -135,6 +138,7 @@ export default function App() {
     <RefundInsights/>
     <CashierSalesInsights/>
     <ShiftHistory disabled={busy||checkingSession} revision={`${session}:${sessionState}`}/>
+    {account?.permissions.includes('PRODUCT_VIEW')&&<CategoryManager onChanged={()=>setCatalogueRevision(value=>value+1)}/>}
     <StoreSettings/>
     <ShiftReviews/>
     <TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/>

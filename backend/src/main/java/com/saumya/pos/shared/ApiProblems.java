@@ -10,6 +10,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class ApiProblems {
     @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
     ResponseEntity<ProblemDetail> invalid(org.springframework.web.bind.MethodArgumentNotValidException error){var body=ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,"Request validation failed");body.setProperty("code","VALIDATION_FAILED");return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_PROBLEM_JSON).body(body);}
+    @ExceptionHandler({org.springframework.dao.DataIntegrityViolationException.class,org.hibernate.exception.ConstraintViolationException.class})
+    ResponseEntity<ProblemDetail> conflict(RuntimeException error){var body=ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,"The change conflicts with an existing record or data constraint");body.setProperty("code","DATA_CONFLICT");return ResponseEntity.status(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(body);}
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<ProblemDetail> state(ResponseStatusException error) {
         String code = error instanceof DomainProblem problem ? problem.code() : "REQUEST_REJECTED";

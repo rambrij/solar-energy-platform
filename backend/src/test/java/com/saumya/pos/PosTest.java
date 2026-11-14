@@ -38,22 +38,47 @@ class PosTest {
  @Autowired com.saumya.pos.returns.CashRefundService refunds;
  @Autowired com.saumya.pos.checkout.TenderReviewService tenderReviews;
  @Autowired com.saumya.pos.checkout.CustomerAssociationService associations;
+ @Autowired com.saumya.pos.identity.AuthenticationService authentication;
+ @Autowired com.saumya.pos.identity.JwtService jwt;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
   db.update("DELETE FROM vendor_payment_attempts");
   db.update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
+  for(String table:List.of("identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
-  db.update("INSERT INTO employees VALUES('alice','unused',1,1,TRUE),('bob','unused',2,2,TRUE)");
+  employee("alice",1,1);employee("bob",2,2);db.update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");
   db.update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
   db.update("INSERT INTO products VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
   db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,1,1),(2,2,2,1)");
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("50"))).get("id");
  }
+ void employee(String username,long tenant,long branch){long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);db.update("INSERT INTO users VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));db.update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);}
+ org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=payments.tenderStatus(username,id).remaining();var result=payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null));return result.tenders().getLast();}
+ @Test void jwtRefreshRotationDetectsReuseAndRevokesTheWholeFamily() throws Exception {
+  customers();var first=authentication.login("customer","CustomerPassword");assertThat(first.refreshToken()).hasSize(43);assertThat(first.accessToken()).contains(".");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM identity_refresh_tokens WHERE token_hash=?",Integer.class,first.refreshToken())).isZero();
+  var second=authentication.refresh(first.refreshToken());assertThat(second.refreshToken()).isNotEqualTo(first.refreshToken());
+  assertThatThrownBy(()->authentication.refresh(first.refreshToken())).hasMessageContaining("expired");
+  mvc.perform(get("/api/v1/customer/cart").header("Authorization","Bearer "+second.accessToken())).andExpect(status().isUnauthorized());
+  assertThatThrownBy(()->authentication.refresh(second.refreshToken())).hasMessageContaining("expired");
+ }
+ @Test void registrationAndCookieAuthenticationEnforceCsrfAndDoNotExposeRefreshToken() throws Exception {
+  String body="{\"username\":\"new-buyer@example.com\",\"password\":\"CustomerPasswordForTests\"}";
+  mvc.perform(post("/api/v1/auth/register").contentType("application/json").content(body)).andExpect(status().isForbidden());
+  var result=mvc.perform(post("/api/v1/auth/register").with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.refreshToken").doesNotExist()).andExpect(jsonPath("$.account.permissions[0]").value("CUSTOMER")).andReturn();
+  assertThat(result.getResponse().getHeader("Set-Cookie")).contains("HttpOnly","SameSite=Strict","Path=/api/v1/auth");
+  assertThat(db.queryForObject("SELECT password_hash FROM users WHERE username='new-buyer@example.com'",String.class)).doesNotContain("CustomerPasswordForTests");
+ }
+ @Test void vendorMembershipIsRevalidatedForEveryJwtRequest() throws Exception {
+  db.update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES('alice','POS_VIEW',1)");var session=authentication.login("alice","StaffPasswordForTests");
+  mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isOk());
+  db.update("UPDATE employees SET enabled=FALSE WHERE username='alice'");
+  mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isUnauthorized());
+ }
  @Test void guestAssociationRequiresCustomerProofAndOnlyCreatesCurrentVendorRelationship(){
   configureOnline();var draft=checkout.pos("alice","customer-association",posDraft());
   assertThat(db.queryForObject("SELECT customer_id FROM orders WHERE id=?",Long.class,draft.id())).isNull();
@@ -291,7 +316,7 @@ class PosTest {
   assertThatThrownBy(()->service.cashMovement(a,session,"movement-1",movement(PosService.MovementType.CASH_OUT,"5","Float")));
   assertThatThrownBy(()->service.cashMovement(a,session,"movement-1",movement(PosService.MovementType.CASH_IN,"5","Changed reason")));
   assertThatThrownBy(()->service.cashMovement(b,session,"other-tenant",movement(PosService.MovementType.CASH_IN,"5","Float")));
-  db.update("INSERT INTO employees VALUES('charlie','unused',1,1,TRUE)");
+  employee("charlie",1,1);
   var colleague=new PosService.Scope(1,1,"charlie");
   assertThatThrownBy(()->service.cashMovement(colleague,session,"other-user",movement(PosService.MovementType.CASH_IN,"5","Float")));
   assertThatThrownBy(()->service.reconciliation(colleague,session));
@@ -360,7 +385,7 @@ class PosTest {
  }
  @Test void sessionDiscoveryAndResumeAreRestrictedToTheOwningCashier(){
   String bobSession=(String)service.open(b,new PosService.OpenSession(2,BigDecimal.ZERO)).get("id");
-  db.update("INSERT INTO employees VALUES('charlie','unused',1,1,TRUE)");
+  employee("charlie",1,1);
   db.update("INSERT INTO registers VALUES(3,1,1)");
   var charlie=new PosService.Scope(1,1,"charlie");
   String colleagueSession=(String)service.open(charlie,new PosService.OpenSession(3,BigDecimal.ZERO)).get("id");
@@ -424,7 +449,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions",Integer.class)).isEqualTo(1);
  }
  PosService.Scope supervisor(String name) {
-  db.update("INSERT INTO employees VALUES(?,'unused',1,1,TRUE)",name);
+  employee(name,1,1);
   return new PosService.Scope(1,1,name);
  }
  @Test void discrepancyRequiresReasonAndFreezesTheCountAndRegister(){
@@ -578,12 +603,12 @@ class PosTest {
   mvc.perform(get("/api/v1/customer/cart")).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/customer/cart").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/v1/customer/cart").with(user("unknown").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
-  mvc.perform(get("/api/v1/customer/cart").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isOk());
-  mvc.perform(get("/api/v1/vendor/pos/products").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isForbidden());
-  mvc.perform(post(path).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body)).andExpect(status().isForbidden());
-  mvc.perform(post(path).with(csrf()).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body)).andExpect(status().isOk());
-  mvc.perform(get("/api/v1/customer/cart").with(httpBasic("other-customer","OtherPassword"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
-  mvc.perform(post(path).with(csrf()).with(httpBasic("customer","CustomerPassword")).contentType("application/json").content(body.replace("\"quantity\":1","\"quantity\":1,\"customerId\":101"))).andExpect(status().isBadRequest());
+  mvc.perform(get("/api/v1/customer/cart").with(bearer("customer","CustomerPassword"))).andExpect(status().isOk());
+  mvc.perform(get("/api/v1/vendor/pos/products").with(bearer("customer","CustomerPassword"))).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(bearer("customer","CustomerPassword")).contentType("application/json").content(body)).andExpect(status().isOk());
+  mvc.perform(post(path).with(csrf()).with(bearer("customer","CustomerPassword")).contentType("application/json").content(body)).andExpect(status().isOk());
+  mvc.perform(get("/api/v1/customer/cart").with(bearer("other-customer","OtherPassword"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+  mvc.perform(post(path).with(csrf()).with(bearer("customer","CustomerPassword")).contentType("application/json").content(body.replace("\"quantity\":1","\"quantity\":1,\"customerId\":101"))).andExpect(status().isBadRequest());
  }
  @Test void cartQuantityUpdatesAreIdempotentAndDatabaseRejectsMixedTenantItems(){
   customers();var request=new CartService.Item("vendor-1",1,2);var cart=marketplace.put(100,request);
@@ -604,12 +629,12 @@ class PosTest {
   assertThat(marketplace.cart(100).items()).hasSize(1);
  }
  boolean cartAttempt(String slug,long product){try{marketplace.put(100,new CartService.Item(slug,product,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
- @Test void conflictingLegacyStaffAndCustomerLoginsFailClosed() throws Exception {
-  customers();db.update("INSERT INTO users VALUES(102,'alice',?,TRUE)",encoder.encode("CustomerPassword"));db.update("INSERT INTO customer_profiles VALUES(102,102)");
-  mvc.perform(get("/api/v1/customer/cart").with(httpBasic("alice","CustomerPassword"))).andExpect(status().isUnauthorized());
-  db.update("UPDATE users SET enabled=FALSE WHERE username='customer'");
-  mvc.perform(get("/api/v1/customer/cart").with(httpBasic("customer","CustomerPassword"))).andExpect(status().isUnauthorized());
+ @Test void globalIdentityCannotDuplicateEmployeeAndDisabledCustomerTokensAreRejected() throws Exception {
+  customers();assertThatThrownBy(()->db.update("INSERT INTO users VALUES(102,'alice','unused',TRUE)")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  mvc.perform(get("/api/v1/customer/cart").with(bearer("alice","StaffPasswordForTests"))).andExpect(status().isForbidden());
+  var token=bearer("customer","CustomerPassword");db.update("UPDATE users SET enabled=FALSE WHERE username='customer'");mvc.perform(get("/api/v1/customer/cart").with(token)).andExpect(status().isUnauthorized());
  }
+
  @Test void archivedCartRestorePreservesBothVendorCartsAndScopesOwnership(){
   customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
   var second=marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1));
@@ -793,9 +818,9 @@ class PosTest {
 
  @Test void orderHistoryScopesPaginationDatesAndImmutableDetails() throws Exception {
   var receipt=checkout.cashSale(a.cashier(),"history-cash1",sale(1,"120"));String id=(String)receipt.get("id");
-  db.update("INSERT INTO employees VALUES('colleague','unused',1,1,TRUE)");
+  employee("colleague",1,1);
   db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");
-  db.update("INSERT INTO employees VALUES('other-branch','unused',1,3,TRUE)");
+  employee("other-branch",1,3);
   db.update("UPDATE products SET name='Renamed',price=999 WHERE tenant_id=1");
   mvc.perform(get("/api/v1/vendor/pos/orders").with(user("colleague").authorities(()->"POS_VIEW")).param("status","PAID").param("size","1").param("reference",receipt.get("receipt_number").toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(id));
   mvc.perform(get("/api/v1/vendor/pos/orders/"+id).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].name").value("Panel")).andExpect(jsonPath("$.items[0].unitPrice").value(100)).andExpect(jsonPath("$.cashReceived").value(120));
@@ -871,7 +896,7 @@ class PosTest {
   db.update("UPDATE orders SET created_at=? WHERE id=?",yesterday.atStartOfDay(),draft.id());checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",today.toString()).param("to",today.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(1)).andExpect(jsonPath("$.days.length()").value(1));
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",yesterday.toString()).param("to",yesterday.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");db.update("INSERT INTO employees VALUES('other-branch','unused',1,3,TRUE)");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");employee("other-branch",1,3);
   for(String actor:List.of("bob","other-branch"))mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
   mvc.perform(get("/api/v1/vendor/pos/reports/sales")).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
@@ -1130,7 +1155,7 @@ class PosTest {
   db.update("UPDATE pos_cash_refunds SET paid_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")),paid.id());
   String path="/api/v1/vendor/pos/reports/cash-refunds";
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-13").param("tenantId","2").param("branchId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totals.refunds").value(1)).andExpect(jsonPath("$.totals.units").value(2)).andExpect(jsonPath("$.totals.cash").value(132)).andExpect(jsonPath("$.totals.beforeTax").value(120)).andExpect(jsonPath("$.totals.tax").value(12)).andExpect(jsonPath("$.days[0].totals.refunds").value(1)).andExpect(jsonPath("$.days[1].totals.refunds").value(0)).andExpect(jsonPath("$.cashiers[0].cashier").value("manager"));
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");db.update("INSERT INTO employees VALUES('other-report','unused',1,3,TRUE)");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");employee("other-report",1,3);
   for(String actor:List.of("bob","other-report"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-13").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.cash").value(0)).andExpect(jsonPath("$.cashiers.length()").value(0));
   db.update("UPDATE pos_cash_refunds SET paid_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T00:00:00Z")),paid.id());
   for(String day:List.of("2026-11-12","2026-11-13"))mvc.perform(get(path).param("from",day).param("to",day).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.refunds").value(day.endsWith("13")?1:0));
@@ -1186,7 +1211,7 @@ class PosTest {
   searchableCatalogue();String path="/api/v1/vendor/pos/catalogue";
   mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
   mvc.perform(get(path).param("tenantId","2").param("branchId","3").param("inStock","true").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
-  db.update("INSERT INTO employees VALUES('store3','unused',1,3,TRUE)");
+  employee("store3",1,3);
   mvc.perform(get(path).param("inStock","true").with(user("store3").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(4)).andExpect(jsonPath("$.items[0].quantity").value(5));
   mvc.perform(get(path).with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(2));
   mvc.perform(get(path+"/scan").param("code","  INV  ").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(3)).andExpect(jsonPath("$.price").value(50)).andExpect(jsonPath("$.quantity").value(1));
@@ -1236,7 +1261,7 @@ class PosTest {
   String csv=response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);assertThat(csv).contains("\"1\",\"1\"","\"110.00\"").doesNotContain("customer_id","cashier","password","buyer","Panel");
   var audit=db.queryForMap("SELECT * FROM report_export_audit WHERE id=?",response.getHeader("X-Export-Reference"));assertThat(((Number)audit.get("tenant_id")).longValue()).isEqualTo(1);assertThat(audit.get("actor")).isEqualTo("alice");assertThat(audit.get("content_sha256")).isEqualTo(HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(response.getContentAsByteArray())));
   var foreign=mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);assertThat(foreign).contains("\"2\",\"2\"").doesNotContain("110.00");
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other export branch')");db.update("INSERT INTO employees VALUES('export-other','unused',1,3,TRUE)");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other export branch')");employee("export-other",1,3);
   String other=mvc.perform(post(path).with(csrf()).with(user("export-other").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT")).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);assertThat(other).contains("\"1\",\"3\"").doesNotContain("110.00");
 
  }
@@ -1266,7 +1291,7 @@ class PosTest {
   mvc.perform(get(path).param("size","1").param("tenantId","2").param("branchId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2)).andExpect(jsonPath("$.totalPages").value(2)).andExpect(jsonPath("$.items[0].cashier").value("alice")).andExpect(jsonPath("$.pageTotals.paidOrders").value(1)).andExpect(jsonPath("$.pageTotals.units").value(3)).andExpect(jsonPath("$.pageTotals.sales").value(143)).andExpect(jsonPath("$.pageTotals.tax").value(13)).andExpect(jsonPath("$.pageTotals.beforeTax").value(130)).andExpect(jsonPath("$.pageTotals.cashApplied").value(143)).andExpect(jsonPath("$.pageTotals.discounts").value(10));
   mvc.perform(get(path).param("size","1").param("page","1").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].cashier").value("manager")).andExpect(jsonPath("$.pageTotals.sales").value(22));
   mvc.perform(get(path).param("size","48").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.pageTotals.sales").value(165)).andExpect(jsonPath("$.pageTotals.units").value(4));
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other report branch')");db.update("INSERT INTO employees VALUES('other-seller-report','unused',1,4,TRUE)");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other report branch')");employee("other-seller-report",1,4);
   for(String actor:List.of("bob","other-seller-report"))mvc.perform(get(path).with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0)).andExpect(jsonPath("$.items.length()").value(0));
  }
  @Test void cashierSalesReportRequiresItsOwnPermissionAndUtcBounds() throws Exception {
@@ -1293,7 +1318,7 @@ class PosTest {
   for(String ref:List.of(records.getFirst().id().substring(0,8),records.getFirst().returnId()))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",ref).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",receipt.get("receipt_number").toString()).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3));
   mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other history branch')");db.update("INSERT INTO employees VALUES('history-other','unused',1,4,TRUE)");for(String actor:List.of("bob","history-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other history branch')");employee("history-other",1,4);for(String actor:List.of("bob","history-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("170");assertThat(stock.atBranch(1,1,1)).isZero();
  }
  @Test void refundHistoryRejectsInvalidFiltersAndMissingPermissions() throws Exception {
@@ -1312,7 +1337,7 @@ class PosTest {
   db.update("UPDATE pos_return_events SET created_at=? WHERE return_id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z")),returned);
   var eventIds=db.queryForList("SELECT id FROM pos_return_events WHERE return_id=?",String.class,returned).stream().sorted(Comparator.reverseOrder()).toList();
   for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).param("size","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(eventIds.get(page*2)));
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other audit branch')");db.update("INSERT INTO employees VALUES('audit-other','unused',1,4,TRUE)");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other audit branch')");employee("audit-other",1,4);
   for(String actor:List.of("bob","audit-other"))mvc.perform(get(path).param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isNotFound());
   mvc.perform(get(path).param("size","49").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isBadRequest());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(5);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("90");
@@ -1328,9 +1353,9 @@ class PosTest {
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",order.toUpperCase(Locale.ROOT)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25));
   mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("state","APPROVED").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  db.update("INSERT INTO employees VALUES('queue-manager','unused',1,1,TRUE)");returns.review("queue-manager",ids.getFirst(),approveReturn());
+  employee("queue-manager",1,1);returns.review("queue-manager",ids.getFirst(),approveReturn());
   for(String state:List.of("ALL","REQUESTED","APPROVED"))mvc.perform(get(path).param("state",state).param("from","2026-11-12").param("to","2026-11-12").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(state.equals("ALL")?25:state.equals("REQUESTED")?24:1));
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other queue branch')");db.update("INSERT INTO employees VALUES('queue-other','unused',1,4,TRUE)");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other queue branch')");employee("queue-other",1,4);
   for(String actor:List.of("bob","queue-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(26);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("2800");
  }
@@ -1344,13 +1369,13 @@ class PosTest {
   for(int i=0;i<24;i++){String id=(String)service.open(a,new PosService.OpenSession(1,BigDecimal.ZERO)).get("id");service.close(a,id,BigDecimal.ZERO);ids.add(id);}
   db.update("UPDATE pos_sessions SET closed_at=? WHERE cashier='alice'",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")));ids.sort(Comparator.reverseOrder());
   String open=(String)service.open(a,new PosService.OpenSession(1,BigDecimal.TEN)).get("id");
-  db.update("INSERT INTO employees VALUES('shift-colleague','unused',1,1,TRUE)");db.update("INSERT INTO registers VALUES(3,1,1)");var colleague=new PosService.Scope(1,1,"shift-colleague");String other=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("99"))).get("id");service.close(colleague,other,new BigDecimal("99"));db.update("UPDATE pos_sessions SET closed_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")),other);
+  employee("shift-colleague",1,1);db.update("INSERT INTO registers VALUES(3,1,1)");var colleague=new PosService.Scope(1,1,"shift-colleague");String other=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("99"))).get("id");service.close(colleague,other,new BigDecimal("99"));db.update("UPDATE pos_sessions SET closed_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")),other);
   String path="/api/v1/vendor/pos/sessions/history";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].cashier").doesNotExist()).andExpect(jsonPath("$.items[0].varianceReason").doesNotExist()).andExpect(jsonPath("$.items[0].closeRequestId").doesNotExist());
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",session.toUpperCase(Locale.ROOT)).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].openingFloat").value(50)).andExpect(jsonPath("$.items[0].expectedCash").value(50)).andExpect(jsonPath("$.items[0].countedCash").value(50)).andExpect(jsonPath("$.items[0].variance").value(0));
   for(String reference:List.of(open,other))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",reference).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other shift branch')");db.update("INSERT INTO employees VALUES('shift-other','unused',1,4,TRUE)");
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other shift branch')");employee("shift-other",1,4);
   for(String actor:List.of("bob","shift-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("cashier","alice").param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(service.reconciliation(a,open).expectedCash()).isEqualByComparingTo("10");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
  }
@@ -1364,7 +1389,7 @@ class PosTest {
   String request=UUID.randomUUID().toString();service.close(a,session,new BigDecimal("49"),"Count difference",request);
   String path="/api/v1/vendor/pos/sessions/history";
   mvc.perform(get(path).param("reference",session).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  db.update("INSERT INTO employees VALUES('history-supervisor','unused',1,1,TRUE)");service.reviewVariance(new PosService.Scope(1,1,"history-supervisor"),session,request,"Count independently checked",PosService.ReviewAction.APPROVE);
+  employee("history-supervisor",1,1);service.reviewVariance(new PosService.Scope(1,1,"history-supervisor"),session,request,"Count independently checked",PosService.ReviewAction.APPROVE);
   mvc.perform(get(path).param("reference",session).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].expectedCash").value(50)).andExpect(jsonPath("$.items[0].countedCash").value(49)).andExpect(jsonPath("$.items[0].variance").value(-1)).andExpect(jsonPath("$.items[0].reviewedBy").doesNotExist()).andExpect(jsonPath("$.items[0].reviewReason").doesNotExist());
   assertThat(db.queryForObject("SELECT state FROM pos_sessions WHERE id=?",String.class,session)).isEqualTo("CLOSED");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isEqualTo(1);
  }
@@ -1397,7 +1422,7 @@ class PosTest {
   db.update("UPDATE catalog_promotion_audit SET created_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z")));var ids=db.queryForList("SELECT id FROM catalog_promotion_audit WHERE tenant_id=1",String.class).stream().sorted(Comparator.reverseOrder()).toList();
   db.update("UPDATE products SET name='Renamed panel',published=FALSE WHERE id=1");String path="/api/v1/vendor/pos/promotions/1/history";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.currentName").value("Renamed panel")).andExpect(jsonPath("$.published").value(false)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].actor").value("alice")).andExpect(jsonPath("$.items[0].tenantId").doesNotExist());
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other catalogue branch')");db.update("INSERT INTO employees VALUES('promotion-viewer','unused',1,4,TRUE)");mvc.perform(get(path).with(user("promotion-viewer").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other catalogue branch')");employee("promotion-viewer",1,4);mvc.perform(get(path).with(user("promotion-viewer").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25));
   mvc.perform(get(path).param("tenantId","1").with(user("bob").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
   mvc.perform(get("/api/v1/vendor/pos/promotions/2/history").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
   mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
@@ -1412,12 +1437,12 @@ class PosTest {
 
  @Test void registerDirectoryIsPagedScopedAndHidesDrawerDetails() throws Exception {
   for(int id=3;id<=26;id++)db.update("INSERT INTO registers VALUES(?,1,1)",id);
-  db.update("INSERT INTO employees VALUES('register-colleague','unused',1,1,TRUE)");var colleague=new PosService.Scope(1,1,"register-colleague");String closing=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("50"))).get("id");service.close(colleague,closing,new BigDecimal("49"),"Count discrepancy",UUID.randomUUID().toString());String closed=(String)service.open(a,new PosService.OpenSession(4,BigDecimal.ZERO)).get("id");service.close(a,closed,BigDecimal.ZERO);
+  employee("register-colleague",1,1);var colleague=new PosService.Scope(1,1,"register-colleague");String closing=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("50"))).get("id");service.close(colleague,closing,new BigDecimal("49"),"Count discrepancy",UUID.randomUUID().toString());String closed=(String)service.open(a,new PosService.OpenSession(4,BigDecimal.ZERO)).get("id");service.close(a,closed,BigDecimal.ZERO);
   int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);var ids=db.queryForList("SELECT id FROM registers WHERE tenant_id=1 ORDER BY id",Long.class);String path="/api/v1/vendor/pos/registers";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].cashier").doesNotExist()).andExpect(jsonPath("$.items[0].openingFloat").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist()).andExpect(jsonPath("$.items[0].state").doesNotExist());
   mvc.perform(get(path).param("size","48").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].available").value(false)).andExpect(jsonPath("$.items[1].available").value(false)).andExpect(jsonPath("$.items[2].available").value(true));
   mvc.perform(get(path).param("tenantId","1").param("branchId","1").with(user("bob").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(2)).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(2));
-  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other register branch')");db.update("INSERT INTO employees VALUES('register-other','unused',1,4,TRUE)");db.update("INSERT INTO registers VALUES(99,1,4)");mvc.perform(get(path).param("branchId","1").with(user("register-other").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(99));
+  db.update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other register branch')");employee("register-other",1,4);db.update("INSERT INTO registers VALUES(99,1,4)");mvc.perform(get(path).param("branchId","1").with(user("register-other").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(99));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
   service.close(a,session,new BigDecimal("50"));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].available").value(true));
   mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));

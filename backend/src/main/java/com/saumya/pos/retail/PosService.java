@@ -12,6 +12,7 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service
 public class PosService {
+    @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.membership.MembershipService memberships;
     private final JdbcTemplate db;
     private final CatalogService catalogue;
     public PosService(JdbcTemplate db,CatalogService catalogue) { this.db=db;this.catalogue=catalogue; }
@@ -26,11 +27,7 @@ public class PosService {
         BigDecimal cashReceived, BigDecimal changeGiven, BigDecimal cashIn,
         BigDecimal cashOut, BigDecimal safeDrops, BigDecimal expectedCash,
         BigDecimal countedCash, BigDecimal variance, List<Map<String,Object>> movements,BigDecimal cashRefunds) {}
-    public Scope scope(String user) {
-        return db.query("SELECT e.* FROM employees e JOIN tenants t ON t.id=e.tenant_id WHERE e.username=? AND e.enabled=TRUE AND t.active=TRUE",
-            (r,n)->new Scope(r.getLong("tenant_id"),r.getLong("branch_id"),r.getString("username")),user)
-            .stream().findFirst().orElseThrow(()->new ResponseStatusException(FORBIDDEN));
-    }
+    public Scope scope(String user) {var membership=memberships.require(user);return new Scope(membership.tenant(),membership.branch(),membership.username());}
     public List<Map<String,Object>> products(Scope s) {
         return catalogue.posProducts(s.tenant,s.branch);
     }

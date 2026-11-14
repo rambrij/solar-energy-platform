@@ -8,6 +8,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class ApiProblems {
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    ResponseEntity<ProblemDetail> invalid(org.springframework.web.bind.MethodArgumentNotValidException error){var body=ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,"Request validation failed");body.setProperty("code","VALIDATION_FAILED");return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_PROBLEM_JSON).body(body);}
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<ProblemDetail> state(ResponseStatusException error) {
         String code = error instanceof DomainProblem problem ? problem.code() : "REQUEST_REJECTED";

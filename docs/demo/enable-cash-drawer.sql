@@ -1,8 +1,8 @@
 -- Optional local demo upgrade. Run after the demo cashier already exists.
 -- Does not recreate the store, reset inventory or change a password.
 USE solar;
-INSERT INTO employee_permissions (username, permission)
-SELECT e.username, p.permission
+INSERT INTO employee_permissions (username, permission, tenant_id)
+SELECT e.username, p.permission, e.tenant_id
 FROM employees e
 CROSS JOIN (
     SELECT 'POS_CASH_IN' AS permission

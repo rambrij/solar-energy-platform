@@ -24,3 +24,6 @@ checkout:
   cleanup-delay-ms: 60000
 payments:
   mock-enabled: ${PAYMENTS_MOCK_ENABLED:false}
+
+auth:
+  jwt-secret: ${AUTH_JWT_SECRET:}

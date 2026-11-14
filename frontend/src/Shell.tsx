@@ -1,3 +1,4 @@
+import SessionControls from './SessionControls';
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {availableNavigation,navigationItems,selectedNavigation,type WorkspaceMode} from './navigation';
 export function SolarMark() {
@@ -30,6 +31,7 @@ export default function Shell({ mode, children }: { mode: WorkspaceMode; childre
     <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="site-header"><a className="brand" href={mode === 'pos' ? '/vendor/pos' : '/vendors'}><span className="brand-mark"><SolarMark/></span><span>Saumya Solar<small>ENERGY FOR A BRIGHTER TOMORROW</small></span></a>
       <nav aria-label="Main navigation"><a href="/vendors" aria-current={mode === 'online' ? 'page' : undefined}>Marketplace</a><a href="/vendor/pos" aria-current={mode === 'pos' ? 'page' : undefined}>Store POS</a></nav>
+      <SessionControls/>
     </header>
     <div className="workspace-bar"><span className="workspace-label"><span className="status-dot"/>{mode === 'pos' ? 'Retail workspace' : 'Solar marketplace'}</span><span>Shared stock · Vendor-owned sales</span></div>
     <div className="workspace-layout"><aside className={`workspace-menu ${open?'menu-open':''}`} aria-label="Workspace menu" onKeyDown={event=>{if(event.key==='Escape'&&open){setOpen(false);toggle.current?.focus();}}}>

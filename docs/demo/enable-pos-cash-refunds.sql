@@ -5,8 +5,8 @@ UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=900001 AND tenant_id=9000
 INSERT INTO registers(id,tenant_id,branch_id)
 SELECT 900002,900001,900001 FROM branches WHERE id=900001 AND tenant_id=900001
 AND NOT EXISTS(SELECT 1 FROM registers WHERE id=900002);
-INSERT INTO employee_permissions(username,permission)
-SELECT e.username,p.permission FROM employees e
+INSERT INTO employee_permissions(username,permission,tenant_id)
+SELECT e.username,p.permission,e.tenant_id FROM employees e
 CROSS JOIN(SELECT 'POS_VIEW' AS permission UNION ALL SELECT 'POS_REFUND_VIEW'
 UNION ALL SELECT 'POS_REFUND_APPROVE' UNION ALL SELECT 'POS_REFUND_CASH_RECORD'
 UNION ALL SELECT 'POS_REPORT_VIEW' UNION ALL SELECT 'POS_REFUND_PRINT' UNION ALL SELECT 'POS_SESSION_OPEN' UNION ALL SELECT 'POS_SESSION_CLOSE') p

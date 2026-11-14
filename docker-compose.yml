@@ -17,6 +17,7 @@ services:
     build: ./backend
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
       PAYMENTS_MOCK_ENABLED: ${PAYMENTS_MOCK_ENABLED:-false}
       DB_URL: jdbc:mysql://mysql:3306/solar
       DB_USER: solar

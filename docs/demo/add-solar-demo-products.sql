@@ -73,3 +73,6 @@ LEFT JOIN inventory i ON i.tenant_id=p.tenant_id AND i.product_id=p.id AND i.bra
 ORDER BY p.id;
 DROP TABLE saumya_demo_solar_products;
 DROP TABLE saumya_demo_solar_categories;
+
+-- Local fixture synchronization; live stock changes publish this projection transactionally.
+INSERT INTO catalog_stock(tenant_id,branch_id,product_id,available) SELECT tenant_id,branch_id,product_id,quantity-reserved FROM inventory WHERE tenant_id=900001 ON DUPLICATE KEY UPDATE available=VALUES(available);

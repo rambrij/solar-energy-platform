@@ -16,6 +16,7 @@ public class InventoryBalance {
     @Column(nullable=false) private int quantity;
     @Column(nullable=false) private int reserved;
     protected InventoryBalance() {}
+    public int available(){return quantity-reserved;}
     private void available(int amount){if(amount<=0||amount>quantity-reserved)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Insufficient available stock");}
     public void issue(int amount){available(amount);quantity-=amount;}
     public void reserve(int amount){available(amount);reserved+=amount;}

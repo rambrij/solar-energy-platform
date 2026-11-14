@@ -58,3 +58,6 @@ DROP PROCEDURE setup_pos_local_demo_900001;
 
 SELECT id AS register_id, tenant_id, branch_id
 FROM registers WHERE id = 900001;
+
+-- Local fixture synchronization; live stock changes publish this projection transactionally.
+INSERT INTO catalog_stock(tenant_id,branch_id,product_id,available) SELECT tenant_id,branch_id,product_id,quantity-reserved FROM inventory WHERE tenant_id=900001 ON DUPLICATE KEY UPDATE available=VALUES(available);

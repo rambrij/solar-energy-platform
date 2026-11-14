@@ -34,9 +34,9 @@ it('finalizes cash into a receipt and keeps receipt recovery separate from a new
   });
   const onReceipt = vi.fn(); render(<ReservedDrafts mode="pos" session="s1" onReceipt={onReceipt} />);
   await screen.findByText('Vendor A · DRAFT'); fireEvent.change(screen.getByLabelText('Cash received for reserved sale'), { target: { value: '120' } });
-  fireEvent.click(screen.getByText('Complete reserved cash sale')); await screen.findByText('Recover cash receipt');
+  fireEvent.click(screen.getByText('Complete reserved cash sale')); await screen.findByText('Recover sale receipt');
   expect(onReceipt).toHaveBeenCalledWith(receipt, true);
-  fireEvent.click(screen.getByText('Recover cash receipt')); await waitFor(() => expect(onReceipt).toHaveBeenLastCalledWith(receipt, false));
+  fireEvent.click(screen.getByText('Recover sale receipt')); await waitFor(() => expect(onReceipt).toHaveBeenLastCalledWith(receipt, false));
 });
 it('requires a cancellation reason and reloads released stock state', async () => {
   let cancelled = false;

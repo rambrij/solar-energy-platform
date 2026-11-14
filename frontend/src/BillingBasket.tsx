@@ -22,7 +22,7 @@ export default function BillingBasket({ products, cart, locked, onQuantity, onRe
     })}</ul>
     <dl className="bill-summary"><div><dt>Subtotal before discounts</dt><dd>{amounts.subtotal.toFixed(2)}</dd></div><div className="saving-label"><dt>Promotion discounts</dt><dd>−{amounts.discount.toFixed(2)}</dd></div><div><dt>Tax</dt><dd>{amounts.tax.toFixed(2)}</dd></div><div className="amount-due"><dt>Amount due (estimate)</dt><dd>{amounts.total.toFixed(2)}</dd></div></dl>
     <p className="bill-hint">Final prices, approved discounts, tax and change are calculated by the server.</p>
-    <div className="payment-methods" role="group" aria-label="Payment method"><label><input type="radio" name="pos-payment" checked readOnly/>Cash</label><label><input type="radio" name="pos-payment" disabled/>UPI</label><label><input type="radio" name="pos-payment" disabled/>Card</label></div><p className="bill-hint">UPI and card need configured vendor payment verification. Cash is available now.</p>
+    <div className="payment-methods" role="group" aria-label="Payment method"><label><input type="radio" name="pos-payment" checked readOnly/>Cash</label><label><input type="radio" name="pos-payment" disabled/>UPI</label><label><input type="radio" name="pos-payment" disabled/>Card</label></div><p className="bill-hint">Cash is available now. For UPI/card, reserve this bill below and check vendor payment options. Test payments require explicit pre-production configuration.</p>
     <CashTender amountDue={amounts.total} cash={cash} onCash={onCash} eligible={validBill} locked={locked}/>
     <label className="check-label"><input type="checkbox" checked={invoice} onChange={event => onInvoice(event.target.checked)}/> Request tax invoice</label>
   </fieldset>;

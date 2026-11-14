@@ -87,13 +87,20 @@ public class PosService {
         String seller=catalogue.vendor(s.tenant).name();
         db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=? WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' AND receipt_seller_name IS NULL AND receipt_outlet_name IS NULL",seller,receipt.outlet,s.tenant,s.branch,id);
         if(invoice){db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+receipt.number,seller,receipt.outlet,total);audit(s,"INVOICE_ISSUE",id);}
-        audit(s,"CASH_SALE",id);
+        audit(s,"SALE_COMPLETE",id);
+    }
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void onlineDocuments(Scope s,String id,List<StockIssue> items,BigDecimal total,ReceiptAllocation allocation){
+        for(var item:items)db.update("INSERT INTO inventory_ledger VALUES(?,?,?,?,?)",s.tenant,s.branch,item.product,id,-item.quantity);
+        db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=(SELECT name FROM branches WHERE tenant_id=? AND id=?) WHERE tenant_id=? AND id=?",catalogue.vendor(s.tenant).name(),s.tenant,s.branch,s.tenant,id);
+        if(allocation.invoiceRequired())db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+allocation.number(),catalogue.vendor(s.tenant).name(),allocation.outlet(),total);
+        audit(s,"MOCK_ONLINE_PAYMENT",id);
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void draftAudit(Scope s,String action,String id){audit(s,action,id);}
     @Transactional
     public Map<String,Object> receipt(Scope s,String id) {
-        var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,receipt_number,tax_invoice,created_at,COALESCE(status_changed_at,created_at) AS issued_at,receipt_seller_name,receipt_outlet_name FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' FOR UPDATE",s.tenant,s.branch,id);
+        var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,payment_method,receipt_number,tax_invoice,created_at,COALESCE(status_changed_at,created_at) AS issued_at,receipt_seller_name,receipt_outlet_name FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' FOR UPDATE",s.tenant,s.branch,id);
         order.put("items",db.queryForList("SELECT name,quantity,price,tax_rate,tax,total,list_price,discount,discount_percent FROM order_items WHERE tenant_id=? AND order_id=? ORDER BY product_id FOR UPDATE",s.tenant,id));
         order.put("invoices",db.queryForList("SELECT invoice_number,seller_name,outlet_name,total,issued_at FROM vendor_invoices WHERE tenant_id=? AND order_id=? FOR UPDATE",s.tenant,id));
         return order;

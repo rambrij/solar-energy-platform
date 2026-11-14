@@ -22,3 +22,5 @@ checkout:
   reservation-ttl-seconds: 600
   cleanup-enabled: true
   cleanup-delay-ms: 60000
+payments:
+  mock-enabled: ${PAYMENTS_MOCK_ENABLED:false}

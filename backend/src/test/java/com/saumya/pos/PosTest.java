@@ -19,6 +19,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties={"spring.datasource.url=${TEST_DB_URL:jdbc:h2:mem:pos;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}","spring.datasource.username=${TEST_DB_USER:sa}","spring.datasource.password=${TEST_DB_PASSWORD:}","checkout.cleanup-enabled=false"})
 @AutoConfigureMockMvc
+@org.springframework.test.context.ActiveProfiles("test")
+@org.springframework.test.context.TestPropertySource(properties="payments.mock-enabled=true")
 @org.springframework.test.context.TestExecutionListeners(listeners=org.springframework.test.context.support.DependencyInjectionTestExecutionListener.class,inheritListeners=false)
 class PosTest {
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
@@ -28,12 +30,15 @@ class PosTest {
  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
+ @Autowired com.saumya.pos.checkout.PaymentCheckoutService payments;
+ @Autowired com.saumya.pos.checkout.ReturnSaleAccess returnSaleAccess;
  @Autowired com.saumya.pos.catalog.PromotionService promotions;
  @Autowired com.saumya.pos.returns.ReturnService returns;
  @Autowired com.saumya.pos.returns.CashRefundService refunds;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
+  db.update("DELETE FROM vendor_payment_attempts");
   db.update("UPDATE tenants SET online_branch_id=NULL");
   for(String table:List.of("receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","users","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants")) db.update("DELETE FROM "+table);
   db.update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
@@ -45,6 +50,48 @@ class PosTest {
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("50"))).get("id");
  }
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false);}
+ @Test void onlinePaymentIsDurableVendorOwnedAndConfirmedExactlyOnce(){
+  configureOnline();var draft=onlineDraft("online-payment");var started=payments.start("customer",draft.id(),true,"UPI");
+  assertThat(started.merchantAccount()).isEqualTo("mock-vendor-1");assertThat(started.state()).isEqualTo("PENDING");
+  assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("DRAFT");assertThat(stock.atBranch(1,1,1)).isZero();
+  assertThat(payments.start("customer",draft.id(),true,"UPI").attemptId()).isEqualTo(started.attemptId());assertThatThrownBy(()->payments.start("customer",draft.id(),true,"CARD"));
+  assertThat(payments.confirm("customer",draft.id(),true,started.attemptId()).state()).isEqualTo("CONFIRMED");payments.confirm("customer",draft.id(),true,started.attemptId());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT payment_method FROM orders",String.class)).isEqualTo("MOCK_UPI");
+  assertThat(db.queryForObject("SELECT customer_id FROM orders",Long.class)).isEqualTo(100);assertThat(db.queryForObject("SELECT cash_received FROM orders",BigDecimal.class)).isNull();
+  assertThat(marketplace.cart(100).id()).isNull();
+ }
+ @Test void onlinePaymentKeepsEditedCartAndIssuesConfiguredTaxInvoice(){
+  configureOnline();db.update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");db.update("UPDATE branches SET invoice_required=TRUE WHERE id=1");var draft=onlineDraft("online-edited-cart");var attempt=payments.start("customer",draft.id(),true,"CARD");
+  marketplace.put(100,new CartService.Item("vendor-1",1,2));payments.confirm("customer",draft.id(),true,attempt.attemptId());
+  assertThat(marketplace.cart(100).items().getFirst().quantity()).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT seller_name FROM vendor_invoices",String.class)).isEqualTo("Vendor A");
+ }
+ @Test void posCardPaymentIssuesReceiptWithoutIncreasingCashDrawer(){
+  var draft=checkout.pos("alice","pos-card-payment",posDraft());var attempt=payments.start("alice",draft.id(),false,"CARD");
+  assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));
+  assertThatThrownBy(()->payments.status("bob",draft.id(),false));assertThatThrownBy(()->payments.confirm("alice",draft.id(),false,"forged"));
+  payments.confirm("alice",draft.id(),false,attempt.attemptId());var receipt=service.receipt(a,draft.id());assertThat(receipt.get("payment_method")).isEqualTo("MOCK_CARD");assertThat(receipt.get("cash_received")).isEqualTo(new BigDecimal("0.00"));assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();
+  assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx->returnSaleAccess.cashSale(1,1,draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+ @Test void expiredOrChangedPaymentCannotConsumeStockOrConfirm(){
+  var draft=checkout.pos("alice","expire-payment",posDraft());var attempt=payments.start("alice",draft.id(),false,"UPI");
+  db.update("UPDATE products SET price=200 WHERE id=1");assertThatThrownBy(()->payments.confirm("alice",draft.id(),false,attempt.attemptId()));assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts",String.class)).isEqualTo("PENDING");
+  db.update("UPDATE products SET price=100 WHERE id=1");db.update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));checkout.expire(1,draft.id());
+  assertThatThrownBy(()->payments.confirm("alice",draft.id(),false,attempt.attemptId()));assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
+ }
+ @Test void concurrentPaymentConfirmationIssuesOneReceiptAndOneStockMovement() throws Exception {
+  var draft=checkout.pos("alice","concurrent-payment",posDraft());var attempt=payments.start("alice",draft.id(),false,"UPI");
+  try(var pool=Executors.newFixedThreadPool(2)){Callable<String> confirm=()->payments.confirm("alice",draft.id(),false,attempt.attemptId()).state();for(var result:pool.invokeAll(List.of(confirm,confirm)))assertThat(result.get()).isEqualTo("CONFIRMED");}
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Integer.class)).isEqualTo(1);
+ }
+ @Test void paymentApiEnforcesPermissionsCsrfAndStrictPayloads() throws Exception {
+  var draft=checkout.pos("alice","http-payment",posDraft());String path="/api/vendor/pos/drafts/"+draft.id()+"/payment";
+  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"amount\":1}")).andExpect(status().isBadRequest());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.merchantAccount").value("mock-vendor-1"));
+ }
  @Test void guestCashIsAtomicAndIdempotent(){
   var r=checkout.cashSale(a.cashier(),"checkout-1",sale(1,"120"));
   assertThat(r.get("customer_id")).isNull();assertThat(r.get("total")).isEqualTo(new BigDecimal("110.00"));assertThat(r.get("change_given")).isEqualTo(new BigDecimal("10.00"));
@@ -524,7 +571,7 @@ class PosTest {
  void configureOnline(){customers();db.update("UPDATE tenants SET online_branch_id=id");}
  @Test void onlineDraftReservesCanonicalStockAndCancelReleasesExactlyOnce(){
   configureOnline();var draft=onlineDraft("online-hold1");
-  assertThat(draft.channel()).isEqualTo("ONLINE");assertThat(draft.status()).isEqualTo("DRAFT");assertThat(draft.paymentAvailable()).isFalse();
+  assertThat(draft.channel()).isEqualTo("ONLINE");assertThat(draft.status()).isEqualTo("DRAFT");assertThat(draft.paymentAvailable()).isTrue();
   assertThat(db.queryForObject("SELECT customer_id FROM orders",Long.class)).isEqualTo(100);
   assertThat(db.queryForMap("SELECT branch_id,cashier,session_id,cash_received,receipt_number FROM orders").values()).allMatch(Objects::isNull);
   assertThat(stock.available(1,1)).isZero();assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
@@ -598,7 +645,7 @@ class PosTest {
   String payload="{\"expectedCartId\":\""+cart.id()+"\"}";
   mvc.perform(post("/api/customer/checkout/drafts").with(csrf()).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isUnauthorized());
   mvc.perform(post("/api/customer/checkout/drafts").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isForbidden());
-  mvc.perform(post("/api/customer/checkout/drafts").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.paymentAvailable").value(false));
+  mvc.perform(post("/api/customer/checkout/drafts").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.paymentAvailable").value(true));
   mvc.perform(get("/api/customer/checkout/drafts").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
   var draft=checkout.onlineList("customer").getFirst();
   mvc.perform(post("/api/customer/checkout/drafts/"+draft.id()+"/cancel").with(csrf()).with(user("other-customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{\"reason\":\"Not mine\"}")).andExpect(status().isNotFound());

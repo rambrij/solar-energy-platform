@@ -22,6 +22,8 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service @Transactional
 public class CheckoutService {
+    @org.springframework.beans.factory.annotation.Autowired private PaymentAttemptRepository paymentAttempts;
+    @org.springframework.beans.factory.annotation.Autowired private PaymentPolicy paymentPolicy;
     private final DraftRepository orders;private final DraftLineRepository lines;private final CartService carts;
     private final CustomerAccess customers;private final CatalogService catalogue;private final InventoryService stock;
     private final PosService retail;private final Pricing pricing;private final Clock clock;private final long ttl;private final DraftRecoveryPolicy recoveryPolicy;
@@ -42,7 +44,7 @@ public class CheckoutService {
     private String sha(String value){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
     private String key(String actor,String key){if(key==null||!key.matches("[A-Za-z0-9_-]{8,80}"))throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");return "draft-"+sha(actor+"|"+key);}
     private List<DraftLine> stored(DraftOrder order){return lines.lines(order.tenant(),order.id());}
-    private Draft view(DraftOrder order){boolean expired=recoveryPolicy.expired(order.status(),order.expires(),clock.instant());return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList(),false,recoveryPolicy.message(order.status(),expired),order.session(),expired);}
+    private Draft view(DraftOrder order){boolean expired=recoveryPolicy.expired(order.status(),order.expires(),clock.instant());return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList(),paymentPolicy.enabled()&&!expired&&"DRAFT".equals(order.status()),recoveryPolicy.message(order.status(),expired),order.session(),expired);}
     private Draft replay(DraftOrder order,String hash){if(!hash.equals(order.hash()))conflict("Idempotency key already used for a different draft request");return view(order);}
     public Draft online(String username,String clientKey,OnlineDraft request){
         long customer=customers.resolve(username);customers.lock(customer);String key=key("ONLINE:"+customer,clientKey),hash=sha(request.expectedCartId());
@@ -95,6 +97,7 @@ public class CheckoutService {
     }
     private Map<String,Object> finalizeOwnedCash(PosService.Scope s,String id,BigDecimal cash){
         retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);
+        if(paymentAttempts.findByTenantAndOrder(s.tenant(),id).isPresent())conflict("This draft uses an external payment attempt; recover that payment instead of collecting cash");
         if("PAID".equals(order.status())){if(cash.compareTo(order.cash())!=0)conflict("Cash amount differs from completed sale");return retail.receipt(s,id);}
         retail.requireOpen(s,order.session());
         if(!"DRAFT".equals(order.status())||!order.expires().isAfter(clock.instant()))conflict("Draft is cancelled or expired; refresh/cancel it before starting another sale");

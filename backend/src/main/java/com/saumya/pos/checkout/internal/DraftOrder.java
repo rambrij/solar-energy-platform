@@ -20,6 +20,7 @@ public class DraftOrder {
     @Column(name="change_given",precision=19,scale=2) private BigDecimal changeGiven;
     @Column(name="receipt_number") private Long receiptNumber;
     @Column(name="tax_invoice",nullable=false) private boolean taxInvoice;
+    @Column(name="payment_method",nullable=false,length=16) private String paymentMethod="CASH";
     @Column(name="invoice_requested",nullable=false) private boolean invoiceRequested;
     @Column(nullable=false,length=24) private String status;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="expires_at") private Instant expiresAt;
@@ -37,7 +38,10 @@ public class DraftOrder {
     public BigDecimal total(){return total;} public BigDecimal cash(){return cashReceived;} public String status(){return status;} public Instant expires(){return expiresAt;}
     public Instant created(){return createdAt;} public Long receiptNumber(){return receiptNumber;} public BigDecimal change(){return changeGiven;} public boolean taxInvoice(){return taxInvoice;} public String cancellationReason(){return cancellationReason;} public Instant changed(){return statusChangedAt;}
     public boolean invoiceRequested(){return invoiceRequested;}
-    public void finish(String state,Instant now){status=state;draftOwner=null;statusChangedAt=now;}
+    public long stockBranch(){return stockBranch;}
+    public String paymentMethod(){return paymentMethod;}
+    public void payExternal(String method,Long receipt,boolean invoice,Instant now){paymentMethod="MOCK_"+method;receiptNumber=receipt;taxInvoice=invoice;if("IN_STORE".equals(channel)){cashReceived=BigDecimal.ZERO;changeGiven=BigDecimal.ZERO;}finish("PAID",now);}
+    public void finish(String state,Instant now){status=state;draftOwner=null;statusChangedAt=now.truncatedTo(java.time.temporal.ChronoUnit.MICROS);}
     public void cancel(String reason,Instant now){cancellationReason=reason;finish("CANCELLED",now);}
     public void pay(BigDecimal cash,long receipt,boolean invoice,Instant now){cashReceived=cash;changeGiven=cash.subtract(total);receiptNumber=receipt;taxInvoice=invoice;finish("PAID",now);}
 }

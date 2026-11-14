@@ -18,7 +18,7 @@ public class ReturnSaleAccess {
  public record CashSale(String id,long receiptNumber,BigDecimal total,boolean taxInvoice,boolean refundsEnabled,List<CashLine> items){}
  @Transactional(propagation=Propagation.MANDATORY) public CashSale cashSale(long tenant,long branch,String id){
   var order=orders.lock(tenant,id).orElseThrow(this::missing);em.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-  if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),branch)||!"PAID".equals(order.status())||order.cash()==null||order.change()==null||order.cash().subtract(order.change()).compareTo(order.total())!=0)throw missing();
+  if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),branch)||!"PAID".equals(order.status())||!"CASH".equals(order.paymentMethod())||order.cash()==null||order.change()==null||order.cash().subtract(order.change()).compareTo(order.total())!=0)throw missing();
   var policy=policies.locked(tenant,branch).orElseThrow(this::missing);em.refresh(policy,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
   return new CashSale(id,order.receiptNumber(),order.total(),order.taxInvoice(),policy.cashRefunds(),items.lockedLines(tenant,id).stream().map(i->new CashLine(i.product(),i.name(),i.quantity(),i.price(),i.tax())).toList());
  }

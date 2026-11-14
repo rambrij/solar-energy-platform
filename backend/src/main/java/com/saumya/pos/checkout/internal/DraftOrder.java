@@ -31,6 +31,7 @@ public class DraftOrder {
     @Column(name="cancellation_reason",length=250) private String cancellationReason;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="status_changed_at") private Instant statusChangedAt;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="created_at",insertable=false,updatable=false) private Instant createdAt;
+    @Column(name="discount_approved_by",length=100) private String discountApprovedBy;
     protected DraftOrder(){}
     public DraftOrder(String id,long tenant,Long customer,Long branch,String cashier,String session,String channel,String key,String hash,BigDecimal total,long stockBranch,String owner,Instant expires,boolean invoice){
         this.id=id;tenantId=tenant;customerId=customer;branchId=branch;this.cashier=cashier;sessionId=session;this.channel=channel;this.key=key;this.hash=hash;this.total=total;this.stockBranch=stockBranch;draftOwner=owner;expiresAt=expires;invoiceRequested=invoice;status="DRAFT";
@@ -45,6 +46,8 @@ public class DraftOrder {
     public String receiptSeller(){return receiptSeller;}
     public String receiptOutlet(){return receiptOutlet;}
     public void payExternal(String method,Long receipt,boolean invoice,Instant now){paymentMethod="MOCK_"+method;receiptNumber=receipt;taxInvoice=invoice;if("IN_STORE".equals(channel)){cashReceived=BigDecimal.ZERO;changeGiven=BigDecimal.ZERO;}finish("PAID",now);}
+    public void paySplit(BigDecimal cash,BigDecimal change,long receipt,boolean invoice,Instant now){paymentMethod="SPLIT";cashReceived=cash;changeGiven=change;receiptNumber=receipt;taxInvoice=invoice;finish("PAID",now);}
+    public void discountApprovedBy(String approver){discountApprovedBy=approver;}
     public void finish(String state,Instant now){status=state;draftOwner=null;statusChangedAt=now.truncatedTo(java.time.temporal.ChronoUnit.MICROS);}
     public void cancel(String reason,Instant now){cancellationReason=reason;finish("CANCELLED",now);}
     public void pay(BigDecimal cash,long receipt,boolean invoice,Instant now){cashReceived=cash;changeGiven=cash.subtract(total);receiptNumber=receipt;taxInvoice=invoice;finish("PAID",now);}

@@ -102,6 +102,7 @@ public class PosService {
     public Map<String,Object> receipt(Scope s,String id) {
         var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,payment_method,receipt_number,tax_invoice,created_at,COALESCE(status_changed_at,created_at) AS issued_at,receipt_seller_name,receipt_outlet_name FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' FOR UPDATE",s.tenant,s.branch,id);
         order.put("items",db.queryForList("SELECT name,quantity,price,tax_rate,tax,total,list_price,discount,discount_percent FROM order_items WHERE tenant_id=? AND order_id=? ORDER BY product_id FOR UPDATE",s.tenant,id));
+        order.put("tenders",db.queryForList("SELECT tender_no,method,applied_amount,tendered_amount,change_given FROM order_tenders WHERE tenant_id=? AND order_id=? ORDER BY tender_no FOR UPDATE",s.tenant,id));
         order.put("invoices",db.queryForList("SELECT invoice_number,seller_name,outlet_name,total,issued_at FROM vendor_invoices WHERE tenant_id=? AND order_id=? FOR UPDATE",s.tenant,id));
         return order;
     }

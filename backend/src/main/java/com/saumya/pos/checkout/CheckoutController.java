@@ -1,5 +1,6 @@
 package com.saumya.pos.checkout;
 import java.security.Principal;
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +17,9 @@ public class CheckoutController {
     @PostMapping("/api/customer/checkout/drafts/{id}/cancel") @PreAuthorize("hasAuthority('CUSTOMER')")
     Object cancelOnline(Principal p,@PathVariable String id,@Valid @RequestBody CheckoutService.Cancel r){return checkout.cancelOnline(p.getName(),id,r.reason());}
     @PostMapping("/api/vendor/pos/drafts") @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_SALE_CREATE')")
-    Object pos(Principal p,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CheckoutService.PosDraft r){return checkout.pos(p.getName(),key,r);}
+    Object pos(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CheckoutService.PosDraft r){
+        boolean apply=auth.getAuthorities().stream().anyMatch(a->"POS_DISCOUNT_APPLY".equals(a.getAuthority())),approve=auth.getAuthorities().stream().anyMatch(a->"POS_DISCOUNT_APPROVE".equals(a.getAuthority()));
+        return checkout.pos(auth.getName(),key,r,new CheckoutService.DiscountAuthority(apply,approve));}
     @GetMapping("/api/vendor/pos/drafts") @PreAuthorize("hasAuthority('POS_VIEW')")
     Object posList(Principal p,@RequestParam String sessionId){return checkout.posList(p.getName(),sessionId);}
     @PostMapping("/api/vendor/pos/drafts/{id}/cancel") @PreAuthorize("hasAuthority('POS_SALE_CANCEL')")

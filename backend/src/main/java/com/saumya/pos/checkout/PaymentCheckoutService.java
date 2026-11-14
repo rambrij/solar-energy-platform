@@ -39,7 +39,7 @@ public class PaymentCheckoutService {
   else if(catalogue.onlineBranch(order.tenant())!=order.stockBranch())conflict("Vendor stock location changed");
   for(var line:lines.lines(order.tenant(),order.id())){
    var p=catalogue.lockForSale(order.tenant(),line.product());
-   if(p.price().compareTo(line.price())!=0||p.taxRate().compareTo(line.rate())!=0||p.listPrice().compareTo(line.listPrice())!=0||p.discountPercent().compareTo(line.discountPercent())!=0)conflict("Price, tax or discount changed; cancel and recreate the draft");
+   if(p.price().compareTo(line.catalogueUnit())!=0||p.taxRate().compareTo(line.rate())!=0||p.listPrice().compareTo(line.listPrice())!=0||p.discountPercent().compareTo(line.discountPercent())!=0)conflict("Price, tax or discount changed; cancel and recreate the draft");
   }
   if(!order.expires().isAfter(clock.instant()))conflict("Reservation expired during validation");
  }

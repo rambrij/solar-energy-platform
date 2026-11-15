@@ -126,9 +126,14 @@ function retailMock() {
 it('adds exact barcode and SKU matches quickly, caps quantities and keeps scanner focus', async () => {
  retailMock(); render(<App/>); const search = await screen.findByLabelText('Search name, SKU or scan barcode');
  fireEvent.change(search, { target: { value: '123' } }); fireEvent.submit(search.closest('form')!); await screen.findByText('Added Panel');
- expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1'); await waitFor(()=>expect(document.activeElement).toBe(search)); expect((search as HTMLInputElement).value).toBe('');
- fireEvent.change(search, { target: { value: 'P1' } }); fireEvent.submit(search.closest('form')!); await waitFor(()=>expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('2'));
- fireEvent.change(search, { target: { value: '123' } }); fireEvent.submit(search.closest('form')!); await screen.findByText('Available stock or quantity limit reached.'); expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('2');
+ await waitFor(()=>expect(document.activeElement).toBe(search)); expect((search as HTMLInputElement).value).toBe('');
+ visitPos('/vendor/pos/current-sale'); expect((await screen.findByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1');
+ visitPos('/vendor/pos'); const skuSearch=await screen.findByLabelText('Search name, SKU or scan barcode');
+ fireEvent.change(skuSearch, { target: { value: 'P1' } }); fireEvent.submit(skuSearch.closest('form')!); await screen.findByText('Added Panel');
+ visitPos('/vendor/pos/current-sale'); await waitFor(()=>expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('2'));
+ visitPos('/vendor/pos'); const duplicateSearch=await screen.findByLabelText('Search name, SKU or scan barcode');
+ fireEvent.change(duplicateSearch, { target: { value: '123' } }); fireEvent.submit(duplicateSearch.closest('form')!); await screen.findByText('Available stock or quantity limit reached.');
+ visitPos('/vendor/pos/current-sale'); expect((await screen.findByLabelText('Quantity 1') as HTMLInputElement).value).toBe('2');
  expect(vi.mocked(api).mock.calls.some(call => call[0] === '/sales')).toBe(false);
 });
 it('does not add a partial barcode match and blocks invalid bill quantities', async () => {
@@ -157,8 +162,9 @@ it('can finalize an owned reservation after its hold reduces free catalogue stoc
   if (path === '/drafts/d1/finalize-cash') { paid = true; return receipt; }
   return original(path, body, key);
  });
- render(<App/>); fireEvent.click(await screen.findByText('Add Panel'));visitPos('/vendor/pos/current-sale');await screen.findByText('Reserve walk-in sale without payment'); fireEvent.click(screen.getByText('Reserve walk-in sale without payment')); await screen.findByText('0 available');
- fireEvent.change(screen.getByLabelText('Cash received for reserved sale'), { target: { value: '100' } }); const complete = screen.getByText('Complete reserved cash sale'); expect((complete as HTMLButtonElement).disabled).toBe(false); fireEvent.click(complete);
+ render(<App/>); fireEvent.click(await screen.findByText('Add Panel'));visitPos('/vendor/pos/current-sale');await screen.findByText('Reserve walk-in sale without payment'); fireEvent.click(screen.getByText('Reserve walk-in sale without payment'));
+ visitPos('/vendor/pos'); await screen.findByText('0 available'); visitPos('/vendor/pos/current-sale');
+ fireEvent.change(await screen.findByLabelText('Cash received for reserved sale'), { target: { value: '100' } }); const complete = screen.getByText('Complete reserved cash sale'); expect((complete as HTMLButtonElement).disabled).toBe(false); fireEvent.click(complete);
  await screen.findByLabelText('Sale receipt'); expect(api).toHaveBeenCalledWith('/drafts/d1/finalize-cash', { cashReceived: '100' }, undefined);
 });
 it('does not print a denied reprint and clears the old error before a successful retry', async () => {
@@ -178,7 +184,7 @@ it('blocks other cash operations while a refund handover needs recovery',async()
 it('keeps selected bill lines across pages and includes a server-scanned off-page product in checkout',async()=>{
  sessionStorage.setItem('pos-session-v1','session');const products=Array.from({length:26},(_,i)=>({id:i+1,name:`Item ${String(i+1).padStart(2,'0')}`,sku:`SKU${i+1}`,barcode:`B${i+1}`,price:10,tax_rate:0,quantity:2}));
  mockBackend(async path=>{if(path==='/products')return products;if(path==='/sessions/session')return {state:'OPEN'};if(path==='/sales')throw new Error('Lost sale response');if(path.startsWith('/drafts'))return [];return {state:'OPEN',openingFloat:50,cashReceived:0,changeGiven:0,cashIn:0,cashOut:0,safeDrops:0,expectedCash:50,movements:[]};});
- render(<App/>);fireEvent.click(await screen.findByText('Add Item 01'));const input=screen.getByLabelText('Search name, SKU or scan barcode');fireEvent.change(input,{target:{value:'SKU26'}});fireEvent.submit(input.closest('form')!);await screen.findByText('Added Item 26');await screen.findByText('Next POS products');fireEvent.click(screen.getByText('Next POS products'));await screen.findByText('Add Item 25');expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1');expect((screen.getByLabelText('Quantity 26') as HTMLInputElement).value).toBe('1');visitPos('/vendor/pos/current-sale');await screen.findByLabelText('Cash received');fireEvent.change(screen.getByLabelText('Cash received'),{target:{value:'20'}});fireEvent.click(screen.getByText('Complete cash sale'));await screen.findByText('Retry same sale');const body=vi.mocked(api).mock.calls.find(([path])=>path==='/sales')![1] as {items:{productId:number;quantity:number}[]};expect(body.items).toEqual([{productId:1,quantity:1},{productId:26,quantity:1}]);
+ render(<App/>);fireEvent.click(await screen.findByText('Add Item 01'));const input=screen.getByLabelText('Search name, SKU or scan barcode');fireEvent.change(input,{target:{value:'SKU26'}});fireEvent.submit(input.closest('form')!);await screen.findByText('Added Item 26');await screen.findByText('Next POS products');fireEvent.click(screen.getByText('Next POS products'));await screen.findByText('Add Item 25');visitPos('/vendor/pos/current-sale');expect((await screen.findByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1');expect((screen.getByLabelText('Quantity 26') as HTMLInputElement).value).toBe('1');await screen.findByLabelText('Cash received');fireEvent.change(screen.getByLabelText('Cash received'),{target:{value:'20'}});fireEvent.click(screen.getByText('Complete cash sale'));await screen.findByText('Retry same sale');const body=vi.mocked(api).mock.calls.find(([path])=>path==='/sales')![1] as {items:{productId:number;quantity:number}[]};expect(body.items).toEqual([{productId:1,quantity:1},{productId:26,quantity:1}]);
 });
 
 it('blocks short cash locally and submits an explicitly chosen exact amount',async()=>{

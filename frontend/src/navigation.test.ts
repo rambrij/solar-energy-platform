@@ -15,7 +15,7 @@ it('resolves direct workspace paths and legacy section fragments', () => {
   expect(resolveWorkspaceRoute('pos', '/vendor/pos/products', '')).toBe('product-management');
   expect(resolveWorkspaceRoute('pos', '/vendor/pos', '#cash-refunds')).toBe('cash-refunds');
   expect(resolveWorkspaceRoute('online', '/marketplace/cart', '')).toBe('customer-cart');
-  expect(resolveWorkspaceRoute('online', '/marketplace/purchases', '')).toBe('order-history');
+  expect(resolveWorkspaceRoute('online', '/marketplace/purchases', '')).toBe('customer-purchases');
   expect(resolveWorkspaceRoute('online', '/vendors/vendor-1', '')).toBe('storefront-products');
 });
 

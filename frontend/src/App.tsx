@@ -27,6 +27,7 @@ import StoreSettings from './StoreSettings';
 import CategoryManager from './CategoryManager';
 import ProductManager from './ProductManager';
 import StockReceiving from './StockReceiving';
+import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
 import {useSession} from './session';
 
 
@@ -39,6 +40,7 @@ export default function App() {
   function startReturn(id:string){setReturnOrderId(id);requestAnimationFrame(()=>document.getElementById('pos-returns')?.scrollIntoView?.({behavior:'smooth',block:'start'}));}
   const [printRequested,setPrintRequested]=useState(false),[catalogueRevision,setCatalogueRevision]=useState(0);
   const refreshProducts=useCallback((items:Product[])=>setProducts(previous=>previous.map(product=>items.find(item=>item.id===product.id)??product)),[]);
+  const [buyer,setBuyer]=useState<BuyerDetails>();
   const [discounts,setDiscounts]=useState<SaleDiscounts>({linePercent:{},billPercent:0,reason:''});
   const [products,setProducts]=useState<Product[]>([]),[session,setSession]=useState(()=>sessionStorage.getItem('pos-session-v1')??'');
   const [cart,setCart]=useState<Record<number,number>>({}),[cash,setCash]=useState(''),[invoice,setInvoice]=useState(false);
@@ -91,7 +93,7 @@ export default function App() {
     return()=>{active=false;};
   },[checkRevision]);
   function activateSession(id:string,state='OPEN'){
-    sessionStorage.setItem('pos-session-v1',id);setSession(id);setSessionState(state);setDiscounts({linePercent:{},billPercent:0,reason:''});
+    sessionStorage.setItem('pos-session-v1',id);setSession(id);setSessionState(state);setDiscounts({linePercent:{},billPercent:0,reason:''});setBuyer(undefined);
     setCheckingSession(false);setSessionCheckFailed(false);setError('');setCart({});setCash('');setProducts([]);
   }
   const saleLocked=refundPending||busy||!!pending||reservedBlocked||movementPending||closePending||sessionState!=='OPEN';
@@ -108,9 +110,9 @@ export default function App() {
   function displayReceipt(value:Receipt){setReceipt(value);setReceiptError('');}
   async function checkout() {
     if(!pending&&(invalidCart||!Object.keys(cart).length||!cashReady))return;
-    const attempt=pending ?? {key:crypto.randomUUID(),body:{sessionId:session,items:Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity})),cashReceived:cash,invoiceRequested:invoice,discounts}};
+    const attempt=pending ?? {key:crypto.randomUUID(),body:{sessionId:session,items:Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity})),cashReceived:cash,invoiceRequested:invoice,discounts,...(buyer?{buyer}:{})}};
     sessionStorage.setItem('pos-attempt-v1',JSON.stringify(attempt));setPending(attempt);setBusy(true);setError('');
-    try {displayReceipt(await api('/sales',attempt.body,attempt.key));sessionStorage.removeItem('pos-attempt-v1');setPending(undefined);setCart({});setDiscounts({linePercent:{},billPercent:0,reason:''});setCash('');setDrawerRevision(value=>value+1);setProducts([]);setCatalogueRevision(value=>value+1);}
+    try {displayReceipt(await api('/sales',attempt.body,attempt.key));sessionStorage.removeItem('pos-attempt-v1');setPending(undefined);setCart({});setDiscounts({linePercent:{},billPercent:0,reason:''});setBuyer(undefined);setCash('');setDrawerRevision(value=>value+1);setProducts([]);setCatalogueRevision(value=>value+1);}
     catch(e){
       const deniedRetry=!!pending&&e instanceof ApiError&&[403,404].includes(e.status);
       if(e instanceof ApiError && [400,403,404,409].includes(e.status)&&!deniedRetry) {
@@ -123,9 +125,9 @@ export default function App() {
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
       <div className="checkout-grid"><PosCatalogue key={session} locked={saleLocked} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onPromotionHistory={id=>{setPromotionProduct(id);window.location.hash='promotion-history';}} onAdd={addProduct} onBusyChange={setBusy}/>
-      <section id="current-sale" className="sale-panel retail-bill-panel" aria-labelledby="sale-title"><div className="section-heading"><h2 id="sale-title">Current sale</h2><span className="badge">{Object.values(cart).reduce((sum, q) => sum + q, 0)} items</span></div>{!Object.keys(cart).length && <div className="empty-state"><p>Your next solar sale starts here.</p><small>Add products from the catalogue.</small></div>}<BillingBasket products={products} cart={cart} locked={saleLocked} onQuantity={(id,q)=>setCart(value=>({...value,[id]:q}))} onRemove={id=>{setDiscounts(value=>({...value,linePercent:Object.fromEntries(Object.entries(value.linePercent).filter(([key])=>key!==String(id)))}));setCart(value=>Object.fromEntries(Object.entries(value).filter(([key])=>key!==String(id))));setProducts(value=>value.filter(product=>product.id!==id));}} cash={cash} onCash={setCash} invoice={invoice} onInvoice={setInvoice} discounts={discounts} onDiscounts={setDiscounts}/>
+      <section id="current-sale" className="sale-panel retail-bill-panel" aria-labelledby="sale-title"><div className="section-heading"><h2 id="sale-title">Current sale</h2><span className="badge">{Object.values(cart).reduce((sum, q) => sum + q, 0)} items</span></div>{!Object.keys(cart).length && <div className="empty-state"><p>Your next solar sale starts here.</p><small>Add products from the catalogue.</small></div>}<BillingBasket products={products} cart={cart} locked={saleLocked} onQuantity={(id,q)=>setCart(value=>({...value,[id]:q}))} onRemove={id=>{setDiscounts(value=>({...value,linePercent:Object.fromEntries(Object.entries(value.linePercent).filter(([key])=>key!==String(id)))}));setCart(value=>Object.fromEntries(Object.entries(value).filter(([key])=>key!==String(id))));setProducts(value=>value.filter(product=>product.id!==id));}} cash={cash} onCash={setCash} invoice={invoice} onInvoice={setInvoice} discounts={discounts} onDiscounts={setDiscounts}/><BuyerDetailsForm value={buyer} locked={saleLocked} onChange={setBuyer}/>
       <button disabled={refundPending||busy||movementPending||closePending||reservedBlocked||(!pending&&(sessionState!=='OPEN'||invalidCart||!Object.keys(cart).length||!cashReady))} onClick={checkout}>{busy?'Checking sale…':pending?'Retry same sale':'Complete cash sale'}</button>
-      <ReservedDrafts key={`drafts-${session}`} mode="pos" session={session} createDisabled={invalidCart} items={Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity}))} invoiceRequested={invoice} discounts={discounts} disabled={refundPending||busy||!!pending||movementPending||closePending||sessionState!=='OPEN'} onBlocked={setReservedBlocked} onReceipt={(value,finalized)=>{displayReceipt(value);if(finalized){setDiscounts({linePercent:{},billPercent:0,reason:''});setCart({});setProducts([]);setCash('');setDrawerRevision(value=>value+1);}}} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/>
+      <ReservedDrafts key={`drafts-${session}`} mode="pos" session={session} createDisabled={invalidCart} items={Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity}))} invoiceRequested={invoice} discounts={discounts} buyer={buyer} disabled={refundPending||busy||!!pending||movementPending||closePending||sessionState!=='OPEN'} onBlocked={setReservedBlocked} onReceipt={(value,finalized)=>{displayReceipt(value);if(finalized){setDiscounts({linePercent:{},billPercent:0,reason:''});setBuyer(undefined);setCart({});setProducts([]);setCash('');setDrawerRevision(value=>value+1);}}} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/>
       </section></div><div className="operations-grid" id="register"><CashDrawer key={session} session={session} revision={drawerRevision} disabled={refundPending||busy||!!pending||closePending} readOnly={sessionState!=='OPEN'} onPendingChange={setMovementPending} onBusyChange={setBusy}/>
       <ShiftClose key={`close-${session}`} session={session} disabled={refundPending||busy||!!pending||movementPending||reservedBlocked} onStateChange={setSessionState} onPendingChange={setClosePending} onBusyChange={setBusy}/>
       </div>{sessionState!=='OPEN'&&<button disabled={refundPending||busy||!!pending||movementPending||closePending||reservedBlocked} onClick={()=>{sessionStorage.removeItem('pos-session-v1');setSession('');setError('');}}>Choose another session</button>}

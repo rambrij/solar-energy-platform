@@ -23,6 +23,7 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service @Transactional
 public class CheckoutService {
+ @org.springframework.beans.factory.annotation.Autowired private BuyerDetailsService buyers;
  @org.springframework.beans.factory.annotation.Autowired private org.springframework.context.ApplicationEventPublisher events;
     @org.springframework.beans.factory.annotation.Autowired private PaymentAttemptRepository paymentAttempts;
     @org.springframework.beans.factory.annotation.Autowired private PaymentPolicy paymentPolicy;
@@ -36,9 +37,9 @@ public class CheckoutService {
         this.orders=orders;this.lines=lines;this.carts=carts;this.customers=customers;this.catalogue=catalogue;this.stock=stock;this.retail=retail;this.pricing=pricing;this.clock=clock;this.ttl=ttl;this.recoveryPolicy=recoveryPolicy;
     }
     public record Item(@Positive long productId,@Min(1) @Max(10000) int quantity) {}
-    public record PosDraft(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,boolean invoiceRequested,SaleDiscountService.Request discounts) {}
+    public record PosDraft(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,boolean invoiceRequested,SaleDiscountService.Request discounts,@Valid BuyerDetailsPolicy.Input buyer) {}
     public record OnlineDraft(@NotBlank @Size(max=36) String expectedCartId) {}
-    public record CashSale(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived,boolean invoiceRequested,SaleDiscountService.Request discounts) {}
+    public record CashSale(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived,boolean invoiceRequested,SaleDiscountService.Request discounts,@Valid BuyerDetailsPolicy.Input buyer) {}
     public record Cash(@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal cashReceived) {}
     public record Cancel(@NotBlank @Size(max=250) String reason) {}
     public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal discount) {}
@@ -62,16 +63,18 @@ public class CheckoutService {
     public Map<String,Object> cashSale(String username,String clientKey,CashSale request){
         validateCash(request.cashReceived());
         var scope=retail.scope(username);retail.lockOutlet(scope);
-        var draft=reservePos(scope,clientKey,new PosDraft(request.sessionId(),request.items(),request.invoiceRequested(),request.discounts()),"POS_CASH","|CASH|"+request.cashReceived().setScale(2).toPlainString());
+        var draft=reservePos(scope,clientKey,new PosDraft(request.sessionId(),request.items(),request.invoiceRequested(),request.discounts(),request.buyer()),"POS_CASH","|CASH|"+request.cashReceived().setScale(2).toPlainString());
         return finalizeOwnedCash(scope,draft.id(),request.cashReceived());
     }
     private void validateCash(BigDecimal cash){if(cash==null||cash.signum()<0||cash.scale()>2||cash.precision()-cash.scale()>12)throw new ResponseStatusException(BAD_REQUEST,"Cash must be non-negative with at most 12 integer and two fractional digits");}
     private Draft reservePos(PosService.Scope scope,String clientKey,PosDraft request,String operation,String cashFingerprint){
         String key=key(operation+":"+scope.cashier(),clientKey);
-        String hash=sha(request.sessionId()+"|"+request.items().stream().sorted(Comparator.comparingLong(Item::productId)).toList()+"|"+request.invoiceRequested()+"|"+request.discounts()+cashFingerprint);
+        var buyer=buyers.canonical(request.buyer());
+        String hash=sha(request.sessionId()+"|"+request.items().stream().sorted(Comparator.comparingLong(Item::productId)).toList()+"|"+request.invoiceRequested()+"|"+request.discounts()+(buyer==null?"":"|BUYER|"+sha(buyers.fingerprint(buyer)))+cashFingerprint);
         var prior=orders.findByTenantIdAndKey(scope.tenant(),key);if(prior.isPresent()){owned(scope,prior.get());return replay(prior.get(),hash);}
         retail.requireOpen(scope,request.sessionId());
         var result=create(scope.tenant(),null,scope.branch(),scope.cashier(),request.sessionId(),"IN_STORE",key,hash,scope.branch(),"POS:"+sha(scope.cashier()+"|"+request.sessionId()),request.items(),request.invoiceRequested(),request.discounts());
+        var config=terminalPolicies.find(scope.tenant(),scope.branch()).orElseThrow(this::missing);buyers.capture(scope.tenant(),result.id(),buyer,config.buyerDetailsRequired()&&(config.invoiceRequired()||request.invoiceRequested()));
         retail.draftAudit(scope,"DRAFT_RESERVE",result.id());return result;
     }
     private Draft create(long tenant,Long customer,Long posBranch,String cashier,String session,String channel,String key,String hash,long branch,String owner,List<Item> items,boolean invoice,SaleDiscountService.Request discountRequest){
@@ -98,7 +101,7 @@ public class CheckoutService {
     public List<Draft> posList(String username,String session){var s=retail.scope(username);return orders.findTop20ByTenantIdAndBranchIdAndCashierAndSessionIdAndExpiresAtIsNotNullOrderByExpiresAtDesc(s.tenant(),s.branch(),s.cashier(),session).stream().map(this::view).toList();}
     public Draft cancelOnline(String username,String id,String reason){var order=orders.lockCustomer(customers.resolve(username),id).orElseThrow(this::missing);cancel(order,reason);return view(order);}
     public Draft cancelPos(String username,String id,String reason){var s=retail.scope(username);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);if(cancel(order,reason))retail.draftAudit(s,"DRAFT_CANCEL",id);return view(order);}
-    private boolean cancel(DraftOrder order,String reason){if(unresolvedTerminal(order))conflict("Reconcile the terminal payment before cancelling or releasing stock");if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();return true;}return false;}
+    private boolean cancel(DraftOrder order,String reason){if(unresolvedTerminal(order))conflict("Reconcile the terminal payment before cancelling or releasing stock");if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());buyers.discardUnpaid(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();return true;}return false;}
     private boolean unresolvedTerminal(DraftOrder order){return paymentAttempts.findAllByTenantAndOrderOrderByCreatedAscIdAsc(order.tenant(),order.id()).stream().anyMatch(a->a.unresolved()||"CONFIRMED".equals(a.state()));}
     public Map<String,Object> finalizeCash(String username,String id,BigDecimal cash){
         validateCash(cash);
@@ -106,7 +109,7 @@ public class CheckoutService {
     }
     private Map<String,Object> finalizeOwnedCash(PosService.Scope s,String id,BigDecimal cash){
         retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);
-        if("PAID".equals(order.status())){if(cash.compareTo(order.cash())!=0)conflict("Cash amount differs from completed sale");return retail.receipt(s,id);}
+        if("PAID".equals(order.status())){if(cash.compareTo(order.cash())!=0)conflict("Cash amount differs from completed sale");return receipt(s,id);}
         if(paymentAttempts.findByTenantAndOrder(s.tenant(),id).isPresent())conflict("This draft uses an external payment attempt; recover that payment instead of collecting cash");
         retail.requireOpen(s,order.session());
         if(!"DRAFT".equals(order.status())||!order.expires().isAfter(clock.instant()))conflict("Draft is cancelled or expired; refresh/cancel it before starting another sale");
@@ -122,7 +125,8 @@ public class CheckoutService {
         events.publishEvent(new com.saumya.pos.shared.CashTenderRecorded(tender.id(),order.tenant(),order.branch(),order.session(),id,tender.cash(),tender.change()));
         order.pay(cash,receipt.number(),invoice,clock.instant());orders.flush();
         retail.draftDocuments(s,id,stored.stream().map(l->new PosService.StockIssue(l.product(),l.quantity())).toList(),receipt,order.total(),invoice);
-        return retail.receipt(s,id);
+        return receipt(s,id);
     }
-    public void expire(long tenant,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){stock.release(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();}}
+    private Map<String,Object> receipt(PosService.Scope scope,String id){var value=retail.receipt(scope,id);var buyer=buyers.snapshot(scope.tenant(),id);if(buyer!=null)value.put("buyer",buyer);return value;}
+    public void expire(long tenant,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){stock.release(tenant,id);buyers.discardUnpaid(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();}}
 }

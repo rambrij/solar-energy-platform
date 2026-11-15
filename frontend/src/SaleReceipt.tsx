@@ -1,3 +1,4 @@
+import BuyerSnapshotView from './BuyerSnapshotView';
 import type {ReactNode} from 'react';
 import type {Receipt} from './types';
 const money=(value:number)=>Number(value).toFixed(2);
@@ -6,6 +7,7 @@ export default function SaleReceipt({receipt,error,children}:{receipt:Receipt;er
  const outlet=receipt.receipt_outlet_name??receipt.invoices[0]?.outlet_name;
  const stamp=receipt.issued_at==null?null:new Date(receipt.issued_at);const issued=stamp&&!Number.isNaN(stamp.getTime())?stamp:null;
  return <section id="sale-receipt" className="sale-receipt structured-receipt" aria-label="Sale receipt"><header className="receipt-heading"><div><span className="eyebrow">Vendor sale receipt</span><h2>{receipt.copy?'COPY · ':''}Receipt {receipt.branch_id}/{receipt.receipt_number}</h2><strong>{seller??'Seller name not recorded'}</strong><p>{outlet??'Outlet name not recorded'}</p></div><span className="badge">{receipt.copy?'Audited copy':'Original'}</span></header><dl className="receipt-meta"><div><dt>Sale reference</dt><dd>{receipt.id}</dd></div><div><dt>Issued</dt><dd>{issued?<time dateTime={issued.toISOString()}>{issued.toLocaleString()} local time</time>:'Issue time not recorded'}</dd></div><div><dt>Channel / tender</dt><dd>Walk-in · {receipt.payment_method?.startsWith('MOCK_') ? 'TEST '+receipt.payment_method.slice(5)+' (no funds collected)' : (receipt.payment_method??'Cash')}</dd></div></dl>{error&&<p className="receipt-error" role="alert">{error}</p>}
+ <BuyerSnapshotView buyer={receipt.buyer}/>
  {receipt.payment_reference&&<p>Terminal payment reference: {receipt.payment_reference}</p>}
  <div className="receipt-table-scroll" role="region" aria-label="Receipt item table" tabIndex={0}><table className="receipt-table"><caption>Saved sale lines · Unit amounts before tax</caption><thead><tr><th scope="col">Item</th><th scope="col">Qty</th><th scope="col">Unit price</th><th scope="col">Discount</th><th scope="col">Tax</th><th scope="col">Line total</th></tr></thead><tbody>{receipt.items.map((line,index)=><tr key={index}><th scope="row">{line.name}</th><td>{line.quantity}</td><td>{money(line.price)}</td><td>{line.discount==null?'Not recorded':money(line.discount)}</td><td>{money(line.tax)} <small>({line.tax_rate}%)</small></td><td>{money(line.total)}</td></tr>)}</tbody></table></div>
  {receipt.tenders&&<section aria-label="Confirmed sale tenders"><h3>Payments</h3><ul>{receipt.tenders.map((tender,index)=><li key={index}>{tender.method} · Applied {money(tender.appliedAmount)}{tender.reference&&<> · {tender.reference}</>}</li>)}</ul></section>}

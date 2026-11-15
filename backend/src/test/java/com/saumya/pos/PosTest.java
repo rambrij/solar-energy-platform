@@ -63,6 +63,15 @@ class PosTest {
  }
  int update(String sql,Object...args){int result=db.update(sql,args);if(sql.matches("(?is)^\\s*(?:UPDATE\\s+inventory\\b|INSERT\\s+INTO\\s+inventory\\b|DELETE\\s+FROM\\s+inventory\\b).*")){db.update("DELETE FROM catalog_stock");db.update("INSERT INTO catalog_stock SELECT tenant_id,branch_id,product_id,quantity-reserved FROM inventory");}return result;}
  void employee(String username,long tenant,long branch){long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);update("INSERT INTO users VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);}
+ <T> T as(String username, java.util.function.Supplier<T> action) {
+  var previous = org.springframework.security.core.context.SecurityContextHolder.getContext();
+  var current = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+  current.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username, "test", List.of()));
+  org.springframework.security.core.context.SecurityContextHolder.setContext(current);
+  try { return action.get(); }
+  finally { org.springframework.security.core.context.SecurityContextHolder.setContext(previous); }
+ }
+
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=payments.tenderStatus(username,id).remaining();var result=payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null));return result.tenders().getLast();}
@@ -1138,46 +1147,46 @@ class PosTest {
  com.saumya.pos.returns.ReturnService.Inspect inspectReturn(String condition,String disposition){return new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,condition,disposition,"Inspected received goods")));}
  @Test void returnIntakeIsDisabledByDefaultAndRetryAfterShiftCloseDoesNotRefund(){
   var receipt=checkout.cashSale(a.cashier(),"return-sale1",sale(1,"120"));String order=(String)receipt.get("id");
-  assertThat(returns.eligibility("alice",order).eligible()).isFalse();assertThatThrownBy(()->returns.create("alice","return-start1",returnRequest(order,1))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  enableReturns();var returned=returns.create("alice","return-start1",returnRequest(order,1));assertThat(returned.state()).isEqualTo("REQUESTED");assertThat(returned.refundStatus()).isEqualTo("NOT_INITIATED");
+  assertThat(as("alice", () -> returns.eligibility(order)).eligible()).isFalse();assertThatThrownBy(()->as("alice", () -> returns.create("return-start1",returnRequest(order,1)))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  enableReturns();var returned=as("alice", () -> returns.create("return-start1",returnRequest(order,1)));assertThat(returned.state()).isEqualTo("REQUESTED");assertThat(returned.refundStatus()).isEqualTo("NOT_INITIATED");
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isZero();
   assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("160");service.close(a,session,new BigDecimal("160"));
-  assertThat(returns.create("alice","return-start1",returnRequest(order,1)).id()).isEqualTo(returned.id());
+  assertThat(as("alice", () -> returns.create("return-start1",returnRequest(order,1))).id()).isEqualTo(returned.id());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_movements",Integer.class)).isZero();
-  assertThatThrownBy(()->returns.create("alice","return-start1",returnRequest(order,2))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("alice", () -> returns.create("return-start1",returnRequest(order,2)))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
  @Test void independentReviewAndQuarantineAreIdempotentAndNeverRestockDamagedGoods(){
-  enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale2",sale(1,"120"));var request=returns.create("alice","return-case2",returnRequest((String)receipt.get("id"),1));
-  assertThatThrownBy(()->returns.review("alice",request.id(),approveReturn())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  assertThatThrownBy(()->returns.inspect("manager",request.id(),inspectReturn("SELLABLE","RESTOCK"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  returns.review("manager",request.id(),approveReturn());returns.review("manager",request.id(),approveReturn());
-  assertThatThrownBy(()->returns.inspect("manager",request.id(),inspectReturn("DAMAGED","RESTOCK"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  var inspected=returns.inspect("manager",request.id(),inspectReturn("DAMAGED","QUARANTINE"));assertThat(inspected.state()).isEqualTo("INSPECTED");assertThat(inspected.refundStatus()).isEqualTo("NOT_INITIATED");
-  returns.inspect("manager",request.id(),inspectReturn("DAMAGED","QUARANTINE"));returns.review("manager",request.id(),approveReturn());
+  enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale2",sale(1,"120"));var request=as("alice", () -> returns.create("return-case2",returnRequest((String)receipt.get("id"),1)));
+  assertThatThrownBy(()->as("alice", () -> returns.review(request.id(),approveReturn()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("manager", () -> returns.inspect(request.id(),inspectReturn("SELLABLE","RESTOCK")))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  as("manager", () -> returns.review(request.id(),approveReturn()));as("manager", () -> returns.review(request.id(),approveReturn()));
+  assertThatThrownBy(()->as("manager", () -> returns.inspect(request.id(),inspectReturn("DAMAGED","RESTOCK")))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  var inspected=as("manager", () -> returns.inspect(request.id(),inspectReturn("DAMAGED","QUARANTINE")));assertThat(inspected.state()).isEqualTo("INSPECTED");assertThat(inspected.refundStatus()).isEqualTo("NOT_INITIATED");
+  as("manager", () -> returns.inspect(request.id(),inspectReturn("DAMAGED","QUARANTINE")));as("manager", () -> returns.review(request.id(),approveReturn()));
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(3);
-  assertThatThrownBy(()->returns.inspect("manager",request.id(),inspectReturn("SELLABLE","RESTOCK"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  assertThatThrownBy(()->returns.create("alice","return-again",returnRequest((String)receipt.get("id"),1))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("manager", () -> returns.inspect(request.id(),inspectReturn("SELLABLE","RESTOCK")))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("alice", () -> returns.create("return-again",returnRequest((String)receipt.get("id"),1)))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
  @Test void rejectedIntakeReleasesTheOriginalQuantityBalanceWithoutIssuingStock(){
-  enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale3",sale(1,"120"));String order=(String)receipt.get("id");var request=returns.create("alice","return-case3",returnRequest(order,1));
-  assertThat(returns.eligibility("alice",order).items().getFirst().remaining()).isZero();returns.review("manager",request.id(),new com.saumya.pos.returns.ReturnService.Review("REJECTED","Proof did not match the original goods"));
-  assertThat(returns.eligibility("alice",order).items().getFirst().remaining()).isEqualTo(1);returns.create("alice","return-new3",returnRequest(order,1));assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
+  enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale3",sale(1,"120"));String order=(String)receipt.get("id");var request=as("alice", () -> returns.create("return-case3",returnRequest(order,1)));
+  assertThat(as("alice", () -> returns.eligibility(order)).items().getFirst().remaining()).isZero();as("manager", () -> returns.review(request.id(),new com.saumya.pos.returns.ReturnService.Review("REJECTED","Proof did not match the original goods")));
+  assertThat(as("alice", () -> returns.eligibility(order)).items().getFirst().remaining()).isEqualTo(1);as("alice", () -> returns.create("return-new3",returnRequest(order,1)));assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
  }
  @Test void inspectionRollsBackAllStockAndDispositionRowsIfAnyRestockFails(){
   enableReturns();supervisor("manager");update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'CABLE',NULL,'Cable',20,0,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
   var receipt=checkout.cashSale(a.cashier(),"return-sale4",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),new BigDecimal("150"),false,null,null));
-  var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Goods returned","ORIGINAL_RECEIPT","Receipt and both goods checked");var request=returns.create("alice","return-case4",command);returns.review("manager",request.id(),approveReturn());
+  var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Goods returned","ORIGINAL_RECEIPT","Receipt and both goods checked");var request=as("alice", () -> returns.create("return-case4",command));as("manager", () -> returns.review(request.id(),approveReturn()));
   var inspection=new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"SELLABLE","RESTOCK","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"SELLABLE","RESTOCK","Cable checked")));
-  update("UPDATE inventory SET quantity=? WHERE tenant_id=1 AND product_id=3",Integer.MAX_VALUE);assertThatThrownBy(()->returns.inspect("manager",request.id(),inspection)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND product_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isZero();assertThat(returns.get("alice",request.id()).state()).isEqualTo("APPROVED");
-  update("UPDATE inventory SET quantity=0 WHERE tenant_id=1 AND product_id=3");returns.inspect("manager",request.id(),inspection);returns.inspect("manager",request.id(),inspection);
+  update("UPDATE inventory SET quantity=? WHERE tenant_id=1 AND product_id=3",Integer.MAX_VALUE);assertThatThrownBy(()->as("manager", () -> returns.inspect(request.id(),inspection))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND product_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isZero();assertThat(as("alice", () -> returns.get(request.id())).state()).isEqualTo("APPROVED");
+  update("UPDATE inventory SET quantity=0 WHERE tenant_id=1 AND product_id=3");as("manager", () -> returns.inspect(request.id(),inspection));as("manager", () -> returns.inspect(request.id(),inspection));
   assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(stock.atBranch(1,1,3)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(2);assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("180");
  }
  @Test void returnWindowAndOriginalPaidPosChannelAreEnforced(){
-  configureOnline();enableReturns();var draft=checkout.pos("alice","not-paid-return",posDraft());assertThatThrownBy(()->returns.eligibility("alice",draft.id())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);checkout.cancelPos("alice",draft.id(),"Not sold");
-  var online=onlineDraft("online-no-return");assertThatThrownBy(()->returns.eligibility("alice",online.id())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);checkout.cancelOnline("customer",online.id(),"Cancel hold");
+  configureOnline();enableReturns();var draft=checkout.pos("alice","not-paid-return",posDraft());assertThatThrownBy(()->as("alice", () -> returns.eligibility(draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);checkout.cancelPos("alice",draft.id(),"Not sold");
+  var online=onlineDraft("online-no-return");assertThatThrownBy(()->as("alice", () -> returns.eligibility(online.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);checkout.cancelOnline("customer",online.id(),"Cancel hold");
   var receipt=checkout.cashSale(a.cashier(),"return-sale5",sale(1,"120"));String order=(String)receipt.get("id");update("UPDATE orders SET status_changed_at=? WHERE id=?",java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(31),order);
-  assertThat(returns.eligibility("alice",order).eligible()).isFalse();assertThatThrownBy(()->returns.create("alice","return-old5",returnRequest(order,1))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(as("alice", () -> returns.eligibility(order)).eligible()).isFalse();assertThatThrownBy(()->as("alice", () -> returns.create("return-old5",returnRequest(order,1)))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
  @Test void returnHttpPermissionsCsrfOriginalOwnershipAndForgedFieldsFailClosed() throws Exception {
   enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale6",sale(1,"120"));String order=(String)receipt.get("id"),path="/api/v1/vendor/pos/returns";
@@ -1186,70 +1195,70 @@ class PosTest {
   mvc.perform(post(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(body)).andExpect(status().isForbidden());
   for(String forged:List.of(body.replace("\"items\"","\"tenantId\":2,\"items\""),body.replace("[{\"productId\":1,\"quantity\":1}]","[null]")))mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(forged)).andExpect(status().isBadRequest());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.refundStatus").value("NOT_INITIATED"));
-  var request=returns.list("alice","REQUESTED").getFirst();mvc.perform(get(path+"/"+request.id()).with(user("bob").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isNotFound());
+  var request=as("alice", () -> returns.list("REQUESTED")).getFirst();mvc.perform(get(path+"/"+request.id()).with(user("bob").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isNotFound());
   mvc.perform(get(path).with(user("bob").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
   mvc.perform(post(path+"/"+request.id()+"/review").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_APPROVE")).contentType("application/json").content("{\"decision\":\"APPROVED\",\"reason\":\"Reviewed\"}")).andExpect(status().isForbidden());
  }
  @Test void concurrentReturnClaimsCannotExceedSoldQuantity() throws Exception {
   enableReturns();var receipt=checkout.cashSale(a.cashier(),"return-sale7",sale(1,"120"));String order=(String)receipt.get("id");
-  try(var pool=Executors.newFixedThreadPool(2)){Callable<Boolean> first=()->{try{returns.create("alice","return-race1",returnRequest(order,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};Callable<Boolean> second=()->{try{returns.create("alice","return-race2",returnRequest(order,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};int successes=0;for(var result:pool.invokeAll(List.of(first,second)))if(result.get())successes++;assertThat(successes).isEqualTo(1);}
+  try(var pool=Executors.newFixedThreadPool(2)){Callable<Boolean> first=()->{try{as("alice", () -> returns.create("return-race1",returnRequest(order,1)));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};Callable<Boolean> second=()->{try{as("alice", () -> returns.create("return-race2",returnRequest(order,1)));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};int successes=0;for(var result:pool.invokeAll(List.of(first,second)))if(result.get())successes++;assertThat(successes).isEqualTo(1);}
   assertThat(db.queryForObject("SELECT SUM(quantity) FROM pos_return_items",Integer.class)).isEqualTo(1);
  }
  @Test void concurrentIdenticalInspectionsRestockOnlyOnce() throws Exception {
-  enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale8",sale(1,"120"));var request=returns.create("alice","return-case8",returnRequest((String)receipt.get("id"),1));returns.review("manager",request.id(),approveReturn());
-  try(var pool=Executors.newFixedThreadPool(2)){Callable<String> inspect=()->returns.inspect("manager",request.id(),inspectReturn("SELLABLE","RESTOCK")).id();for(var result:pool.invokeAll(List.of(inspect,inspect)))assertThat(result.get()).isEqualTo(request.id());}
+  enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale8",sale(1,"120"));var request=as("alice", () -> returns.create("return-case8",returnRequest((String)receipt.get("id"),1)));as("manager", () -> returns.review(request.id(),approveReturn()));
+  try(var pool=Executors.newFixedThreadPool(2)){Callable<String> inspect=()->as("manager", () -> returns.inspect(request.id(),inspectReturn("SELLABLE","RESTOCK"))).id();for(var result:pool.invokeAll(List.of(inspect,inspect)))assertThat(result.get()).isEqualTo(request.id());}
   assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(3);
  }
 
  @Test void newReturnCanReferenceAClosedOriginalSaleFromANewOwnedShift(){
   enableReturns();var receipt=checkout.cashSale(a.cashier(),"return-old-shift",sale(1,"120"));service.close(a,session,new BigDecimal("160"));
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("20"))).get("id");
-  var request=returns.create("alice","return-new-shift",returnRequest((String)receipt.get("id"),1));assertThat(request.state()).isEqualTo("REQUESTED");assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("20");
+  var request=as("alice", () -> returns.create("return-new-shift",returnRequest((String)receipt.get("id"),1)));assertThat(request.state()).isEqualTo("REQUESTED");assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("20");
  }
 
  String inspectedRefundReturn(){
   enableReturns();supervisor("manager");
   var receipt=checkout.cashSale(a.cashier(),"refund-original",sale(1,"120"));
-  var r=returns.create("alice","refund-intake",returnRequest((String)receipt.get("id"),1));
-  returns.review("manager",r.id(),approveReturn());returns.inspect("manager",r.id(),inspectReturn("DAMAGED","QUARANTINE"));return r.id();
+  var r=as("alice", () -> returns.create("refund-intake",returnRequest((String)receipt.get("id"),1)));
+  as("manager", () -> returns.review(r.id(),approveReturn()));as("manager", () -> returns.inspect(r.id(),inspectReturn("DAMAGED","QUARANTINE")));return r.id();
  }
  String refundSession(String floatAmount){
   update("INSERT INTO registers VALUES(3,1,1)");
   return (String)service.open(new PosService.Scope(1,1,"manager"),new PosService.OpenSession(3,new BigDecimal(floatAmount))).get("id");
  }
  com.saumya.pos.returns.CashRefundService.Pay refundPay(String returned,String paying){
-  var q=refunds.quote("manager",returned,paying);
+  var q=as("manager", () -> refunds.quote(returned,paying));
   return new com.saumya.pos.returns.CashRefundService.Pay(returned,paying,"Independent cash handover",q.quoteHash(),"CASH_HANDED_TO_BUYER");
  }
  @Test void cashRefundIsOnceOnlyAndDebitsPayingDrawerWithoutChangingOriginalSale(){
   String returned=inspectedRefundReturn(),paying=refundSession("200");
-  assertThatThrownBy(()->refunds.quote("manager",returned,paying)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("manager", () -> refunds.quote(returned,paying))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
-  var command=refundPay(returned,paying);var paid=refunds.pay("manager","refund-once1",command);
+  var command=refundPay(returned,paying);var paid=as("manager", () -> refunds.pay("refund-once1",command));
   assertThat(paid.amount()).isEqualByComparingTo("110");assertThat(paid.items()).hasSize(1);
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("90");
   assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("160");
-  assertThat(returns.get("alice",returned).refundStatus()).isEqualTo("PAID");
+  assertThat(as("alice", () -> returns.get(returned)).refundStatus()).isEqualTo("PAID");
   assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("PAID");
   service.close(new PosService.Scope(1,1,"manager"),paying,new BigDecimal("90"));update("UPDATE branches SET cash_refunds_enabled=FALSE WHERE id=1");
-  assertThat(refunds.pay("manager","refund-once1",command).id()).isEqualTo(paid.id());
-  assertThat(refunds.byReturn("manager",returned).id()).isEqualTo(paid.id());assertThat(refunds.copy("manager",paid.id()).copy()).isTrue();
-  assertThatThrownBy(()->refunds.get("bob",paid.id())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(as("manager", () -> refunds.pay("refund-once1",command)).id()).isEqualTo(paid.id());
+  assertThat(as("manager", () -> refunds.byReturn(returned)).id()).isEqualTo(paid.id());assertThat(as("manager", () -> refunds.copy(paid.id())).copy()).isTrue();
+  assertThatThrownBy(()->as("bob", () -> refunds.get(paid.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds",Integer.class)).isEqualTo(1);
  }
  @Test void cashRefundRejectsInsufficientFundsSelfApprovalAndTaxInvoice(){
   String returned=inspectedRefundReturn(),paying=refundSession("50");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
-  assertThatThrownBy(()->refunds.quote("alice",returned,session)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  var q=refunds.quote("manager",returned,paying);assertThat(q.enoughCash()).isFalse();
-  assertThatThrownBy(()->refunds.pay("manager","refund-short",refundPay(returned,paying))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("alice", () -> refunds.quote(returned,session))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  var q=as("manager", () -> refunds.quote(returned,paying));assertThat(q.enoughCash()).isFalse();
+  assertThatThrownBy(()->as("manager", () -> refunds.pay("refund-short",refundPay(returned,paying)))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   update("UPDATE orders SET tax_invoice=TRUE");
-  assertThatThrownBy(()->refunds.quote("manager",returned,paying)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("manager", () -> refunds.quote(returned,paying))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds",Integer.class)).isZero();
  }
  @Test void concurrentRefundRetriesCreateOneImmutablePayment() throws Exception {
   String returned=inspectedRefundReturn(),paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var command=refundPay(returned,paying);
   try(var pool=Executors.newFixedThreadPool(2)){
-   var jobs=List.of((Callable<String>)()->refunds.pay("manager","refund-race1",command).id(),()->refunds.pay("manager","refund-race1",command).id());
+   var jobs=List.of((Callable<String>)()->as("manager", () -> refunds.pay("refund-race1",command)).id(),()->as("manager", () -> refunds.pay("refund-race1",command)).id());
    var results=pool.invokeAll(jobs);assertThat(results.get(0).get()).isEqualTo(results.get(1).get());
   }
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items",Integer.class)).isEqualTo(1);
@@ -1265,7 +1274,7 @@ class PosTest {
  @Test void refundAndCashWithdrawalCannotOverdrawPayingSession() throws Exception {
   String returned=inspectedRefundReturn(),paying=refundSession("120");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var command=refundPay(returned,paying);var manager=new PosService.Scope(1,1,"manager");
   try(var pool=Executors.newFixedThreadPool(2)){
-   Callable<Boolean> refund=()->{try{refunds.pay("manager","refund-cash-race",command);return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
+   Callable<Boolean> refund=()->{try{as("manager", () -> refunds.pay("refund-cash-race",command));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
    Callable<Boolean> withdrawal=()->{try{service.cashMovement(manager,paying,"cash-withdraw-race",movement(PosService.MovementType.CASH_OUT,"20","Supplies"));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
    int wins=0;for(var result:pool.invokeAll(List.of(refund,withdrawal)))if(result.get())wins++;assertThat(wins).isEqualTo(1);
   }
@@ -1275,12 +1284,12 @@ class PosTest {
   enableReturns();supervisor("manager");update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");update("UPDATE products SET price=0.05,tax_rate=10 WHERE id=1");
   var receipt=checkout.cashSale(a.cashier(),"partial-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),BigDecimal.ONE,false,null,null));
   String order=(String)receipt.get("id"),paying=refundSession("10");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
-  var ids=new ArrayList<String>();for(int i=0;i<3;i++){var r=returns.create("alice","partial-return"+i,returnRequest(order,1));returns.review("manager",r.id(),approveReturn());returns.inspect("manager",r.id(),inspectReturn("DAMAGED","QUARANTINE"));ids.add(r.id());}
+  var ids=new ArrayList<String>();for(int i=0;i<3;i++){var r=as("alice", () -> returns.create("partial-return"+i,returnRequest(order,1)));as("manager", () -> returns.review(r.id(),approveReturn()));as("manager", () -> returns.inspect(r.id(),inspectReturn("DAMAGED","QUARANTINE")));ids.add(r.id());}
   var first=refundPay(ids.get(0),paying);var stale=refundPay(ids.get(1),paying);
-  refunds.pay("manager","partial-refund0",first);
-  assertThatThrownBy(()->refunds.pay("manager","partial-refund1",stale)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  as("manager", () -> refunds.pay("partial-refund0",first));
+  assertThatThrownBy(()->as("manager", () -> refunds.pay("partial-refund1",stale))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   update("UPDATE products SET price=999,tax_rate=50 WHERE id=1");
-  for(int i=1;i<3;i++)refunds.pay("manager","partial-refund"+i,refundPay(ids.get(i),paying));
+  for(int i=1;i<3;i++)as("manager", () -> refunds.pay("partial-refund"+i,refundPay(ids.get(i),paying)));
   assertThat(db.queryForObject("SELECT SUM(amount) FROM pos_cash_refunds",BigDecimal.class)).isEqualByComparingTo((BigDecimal)receipt.get("total"));
  }
 
@@ -1288,9 +1297,9 @@ class PosTest {
   enableReturns();supervisor("manager");update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'CABLE',NULL,'Cable',20,10,TRUE)");update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,3,1)");
   var receipt=checkout.cashSale(a.cashier(),"refund-report-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),new BigDecimal("150"),false,null,null));
   var command=new com.saumya.pos.returns.ReturnService.Create((String)receipt.get("id"),session,List.of(new com.saumya.pos.returns.ReturnService.Item(1,1),new com.saumya.pos.returns.ReturnService.Item(3,1)),"Returned goods","ORIGINAL_RECEIPT","Receipt checked");
-  var returned=returns.create("alice","refund-report-return",command);returns.review("manager",returned.id(),approveReturn());
-  returns.inspect("manager",returned.id(),new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"DAMAGED","QUARANTINE","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"DAMAGED","QUARANTINE","Cable checked"))));
-  String paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var paid=refunds.pay("manager","refund-report-paid",refundPay(returned.id(),paying));
+  var returned=as("alice", () -> returns.create("refund-report-return",command));as("manager", () -> returns.review(returned.id(),approveReturn()));
+  as("manager", () -> returns.inspect(returned.id(),new com.saumya.pos.returns.ReturnService.Inspect(List.of(new com.saumya.pos.returns.ReturnService.Inspection(1,"DAMAGED","QUARANTINE","Panel checked"),new com.saumya.pos.returns.ReturnService.Inspection(3,"DAMAGED","QUARANTINE","Cable checked")))));
+  String paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var paid=as("manager", () -> refunds.pay("refund-report-paid",refundPay(returned.id(),paying)));
   update("UPDATE pos_cash_refunds SET paid_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")),paid.id());
   String path="/api/v1/vendor/pos/reports/cash-refunds";
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-13").param("tenantId","2").param("branchId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totals.refunds").value(1)).andExpect(jsonPath("$.totals.units").value(2)).andExpect(jsonPath("$.totals.cash").value(132)).andExpect(jsonPath("$.totals.beforeTax").value(120)).andExpect(jsonPath("$.totals.tax").value(12)).andExpect(jsonPath("$.days[0].totals.refunds").value(1)).andExpect(jsonPath("$.days[1].totals.refunds").value(0)).andExpect(jsonPath("$.cashiers[0].cashier").value("manager"));
@@ -1414,7 +1423,7 @@ class PosTest {
  }
 
  @Test void cashRefundCsvExportsOnlyScopedPayoutAggregatesWithoutChangingFinances() throws Exception {
-  String returned=inspectedRefundReturn(),paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");refunds.pay("manager","export-refund-paid",refundPay(returned,paying));
+  String returned=inspectedRefundReturn(),paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");as("manager", () -> refunds.pay("export-refund-paid",refundPay(returned,paying)));
   String csv=mvc.perform(post("/api/v1/vendor/pos/reports/cash-refunds/export").with(csrf()).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REPORT_EXPORT",()->"POS_REFUND_VIEW")).contentType("application/json").content("{\"reason\":\"Payout review\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
   assertThat(csv).contains("\"CASHIER\",\"manager\"","\"110.00\"").doesNotContain("Panel","Independent cash handover","return_id","session_id");
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("90");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
@@ -1441,7 +1450,7 @@ class PosTest {
  }
 
  @Test void sellingCashierReportUsesUtcPaidEventsAndDoesNotSubtractOtherCashierRefunds() throws Exception {
-  String returned=inspectedRefundReturn(),paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");refunds.pay("manager","cashier-insights-refund",refundPay(returned,paying));String path="/api/v1/vendor/pos/reports/cashier-sales";
+  String returned=inspectedRefundReturn(),paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");as("manager", () -> refunds.pay("cashier-insights-refund",refundPay(returned,paying)));String path="/api/v1/vendor/pos/reports/cashier-sales";
   mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].cashier").value("alice")).andExpect(jsonPath("$.pageTotals.sales").value(110));
   update("UPDATE orders SET status_changed_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")));
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.pageTotals.paidOrders").value(1));
@@ -1451,7 +1460,7 @@ class PosTest {
 
  @Test void refundHistoryPagesSearchesAndDatesRemainBranchScoped() throws Exception {
   enableReturns();supervisor("manager");update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");var receipt=checkout.cashSale(a.cashier(),"history-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),new BigDecimal("400"),false,null,null));String paying=refundSession("500");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
-  var records=new ArrayList<com.saumya.pos.returns.CashRefundService.View>();for(int i=0;i<3;i++){var r=returns.create("alice","history-return"+i,returnRequest((String)receipt.get("id"),1));returns.review("manager",r.id(),approveReturn());returns.inspect("manager",r.id(),inspectReturn("DAMAGED","QUARANTINE"));records.add(refunds.pay("manager","history-refund"+i,refundPay(r.id(),paying)));}
+  var records=new ArrayList<com.saumya.pos.returns.CashRefundService.View>();for(int i=0;i<3;i++){var r=as("alice", () -> returns.create("history-return"+i,returnRequest((String)receipt.get("id"),1)));as("manager", () -> returns.review(r.id(),approveReturn()));as("manager", () -> returns.inspect(r.id(),inspectReturn("DAMAGED","QUARANTINE")));records.add(as("manager", () -> refunds.pay("history-refund"+i,refundPay(r.id(),paying))));}
   update("UPDATE pos_cash_refunds SET paid_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")));
   String path="/api/v1/vendor/pos/refunds/history";var ids=records.stream().map(com.saumya.pos.returns.CashRefundService.View::id).sorted(Comparator.reverseOrder()).toList();
   for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("size","1").param("page",Integer.toString(page)).param("tenantId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page))).andExpect(jsonPath("$.items[0].reason").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist());
@@ -1467,7 +1476,7 @@ class PosTest {
  }
 
  @Test void returnAuditTimelineIncludesStockAndFinancialEventsWithoutPrivateNotes() throws Exception {
-  String returned=inspectedRefundReturn(),paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var paid=refunds.pay("manager","audit-refund-paid",refundPay(returned,paying));refunds.copy("manager",paid.id());
+  String returned=inspectedRefundReturn(),paying=refundSession("200");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");var paid=as("manager", () -> refunds.pay("audit-refund-paid",refundPay(returned,paying)));as("manager", () -> refunds.copy(paid.id()));
   int sequence=0;for(String action:List.of("REQUESTED","APPROVED","INSPECTED","CASH_REFUND","REFUND_COPY"))update("UPDATE pos_return_events SET created_at=? WHERE return_id=? AND action=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z").plusSeconds(sequence++)),returned,action);
   service.close(new PosService.Scope(1,1,"manager"),paying,new BigDecimal("90"));service.close(a,session,new BigDecimal("160"));
   String path="/api/v1/vendor/pos/returns/"+returned+"/events";
@@ -1485,7 +1494,7 @@ class PosTest {
  @Test void pagedReturnQueueFindsCasesBeyondTwentyAndEnforcesReadOnlyBranchScope() throws Exception {
   update("UPDATE branches SET pos_return_window_days=30 WHERE id=1");update("UPDATE inventory SET quantity=25 WHERE tenant_id=1");
   String order=(String)checkout.cashSale(a.cashier(),"queue-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,25)),new BigDecimal("2750"),false,null,null)).get("id");
-  var ids=new ArrayList<String>();for(int i=0;i<25;i++)ids.add(returns.create("alice","queue-case-"+i,returnRequest(order,1)).id());
+  var ids=new ArrayList<String>();for(int i=0;i<25;i++)ids.add(as("alice", () -> returns.create("queue-case-"+i,returnRequest(order,1))).id());
   update("UPDATE pos_returns SET created_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")));ids.sort(Comparator.naturalOrder());
   service.close(a,session,new BigDecimal("2800"));String path="/api/v1/vendor/pos/returns/queue";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].reason").doesNotExist()).andExpect(jsonPath("$.items[0].requester").doesNotExist()).andExpect(jsonPath("$.items[0].items").doesNotExist());
@@ -1493,7 +1502,7 @@ class PosTest {
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",order.toUpperCase(Locale.ROOT)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25));
   mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("state","APPROVED").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  employee("queue-manager",1,1);returns.review("queue-manager",ids.getFirst(),approveReturn());
+  employee("queue-manager",1,1);as("queue-manager", () -> returns.review(ids.getFirst(),approveReturn()));
   for(String state:List.of("ALL","REQUESTED","APPROVED"))mvc.perform(get(path).param("state",state).param("from","2026-11-12").param("to","2026-11-12").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(state.equals("ALL")?25:state.equals("REQUESTED")?24:1));
   update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other queue branch')");employee("queue-other",1,4);
   for(String actor:List.of("bob","queue-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));

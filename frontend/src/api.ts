@@ -6,5 +6,6 @@ async function request(url:string,method:string,body?:unknown,key?:string){
  const response=await authenticatedFetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json',...(csrf?{'X-XSRF-TOKEN':csrf}:{}),...(key?{'Idempotency-Key':key}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
  if(!response.ok){const problem=await response.json().catch(()=>({}));throw new ApiError(response.status,problem.code,problem.detail);}return response.json();
 }
+export function authApi(path:string){return request(path,'GET');}
 export function api(path:string,body?:unknown,key?:string){return request('/api/v1/vendor/pos'+path,body===undefined?'GET':'POST',body,key);}
 export function vendorApi(path:string,method='GET',body?:unknown,key?:string){return request('/api/v1/vendor'+path,method,body,key);}

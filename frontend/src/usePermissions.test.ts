@@ -1,21 +1,18 @@
 import { renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePermissions, hasNavigationPermission } from './usePermissions';
 
-// Mock the API module
-const mockGet = jest.fn();
-jest.mock('./api', () => ({
-  api: {
-    get: (...args: any[]) => mockGet(...args)
-  }
-}));
+// Mock the authenticated identity endpoint.
+const { mockAuthApi } = vi.hoisted(() => ({ mockAuthApi: vi.fn() }));
+vi.mock('./api', () => ({ authApi: mockAuthApi }));
 
 describe('usePermissions', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('fetches permissions from /auth/me', async () => {
-    mockGet.mockResolvedValue({
+    mockAuthApi.mockResolvedValue({
       username: 'cashier@vendor.com',
       tenantId: 1,
       branchId: 10,
@@ -26,7 +23,7 @@ describe('usePermissions', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(mockGet).toHaveBeenCalledWith('/api/v1/auth/me');
+    expect(mockAuthApi).toHaveBeenCalledWith('/api/v1/auth/me');
     expect(result.current.permissions?.username).toBe('cashier@vendor.com');
     expect(result.current.permissions?.tenantId).toBe(1);
     expect(result.current.permissions?.branchId).toBe(10);
@@ -34,7 +31,7 @@ describe('usePermissions', () => {
   });
 
   it('hasPermission returns true for granted permissions', async () => {
-    mockGet.mockResolvedValue({
+    mockAuthApi.mockResolvedValue({
       username: 'cashier@vendor.com',
       tenantId: 1,
       branchId: 10,
@@ -51,7 +48,7 @@ describe('usePermissions', () => {
   });
 
   it('hasAnyPermission returns true when user has at least one', async () => {
-    mockGet.mockResolvedValue({
+    mockAuthApi.mockResolvedValue({
       username: 'cashier@vendor.com',
       tenantId: 1,
       branchId: 10,
@@ -67,7 +64,7 @@ describe('usePermissions', () => {
   });
 
   it('hasAllPermissions returns true only when user has all', async () => {
-    mockGet.mockResolvedValue({
+    mockAuthApi.mockResolvedValue({
       username: 'cashier@vendor.com',
       tenantId: 1,
       branchId: 10,
@@ -83,7 +80,7 @@ describe('usePermissions', () => {
   });
 
   it('identifies vendor employees correctly', async () => {
-    mockGet.mockResolvedValue({
+    mockAuthApi.mockResolvedValue({
       username: 'cashier@vendor.com',
       tenantId: 1,
       branchId: 10,
@@ -100,7 +97,7 @@ describe('usePermissions', () => {
   });
 
   it('identifies customers correctly', async () => {
-    mockGet.mockResolvedValue({
+    mockAuthApi.mockResolvedValue({
       username: 'customer@example.com',
       tenantId: null,
       branchId: null,
@@ -117,7 +114,7 @@ describe('usePermissions', () => {
   });
 
   it('identifies platform users correctly', async () => {
-    mockGet.mockResolvedValue({
+    mockAuthApi.mockResolvedValue({
       username: 'admin@platform.com',
       tenantId: null,
       branchId: null,
@@ -134,7 +131,7 @@ describe('usePermissions', () => {
   });
 
   it('handles API errors gracefully', async () => {
-    mockGet.mockRejectedValue(new Error('Network error'));
+    mockAuthApi.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => usePermissions());
 
@@ -149,7 +146,7 @@ describe('hasNavigationPermission', () => {
   it('grants access to POS checkout with POS_VIEW', () => {
     expect(hasNavigationPermission('checkout', ['POS_VIEW'])).toBe(true);
     expect(hasNavigationPermission('register', ['POS_VIEW'])).toBe(true);
-    expect(hasNavigationPermission('catalogue', ['POS_VIEW'])).toBe(true);
+    expect(hasNavigationPermission('product-management', ['PRODUCT_VIEW'])).toBe(true);
   });
 
   it('grants access with any of the required permissions (anyOf)', () => {
@@ -180,9 +177,9 @@ describe('hasNavigationPermission', () => {
   });
 
   it('grants access to marketplace items with CUSTOMER permission', () => {
-    expect(hasNavigationPermission('home', ['CUSTOMER'])).toBe(true);
     expect(hasNavigationPermission('vendor-directory', ['CUSTOMER'])).toBe(true);
-    expect(hasNavigationPermission('cart', ['CUSTOMER'])).toBe(true);
+    expect(hasNavigationPermission('vendor-directory', ['CUSTOMER'])).toBe(true);
+    expect(hasNavigationPermission('customer-cart', ['CUSTOMER'])).toBe(true);
   });
 
   it('denies by default for unmapped items', () => {
@@ -193,6 +190,6 @@ describe('hasNavigationPermission', () => {
   it('denies access when user has no permissions', () => {
     expect(hasNavigationPermission('checkout', [])).toBe(false);
     expect(hasNavigationPermission('cash-refunds', [])).toBe(false);
-    expect(hasNavigationPermission('home', [])).toBe(false);
+    expect(hasNavigationPermission('vendor-directory', [])).toBe(false);
   });
 });

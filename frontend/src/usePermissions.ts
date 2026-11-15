@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from './api';
+import { authApi } from './api';
 
 /**
  * User permissions and authorization context from backend.
@@ -36,7 +36,7 @@ export function usePermissions(): {
 
     async function fetchPermissions() {
       try {
-        const response = await api.get('/api/v1/auth/me');
+        const response = await authApi('/api/v1/auth/me');
         if (mounted) {
           setPermissions(response);
           setLoading(false);
@@ -72,7 +72,7 @@ export function usePermissions(): {
 
   const isPlatformUser = permissions?.permissions.some(p => p.startsWith('PLATFORM_')) ?? false;
   const isCustomer = permissions?.permissions.includes('CUSTOMER') ?? false;
-  const isVendorEmployee = permissions?.tenantId !== null && !isPlatformUser;
+  const isVendorEmployee = permissions?.tenantId != null && !isPlatformUser;
 
   return {
     permissions,
@@ -141,22 +141,12 @@ export function hasNavigationPermission(
     return false;
   }
 
-  if (requirement.anyOf && requirement.anyOf.some(p => userPermissions.includes(p))) {
-    return true;
-  }
+  const hasAny = requirement.anyOf
+    ? requirement.anyOf.some(permission => userPermissions.includes(permission))
+    : true;
+  const hasAll = requirement.allOf
+    ? requirement.allOf.every(permission => userPermissions.includes(permission))
+    : true;
 
-  if (requirement.allOf && requirement.allOf.every(p => userPermissions.includes(p))) {
-    return true;
-  }
-
-  // If only anyOf defined, already checked above
-  // If only allOf defined, already checked above
-  // If both defined, need to satisfy both conditions
-  if (requirement.anyOf && requirement.allOf) {
-    const hasAny = requirement.anyOf.some(p => userPermissions.includes(p));
-    const hasAll = requirement.allOf.every(p => userPermissions.includes(p));
-    return hasAny && hasAll;
-  }
-
-  return false;
+  return hasAny && hasAll && Boolean(requirement.anyOf || requirement.allOf);
 }

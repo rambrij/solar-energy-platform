@@ -15,6 +15,7 @@ export default function PosReturns({ session, sessionState, disabled, initialOrd
  const canCreate=permissions.includes('POS_RETURN_CREATE');
  const canReview=permissions.includes('POS_RETURN_APPROVE');
  const canInspect=permissions.includes('POS_RETURN_INSPECT');
+ const canAudit=permissions.includes('POS_RETURN_AUDIT_VIEW');
  const [orderId,setOrderId]=useState(initialOrderId??''),[sale,setSale]=useState<Sale>(),[quantities,setQuantities]=useState<Record<number,number>>({});
  const [reason,setReason]=useState(''),[proof,setProof]=useState('ORIGINAL_RECEIPT'),[proofNote,setProofNote]=useState('');
  const [current,setCurrent]=useState<ReturnView>(),[reference,setReference]=useState('');
@@ -58,7 +59,7 @@ export default function PosReturns({ session, sessionState, disabled, initialOrd
    {current.state==='REQUESTED'&&canReview&&<><label>Independent review reason<input maxLength={250} value={reviewReason} disabled={locked} onChange={e=>setReviewReason(e.target.value)}/></label><button disabled={locked||!reviewReason.trim()} onClick={()=>void run({action:'review',id:current.id,body:{decision:'APPROVED',reason:reviewReason.trim()}})}>Approve stock intake</button><button className="secondary" disabled={locked||!reviewReason.trim()} onClick={()=>void run({action:'review',id:current.id,body:{decision:'REJECTED',reason:reviewReason.trim()}})}>Reject intake</button><p>A different authorized employee must decide. Approval does not refund money.</p></>}
    {current.state==='APPROVED'&&canInspect&&<><button disabled={locked||!inspectionReady} onClick={()=>void run({action:'inspect',id:current.id,body:{items:current.items.map(line=>({productId:line.productId,...inspectionFor(line.productId),note:inspectionFor(line.productId).note.trim()}))}})}>Record inspection & disposition</button><p>Damaged/incomplete goods remain quarantined. Only a different authorized inspector can release sellable goods.</p></>}
    {current.state==='INSPECTED'&&<p>Inspection recorded by {current.inspectedBy}. Stock disposition is complete; financial refund status: {current.id===refundedReturnId?'PAID':current.refundStatus}. Use the separate Cash refunds panel for an authorized payout.</p>}
-   <ReturnAuditTimeline returnId={current.id} revision={`${current.state}:${refundedReturnId===current.id?'PAID':''}`} disabled={busy||disabled}/>
+   {canAudit&&<ReturnAuditTimeline returnId={current.id} revision={`${current.state}:${refundedReturnId===current.id?'PAID':''}`} disabled={busy||disabled}/>}
   </section>}
  </section>;
 }

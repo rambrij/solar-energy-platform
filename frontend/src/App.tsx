@@ -110,7 +110,7 @@ export default function App() {
     sessionStorage.setItem('pos-session-v1',id);setSession(id);setSessionState(state);setDiscounts({linePercent:{},billPercent:0,reason:''});setBuyer(undefined);
     setCheckingSession(false);setSessionCheckFailed(false);setError('');setCart({});setCash('');setProducts([]);
   }
-  const saleLocked=refundPending||busy||!!pending||reservedBlocked||movementPending||closePending||sessionState!=='OPEN';
+  const saleLocked=refundPending||busy||!!pending||reservedBlocked||movementPending||closePending||sessionState!=='OPEN'||!canCreateSale;
   const invalidDiscounts=Object.values(discounts.linePercent).concat(discounts.billPercent).some(value=>!Number.isFinite(value)||value<0||value>100)||((discounts.billPercent>0||Object.values(discounts.linePercent).some(value=>value>0))&&!discounts.reason.trim());
   const invalidCart=invalidDiscounts||Object.entries(cart).some(([id,q])=>!Number.isInteger(q)||q<1||q>Math.min(10000,products.find(product=>product.id===Number(id))?.quantity??0));
   const cashReady=assessCash(cash,billEstimate(products,cart,discounts).total).status==='ready';
@@ -147,7 +147,7 @@ export default function App() {
       </div></RouteOutlet>{sessionState!=='OPEN'&&<button disabled={refundPending||busy||!!pending||movementPending||closePending||reservedBlocked} onClick={()=>{sessionStorage.removeItem('pos-session-v1');setSession('');setError('');}}>Choose another session</button>}
     </>}
     {receipt && <RouteOutlet id="sale-receipt" mode="pos"><SaleReceipt receipt={receipt} error={receiptError}>{canReprintReceipt&&<button disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Reprint copy</button>}{account?.permissions.includes('POS_RETURN_CREATE') && <button className="secondary" disabled={busy} onClick={()=>startReturn(receipt.id)}>Start a stock return</button>}{canReprintReceipt&&<button className="print-receipt" disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');setPrintRequested(true);}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Print receipt copy</button>}<ReceiptPdfCopy orderId={receipt.id} disabled={busy}/></SaleReceipt></RouteOutlet>}
-    <RouteOutlet id="order-history" mode="pos"><OrderHistory mode="pos" onReturn={startReturn} onReceipt={value=>{displayReceipt(value);navigateWorkspace('pos','sale-receipt');}}/></RouteOutlet>
+    <RouteOutlet id="order-history" mode="pos"><OrderHistory mode="pos" onReturn={has('POS_RETURN_CREATE')?startReturn:undefined} onReceipt={has('POS_RECEIPT_VIEW')?value=>{displayReceipt(value);navigateWorkspace('pos','sale-receipt');}:undefined}/></RouteOutlet>
     <RouteOutlet id="pos-returns" mode="pos"><PosReturns session={session} sessionState={sessionState} disabled={refundPending||busy||!!pending||movementPending||closePending} initialOrderId={returnOrderId} refundedReturnId={refundReceipt?.returnId} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/></RouteOutlet>
     <RouteOutlet id="cash-refunds" mode="pos"><>
       <CashRefunds session={session} sessionState={sessionState} disabled={busy||!!pending||movementPending||closePending||reservedBlocked||checkingSession} onPendingChange={setRefundPending} onBusyChange={setBusy} onRecorded={value=>{setRefundReceipt(value);setDrawerRevision(previous=>previous+1);}}/>

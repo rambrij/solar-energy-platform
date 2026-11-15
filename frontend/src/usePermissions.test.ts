@@ -160,11 +160,10 @@ describe('hasNavigationPermission', () => {
     expect(hasNavigationPermission('product-management', ['PRODUCT_VIEW'])).toBe(true);
   });
 
-  it('grants access with any of the required permissions (anyOf)', () => {
-    // checkout requires: anyOf: ['POS_VIEW', 'POS_SESSION_OPEN', 'POS_SALE_CREATE']
+  it('requires POS_VIEW to enter the checkout workspace', () => {
     expect(hasNavigationPermission('checkout', ['POS_VIEW'])).toBe(true);
-    expect(hasNavigationPermission('checkout', ['POS_SESSION_OPEN'])).toBe(true);
-    expect(hasNavigationPermission('checkout', ['POS_SALE_CREATE'])).toBe(true);
+    expect(hasNavigationPermission('checkout', ['POS_SESSION_OPEN'])).toBe(false);
+    expect(hasNavigationPermission('checkout', ['POS_SALE_CREATE'])).toBe(false);
   });
 
   it('denies access to refunds without POS_REFUND_VIEW', () => {

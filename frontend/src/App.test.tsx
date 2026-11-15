@@ -87,8 +87,8 @@ it('blocks checkout and session close while a cash movement outcome is uncertain
  fireEvent.click(screen.getByText('Record cash movement'));
  await screen.findByText(/outcome is uncertain/);
  expect((screen.getByText('Reconcile and close session') as HTMLButtonElement).disabled).toBe(true);
- visitPos('/vendor/pos/current-sale');expect((await screen.findByText('Complete cash sale') as HTMLButtonElement).disabled).toBe(true);
  expect((screen.getByText('Retry same cash movement') as HTMLButtonElement).disabled).toBe(false);
+ visitPos('/vendor/pos/current-sale');expect((await screen.findByText('Complete cash sale') as HTMLButtonElement).disabled).toBe(true);
 });
 it('shows a closing drawer as frozen until supervisor review',async()=>{
  sessionStorage.setItem('pos-session-v1','session');
@@ -99,9 +99,9 @@ it('shows a closing drawer as frozen until supervisor review',async()=>{
   return {state:'CLOSING',openingFloat:50,cashReceived:0,changeGiven:0,cashIn:0,cashOut:0,safeDrops:0,expectedCash:50,movements:[]};
  });
  window.history.replaceState({},'','/vendor/pos/register');render(<App/>);await screen.findByText(/Awaiting a different supervisor/);
+ expect((screen.getByText('Record cash movement') as HTMLButtonElement).disabled).toBe(true);
  visitPos('/vendor/pos');expect((await screen.findByText('Add Panel') as HTMLButtonElement).disabled).toBe(true);
  visitPos('/vendor/pos/current-sale');expect((await screen.findByText('Complete cash sale') as HTMLButtonElement).disabled).toBe(true);
- expect((screen.getByText('Record cash movement') as HTMLButtonElement).disabled).toBe(true);
  expect(screen.queryByText('Reconcile and close session')).toBeNull();
 });
 it('preserves a sale key after an uncertain failure and does not claim completion',async()=>{

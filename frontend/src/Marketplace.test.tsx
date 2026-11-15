@@ -162,8 +162,8 @@ it('keeps the open storefront identity when directory search returns no vendors'
 it('tracks checkout progress from the cart through to review', async () => {
   vi.mocked(marketplaceApi).mockImplementation(async path => path.startsWith('/api/v1/customer/') ? cart : publicResult(path));
   render(<Marketplace />); await screen.findByText('Solar Panel');
-  const current = () => screen.getByRole('list', { name: 'Shopping steps' }).querySelector('[aria-current="step"]')?.textContent ?? '';
-  expect(current()).toContain('Choose your solar essentials');
+  expect(screen.queryByRole('list', { name: 'Shopping steps' })).toBeNull();
   fireEvent.click(screen.getByText('Add or update Solar Panel in cart'));visitMarketplace('/marketplace/cart');
+  const current = () => screen.getByRole('list', { name: 'Shopping steps' }).querySelector('[aria-current="step"]')?.textContent ?? '';
   await waitFor(() => expect(current()).toContain('Review one vendor cart'));
 });

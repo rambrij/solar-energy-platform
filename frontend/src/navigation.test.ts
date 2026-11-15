@@ -22,5 +22,7 @@ it('resolves direct workspace paths and legacy section fragments', () => {
 it('keeps navigation paths stable for the current vendor storefront', () => {
   expect(navigationPath('online', 'storefront-products', '/vendors/vendor-1')).toBe('/vendors/vendor-1');
   expect(navigationPath('online', 'storefront-products', '/marketplace/cart')).toBe('/vendors');
+  expect(navigationPath('online', 'vendor-directory', '/marketplace/cart')).toBe('/marketplace/vendors');
+  expect(resolveWorkspaceRoute('online', '/marketplace/vendors', '')).toBe('vendor-directory');
   expect(selectedNavigation(navigationItems('pos'), 'cash-refunds')?.label).toBe('Cash Refunds');
 });

@@ -8,7 +8,7 @@ import ProductDetails from './ProductDetails';
 import VendorDirectory from './VendorDirectory';
 import CategoryNav, { type CategoryChoice } from './CategoryNav';
 import RouteOutlet from './RouteOutlet';
-import { navigationItems } from './navigation';
+import { navigationItems, navigateWorkspace } from './navigation';
 
 type Product = { id: number; sku: string; name: string; price: number; taxRate: number; inStock: boolean; listPrice?: number; discountPercent?: number; categoryId?: number | null; categoryName?: string };
 type Catalogue = {items:Product[];page:number;size:number;totalElements:number;totalPages:number;catalogueTotal:number;categories:CategoryChoice[];vendorName?:string;vendorSlug?:string};
@@ -147,7 +147,7 @@ export default function Marketplace() {
         <p>Current estimate: {money(cart.total)}. Prices and stock are rechecked on preview; cart items do not reserve stock.</p>
         <button disabled={busy || confirming || !cart.items.length} onClick={preview}>Preview checkout</button>
         {review===cart&&Object.keys(cartEdits).length===0&&<section aria-label="Checkout review" className="checkout-review"><h3>Review your solar order</h3><p>Seller: {review.vendorName} · One vendor, one order</p><ul>{review.items.map(line=><li key={line.productId}>{line.name} × {line.quantity} · {money(line.total)}{!line.available&&' · Unavailable'}</li>)}</ul><dl><dt>Items before tax</dt><dd>{money(review.items.reduce((sum,line)=>sum+Number(line.unitPrice??0)*line.quantity,0))}</dd><dt>Promotion savings included</dt><dd>{money(review.items.reduce((sum,line)=>sum+Number(line.discount??0),0))}</dd><dt>Tax</dt><dd>{money(review.items.reduce((sum,line)=>sum+Number(line.tax??0),0))}</dd><dt>Server total</dt><dd>{money(review.total)}</dd></dl><p>No payment has been taken. This quote does not reserve stock. Choose payment options after reserving. Test payments require explicit pre-production configuration; a reservation is an unpaid draft.</p></section>}
-        <a className="checkout-link" href="/marketplace/reserved-cart">Review checkout →</a><p>{cart.message}</p>
+        <a className="checkout-link" href="/marketplace/reserved-cart" onClick={event=>{event.preventDefault();navigateWorkspace('online','online-checkout');}}>Review checkout →</a><p>{cart.message}</p>
       </>}
     </section>
     </></RouteOutlet>

@@ -8,7 +8,8 @@ const products = [{ id: 1, sku: 'P1', name: 'Solar Panel', price: 100, taxRate: 
 const gate = 'Online payment is not configured. No paid order was created.';
 const cart = { id: 'cart-a', vendorSlug: 'vendor-1', vendorName: 'Vendor A', items: [{ productId: 1, name: 'Solar Panel', quantity: 1, unitPrice: 100, tax: 10, total: 110, available: true }], total: 110, checkoutAvailable: false, message: gate };
 beforeEach(() => { window.history.replaceState({}, '', '/vendors/vendor-1'); });
-afterEach(() => { cleanup(); vi.resetAllMocks(); window.history.replaceState({}, '', '/'); });
+function visitMarketplace(path:string){window.history.pushState({},'',path);fireEvent(window,new PopStateEvent('popstate'));}
+afterEach(() => { cleanup(); vi.resetAllMocks(); window.history.replaceState({}, '', '/vendors/vendor-1'); });
 function publicResult(path:string,source=products){
  if(path.startsWith('/api/v1/marketplace/directory?'))return {items:vendors,query:'',page:0,size:12,totalElements:2,totalPages:1};
  const params=new URL(path,'http://localhost').searchParams;
@@ -23,12 +24,14 @@ it('browses publicly without requesting a customer account or cart', async () =>
   vi.mocked(marketplaceApi).mockImplementation(async path => publicResult(path));
   render(<Marketplace />); await screen.findByText('Solar Panel');
   expect(vi.mocked(marketplaceApi).mock.calls.every(call => call[0].startsWith('/api/v1/marketplace/'))).toBe(true);
-  expect(screen.getByText('Vendor B').getAttribute('href')).toBe('/vendors/vendor-2');
+  expect(screen.queryByRole('link',{name:'Vendor B'})).toBeNull();
+  visitMarketplace('/marketplace/vendors');await screen.findByRole('link',{name:'Vendor B'});
+  expect(screen.queryByRole('heading',{name:'Vendor A storefront'})).toBeNull();
 });
 it('uses server cart totals and blocks payment completion at the provider gate', async () => {
   vi.mocked(marketplaceApi).mockImplementation(async path => path.startsWith('/api/v1/customer/') ? cart : publicResult(path));
   render(<Marketplace />); fireEvent.click(await screen.findByText('Add or update Solar Panel in cart'));
-  await screen.findByText(/Current estimate: 110.00/);
+  visitMarketplace('/marketplace/cart');await screen.findByText(/Current estimate: 110.00/);
   fireEvent.click(screen.getByText('Preview checkout'));
   await waitFor(() => expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/cart/quote', 'POST', {}));
   expect(screen.getAllByText(gate).length).toBeGreaterThan(0);
@@ -52,13 +55,13 @@ it('requires explicit confirmation before switching vendor carts', async () => {
 });
 it('explains customer authorization failures without clearing a cart', async () => {
   vi.mocked(marketplaceApi).mockImplementation(async path => { if (path.startsWith('/api/v1/customer/')) throw new MarketplaceError(403); return publicResult(path); });
-  render(<Marketplace />); fireEvent.click(screen.getByText('Sign in / reload my cart'));
+  window.history.replaceState({},'','/marketplace/cart');render(<Marketplace />); fireEvent.click(screen.getByText('Sign in / reload my cart'));
   await screen.findByText(/Staff credentials are separate/);
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 it('reports changed stock at preview rather than claiming an order was completed', async () => {
   vi.mocked(marketplaceApi).mockImplementation(async path => { if (path.endsWith('/quote')) throw new MarketplaceError(409); return path.startsWith('/api/v1/customer/') ? cart : publicResult(path); });
-  render(<Marketplace />); fireEvent.click(screen.getByText('Sign in / reload my cart')); await screen.findByText('Preview checkout');
+  window.history.replaceState({},'','/marketplace/cart');render(<Marketplace />); fireEvent.click(screen.getByText('Sign in / reload my cart')); await screen.findByText('Preview checkout');
   fireEvent.click(screen.getByText('Preview checkout')); await screen.findByText(/A cart item is unavailable/);
   expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();
 });
@@ -68,7 +71,7 @@ it('loads own archived carts and requires confirmation before restoring', async 
     if (path === '/api/v1/customer/cart/history') return [archived];
     return path.startsWith('/api/v1/customer/') ? cart : publicResult(path);
   });
-  render(<Marketplace />); fireEvent.click(screen.getByText('Load archived carts'));
+  window.history.replaceState({},'','/marketplace/saved-carts');render(<Marketplace />); fireEvent.click(screen.getByText('Load archived carts'));
   fireEvent.click(await screen.findByText('Restore Saved Vendor cart'));
   await screen.findByRole('dialog');
   expect(vi.mocked(marketplaceApi).mock.calls.some(call => call[0].endsWith('/restore'))).toBe(false);
@@ -83,10 +86,10 @@ it('keeps active cart contents after a stale restore is rejected', async () => {
     if (path === '/api/v1/customer/cart/restore') throw new MarketplaceError(409);
     return path.startsWith('/api/v1/customer/') ? cart : publicResult(path);
   });
-  render(<Marketplace />); fireEvent.click(screen.getByText('Load archived carts'));
+  window.history.replaceState({},'','/marketplace/saved-carts');render(<Marketplace />); fireEvent.click(screen.getByText('Load archived carts'));
   fireEvent.click(await screen.findByText('Restore Saved Vendor cart')); fireEvent.click(screen.getByText('Confirm cart restore'));
   await screen.findByText(/The cart changed or archived products are unavailable/);
-  expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();
+  visitMarketplace('/marketplace/cart');await screen.findByText(/Current estimate: 110.00/);
   expect(screen.queryByText(/Archived cart restored with current prices/)).toBeNull();
 });
 
@@ -123,17 +126,17 @@ it('navigates tenant catalogue categories and shows approved offers without modi
 });
 
 it('edits a cart using its owning vendor rather than the currently browsed storefront',async()=>{
- window.history.replaceState({},'','/vendors/vendor-2');vi.mocked(marketplaceApi).mockImplementation(async(path,_method,body)=>path==='/api/v1/customer/cart'?cart:path==='/api/v1/customer/cart/items'?{...cart,items:[{...cart.items[0],quantity:(body as {quantity:number}).quantity}],total:220}:publicResult(path));render(<Marketplace/>);fireEvent.click(screen.getByText('Sign in / reload my cart'));fireEvent.click(await screen.findByLabelText('Increase cart Solar Panel'));await waitFor(()=>expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/cart/items','POST',{vendorSlug:'vendor-1',productId:1,quantity:2}));expect(screen.queryByRole('dialog')).toBeNull();
+ window.history.replaceState({},'','/marketplace/cart');vi.mocked(marketplaceApi).mockImplementation(async(path,_method,body)=>path==='/api/v1/customer/cart'?cart:path==='/api/v1/customer/cart/items'?{...cart,items:[{...cart.items[0],quantity:(body as {quantity:number}).quantity}],total:220}:publicResult(path));render(<Marketplace/>);fireEvent.click(screen.getByText('Sign in / reload my cart'));fireEvent.click(await screen.findByLabelText('Increase cart Solar Panel'));await waitFor(()=>expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/cart/items','POST',{vendorSlug:'vendor-1',productId:1,quantity:2}));expect(screen.queryByRole('dialog')).toBeNull();
 });
 it('retries an unknown cart increment as the same absolute quantity',async()=>{
- let attempts=0;vi.mocked(marketplaceApi).mockImplementation(async path=>{if(path==='/api/v1/customer/cart')return cart;if(path==='/api/v1/customer/cart/items'){if(++attempts===1)throw new Error('Lost response');return {...cart,items:[{...cart.items[0],quantity:2}],total:220};}return publicResult(path);});render(<Marketplace/>);fireEvent.click(screen.getByText('Sign in / reload my cart'));fireEvent.click(await screen.findByLabelText('Increase cart Solar Panel'));await screen.findByRole('alert');fireEvent.click(screen.getByLabelText('Increase cart Solar Panel'));await waitFor(()=>expect(attempts).toBe(2));const commands=vi.mocked(marketplaceApi).mock.calls.filter(call=>call[0]==='/api/v1/customer/cart/items');expect(commands[0][2]).toEqual(commands[1][2]);
+ let attempts=0;vi.mocked(marketplaceApi).mockImplementation(async path=>{if(path==='/api/v1/customer/cart')return cart;if(path==='/api/v1/customer/cart/items'){if(++attempts===1)throw new Error('Lost response');return {...cart,items:[{...cart.items[0],quantity:2}],total:220};}return publicResult(path);});window.history.replaceState({},'','/marketplace/cart');render(<Marketplace/>);fireEvent.click(screen.getByText('Sign in / reload my cart'));fireEvent.click(await screen.findByLabelText('Increase cart Solar Panel'));await screen.findByRole('alert');fireEvent.click(screen.getByLabelText('Increase cart Solar Panel'));await waitFor(()=>expect(attempts).toBe(2));const commands=vi.mocked(marketplaceApi).mock.calls.filter(call=>call[0]==='/api/v1/customer/cart/items');expect(commands[0][2]).toEqual(commands[1][2]);
 });
 it('allows reducing an unavailable stock quantity and validates direct quantity edits',async()=>{
- const unavailable={...cart,items:[{...cart.items[0],quantity:3,available:false}]};vi.mocked(marketplaceApi).mockImplementation(async path=>path==='/api/v1/customer/cart'?unavailable:path==='/api/v1/customer/cart/items'?cart:publicResult(path));render(<Marketplace/>);fireEvent.click(screen.getByText('Sign in / reload my cart'));fireEvent.click(await screen.findByLabelText('Decrease cart Solar Panel'));await waitFor(()=>expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/cart/items','POST',{vendorSlug:'vendor-1',productId:1,quantity:2}));fireEvent.change(screen.getByLabelText('Cart quantity for Solar Panel'),{target:{value:'0'}});expect((screen.getByText('Update cart Solar Panel') as HTMLButtonElement).disabled).toBe(true);fireEvent.change(screen.getByLabelText('Cart quantity for Solar Panel'),{target:{value:'5'}});fireEvent.click(screen.getByLabelText('Increase cart Solar Panel'));await waitFor(()=>expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/cart/items','POST',{vendorSlug:'vendor-1',productId:1,quantity:6}));
+ const unavailable={...cart,items:[{...cart.items[0],quantity:3,available:false}]};vi.mocked(marketplaceApi).mockImplementation(async path=>path==='/api/v1/customer/cart'?unavailable:path==='/api/v1/customer/cart/items'?cart:publicResult(path));window.history.replaceState({},'','/marketplace/cart');render(<Marketplace/>);fireEvent.click(screen.getByText('Sign in / reload my cart'));fireEvent.click(await screen.findByLabelText('Decrease cart Solar Panel'));await waitFor(()=>expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/cart/items','POST',{vendorSlug:'vendor-1',productId:1,quantity:2}));fireEvent.change(screen.getByLabelText('Cart quantity for Solar Panel'),{target:{value:'0'}});expect((screen.getByText('Update cart Solar Panel') as HTMLButtonElement).disabled).toBe(true);fireEvent.change(screen.getByLabelText('Cart quantity for Solar Panel'),{target:{value:'5'}});fireEvent.click(screen.getByLabelText('Increase cart Solar Panel'));await waitFor(()=>expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/cart/items','POST',{vendorSlug:'vendor-1',productId:1,quantity:6}));
 });
 
 it('shows server checkout review and invalidates it when quantities are edited',async()=>{
- vi.mocked(marketplaceApi).mockImplementation(async path=>path.startsWith('/api/v1/customer/')?cart:publicResult(path));render(<Marketplace/>);fireEvent.click(await screen.findByText('Add or update Solar Panel in cart'));await screen.findByText(/Current estimate/);fireEvent.click(screen.getByText('Preview checkout'));
+ vi.mocked(marketplaceApi).mockImplementation(async path=>path.startsWith('/api/v1/customer/')?cart:publicResult(path));render(<Marketplace/>);fireEvent.click(await screen.findByText('Add or update Solar Panel in cart'));visitMarketplace('/marketplace/cart');await screen.findByText(/Current estimate/);fireEvent.click(screen.getByText('Preview checkout'));
  const review=await screen.findByRole('region',{name:'Checkout review'});expect(within(review).getByText(/Seller: Vendor A/)).toBeTruthy();expect(within(review).getByText(/No payment has been taken/)).toBeTruthy();fireEvent.change(screen.getByLabelText('Cart quantity for Solar Panel'),{target:{value:'2'}});expect(screen.queryByRole('region',{name:'Checkout review'})).toBeNull();
 });
 
@@ -149,11 +152,11 @@ it('ignores stale catalogue responses after another filter is selected',async()=
 });
 it('preserves cart contents when catalogue refresh fails and allows a read-only retry',async()=>{
  let failed=false;
- vi.mocked(marketplaceApi).mockImplementation(async path=>{if(path==='/api/v1/customer/cart/items')return cart;if(path.includes('/catalogue?')&&failed)throw new Error('Offline');return publicResult(path);});render(<Marketplace/>);fireEvent.click(await screen.findByText('Add or update Solar Panel in cart'));await screen.findByText(/Current estimate: 110.00/);failed=true;fireEvent.change(screen.getByLabelText('Sort products'),{target:{value:'price-low'}});await screen.findByText('Retry catalogue');expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();expect(screen.queryByText('Add or update Solar Panel in cart')).toBeNull();failed=false;fireEvent.click(screen.getByText('Retry catalogue'));await screen.findByText('Add or update Solar Panel in cart');
+ vi.mocked(marketplaceApi).mockImplementation(async path=>{if(path==='/api/v1/customer/cart/items')return cart;if(path.includes('/catalogue?')&&failed)throw new Error('Offline');return publicResult(path);});render(<Marketplace/>);fireEvent.click(await screen.findByText('Add or update Solar Panel in cart'));visitMarketplace('/marketplace/cart');await screen.findByText(/Current estimate: 110.00/);failed=true;visitMarketplace('/vendors/vendor-1');await screen.findByText('Solar Panel');fireEvent.change(screen.getByLabelText('Sort products'),{target:{value:'price-low'}});await screen.findByText('Retry catalogue');expect(screen.getByText(/Current estimate: 110.00/)).toBeTruthy();expect(screen.queryByText('Add or update Solar Panel in cart')).toBeNull();failed=false;fireEvent.click(screen.getByText('Retry catalogue'));await screen.findByText('Add or update Solar Panel in cart');visitMarketplace('/marketplace/cart');await screen.findByText(/Current estimate: 110.00/);
 });
 
 it('keeps the open storefront identity when directory search returns no vendors',async()=>{
- vi.mocked(marketplaceApi).mockImplementation(async path=>path.startsWith('/api/v1/marketplace/directory?')&&path.includes('q=missing')?{items:[],query:'missing',page:0,size:12,totalElements:0,totalPages:0}:publicResult(path));render(<Marketplace/>);await screen.findByRole('heading',{name:'Vendor A storefront'});await screen.findByRole('link',{name:'Vendor B'});fireEvent.change(screen.getByLabelText('Search solar vendors'),{target:{value:'missing'}});fireEvent.click(screen.getByText('Search vendors'));await screen.findByText('No vendors found');expect(screen.getByRole('heading',{name:'Vendor A storefront'})).toBeTruthy();expect(screen.getByText('Add or update Solar Panel in cart')).toBeTruthy();expect(vi.mocked(marketplaceApi).mock.calls.every(call=>call[0].startsWith('/api/v1/marketplace/'))).toBe(true);
+ vi.mocked(marketplaceApi).mockImplementation(async path=>path.startsWith('/api/v1/marketplace/directory?')&&path.includes('q=missing')?{items:[],query:'missing',page:0,size:12,totalElements:0,totalPages:0}:publicResult(path));render(<Marketplace/>);await screen.findByRole('heading',{name:'Vendor A storefront'});expect(screen.queryByRole('link',{name:'Vendor B'})).toBeNull();visitMarketplace('/marketplace/vendors');await screen.findByRole('link',{name:'Vendor B'});expect(screen.queryByRole('heading',{name:'Vendor A storefront'})).toBeNull();fireEvent.change(screen.getByLabelText('Search solar vendors'),{target:{value:'missing'}});fireEvent.click(screen.getByText('Search vendors'));await screen.findByText('No vendors found');expect(screen.queryByRole('heading',{name:'Vendor A storefront'})).toBeNull();expect(screen.queryByText('Add or update Solar Panel in cart')).toBeNull();expect(vi.mocked(marketplaceApi).mock.calls.every(call=>call[0].startsWith('/api/v1/marketplace/'))).toBe(true);
 });
 
 it('tracks checkout progress from the cart through to review', async () => {
@@ -161,6 +164,6 @@ it('tracks checkout progress from the cart through to review', async () => {
   render(<Marketplace />); await screen.findByText('Solar Panel');
   const current = () => screen.getByRole('list', { name: 'Shopping steps' }).querySelector('[aria-current="step"]')?.textContent ?? '';
   expect(current()).toContain('Choose your solar essentials');
-  fireEvent.click(screen.getByText('Add or update Solar Panel in cart'));
+  fireEvent.click(screen.getByText('Add or update Solar Panel in cart'));visitMarketplace('/marketplace/cart');
   await waitFor(() => expect(current()).toContain('Review one vendor cart'));
 });

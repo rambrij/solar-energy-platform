@@ -30,8 +30,8 @@ const pos: NavigationItem[] = [
 ];
 
 const online: NavigationItem[] = [
-  { id: 'vendor-directory', label: 'Find Energy Partners', group: 'Shop', description: 'Discover independent solar vendors and open a vendor storefront.', path: '/vendors' },
-  { id: 'storefront-products', label: 'Vendor Catalogue', group: 'Shop', description: 'Browse products from the selected vendor and review product details.', path: '/vendors' },
+  { id: 'vendor-directory', label: 'Find Energy Partners', group: 'Shop', description: 'Discover independent solar vendors and open a vendor storefront.', path: '/marketplace/vendors' },
+  { id: 'storefront-products', label: 'Vendor Catalogue', group: 'Shop', description: 'Browse products from the selected vendor and review product details.', path: '/marketplace/catalogue' },
   { id: 'customer-cart', label: 'My Single-Vendor Cart', group: 'Cart', description: 'Review your active vendor cart, quantities and server-calculated estimate.', path: '/marketplace/cart' },
   { id: 'online-checkout', label: 'Reserve Vendor Cart', group: 'Cart', description: 'Review existing reservation and checkout steps for your vendor cart.', path: '/marketplace/reserved-cart' },
   { id: 'saved-vendor-carts', label: 'Saved Vendor Carts', group: 'Cart', description: 'Load and restore your archived vendor carts.', path: '/marketplace/saved-carts' },
@@ -65,6 +65,7 @@ export function resolveWorkspaceRoute(mode: WorkspaceMode, pathname = window.loc
     return navigationItems(mode).find(item => item.path === pathname)?.id ?? 'checkout';
   }
   if (pathname.startsWith('/vendors/')) return 'storefront-products';
+  if (pathname === '/marketplace/catalogue') return 'vendor-directory';
   return navigationItems(mode).find(item => item.path === pathname)?.id ?? 'vendor-directory';
 }
 

@@ -114,7 +114,7 @@ export default function App() {
     setCart(previous=>({...previous,[product.id]:Math.min(maximum,(previous[product.id]??0)+1)}));return true;
   }
   useEffect(()=>{if(printRequested&&receipt?.copy){printDocument('sale');setPrintRequested(false);}},[printRequested,receipt]);
-  function displayReceipt(value:Receipt){setReceipt(value);setReceiptError('');}
+  function displayReceipt(value:Receipt){setReceipt(value);setReceiptError('');navigateWorkspace('pos','sale-receipt');}
   async function checkout() {
     if(!pending&&(invalidCart||!Object.keys(cart).length||!cashReady))return;
     const attempt=pending ?? {key:crypto.randomUUID(),body:{sessionId:session,items:Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity})),cashReceived:cash,invoiceRequested:invoice,discounts,...(buyer?{buyer}:{})}};

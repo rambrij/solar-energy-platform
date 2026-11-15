@@ -345,7 +345,7 @@ class PosTest {
   assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));
   assertThatThrownBy(()->payments.tenderStatus("bob",draft.id()));assertThatThrownBy(()->payments.confirm("alice",draft.id(),"forged"));
   assertThatThrownBy(()->as("alice", () -> tenderReviews.review("alice",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))));
-  tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"));var receipt=receiptReader.receipt(a,draft.id());assertThat(receipt.get("payment_method")).isEqualTo("CARD");assertThat(receipt.get("payment_reference")).isEqualTo("terminal-result-123");assertThat(receipt.get("cash_received")).isEqualTo(new BigDecimal("0.00"));assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
+  as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));var receipt=as("alice", () -> receiptReader.receipt(a,draft.id()));assertThat(receipt.get("payment_method")).isEqualTo("CARD");assertThat(receipt.get("payment_reference")).isEqualTo("terminal-result-123");assertThat(receipt.get("cash_received")).isEqualTo(new BigDecimal("0.00"));assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx->returnSaleAccess.cashSale(1,1,draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
@@ -968,7 +968,7 @@ class PosTest {
   mvc.perform(get("/api/v1/vendor/pos/receipts/"+draft.id()).with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());
   mvc.perform(post("/api/v1/vendor/pos/drafts/"+draft.id()+"/cancel").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content("{\"reason\":\"Cancel\"}")).andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/vendor/pos/drafts/"+draft.id()+"/finalize-cash").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"cashReceived\":120}")).andExpect(status().isForbidden());
-  assertThat(checkout.posList("bob",session)).isEmpty();
+  assertThat(as("bob", () -> checkout.posList("bob",session))).isEmpty();
  }
 
  @Test void orderHistoryScopesPaginationDatesAndImmutableDetails() throws Exception {
@@ -1079,7 +1079,7 @@ class PosTest {
   var receipt=as("alice", () -> checkout.cashSale(a.cashier(),"promotion-cash",sale(1,"100")));assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo("99");
   var item=(Map<?,?>)((List<?>)receipt.get("items")).getFirst();assertThat((BigDecimal)item.get("list_price")).isEqualByComparingTo("100");assertThat((BigDecimal)item.get("discount")).isEqualByComparingTo("10");
   as("manager", () -> promotions.approve(1,"manager",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("20"),"New approved offer")));
-  var copy=receiptReader.reprint(a,(String)receipt.get("id"));assertThat((BigDecimal)copy.get("total")).isEqualByComparingTo("99");
+  var copy=as("alice", () -> receiptReader.reprint(a,(String)receipt.get("id")));assertThat((BigDecimal)copy.get("total")).isEqualByComparingTo("99");
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.discounts").value(10)).andExpect(jsonPath("$.totals.tax").value(9)).andExpect(jsonPath("$.totals.sales").value(99));
  }
  @Test void promotionCommandsEnforceApprovalCsrfInputAndTenantScope() throws Exception {

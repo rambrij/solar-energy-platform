@@ -25,6 +25,7 @@ import { printDocument } from './printDocument';
 import TerminalTenderReview from './TerminalTenderReview';
 import StoreSettings from './StoreSettings';
 import CategoryManager from './CategoryManager';
+import ProductManager from './ProductManager';
 import {useSession} from './session';
 
 
@@ -139,6 +140,7 @@ export default function App() {
     <CashierSalesInsights/>
     <ShiftHistory disabled={busy||checkingSession} revision={`${session}:${sessionState}`}/>
     {account?.permissions.includes('PRODUCT_VIEW')&&<CategoryManager onChanged={()=>setCatalogueRevision(value=>value+1)}/>}
+    {account?.permissions.includes('PRODUCT_VIEW')&&<ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/>}
     <StoreSettings/>
     <ShiftReviews/>
     <TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/>

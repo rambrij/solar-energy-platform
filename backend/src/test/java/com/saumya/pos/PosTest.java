@@ -61,6 +61,32 @@ class PosTest {
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=payments.tenderStatus(username,id).remaining();var result=payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null));return result.tenders().getLast();}
+ String productBody(String sku,String barcode,long version,boolean published,String price,Long category){return "{\"sku\":\""+sku+"\",\"barcode\":\""+barcode+"\",\"name\":\"New panel\",\"price\":"+price+",\"taxRate\":10,\"published\":"+published+",\"categoryId\":"+category+",\"expectedVersion\":"+version+",\"reason\":\"Approved catalogue change\"}";}
+ @Test void productManagementIsTenantScopedAuditedAndVersioned()throws Exception{
+  String path="/api/v1/vendor/products",body=productBody("P-NEW","new-barcode",0,true,"125.50",null);
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  var response=mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_CREATE")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.name").value("New panel")).andReturn();
+  long id=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("id").asLong();
+  mvc.perform(get(path).with(user("bob").authorities(()->"PRODUCT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].name").value("Private"));
+  mvc.perform(put(path+"/"+id).with(csrf()).with(user("bob").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(body)).andExpect(status().isNotFound());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_CREATE")).contentType("application/json").content(body)).andExpect(status().isConflict());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_CREATE")).contentType("application/json").content(productBody("OTHER","new-barcode",0,false,"10",null))).andExpect(status().isConflict());
+  mvc.perform(put(path+"/"+id).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(productBody("P-NEW","new-barcode",0,false,"125.50",null))).andExpect(status().isForbidden());
+  var saved=mvc.perform(put(path+"/"+id).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE",()->"PRODUCT_ARCHIVE")).contentType("application/json").content(productBody("P-NEW","new-barcode",0,false,"125.50",null))).andExpect(status().isOk()).andExpect(jsonPath("$.published").value(false)).andReturn();
+  long version=new com.fasterxml.jackson.databind.ObjectMapper().readTree(saved.getResponse().getContentAsString()).get("version").asLong();assertThat(version).isGreaterThan(0);
+  mvc.perform(put(path+"/"+id).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(body)).andExpect(status().isConflict());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_change_events WHERE resource_id=?",Integer.class,id)).isEqualTo(2);assertThat(stock.available(1,id)).isZero();
+ }
+ @Test void productCategoryAssignmentAndPriceChangesUseTheirOwnPermissions()throws Exception{
+  update("INSERT INTO catalog_categories(id,tenant_id,name,slug) VALUES(10,1,'Panels','panels'),(20,2,'Private','private')");String path="/api/v1/vendor/products/1";
+  mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(productBody("P1","123",0,true,"120",null))).andExpect(status().isForbidden());
+  mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(productBody("P1","123",0,true,"100",20L))).andExpect(status().isNotFound());
+  var response=mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE",()->"PRICE_UPDATE")).contentType("application/json").content(productBody("P1","123",0,true,"120",10L))).andExpect(status().isOk()).andExpect(jsonPath("$.categoryId").value(10)).andReturn();
+  long version=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("version").asLong();
+  mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(productBody("P1","123",version,true,"120",null))).andExpect(status().isOk());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM product_categories WHERE product_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT version FROM products WHERE id=1",Long.class)).isGreaterThan(version);
+  mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(productBody("P1","123",version,true,"120",10L))).andExpect(status().isConflict());
+ }
  @Test void categoryManagementEnforcesPermissionsTenantOwnershipVersionAndArchive() throws Exception {
   String body="{\"name\":\"Panels\",\"slug\":\"panels\",\"expectedVersion\":0,\"active\":true,\"reason\":\"Approved catalogue setup\"}";
   mvc.perform(post("/api/v1/vendor/categories").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
@@ -1269,7 +1295,8 @@ class PosTest {
   mvc.perform(get(path+"/scan").param("code","  INV  ").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(3)).andExpect(jsonPath("$.price").value(50)).andExpect(jsonPath("$.quantity").value(1));
   mvc.perform(get(path+"/scan").param("code","123").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.barcode").value("123")).andExpect(jsonPath("$.quantity").value(0));
   for(String code:List.of("12","P2","HIDDEN"))mvc.perform(get(path+"/scan").param("code",code).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
-  update("UPDATE products SET barcode='123' WHERE id=3");mvc.perform(get(path+"/scan").param("code","123").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isConflict());
+  assertThatThrownBy(()->update("UPDATE products SET barcode='123' WHERE id=3")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  update("UPDATE products SET sku='123' WHERE id=3");mvc.perform(get(path+"/scan").param("code","123").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isConflict());
   update("UPDATE tenants SET online_branch_id=NULL WHERE id=1");mvc.perform(get(path).param("q","inv").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].quantity").value(1));
  }
  @Test void posCatalogueRejectsMalformedFiltersAndUnknownMembership() throws Exception {

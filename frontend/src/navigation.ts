@@ -9,6 +9,7 @@ const pos:NavigationItem[]=[
  {id:'sale-receipt',label:'Current receipt',group:'Sell'},
  {id:'register',label:'Drawer & shift closing',group:'Register'},
  {id:'category-management',label:'Categories',group:'Manage'},
+ {id:'product-management',label:'Products',group:'Manage'},
  {id:'store-settings',label:'Outlet settings',group:'Manage'},
  {id:'shift-history',label:'My closed shifts',group:'Register'},
  {id:'shift-reviews',label:'Supervisor shift review',group:'Register'},

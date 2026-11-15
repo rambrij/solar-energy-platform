@@ -42,7 +42,8 @@ class CategoryAdminControllerAuthorizationTest {
         // Given: AuthorizationContext returns valid vendor context
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
-        // Given: CategoryAdminService returns empty list
+                when(authContext.current()).thenReturn(mockContext);
+// Given: CategoryAdminService returns empty list
         var emptyPage = new CategoryAdminService.Page(List.of(), 0, 20, 0, 0);
         when(categoryAdminService.list(eq(1L), eq(0), eq(20))).thenReturn(emptyPage);
         
@@ -67,7 +68,8 @@ class CategoryAdminControllerAuthorizationTest {
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
-        // Given: CategoryAdminService returns created category
+                when(authContext.current()).thenReturn(mockContext);
+// Given: CategoryAdminService returns created category
         var createdCategory = new CategoryAdminService.View(
             101L,
             "Electronics",
@@ -108,7 +110,8 @@ class CategoryAdminControllerAuthorizationTest {
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
-        // Given: CategoryAdminService returns updated category
+                when(authContext.current()).thenReturn(mockContext);
+// Given: CategoryAdminService returns updated category
         var updatedCategory = new CategoryAdminService.View(
             101L,
             "Consumer Electronics",
@@ -199,7 +202,8 @@ class CategoryAdminControllerAuthorizationTest {
         // Given: AuthorizationContext returns valid vendor context for read operations
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
-        var emptyPage = new CategoryAdminService.Page(List.of(), 0, 20, 0, 0);
+                when(authContext.current()).thenReturn(mockContext);
+var emptyPage = new CategoryAdminService.Page(List.of(), 0, 20, 0, 0);
         when(categoryAdminService.list(eq(1L), eq(0), eq(20))).thenReturn(emptyPage);
         
         // READ allowed
@@ -248,7 +252,8 @@ class CategoryAdminControllerAuthorizationTest {
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
-        var createdCategory = new CategoryAdminService.View(
+                when(authContext.current()).thenReturn(mockContext);
+var createdCategory = new CategoryAdminService.View(
             101L, "Electronics", "electronics", true, 0L
         );
         when(categoryAdminService.create(eq(1L), eq("admin@vendor.com"), any(CategoryAdminService.Input.class)))
@@ -295,7 +300,8 @@ class CategoryAdminControllerAuthorizationTest {
         // Given: AuthorizationContext returns tenant 1
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
-        // Given: Service returns data for tenant 1 only
+                when(authContext.current()).thenReturn(mockContext);
+// Given: Service returns data for tenant 1 only
         var page = new CategoryAdminService.Page(List.of(), 0, 20, 0, 0);
         when(categoryAdminService.list(eq(1L), anyInt(), anyInt())).thenReturn(page);
         

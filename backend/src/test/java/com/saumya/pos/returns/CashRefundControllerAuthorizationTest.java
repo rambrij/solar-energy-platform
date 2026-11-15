@@ -230,7 +230,7 @@ class CashRefundControllerAuthorizationTest {
             .header("Idempotency-Key", "idempotency-key-123")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"returnId\":\"return-456\",\"sessionId\":\"session-123\"," +
-                "\"reason\":\"Damaged product\",\"quoteHash\":\"abc123def456789012345678901234567890123456789012345678901234\"," +
+                "\"reason\":\"Damaged product\",\"quoteHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"," +
                 "\"confirmation\":\"CASH_HANDED_TO_BUYER\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value("refund-123"));
@@ -245,7 +245,7 @@ class CashRefundControllerAuthorizationTest {
             .header("Idempotency-Key", "idempotency-key-123")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"returnId\":\"return-456\",\"sessionId\":\"session-123\"," +
-                "\"reason\":\"Damaged product\",\"quoteHash\":\"abc123def456789012345678901234567890123456789012345678901234\"," +
+                "\"reason\":\"Damaged product\",\"quoteHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"," +
                 "\"confirmation\":\"CASH_HANDED_TO_BUYER\"}"))
             .andExpect(status().isForbidden());
         
@@ -259,7 +259,7 @@ class CashRefundControllerAuthorizationTest {
             .header("Idempotency-Key", "idempotency-key-123")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"returnId\":\"return-456\",\"sessionId\":\"session-123\"," +
-                "\"reason\":\"Damaged product\",\"quoteHash\":\"abc123def456789012345678901234567890123456789012345678901234\"," +
+                "\"reason\":\"Damaged product\",\"quoteHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"," +
                 "\"confirmation\":\"CASH_HANDED_TO_BUYER\"}"))
             .andExpect(status().isForbidden());
         
@@ -273,7 +273,7 @@ class CashRefundControllerAuthorizationTest {
             .header("Idempotency-Key", "idempotency-key-123")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"returnId\":\"return-456\",\"sessionId\":\"session-123\"," +
-                "\"reason\":\"Damaged product\",\"quoteHash\":\"abc123def456789012345678901234567890123456789012345678901234\"," +
+                "\"reason\":\"Damaged product\",\"quoteHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"," +
                 "\"confirmation\":\"CASH_HANDED_TO_BUYER\"}"))
             .andExpect(status().isForbidden());
         
@@ -286,7 +286,7 @@ class CashRefundControllerAuthorizationTest {
             .header("Idempotency-Key", "idempotency-key-123")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"returnId\":\"return-456\",\"sessionId\":\"session-123\"," +
-                "\"reason\":\"Damaged product\",\"quoteHash\":\"abc123def456789012345678901234567890123456789012345678901234\"," +
+                "\"reason\":\"Damaged product\",\"quoteHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"," +
                 "\"confirmation\":\"CASH_HANDED_TO_BUYER\"}"))
             .andExpect(status().isUnauthorized());
         
@@ -398,7 +398,7 @@ class CashRefundControllerAuthorizationTest {
             .header("Idempotency-Key", "idempotency-key-123")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"returnId\":\"return-456\",\"sessionId\":\"session-123\"," +
-                "\"reason\":\"Damaged product\",\"quoteHash\":\"abc123def456789012345678901234567890123456789012345678901234\"," +
+                "\"reason\":\"Damaged product\",\"quoteHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"," +
                 "\"confirmation\":\"CASH_HANDED_TO_BUYER\"}"))
             .andExpect(status().isForbidden());
         
@@ -454,7 +454,7 @@ class CashRefundControllerAuthorizationTest {
             .header("Idempotency-Key", "idempotency-key-123")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"returnId\":\"return-456\",\"sessionId\":\"session-123\"," +
-                "\"reason\":\"Damaged product\",\"quoteHash\":\"abc123def456789012345678901234567890123456789012345678901234\"," +
+                "\"reason\":\"Damaged product\",\"quoteHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"," +
                 "\"confirmation\":\"CASH_HANDED_TO_BUYER\"}"))
             .andExpect(status().isUnauthorized());
         

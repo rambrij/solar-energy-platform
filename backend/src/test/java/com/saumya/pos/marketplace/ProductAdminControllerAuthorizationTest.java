@@ -43,7 +43,8 @@ class ProductAdminControllerAuthorizationTest {
         // Given: AuthorizationContext returns valid vendor context
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
-        // Given: ProductAdminService returns empty list
+                when(authContext.current()).thenReturn(mockContext);
+// Given: ProductAdminService returns empty list
         var emptyPage = new ProductAdminService.Page(List.of(), 0, 20, 0, 0);
         when(productAdminService.list(eq(1L), eq(0), eq(20))).thenReturn(emptyPage);
         
@@ -68,7 +69,8 @@ class ProductAdminControllerAuthorizationTest {
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
-        // Given: ProductAdminService returns created product
+                when(authContext.current()).thenReturn(mockContext);
+// Given: ProductAdminService returns created product
         var createdProduct = new ProductAdminService.View(
             101L,
             "SKU-001",
@@ -117,7 +119,8 @@ class ProductAdminControllerAuthorizationTest {
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
-        // Given: ProductAdminService returns updated product
+                when(authContext.current()).thenReturn(mockContext);
+// Given: ProductAdminService returns updated product
         var updatedProduct = new ProductAdminService.View(
             101L,
             "SKU-001",
@@ -224,7 +227,8 @@ class ProductAdminControllerAuthorizationTest {
         // Given: AuthorizationContext returns valid vendor context for read operations
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
-        var emptyPage = new ProductAdminService.Page(List.of(), 0, 20, 0, 0);
+                when(authContext.current()).thenReturn(mockContext);
+var emptyPage = new ProductAdminService.Page(List.of(), 0, 20, 0, 0);
         when(productAdminService.list(eq(1L), eq(0), eq(20))).thenReturn(emptyPage);
         
         // READ allowed
@@ -281,7 +285,8 @@ class ProductAdminControllerAuthorizationTest {
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
-        var createdProduct = new ProductAdminService.View(
+                when(authContext.current()).thenReturn(mockContext);
+var createdProduct = new ProductAdminService.View(
             101L, "SKU-001", "BAR-001", "Test Product",
             new BigDecimal("99.99"), new BigDecimal("18.00"), true, 1L, 0L
         );
@@ -337,7 +342,8 @@ class ProductAdminControllerAuthorizationTest {
         // Given: AuthorizationContext returns tenant 1
         var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
-        // Given: Service returns data for tenant 1 only
+                when(authContext.current()).thenReturn(mockContext);
+// Given: Service returns data for tenant 1 only
         var page = new ProductAdminService.Page(List.of(), 0, 20, 0, 0);
         when(productAdminService.list(eq(1L), anyInt(), anyInt())).thenReturn(page);
         

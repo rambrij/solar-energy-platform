@@ -40,7 +40,10 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
         hasNavigationPermission(item.id, permissions?.permissions || [])
       );
 
-  const selected = selectedNavigation(items, route);
+  // Vendor discovery and storefronts are public; every other deep link needs an explicit permission.
+  const publicRoute = mode === 'online' && ['vendor-directory', 'storefront-products'].includes(route);
+  const routeAllowed = !loading && (publicRoute || items.some(item => item.id === route));
+  const selected = routeAllowed ? selectedNavigation(items, route) : undefined;
   const groups = Array.from(new Set(items.map(item => item.group)));
   const homePath = mode === 'pos' ? '/vendor/pos' : '/vendors';
 
@@ -147,7 +150,15 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
             <span className="workspace-page-group">{selected.group}</span>
           </div>}
           <main tabIndex={-1} id="main-content" className={`workspace ${mode === 'pos' ? 'pos-workspace' : 'marketplace-workspace'} workspace-page-${route}`}>
-            {children}
+            {loading
+              ? <p role="status">Checking your workspace access…</p>
+              : routeAllowed
+                ? children
+                : <section className="access-denied" role="alert">
+                    <h2>Access denied</h2>
+                    <p>Your account does not have the effective permission required for this page.</p>
+                    <p>Choose an authorized page from the workspace menu or contact your administrator.</p>
+                  </section>}
           </main>
         </div>
       </div>

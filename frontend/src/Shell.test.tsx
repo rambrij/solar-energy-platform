@@ -36,6 +36,21 @@ it('renders route-based links, active state and navigable breadcrumbs', async ()
   expect(screen.queryByRole('navigation', { name: 'Workspace tabs' })).toBeNull();
 });
 
+it('blocks direct navigation to a POS page without its exact permission', async () => {
+  window.history.replaceState({}, '', '/vendor/pos/products');
+  grantPermissions(['POS_VIEW']);
+  render(<Shell mode="pos"><section><h2>Protected product catalogue</h2></section></Shell>);
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Access denied'));
+  expect(screen.queryByText('Protected product catalogue')).toBeNull();
+});
+
+it('keeps public vendor discovery available without a customer login', async () => {
+  window.history.replaceState({}, '', '/marketplace/vendors');
+  mockAuthApi.mockRejectedValue(new Error('Not signed in'));
+  render(<Shell mode="online"><section><h2>Public vendor directory</h2></section></Shell>);
+  expect(await screen.findByText('Public vendor directory')).toBeTruthy();
+});
+
 it('updates the URL and selected workspace using sidebar navigation', async () => {
   grantPermissions(['CUSTOMER']);
   render(<Shell mode="online"><section><h2>Marketplace page</h2></section></Shell>);

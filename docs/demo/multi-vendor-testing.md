@@ -2,7 +2,17 @@
 
 The two root requirements documents govern this dataset. It is optional, synthetic local/test data using the existing manual MySQL seed mechanism. Flyway V37-V38 add platform grant storage and vendor-owned product brand metadata; it never installs accounts or demo data automatically.
 
-## Setup
+## Fresh start without Workbench queries
+
+To permanently remove this Compose project's existing MySQL data and automatically prepare a fresh three-vendor demo, run from the repository root with PowerShell 7.3+:
+
+```powershell
+pwsh -File ./scripts/reset-local-demo.ps1
+```
+
+Keep your existing `.env` with local database passwords and `SPRING_PROFILES_ACTIVE=local`. If `.env` does not exist, create it from `.env.example` and replace the password placeholders first. Docker Desktop must be running. The script validates configuration before deletion, removes the project's `mysql-data` volume, builds/starts MySQL and backend, waits for Flyway V38, stops the backend while automatically importing the checked-in seed, restarts it, builds/starts the frontend and waits for all three public vendor catalogues. No manual SQL or Flyway repair is required. It aborts on migration/seed/startup failure. Existing project database data is permanently lost; passwords/configuration in `.env` are retained. No Docker-wide volume prune is used.
+
+## Setup without deleting existing data
 
 1. Start the backend once to apply Flyway V38, then stop it. Select your disposable local database in MySQL Workbench (or `mysql DATABASE < docs/demo/setup-multi-vendor-demo.sql`). Run the entire script, including the procedure and CALL. Do not use a production database. The JDBC integration tests execute the same data statements on H2 and the complete procedure on MySQL.
 2. Start backend with the explicit `local` profile and normal local DB/JWT settings; start the existing frontend. Use the normal sign-in screen. The script creates no sessions, orders, payments, invoices or artificial payment success.

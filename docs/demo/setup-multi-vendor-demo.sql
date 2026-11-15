@@ -13,6 +13,12 @@ BEGIN
   DO RELEASE_LOCK('solar_multi_vendor_demo');
   RESIGNAL;
  END;
+ -- Check schema before referencing any fixture or application tables.
+ IF DATABASE() IS NULL OR
+    NOT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='platform_user_permissions') OR
+    NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='products' AND column_name='brand') THEN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Demo seed requires Flyway V37 and V38. Rebuild/start updated backend on this database, then stop it and rerun seed.';
+ END IF;
  SELECT GET_LOCK('solar_multi_vendor_demo',10) INTO seed_lock;
  IF seed_lock IS NULL OR seed_lock<>1 THEN
   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Demo seed is already running';

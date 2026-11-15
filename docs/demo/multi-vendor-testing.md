@@ -10,6 +10,34 @@ The two root requirements documents govern this dataset. It is optional, synthet
 
 Run the seed with the app stopped. It serializes MySQL executions and validates reserved identity/tenant bindings before writing. A conflict aborts and rolls back persistent writes. Repeat runs preserve existing passwords, enabled flags, permissions (including revocations), stock/reservations, prices and branch settings. Deleted fixture accounts/memberships are not silently recreated. A missing membership for an existing reserved staff identity is a conflict requiring a fresh disposable database. Existing accounts with these IDs must already have the documented identity; the seed never repurposes them. This script is not a reset tool. Older 900001 demo scripts are optional separate datasets and are not prerequisites.
 
+## Missing table or column when running the seed
+
+`Table 'solar.platform_user_permissions' doesn't exist` means the selected database has not received Flyway V37. V38 also adds `products.brand`. Do not manually create either table/column or edit Flyway history: let the updated backend run its migrations against the same database selected in Workbench.
+
+From the repository root, for the existing Docker Compose setup:
+
+```powershell
+git switch feature/v2-marketplace-pos-walkin
+git pull --ff-only origin feature/v2-marketplace-pos-walkin
+docker compose up -d --build backend
+docker compose logs -f backend
+```
+
+Wait for successful Flyway migration through V38 and backend startup. Ctrl+C stops following logs. If startup fails, resolve that error before seeding. For a backend run outside Docker, rebuild/start the same branch using your existing local launch command and ensure `DB_URL` targets the Workbench database.
+
+In Workbench, confirm the selected schema and successful versions:
+
+```sql
+SELECT DATABASE();
+SELECT version, description, success
+FROM flyway_schema_history
+WHERE version IN ('37','38');
+SHOW COLUMNS FROM products LIKE 'brand';
+SHOW TABLES LIKE 'platform_user_permissions';
+```
+
+Both migration rows must report success. If logs show V38 but these queries do not, the backend and Workbench target different databases. Stop the backend (`docker compose stop backend` for Compose), rerun the entire seed script, then start it again (`docker compose start backend`). Do not delete the database or reset existing data to resolve a missing migration. The seed now checks these prerequisites and reports an explicit migration instruction before any inserts.
+
 ## Stores and catalogue
 
 | Store / slug | Tenant and branch | Categories | Registers (cashier / finance / admin) |

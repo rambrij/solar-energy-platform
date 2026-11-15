@@ -1,7 +1,6 @@
--- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V38+ first. Never run on production.
--- Select the local database in Workbench first; no database name is hardcoded here.
+-- Automatically applied by Flyway V39 only when the Spring 'local' profile is active.
+-- LOCAL DEMO FIXTURES ONLY. Never activate the local profile in production.
 -- Public demo credentials and exact permission presets: docs/demo/multi-vendor-testing.md.
--- Run while the application is stopped; this script does not reset operational data.
 DELIMITER $$
 DROP PROCEDURE IF EXISTS setup_multi_vendor_demo$$
 CREATE PROCEDURE setup_multi_vendor_demo()

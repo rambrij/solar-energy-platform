@@ -7,7 +7,7 @@ import OrderHistory from './OrderHistory';
 import ProductDetails from './ProductDetails';
 import VendorDirectory from './VendorDirectory';
 import CategoryNav, { type CategoryChoice } from './CategoryNav';
-import RouteOutlet from './RouteOutlet';
+import RouteOutlet, { useWorkspaceRoute } from './RouteOutlet';
 import { navigationItems, navigateWorkspace } from './navigation';
 
 type Product = { id: number; sku: string; name: string; price: number; taxRate: number; inStock: boolean; listPrice?: number; discountPercent?: number; categoryId?: number | null; categoryName?: string };
@@ -20,7 +20,8 @@ const money = (amount: number | null) => amount === null ? 'Unavailable' : Numbe
 function readProductId() { const value = new URLSearchParams(window.location.search).get('product'); const id = Number(value); return value && /^[1-9][0-9]*$/.test(value) && Number.isSafeInteger(id) ? id : undefined; }
 
 export default function Marketplace() {
-  const slug = window.location.pathname.startsWith('/vendors/') ? decodeURIComponent(window.location.pathname.split('/')[2]) : '';
+  const activeRoute = useWorkspaceRoute('online');
+  const slug = activeRoute === 'storefront-products' && window.location.pathname.startsWith('/vendors/') ? decodeURIComponent(window.location.pathname.split('/')[2]) : '';
   const [products, setProducts] = useState<Product[]>([]);
   const [review, setReview] = useState<Cart>(), [reservedHeld, setReservedHeld] = useState(false), [paid, setPaid] = useState(false);
   const [cart, setCart] = useState<Cart>(), [quantities, setQuantities] = useState<Record<number, number>>({});

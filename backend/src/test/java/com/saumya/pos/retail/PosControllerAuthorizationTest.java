@@ -1,5 +1,7 @@
 package com.saumya.pos.retail;
 
+import com.saumya.pos.AuthorizationTestSecurityConfiguration;
+
 import com.saumya.pos.security.AuthorizationContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +24,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(PosController.class)
+@Import(AuthorizationTestSecurityConfiguration.class)
 class PosControllerAuthorizationTest {
     
     @Autowired

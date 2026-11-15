@@ -9,6 +9,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -32,7 +33,7 @@ class RefundHistoryControllerAuthorizationTest {
     @WithMockUser(authorities = {"POS_VIEW", "POS_REFUND_VIEW"})
     void historySucceedsWithRequiredAuthorities() throws Exception {
         when(refundHistoryService.history(any(), any(), anyString(), anyString(), anyInt(), anyInt()))
-            .thenReturn(List.of());
+            .thenReturn(new RefundHistoryService.History(1, LocalDate.now(), LocalDate.now(), "", 0, 24, 0, 0, List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/refunds/history")
             .param("page", "0")
@@ -46,7 +47,7 @@ class RefundHistoryControllerAuthorizationTest {
     @WithMockUser(authorities = {"POS_VIEW", "POS_REFUND_VIEW"})
     void historySucceedsWithDateRangeParameters() throws Exception {
         when(refundHistoryService.history(any(), any(), anyString(), anyString(), anyInt(), anyInt()))
-            .thenReturn(List.of());
+            .thenReturn(new RefundHistoryService.History(1, LocalDate.now(), LocalDate.now(), "", 0, 24, 0, 0, List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/refunds/history")
             .param("from", "2024-01-01")

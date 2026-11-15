@@ -8,7 +8,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
-import java.util.Map;
+
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -32,7 +32,7 @@ class ReturnAuditControllerAuthorizationTest {
     @WithMockUser(authorities = {"POS_VIEW", "POS_RETURN_VIEW", "POS_RETURN_AUDIT_VIEW"})
     void historySucceedsWithAllRequiredAuthorities() throws Exception {
         when(returnAuditService.history(anyString(), anyInt(), anyInt()))
-            .thenReturn(Map.of("events", List.of()));
+            .thenReturn(new ReturnAuditService.History("ret-123", "REQUESTED", 0, 12, 0, 0, List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/returns/ret-123/events")
             .param("page", "0")
@@ -46,7 +46,7 @@ class ReturnAuditControllerAuthorizationTest {
     @WithMockUser(authorities = {"POS_VIEW", "POS_RETURN_VIEW", "POS_RETURN_AUDIT_VIEW"})
     void historySucceedsWithDefaultPagination() throws Exception {
         when(returnAuditService.history(anyString(), anyInt(), anyInt()))
-            .thenReturn(Map.of("events", List.of()));
+            .thenReturn(new ReturnAuditService.History("ret-123", "REQUESTED", 0, 12, 0, 0, List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/returns/ret-456/events"))
             .andExpect(status().isOk());

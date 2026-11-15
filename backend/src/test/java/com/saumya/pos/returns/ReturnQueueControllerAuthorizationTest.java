@@ -9,7 +9,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
+
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -31,7 +31,7 @@ class ReturnQueueControllerAuthorizationTest {
     @WithMockUser(authorities = {"POS_VIEW", "POS_RETURN_VIEW"})
     void queueSucceedsWithRequiredAuthorities() throws Exception {
         when(returnQueueService.queue(anyString(), any(), any(), anyString(), anyInt(), anyInt()))
-            .thenReturn(Map.of("returns", List.of()));
+            .thenReturn(new ReturnQueueService.Queue(1, "REQUESTED", null, null, "", 0, 12, 0, 0, List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/returns/queue")
             .param("state", "REQUESTED")
@@ -46,7 +46,7 @@ class ReturnQueueControllerAuthorizationTest {
     @WithMockUser(authorities = {"POS_VIEW", "POS_RETURN_VIEW"})
     void queueSucceedsWithDefaultParameters() throws Exception {
         when(returnQueueService.queue(anyString(), any(), any(), anyString(), anyInt(), anyInt()))
-            .thenReturn(Map.of("returns", List.of()));
+            .thenReturn(new ReturnQueueService.Queue(1, "REQUESTED", null, null, "", 0, 12, 0, 0, List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/returns/queue"))
             .andExpect(status().isOk());
@@ -58,7 +58,7 @@ class ReturnQueueControllerAuthorizationTest {
     @WithMockUser(authorities = {"POS_VIEW", "POS_RETURN_VIEW"})
     void queueSucceedsWithDateFilters() throws Exception {
         when(returnQueueService.queue(anyString(), any(), any(), anyString(), anyInt(), anyInt()))
-            .thenReturn(Map.of("returns", List.of()));
+            .thenReturn(new ReturnQueueService.Queue(1, "REQUESTED", null, null, "", 0, 12, 0, 0, List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/returns/queue")
             .param("state", "APPROVED")

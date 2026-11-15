@@ -9,6 +9,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.math.BigDecimal;
+import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -29,7 +31,7 @@ class RefundReportControllerAuthorizationTest {
     @Test
     @WithMockUser(authorities = {"POS_VIEW", "POS_REPORT_VIEW", "POS_REFUND_VIEW"})
     void reportSucceedsWithAllRequiredAuthorities() throws Exception {
-        when(refundReportService.report(any(), any())).thenReturn(List.of());
+        when(refundReportService.report(any(), any())).thenReturn(new RefundReportService.Report(1, LocalDate.now(), LocalDate.now(), Instant.now(), new RefundReportService.Totals(0, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO), List.of(), List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/reports/cash-refunds"))
             .andExpect(status().isOk());
@@ -40,7 +42,7 @@ class RefundReportControllerAuthorizationTest {
     @Test
     @WithMockUser(authorities = {"POS_VIEW", "POS_REPORT_VIEW", "POS_REFUND_VIEW"})
     void reportSucceedsWithDateRangeParameters() throws Exception {
-        when(refundReportService.report(any(), any())).thenReturn(List.of());
+        when(refundReportService.report(any(), any())).thenReturn(new RefundReportService.Report(1, LocalDate.now(), LocalDate.now(), Instant.now(), new RefundReportService.Totals(0, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO), List.of(), List.of()));
         
         mvc.perform(get("/api/v1/vendor/pos/reports/cash-refunds")
             .param("from", "2024-01-01")

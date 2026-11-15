@@ -1,8 +1,11 @@
 package com.saumya.pos.returns;
 
+import com.saumya.pos.AuthorizationTestSecurityConfiguration;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -18,6 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ReturnAuditController.class)
+@Import(AuthorizationTestSecurityConfiguration.class)
 class ReturnAuditControllerAuthorizationTest {
     
     @Autowired

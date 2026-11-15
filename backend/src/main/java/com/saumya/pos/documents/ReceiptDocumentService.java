@@ -10,13 +10,13 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 @Service @Transactional(isolation=Isolation.REPEATABLE_READ)
 public class ReceiptDocumentService {
- private final com.saumya.pos.checkout.BuyerDetailsService buyers;private final com.saumya.pos.checkout.PaymentCheckoutService payments;private final PosService retail;private final ReceiptPdfRenderer renderer;private final ReceiptDocumentAuditRepository audits;private final Clock clock;
- public ReceiptDocumentService(PosService retail,ReceiptPdfRenderer renderer,ReceiptDocumentAuditRepository audits,Clock clock,com.saumya.pos.checkout.PaymentCheckoutService payments,com.saumya.pos.checkout.BuyerDetailsService buyers){this.buyers=buyers;this.payments=payments;this.retail=retail;this.renderer=renderer;this.audits=audits;this.clock=clock;}
+ private final com.saumya.pos.checkout.CheckoutReceiptService receipts;private final PosService retail;private final ReceiptPdfRenderer renderer;private final ReceiptDocumentAuditRepository audits;private final Clock clock;
+ public ReceiptDocumentService(PosService retail,ReceiptPdfRenderer renderer,ReceiptDocumentAuditRepository audits,Clock clock,com.saumya.pos.checkout.CheckoutReceiptService receipts){this.receipts=receipts;this.retail=retail;this.renderer=renderer;this.audits=audits;this.clock=clock;}
  public record Download(String reference,String filename,byte[] content){}
  public Download generate(String username,String order,String requestedReason){
   if(order==null||!order.matches("[A-Za-z0-9-]{1,36}"))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Receipt unavailable");
   if(requestedReason==null||requestedReason.isBlank()||requestedReason.length()>250||requestedReason.codePoints().anyMatch(Character::isISOControl))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Document reason required (1-250 plain characters)");
-  var scope=retail.scope(username);var receipt=retail.receipt(scope,order);receipt.put("tenders",payments.receiptTenders(username,order));var buyer=buyers.forReceipt(username,order);if(buyer!=null)receipt.put("buyer",buyer);var data=ReceiptPdfData.saved(receipt);if(data.branch()!=scope.branch()||!data.orderId().equals(order))throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+  var scope=retail.scope(username);var receipt=receipts.receipt(scope,order);var data=ReceiptPdfData.saved(receipt);if(data.branch()!=scope.branch()||!data.orderId().equals(order))throw new ResponseStatusException(HttpStatus.FORBIDDEN);
   String reference=UUID.randomUUID().toString();var generated=clock.instant();byte[] bytes=renderer.render(data,reference,generated);if(bytes.length>2_000_000)throw new ResponseStatusException(HttpStatus.CONFLICT,"Receipt PDF exceeds size limit");
   String digest;try{digest=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}
   audits.saveAndFlush(new ReceiptDocumentAudit(reference,scope.tenant(),scope.branch(),order,scope.cashier(),requestedReason.strip(),digest,bytes.length,generated));

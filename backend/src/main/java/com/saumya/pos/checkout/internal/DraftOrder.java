@@ -46,6 +46,8 @@ public class DraftOrder {
     public boolean invoiceRequested(){return invoiceRequested;}
     public long stockBranch(){return stockBranch;}
     public String paymentMethod(){return paymentMethod;}
+    public void receiptIdentity(String seller,String outlet){if(receiptSeller!=null||receiptOutlet!=null)throw new IllegalStateException("Issued receipt identity is immutable");receiptSeller=seller;receiptOutlet=outlet;}
+    public String paymentReference(){return paymentReference;}
     public String receiptSeller(){return receiptSeller;}
     public String receiptOutlet(){return receiptOutlet;}
     public void payOnlineMock(String method,boolean invoice,Instant now){if(!"ONLINE".equals(channel))throw new IllegalStateException("Online simulation cannot confirm a POS tender");paymentMethod="MOCK_"+method;taxInvoice=invoice;finish("PAID",now);}

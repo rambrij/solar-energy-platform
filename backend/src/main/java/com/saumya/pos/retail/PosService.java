@@ -77,29 +77,8 @@ public class PosService {
         db.update("UPDATE branches SET receipt_sequence=? WHERE tenant_id=? AND id=?",number,s.tenant,s.branch);
         return new ReceiptAllocation(number,Boolean.TRUE.equals(branch.get("invoice_required")),(String)branch.get("name"));
     }
-    public record StockIssue(long product,int quantity) {}
-    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public void draftDocuments(Scope s,String id,List<StockIssue> items,ReceiptAllocation receipt,BigDecimal total,boolean invoice){
-        String seller=catalogue.vendor(s.tenant).name();
-        db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=? WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' AND receipt_seller_name IS NULL AND receipt_outlet_name IS NULL",seller,receipt.outlet,s.tenant,s.branch,id);
-        if(invoice){db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+receipt.number,seller,receipt.outlet,total);audit(s,"INVOICE_ISSUE",id);}
-        audit(s,"SALE_COMPLETE",id);
-    }
-    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public void onlineDocuments(Scope s,String id,List<StockIssue> items,BigDecimal total,ReceiptAllocation allocation){
-        db.update("UPDATE orders SET receipt_seller_name=?,receipt_outlet_name=(SELECT name FROM branches WHERE tenant_id=? AND id=?) WHERE tenant_id=? AND id=?",catalogue.vendor(s.tenant).name(),s.tenant,s.branch,s.tenant,id);
-        if(allocation.invoiceRequired())db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(?,?,?,?,?,?)",s.tenant,id,"INV-"+s.branch+"-"+allocation.number(),catalogue.vendor(s.tenant).name(),allocation.outlet(),total);
-        audit(s,"MOCK_ONLINE_PAYMENT",id);
-    }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void draftAudit(Scope s,String action,String id){audit(s,action,id);}
-    @Transactional
-    public Map<String,Object> receipt(Scope s,String id) {
-        var order=one("SELECT id,branch_id,sales_channel,customer_id,total,cash_received,change_given,payment_method,payment_reference,receipt_number,tax_invoice,created_at,COALESCE(status_changed_at,created_at) AS issued_at,receipt_seller_name,receipt_outlet_name FROM orders WHERE tenant_id=? AND branch_id=? AND id=? AND status='PAID' FOR UPDATE",s.tenant,s.branch,id);
-        order.put("items",db.queryForList("SELECT name,quantity,price,tax_rate,tax,total,list_price,discount,discount_percent FROM order_items WHERE tenant_id=? AND order_id=? ORDER BY product_id FOR UPDATE",s.tenant,id));
-        order.put("invoices",db.queryForList("SELECT invoice_number,seller_name,outlet_name,total,issued_at FROM vendor_invoices WHERE tenant_id=? AND order_id=? FOR UPDATE",s.tenant,id));
-        return order;
-    }
     public record CloseResult(String sessionId,long registerId,String cashier,String state,String requestId,
         BigDecimal expectedCash,BigDecimal countedCash,BigDecimal variance,String varianceReason,
         String reviewedBy,String reviewReason) {}
@@ -228,9 +207,6 @@ public class PosService {
         BigDecimal counted=(BigDecimal)shift.get("counted_cash");
         return new Reconciliation(id,(String)shift.get("state"),opening,received,change,cashIn,cashOut,drops,expected,counted,
             counted==null?null:counted.subtract(expected),movements,cashRefunds);
-    }
-    @Transactional public Map<String,Object> reprint(Scope s,String id) {
-        var result=receipt(s,id); audit(s,"RECEIPT_REPRINT",id);result.put("copy",true);return result;
     }
     private Map<String,Object> one(String sql,Object...args) {
         return db.queryForList(sql,args).stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Resource unavailable"));

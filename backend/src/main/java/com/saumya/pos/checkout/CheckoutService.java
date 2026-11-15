@@ -23,6 +23,8 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service @Transactional
 public class CheckoutService {
+ @org.springframework.beans.factory.annotation.Autowired private CheckoutReceiptService receipts;
+ @org.springframework.beans.factory.annotation.Autowired private SaleDocumentsService documents;
  @org.springframework.beans.factory.annotation.Autowired private BuyerDetailsService buyers;
  @org.springframework.beans.factory.annotation.Autowired private org.springframework.context.ApplicationEventPublisher events;
     @org.springframework.beans.factory.annotation.Autowired private PaymentAttemptRepository paymentAttempts;
@@ -110,7 +112,7 @@ public class CheckoutService {
     }
     private Map<String,Object> finalizeOwnedCash(PosService.Scope s,String id,BigDecimal cash){
         retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);
-        if("PAID".equals(order.status())){if(cash.compareTo(order.cash())!=0)conflict("Cash amount differs from completed sale");return receipt(s,id);}
+        if("PAID".equals(order.status())){if(cash.compareTo(order.cash())!=0)conflict("Cash amount differs from completed sale");return receipts.receipt(s,id);}
         if(paymentAttempts.findByTenantAndOrder(s.tenant(),id).isPresent())conflict("This draft uses an external payment attempt; recover that payment instead of collecting cash");
         retail.requireOpen(s,order.session());
         if(!"DRAFT".equals(order.status())||!order.expires().isAfter(clock.instant()))conflict("Draft is cancelled or expired; refresh/cancel it before starting another sale");
@@ -124,10 +126,8 @@ public class CheckoutService {
         var receipt=retail.allocateReceipt(s);boolean invoice=receipt.invoiceRequired()||order.invoiceRequested();
         var tender=paymentAttempts.saveAndFlush(PaymentAttempt.cash(order.tenant(),id,order.total(),cash,"cash-finalize",sha(cash.setScale(2).toPlainString()),clock.instant()));
         events.publishEvent(new com.saumya.pos.shared.CashTenderRecorded(tender.id(),order.tenant(),order.branch(),order.session(),id,tender.cash(),tender.change()));
-        order.pay(cash,receipt.number(),invoice,clock.instant());orders.flush();posState(order);
-        retail.draftDocuments(s,id,stored.stream().map(l->new PosService.StockIssue(l.product(),l.quantity())).toList(),receipt,order.total(),invoice);
-        return receipt(s,id);
+        order.pay(cash,receipt.number(),invoice,clock.instant());documents.issue(s,order,receipt,invoice,false);orders.flush();posState(order);
+        return receipts.receipt(s,id);
     }
-    private Map<String,Object> receipt(PosService.Scope scope,String id){var value=retail.receipt(scope,id);var buyer=buyers.snapshot(scope.tenant(),id);if(buyer!=null)value.put("buyer",buyer);return value;}
     public void expire(long tenant,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){stock.release(tenant,id);buyers.discardUnpaid(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();posState(order);}}
 }

@@ -23,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.context.TestPropertySource(properties="payments.mock-enabled=true")
 @org.springframework.test.context.TestExecutionListeners(listeners=org.springframework.test.context.support.DependencyInjectionTestExecutionListener.class,inheritListeners=false)
 class PosTest {
+ @Autowired com.saumya.pos.checkout.CheckoutReceiptService receiptReader;
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
  @Autowired CartService marketplace;
  @Autowired CatalogService catalogue;
@@ -76,7 +77,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM users",Integer.class)).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();
   mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.buyer.name").value("Private walk-in buyer")).andExpect(jsonPath("$.buyer.taxId").value("PRIVATE-TAX"));
   var denied=mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("bob").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound()).andReturn();assertThat(denied.getResponse().getContentAsString()).doesNotContain("Private walk-in buyer","PRIVATE-TAX");
-  mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='BUYER_SNAPSHOT_VIEW'",Integer.class)).isEqualTo(1);assertThat(db.queryForList("SELECT * FROM pos_audit").toString()).doesNotContain("private-contact","PRIVATE-TAX");
+  mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='BUYER_SNAPSHOT_VIEW'",Integer.class)).isEqualTo(2);assertThat(db.queryForList("SELECT * FROM pos_audit").toString()).doesNotContain("private-contact","PRIVATE-TAX");
   assertThatThrownBy(()->checkout.cashSale("alice","guest-buyer",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1)),new BigDecimal("120"),false,null,new com.saumya.pos.checkout.BuyerDetailsPolicy.Input("Changed buyer",null,null,null)))).hasMessageContaining("different draft request");assertThat(db.queryForObject("SELECT name FROM order_buyer_snapshots",String.class)).isEqualTo("Private walk-in buyer");
  }
  @Test void approvedInvoiceBuyerRequirementDoesNotRequireGuestContactOrRegistration(){
@@ -251,7 +252,7 @@ class PosTest {
   tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"));
   assertThat(payments.finalizeTenders("alice",draft.id()).orderStatus()).isEqualTo("PAID");
   assertThat(payments.tender("alice",draft.id(),"split-cash",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("50"))).confirmed()).isEqualByComparingTo("110");
-  assertThat(service.receipt(a,draft.id()).get("payment_method")).isEqualTo("SPLIT");assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("90");
+  assertThat(receiptReader.receipt(a,draft.id()).get("payment_method")).isEqualTo("SPLIT");assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("90");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);
  }
  @Test void cashierDiscountIsAuthorizedAndStoredBeforePayment() throws Exception {
@@ -328,7 +329,7 @@ class PosTest {
   assertThatThrownBy(()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));
   assertThatThrownBy(()->payments.tenderStatus("bob",draft.id()));assertThatThrownBy(()->payments.confirm("alice",draft.id(),"forged"));
   assertThatThrownBy(()->tenderReviews.review("alice",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));
-  tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"));var receipt=service.receipt(a,draft.id());assertThat(receipt.get("payment_method")).isEqualTo("CARD");assertThat(receipt.get("payment_reference")).isEqualTo("terminal-result-123");assertThat(receipt.get("cash_received")).isEqualTo(new BigDecimal("0.00"));assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
+  tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"));var receipt=receiptReader.receipt(a,draft.id());assertThat(receipt.get("payment_method")).isEqualTo("CARD");assertThat(receipt.get("payment_reference")).isEqualTo("terminal-result-123");assertThat(receipt.get("cash_received")).isEqualTo(new BigDecimal("0.00"));assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx->returnSaleAccess.cashSale(1,1,draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
@@ -361,8 +362,8 @@ class PosTest {
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
   assertThatThrownBy(()->checkout.cashSale(a.cashier(),"checkout-1",sale(1,"130")));
-  assertThatThrownBy(()->service.receipt(b,(String)r.get("id")));
-  assertThat(service.reprint(a,(String)r.get("id")).get("copy")).isEqualTo(true);
+  assertThatThrownBy(()->receiptReader.receipt(b,(String)r.get("id")));
+  assertThat(receiptReader.reprint(a,(String)r.get("id")).get("copy")).isEqualTo(true);
  }
  @Test void forbiddenProductAndUnderpaymentLeaveNoSale(){
   assertThatThrownBy(()->checkout.cashSale(a.cashier(),"foreign-1",sale(2,"120")));
@@ -1057,7 +1058,7 @@ class PosTest {
   var receipt=checkout.cashSale(a.cashier(),"promotion-cash",sale(1,"100"));assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo("99");
   var item=(Map<?,?>)((List<?>)receipt.get("items")).getFirst();assertThat((BigDecimal)item.get("list_price")).isEqualByComparingTo("100");assertThat((BigDecimal)item.get("discount")).isEqualByComparingTo("10");
   promotions.approve(1,"manager",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("20"),"New approved offer"));
-  var copy=service.reprint(a,(String)receipt.get("id"));assertThat((BigDecimal)copy.get("total")).isEqualByComparingTo("99");
+  var copy=receiptReader.reprint(a,(String)receipt.get("id"));assertThat((BigDecimal)copy.get("total")).isEqualByComparingTo("99");
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.discounts").value(10)).andExpect(jsonPath("$.totals.tax").value(9)).andExpect(jsonPath("$.totals.sales").value(99));
  }
  @Test void promotionCommandsEnforceApprovalCsrfInputAndTenantScope() throws Exception {
@@ -1113,7 +1114,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=900001 AND product_id=900101",Integer.class)).isEqualTo(3);
   assertThat(db.queryForObject("SELECT category_id FROM product_categories WHERE tenant_id=900001 AND product_id=900101",Long.class)).isEqualTo(900024);
   assertThat(db.queryForObject("SELECT percent FROM catalog_promotions WHERE tenant_id=900001",BigDecimal.class)).isEqualByComparingTo("10");
-  assertThat(service.receipt(a,(String)receipt.get("id")).get("id")).isEqualTo(receipt.get("id"));
+  assertThat(receiptReader.receipt(a,(String)receipt.get("id")).get("id")).isEqualTo(receipt.get("id"));
  }
  @Test void solarDemoSeedDoesNothingWithoutAnActiveAssignedDemoBranch() throws Exception {
   loadSolarDemoSeed();assertThat(db.queryForObject("SELECT COUNT(*) FROM products",Integer.class)).isEqualTo(2);
@@ -1589,7 +1590,7 @@ class PosTest {
  @Test void directReceiptIdentitySurvivesRenamesRetriesAndAuditedCopies() throws Exception {
   var receipt=checkout.cashSale(a.cashier(),"identity-cash",sale(1,"120"));String id=(String)receipt.get("id");assertThat(receipt.get("receipt_seller_name")).isEqualTo("Vendor A");assertThat(receipt.get("receipt_outlet_name")).isEqualTo("A");assertThat(receipt.get("issued_at")).isNotNull();
   update("UPDATE tenants SET name='New seller' WHERE id=1");update("UPDATE branches SET name='New outlet' WHERE id=1");
-  for(var copy:List.of(checkout.cashSale(a.cashier(),"identity-cash",sale(1,"120")),service.reprint(a,id))){assertThat(copy.get("receipt_seller_name")).isEqualTo("Vendor A");assertThat(copy.get("receipt_outlet_name")).isEqualTo("A");assertThat(copy.get("issued_at")).isEqualTo(receipt.get("issued_at"));assertThat(copy.get("receipt_number")).isEqualTo(receipt.get("receipt_number"));}
+  for(var copy:List.of(checkout.cashSale(a.cashier(),"identity-cash",sale(1,"120")),receiptReader.reprint(a,id))){assertThat(copy.get("receipt_seller_name")).isEqualTo("Vendor A");assertThat(copy.get("receipt_outlet_name")).isEqualTo("A");assertThat(copy.get("issued_at")).isEqualTo(receipt.get("issued_at"));assertThat(copy.get("receipt_number")).isEqualTo(receipt.get("receipt_number"));}
   mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("bob").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(stock.atBranch(1,1,1)).isZero();
  }
  @Test void reservedReceiptIdentityIsCapturedAtPaymentAndInvoiceUsesTheSameNames(){
@@ -1603,7 +1604,7 @@ class PosTest {
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{checkout.cashSale(a.cashier(),"identity-rollback",sale(1,"120"));throw new IllegalStateException("Rollback sale");})).isInstanceOf(IllegalStateException.class);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders",Integer.class)).isZero();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isZero();
-  String id=(String)checkout.cashSale(a.cashier(),"identity-legacy",sale(1,"120")).get("id");update("UPDATE orders SET receipt_seller_name=NULL,receipt_outlet_name=NULL WHERE id=?",id);update("UPDATE tenants SET name='Mutable current seller' WHERE id=1");assertThat(service.receipt(a,id).get("receipt_seller_name")).isNull();assertThat(service.reprint(a,id).get("receipt_outlet_name")).isNull();assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,id)).isNull();
+  String id=(String)checkout.cashSale(a.cashier(),"identity-legacy",sale(1,"120")).get("id");update("UPDATE orders SET receipt_seller_name=NULL,receipt_outlet_name=NULL WHERE id=?",id);update("UPDATE tenants SET name='Mutable current seller' WHERE id=1");assertThat(receiptReader.receipt(a,id).get("receipt_seller_name")).isNull();assertThat(receiptReader.reprint(a,id).get("receipt_outlet_name")).isNull();assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,id)).isNull();
  }
 
  @Test void fastCashUsesCanonicalReservationConsumptionAndRejectsChangedCashRetries(){
@@ -1618,7 +1619,7 @@ class PosTest {
 
  @Test void paidStatusTimestampRetainsMicrosecondsInsteadOfRoundingIntoTheFuture(){
   var receipt=checkout.cashSale("alice","paid-precision",sale(1,"120"));String id=(String)receipt.get("id");var paid=java.time.Instant.parse("2026-11-13T12:00:00.654321Z");update("UPDATE orders SET status_changed_at=? WHERE id=?",java.sql.Timestamp.from(paid),id);
-  assertThat(db.queryForObject("SELECT status_changed_at FROM orders WHERE id=?",java.sql.Timestamp.class,id).toInstant()).isEqualTo(paid);assertThat(((java.sql.Timestamp)service.receipt(a,id).get("issued_at")).toInstant()).isEqualTo(paid);
+  assertThat(db.queryForObject("SELECT status_changed_at FROM orders WHERE id=?",java.sql.Timestamp.class,id).toInstant()).isEqualTo(paid);assertThat(((java.sql.Timestamp)receiptReader.receipt(a,id).get("issued_at")).toInstant()).isEqualTo(paid);
  }
 
  @Test void receiptPdfCopiesAreScopedAuditedAndMatchExactReturnedBytes() throws Exception {

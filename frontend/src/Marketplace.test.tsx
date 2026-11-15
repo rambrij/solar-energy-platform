@@ -1,13 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Marketplace from './Marketplace';
+import {authApi} from './api';
 import { marketplaceApi, MarketplaceError } from './marketplaceApi';
 vi.mock('./marketplaceApi', async original => ({ ...await original<typeof import('./marketplaceApi')>(), marketplaceApi: vi.fn() }));
+vi.mock('./api', async original => ({ ...await original<typeof import('./api')>(), authApi: vi.fn() }));
 const vendors = [{ id: 1, slug: 'vendor-1', name: 'Vendor A' }, { id: 2, slug: 'vendor-2', name: 'Vendor B' }];
 const products = [{ id: 1, sku: 'P1', name: 'Solar Panel', price: 100, taxRate: 10, inStock: true }];
 const gate = 'Online payment is not configured. No paid order was created.';
 const cart = { id: 'cart-a', vendorSlug: 'vendor-1', vendorName: 'Vendor A', items: [{ productId: 1, name: 'Solar Panel', quantity: 1, unitPrice: 100, tax: 10, total: 110, available: true }], total: 110, checkoutAvailable: false, message: gate };
-beforeEach(() => { window.history.replaceState({}, '', '/vendors/vendor-1'); });
+beforeEach(() => { window.history.replaceState({}, '', '/vendors/vendor-1'); vi.mocked(authApi).mockResolvedValue({ username: 'customer@test.local', tenantId: null, branchId: null, permissions: ['CUSTOMER'] }); });
 function visitMarketplace(path:string){window.history.pushState({},'',path);fireEvent(window,new PopStateEvent('popstate'));}
 afterEach(() => { cleanup(); vi.resetAllMocks(); window.history.replaceState({}, '', '/vendors/vendor-1'); });
 function publicResult(path:string,source=products){

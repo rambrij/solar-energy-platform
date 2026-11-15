@@ -1,8 +1,8 @@
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import App from './App';
-import {api,ApiError} from './api';
-vi.mock('./api',async importOriginal=>({...await importOriginal<typeof import('./api')>(),api:vi.fn()}));
+import {api,ApiError,authApi} from './api';
+vi.mock('./api',async importOriginal=>({...await importOriginal<typeof import('./api')>(),api:vi.fn(),authApi:vi.fn()}));
 function mockBackend(implementation:typeof api){
  vi.mocked(api).mockImplementation(async(path,body,key)=>{
   if(path.startsWith('/registers?'))return {branchId:1,page:0,size:12,totalElements:1,totalPages:1,items:[{id:1,available:true}]};
@@ -16,7 +16,7 @@ function mockBackend(implementation:typeof api){
  });
 }
 
-beforeEach(()=>{window.history.replaceState({},'','/vendor/pos');});
+beforeEach(()=>{window.history.replaceState({},'','/vendor/pos');vi.mocked(authApi).mockResolvedValue({ username: 'cashier@test.local', tenantId: 1, branchId: 1, permissions: ["POS_VIEW","POS_SESSION_OPEN","POS_SESSION_CLOSE","POS_SALE_CREATE","POS_SALE_CANCEL","POS_RECEIPT_VIEW","POS_RETURN_VIEW","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT","POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD","POS_REPORT_VIEW","POS_SHIFT_VARIANCE_APPROVE","POS_TENDER_MANUAL_VERIFY","PRODUCT_VIEW","PRODUCT_CREATE","PRODUCT_UPDATE","INVENTORY_VIEW","INVENTORY_RECEIVE","TENANT_PROFILE_VIEW","POS_CASHIER_REPORT_VIEW"] });});
 function visitPos(path:string){window.history.pushState({},'',path);fireEvent(window,new PopStateEvent('popstate'));}
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.restoreAllMocks();sessionStorage.clear();window.history.replaceState({},'','/vendor/pos');});
 it('does not request customer identity for guest checkout',async()=>{

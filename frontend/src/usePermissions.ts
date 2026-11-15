@@ -100,10 +100,10 @@ export interface PermissionRequirement {
 
 export const NAVIGATION_PERMISSIONS: Record<string, PermissionRequirement> = {
   // POS workspace navigation permissions
-  'checkout': { anyOf: ['POS_VIEW', 'POS_SESSION_OPEN', 'POS_SALE_CREATE'] },
-  'current-sale': { anyOf: ['POS_VIEW', 'POS_SALE_CREATE'] },
-  'reserved-pos-checkout': { anyOf: ['POS_VIEW'] },
-  'order-history': { anyOf: ['POS_VIEW', 'POS_REPORT_VIEW'] },
+  'checkout': { allOf: ['POS_VIEW'] },
+  'current-sale': { allOf: ['POS_VIEW'] },
+  'reserved-pos-checkout': { allOf: ['POS_VIEW'] },
+  'order-history': { allOf: ['POS_VIEW'] },
   'sale-receipt': { anyOf: ['POS_RECEIPT_VIEW'] },
   'pos-returns': { allOf: ['POS_VIEW', 'POS_RETURN_VIEW'] },
   'cash-refunds': { allOf: ['POS_VIEW', 'POS_REFUND_VIEW'] },
@@ -114,8 +114,8 @@ export const NAVIGATION_PERMISSIONS: Record<string, PermissionRequirement> = {
   'shift-history': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW'] },
   'shift-reviews': { anyOf: ['POS_SHIFT_VARIANCE_APPROVE'] },
   'terminal-tender-review': { anyOf: ['POS_TENDER_MANUAL_VERIFY'] },
-  'store-settings': { anyOf: ['TENANT_PROFILE_VIEW', 'POS_VIEW'] },
-  'promotion-history': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW'] },
+  'store-settings': { allOf: ['POS_VIEW'] },
+  'promotion-history': { allOf: ['POS_VIEW', 'CATALOG_PROMOTION_MANAGE', 'POS_DISCOUNT_APPROVE'] },
   'sales-insights': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW'] },
   'refund-insights': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW', 'POS_REFUND_VIEW'] },
   'cashier-sales-insights': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW', 'POS_CASHIER_REPORT_VIEW'] },

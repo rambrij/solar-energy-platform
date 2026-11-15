@@ -34,10 +34,10 @@ public class SalesReportService {
         LocalDate to=requestedTo==null?LocalDate.now(clock):requestedTo;
         if(to.getYear()<1970||to.getYear()>9998)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Date is out of range");
         LocalDate from=requestedFrom==null?to.minusDays(6):requestedFrom;
-        String channel=requestedChannel==null?"ALL":requestedChannel.toUpperCase(Locale.ROOT);
-        if(!Set.of("ALL","IN_STORE","ONLINE").contains(channel)||from.isAfter(to)||ChronoUnit.DAYS.between(from,to)>365||from.getYear()<1970||to.getYear()>9998)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose ALL, IN_STORE or ONLINE and an inclusive UTC range of at most 366 days");
-        var scope=retail.scope(username);
+        String channel = requestedChannel == null ? "ALL" : requestedChannel.toUpperCase(Locale.ROOT);
+        if (!Set.of("ALL", "IN_STORE", "ONLINE").contains(channel) || from.isAfter(to) || ChronoUnit.DAYS.between(from, to) > 365 || from.getYear() < 1970 || to.getYear() > 9998)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose ALL, IN_STORE or ONLINE and an inclusive UTC range of at most 366 days");
+        var scope = retail.scope();
         Instant start=from.atStartOfDay(ZoneOffset.UTC).toInstant(),until=to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
         var names=channel.equals("ALL")?List.of("ONLINE","IN_STORE"):List.of(channel);
         var buckets=new LinkedHashMap<LocalDate,Map<String,Bucket>>();

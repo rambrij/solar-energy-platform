@@ -57,23 +57,64 @@ public class CashRefundService {
   parts.add(total.toPlainString());var drawer=retail.reconciliation(scope,session).expectedCash();
   return new Quote(returned,context.sale().id(),scope.branch()+"/"+context.sale().receiptNumber(),session,total,drawer,drawer.compareTo(total)>=0,hash(parts),List.copyOf(lines),"Original discounted sale and cumulative tax allocation. Recheck before handing cash; no tax credit note is generated.");
  }
- public Quote quote(String username,String returned,String session){if(session==null||session.isBlank()||session.length()>36)bad("Owned open refund session required");var scope=retail.scope(username);retail.lockOutlet(scope);retail.requireOpen(scope,session);return quote(scope,returned,session,context(scope,returned));}
- private View view(CashRefund refund,boolean copy){return new View(refund.id(),refund.returned(),refund.order(),refund.branch()+"/"+refund.receipt(),Long.toString(refund.branch()),refund.cashier(),refund.session(),refund.amount(),refund.reason(),refund.paid(),"CASH","PAID",copy,amounts.items(refund.tenant(),refund.id()).stream().map(i->new Line(i.product(),i.name(),i.quantity(),i.net(),i.tax(),i.amount())).toList());}
- private View replay(PosService.Scope scope,CashRefund refund,String hash){if(refund.branch()!=scope.branch()||!refund.cashier().equals(scope.cashier())||!refund.hash().equals(hash))conflict("Idempotency key already used for another cash refund command");return view(refund,false);}
- public View pay(String username,String clientKey,Pay request){
-  if(request==null||clientKey==null||!clientKey.matches("[A-Za-z0-9_-]{8,80}")||request.returnId()==null||request.returnId().isBlank()||request.returnId().length()>36||request.sessionId()==null||request.sessionId().isBlank()||request.sessionId().length()>36||request.reason()==null||request.reason().isBlank()||request.reason().length()>250||request.quoteHash()==null||!request.quoteHash().matches("[0-9a-f]{64}")||!"CASH_HANDED_TO_BUYER".equals(request.confirmation()))bad("Exact quote, reason, cash handover confirmation and retry key required");
-  var scope=retail.scope(username);String key="refund-"+hash(List.of(scope.cashier(),clientKey));String reason=request.reason().strip();String fingerprint=hash(List.of(scope.cashier(),request.returnId(),request.sessionId(),reason,request.quoteHash(),request.confirmation()));
+    
+    public Quote quote(String returned, String session) {
+        if (session == null || session.isBlank() || session.length() > 36) bad("Owned open refund session required");
+  var scope = retail.scope();
+  retail.lockOutlet(scope);
+  retail.requireOpen(scope, session);
+  return quote(scope, returned, session, context(scope, returned));
+ }
+ 
+ private View view(CashRefund refund, boolean copy) {
+  return new View(refund.id(), refund.returned(), refund.order(), refund.branch() + "/" + refund.receipt(), Long.toString(refund.branch()), refund.cashier(), refund.session(), refund.amount(), refund.reason(), refund.paid(), "CASH", "PAID", copy, amounts.items(refund.tenant(), refund.id()).stream().map(i -> new Line(i.product(), i.name(), i.quantity(), i.net(), i.tax(), i.amount())).toList());
+ }
+ 
+ private View replay(PosService.Scope scope, CashRefund refund, String hash) {
+  if (refund.branch() != scope.branch() || !refund.cashier().equals(scope.cashier()) || !refund.hash().equals(hash))
+   conflict("Idempotency key already used for another cash refund command");
+  return view(refund, false);
+ }
+ 
+ public View pay(String clientKey, Pay request) {
+  if (request == null || clientKey == null || !clientKey.matches("[A-Za-z0-9_-]{8,80}") || request.returnId() == null || request.returnId().isBlank() || request.returnId().length() > 36 || request.sessionId() == null || request.sessionId().isBlank() || request.sessionId().length() > 36 || request.reason() == null || request.reason().isBlank() || request.reason().length() > 250 || request.quoteHash() == null || !request.quoteHash().matches("[0-9a-f]{64}") || !"CASH_HANDED_TO_BUYER".equals(request.confirmation()))
+   bad("Exact quote, reason, cash handover confirmation and retry key required");
+  var scope = retail.scope();
+  String key = "refund-" + hash(List.of(scope.cashier(), clientKey));
+  String reason = request.reason().strip();
+  String fingerprint = hash(List.of(scope.cashier(), request.returnId(), request.sessionId(), reason, request.quoteHash(), request.confirmation()));
   var prior=refunds.findByTenantAndKey(scope.tenant(),key);if(prior.isPresent())return replay(scope,prior.get(),fingerprint);
   retail.lockOutlet(scope);prior=refunds.currentKey(scope.tenant(),key);if(prior.isPresent())return replay(scope,prior.get(),fingerprint);
   retail.requireOpen(scope,request.sessionId());var context=context(scope,request.returnId());var quote=quote(scope,request.returnId(),request.sessionId(),context);
   if(!quote.quoteHash().equals(request.quoteHash()))conflict("Refund allocation changed. Reload the quote and reconcile any cash already handed over");
   if(!quote.enoughCash())conflict("Cash refund exceeds the paying drawer balance");
   String id=UUID.randomUUID().toString();var record=refunds.saveAndFlush(new CashRefund(id,scope.tenant(),scope.branch(),request.returnId(),quote.orderId(),context.sale().receiptNumber(),scope.cashier(),context.returned().requester(),request.sessionId(),key,fingerprint,quote.quoteHash(),quote.amount(),reason,clock.instant()));
-  amounts.saveAllAndFlush(quote.items().stream().map(i->new CashRefundItem(scope.tenant(),id,request.returnId(),quote.orderId(),i.productId(),i.name(),i.quantity(),i.net(),i.tax(),i.amount())).toList());
-  event(record,scope.cashier(),"CASH_REFUND");return view(record,false);
+  amounts.saveAllAndFlush(quote.items().stream().map(i -> new CashRefundItem(scope.tenant(), id, request.returnId(), quote.orderId(), i.productId(), i.name(), i.quantity(), i.net(), i.tax(), i.amount())).toList());
+  event(record, scope.cashier(), "CASH_REFUND");
+  return view(record, false);
  }
- public View get(String username,String id){var scope=retail.scope(username);return view(refunds.findByTenantAndBranchAndId(scope.tenant(),scope.branch(),id).orElseThrow(this::missing),false);}
- public View byReturn(String username,String returned){var scope=retail.scope(username);var record=refunds.forReturn(scope.tenant(),returned).orElseThrow(this::missing);if(record.branch()!=scope.branch())throw missing();return view(record,false);}
- public List<View> list(String username){var scope=retail.scope(username);return refunds.findTop20ByTenantAndBranchOrderByPaidDescIdDesc(scope.tenant(),scope.branch()).stream().map(r->view(r,false)).toList();}
- public View copy(String username,String id){var scope=retail.scope(username);var refund=refunds.findByTenantAndBranchAndId(scope.tenant(),scope.branch(),id).orElseThrow(this::missing);event(refund,scope.cashier(),"REFUND_COPY");return view(refund,true);}
+ 
+ public View get(String id) {
+  var scope = retail.scope();
+  return view(refunds.findByTenantAndBranchAndId(scope.tenant(), scope.branch(), id).orElseThrow(this::missing), false);
+ }
+ 
+ public View byReturn(String returned) {
+  var scope = retail.scope();
+  var record = refunds.forReturn(scope.tenant(), returned).orElseThrow(this::missing);
+  if (record.branch() != scope.branch()) throw missing();
+  return view(record, false);
+ }
+ 
+ public List<View> list() {
+  var scope = retail.scope();
+  return refunds.findTop20ByTenantAndBranchOrderByPaidDescIdDesc(scope.tenant(), scope.branch()).stream().map(r -> view(r, false)).toList();
+ }
+ 
+ public View copy(String id) {
+  var scope = retail.scope();
+  var refund = refunds.findByTenantAndBranchAndId(scope.tenant(), scope.branch(), id).orElseThrow(this::missing);
+  event(refund, scope.cashier(), "REFUND_COPY");
+  return view(refund, true);
+ }
 }

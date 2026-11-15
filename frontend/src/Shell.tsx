@@ -9,6 +9,7 @@ import {
   type WorkspaceMode,
 } from './navigation';
 import { useWorkspaceRoute } from './RouteOutlet';
+import { usePermissions, hasNavigationPermission } from './usePermissions';
 
 export function SolarMark() {
   return <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="31" cy="15" r="7" fill="currentColor" /><path d="M31 3v3m0 18v3M19 15h-3m30 0h-3M22 6l2 2m14 14 2 2M40 6l-2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M8 23h23l6 17H2z" fill="#173c64" stroke="#fff" strokeWidth="1.5" /><path d="M12 23 9 40m14-17 4 17M5 32h29" stroke="#91b5cf" strokeWidth="1.5" /><path d="M15 40v5m-5 0h15" stroke="#173c64" strokeWidth="2" /></svg>;
@@ -21,7 +22,24 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
   const jumpToggle = useRef<HTMLButtonElement>(null);
   const jumpRoot = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
-  const items = availableNavigation(mode, new Set(availableIds ?? navigationItems(mode).map(item => item.id)));
+
+  // Get user permissions from backend
+  const { permissions, loading } = usePermissions();
+
+  // Filter navigation items based on user permissions
+  const allItems = navigationItems(mode);
+  const featureFlaggedItems = availableNavigation(
+    mode,
+    new Set(availableIds ?? allItems.map(item => item.id))
+  );
+
+  // Apply permission-based filtering
+  const items = loading
+    ? featureFlaggedItems
+    : featureFlaggedItems.filter(item =>
+        hasNavigationPermission(item.id, permissions?.permissions || [])
+      );
+
   const selected = selectedNavigation(items, route);
   const groups = Array.from(new Set(items.map(item => item.group)));
   const homePath = mode === 'pos' ? '/vendor/pos' : '/vendors';

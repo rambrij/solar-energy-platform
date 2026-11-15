@@ -15,11 +15,31 @@ public class DraftRecoveryService {
  @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager em;
  private final DraftRepository orders;private final DraftLineRepository lines;private final CustomerAccess customers;private final PosService retail;private final CatalogService catalog;private final DraftRecoveryPolicy policy;private final Clock clock;
  public DraftRecoveryService(DraftRepository orders,DraftLineRepository lines,CustomerAccess customers,PosService retail,CatalogService catalog,DraftRecoveryPolicy policy,Clock clock){this.orders=orders;this.lines=lines;this.customers=customers;this.retail=retail;this.catalog=catalog;this.policy=policy;this.clock=clock;}
- public record Recovery(String id,String vendorName,String channel,String status,Instant expiresAt,BigDecimal total,List<CheckoutService.Line> items,String sessionId,boolean expired,String message){}
- private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Draft unavailable");}
- private void validate(String id){if(id==null||id.isBlank()||id.length()>36)throw missing();}
- public Recovery pos(String username,String id){validate(id);var scope=retail.scope(username);return view(orders.recoverPos(scope.tenant(),scope.branch(),scope.cashier(),id).orElseThrow(this::missing));}
- public Recovery customer(String username,String id){validate(id);return view(orders.recoverCustomer(customers.resolve(username),id).orElseThrow(this::missing));}
+    
+    public record Recovery(
+            String id, String vendorName, String channel, String status, Instant expiresAt, BigDecimal total,
+            List<CheckoutService.Line> items, String sessionId, boolean expired, String message
+    ) {
+    }
+    
+    private ResponseStatusException missing() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "Draft unavailable");
+    }
+    
+    private void validate(String id) {
+        if (id == null || id.isBlank() || id.length() > 36) throw missing();
+    }
+    
+    public Recovery pos(String username, String id) {
+        validate(id);
+        var scope = retail.scope();
+        return view(orders.recoverPos(scope.tenant(), scope.branch(), scope.cashier(), id).orElseThrow(this::missing));
+    }
+    
+    public Recovery customer(String username, String id) {
+        validate(id);
+        return view(orders.recoverCustomer(customers.resolve(username), id).orElseThrow(this::missing));
+    }
  private Recovery view(DraftOrder order){
   em.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_READ);
   boolean expired=policy.expired(order.status(),order.expires(),clock.instant());

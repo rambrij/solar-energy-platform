@@ -3,6 +3,7 @@ import {afterEach,expect,it,vi} from 'vitest';
 import ReceiptPdfCopy from './ReceiptPdfCopy';
 import {requestReceiptPdf} from './receiptDocumentApi';
 import {downloadFile} from './fileDownload';
+vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'test-user',tenantId:1,branchId:1,permissions:["POS_VIEW","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT"]}})}));
 vi.mock('./receiptDocumentApi',()=>({requestReceiptPdf:vi.fn()}));vi.mock('./fileDownload',()=>({downloadFile:vi.fn()}));
 afterEach(()=>{cleanup();vi.resetAllMocks();sessionStorage.clear();});
 const file={blob:new Blob(['%PDF-']),filename:'receipt.pdf',reference:'11111111-1111-4111-8111-111111111111'};

@@ -4,6 +4,7 @@ import {afterEach,expect,it,vi} from 'vitest';
 import ReportExport from './ReportExport';
 import {requestReportExport} from './reportExportApi';
 import {downloadFile} from './fileDownload';
+vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'test-user',tenantId:1,branchId:1,permissions:["POS_VIEW","POS_REPORT_VIEW","POS_REPORT_EXPORT","POS_REFUND_VIEW"]}})}));
 vi.mock('./reportExportApi',()=>({requestReportExport:vi.fn()}));
 const value={blob:new Blob(['csv']),filename:'sales.csv',reference:'11111111-1111-4111-8111-111111111111'};
 const props={kind:'sales' as const,from:'2026-11-12',to:'2026-11-13',channel:'ALL',disabled:false};

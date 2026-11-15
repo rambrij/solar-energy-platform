@@ -3,7 +3,7 @@ import { afterEach,expect,it,vi } from 'vitest';
 import CashRefunds,{refundStorageKey,type CashRefundView} from './CashRefunds';
 import CashRefundReceipt from './CashRefundReceipt';
 import { api,ApiError } from './api';
-vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'test-user',tenantId:1,branchId:1,permissions:["POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD"]}})}));
+vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'test-user',tenantId:1,branchId:1,permissions:["POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD","POS_REFUND_PRINT"]}})}));
 vi.mock('./api',async original=>({...await original<typeof import('./api')>(),api:vi.fn()}));
 const quote={returnId:'return-1',orderId:'order-1',originalReceipt:'1/7',sessionId:'shift-1',amount:110,drawerCash:200,enoughCash:true,quoteHash:'a'.repeat(64),items:[{productId:1,name:'Panel',quantity:1,net:100,tax:10,amount:110}],message:'Original discounted sale values'};
 const paid:CashRefundView={...quote,id:'refund-1',branchId:'1',cashier:'manager',reason:'Goods returned',paidAt:'2026-11-13T09:00:00Z',method:'CASH',status:'PAID',copy:false};

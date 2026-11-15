@@ -25,7 +25,7 @@ function grantPermissions(permissions: string[]) {
   });
 }
 
-it('renders route-based links, active state and navigable breadcrumbs', () => {
+it('renders route-based links, active state and navigable breadcrumbs', async () => {
   window.history.replaceState({}, '', '/vendor/pos/products');
   grantPermissions(posPermissions);
   render(<Shell mode="pos"><section><h2>Manage product catalogue</h2></section></Shell>);
@@ -36,7 +36,7 @@ it('renders route-based links, active state and navigable breadcrumbs', () => {
   expect(screen.queryByRole('navigation', { name: 'Workspace tabs' })).toBeNull();
 });
 
-it('updates the URL and selected workspace using sidebar navigation', () => {
+it('updates the URL and selected workspace using sidebar navigation', async () => {
   grantPermissions(['CUSTOMER']);
   render(<Shell mode="online"><section><h2>Marketplace page</h2></section></Shell>);
   await waitFor(() => expect(screen.getByRole('link', { name: 'My Single-Vendor Cart' })).toBeTruthy());

@@ -8,5 +8,5 @@ public class EmployeeMembership {
  @Column(nullable=false) private boolean enabled;
  protected EmployeeMembership(){}
  public EmployeeMembership(String username,long tenant,long branch,boolean enabled){this.username=username;this.tenant=tenant;this.branch=branch;this.enabled=enabled;}
- public long tenant(){return tenant;}public long branch(){return branch;}public boolean enabled(){return enabled;}
+ public String username(){return username;}public long tenant(){return tenant;}public long branch(){return branch;}public boolean enabled(){return enabled;}
 }

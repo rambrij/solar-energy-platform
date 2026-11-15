@@ -654,6 +654,7 @@ class PosTest {
   mvc.perform(post(path).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("ALICE").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  assertThat(service.scope("ALICE").cashier()).isEqualTo("alice");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isZero();
   mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isNotFound());
   mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content("{\"requestId\":\"x\",\"reason\":\" \"}")).andExpect(status().isBadRequest());

@@ -4,7 +4,7 @@ This records the implemented increment at the user's stop-before-next-feature ch
 
 | Command executed from repository root | Actual result |
 | --- | --- |
-| `mvn -B -f backend/pom.xml test` | **296 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS** |
+| `mvn -B -f backend/pom.xml test` | **297 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS** |
 | `npm.cmd --prefix frontend test -- --run --reporter=dot` | **54 files passed, 266 tests passed** |
 | `npm.cmd --prefix frontend run build` | **`tsc --noEmit` and Vite production build passed** |
 | `git diff --check` | **No whitespace errors** |
@@ -19,9 +19,15 @@ Frontend component coverage includes authentication/session UI, marketplace prog
 
 ## Verification limits
 
-- Backend integration runs used H2 in MySQL mode. MySQL 8.4 / Docker Compose validation is not claimed: the environment denies access to the Docker named pipe.
+- Local backend integration runs use H2 in MySQL mode. Local MySQL / Docker Compose execution remains unavailable because Docker named-pipe access is denied. The GitHub Actions matrix runs real MySQL 8.4; its verified result is recorded in the PR.
 - No live vendor provider/terminal funds were moved. POS verification is the explicit independent-supervisor evidence workflow; online simulation is gated to explicit pre-production configuration.
 - Browser/device E2E, physical scanner/terminal and physical printing checks were not performed. Component tests and production compilation passed.
 - `gh auth status` reports no authenticated GitHub hosts; Windows credential-helper execution remains unavailable. Authorized publication uses the connected GitHub app, exact local/remote tree-hash checks and non-forced branch updates.
 
 The user requested a PR describing this work and explicitly required confirmation before the next feature. Further implementation is paused at that checkpoint.
+
+## CI regression: canonical reviewer identity
+
+The MySQL job in [run 43687047601](https://github.com/rambrij/solar-energy-platform/actions/runs/43687047601) failed `reviewHttpAuthorizationCsrfAndCanonicalIdentityAreEnforced`. MySQL matched `ALICE` to the stored `alice` membership, while the service copied the supplied spelling into the actor context. The application missed self-review and the database rejected the insert with check-constraint error 3819.
+
+Membership lookup now uses a case-insensitive entity query and returns the stored username for both actor context and permission ownership. The existing self-review database constraint remains unchanged. A dedicated unit regression checks canonical actor/grant lookup; the HTTP integration case verifies the uppercase request receives 403 and writes no review. Latest local full command: `mvn -B -f backend/pom.xml test` — 297 tests, zero failures/errors/skips. No frontend or new feature was changed.

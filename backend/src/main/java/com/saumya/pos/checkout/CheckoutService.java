@@ -94,14 +94,15 @@ public class CheckoutService {
         if(discountRequest!=null)order.discountReason(discountRequest.reason());
         lines.saveAllAndFlush(saved);
         for(var line:saved)stock.reserve(tenant,branch,line.product(),line.quantity(),id,expires);
-        return view(order);
+        posState(order);return view(order);
     }
+    private void posState(DraftOrder order){if("IN_STORE".equals(order.channel()))events.publishEvent(new com.saumya.pos.shared.PosDraftStateChanged(order.tenant(),order.branch(),order.cashier(),order.session(),order.id(),order.status()));}
     private void owned(PosService.Scope scope,DraftOrder order){if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),scope.branch())||!scope.cashier().equals(order.cashier()))throw missing();}
     public List<Draft> onlineList(String username){long customer=customers.resolve(username);return orders.findTop20ByCustomerIdAndChannelOrderByExpiresAtDesc(customer,"ONLINE").stream().map(this::view).toList();}
     public List<Draft> posList(String username,String session){var s=retail.scope(username);return orders.findTop20ByTenantIdAndBranchIdAndCashierAndSessionIdAndExpiresAtIsNotNullOrderByExpiresAtDesc(s.tenant(),s.branch(),s.cashier(),session).stream().map(this::view).toList();}
     public Draft cancelOnline(String username,String id,String reason){var order=orders.lockCustomer(customers.resolve(username),id).orElseThrow(this::missing);cancel(order,reason);return view(order);}
     public Draft cancelPos(String username,String id,String reason){var s=retail.scope(username);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);if(cancel(order,reason))retail.draftAudit(s,"DRAFT_CANCEL",id);return view(order);}
-    private boolean cancel(DraftOrder order,String reason){if(unresolvedTerminal(order))conflict("Reconcile the terminal payment before cancelling or releasing stock");if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());buyers.discardUnpaid(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();return true;}return false;}
+    private boolean cancel(DraftOrder order,String reason){if(unresolvedTerminal(order))conflict("Reconcile the terminal payment before cancelling or releasing stock");if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());buyers.discardUnpaid(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();posState(order);return true;}return false;}
     private boolean unresolvedTerminal(DraftOrder order){return paymentAttempts.findAllByTenantAndOrderOrderByCreatedAscIdAsc(order.tenant(),order.id()).stream().anyMatch(a->a.unresolved()||"CONFIRMED".equals(a.state()));}
     public Map<String,Object> finalizeCash(String username,String id,BigDecimal cash){
         validateCash(cash);
@@ -123,10 +124,10 @@ public class CheckoutService {
         var receipt=retail.allocateReceipt(s);boolean invoice=receipt.invoiceRequired()||order.invoiceRequested();
         var tender=paymentAttempts.saveAndFlush(PaymentAttempt.cash(order.tenant(),id,order.total(),cash,"cash-finalize",sha(cash.setScale(2).toPlainString()),clock.instant()));
         events.publishEvent(new com.saumya.pos.shared.CashTenderRecorded(tender.id(),order.tenant(),order.branch(),order.session(),id,tender.cash(),tender.change()));
-        order.pay(cash,receipt.number(),invoice,clock.instant());orders.flush();
+        order.pay(cash,receipt.number(),invoice,clock.instant());orders.flush();posState(order);
         retail.draftDocuments(s,id,stored.stream().map(l->new PosService.StockIssue(l.product(),l.quantity())).toList(),receipt,order.total(),invoice);
         return receipt(s,id);
     }
     private Map<String,Object> receipt(PosService.Scope scope,String id){var value=retail.receipt(scope,id);var buyer=buyers.snapshot(scope.tenant(),id);if(buyer!=null)value.put("buyer",buyer);return value;}
-    public void expire(long tenant,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){stock.release(tenant,id);buyers.discardUnpaid(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();}}
+    public void expire(long tenant,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){stock.release(tenant,id);buyers.discardUnpaid(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();posState(order);}}
 }

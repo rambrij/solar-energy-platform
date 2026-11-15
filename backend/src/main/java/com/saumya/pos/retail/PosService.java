@@ -133,7 +133,7 @@ public class PosService {
             fail("Close count is already frozen; supervisor review or a new corrected count is required");
         }
         BigDecimal expected=reconciliation(s,id).expectedCash(),variance=counted.subtract(expected);
-        if(!db.queryForList("SELECT id FROM orders WHERE tenant_id=? AND session_id=? AND status='DRAFT'",s.tenant,id).isEmpty())fail("Resolve reserved draft sales before closing the session");
+        if(!db.queryForList("SELECT order_reference FROM pos_active_drafts WHERE tenant_id=? AND branch_id=? AND cashier=? AND session_id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id).isEmpty())fail("Resolve reserved draft sales before closing the session");
         if(variance.signum()!=0&&normalized==null)throw new ResponseStatusException(BAD_REQUEST,"A variance reason is required");
         String state=variance.signum()==0?"CLOSED":"CLOSING";
         db.update("UPDATE pos_sessions SET state=?,expected_cash=?,counted_cash=?,cash_variance=?,variance_reason=?,close_request_id=?,close_requested_at=CURRENT_TIMESTAMP,reviewed_by=NULL,review_reason=NULL,reviewed_at=NULL,closed_at=CASE WHEN ?='CLOSED' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE tenant_id=? AND id=?",

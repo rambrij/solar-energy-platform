@@ -45,6 +45,7 @@ class PosTest {
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
+  update("DELETE FROM pos_active_drafts");
   update("DELETE FROM pos_drawer_tenders");
   update("DELETE FROM inventory_receipts");
   update("DELETE FROM order_buyer_snapshots");
@@ -64,6 +65,11 @@ class PosTest {
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=payments.tenderStatus(username,id).remaining();var result=payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null));return result.tenders().getLast();}
+ @Test void retailDraftProjectionBlocksShiftClosureUntilCollectedFundsAreFinalized(){
+  update("UPDATE branches SET split_tender_enabled=TRUE WHERE id=1");var draft=checkout.pos("alice","active-draft-gate",posDraft());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isEqualTo(1);assertThatThrownBy(()->service.close(a,session,new BigDecimal("50"))).hasMessageContaining("Resolve reserved");
+  payments.tender("alice",draft.id(),"gate-partial",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40")));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());checkout.expire(1,draft.id());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isEqualTo(1);assertThatThrownBy(()->service.close(a,session,new BigDecimal("90"))).hasMessageContaining("Resolve reserved");
+  payments.tender("alice",draft.id(),"gate-remainder",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("70"),new BigDecimal("70")));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isZero();assertThat(service.close(a,session,new BigDecimal("160")).state()).isEqualTo("CLOSED");
+ }
  @Test void guestBuyerSnapshotsArePrivateTransactionFactsAndNeverCreateAccounts()throws Exception{
   var buyer=new com.saumya.pos.checkout.BuyerDetailsPolicy.Input("Private walk-in buyer","private-contact","PRIVATE-TAX","Private street");
   var receipt=checkout.cashSale("alice","guest-buyer",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1)),new BigDecimal("120"),false,null,buyer));String id=(String)receipt.get("id");assertThat(receipt.get("buyer")).isEqualTo(buyer);

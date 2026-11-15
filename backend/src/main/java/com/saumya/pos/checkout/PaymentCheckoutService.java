@@ -61,9 +61,18 @@ public class PaymentCheckoutService {
  public record View(String orderId,String attemptId,String method,String state,BigDecimal amount,String merchantAccount,boolean mockEnabled,String message,boolean terminalEnabled,String orderStatus,String cashier,String reference,String reviewedBy,Instant reviewedAt,String evidenceReference){}
  private void conflict(String reason){throw new ResponseStatusException(CONFLICT,reason);}
  private ResponseStatusException missing(){return new ResponseStatusException(NOT_FOUND,"Payment unavailable");}
- private DraftOrder owned(String username,String id,boolean online){
-  if(online){long customer=customers.resolve(username);customers.lock(customer);var order=orders.lockCustomer(customer,id).orElseThrow(this::missing);retail.lockOutlet(new PosService.Scope(order.tenant(),order.stockBranch(),"customer:"+customer));return order;}
-  var s=retail.scope(username);retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);
+    
+    private DraftOrder owned(String username, String id, boolean online) {
+        if (online) {
+            long customer = customers.resolve(username);
+            customers.lock(customer);
+            var order = orders.lockCustomer(customer, id).orElseThrow(this::missing);
+            retail.lockOutlet(new PosService.Scope(order.tenant(), order.stockBranch(), "customer:" + customer));
+            return order;
+        }
+        var s = retail.scope();
+        retail.lockOutlet(s);
+        var order = orders.lock(s.tenant(), id).orElseThrow(this::missing);
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),s.branch())||!username.equals(order.cashier()))throw missing();
   return order;
  }
@@ -111,16 +120,57 @@ public class PaymentCheckoutService {
   if(!online)events.publishEvent(new com.saumya.pos.shared.PosDraftStateChanged(order.tenant(),order.branch(),order.cashier(),order.session(),order.id(),order.status()));
   if(online)carts.archivePurchased(order.customer(),order.tenant(),expected);
  }
- public View unknown(String username,String id,String attemptId){var order=owned(username,id,false);var a=tenders(order).stream().filter(t->t.id().equals(attemptId)).findFirst().orElseThrow(this::missing);if(!a.id().equals(attemptId)||!a.terminal())throw missing();if("PENDING_VERIFICATION".equals(a.state())){a.unknown();attempts.flush();retail.draftAudit(new PosService.Scope(order.tenant(),order.branch(),username),"TERMINAL_TENDER_UNKNOWN",id);}return tenderView(order,a);}
- private DraftOrder supervisorOrder(PosService.Scope scope,String id){retail.lockOutlet(scope);var order=orders.lock(scope.tenant(),id).orElseThrow(this::missing);if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),scope.branch()))throw missing();return order;}
- public View reviewStatus(String username,String id){var scope=retail.scope(username);var order=supervisorOrder(scope,id);return tenderView(order,tenders(order).stream().filter(PaymentAttempt::unresolved).findFirst().orElseGet(()->tenders(order).getLast()));}
- public List<View> awaitingReview(String username){var scope=retail.scope(username);return attempts.awaitingReview(scope.tenant(),scope.branch(),org.springframework.data.domain.PageRequest.of(0,20)).stream().map(a->tenderView(orders.findById(a.order()).orElseThrow(this::missing),a)).toList();}
- public View finalizeVerified(String username,String id,String attemptId){var scope=retail.scope(username);var order=supervisorOrder(scope,id);var a=tenders(order).stream().filter(t->t.id().equals(attemptId)).findFirst().orElseThrow(this::missing);if(!"PAID".equals(order.status())&&collected(order).compareTo(order.total())==0){payable(order,true);complete(order,a,false);}return tenderView(order,a);}
+ 
+ public View unknown(String username, String id, String attemptId) {
+  var order = owned(username, id, false);
+  var a = tenders(order).stream().filter(t -> t.id().equals(attemptId)).findFirst().orElseThrow(this::missing);
+  if (!a.id().equals(attemptId) || !a.terminal()) throw missing();
+  if ("PENDING_VERIFICATION".equals(a.state())) {
+   a.unknown();
+   attempts.flush();
+   retail.draftAudit(new PosService.Scope(order.tenant(), order.branch(), username), "TERMINAL_TENDER_UNKNOWN", id);
+  }
+  return tenderView(order, a);
+ }
+ 
+ private DraftOrder supervisorOrder(PosService.Scope scope, String id) {
+  retail.lockOutlet(scope);
+  var order = orders.lock(scope.tenant(), id).orElseThrow(this::missing);
+  if (!"IN_STORE".equals(order.channel()) || !Objects.equals(order.branch(), scope.branch())) throw missing();
+  return order;
+ }
+ 
+ public View reviewStatus(String username, String id) {
+  var scope = retail.scope();
+  var order = supervisorOrder(scope, id);
+  return tenderView(order, tenders(order).stream().filter(PaymentAttempt::unresolved).findFirst().orElseGet(() -> tenders(order).getLast()));
+ }
+ 
+ public List<View> awaitingReview(String username) {
+  var scope = retail.scope();
+  return attempts.awaitingReview(scope.tenant(), scope.branch(), org.springframework.data.domain.PageRequest.of(0, 20)).stream().map(a -> tenderView(orders.findById(a.order()).orElseThrow(this::missing), a)).toList();
+ }
+ 
+ public View finalizeVerified(String username, String id, String attemptId) {
+  var scope = retail.scope();
+  var order = supervisorOrder(scope, id);
+  var a = tenders(order).stream().filter(t -> t.id().equals(attemptId)).findFirst().orElseThrow(this::missing);
+  if (!"PAID".equals(order.status()) && collected(order).compareTo(order.total()) == 0) {
+   payable(order, true);
+   complete(order, a, false);
+  }
+  return tenderView(order, a);
+ }
  public record Review(String attemptId,String decision,String reference,String evidence,String reason){}
- public View verifyEvidence(String username,String id,Review request){
-  if(request==null)throw new ResponseStatusException(BAD_REQUEST,"Verification evidence required");
-  terminalRules.decision(request.decision());String reference=terminalRules.token(request.reference(),80),evidence=terminalRules.token(request.evidence(),100),reason=terminalRules.reason(request.reason());
-  var scope=retail.scope(username);var order=supervisorOrder(scope,id);terminalRules.independent(order.cashier(),scope.cashier());var a=tenders(order).stream().filter(t->t.id().equals(request.attemptId())).findFirst().orElseThrow(this::missing);
+ 
+ public View verifyEvidence(String username, String id, Review request) {
+  if (request == null) throw new ResponseStatusException(BAD_REQUEST, "Verification evidence required");
+  terminalRules.decision(request.decision());
+  String reference = terminalRules.token(request.reference(), 80), evidence = terminalRules.token(request.evidence(), 100), reason = terminalRules.reason(request.reason());
+  var scope = retail.scope();
+  var order = supervisorOrder(scope, id);
+  terminalRules.independent(order.cashier(), scope.cashier());
+  var a = tenders(order).stream().filter(t -> t.id().equals(request.attemptId())).findFirst().orElseThrow(this::missing);
   if(!a.id().equals(request.attemptId())||!a.terminal())throw missing();
   if(a.amount().compareTo(order.total())>0)conflict("Tender amount does not match the original order");
   if(!a.unresolved()){if(username.equals(a.reviewer())&&reference.equals(a.reference())&&evidence.equals(a.evidence())&&reason.equals(a.reason())&&(("CONFIRM".equals(request.decision())&&"CONFIRMED".equals(a.state()))||("FAIL".equals(request.decision())&&"FAILED".equals(a.state()))))return tenderView(order,a);conflict("Tender already has another verification decision");}

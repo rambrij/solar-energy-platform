@@ -22,15 +22,22 @@ public class RefundReportService {
   long refunds,units;BigDecimal cash=BigDecimal.ZERO,net=BigDecimal.ZERO,tax=BigDecimal.ZERO;
   void header(long count,BigDecimal amount){refunds+=count;cash=cash.add(amount);}
   void lines(long count,BigDecimal before,BigDecimal taxAmount){units+=count;net=net.add(before);tax=tax.add(taxAmount);}
-  Totals view(){return new Totals(refunds,units,cash,net,tax);}
+     
+     Totals view() {
+         return new Totals(refunds, units, cash, net, tax);
+     }
  }
- public Report report(String username,LocalDate requestedFrom,LocalDate requestedTo){
-  LocalDate to=requestedTo==null?LocalDate.now(clock.withZone(ZoneOffset.UTC)):requestedTo;
-  if(to.getYear()<1970||to.getYear()>9998)throw invalid();
-  LocalDate from=requestedFrom==null?to.minusDays(6):requestedFrom;
-  if(from.getYear()<1970||from.isAfter(to)||ChronoUnit.DAYS.between(from,to)>365)throw invalid();
-  var scope=retail.scope(username);Instant start=from.atStartOfDay(ZoneOffset.UTC).toInstant(),until=to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
-  var total=new Bucket();var days=new LinkedHashMap<LocalDate,Bucket>();var cashiers=new TreeMap<String,Bucket>();
+    
+    public Report report(LocalDate requestedFrom, LocalDate requestedTo) {
+        LocalDate to = requestedTo == null ? LocalDate.now(clock.withZone(ZoneOffset.UTC)) : requestedTo;
+        if (to.getYear() < 1970 || to.getYear() > 9998) throw invalid();
+  LocalDate from = requestedFrom == null ? to.minusDays(6) : requestedFrom;
+  if (from.getYear() < 1970 || from.isAfter(to) || ChronoUnit.DAYS.between(from, to) > 365) throw invalid();
+  var scope = retail.scope();
+  Instant start = from.atStartOfDay(ZoneOffset.UTC).toInstant(), until = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+  var total = new Bucket();
+  var days = new LinkedHashMap<LocalDate, Bucket>();
+  var cashiers = new TreeMap<String, Bucket>();
   for(LocalDate day=from;!day.isAfter(to);day=day.plusDays(1))days.put(day,new Bucket());
   // Header and line queries are separate so multi-line refunds never multiply cash/counts.
   for(var row:reports.headers(scope.tenant(),scope.branch(),start,until)){

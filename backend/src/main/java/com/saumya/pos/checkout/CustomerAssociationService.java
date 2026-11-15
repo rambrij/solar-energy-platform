@@ -20,9 +20,13 @@ public class CustomerAssociationService {
  public record Preview(String vendorName,BigDecimal total,String status){}
  private ResponseStatusException missing(){return new ResponseStatusException(NOT_FOUND,"Customer association unavailable");}
  private String hash(String token){if(token==null||!token.matches("[A-Za-z0-9_-]{43}"))throw missing();try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
- public Challenge create(String username,String id,boolean customerRequested){
-  if(!customerRequested)throw new ResponseStatusException(BAD_REQUEST,"Customer must request account association");
-  var scope=retail.scope(username);retail.lockOutlet(scope);var order=orders.lock(scope.tenant(),id).orElseThrow(this::missing);
+    
+    public Challenge create(String username, String id, boolean customerRequested) {
+        if (!customerRequested)
+            throw new ResponseStatusException(BAD_REQUEST, "Customer must request account association");
+        var scope = retail.scope();
+        retail.lockOutlet(scope);
+        var order = orders.lock(scope.tenant(), id).orElseThrow(this::missing);
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),scope.branch())||!username.equals(order.cashier())||!"DRAFT".equals(order.status())||order.customer()!=null||!order.expires().isAfter(clock.instant()))throw missing();
   retail.requireOpen(scope,order.session());byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);String token=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);Instant expires=clock.instant().plusSeconds(300);
   challenges.saveAndFlush(new CustomerChallenge(hash(token),order.tenant(),id,expires));retail.draftAudit(scope,"CUSTOMER_ASSOCIATION_REQUEST",id);return new Challenge(token,expires);

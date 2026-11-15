@@ -14,9 +14,13 @@ public class CheckoutReceiptService {
  private ResponseStatusException missing(){return new ResponseStatusException(NOT_FOUND,"Receipt unavailable");}
  private Map<String,Object> fields(Object...pairs){var value=new LinkedHashMap<String,Object>();for(int i=0;i<pairs.length;i+=2)value.put((String)pairs[i],pairs[i+1]);return value;}
  private java.sql.Timestamp timestamp(java.time.Instant value){return value==null?null:java.sql.Timestamp.from(value);}
- public Map<String,Object> receipt(PosService.Scope requested,String id){
-  if(requested==null||id==null||!id.matches("[A-Za-z0-9-]{1,36}"))throw missing();var scope=retail.scope(requested.cashier());if(scope.tenant()!=requested.tenant()||scope.branch()!=requested.branch())throw missing();
-  var order=orders.lock(scope.tenant(),id).orElseThrow(this::missing);em.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    
+    public Map<String, Object> receipt(PosService.Scope requested, String id) {
+        if (requested == null || id == null || !id.matches("[A-Za-z0-9-]{1,36}")) throw missing();
+        var scope = retail.scope();
+        if (scope.tenant() != requested.tenant() || scope.branch() != requested.branch()) throw missing();
+        var order = orders.lock(scope.tenant(), id).orElseThrow(this::missing);
+        em.refresh(order, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
   if(!"PAID".equals(order.status())||!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),scope.branch()))throw missing();
   var receipt=fields("id",order.id(),"branch_id",order.branch(),"sales_channel",order.channel(),"customer_id",order.customer(),"total",order.total(),"cash_received",order.cash(),"change_given",order.change(),"payment_method",order.paymentMethod(),"payment_reference",order.paymentReference(),"receipt_number",order.receiptNumber(),"tax_invoice",order.taxInvoice(),"created_at",timestamp(order.created()),"issued_at",timestamp(order.changed()==null?order.created():order.changed()),"receipt_seller_name",order.receiptSeller(),"receipt_outlet_name",order.receiptOutlet());
   receipt.put("items",lines.lockedLines(order.tenant(),id).stream().map(line->fields("name",line.name(),"quantity",line.quantity(),"price",line.price(),"tax_rate",line.rate(),"tax",line.tax(),"total",line.total(),"list_price",line.listPrice(),"discount",line.discount(),"discount_percent",line.discountPercent())).toList());

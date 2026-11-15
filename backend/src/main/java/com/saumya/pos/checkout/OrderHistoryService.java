@@ -59,9 +59,16 @@ public class OrderHistoryService {
             return b.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         });
     }
-    public History customer(String username,Filter filter){return search(customerScope(customers.resolve(username)),filter);}
-    public History pos(String username,Filter filter){return search(branchScope(retail.scope(username)),filter);}
-    private Order view(DraftOrder order,Map<Long,String> names){
+    
+    public History customer(String username, Filter filter) {
+        return search(customerScope(customers.resolve(username)), filter);
+    }
+    
+    public History pos(String username, Filter filter) {
+        return search(branchScope(retail.scope()), filter);
+    }
+    
+    private Order view(DraftOrder order, Map<Long, String> names) {
         return new Order(order.id(),names.computeIfAbsent(order.tenant(),id->catalog.vendor(id).name()),order.channel(),order.status(),order.created(),order.expires(),order.total(),order.receiptNumber(),order.taxInvoice());
     }
     private History search(Specification<DraftOrder> scope,Filter filter){
@@ -69,9 +76,16 @@ public class OrderHistoryService {
         var names=new HashMap<Long,String>();
         return new History(page.getContent().stream().map(o->view(o,names)).toList(),page.getNumber(),page.getSize(),page.getTotalElements(),page.getTotalPages());
     }
-    public Detail customerDetail(String username,String id){return detail(customerScope(customers.resolve(username)),id);}
-    public Detail posDetail(String username,String id){return detail(branchScope(retail.scope(username)),id);}
-    private Detail detail(Specification<DraftOrder> scope,String id){
+    
+    public Detail customerDetail(String username, String id) {
+        return detail(customerScope(customers.resolve(username)), id);
+    }
+    
+    public Detail posDetail(String username, String id) {
+        return detail(branchScope(retail.scope()), id);
+    }
+    
+    private Detail detail(Specification<DraftOrder> scope, String id) {
         var order=orders.findOne(scope.and((r,q,b)->b.equal(r.get("id"),id))).orElseThrow(this::missing);
         var snapshots=lines.lines(order.tenant(),order.id()).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList();
         return new Detail(view(order,new HashMap<>()),snapshots,order.cash(),order.change(),order.cancellationReason(),order.changed());

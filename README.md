@@ -4,9 +4,9 @@ This branch implements the solar marketplace, single-vendor carts, shared invent
 
 ## Multi-vendor test data
 
-For a fresh database with automatically loaded test data, run `pwsh -File ./scripts/reset-local-demo.ps1` (PowerShell 7.3+, Docker running and local `.env` configured). **This permanently deletes this Compose project’s MySQL volume.**
+With `SPRING_PROFILES_ACTIVE=local` (already set in `.env.example`), Flyway V39 automatically loads the three-vendor demo data after the schema migrations when the backend starts. No reset script or manual SQL step is required. The seed is local-only; do not activate the `local` profile in production.
 
-After applying Flyway V38, use the opt-in [three-vendor setup and credentials guide](docs/demo/multi-vendor-testing.md). It provides separate admin, sales, inventory, cashier and finance identities per store, two global customers and a platform-only administrator. The existing single-store scripts remain independent optional fixtures.
+See the [three-vendor setup and credentials guide](docs/demo/multi-vendor-testing.md) for the separate admin, sales, inventory, cashier and finance identities per store, two global customers and a platform-only administrator. Existing single-store SQL fixtures remain independent optional data.
 
 ## Run locally with Docker Desktop (recommended)
 

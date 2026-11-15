@@ -55,7 +55,7 @@ class PosTest {
   for(String table:List.of("catalog_change_events","branch_settings_events","identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
   update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
-  employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",List.of()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
+  employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",db.queryForList("SELECT permission FROM employee_permissions WHERE username=? ORDER BY permission",String.class,username).stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
   update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
   update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
   update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,1,1),(2,2,2,1)");
@@ -63,11 +63,17 @@ class PosTest {
  }
  int update(String sql,Object...args){int result=db.update(sql,args);if(sql.matches("(?is)^\\s*(?:UPDATE\\s+inventory\\b|INSERT\\s+INTO\\s+inventory\\b|DELETE\\s+FROM\\s+inventory\\b).*")){db.update("DELETE FROM catalog_stock");db.update("INSERT INTO catalog_stock SELECT tenant_id,branch_id,product_id,quantity-reserved FROM inventory");}return result;}
  @AfterEach void clearPrincipal(){org.springframework.security.core.context.SecurityContextHolder.clearContext();}
- void employee(String username,long tenant,long branch){long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);update("INSERT INTO users VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);}
+ void employee(String username,long tenant,long branch){
+  long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));
+  update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);
+  for(String permission:List.of("CATALOG_PROMOTION_MANAGE", "INVENTORY_MANAGER", "INVENTORY_RECEIVE", "INVENTORY_VIEW", "POS_CASHIER", "POS_CASHIER_REPORT_VIEW", "POS_CASH_IN", "POS_CASH_OUT", "POS_DISCOUNT_APPLY", "POS_DISCOUNT_APPROVE", "POS_DISCOUNT_OVERRIDE", "POS_RECEIPT_REPRINT", "POS_RECEIPT_VIEW", "POS_REFUND_APPROVE", "POS_REFUND_CASH_RECORD", "POS_REFUND_PRINT", "POS_REFUND_VIEW", "POS_REPORT_EXPORT", "POS_REPORT_VIEW", "POS_RETURN_APPROVE", "POS_RETURN_AUDIT_VIEW", "POS_RETURN_CREATE", "POS_RETURN_INSPECT", "POS_RETURN_VIEW", "POS_SALE_CREATE", "POS_SESSION_CLOSE", "POS_SESSION_OPEN", "POS_SETTINGS_MANAGE", "POS_SHIFT_VARIANCE_APPROVE", "POS_TENDER_CASH_RECORD", "POS_TENDER_EXTERNAL_RECORD", "POS_TENDER_MANUAL_VERIFY", "POS_VIEW", "PRICE_UPDATE", "PRODUCT_ARCHIVE", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_VIEW"))
+   update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES(?,?,?)",username,permission,tenant);
+ }
  <T> T as(String username, java.util.function.Supplier<T> action) {
   var previous = org.springframework.security.core.context.SecurityContextHolder.getContext();
   var current = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
-  current.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username, "test", List.of()));
+  current.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username, "test", db.queryForList("SELECT permission FROM employee_permissions WHERE username=? ORDER BY permission",String.class,username).stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));
   org.springframework.security.core.context.SecurityContextHolder.setContext(current);
   try { return action.get(); }
   finally { org.springframework.security.core.context.SecurityContextHolder.setContext(previous); }
@@ -192,10 +198,10 @@ class PosTest {
   assertThat(db.queryForObject("SELECT password_hash FROM users WHERE username='new-buyer@example.com'",String.class)).doesNotContain("CustomerPasswordForTests");
  }
  @Test void vendorMembershipIsRevalidatedForEveryJwtRequest() throws Exception {
-  update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES('alice','POS_VIEW',1)");var session=authentication.login("alice","StaffPasswordForTests");
+  update("DELETE FROM employee_permissions WHERE username='alice' AND tenant_id=1");update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES('alice','POS_VIEW',1)");var session=authentication.login("alice","StaffPasswordForTests");
   mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isOk());
   update("UPDATE employees SET enabled=FALSE WHERE username='alice'");
-  mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isForbidden());
  }
  @Test void guestAssociationRequiresCustomerProofAndOnlyCreatesCurrentVendorRelationship(){
   configureOnline();var draft=checkout.pos("alice","customer-association",posDraft());
@@ -293,7 +299,7 @@ class PosTest {
  }
  @Test void onlineReceiptApiEnforcesCustomerOwnershipAndAuditedCopyCsrf() throws Exception {
   configureOnline();var draft=onlineDraft("receipt-security");String path="/api/v1/customer/orders/"+draft.id();
-  mvc.perform(get(path+"/receipt")).andExpect(status().isUnauthorized());mvc.perform(get(path+"/receipt").with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isForbidden());mvc.perform(get(path+"/receipt").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(get(path+"/receipt").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path+"/receipt").with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isForbidden());mvc.perform(get(path+"/receipt").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   var attempt=payments.start("customer",draft.id(),"CARD");payments.confirm("customer",draft.id(),attempt.attemptId());
   update("INSERT INTO users VALUES(300,'other-buyer','unused',TRUE)");update("INSERT INTO customer_profiles VALUES(300,300)");mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   mvc.perform(post(path+"/receipt-copy").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isForbidden());
@@ -353,13 +359,13 @@ class PosTest {
  @Test void concurrentPaymentConfirmationIssuesOneReceiptAndOneStockMovement() throws Exception {
   enableTerminal();
   var draft=checkout.pos("alice","concurrent-payment",posDraft());var attempt=terminal("alice",draft.id(),"UPI");
-  try(var pool=Executors.newFixedThreadPool(2)){Callable<String> confirm=()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")).state();for(var result:pool.invokeAll(List.of(confirm,confirm)))assertThat(result.get()).isEqualTo("CONFIRMED");}
+  try(var pool=Executors.newFixedThreadPool(2)){Callable<String> confirm=()->as("manager",()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))).state();for(var result:pool.invokeAll(List.of(confirm,confirm)))assertThat(result.get()).isEqualTo("CONFIRMED");}
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Integer.class)).isEqualTo(1);
  }
  @Test void paymentApiEnforcesPermissionsCsrfAndStrictPayloads() throws Exception {
   enableTerminal();
   var draft=checkout.pos("alice","http-payment",posDraft());String path="/api/v1/vendor/pos/sales/"+draft.id()+"/tenders";
-  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isForbidden());
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isForbidden());
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"amount\":1}")).andExpect(status().isBadRequest());
@@ -397,7 +403,7 @@ class PosTest {
    assertThat(successes).isEqualTo(1);
   }
  }
- boolean attempt(String key){try{checkout.cashSale(a.cashier(),key,sale(1,"110"));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
+ boolean attempt(String key){try{as("alice",()->checkout.cashSale(a.cashier(),key,sale(1,"110")));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
  @Test void registerAndSessionScopeAreEnforced(){
   assertThatThrownBy(()->service.open(a,new PosService.OpenSession(1,BigDecimal.ZERO)));
   assertThatThrownBy(()->checkout.cashSale(b.cashier(),"bad-sess1",sale(2,"110")));
@@ -406,7 +412,7 @@ class PosTest {
   assertThatThrownBy(()->checkout.cashSale(a.cashier(),"closed-01",sale(1,"110")));
  }
  @Test void authenticationPermissionsCsrfAndForgedFields() throws Exception {
-  mvc.perform(get("/api/v1/vendor/pos/products")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/products").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/vendor/pos/products").with(user("alice"))).andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/vendor/pos/sales").with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
@@ -490,7 +496,7 @@ class PosTest {
  @Test void movementEndpointsEnforceTypeSpecificPermissionsAndScope() throws Exception {
   String path="/api/v1/vendor/pos/sessions/"+session+"/cash-movements";
   String body="{\"type\":\"CASH_OUT\",\"amount\":10,\"reason\":\"Supplies\"}";
-  mvc.perform(post(path).with(csrf()).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isUnauthorized());
+  mvc.perform(post(path).with(csrf()).contentType("application/json").content(body).header("Idempotency-Key","http-move1").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(post(path).with(user("alice").authorities(()->"POS_CASH_OUT")).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_CASH_IN")).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_CASH_OUT")).contentType("application/json").content(body).header("Idempotency-Key","http-move1")).andExpect(status().isNotFound());
@@ -561,7 +567,7 @@ class PosTest {
  }
  @Test void sessionRecoveryHttpPermissionsAndForgedBodyAreEnforced() throws Exception {
   String path="/api/v1/vendor/pos/sessions/"+session;
-  mvc.perform(get("/api/v1/vendor/pos/sessions/active")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/sessions/active").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/vendor/pos/sessions/active").with(user("alice"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/v1/vendor/pos/sessions/active").with(user("bob").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
   mvc.perform(get("/api/v1/vendor/pos/sessions/active").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].registerId").value(1));
@@ -651,7 +657,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isEqualTo(1);
  }
  boolean reviewAttempt(PosService.Scope manager,String key,PosService.ReviewAction action) {
-  try{service.reviewVariance(manager,session,key,"Reviewed",action);return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}
+  try{as(manager.cashier(),()->service.reviewVariance(manager,session,key,"Reviewed",action));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}
  }
  
  @Test
@@ -660,7 +666,7 @@ class PosTest {
   var closing = service.close(a, session, BigDecimal.ZERO, "Shortage");
   String list = "/api/v1/vendor/pos/sessions/pending-variances", path = "/api/v1/vendor/pos/sessions/" + session + "/approve-variance";
   String body = "{\"requestId\":\"" + closing.requestId() + "\",\"reason\":\"Reviewed drawer\"}";
-  mvc.perform(get(list)).andExpect(status().isUnauthorized());
+  mvc.perform(get(list).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get(list).with(user("alice").authorities(() -> "POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(list).with(user("bob").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
   mvc.perform(get(list).with(user("manager").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].variance").value(-50));
@@ -749,7 +755,7 @@ class PosTest {
  }
  @Test void customerAuthenticationPermissionsAndCsrfProtectCart() throws Exception {
   customers();String path="/api/v1/customer/cart/items",body="{\"vendorSlug\":\"vendor-1\",\"productId\":1,\"quantity\":1}";
-  mvc.perform(get("/api/v1/customer/cart")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/customer/cart").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/customer/cart").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/v1/customer/cart").with(user("unknown").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/v1/customer/cart").with(bearer("customer","CustomerPassword"))).andExpect(status().isOk());
@@ -781,7 +787,7 @@ class PosTest {
  @Test void globalIdentityCannotDuplicateEmployeeAndDisabledCustomerTokensAreRejected() throws Exception {
   customers();assertThatThrownBy(()->update("INSERT INTO users VALUES(102,'alice','unused',TRUE)")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   mvc.perform(get("/api/v1/customer/cart").with(bearer("alice","StaffPasswordForTests"))).andExpect(status().isForbidden());
-  var token=bearer("customer","CustomerPassword");update("UPDATE users SET enabled=FALSE WHERE username='customer'");mvc.perform(get("/api/v1/customer/cart").with(token)).andExpect(status().isUnauthorized());
+  var token=bearer("customer","CustomerPassword");update("UPDATE users SET enabled=FALSE WHERE username='customer'");mvc.perform(get("/api/v1/customer/cart").with(token).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
  }
 
  @Test void archivedCartRestorePreservesBothVendorCartsAndScopesOwnership(){
@@ -822,7 +828,7 @@ class PosTest {
  @Test void archivedCartHttpPermissionsAndCsrfAreEnforced() throws Exception {
   customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
   var second=marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1));
-  mvc.perform(get("/api/v1/customer/cart/history")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/customer/cart/history").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/customer/cart/history").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/v1/customer/cart/history").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
   String payload="{\"archivedCartId\":\""+first.id()+"\",\"expectedCartId\":\""+second.id()+"\"}";
@@ -922,7 +928,7 @@ class PosTest {
  @Test void draftHttpSecurityOwnershipAndContextConstraints() throws Exception {
   configureOnline();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
   String payload="{\"expectedCartId\":\""+cart.id()+"\"}";
-  mvc.perform(post("/api/v1/customer/checkout/drafts").with(csrf()).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isUnauthorized());
+  mvc.perform(post("/api/v1/customer/checkout/drafts").with(csrf()).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(post("/api/v1/customer/checkout/drafts").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/customer/checkout/drafts").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.paymentAvailable").value(true));
   mvc.perform(get("/api/v1/customer/checkout/drafts").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
@@ -934,8 +940,8 @@ class PosTest {
  @Test void competingCashFinalizationAndCancellationCannotBothCommit() throws Exception {
   var draft=checkout.pos("alice","cash-cancel-race",posDraft());
   try(var pool=Executors.newFixedThreadPool(2)){
-   Callable<Boolean> cash=()->{try{checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
-   Callable<Boolean> cancel=()->{try{checkout.cancelPos("alice",draft.id(),"Customer cancelled");return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
+   Callable<Boolean> cash=()->{try{as("alice",()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
+   Callable<Boolean> cancel=()->{try{as("alice",()->checkout.cancelPos("alice",draft.id(),"Customer cancelled"));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
    int won=0;for(var result:pool.invokeAll(List.of(cash,cancel)))if(result.get())won++;assertThat(won).isEqualTo(1);
   }
   String status=db.queryForObject("SELECT status FROM orders",String.class);
@@ -946,7 +952,7 @@ class PosTest {
  @Test void concurrentReservedCashRetriesIssueOneReceipt() throws Exception {
   var draft=checkout.pos("alice","cash-retry-race",posDraft());
   try(var pool=Executors.newFixedThreadPool(2)){
-   Callable<Map<String,Object>> pay=()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));
+   Callable<Map<String,Object>> pay=()->as("alice",()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));
    for(var result:pool.invokeAll(List.of(pay,pay))){var receipt=result.get();assertThat(receipt.get("id")).isEqualTo(draft.id());assertThat((List<?>)receipt.get("invoices")).hasSize(1);assertThat((BigDecimal)receipt.get("cash_received")).isEqualByComparingTo("120");}
   }
   assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(1);
@@ -993,7 +999,7 @@ class PosTest {
   mvc.perform(get("/api/v1/customer/orders/"+cash.get("id")).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
  }
  @Test void orderHistoryRequiresPermissionsAndRejectsInvalidFilters() throws Exception {
-  mvc.perform(get("/api/v1/vendor/pos/orders")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/orders").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/customer/orders").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice"))).andExpect(status().isForbidden());
   for(String[] parameter:List.of(new String[]{"size","51"},new String[]{"page","-1"},new String[]{"status","REFUNDED"},new String[]{"reference","%"},new String[]{"from","invalid"}))
@@ -1047,7 +1053,7 @@ class PosTest {
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param("from",yesterday.toString()).param("to",yesterday.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
   update("INSERT INTO branches(id,tenant_id,name) VALUES(3,1,'Other branch')");employee("other-branch",1,3);
   for(String actor:List.of("bob","other-branch"))mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totals.paidOrders").value(0));
-  mvc.perform(get("/api/v1/vendor/pos/reports/sales")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isForbidden());
   for(String[] param:List.of(new String[]{"channel","UNKNOWN"},new String[]{"from","2000-01-01"},new String[]{"to","invalid"}))mvc.perform(get("/api/v1/vendor/pos/reports/sales").with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW")).param(param[0],param[1])).andExpect(status().isBadRequest());
@@ -1094,8 +1100,8 @@ class PosTest {
  }
  @Test void promotionAndCashSaleSerializeOnTheSameProduct() throws Exception {
   try(var pool=Executors.newFixedThreadPool(2)){
-   Callable<Object> approve=()->promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Concurrent approved offer"));
-   Callable<Object> pay=()->checkout.cashSale(a.cashier(),"promotion-race",sale(1,"120"));
+   Callable<Object> approve=()->as("alice",()->promotions.approve(1,"alice",1,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Concurrent approved offer")));
+   Callable<Object> pay=()->as("alice",()->checkout.cashSale(a.cashier(),"promotion-race",sale(1,"120")));
    for(var result:pool.invokeAll(List.of(approve,pay)))result.get();
   }
   BigDecimal total=db.queryForObject("SELECT total FROM orders",BigDecimal.class);assertThat(total).isIn(new BigDecimal("110.00"),new BigDecimal("99.00"));assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(1);
@@ -1192,7 +1198,7 @@ class PosTest {
  @Test void returnHttpPermissionsCsrfOriginalOwnershipAndForgedFieldsFailClosed() throws Exception {
   enableReturns();supervisor("manager");var receipt=checkout.cashSale(a.cashier(),"return-sale6",sale(1,"120"));String order=(String)receipt.get("id"),path="/api/v1/vendor/pos/returns";
   String body="{\"orderId\":\""+order+"\",\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}],\"reason\":\"Buyer return\",\"proof\":\"ORIGINAL_RECEIPT\",\"proofNote\":\"Receipt checked\"}";
-  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(post(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(body)).andExpect(status().isForbidden());
   for(String forged:List.of(body.replace("\"items\"","\"tenantId\":2,\"items\""),body.replace("[{\"productId\":1,\"quantity\":1}]","[null]")))mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(forged)).andExpect(status().isBadRequest());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_CREATE")).header("Idempotency-Key","http-return6").contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.refundStatus").value("NOT_INITIATED"));
@@ -1266,7 +1272,7 @@ class PosTest {
  }
  @Test void refundHttpRequiresIndependentPrivilegesAndCsrf() throws Exception {
   String returned=inspectedRefundReturn(),paying=refundSession("200"),path="/api/v1/vendor/pos/refunds";update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
-  mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path+"/quote/"+returned).param("sessionId",paying).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW",()->"POS_REFUND_APPROVE",()->"POS_REFUND_CASH_RECORD"))).andExpect(status().isOk());
   mvc.perform(post(path).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW",()->"POS_REFUND_APPROVE",()->"POS_REFUND_CASH_RECORD")).contentType("application/json").content("{}")).andExpect(status().isForbidden());
@@ -1311,7 +1317,7 @@ class PosTest {
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("68");
  }
  @Test void refundReportRequiresAllGrantsAndValidDates() throws Exception {
-  String path="/api/v1/vendor/pos/reports/cash-refunds";mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  String path="/api/v1/vendor/pos/reports/cash-refunds";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).with(user("non-employee").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isForbidden());
@@ -1358,7 +1364,7 @@ class PosTest {
 
  @Test void posCatalogueUsesAssignedBranchAndExactServerSideScans() throws Exception {
   searchableCatalogue();String path="/api/v1/vendor/pos/catalogue";
-  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
   mvc.perform(get(path).param("tenantId","2").param("branchId","3").param("inStock","true").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
   employee("store3",1,3);
   mvc.perform(get(path).param("inStock","true").with(user("store3").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(4)).andExpect(jsonPath("$.items[0].quantity").value(5));
@@ -1382,7 +1388,7 @@ class PosTest {
   String path="/api/v1/vendor/pos/drafts/"+draft.id();
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.sessionId").value(session)).andExpect(jsonPath("$.expired").value(false)).andExpect(jsonPath("$.total").value(110));
   for(String actor:List.of("bob","manager"))mvc.perform(get(path).with(user(actor).authorities(()->"POS_VIEW"))).andExpect(status().isNotFound());
-  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
   update("UPDATE products SET price=999 WHERE id=1");mvc.perform(get(path).param("tenantId","2").param("cashier","bob").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].unitPrice").value(100));
   checkout.cancelPos("alice",draft.id(),"Buyer cancelled");var online=onlineDraft("recover-online-draft");
   String customerPath="/api/v1/customer/checkout/drafts/"+online.id();mvc.perform(get(customerPath).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.channel").value("ONLINE"));
@@ -1445,7 +1451,7 @@ class PosTest {
   for(String actor:List.of("bob","other-seller-report"))mvc.perform(get(path).with(user(actor).authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0)).andExpect(jsonPath("$.items.length()").value(0));
  }
  @Test void cashierSalesReportRequiresItsOwnPermissionAndUtcBounds() throws Exception {
-  String path="/api/v1/vendor/pos/reports/cashier-sales";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/reports/cashier-sales";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).with(user("unknown").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isForbidden());
   for(String[] param:List.of(new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","invalid"}))mvc.perform(get(path).param(param[0],param[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REPORT_VIEW",()->"POS_CASHIER_REPORT_VIEW"))).andExpect(status().isBadRequest());
  }
@@ -1472,7 +1478,7 @@ class PosTest {
   assertThat(service.reconciliation(new PosService.Scope(1,1,"manager"),paying).expectedCash()).isEqualByComparingTo("170");assertThat(stock.atBranch(1,1,1)).isZero();
  }
  @Test void refundHistoryRejectsInvalidFiltersAndMissingPermissions() throws Exception {
-  String path="/api/v1/vendor/pos/refunds/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/refunds/history";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isBadRequest());
  }
 
@@ -1481,7 +1487,7 @@ class PosTest {
   int sequence=0;for(String action:List.of("REQUESTED","APPROVED","INSPECTED","CASH_REFUND","REFUND_COPY"))update("UPDATE pos_return_events SET created_at=? WHERE return_id=? AND action=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z").plusSeconds(sequence++)),returned,action);
   service.close(new PosService.Scope(1,1,"manager"),paying,new BigDecimal("90"));service.close(a,session,new BigDecimal("160"));
   String path="/api/v1/vendor/pos/returns/"+returned+"/events";
-  mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get(path).param("size","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("INSPECTED")).andExpect(jsonPath("$.totalElements").value(5)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].action").value("REFUND_COPY")).andExpect(jsonPath("$.items[0].note").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist());
   mvc.perform(get(path).param("page","2").param("size","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].action").value("REQUESTED"));
   update("UPDATE pos_return_events SET created_at=? WHERE return_id=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-13T12:00:00Z")),returned);
@@ -1510,7 +1516,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(26);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("2800");
  }
  @Test void returnQueueRejectsMissingPermissionsAndInvalidFilters() throws Exception {
-  String path="/api/v1/vendor/pos/returns/queue";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/returns/queue";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"state","PAID"},new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","bad-date"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isBadRequest());
  }
 
@@ -1530,7 +1536,7 @@ class PosTest {
   int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(service.reconciliation(a,open).expectedCash()).isEqualByComparingTo("10");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
  }
  @Test void ownShiftHistoryRejectsMissingPermissionsAndInvalidBounds() throws Exception {
-  String path="/api/v1/vendor/pos/sessions/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/sessions/history";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"reference","%"},new String[]{"size","49"},new String[]{"page","-1"},new String[]{"from","2020-01-01"},new String[]{"to","bad-date"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isBadRequest());
   update("UPDATE employees SET enabled=FALSE WHERE username='alice'");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
  }
@@ -1579,7 +1585,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(26);assertThat(promotions.price(1,1,new BigDecimal("100"),false).price()).isEqualByComparingTo("75");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("50");
  }
  @Test void promotionAuditRejectsMissingRightsInactiveMembershipAndBadBounds() throws Exception {
-  String path="/api/v1/vendor/pos/promotions/1/history";mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  String path="/api/v1/vendor/pos/promotions/1/history";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   for(String missing:List.of("POS_VIEW","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE")){var rights=List.of("POS_VIEW","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE").stream().filter(p->!p.equals(missing)).map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList();mvc.perform(get(path).with(user("alice").authorities(rights))).andExpect(status().isForbidden());}
   for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isBadRequest());
   update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isForbidden());
@@ -1598,7 +1604,7 @@ class PosTest {
   mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
  }
  @Test void registerDirectoryRejectsMissingRightsBadBoundsAndInactiveMembership() throws Exception {
-  String path="/api/v1/vendor/pos/registers";mvc.perform(get(path)).andExpect(status().isUnauthorized());for(String right:List.of("POS_VIEW","POS_SESSION_OPEN"))mvc.perform(get(path).with(user("alice").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority(right)))).andExpect(status().isForbidden());
+  String path="/api/v1/vendor/pos/registers";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());for(String right:List.of("POS_VIEW","POS_SESSION_OPEN"))mvc.perform(get(path).with(user("alice").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority(right)))).andExpect(status().isForbidden());
   for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isBadRequest());update("UPDATE employees SET enabled=FALSE WHERE username='alice'");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isForbidden());
  }
 

@@ -1638,4 +1638,127 @@ class PosTest {
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\"Copy request\"}")).andExpect(status().isConflict());assertThat(db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit",Integer.class)).isZero();
  }
 
+ // Exercise the checked-in manual seed, not a duplicate Java fixture implementation.
+ void multiVendorDemo() throws Exception {
+  String script=java.nio.file.Files.readString(java.nio.file.Path.of("../docs/demo/setup-multi-vendor-demo.sql"));
+  try(var connection=db.getDataSource().getConnection();var statement=connection.createStatement()){
+   if(connection.getMetaData().getDatabaseProductName().equals("MySQL")){
+    String procedure=script.substring(script.indexOf("CREATE PROCEDURE"),script.indexOf("END$$")+3);
+    statement.execute("DROP PROCEDURE IF EXISTS setup_multi_vendor_demo");
+    try{statement.execute(procedure);statement.execute("CALL setup_multi_vendor_demo()");}
+    finally{statement.execute("DROP PROCEDURE IF EXISTS setup_multi_vendor_demo");}
+   }else{
+    String core=script.substring(script.indexOf("-- BEGIN DEMO DATA")+18,script.indexOf("-- END DEMO DATA"));
+    connection.setAutoCommit(false);
+    try{for(String sql:core.split(";"))if(!sql.isBlank())statement.execute(sql.replace("DROP TEMPORARY TABLE","DROP TABLE"));connection.commit();}
+    catch(Exception e){connection.rollback();throw e;}
+   }
+  }
+ }
+ String demoToken(String username,String password){return authentication.login(username,password).accessToken();}
+ @Test void demoSeedHasRealCredentialsLeastPrivilegeAndVendorOwnedCatalogues() throws Exception {
+  multiVendorDemo();
+  var fixtures=new com.fasterxml.jackson.databind.ObjectMapper().readTree(getClass().getResourceAsStream("/multi-vendor-demo-credentials.json"));
+  for(var account:fixtures){
+   String username=account.get("username").asText(),password=account.get("password").asText(),role=account.get("role").asText();
+   String hash=db.queryForObject("SELECT password_hash FROM users WHERE username=?",String.class,username);
+   assertThat(hash).startsWith("$2a$10$");assertThat(encoder.matches(password,hash)).as(username).isTrue();
+   var session=authentication.login(username,password);var granted=authentication.authenticate(jwt.decoder().decode(session.accessToken())).getAuthorities().stream().map(org.springframework.security.core.GrantedAuthority::getAuthority).toList();
+   assertThat(granted).containsExactlyInAnyOrderElementsOf(session.account().permissions());
+   if(role.equals("PLATFORM_SUPER_ADMIN")){assertThat(session.account().tenantId()).isNull();assertThat(granted).hasSize(10).allMatch(g->g.startsWith("PLATFORM_"));}
+   else if(role.equals("CUSTOMER")){assertThat(session.account().tenantId()).isNull();assertThat(granted).containsExactly("CUSTOMER");}
+   else{assertThat(session.account().tenantId()).isEqualTo(account.get("tenant").asLong());assertThat(granted).noneMatch(g->g.startsWith("PLATFORM_")||g.equals("CUSTOMER"));
+    if(role.equals("POS_CASHIER"))assertThat(granted).contains("POS_SALE_CREATE").doesNotContain("POS_REFUND_APPROVE","POS_TENDER_MANUAL_VERIFY","POS_SETTINGS_MANAGE","POS_DISCOUNT_OVERRIDE");
+    if(role.equals("INVENTORY_MANAGER"))assertThat(granted).contains("INVENTORY_RECEIVE").doesNotContain("POS_SALE_CREATE","PRICE_UPDATE","POS_REFUND_APPROVE");
+    if(role.equals("SALES_MANAGER"))assertThat(granted).contains("LEAD_CREATE").doesNotContain("INVENTORY_RECEIVE","POS_SALE_CREATE");
+    if(role.equals("ACCOUNTANT"))assertThat(granted).contains("POS_TENDER_MANUAL_VERIFY").doesNotContain("POS_SALE_CREATE","POS_SETTINGS_MANAGE");
+   }
+  }
+  String[] slugs={"saumya-rooftops","helio-rural","lumina-lighting"};String[] brands={"SunArc","AgriRay","NightSun"};
+  for(int i=0;i<3;i++){long tenant=910001L+i*10000;assertThat(catalogue.products(slugs[i])).hasSize(5);assertThat(catalogue.categories(slugs[i])).hasSize(3);assertThat(catalogue.products(slugs[i]).getFirst().brand()).isEqualTo(brands[i]);assertThat(catalogue.onlineBranch(tenant)).isEqualTo(tenant);
+   mvc.perform(get("/api/v1/marketplace/vendors/"+slugs[i]+"/products/"+(tenant+300))).andExpect(status().isOk()).andExpect(jsonPath("$.brand").value(brands[i]));
+   mvc.perform(get("/api/v1/marketplace/vendors/"+slugs[i]+"/products/"+(tenant+305))).andExpect(status().isNotFound());
+  }
+  mvc.perform(get("/api/v1/marketplace/vendors/saumya-rooftops/products/920301")).andExpect(status().isNotFound());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE customer_id=949001",Integer.class)).isEqualTo(3);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE customer_id=949002",Integer.class)).isEqualTo(1);
+ }
+ @Test void demoGlobalCustomerPurchasesFromTwoVendorsWithoutMixingCartsOrdersOrStock() throws Exception {
+  multiVendorDemo();String name="asha@customer.demo.test",token=demoToken(name,"AshaBuyer2026!");
+  var first=marketplace.put(949001,new CartService.Item("saumya-rooftops",910301,1));
+  mvc.perform(post("/api/v1/customer/cart/items").header("Authorization","Bearer "+token).with(csrf()).contentType("application/json").content("{\"vendorSlug\":\"helio-rural\",\"productId\":920301,\"quantity\":1}")).andExpect(status().isConflict());
+  assertThat(marketplace.cart(949001).id()).isEqualTo(first.id());
+  var switched=marketplace.switchVendor(949001,new CartService.Switch(first.id(),"helio-rural",920301,1));
+  assertThat(marketplace.history(949001)).extracting(CartService.Cart::id).contains(first.id());
+  marketplace.switchVendor(949001,new CartService.Switch(switched.id(),"saumya-rooftops",910301,1));
+  var ids=new ArrayList<String>();
+  for(var item:List.of(new CartService.Item("saumya-rooftops",910301,1),new CartService.Item("helio-rural",920301,1))){
+   var cart=marketplace.put(949001,item);var draft=checkout.online(name,"demo-buy-"+item.vendorSlug(),new CheckoutService.OnlineDraft(cart.id()));
+   var payment=payments.start(name,draft.id(),"UPI");payments.confirm(name,draft.id(),payment.attemptId());ids.add(draft.id());
+   mvc.perform(get("/api/v1/customer/orders/"+draft.id()).header("Authorization","Bearer "+token)).andExpect(status().isOk());
+   mvc.perform(get("/api/v1/customer/orders/"+draft.id()).header("Authorization","Bearer "+demoToken("rahul@customer.demo.test","RahulBuyer2026!"))).andExpect(status().isNotFound());
+  }
+  assertThat(checkout.onlineList(name)).hasSize(2).extracting(CheckoutService.Draft::vendorName).containsExactlyInAnyOrder("Saumya Solar Rooftops","Helio Rural Energy");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE customer_id=949001 AND status='PAID'",Integer.class)).isEqualTo(2);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id IN (?,?) AND i.tenant_id<>p.tenant_id",Integer.class,ids.get(0),ids.get(1))).isZero();
+  assertThat(stock.atBranch(910001,910001,910301)).isEqualTo(39);assertThat(stock.atBranch(920001,920001,920301)).isEqualTo(11);assertThat(stock.atBranch(930001,930001,930301)).isEqualTo(35);
+  assertThat(db.queryForObject("SELECT SUM(reserved) FROM inventory WHERE tenant_id IN (910001,920001,930001)",Integer.class)).isZero();
+ }
+ @Test void demoTokensEnforcePlatformAndVendorAndCustomerBoundaries() throws Exception {
+  multiVendorDemo();String platform=demoToken("superadmin@platform.demo.test","PlatformDemo2026!");
+  for(String path:List.of("/api/v1/customer/cart","/api/v1/vendor/products","/api/v1/vendor/pos/orders"))mvc.perform(get(path).header("Authorization","Bearer "+platform)).andExpect(status().isForbidden());
+  String inventory=demoToken("inventory@saumya.demo.test","SaumyaStock2026!");
+  mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+inventory)).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(6));
+  mvc.perform(post("/api/v1/vendor/inventory/receipts").header("Authorization","Bearer "+inventory).header("Idempotency-Key","demo-other-stock").with(csrf()).contentType("application/json").content("{\"productId\":920301,\"quantity\":1,\"reason\":\"Cross vendor test\"}")).andExpect(status().isNotFound());
+  String sales=demoToken("sales@saumya.demo.test","SaumyaSales2026!");
+  mvc.perform(post("/api/v1/vendor/inventory/receipts").header("Authorization","Bearer "+sales).header("Idempotency-Key","demo-sales-stock").with(csrf()).contentType("application/json").content("{\"productId\":910301,\"quantity\":1,\"reason\":\"Denied sales stock\"}")).andExpect(status().isForbidden());
+  db.update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES('superadmin@platform.demo.test',910001,910001,FALSE)");
+  assertThatThrownBy(()->authentication.login("superadmin@platform.demo.test","PlatformDemo2026!")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+platform)).andExpect(status().isUnauthorized());
+  db.update("DELETE FROM employees WHERE username='superadmin@platform.demo.test'");
+  db.update("DELETE FROM platform_user_permissions WHERE username='superadmin@platform.demo.test'");
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+platform)).andExpect(status().isUnauthorized());
+ }
+ @Test void demoRerunPreservesOperationalChangesAndDoesNotRestoreRevokedGrants() throws Exception {
+  multiVendorDemo();String changed=encoder.encode("ChangedDemoPassword2026!");
+  update("UPDATE inventory SET quantity=39,reserved=2 WHERE tenant_id=910001 AND product_id=910301");
+  db.update("UPDATE products SET price=12345 WHERE id=910301");db.update("UPDATE users SET password_hash=? WHERE username='cashier@saumya.demo.test'",changed);
+  db.update("DELETE FROM employee_permissions WHERE username='cashier@saumya.demo.test' AND permission='POS_SALE_CREATE'");
+  db.update("DELETE FROM platform_user_permissions WHERE permission='PLATFORM_SUPPORT_ACCESS'");
+  db.update("UPDATE branches SET split_tender_enabled=FALSE WHERE id=910001");
+  multiVendorDemo();
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=910001 AND product_id=910301",Integer.class)).isEqualTo(39);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=910001 AND product_id=910301",Integer.class)).isEqualTo(2);
+  assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=910001 AND product_id=910301",Integer.class)).isEqualTo(37);
+  assertThat(db.queryForObject("SELECT price FROM products WHERE id=910301",BigDecimal.class)).isEqualByComparingTo("12345");
+  assertThat(authentication.login("cashier@saumya.demo.test","ChangedDemoPassword2026!").account().permissions()).doesNotContain("POS_SALE_CREATE");
+  assertThat(authentication.login("superadmin@platform.demo.test","PlatformDemo2026!").account().permissions()).hasSize(9);
+  assertThat(db.queryForObject("SELECT split_tender_enabled FROM branches WHERE id=910001",Boolean.class)).isFalse();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id IN (910001,920001,930001)",Integer.class)).isEqualTo(18);
+  assertThat(db.queryForObject("SELECT next_id FROM identity_sequence WHERE id=1",Long.class)).isGreaterThanOrEqualTo(950000L);
+ }
+ @Test void demoIdentityCollisionAbortsBeforeInstallingAnyVendorData() throws Exception {
+  db.update("INSERT INTO users(id,username,password_hash,enabled) VALUES(940001,'unrelated@example.test',?,TRUE)",encoder.encode("UnrelatedPassword2026!"));
+  assertThatThrownBy(this::multiVendorDemo).isInstanceOfSatisfying(java.sql.SQLException.class,e->assertThat(e.getErrorCode()).isIn(23513,3819));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM tenants WHERE id IN (910001,920001,930001)",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT username FROM users WHERE id=940001",String.class)).isEqualTo("unrelated@example.test");
+ }
+
+ @Test void demoCashierCanBillOwnStoreWithPolicyDiscountButCannotUseAnotherStoresRegisterOrProduct() throws Exception {
+  multiVendorDemo();String token=demoToken("cashier@lumina.demo.test","LuminaTill2026!");
+  mvc.perform(post("/api/v1/vendor/pos/sessions").header("Authorization","Bearer "+token).with(csrf()).contentType("application/json").content("{\"registerId\":910011,\"openingFloat\":0}")).andExpect(status().isNotFound());
+  var opened=mvc.perform(post("/api/v1/vendor/pos/sessions").header("Authorization","Bearer "+token).with(csrf()).contentType("application/json").content("{\"registerId\":930011,\"openingFloat\":0}")).andExpect(status().isOk()).andReturn();
+  String sessionId=new com.fasterxml.jackson.databind.ObjectMapper().readTree(opened.getResponse().getContentAsString()).get("id").asText();
+  String body="{\"sessionId\":\""+sessionId+"\",\"items\":[{\"productId\":930301,\"quantity\":1}],\"invoiceRequested\":false,\"discounts\":{\"linePercent\":{},\"billPercent\":5,\"reason\":\"Demo approved sale\"}}";
+  String path="/api/v1/vendor/pos/drafts";
+  mvc.perform(post(path).header("Authorization","Bearer "+token).header("Idempotency-Key","demo-cross-product").with(csrf()).contentType("application/json").content(body.replace("930301","910301"))).andExpect(status().isNotFound());
+  mvc.perform(post(path).header("Authorization","Bearer "+token).header("Idempotency-Key","demo-excess-discount").with(csrf()).contentType("application/json").content(body.replace("billPercent\":5","billPercent\":11"))).andExpect(status().isConflict());
+  var reserved=mvc.perform(post(path).header("Authorization","Bearer "+token).header("Idempotency-Key","demo-discount-bill").with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn();
+  String id=new com.fasterxml.jackson.databind.ObjectMapper().readTree(reserved.getResponse().getContentAsString()).get("id").asText();
+  mvc.perform(post(path+"/"+id+"/finalize-cash").header("Authorization","Bearer "+token).with(csrf()).contentType("application/json").content("{\"cashReceived\":8075}")).andExpect(status().isOk());
+  assertThat(stock.atBranch(930001,930001,930301)).isEqualTo(34);assertThat(stock.atBranch(910001,910001,910301)).isEqualTo(40);
+  assertThat(db.queryForObject("SELECT customer_id FROM orders WHERE id=?",Long.class,id)).isNull();
+  String other=demoToken("cashier@saumya.demo.test","SaumyaTill2026!");
+  mvc.perform(get("/api/v1/vendor/pos/orders/"+id).header("Authorization","Bearer "+other)).andExpect(status().isNotFound());
+ }
 }

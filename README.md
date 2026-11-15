@@ -2,6 +2,10 @@
 
 This branch implements the solar marketplace, single-vendor carts, shared inventory reservations, guest walk-in POS, cash checkout, receipts, returns and shift reconciliation. Explicitly enabled pre-production online payment simulation and independently verified vendor-terminal POS tenders use durable vendor-scoped attempts. POS never uses the online simulation adapter. Live payment integration and the full Commercial MVP release gates remain outstanding. See [vendor payment checkout](docs/implementation/VENDOR_PAYMENT_CHECKOUT.md) for configuration, APIs, recovery and remaining requirements.
 
+## Multi-vendor test data
+
+After applying Flyway V38, use the opt-in [three-vendor setup and credentials guide](docs/demo/multi-vendor-testing.md). It provides separate admin, sales, inventory, cashier and finance identities per store, two global customers and a platform-only administrator. The existing single-store scripts remain independent optional fixtures.
+
 ## Run locally with Docker Desktop (recommended)
 
 ### 1. Prerequisites and source

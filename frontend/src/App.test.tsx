@@ -124,7 +124,7 @@ function retailMock() {
 it('adds exact barcode and SKU matches quickly, caps quantities and keeps scanner focus', async () => {
  retailMock(); render(<App/>); const search = await screen.findByLabelText('Search name, SKU or scan barcode');
  fireEvent.change(search, { target: { value: '123' } }); fireEvent.submit(search.closest('form')!); await screen.findByText('Added Panel');
- expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1'); expect(document.activeElement).toBe(search); expect((search as HTMLInputElement).value).toBe('');
+ expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1'); await waitFor(()=>expect(document.activeElement).toBe(search)); expect((search as HTMLInputElement).value).toBe('');
  fireEvent.change(search, { target: { value: 'P1' } }); fireEvent.submit(search.closest('form')!); await waitFor(()=>expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('2'));
  fireEvent.change(search, { target: { value: '123' } }); fireEvent.submit(search.closest('form')!); await screen.findByText('Available stock or quantity limit reached.'); expect((screen.getByLabelText('Quantity 1') as HTMLInputElement).value).toBe('2');
  expect(vi.mocked(api).mock.calls.some(call => call[0] === '/sales')).toBe(false);

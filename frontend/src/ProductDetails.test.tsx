@@ -37,3 +37,9 @@ it('ignores stale detail responses after the selected product changes', async ()
   view.rerender(<ProductDetails slug="solar" productId={2} disabled={false} onClose={vi.fn()} onAdd={vi.fn()}/>); await screen.findByText('Inverter'); finish(product);
   await waitFor(() => expect(screen.queryByText('540W Panel')).toBeNull());
 });
+
+it('displays the vendor-owned brand returned by the API', async () => {
+  vi.mocked(marketplaceApi).mockResolvedValue({ ...product, brand: 'SunArc' });
+  render(<ProductDetails slug="solar" productId={1} disabled={false} onClose={vi.fn()} onAdd={vi.fn()}/>);
+  expect(await screen.findByText('Brand: SunArc')).toBeTruthy();
+});

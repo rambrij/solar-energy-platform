@@ -40,7 +40,7 @@ public class PaymentCheckoutService {
   var order=owned(username,id,false);String fingerprint=request.method()+"|"+request.appliedAmount().setScale(2)+"|"+(request.cashReceived()==null?"":request.cashReceived().stripTrailingZeros().toPlainString());
   String hash;try{hash=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(fingerprint.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}
   var prior=tenders(order).stream().filter(a->key.equals(a.key())).findFirst();if(prior.isPresent()){if(!hash.equals(prior.get().hash()))conflict("Idempotency key already used for a different tender");return summary(order);}
-  payable(order);var configured=terminalPolicy(order);var confirmed=collected(order);var remaining=order.total().subtract(confirmed);
+  payable(order,collected(order).signum()>0);var configured=terminalPolicy(order);var confirmed=collected(order);var remaining=order.total().subtract(confirmed);
   if(tenders(order).stream().anyMatch(PaymentAttempt::unresolved))conflict("Reconcile the existing external tender before another payment");
   if(request.appliedAmount().compareTo(remaining)>0||request.appliedAmount().signum()==0&&order.total().signum()!=0)throw new com.saumya.pos.shared.DomainProblem("PAYMENT_TOTAL_MISMATCH","Tender applied amount exceeds the remaining bill or is zero");
   if(!configured.split()&&(confirmed.signum()>0||request.appliedAmount().compareTo(remaining)!=0))conflict("Split tender is disabled for this outlet");
@@ -75,8 +75,8 @@ public class PaymentCheckoutService {
  }
  public View status(String username,String id){return view(owned(username,id,true));}
  private void payable(DraftOrder order){payable(order,false);}
- private void payable(DraftOrder order,boolean reconcilingTerminal){
-  if(!"DRAFT".equals(order.status())||(!reconcilingTerminal&&!order.expires().isAfter(clock.instant())))conflict("Reservation is not payable; reload or cancel it");
+ private void payable(DraftOrder order,boolean reconcilingFunds){
+  if(!"DRAFT".equals(order.status())||(!reconcilingFunds&&!order.expires().isAfter(clock.instant())))conflict("Reservation is not payable; reload or cancel it");
   if(!catalogue.vendor(order.tenant()).active())conflict("Vendor is not active");
   if("IN_STORE".equals(order.channel()))retail.requireOpen(new PosService.Scope(order.tenant(),order.branch(),order.cashier()),order.session());
   else if(catalogue.onlineBranch(order.tenant())!=order.stockBranch())conflict("Vendor stock location changed");
@@ -84,7 +84,7 @@ public class PaymentCheckoutService {
    var p=catalogue.lockForSale(order.tenant(),line.product());
    if(p.price().compareTo(line.price())!=0||p.taxRate().compareTo(line.rate())!=0||p.listPrice().compareTo(line.listPrice())!=0||p.discountPercent().compareTo(line.discountPercent())!=0)conflict("Price, tax or discount changed; cancel and recreate the draft");
   }
-  if(!reconcilingTerminal&&!order.expires().isAfter(clock.instant()))conflict("Reservation expired during validation");
+  if(!reconcilingFunds&&!order.expires().isAfter(clock.instant()))conflict("Reservation expired during validation");
  }
  public View start(String username,String id,String method){
   policy.requireEnabled();policy.method(method);var order=owned(username,id,true);

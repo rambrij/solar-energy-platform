@@ -3,8 +3,8 @@ import {api,ApiError} from './api';
 type Tender={attemptId:string;method:string;state:string;amount:number;reference?:string};
 type Balance={orderId:string;orderStatus:string;total:number;confirmed:number;remaining:number;splitEnabled:boolean;tenders:Tender[]};
 type Command={key:string;body:{method:string;appliedAmount:string;cashReceived?:string}};
-type Props={orderId:string;disabled?:boolean;onComplete:()=>void;onBusyChange:(value:boolean)=>void};
-export default function SplitTenderCheckout({orderId,disabled=false,onComplete,onBusyChange}:Props){
+type Props={orderId:string;disabled?:boolean;reservationExpired?:boolean;onComplete:()=>void;onBusyChange:(value:boolean)=>void};
+export default function SplitTenderCheckout({orderId,disabled=false,reservationExpired=false,onComplete,onBusyChange}:Props){
  const storageKey=`pos-tender-command-v1:${orderId}`;
  const [balance,setBalance]=useState<Balance>(),[method,setMethod]=useState('CASH'),[amount,setAmount]=useState(''),[cash,setCash]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [pending,setPending]=useState<Command|undefined>(()=>{try{return JSON.parse(sessionStorage.getItem(storageKey)??'null')??undefined;}catch{return undefined;}});
@@ -32,7 +32,8 @@ export default function SplitTenderCheckout({orderId,disabled=false,onComplete,o
    {unresolved&&<p role="alert">External payment is awaiting independent verification. Do not charge again or collect cash. Ask an authorized supervisor to reconcile this tender.</p>}
    {balance.tenders.filter(t=>t.state==='PENDING_VERIFICATION').map(t=><button key={t.attemptId} disabled={busy||!!pending} onClick={()=>void resolve(`/tenders/${encodeURIComponent(t.attemptId)}/unknown`)}>Mark {t.method} outcome unknown</button>)}
    {balance.orderStatus==='DRAFT'&&Number(balance.remaining)===0&&!unresolved&&<button disabled={busy||!!pending} onClick={()=>void resolve('/finalize')}>Retry saved sale finalization</button>}
-   <fieldset disabled={busy||disabled||!!pending||unresolved||balance.orderStatus!=='DRAFT'}>
+   {reservationExpired&&Number(balance.confirmed)>0&&<p role="status">The unpaid hold time elapsed, but confirmed funds retain this bill and stock. Collect only the saved remaining balance after checking the tender status.</p>}
+   <fieldset disabled={busy||disabled||(reservationExpired&&Number(balance.confirmed)<=0)||!!pending||unresolved||balance.orderStatus!=='DRAFT'}>
     <label>Tender method<select value={method} onChange={e=>setMethod(e.target.value)}><option value="CASH">Cash</option><option value="UPI">Vendor UPI</option><option value="CARD">Vendor card terminal</option></select></label>
     <label>Amount applied<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)}/></label>
     {method==='CASH'&&<><label>Tender cash received<input inputMode="decimal" value={cash} onChange={e=>setCash(e.target.value)}/></label><p>Change {validAmount&&validCash?(Number(cash)-Number(amount)).toFixed(2):'—'}</p></>}

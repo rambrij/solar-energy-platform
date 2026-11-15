@@ -17,3 +17,11 @@ it('blocks another charge while external tender outcome is unknown',async()=>{
 it('uncertain tender retry retains the original operation key and body',async()=>{
  vi.mocked(api).mockResolvedValueOnce(balance).mockRejectedValueOnce(Error('Disconnected')).mockResolvedValueOnce({...balance,orderStatus:'PAID',confirmed:110,remaining:0});const complete=vi.fn();render(<SplitTenderCheckout orderId="sale-1" onComplete={complete} onBusyChange={vi.fn()}/>);fireEvent.click(screen.getByText('Load tender balance'));await screen.findByText('DRAFT · Paid 0.00 · Remaining 110.00');fireEvent.change(screen.getByLabelText('Amount applied'),{target:{value:'110'}});fireEvent.change(screen.getByLabelText('Tender cash received'),{target:{value:'110'}});fireEvent.click(screen.getByText('Record received cash'));fireEvent.click(await screen.findByText('Retry same tender'));await waitFor(()=>expect(complete).toHaveBeenCalledOnce());expect(vi.mocked(api).mock.calls[1]).toEqual(vi.mocked(api).mock.calls[2]);
 });
+
+it('allows only the remaining collection on an expired bill with confirmed funds',async()=>{
+ vi.mocked(api).mockResolvedValue({...balance,confirmed:40,remaining:70,tenders:[{attemptId:'cash',method:'CASH',state:'CONFIRMED',amount:40}]});
+ render(<SplitTenderCheckout orderId="sale-1" reservationExpired onComplete={vi.fn()} onBusyChange={vi.fn()}/>);fireEvent.click(screen.getByText('Load tender balance'));await screen.findByText(/confirmed funds retain this bill/);expect(screen.getByLabelText('Tender method').matches(':disabled')).toBe(false);
+});
+it('keeps an expired unpaid bill disabled after checking the saved balance',async()=>{
+ vi.mocked(api).mockResolvedValue(balance);render(<SplitTenderCheckout orderId="sale-1" reservationExpired onComplete={vi.fn()} onBusyChange={vi.fn()}/>);fireEvent.click(screen.getByText('Load tender balance'));await screen.findByLabelText('Tender method');expect(screen.getByLabelText('Tender method').matches(':disabled')).toBe(true);
+});

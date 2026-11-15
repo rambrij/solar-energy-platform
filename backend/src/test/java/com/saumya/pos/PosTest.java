@@ -133,6 +133,20 @@ class PosTest {
   assertThat(service.reconciliation(scope,session).expectedCash()).isEqualByComparingTo("160");
   payments.finalizeTenders("alice",draft.id());assertThat(service.reconciliation(scope,session).expectedCash()).isEqualByComparingTo("160");
  }
+ @Test void expiredPartialCashRetainsStockAndCanCompleteOnlyTheRemainingBalance(){
+  enableTerminal();update("UPDATE branches SET split_tender_enabled=TRUE WHERE id=1");var draft=checkout.pos("alice","expired-partial",posDraft());
+  payments.tender("alice",draft.id(),"expired-cash",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40")));
+  update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());checkout.expire(1,draft.id());
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
+  assertThat(stock.atBranch(1,1,1)).isZero();assertThatThrownBy(()->checkout.cancelPos("alice",draft.id(),"Cancel")).hasMessageContaining("Reconcile");
+  assertThat(payments.tender("alice",draft.id(),"expired-rest",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("70"),new BigDecimal("70"))).orderStatus()).isEqualTo("PAID");
+  assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("160");
+ }
+ @Test void expiredUnpaidBillCannotStartTakingFunds(){
+  var draft=checkout.pos("alice","expired-unpaid",posDraft());update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());
+  assertThatThrownBy(()->payments.tender("alice",draft.id(),"expired-charge",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("110"),new BigDecimal("110")))).hasMessageContaining("not payable");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders",Integer.class)).isZero();
+ }
  @Test void splitTenderLimitsAndChangedRetryPayloadAreRejected(){
   enableTerminal();var draft=checkout.pos("alice","tender-limits",posDraft());
   assertThatThrownBy(()->payments.tender("alice",draft.id(),"split-disabled",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40")))).hasMessageContaining("disabled");

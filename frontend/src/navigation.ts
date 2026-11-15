@@ -1,34 +1,77 @@
-export type WorkspaceMode='pos'|'online';
-export type NavigationItem={id:string;label:string;group:string};
-const pos:NavigationItem[]=[
- {id:'main-content',label:'Overview',group:'Workspace'},
- {id:'checkout',label:'Product catalogue',group:'Sell'},
- {id:'current-sale',label:'Current bill',group:'Sell'},
- {id:'reserved-pos-checkout',label:'Held bills',group:'Sell'},
- {id:'order-history',label:'Sales history',group:'Sell'},
- {id:'sale-receipt',label:'Current receipt',group:'Sell'},
- {id:'register',label:'Drawer & shift closing',group:'Register'},
- {id:'category-management',label:'Categories',group:'Manage'},
- {id:'product-management',label:'Products',group:'Manage'},
- {id:'stock-receiving',label:'Receive stock',group:'Manage'},
- {id:'store-settings',label:'Outlet settings',group:'Manage'},
- {id:'shift-history',label:'My closed shifts',group:'Register'},
- {id:'shift-reviews',label:'Supervisor shift review',group:'Register'},
- {id:'terminal-tender-review',label:'Terminal verification',group:'Register'},
- {id:'pos-returns',label:'Returns & inspection',group:'After-sale service'},
- {id:'cash-refunds',label:'Cash refunds',group:'After-sale service'},
- {id:'promotion-history',label:'Discount audit',group:'Reports'},
- {id:'sales-insights',label:'Sales insights',group:'Reports'},
- {id:'refund-insights',label:'Refund insights',group:'Reports'},
- {id:'cashier-sales-insights',label:'Cashier sales',group:'Reports'}];
-const online:NavigationItem[]=[
- {id:'main-content',label:'Overview',group:'Workspace'},
- {id:'vendor-directory',label:'Find vendors',group:'Shop'},
- {id:'storefront-products',label:'Product catalogue',group:'Shop'},
- {id:'customer-cart',label:'My cart',group:'Cart & checkout'},
- {id:'online-checkout',label:'Checkout reservations',group:'Cart & checkout'},
- {id:'saved-vendor-carts',label:'Saved vendor carts',group:'Cart & checkout'},
- {id:'order-history',label:'My orders',group:'Purchases'}];
-export const navigationItems=(mode:WorkspaceMode)=>mode==='pos'?pos:online;
-export function availableNavigation(mode:WorkspaceMode,ids:ReadonlySet<string>){return navigationItems(mode).filter(item=>ids.has(item.id));}
-export function selectedNavigation(items:NavigationItem[],hash:string){const id=hash.replace(/^#/,'');return items.find(item=>item.id===id)??items.find(item=>item.id==='main-content');}
+export type WorkspaceMode = 'pos' | 'online';
+export type NavigationItem = {
+  id: string;
+  label: string;
+  group: string;
+  description: string;
+  path: string;
+};
+
+const pos: NavigationItem[] = [
+  { id: 'checkout', label: 'Cashier Session', group: 'POS', description: 'Open your register and create walk-in sales using the existing outlet catalogue.', path: '/vendor/pos' },
+  { id: 'current-sale', label: 'Current Bill', group: 'POS', description: 'Review the active sale, buyer details, discounts and cash tender.', path: '/vendor/pos/current-sale' },
+  { id: 'reserved-pos-checkout', label: 'Held Bills', group: 'POS', description: 'Continue or review existing unpaid walk-in reservations.', path: '/vendor/pos/held-bills' },
+  { id: 'order-history', label: 'Sales History', group: 'POS', description: 'Find completed sales and open their existing receipt or return actions.', path: '/vendor/pos/sales-history' },
+  { id: 'sale-receipt', label: 'Current Receipt', group: 'POS', description: 'Review, reprint or download the currently selected receipt.', path: '/vendor/pos/receipt' },
+  { id: 'pos-returns', label: 'After-sale Service', group: 'After-Sale', description: 'Review returns and inspection details for completed sales.', path: '/vendor/pos/after-sales' },
+  { id: 'cash-refunds', label: 'Cash Refunds', group: 'After-Sale', description: 'Review and record cash refunds using the existing refund workflow.', path: '/vendor/pos/refunds' },
+  { id: 'category-management', label: 'Categories', group: 'Catalogue & Inventory', description: 'Manage the categories already available to this outlet.', path: '/vendor/pos/categories' },
+  { id: 'product-management', label: 'Manage Products', group: 'Catalogue & Inventory', description: 'Maintain the products available in the outlet catalogue.', path: '/vendor/pos/products' },
+  { id: 'stock-receiving', label: 'Receive Stock', group: 'Catalogue & Inventory', description: 'Record stock receipts using the existing inventory workflow.', path: '/vendor/pos/stock' },
+  { id: 'register', label: 'Opening Float & Drawer', group: 'Store Management', description: 'Review the current drawer, cash movements and shift closing controls.', path: '/vendor/pos/register' },
+  { id: 'shift-history', label: 'Drawer Records', group: 'Store Management', description: 'Review your recorded closed-shift drawer snapshots.', path: '/vendor/pos/drawer-records' },
+  { id: 'shift-reviews', label: 'Supervisor Shift Review', group: 'Store Management', description: 'Review existing shifts awaiting supervisor action.', path: '/vendor/pos/shift-review' },
+  { id: 'terminal-tender-review', label: 'Terminal Verification', group: 'Store Management', description: 'Resolve existing terminal tender verification items.', path: '/vendor/pos/terminal-verification' },
+  { id: 'store-settings', label: 'Outlet & Payment Settings', group: 'Store Management', description: 'Review the current outlet and payment configuration.', path: '/vendor/pos/settings' },
+  { id: 'promotion-history', label: 'Discount Audit', group: 'Reports', description: 'Review the existing promotion and discount audit trail.', path: '/vendor/pos/discount-audit' },
+  { id: 'sales-insights', label: 'Sales Insights', group: 'Reports', description: 'Review available sales reporting for this workspace.', path: '/vendor/pos/sales-insights' },
+  { id: 'refund-insights', label: 'Refund Insights', group: 'Reports', description: 'Review available refund reporting for this workspace.', path: '/vendor/pos/refund-insights' },
+  { id: 'cashier-sales-insights', label: 'Cashier Sales', group: 'Reports', description: 'Review existing cashier sales reporting.', path: '/vendor/pos/cashier-sales' },
+];
+
+const online: NavigationItem[] = [
+  { id: 'vendor-directory', label: 'Find Energy Partners', group: 'Shop', description: 'Discover independent solar vendors and open a vendor storefront.', path: '/vendors' },
+  { id: 'storefront-products', label: 'Vendor Catalogue', group: 'Shop', description: 'Browse products from the selected vendor and review product details.', path: '/vendors' },
+  { id: 'customer-cart', label: 'My Single-Vendor Cart', group: 'Cart', description: 'Review your active vendor cart, quantities and server-calculated estimate.', path: '/marketplace/cart' },
+  { id: 'online-checkout', label: 'Reserve Vendor Cart', group: 'Cart', description: 'Review existing reservation and checkout steps for your vendor cart.', path: '/marketplace/reserved-cart' },
+  { id: 'saved-vendor-carts', label: 'Saved Vendor Carts', group: 'Cart', description: 'Load and restore your archived vendor carts.', path: '/marketplace/saved-carts' },
+  { id: 'order-history', label: 'Your Purchases', group: 'Purchases', description: 'Review your existing marketplace purchase history.', path: '/marketplace/purchases' },
+];
+
+export const navigationItems = (mode: WorkspaceMode): NavigationItem[] => mode === 'pos' ? pos : online;
+
+export function availableNavigation(mode: WorkspaceMode, ids: ReadonlySet<string>) {
+  return navigationItems(mode).filter(item => ids.has(item.id));
+}
+
+export function selectedNavigation(items: NavigationItem[], routeId: string) {
+  const id = routeId.replace(/^#/, '');
+  return items.find(item => item.id === id) ?? items[0];
+}
+
+export function navigationPath(mode: WorkspaceMode, id: string, currentPath = window.location.pathname) {
+  const item = navigationItems(mode).find(candidate => candidate.id === id);
+  if (!item) return mode === 'pos' ? '/vendor/pos' : '/vendors';
+  if (mode === 'online' && id === 'storefront-products') {
+    return currentPath.startsWith('/vendors/') ? currentPath.split('?')[0] : '/vendors';
+  }
+  return item.path;
+}
+
+export function resolveWorkspaceRoute(mode: WorkspaceMode, pathname = window.location.pathname, hash = window.location.hash) {
+  const legacyId = hash.replace(/^#/, '');
+  if (legacyId && navigationItems(mode).some(item => item.id === legacyId)) return legacyId;
+  if (mode === 'pos') {
+    return navigationItems(mode).find(item => item.path === pathname)?.id ?? 'checkout';
+  }
+  if (pathname.startsWith('/vendors/')) return 'storefront-products';
+  return navigationItems(mode).find(item => item.path === pathname)?.id ?? 'vendor-directory';
+}
+
+export function navigateWorkspace(mode: WorkspaceMode, id: string, currentPath = window.location.pathname) {
+  const destination = navigationPath(mode, id, currentPath);
+  if (window.location.pathname + window.location.search !== destination) {
+    window.history.pushState({}, '', destination);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }
+}

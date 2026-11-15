@@ -1,27 +1,24 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { resolveWorkspaceRoute, type WorkspaceMode } from './navigation';
 
-type Props = { id: string; mode: 'pos' | 'online'; children: ReactNode; aliases?: string[] };
-
-function currentRoute(mode: Props['mode'], fallback: string) {
-  const hash = window.location.hash.replace(/^#/, '');
-  if (hash) return hash;
-  if (mode === 'online' && window.location.pathname.startsWith('/vendors/')) return 'storefront-products';
-  if (mode === 'online') return 'vendor-directory';
-  return fallback;
-}
-
-export default function RouteOutlet({ id, mode, children, aliases = [] }: Props) {
-  const fallback = mode === 'online' ? 'vendor-directory' : 'checkout';
-  const [route, setRoute] = useState(() => currentRoute(mode, fallback));
+export function useWorkspaceRoute(mode: WorkspaceMode) {
+  const [route, setRoute] = useState(() => resolveWorkspaceRoute(mode));
   useEffect(() => {
-    const sync = () => setRoute(currentRoute(mode, fallback));
-    window.addEventListener('hashchange', sync);
+    const sync = () => setRoute(resolveWorkspaceRoute(mode));
     window.addEventListener('popstate', sync);
+    window.addEventListener('hashchange', sync);
     sync();
     return () => {
-      window.removeEventListener('hashchange', sync);
       window.removeEventListener('popstate', sync);
+      window.removeEventListener('hashchange', sync);
     };
-  }, [mode, fallback]);
+  }, [mode]);
+  return route;
+}
+
+type Props = { id: string; mode: WorkspaceMode; children: ReactNode; aliases?: string[] };
+
+export default function RouteOutlet({ id, mode, children, aliases = [] }: Props) {
+  const route = useWorkspaceRoute(mode);
   return route === id || aliases.includes(route) ? <>{children}</> : null;
 }

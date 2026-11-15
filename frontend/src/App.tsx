@@ -30,15 +30,21 @@ import StockReceiving from './StockReceiving';
 import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
 import {useSession} from './session';
 import RouteOutlet from './RouteOutlet';
+import { navigationItems, navigateWorkspace } from './navigation';
 
 
 export default function App() {
   const {account}=useSession();
+  const availableIds=navigationItems('pos').filter(item=>{
+    if(item.id==='category-management'||item.id==='product-management')return !!account?.permissions.includes('PRODUCT_VIEW');
+    if(item.id==='stock-receiving')return !!account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission));
+    return true;
+  }).map(item=>item.id);
   const [refundPending,setRefundPending]=useState(()=>!!sessionStorage.getItem(refundStorageKey));
   const [refundReceipt,setRefundReceipt]=useState<CashRefundView>();
   const [promotionProduct,setPromotionProduct]=useState<number>();
   const [returnOrderId,setReturnOrderId]=useState('');
-  function startReturn(id:string){setReturnOrderId(id);requestAnimationFrame(()=>document.getElementById('pos-returns')?.scrollIntoView?.({behavior:'smooth',block:'start'}));}
+  function startReturn(id:string){setReturnOrderId(id);navigateWorkspace('pos','pos-returns');}
   const [printRequested,setPrintRequested]=useState(false),[catalogueRevision,setCatalogueRevision]=useState(0);
   const refreshProducts=useCallback((items:Product[])=>setProducts(previous=>previous.map(product=>items.find(item=>item.id===product.id)??product)),[]);
   const [buyer,setBuyer]=useState<BuyerDetails>();
@@ -122,10 +128,10 @@ export default function App() {
       } else setError((e as Error).message+' Retry uses the same sale key. Do not collect cash again.');
     }finally{setBusy(false);}
   }
-  return <Shell mode="pos"><header className="workspace-hero"><div><span className="eyebrow">Powering your everyday business</span><h1>Saumya Solar · Store POS</h1><p>Walk-in billing · No customer account required</p></div><div className="hero-status"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>Live pricing & shared inventory</span></div></header>
+  return <Shell mode="pos" availableIds={availableIds}><div className="workspace-session-strip"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>{session ? 'Live pricing & shared inventory' : 'Walk-in billing · No customer account required'}</span></div>
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
-      <div className="checkout-grid"><RouteOutlet id="checkout" mode="pos"><PosCatalogue key={session} locked={saleLocked} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onPromotionHistory={id=>{setPromotionProduct(id);window.location.hash='promotion-history';}} onAdd={addProduct} onBusyChange={setBusy}/></RouteOutlet>
+      <div className="checkout-grid"><RouteOutlet id="checkout" mode="pos"><PosCatalogue key={session} locked={saleLocked} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onPromotionHistory={id=>{setPromotionProduct(id);navigateWorkspace('pos','promotion-history');}} onAdd={addProduct} onBusyChange={setBusy}/></RouteOutlet>
       <RouteOutlet id="current-sale" mode="pos" aliases={["reserved-pos-checkout"]}><section id="current-sale" className="sale-panel retail-bill-panel" aria-labelledby="sale-title"><div className="section-heading"><h2 id="sale-title">Current sale</h2><span className="badge">{Object.values(cart).reduce((sum, q) => sum + q, 0)} items</span></div>{!Object.keys(cart).length && <div className="empty-state"><p>Your next solar sale starts here.</p><small>Add products from the catalogue.</small></div>}<BillingBasket products={products} cart={cart} locked={saleLocked} onQuantity={(id,q)=>setCart(value=>({...value,[id]:q}))} onRemove={id=>{setDiscounts(value=>({...value,linePercent:Object.fromEntries(Object.entries(value.linePercent).filter(([key])=>key!==String(id)))}));setCart(value=>Object.fromEntries(Object.entries(value).filter(([key])=>key!==String(id))));setProducts(value=>value.filter(product=>product.id!==id));}} cash={cash} onCash={setCash} invoice={invoice} onInvoice={setInvoice} discounts={discounts} onDiscounts={setDiscounts}/><BuyerDetailsForm value={buyer} locked={saleLocked} onChange={setBuyer}/>
       <button disabled={refundPending||busy||movementPending||closePending||reservedBlocked||(!pending&&(sessionState!=='OPEN'||invalidCart||!Object.keys(cart).length||!cashReady))} onClick={checkout}>{busy?'Checking sale…':pending?'Retry same sale':'Complete cash sale'}</button>
       <ReservedDrafts key={`drafts-${session}`} mode="pos" session={session} createDisabled={invalidCart} items={Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity}))} invoiceRequested={invoice} discounts={discounts} buyer={buyer} disabled={refundPending||busy||!!pending||movementPending||closePending||sessionState!=='OPEN'} onBlocked={setReservedBlocked} onReceipt={(value,finalized)=>{displayReceipt(value);if(finalized){setDiscounts({linePercent:{},billPercent:0,reason:''});setBuyer(undefined);setCart({});setProducts([]);setCash('');setDrawerRevision(value=>value+1);}}} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/>
@@ -134,17 +140,17 @@ export default function App() {
       </div></RouteOutlet>{sessionState!=='OPEN'&&<button disabled={refundPending||busy||!!pending||movementPending||closePending||reservedBlocked} onClick={()=>{sessionStorage.removeItem('pos-session-v1');setSession('');setError('');}}>Choose another session</button>}
     </>}
     {receipt && <RouteOutlet id="sale-receipt" mode="pos"><SaleReceipt receipt={receipt} error={receiptError}><button disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Reprint copy</button><button className="secondary" disabled={busy} onClick={()=>startReturn(receipt.id)}>Start a stock return</button><button className="print-receipt" disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');setPrintRequested(true);}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Print receipt copy</button><ReceiptPdfCopy orderId={receipt.id} disabled={busy}/></SaleReceipt></RouteOutlet>}
-    <RouteOutlet id="order-history" mode="pos"><OrderHistory mode="pos" onReturn={startReturn} onReceipt={value=>{displayReceipt(value);window.location.hash='sale-receipt';}}/></RouteOutlet>
+    <RouteOutlet id="order-history" mode="pos"><OrderHistory mode="pos" onReturn={startReturn} onReceipt={value=>{displayReceipt(value);navigateWorkspace('pos','sale-receipt');}}/></RouteOutlet>
     <RouteOutlet id="pos-returns" mode="pos"><PosReturns session={session} sessionState={sessionState} disabled={refundPending||busy||!!pending||movementPending||closePending} initialOrderId={returnOrderId} refundedReturnId={refundReceipt?.returnId} onStockChange={()=>{setCatalogueRevision(value=>value+1);}}/></RouteOutlet>
-    <RouteOutlet id="cash-refunds" mode="pos"><CashRefunds session={session} sessionState={sessionState} disabled={busy||!!pending||movementPending||closePending||reservedBlocked||checkingSession} onPendingChange={setRefundPending} onBusyChange={setBusy} onRecorded={value=>{setRefundReceipt(value);setDrawerRevision(previous=>previous+1);}}/></RouteOutlet>
-    {refundReceipt&&<RouteOutlet id="cash-refunds" mode="pos"><CashRefundReceipt value={refundReceipt} disabled={busy||refundPending} onCopy={setRefundReceipt}/></RouteOutlet>}
+    <RouteOutlet id="cash-refunds" mode="pos"><>
+      <CashRefunds session={session} sessionState={sessionState} disabled={busy||!!pending||movementPending||closePending||reservedBlocked||checkingSession} onPendingChange={setRefundPending} onBusyChange={setBusy} onRecorded={value=>{setRefundReceipt(value);setDrawerRevision(previous=>previous+1);}}/>
+      {refundReceipt&&<CashRefundReceipt value={refundReceipt} disabled={busy||refundPending} onCopy={setRefundReceipt}/>}
+    </></RouteOutlet>
     <RouteOutlet id="promotion-history" mode="pos"><PromotionHistory initialProduct={promotionProduct} disabled={busy||checkingSession}/></RouteOutlet>
     <RouteOutlet id="sales-insights" mode="pos"><SalesInsights/></RouteOutlet>
     <RouteOutlet id="refund-insights" mode="pos"><RefundInsights/></RouteOutlet>
     <RouteOutlet id="cashier-sales-insights" mode="pos"><CashierSalesInsights/></RouteOutlet>
-    <RouteOutlet id="shift-history" mode="pos"><ShiftHistory
-    <RefundInsights/>
-    </RouteOutlet>
+    <RouteOutlet id="shift-history" mode="pos"><ShiftHistory revision={String(drawerRevision)}/></RouteOutlet>
     {account?.permissions.includes('PRODUCT_VIEW')&&<RouteOutlet id="category-management" mode="pos"><CategoryManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
     {account?.permissions.includes('PRODUCT_VIEW')&&<RouteOutlet id="product-management" mode="pos"><ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
     {account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission))&&<RouteOutlet id="stock-receiving" mode="pos"><StockReceiving key={`${account.username}:${account.tenantId}:${account.branchId}`} onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}

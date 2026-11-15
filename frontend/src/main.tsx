@@ -8,7 +8,7 @@ import WorkspaceErrorBoundary from './WorkspaceErrorBoundary';
 import './style.css';
 
 const path = window.location.pathname;
-const marketplace = path === '/' || path === '/marketplace' || path === '/vendors' || path.startsWith('/vendors/');
+const marketplace = path === '/' || path === '/marketplace' || path === '/vendors' || path.startsWith('/vendors/') || path.startsWith('/marketplace/');
 const content = path === '/customer/associate'
   ? <AuthenticationBoundary permission="CUSTOMER" mode="online"><CustomerAssociation /></AuthenticationBoundary>
   : marketplace

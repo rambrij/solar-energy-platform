@@ -28,6 +28,7 @@ class PosTest {
  @Autowired CatalogService catalogue;
  @Autowired com.saumya.pos.inventory.InventoryService stock;
  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
+ @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager em;
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
  @Autowired com.saumya.pos.checkout.PaymentCheckoutService payments;
@@ -45,6 +46,7 @@ class PosTest {
  String session;
  @BeforeEach void seed(){
   update("DELETE FROM pos_drawer_tenders");
+  update("DELETE FROM inventory_receipts");
   update("DELETE FROM vendor_payment_attempts");
   update("UPDATE tenants SET online_branch_id=NULL");
   for(String table:List.of("catalog_change_events","branch_settings_events","identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
@@ -61,6 +63,34 @@ class PosTest {
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=payments.tenderStatus(username,id).remaining();var result=payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null));return result.tenders().getLast();}
+ @Test void concurrentInventoryChangesRefreshAnAlreadyLoadedCatalogProjection(){
+  var pool=Executors.newSingleThreadExecutor();
+  try{new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
+   var key=new com.saumya.pos.catalog.internal.CatalogStock.Key(1,1,1);assertThat(em.find(com.saumya.pos.catalog.internal.CatalogStock.class,key).available()).isEqualTo(1);
+   try{pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(other->{service.lockOutlet(a);return stock.receive(1,1,1,2);})).get(20,TimeUnit.SECONDS);}catch(Exception failure){throw new IllegalStateException(failure);}
+   stock.issue(1,1,1,2);return null;
+  });}finally{pool.shutdownNow();}
+  assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
+ }
+ @Test void stockReceivingUsesAssignedScopeAndIdempotentAuditedCommands()throws Exception{
+  String path="/api/v1/vendor/inventory/receipts",body="{\"productId\":1,\"quantity\":2,\"reason\":\"Delivery inspected\"}";
+  mvc.perform(post(path).header("Idempotency-Key","stock-key").with(csrf()).with(user("alice").authorities(()->"PRODUCT_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).header("Idempotency-Key","stock-key").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content(body.replace("productId\":1","productId\":2"))).andExpect(status().isNotFound());
+  for(int attempt=0;attempt<2;attempt++)mvc.perform(post(path).header("Idempotency-Key","stock-key").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.availableAfter").value(3));
+  mvc.perform(post(path).header("Idempotency-Key","stock-key").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content(body.replace("quantity\":2","quantity\":3"))).andExpect(status().isConflict());
+  mvc.perform(get(path).with(user("bob").authorities(()->"INVENTORY_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+  mvc.perform(get(path).with(user("alice").authorities(()->"INVENTORY_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].actor").value("alice"));
+  assertThat(stock.atBranch(1,1,1)).isEqualTo(3);assertThat(stock.atBranch(2,2,2)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(3);
+ }
+ @Test void concurrentStockReceiptRetriesCreateOneBalanceAndOneReceipt()throws Exception{
+  update("INSERT INTO products(id,tenant_id,sku,name,price,tax_rate,published) VALUES(3,1,'NEW','New panel',100,10,FALSE)");String body="{\"productId\":3,\"quantity\":5,\"reason\":\"First delivery\"}";var gate=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+  try{Callable<String> command=()->{gate.await();var response=mvc.perform(post("/api/v1/vendor/inventory/receipts").header("Idempotency-Key","same-delivery").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn();return new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("id").asText();};var first=pool.submit(command);var second=pool.submit(command);gate.countDown();assertThat(first.get(20,TimeUnit.SECONDS)).isEqualTo(second.get(20,TimeUnit.SECONDS));}finally{pool.shutdownNow();}
+  assertThat(stock.atBranch(1,1,3)).isEqualTo(5);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=3",Integer.class)).isEqualTo(5);
+ }
+ @Test void receivingBeyondStockCapacityCannotCreateAReceiptOrChangeAvailability()throws Exception{
+  update("UPDATE inventory SET quantity=2147483646 WHERE tenant_id=1 AND product_id=1");mvc.perform(post("/api/v1/vendor/inventory/receipts").header("Idempotency-Key","capacity-check").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content("{\"productId\":1,\"quantity\":2,\"reason\":\"Capacity check\"}")).andExpect(status().isConflict());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class)).isZero();assertThat(stock.atBranch(1,1,1)).isEqualTo(2147483646L);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(2147483646);
+ }
  String productBody(String sku,String barcode,long version,boolean published,String price,Long category){return "{\"sku\":\""+sku+"\",\"barcode\":\""+barcode+"\",\"name\":\"New panel\",\"price\":"+price+",\"taxRate\":10,\"published\":"+published+",\"categoryId\":"+category+",\"expectedVersion\":"+version+",\"reason\":\"Approved catalogue change\"}";}
  @Test void productManagementIsTenantScopedAuditedAndVersioned()throws Exception{
   String path="/api/v1/vendor/products",body=productBody("P-NEW","new-barcode",0,true,"125.50",null);

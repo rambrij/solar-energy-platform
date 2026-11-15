@@ -26,6 +26,7 @@ import TerminalTenderReview from './TerminalTenderReview';
 import StoreSettings from './StoreSettings';
 import CategoryManager from './CategoryManager';
 import ProductManager from './ProductManager';
+import StockReceiving from './StockReceiving';
 import {useSession} from './session';
 
 
@@ -141,6 +142,7 @@ export default function App() {
     <ShiftHistory disabled={busy||checkingSession} revision={`${session}:${sessionState}`}/>
     {account?.permissions.includes('PRODUCT_VIEW')&&<CategoryManager onChanged={()=>setCatalogueRevision(value=>value+1)}/>}
     {account?.permissions.includes('PRODUCT_VIEW')&&<ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/>}
+    {account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission))&&<StockReceiving key={`${account.username}:${account.tenantId}:${account.branchId}`} onChanged={()=>setCatalogueRevision(value=>value+1)}/>}
     <StoreSettings/>
     <ShiftReviews/>
     <TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/>

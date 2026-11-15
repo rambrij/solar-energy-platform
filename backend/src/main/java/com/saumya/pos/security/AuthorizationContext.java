@@ -125,8 +125,8 @@ public class AuthorizationContext {
             // Customer with vendor membership - use vendor context for vendor operations
             var access = membership.get();
             return new Context(
-                username, 
-                access.tenant(), 
+                access.username(),
+                access.tenant(),
                 access.branch(), 
                 Set.copyOf(access.permissions()), 
                 false, 
@@ -144,7 +144,7 @@ public class AuthorizationContext {
 
         var access = membership.get();
         return new Context(
-            username,
+            access.username(),
             access.tenant(),
             access.branch(),
             Set.copyOf(access.permissions()),

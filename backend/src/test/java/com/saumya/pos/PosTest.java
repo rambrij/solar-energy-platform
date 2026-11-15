@@ -1284,12 +1284,12 @@ class PosTest {
   enableReturns();supervisor("manager");update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");update("UPDATE products SET price=0.05,tax_rate=10 WHERE id=1");
   var receipt=checkout.cashSale(a.cashier(),"partial-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),BigDecimal.ONE,false,null,null));
   String order=(String)receipt.get("id"),paying=refundSession("10");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
-  var ids=new ArrayList<String>();for(int i=0;i<3;i++){var r=as("alice", () -> returns.create("partial-return"+i,returnRequest(order,1)));as("manager", () -> returns.review(r.id(),approveReturn()));as("manager", () -> returns.inspect(r.id(),inspectReturn("DAMAGED","QUARANTINE")));ids.add(r.id());}
+  var ids=new ArrayList<String>();for(int i=0;i<3;i++){final int index=i;var r=as("alice", () -> returns.create("partial-return"+index,returnRequest(order,1)));as("manager", () -> returns.review(r.id(),approveReturn()));as("manager", () -> returns.inspect(r.id(),inspectReturn("DAMAGED","QUARANTINE")));ids.add(r.id());}
   var first=refundPay(ids.get(0),paying);var stale=refundPay(ids.get(1),paying);
   as("manager", () -> refunds.pay("partial-refund0",first));
   assertThatThrownBy(()->as("manager", () -> refunds.pay("partial-refund1",stale))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   update("UPDATE products SET price=999,tax_rate=50 WHERE id=1");
-  for(int i=1;i<3;i++)as("manager", () -> refunds.pay("partial-refund"+i,refundPay(ids.get(i),paying)));
+  for(int i=1;i<3;i++){final int index=i;as("manager", () -> refunds.pay("partial-refund"+index,refundPay(ids.get(index),paying)));}
   assertThat(db.queryForObject("SELECT SUM(amount) FROM pos_cash_refunds",BigDecimal.class)).isEqualByComparingTo((BigDecimal)receipt.get("total"));
  }
 
@@ -1460,7 +1460,7 @@ class PosTest {
 
  @Test void refundHistoryPagesSearchesAndDatesRemainBranchScoped() throws Exception {
   enableReturns();supervisor("manager");update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");var receipt=checkout.cashSale(a.cashier(),"history-original",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,3)),new BigDecimal("400"),false,null,null));String paying=refundSession("500");update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
-  var records=new ArrayList<com.saumya.pos.returns.CashRefundService.View>();for(int i=0;i<3;i++){var r=as("alice", () -> returns.create("history-return"+i,returnRequest((String)receipt.get("id"),1)));as("manager", () -> returns.review(r.id(),approveReturn()));as("manager", () -> returns.inspect(r.id(),inspectReturn("DAMAGED","QUARANTINE")));records.add(as("manager", () -> refunds.pay("history-refund"+i,refundPay(r.id(),paying))));}
+  var records=new ArrayList<com.saumya.pos.returns.CashRefundService.View>();for(int i=0;i<3;i++){final int index=i;var r=as("alice", () -> returns.create("history-return"+index,returnRequest((String)receipt.get("id"),1)));as("manager", () -> returns.review(r.id(),approveReturn()));as("manager", () -> returns.inspect(r.id(),inspectReturn("DAMAGED","QUARANTINE")));records.add(as("manager", () -> refunds.pay("history-refund"+index,refundPay(r.id(),paying))));}
   update("UPDATE pos_cash_refunds SET paid_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T23:59:59Z")));
   String path="/api/v1/vendor/pos/refunds/history";var ids=records.stream().map(com.saumya.pos.returns.CashRefundService.View::id).sorted(Comparator.reverseOrder()).toList();
   for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("size","1").param("page",Integer.toString(page)).param("tenantId","2").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page))).andExpect(jsonPath("$.items[0].reason").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist());
@@ -1494,7 +1494,7 @@ class PosTest {
  @Test void pagedReturnQueueFindsCasesBeyondTwentyAndEnforcesReadOnlyBranchScope() throws Exception {
   update("UPDATE branches SET pos_return_window_days=30 WHERE id=1");update("UPDATE inventory SET quantity=25 WHERE tenant_id=1");
   String order=(String)checkout.cashSale(a.cashier(),"queue-sale",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,25)),new BigDecimal("2750"),false,null,null)).get("id");
-  var ids=new ArrayList<String>();for(int i=0;i<25;i++)ids.add(as("alice", () -> returns.create("queue-case-"+i,returnRequest(order,1))).id());
+  var ids=new ArrayList<String>();for(int i=0;i<25;i++){final int index=i;ids.add(as("alice", () -> returns.create("queue-case-"+index,returnRequest(order,1))).id());}
   update("UPDATE pos_returns SET created_at=?",java.sql.Timestamp.from(java.time.Instant.parse("2026-11-12T00:00:00Z")));ids.sort(Comparator.naturalOrder());
   service.close(a,session,new BigDecimal("2800"));String path="/api/v1/vendor/pos/returns/queue";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].reason").doesNotExist()).andExpect(jsonPath("$.items[0].requester").doesNotExist()).andExpect(jsonPath("$.items[0].items").doesNotExist());

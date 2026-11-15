@@ -7,7 +7,6 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $demoRoot = Split-Path -Parent $PSScriptRoot
 $demoCompose = Join-Path $demoRoot 'docker-compose.yml'
-$demoSeed = Join-Path $demoRoot 'docs/demo/setup-multi-vendor-demo.sql'
 
 function Invoke-DemoCompose {
     & docker compose --project-directory $demoRoot -f $demoCompose @args
@@ -17,7 +16,6 @@ function Invoke-DemoCompose {
 if (-not (Test-Path -LiteralPath (Join-Path $demoRoot '.env'))) {
     throw 'Create .env from .env.example and set your local database passwords before resetting.'
 }
-if (-not (Test-Path -LiteralPath $demoSeed)) { throw 'Demo seed file is missing.' }
 
 # Validate before deleting anything. These are the only persistent volumes declared here.
 $demoVolumes = @(& docker compose --project-directory $demoRoot -f $demoCompose config --volumes)
@@ -29,9 +27,9 @@ $demoProfile = & docker compose --project-directory $demoRoot -f $demoCompose co
     ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve Compose configuration.' }
 $demoProfiles = @(([string]$demoProfile.services.backend.environment.SPRING_PROFILES_ACTIVE) -split ',' | ForEach-Object { $_.Trim() })
-if (($demoProfiles -notcontains 'local' -and $demoProfiles -notcontains 'test') -or
+if ($demoProfiles -notcontains 'local' -or
     $demoProfiles -contains 'prod' -or $demoProfiles -contains 'production') {
-    throw 'Fresh demo reset requires explicit local/test profile. Set SPRING_PROFILES_ACTIVE=local in .env.'
+    throw 'Fresh demo reset requires explicit SPRING_PROFILES_ACTIVE=local in .env.'
 }
 # Do not display resolved Compose configuration: it contains local credentials.
 $demoProfile = $null
@@ -40,11 +38,11 @@ Write-Host 'Deleting this Compose project database volume and starting a fresh M
 Invoke-DemoCompose down --volumes --remove-orphans
 Invoke-DemoCompose up -d --build mysql backend
 
-Write-Host 'Waiting for Flyway migrations through V38...'
+Write-Host 'Waiting for Flyway migrations and automatic local demo seed through V39...'
 $demoDeadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
 $demoReady = $false
 while ((Get-Date) -lt $demoDeadline) {
-    $demoResult = & docker compose --project-directory $demoRoot -f $demoCompose exec -T mysql sh -c 'export MYSQL_PWD="$MYSQL_PASSWORD"; exec mysql --user="$MYSQL_USER" --batch --skip-column-names "$MYSQL_DATABASE" --execute="SELECT COUNT(*) FROM flyway_schema_history WHERE version=''38'' AND success=1;"' 2>$null
+    $demoResult = & docker compose --project-directory $demoRoot -f $demoCompose exec -T mysql sh -c 'export MYSQL_PWD="$MYSQL_PASSWORD"; exec mysql --user="$MYSQL_USER" --batch --skip-column-names "$MYSQL_DATABASE" --execute="SELECT COUNT(*) FROM flyway_schema_history WHERE version=''39'' AND success=1;"' 2>$null
     if ($LASTEXITCODE -eq 0 -and ([string]($demoResult -join '')).Trim() -eq '1') {
         $demoReady = $true
         break
@@ -53,16 +51,10 @@ while ((Get-Date) -lt $demoDeadline) {
 }
 if (-not $demoReady) {
     Invoke-DemoCompose logs --tail 100 backend
-    throw 'Backend migrations did not finish. Demo seed and frontend startup were not attempted.'
+    throw 'Backend migrations/local demo seed did not finish. Frontend startup was not attempted.'
 }
 
-Write-Host 'Loading three vendors and their demo accounts...'
-Invoke-DemoCompose stop backend
-Get-Content -LiteralPath $demoSeed -Raw -Encoding UTF8 |
-    & docker compose --project-directory $demoRoot -f $demoCompose exec -T mysql sh -c 'export MYSQL_PWD="$MYSQL_PASSWORD"; exec mysql --user="$MYSQL_USER" "$MYSQL_DATABASE"'
-if ($LASTEXITCODE -ne 0) { throw 'Demo seed failed. Frontend startup was not attempted.' }
-
-Invoke-DemoCompose start backend
+Write-Host 'Flyway V39 automatically seeded the local vendors and demo accounts.'
 Invoke-DemoCompose up -d --build --no-deps frontend
 $demoDeadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
 $demoReady = $false

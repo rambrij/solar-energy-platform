@@ -55,3 +55,11 @@ it('builds marketplace tabs and dropdown from the marketplace navigation',()=>{
  const tabs=screen.getByRole('navigation',{name:'Workspace tabs'});expect(within(tabs).getByRole('link',{name:'Shop'})).toBeTruthy();expect(within(tabs).getByRole('link',{name:'Cart & checkout'})).toBeTruthy();
  fireEvent.click(screen.getByRole('button',{name:/Go to/}));expect(within(screen.getByRole('menu')).getByRole('menuitem',{name:'My cart'})).toBeTruthy();
 });
+
+it('shows the workspace identity and keeps navigation keyboard discoverable',()=>{
+ render(<Shell mode="pos"><section id="order-history">History</section></Shell>);
+ expect(screen.getAllByText('Store operations').length).toBeGreaterThan(0);
+ expect(screen.getByText('Sales, stock and service')).toBeTruthy();
+ expect(screen.getByRole('navigation',{name:'Workspace sections'})).toBeTruthy();
+ expect(screen.getByText('Your workspace is connected')).toBeTruthy();
+});

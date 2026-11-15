@@ -1,5 +1,5 @@
 import SessionControls from './SessionControls';
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import {
   availableNavigation,
   navigationItems,
@@ -33,14 +33,14 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
 
   useEffect(() => {
     if (!jumpOpen) return;
-    function outside(event: MouseEvent) {
+    function outside(event: globalThis.MouseEvent) {
       if (jumpRoot.current && !jumpRoot.current.contains(event.target as Node)) setJumpOpen(false);
     }
     document.addEventListener('mousedown', outside);
     return () => document.removeEventListener('mousedown', outside);
   }, [jumpOpen]);
 
-  function navigate(event: MouseEvent<HTMLAnchorElement>, id: string) {
+  function navigate(event: ReactMouseEvent<HTMLAnchorElement>, id: string) {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     navigateWorkspace(mode, id);

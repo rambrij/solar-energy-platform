@@ -126,6 +126,7 @@ export const NAVIGATION_PERMISSIONS: Record<string, PermissionRequirement> = {
   'customer-cart': { anyOf: ['CUSTOMER'] },
   'online-checkout': { anyOf: ['CUSTOMER'] },
   'saved-vendor-carts': { anyOf: ['CUSTOMER'] },
+  'customer-purchases': { anyOf: ['CUSTOMER'] },
 };
 
 /**

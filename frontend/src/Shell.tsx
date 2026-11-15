@@ -35,7 +35,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
 
   // Apply permission-based filtering
   const items = loading
-    ? featureFlaggedItems
+    ? []
     : featureFlaggedItems.filter(item =>
         hasNavigationPermission(item.id, permissions?.permissions || [])
       );

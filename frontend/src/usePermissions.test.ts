@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { usePermissions, hasNavigationPermission } from './usePermissions';
+import { usePermissions, hasNavigationPermission, NAVIGATION_PERMISSIONS } from './usePermissions';
+import { navigationItems } from './navigation';
 
 // Mock the authenticated identity endpoint.
 const { mockAuthApi } = vi.hoisted(() => ({ mockAuthApi: vi.fn() }));
@@ -142,6 +143,16 @@ describe('usePermissions', () => {
   });
 });
 
+describe('navigation permission coverage', () => {
+  it('defines an explicit permission rule for every workspace item', () => {
+    for (const mode of ['pos', 'online'] as const) {
+      for (const item of navigationItems(mode)) {
+        expect(NAVIGATION_PERMISSIONS[item.id], item.id).toBeDefined();
+      }
+    }
+  });
+});
+
 describe('hasNavigationPermission', () => {
   it('grants access to POS checkout with POS_VIEW', () => {
     expect(hasNavigationPermission('checkout', ['POS_VIEW'])).toBe(true);
@@ -178,8 +189,9 @@ describe('hasNavigationPermission', () => {
 
   it('grants access to marketplace items with CUSTOMER permission', () => {
     expect(hasNavigationPermission('vendor-directory', ['CUSTOMER'])).toBe(true);
-    expect(hasNavigationPermission('vendor-directory', ['CUSTOMER'])).toBe(true);
+    expect(hasNavigationPermission('storefront-products', ['CUSTOMER'])).toBe(true);
     expect(hasNavigationPermission('customer-cart', ['CUSTOMER'])).toBe(true);
+    expect(hasNavigationPermission('customer-purchases', ['CUSTOMER'])).toBe(true);
   });
 
   it('denies by default for unmapped items', () => {

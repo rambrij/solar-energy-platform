@@ -2,7 +2,7 @@ import {cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {afterEach,expect,it,vi} from 'vitest';
 import ProductManager from './ProductManager';
 import {vendorApi} from './api';
-vi.mock('./api',()=>({vendorApi:vi.fn()}));vi.mock('./session',()=>({useSession:()=>({account:{permissions:['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE','PRODUCT_ARCHIVE','PRICE_UPDATE']}})}));afterEach(()=>{cleanup();vi.resetAllMocks();});
+vi.mock('./api',()=>({vendorApi:vi.fn()}));vi.mock('./session',()=>({useSession:()=>({account:{permissions:['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE','PRODUCT_ARCHIVE','PRICE_VIEW','PRICE_UPDATE']}})}));afterEach(()=>{cleanup();vi.resetAllMocks();});
 it('creates a product without accepting tenant, stock or calculated totals',async()=>{
  vi.mocked(vendorApi).mockResolvedValue({items:[],page:0,totalPages:0,totalElements:0});render(<ProductManager/>);fireEvent.change(screen.getByLabelText('Product name'),{target:{value:'Panel'}});fireEvent.change(screen.getByLabelText('Product SKU'),{target:{value:'P-NEW'}});fireEvent.change(screen.getByLabelText('Product unit price before tax'),{target:{value:'125.50'}});fireEvent.change(screen.getByLabelText('Product change reason'),{target:{value:'Approved new panel'}});fireEvent.click(screen.getByText('Save product'));await screen.findByRole('status');expect(vendorApi).toHaveBeenCalledWith('/products','POST',{sku:'P-NEW',barcode:null,name:'Panel',price:'125.50',taxRate:'0.00',published:false,categoryId:null,expectedVersion:0,reason:'Approved new panel'});
 });

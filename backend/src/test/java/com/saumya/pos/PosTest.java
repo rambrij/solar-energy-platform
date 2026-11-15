@@ -643,26 +643,22 @@ class PosTest {
  boolean reviewAttempt(PosService.Scope manager,String key,PosService.ReviewAction action) {
   try{service.reviewVariance(manager,session,key,"Reviewed",action);return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}
  }
- 
- @Test
- void reviewHttpAuthorizationCsrfAndCanonicalIdentityAreEnforced() throws Exception {
-  supervisor("manager");
-  var closing = service.close(a, session, BigDecimal.ZERO, "Shortage");
-  String list = "/api/v1/vendor/pos/sessions/pending-variances", path = "/api/v1/vendor/pos/sessions/" + session + "/approve-variance";
-  String body = "{\"requestId\":\"" + closing.requestId() + "\",\"reason\":\"Reviewed drawer\"}";
+ @Test void reviewHttpAuthorizationCsrfAndCanonicalIdentityAreEnforced() throws Exception {
+  supervisor("manager");var closing=service.close(a,session,BigDecimal.ZERO,"Shortage");
+  String list="/api/v1/vendor/pos/sessions/pending-variances",path="/api/v1/vendor/pos/sessions/"+session+"/approve-variance";
+  String body="{\"requestId\":\""+closing.requestId()+"\",\"reason\":\"Reviewed drawer\"}";
   mvc.perform(get(list)).andExpect(status().isUnauthorized());
-  mvc.perform(get(list).with(user("alice").authorities(() -> "POS_VIEW"))).andExpect(status().isForbidden());
-  mvc.perform(get(list).with(user("bob").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
-  mvc.perform(get(list).with(user("manager").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].variance").value(-50));
-  mvc.perform(post(path).with(user("manager").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
-  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
-  mvc.perform(post(path).with(csrf()).with(user("ALICE").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
-  assertThat(service.scope().cashier()).isEqualTo("alice");
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews", Integer.class)).isZero();
-  mvc.perform(post(path).with(csrf()).with(user("bob").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isNotFound());
-  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(() -> "POS_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
-  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content("{\"requestId\":\"x\",\"reason\":\" \"}")).andExpect(status().isBadRequest());
-  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk());
+  mvc.perform(get(list).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(list).with(user("bob").authorities(()->"POS_SHIFT_VARIANCE_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+  mvc.perform(get(list).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].variance").value(-50));
+  mvc.perform(post(path).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("ALICE").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  assertThat(service.scope("ALICE").cashier()).isEqualTo("alice");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_shift_reviews",Integer.class)).isZero();
+  mvc.perform(post(path).with(csrf()).with(user("bob").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isNotFound());
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content("{\"requestId\":\"x\",\"reason\":\" \"}")).andExpect(status().isBadRequest());
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk());
  }
  @Test void varianceMigrationPreservesPreviouslyClosedSessions(){
   String url="jdbc:h2:mem:upgrade-"+UUID.randomUUID()+";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";

@@ -12,26 +12,11 @@ import static org.assertj.core.api.Assertions.*;
 class RefundReportServiceTest {
  final LocalDate today=LocalDate.of(2026,11,13);int reads;Object[] arguments;boolean denied;
  List<RefundHeaderAggregate> headers=List.of();List<RefundLineAggregate> lines=List.of();RefundReportService service;
-    
-    @BeforeEach
-    void setup() {
-        var repo = (RefundReportRepository) Proxy.newProxyInstance(
-                RefundReportRepository.class.getClassLoader(), new Class<?>[] { RefundReportRepository.class
-                }, (p, m, args) -> {
-                    reads++;
-                    arguments = args;
-                    return m.getName().equals("headers") ? headers : lines;
-                }
-        );
-        var retail = new PosService(null, null, null) {
-            @Override
-            public Scope scope() {
-                if (denied) throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
-                return new Scope(7, 9, "user");
-            }
-        };
-        service = new RefundReportService(repo, retail, Clock.fixed(Instant.parse("2026-11-13T00:30:00Z"), ZoneOffset.ofHours(-8)));
-    }
+ @BeforeEach void setup(){
+  var repo=(RefundReportRepository)Proxy.newProxyInstance(RefundReportRepository.class.getClassLoader(),new Class<?>[]{RefundReportRepository.class},(p,m,args)->{reads++;arguments=args;return m.getName().equals("headers")?headers:lines;});
+  var retail=new PosService(null,null){@Override public Scope scope(String user){if(denied)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);return new Scope(7,9,user);}};
+  service=new RefundReportService(repo,retail,Clock.fixed(Instant.parse("2026-11-13T00:30:00Z"),ZoneOffset.ofHours(-8)));
+ }
  @Test void defaultsToSevenUtcDaysAndCanonicalScope(){var report=service.report("manager",null,null);assertThat(report.days()).hasSize(7);assertThat(report.to()).isEqualTo(today);assertThat(report.branchId()).isEqualTo(9);assertThat(arguments).containsExactly(7L,9L,Instant.parse("2026-11-07T00:00:00Z"),Instant.parse("2026-11-14T00:00:00Z"));assertThat(reads).isEqualTo(2);assertThat(report.totals().cash()).isEqualByComparingTo("0");}
  @Test void headersAreNotMultipliedByUnitsAndCashiersAreSorted(){
   headers=List.of(new RefundHeaderAggregate(today,"zoe",1,new BigDecimal("110")),new RefundHeaderAggregate(today,"amy",2,new BigDecimal("22")));

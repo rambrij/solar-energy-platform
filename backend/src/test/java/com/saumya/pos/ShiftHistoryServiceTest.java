@@ -10,25 +10,11 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.*;
 class ShiftHistoryServiceTest {
  int reads;Object[] arguments;ShiftHistoryService service;
-    
-    @BeforeEach
-    void setup() {
-        var repository = (ClosedShiftRepository) Proxy.newProxyInstance(
-                ClosedShiftRepository.class.getClassLoader(), new Class<?>[] { ClosedShiftRepository.class
-                }, (p, m, args) -> {
-                    reads++;
-                    arguments = args;
-                    return new PageImpl<>(List.of(), (Pageable) args[6], 0);
-                }
-        );
-        var retail = new PosService(null, null, null) {
-            @Override
-            public Scope scope() {
-                return new Scope(7, 9, "cashier");
-            }
-        };
-        service = new ShiftHistoryService(repository, retail, Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"), ZoneOffset.UTC));
-    }
+ @BeforeEach void setup(){
+  var repository=(ClosedShiftRepository)Proxy.newProxyInstance(ClosedShiftRepository.class.getClassLoader(),new Class<?>[]{ClosedShiftRepository.class},(p,m,args)->{reads++;arguments=args;return new PageImpl<>(List.of(),(Pageable)args[6],0);});
+  var retail=new PosService(null,null){@Override public Scope scope(String user){return new Scope(7,9,user);}};
+  service=new ShiftHistoryService(repository,retail,Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"),ZoneOffset.UTC));
+ }
  @Test void queriesOnlyCanonicalCashierAndResolvedInclusiveUtcDates(){var r=service.history("cashier",null,null," ReF ",0,12);assertThat(arguments).containsExactly(7L,9L,"cashier",Instant.parse("2026-10-15T00:00:00Z"),Instant.parse("2026-11-14T00:00:00Z"),"ref%",PageRequest.of(0,12));assertThat(r.branchId()).isEqualTo(9);assertThat(r.reference()).isEqualTo("ReF");}
  @Test void invalidInputsStopBeforeReads(){
   for(String reference:List.of("%","_","x".repeat(37)))assertThatThrownBy(()->service.history("cashier",null,null,reference,0,12)).isInstanceOf(ResponseStatusException.class);

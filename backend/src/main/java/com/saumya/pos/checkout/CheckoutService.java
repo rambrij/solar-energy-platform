@@ -61,15 +61,10 @@ public class CheckoutService {
         return create(vendor.id(),customer,null,null,null,"ONLINE",key,hash,branch,"ONLINE:"+customer,
             cart.items().stream().map(i->new Item(i.productId(),i.quantity())).toList(),false,null);
     }
-    
-    public Draft pos(String username, String clientKey, PosDraft request) {
-        return reservePos(retail.scope(), clientKey, request, "POS", "");
-    }
-    
-    public Map<String, Object> cashSale(String username, String clientKey, CashSale request) {
+    public Draft pos(String username,String clientKey,PosDraft request){return reservePos(retail.scope(username),clientKey,request,"POS","");}
+    public Map<String,Object> cashSale(String username,String clientKey,CashSale request){
         validateCash(request.cashReceived());
-        var scope = retail.scope();
-        retail.lockOutlet(scope);
+        var scope=retail.scope(username);retail.lockOutlet(scope);
         var draft=reservePos(scope,clientKey,new PosDraft(request.sessionId(),request.items(),request.invoiceRequested(),request.discounts(),request.buyer()),"POS_CASH","|CASH|"+request.cashReceived().setScale(2).toPlainString());
         return finalizeOwnedCash(scope,draft.id(),request.cashReceived());
     }
@@ -104,44 +99,16 @@ public class CheckoutService {
         posState(order);return view(order);
     }
     private void posState(DraftOrder order){if("IN_STORE".equals(order.channel()))events.publishEvent(new com.saumya.pos.shared.PosDraftStateChanged(order.tenant(),order.branch(),order.cashier(),order.session(),order.id(),order.status()));}
-    
-    private void owned(PosService.Scope scope, DraftOrder order) {
-        if (!"IN_STORE".equals(order.channel()) || !Objects.equals(order.branch(), scope.branch()) || !scope.cashier().equals(order.cashier()))
-            throw missing();
-    }
-    
-    public List<Draft> onlineList(String username) {
-        long customer = customers.resolve(username);
-        return orders.findTop20ByCustomerIdAndChannelOrderByExpiresAtDesc(customer, "ONLINE").stream().map(this::view).toList();
-    }
-    
-    public List<Draft> posList(String username, String session) {
-        var s = retail.scope();
-        return orders.findTop20ByTenantIdAndBranchIdAndCashierAndSessionIdAndExpiresAtIsNotNullOrderByExpiresAtDesc(s.tenant(), s.branch(), s.cashier(), session).stream().map(this::view).toList();
-    }
-    
-    public Draft cancelOnline(String username, String id, String reason) {
-        var order = orders.lockCustomer(customers.resolve(username), id).orElseThrow(this::missing);
-        cancel(order, reason);
-        return view(order);
-    }
-    
-    public Draft cancelPos(String username, String id, String reason) {
-        var s = retail.scope();
-        var order = orders.lock(s.tenant(), id).orElseThrow(this::missing);
-        owned(s, order);
-        if (cancel(order, reason)) retail.draftAudit(s, "DRAFT_CANCEL", id);
-        return view(order);
-    }
+    private void owned(PosService.Scope scope,DraftOrder order){if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),scope.branch())||!scope.cashier().equals(order.cashier()))throw missing();}
+    public List<Draft> onlineList(String username){long customer=customers.resolve(username);return orders.findTop20ByCustomerIdAndChannelOrderByExpiresAtDesc(customer,"ONLINE").stream().map(this::view).toList();}
+    public List<Draft> posList(String username,String session){var s=retail.scope(username);return orders.findTop20ByTenantIdAndBranchIdAndCashierAndSessionIdAndExpiresAtIsNotNullOrderByExpiresAtDesc(s.tenant(),s.branch(),s.cashier(),session).stream().map(this::view).toList();}
+    public Draft cancelOnline(String username,String id,String reason){var order=orders.lockCustomer(customers.resolve(username),id).orElseThrow(this::missing);cancel(order,reason);return view(order);}
+    public Draft cancelPos(String username,String id,String reason){var s=retail.scope(username);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);if(cancel(order,reason))retail.draftAudit(s,"DRAFT_CANCEL",id);return view(order);}
     private boolean cancel(DraftOrder order,String reason){if(unresolvedTerminal(order))conflict("Reconcile the terminal payment before cancelling or releasing stock");if("PAID".equals(order.status()))conflict("Paid sales require the return/refund workflow");if("DRAFT".equals(order.status())){stock.release(order.tenant(),order.id());buyers.discardUnpaid(order.tenant(),order.id());order.cancel(reason.strip(),clock.instant());orders.flush();posState(order);return true;}return false;}
-    
-    private boolean unresolvedTerminal(DraftOrder order) {
-        return paymentAttempts.findAllByTenantAndOrderOrderByCreatedAscIdAsc(order.tenant(), order.id()).stream().anyMatch(a -> a.unresolved() || "CONFIRMED".equals(a.state()));
-    }
-    
-    public Map<String, Object> finalizeCash(String username, String id, BigDecimal cash) {
+    private boolean unresolvedTerminal(DraftOrder order){return paymentAttempts.findAllByTenantAndOrderOrderByCreatedAscIdAsc(order.tenant(),order.id()).stream().anyMatch(a->a.unresolved()||"CONFIRMED".equals(a.state()));}
+    public Map<String,Object> finalizeCash(String username,String id,BigDecimal cash){
         validateCash(cash);
-        return finalizeOwnedCash(retail.scope(), id, cash);
+        return finalizeOwnedCash(retail.scope(username),id,cash);
     }
     private Map<String,Object> finalizeOwnedCash(PosService.Scope s,String id,BigDecimal cash){
         retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);

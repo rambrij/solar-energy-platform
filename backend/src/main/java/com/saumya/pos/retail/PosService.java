@@ -12,19 +12,10 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service
 public class PosService {
+    @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.membership.MembershipService memberships;
     private final JdbcTemplate db;
     private final CatalogService catalogue;
-    private final com.saumya.pos.security.AuthorizationContext authContext;
-    
-    public PosService(
-            JdbcTemplate db,
-            CatalogService catalogue,
-            com.saumya.pos.security.AuthorizationContext authContext
-    ) {
-        this.db = db;
-        this.catalogue = catalogue;
-        this.authContext = authContext;
-    }
+    public PosService(JdbcTemplate db,CatalogService catalogue) { this.db=db;this.catalogue=catalogue; }
     public record Scope(long tenant, long branch, String cashier) {}
     public record OpenSession(@Positive long registerId, @NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal openingFloat) {}
     public enum MovementType { CASH_IN, CASH_OUT, SAFE_DROP }
@@ -32,20 +23,11 @@ public class PosService {
         @NotNull MovementType type,
         @NotNull @DecimalMin(value="0.00", inclusive=false) @Digits(integer=12,fraction=2) BigDecimal amount,
         @NotBlank @Size(max=250) String reason) {}
-    
-    public record Reconciliation(
-            String sessionId, String state, BigDecimal openingFloat,
-            BigDecimal cashReceived, BigDecimal changeGiven, BigDecimal cashIn,
-            BigDecimal cashOut, BigDecimal safeDrops, BigDecimal expectedCash,
-            BigDecimal countedCash, BigDecimal variance, List<Map<String, Object>> movements, BigDecimal cashRefunds
-    ) {
-    }
-    
-    public Scope scope() {
-        var ctx = authContext.current();
-        ctx.requireVendorMembership();
-        return new Scope(ctx.tenantId(), ctx.branchId(), ctx.username());
-    }
+    public record Reconciliation(String sessionId, String state, BigDecimal openingFloat,
+        BigDecimal cashReceived, BigDecimal changeGiven, BigDecimal cashIn,
+        BigDecimal cashOut, BigDecimal safeDrops, BigDecimal expectedCash,
+        BigDecimal countedCash, BigDecimal variance, List<Map<String,Object>> movements,BigDecimal cashRefunds) {}
+    public Scope scope(String user) {var membership=memberships.require(user);return new Scope(membership.tenant(),membership.branch(),membership.username());}
     public List<Map<String,Object>> products(Scope s) {
         return catalogue.posProducts(s.tenant,s.branch);
     }

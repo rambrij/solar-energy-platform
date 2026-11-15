@@ -22,32 +22,16 @@ public class ReportExportService {
  private List<String> prefix(PosService.Scope s,LocalDate from,LocalDate to,Instant at,String section,String bucket){return new ArrayList<>(List.of(Long.toString(s.tenant()),Long.toString(s.branch()),from.toString(),to.toString(),at.toString(),section,bucket));}
  private List<String> headers(String... tail){var names=new ArrayList<>(List.of("tenant_id","branch_id","from_utc","to_utc","generated_at","section","bucket"));names.addAll(List.of(tail));return names;}
  private List<String> salesRow(List<String> prefix,SalesReportService.Totals t){prefix.addAll(List.of(Long.toString(t.paidOrders()),t.sales().toPlainString(),t.beforeTax().toPlainString(),t.tax().toPlainString(),t.cashReceived().toPlainString(),t.changeGiven().toPlainString(),t.cashApplied().toPlainString(),Long.toString(t.units()),Long.toString(t.invoices()),Long.toString(t.unpaidOrders()),t.unpaidAmount().toPlainString(),Long.toString(t.cancelledOrders()),Long.toString(t.expiredOrders()),t.discounts().toPlainString()));return prefix;}
-    
-    private List<String> refundRow(List<String> prefix, RefundReportService.Totals t) {
-        prefix.addAll(List.of(Long.toString(t.refunds()), Long.toString(t.units()), t.cash().toPlainString(), t.beforeTax().toPlainString(), t.tax().toPlainString()));
-        return prefix;
-    }
-    
-    public Export sales(String username, LocalDate from, LocalDate to, String channel, String requestedReason) {
-        String reason = reason(requestedReason);
-        var s = retail.scope();
-        var r = sales.report(username, from, to, channel);
-        scope(s, r.branchId());
-        limit(1 + r.channels().size() + r.days().size());
-        var rows = new ArrayList<List<String>>();
+ private List<String> refundRow(List<String> prefix,RefundReportService.Totals t){prefix.addAll(List.of(Long.toString(t.refunds()),Long.toString(t.units()),t.cash().toPlainString(),t.beforeTax().toPlainString(),t.tax().toPlainString()));return prefix;}
+ public Export sales(String username,LocalDate from,LocalDate to,String channel,String requestedReason){
+  String reason=reason(requestedReason);var s=retail.scope(username);var r=sales.report(username,from,to,channel);scope(s,r.branchId());limit(1+r.channels().size()+r.days().size());var rows=new ArrayList<List<String>>();
   rows.add(salesRow(prefix(s,r.from(),r.to(),r.generatedAt(),"TOTAL",r.channel()),r.totals()));
   for(var c:r.channels())rows.add(salesRow(prefix(s,r.from(),r.to(),r.generatedAt(),"CHANNEL",c.channel()),c.totals()));
   for(var d:r.days())rows.add(salesRow(prefix(s,r.from(),r.to(),r.generatedAt(),"DAY",d.date().toString()),d.totals()));
-        return save(s, "SALES", r.channel(), r.from(), r.to(), reason, headers("paid_orders", "sales_incl_tax", "before_tax", "tax", "cash_received", "change_given", "cash_applied", "units", "invoices", "unpaid_orders", "unpaid_amount", "cancelled_orders", "expired_orders", "promotion_discounts"), rows);
-    }
-    
-    public Export refunds(String username, LocalDate from, LocalDate to, String requestedReason) {
-        String reason = reason(requestedReason);
-        var s = retail.scope();
-        var r = refunds.report(from, to);
-        scope(s, r.branchId());
-        limit(1 + r.days().size() + r.cashiers().size());
-        var rows = new ArrayList<List<String>>();
+  return save(s,"SALES",r.channel(),r.from(),r.to(),reason,headers("paid_orders","sales_incl_tax","before_tax","tax","cash_received","change_given","cash_applied","units","invoices","unpaid_orders","unpaid_amount","cancelled_orders","expired_orders","promotion_discounts"),rows);
+ }
+ public Export refunds(String username,LocalDate from,LocalDate to,String requestedReason){
+  String reason=reason(requestedReason);var s=retail.scope(username);var r=refunds.report(username,from,to);scope(s,r.branchId());limit(1+r.days().size()+r.cashiers().size());var rows=new ArrayList<List<String>>();
   rows.add(refundRow(prefix(s,r.from(),r.to(),r.generatedAt(),"TOTAL","CASH_ONLY"),r.totals()));
   for(var d:r.days())rows.add(refundRow(prefix(s,r.from(),r.to(),r.generatedAt(),"DAY",d.date().toString()),d.totals()));
   for(var c:r.cashiers())rows.add(refundRow(prefix(s,r.from(),r.to(),r.generatedAt(),"CASHIER",c.cashier()),c.totals()));

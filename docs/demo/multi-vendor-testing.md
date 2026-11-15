@@ -1,52 +1,39 @@
 # Multi-vendor local testing dataset
 
-The two root requirements documents govern this dataset. It is optional, synthetic local/test data using the existing manual MySQL seed mechanism. Flyway V37-V38 add platform grant storage and vendor-owned product brand metadata; it never installs accounts or demo data automatically.
+The two root requirements documents govern this optional, synthetic local/test dataset. Flyway V37-V38 add platform grant storage and vendor-owned product brand metadata. Flyway V39 installs the demo accounts and catalogue from `db/local-migration` only when the Spring `local` profile is active.
 
-## Fresh start without Workbench queries
+## Automatic local setup
 
-To permanently remove this Compose project's existing MySQL data and automatically prepare a fresh three-vendor demo, run from the repository root with PowerShell 7.3+:
-
-```powershell
-pwsh -File ./scripts/reset-local-demo.ps1
-```
-
-Keep your existing `.env` with local database passwords and `SPRING_PROFILES_ACTIVE=local`. If `.env` does not exist, create it from `.env.example` and replace the password placeholders first. Docker Desktop must be running. The script validates configuration before deletion, removes the project's `mysql-data` volume, builds/starts MySQL and backend, waits for Flyway V38, stops the backend while automatically importing the checked-in seed, restarts it, builds/starts the frontend and waits for all three public vendor catalogues. No manual SQL or Flyway repair is required. It aborts on migration/seed/startup failure. Existing project database data is permanently lost; passwords/configuration in `.env` are retained. No Docker-wide volume prune is used.
-
-## Setup without deleting existing data
-
-1. Start the backend once to apply Flyway V38, then stop it. Select your disposable local database in MySQL Workbench (or `mysql DATABASE < docs/demo/setup-multi-vendor-demo.sql`). Run the entire script, including the procedure and CALL. Do not use a production database. The JDBC integration tests execute the same data statements on H2 and the complete procedure on MySQL.
-2. Start backend with the explicit `local` profile and normal local DB/JWT settings; start the existing frontend. Use the normal sign-in screen. The script creates no sessions, orders, payments, invoices or artificial payment success.
-3. For simulated online payment only, additionally set `PAYMENTS_MOCK_ENABLED=true` under local/test. Otherwise checkout correctly stops at the unavailable payment integration. POS cash works without a payment gateway. No merchant credentials or terminal verification are invented.
-
-Run the seed with the app stopped. It serializes MySQL executions and validates reserved identity/tenant bindings before writing. A conflict aborts and rolls back persistent writes. Repeat runs preserve existing passwords, enabled flags, permissions (including revocations), stock/reservations, prices and branch settings. Deleted fixture accounts/memberships are not silently recreated. A missing membership for an existing reserved staff identity is a conflict requiring a fresh disposable database. Existing accounts with these IDs must already have the documented identity; the seed never repurposes them. This script is not a reset tool. Older 900001 demo scripts are optional separate datasets and are not prerequisites.
-
-## Missing table or column when running the seed
-
-`Table 'solar.platform_user_permissions' doesn't exist` means the selected database has not received Flyway V37. V38 also adds `products.brand`. Do not manually create either table/column or edit Flyway history: let the updated backend run its migrations against the same database selected in Workbench.
-
-From the repository root, for the existing Docker Compose setup:
+Copy `.env.example` to `.env`, replace the database password placeholders, and keep `SPRING_PROFILES_ACTIVE=local`. The template already selects the local profile. Start the normal Compose stack from the repository root:
 
 ```powershell
-git switch feature/v2-marketplace-pos-walkin
-git pull --ff-only origin feature/v2-marketplace-pos-walkin
-docker compose up -d --build backend
+docker compose up --build -d
 docker compose logs -f backend
 ```
 
-Wait for successful Flyway migration through V38 and backend startup. Ctrl+C stops following logs. If startup fails, resolve that error before seeding. For a backend run outside Docker, rebuild/start the same branch using your existing local launch command and ensure `DB_URL` targets the Workbench database.
+On a fresh database, Flyway applies the regular schema migrations first and then V39 automatically loads the three vendors, demo users, permissions, products, stock, registers and customer relationships. On an existing database that has already applied V38, starting the backend with the local profile applies V39 once without resetting the MySQL volume or existing operational data. No PowerShell helper, manual Workbench SQL, or stopping/restarting the backend is required.
 
-In Workbench, confirm the selected schema and successful versions:
+The local migration is deliberately outside the normal migration location. It is included only by `application-local.yml`; never activate `SPRING_PROFILES_ACTIVE=local` in production. The fixture credentials below are public local-demo credentials, not production accounts.
+
+For simulated online payment only, additionally set `PAYMENTS_MOCK_ENABLED=true` under local/test. Otherwise checkout correctly stops at the unavailable payment integration. POS cash works without a payment gateway. No merchant credentials or terminal verification are invented.
+
+V39 is a versioned Flyway migration and runs once per database. It serializes its MySQL transaction and validates reserved identity/tenant bindings before writing; a conflict aborts and rolls back persistent writes. Existing records are not repurposed, and existing accounts/passwords, enabled flags, grants, stock/reservations, prices and branch settings are preserved. If you need a completely fresh fixture, use a separate disposable local database/volume; do not reset a database containing operational financial data. Do not edit an already-applied migration or try to rerun it manually.
+
+## Migration troubleshooting
+
+V39 depends on the schema changes from V37 and V38. The backend runs these migrations in version order automatically when the local profile is active. If the seed does not appear, verify that the backend is connected to the same database you are inspecting and that Flyway V37, V38 and V39 report success:
 
 ```sql
 SELECT DATABASE();
 SELECT version, description, success
 FROM flyway_schema_history
-WHERE version IN ('37','38');
+WHERE version IN ('37','38','39')
+ORDER BY version;
 SHOW COLUMNS FROM products LIKE 'brand';
 SHOW TABLES LIKE 'platform_user_permissions';
 ```
 
-Both migration rows must report success. If logs show V38 but these queries do not, the backend and Workbench target different databases. Stop the backend (`docker compose stop backend` for Compose), rerun the entire seed script, then start it again (`docker compose start backend`). Do not delete the database or reset existing data to resolve a missing migration. The seed now checks these prerequisites and reports an explicit migration instruction before any inserts.
+If V37/V38 are missing, start the updated backend against the intended local database and inspect its startup logs before proceeding. Do not manually create the missing table/column or edit Flyway history. If V39 fails, fix the reported data/schema conflict and use a disposable database for a clean demo fixture; do not delete existing operational rows to bypass the migration.
 
 ## Stores and catalogue
 
@@ -150,6 +137,6 @@ The current implementation uses additional specific POS grants (e.g. `POS_TENDER
 3. With explicit local mock payments enabled, reserve and confirm a Saumya purchase, then a Helio purchase using the same account. Order history must show both vendor labels, with each order containing exactly one vendor's products. Rahul cannot read Asha's order IDs or carts. Reservation/payment paths must deduct only the selected branch's stock and maintain reserved balances.
 4. Sign in as each cashier on its assigned register. Scan the documented barcode, edit quantity, apply an allowed discount, take cash or configured split tenders and print. Opening float must match actual demo drawer cash. No session is pre-opened. Another vendor's barcode/product/order must be unavailable.
 5. Inventory staff can receive stock only for its own vendor; Sales cannot receive stock or bill at POS. Finance can perform permitted independent reviews; a cashier cannot self-approve. Platform admin gets only platform grants and commercial endpoints return 403; vendor users get no platform grants.
-6. Rerun the seed after modifying a demo price/stock or revoking a grant: those changes must survive. Use a fresh disposable database to reset all fixtures; never delete operational financial rows to reset a store.
+6. Change demo prices/stock or revoke a grant and verify those changes persist. Flyway V39 is applied once and is not a recurring reseed job. To restore the original fixture, use a separate fresh disposable local database; never delete operational financial rows to reset a store.
 
 Automated tests verify the actual seed, BCrypt credentials, distinct catalogues, per-user authority boundaries, rerun preservation, collision rollback, cart switching, and real checkout/order isolation on H2 and MySQL CI. See PR validation for commands/results.

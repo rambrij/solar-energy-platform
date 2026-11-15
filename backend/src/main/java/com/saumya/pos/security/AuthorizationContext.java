@@ -1,7 +1,6 @@
 package com.saumya.pos.security;
 
 import com.saumya.pos.membership.MembershipService;
-import com.saumya.pos.identity.internal.PlatformGrantRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,11 +19,9 @@ import java.util.stream.Collectors;
 @Component
 public class AuthorizationContext {
     private final MembershipService membershipService;
-    private final PlatformGrantRepository platformGrants;
 
-    public AuthorizationContext(MembershipService membershipService, PlatformGrantRepository platformGrants) {
+    public AuthorizationContext(MembershipService membershipService) {
         this.membershipService = membershipService;
-        this.platformGrants = platformGrants;
     }
 
     /**

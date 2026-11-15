@@ -55,13 +55,14 @@ class PosTest {
   for(String table:List.of("catalog_change_events","branch_settings_events","identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
   update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
-  employee("alice",1,1);employee("bob",2,2);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
+  employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",List.of()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
   update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
   update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
   update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,1,1),(2,2,2,1)");
   session=(String)service.open(a,new PosService.OpenSession(1,new BigDecimal("50"))).get("id");
  }
  int update(String sql,Object...args){int result=db.update(sql,args);if(sql.matches("(?is)^\\s*(?:UPDATE\\s+inventory\\b|INSERT\\s+INTO\\s+inventory\\b|DELETE\\s+FROM\\s+inventory\\b).*")){db.update("DELETE FROM catalog_stock");db.update("INSERT INTO catalog_stock SELECT tenant_id,branch_id,product_id,quantity-reserved FROM inventory");}return result;}
+ @AfterEach void clearPrincipal(){org.springframework.security.core.context.SecurityContextHolder.clearContext();}
  void employee(String username,long tenant,long branch){long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);update("INSERT INTO users VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);}
  <T> T as(String username, java.util.function.Supplier<T> action) {
   var previous = org.springframework.security.core.context.SecurityContextHolder.getContext();

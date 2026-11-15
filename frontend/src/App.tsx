@@ -36,7 +36,7 @@ import { navigationItems, navigateWorkspace } from './navigation';
 export default function App() {
   const {account}=useSession();
   const availableIds=navigationItems('pos').filter(item=>{
-    if(item.id==='category-management'||item.id==='product-management')return !!account?.permissions.includes('PRODUCT_VIEW');
+    if(item.id==='category-management'||item.id==='product-management')return !!account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission));
     if(item.id==='stock-receiving')return !!account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission));
     return true;
   }).map(item=>item.id);
@@ -151,8 +151,8 @@ export default function App() {
     <RouteOutlet id="refund-insights" mode="pos"><RefundInsights/></RouteOutlet>
     <RouteOutlet id="cashier-sales-insights" mode="pos"><CashierSalesInsights/></RouteOutlet>
     <RouteOutlet id="shift-history" mode="pos"><ShiftHistory revision={String(drawerRevision)}/></RouteOutlet>
-    {account?.permissions.includes('PRODUCT_VIEW')&&<RouteOutlet id="category-management" mode="pos"><CategoryManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
-    {account?.permissions.includes('PRODUCT_VIEW')&&<RouteOutlet id="product-management" mode="pos"><ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
+    {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="category-management" mode="pos"><CategoryManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
+    {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="product-management" mode="pos"><ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
     {account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission))&&<RouteOutlet id="stock-receiving" mode="pos"><StockReceiving key={`${account.username}:${account.tenantId}:${account.branchId}`} onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
     <RouteOutlet id="store-settings" mode="pos"><StoreSettings/></RouteOutlet>
     <RouteOutlet id="shift-reviews" mode="pos"><ShiftReviews/></RouteOutlet>

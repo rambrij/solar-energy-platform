@@ -26,6 +26,10 @@ class ShiftHistoryServiceTest {
             public Scope scope() {
                 return new Scope(7, 9, "cashier");
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions){
+                assertThat(scope.cashier()).isEqualTo(actor);
+                assertThat(permissions).containsExactly("POS_VIEW");
+            }
         };
         service = new ShiftHistoryService(repository, retail, Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"), ZoneOffset.UTC));
     }

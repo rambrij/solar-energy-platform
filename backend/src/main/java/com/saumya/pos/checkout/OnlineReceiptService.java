@@ -31,7 +31,7 @@ public class OnlineReceiptService {
  private Receipt view(DraftOrder order,boolean copy){
   var items=lines.lines(order.tenant(),order.id()).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.discount(),l.tax(),l.total())).toList();
   var saved=invoices.findById(new InvoiceSnapshot.Key(order.tenant(),order.id())).map(i->List.of(new Invoice(i.number(),i.seller(),i.outlet(),i.total()))).orElseGet(List::of);
-  var buyer="IN_STORE".equals(order.channel())?buyers.snapshot(order.tenant(),order.id()):null;if(buyer!=null)retail.draftAudit(new PosService.Scope(order.tenant(),order.stockBranch(),"customer:"+order.customer()),"CUSTOMER_BUYER_SNAPSHOT_VIEW",order.id());
+  var buyer="IN_STORE".equals(order.channel())?buyers.snapshot(order.tenant(),order.id()):null;if(buyer!=null)retail.customerDraftAudit(order.tenant(),order.stockBranch(),order.customer(),"CUSTOMER_BUYER_SNAPSHOT_VIEW",order.id());
   return new Receipt(order.id(),order.receiptSeller(),order.receiptOutlet(),order.changed()==null?order.created():order.changed(),order.total(),order.paymentMethod(),items,saved,copy,buyer);
  }
  public Receipt read(String username,String id){return view(owned(username,id),false);}

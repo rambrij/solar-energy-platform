@@ -1,7 +1,9 @@
 package com.saumya.pos.platform;
 
 import com.saumya.pos.platform.internal.*;
+import com.saumya.pos.security.AuthorizationContext;
 import java.time.*;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -13,10 +15,14 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlatformConfigurationServiceTest {
-    @Mock PlatformConfigurationRepository repository;@Mock PlatformAuditService audit;
+    @Mock PlatformConfigurationRepository repository;@Mock PlatformAuditService audit;@Mock AuthorizationContext authorization;
+    private PlatformConfigurationServiceImpl service(){
+        when(authorization.current()).thenReturn(new AuthorizationContext.Context("admin",null,null,
+            Set.of("PLATFORM_CONFIG_MANAGE"),true,false,false));
+        return new PlatformConfigurationServiceImpl(repository,audit,Clock.fixed(Instant.parse("2026-11-16T00:00:00Z"),ZoneOffset.UTC),authorization);
+    }
     @Test void rejectsRawCredentialsAndNeverReturnsSecretReferences(){
-        Instant now=Instant.parse("2026-11-16T00:00:00Z");
-        var service=new PlatformConfigurationServiceImpl(repository,audit,Clock.fixed(now,ZoneOffset.UTC));
+        var service=service();
         assertThatThrownBy(()->service.put(new PlatformConfigurationService.Update("PAYMENT_API_KEY","PAYMENT","plain-secret",false,null),"admin",null))
             .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(()->service.put(new PlatformConfigurationService.Update("PAYMENT_API_KEY","PAYMENT","plain-secret",true,"vault://payment/key"),"admin",null))
@@ -26,5 +32,11 @@ class PlatformConfigurationServiceTest {
         var saved=service.put(new PlatformConfigurationService.Update("PAYMENT_API_KEY","PAYMENT",null,true,"vault://payment/key"),"admin","corr");
         assertThat(saved.value()).isNull();assertThat(saved.sensitive()).isTrue();assertThat(saved.secretConfigured()).isTrue();
         assertThat(saved.toString()).doesNotContain("vault://payment/key");
+    }
+    @Test void configurationReadsRequirePlatformConfigurationPermission(){
+        when(authorization.current()).thenReturn(new AuthorizationContext.Context("vendor",1L,1L,Set.of("VENDOR_AUDIT_VIEW"),false,false,true));
+        var service=new PlatformConfigurationServiceImpl(repository,audit,Clock.systemUTC(),authorization);
+        assertThatThrownBy(service::list).isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(repository);
     }
 }

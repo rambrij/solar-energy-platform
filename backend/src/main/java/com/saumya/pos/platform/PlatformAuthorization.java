@@ -8,10 +8,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 
 /** Platform authorization adapter that depends only on Spring Security, not vendor membership services. */
-final class PlatformAuthorization {
+public final class PlatformAuthorization {
     private PlatformAuthorization() {}
 
-    static Authentication require(String permission, String expectedActor) {
+    public static Authentication require(String permission, String expectedActor) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || "anonymousUser".equals(authentication.getPrincipal())) {

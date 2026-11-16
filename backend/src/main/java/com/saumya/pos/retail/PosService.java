@@ -139,6 +139,7 @@ public class PosService {
             case "DRAFT_RESERVE"->"POS_SALE_CREATE";
             case "DRAFT_CANCEL"->"POS_SALE_CANCEL";
             case "RECEIPT_REPRINT"->"POS_RECEIPT_REPRINT";
+            case "BUYER_SNAPSHOT_VIEW"->"POS_RECEIPT_VIEW";
             case "REGISTER_CREATE"->"POS_SETTINGS_MANAGE";
             default->throw new ResponseStatusException(FORBIDDEN,"Unsupported POS audit action");
         };

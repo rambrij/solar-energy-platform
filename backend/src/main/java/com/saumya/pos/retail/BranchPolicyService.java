@@ -31,7 +31,7 @@ public class BranchPolicyService {
     
     @Transactional(readOnly = true)
     public Policy current(String username) {
-        var scope = retail.scope();
+        var scope = retail.scope();retail.authorize(scope,username,"POS_VIEW");
         return find(scope.tenant(), scope.branch()).orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Outlet unavailable"));
     }
     
@@ -44,7 +44,7 @@ public class BranchPolicyService {
     
     @Transactional
     public Policy update(String username, Settings request) {
-        var scope = retail.scope();
+        var scope = retail.scope();retail.authorize(scope,username,"POS_VIEW","POS_SETTINGS_MANAGE");
         var branch = branches.locked(scope.tenant(), scope.branch()).orElseThrow(() -> new ResponseStatusException(NOT_FOUND));
         em.refresh(branch, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (branch.version() != request.expectedVersion())
@@ -70,7 +70,7 @@ public class BranchPolicyService {
     public long createRegister(String username, String reason) {
         if (reason == null || reason.isBlank() || reason.length() > 250)
             throw new ResponseStatusException(BAD_REQUEST, "Register setup reason required");
-        var scope = retail.scope();
+        var scope = retail.scope();retail.authorize(scope,username,"POS_VIEW","POS_SETTINGS_MANAGE");
         retail.lockOutlet(scope);
         long id = sequence.register().orElseThrow().allocate();
         em.persist(new RegisterRecord(id, scope.tenant(), scope.branch()));

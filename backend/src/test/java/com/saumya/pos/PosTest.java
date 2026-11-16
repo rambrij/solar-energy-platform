@@ -32,6 +32,10 @@ class PosTest {
  @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager em;
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
+ @Autowired com.saumya.pos.checkout.CashierSalesService cashierSales;
+ @Autowired com.saumya.pos.checkout.OrderHistoryService orderHistory;
+ @Autowired com.saumya.pos.checkout.DraftRecoveryService draftRecovery;
+ @Autowired com.saumya.pos.catalog.PosCatalogService posCatalog;
  @Autowired com.saumya.pos.checkout.PaymentCheckoutService payments;
  @Autowired com.saumya.pos.checkout.ReturnSaleAccess returnSaleAccess;
  @Autowired com.saumya.pos.checkout.OnlineReceiptService onlineReceipts;
@@ -1881,6 +1885,24 @@ class PosTest {
     "INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(1,?,'ACTIVE','alice','cross tenant event')",
     subscriptionB)).isInstanceOf(RuntimeException.class);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_events WHERE tenant_id=1 AND subscription_id=?",Integer.class,subscriptionA)).isEqualTo(1);
+ }
+
+
+
+ @Test void directServiceCallsRejectMissingPermissionBeforeBusinessQueries() {
+  // No controller is involved: call the Spring service proxies directly with
+  // the authenticated employee's permission removed from the persisted grants.
+  update("DELETE FROM employee_permissions WHERE username='alice' AND permission IN ('POS_CASHIER_REPORT_VIEW','POS_VIEW')");
+  assertThatThrownBy(()->as("alice",()->cashierSales.report("alice",null,null,0,10)))
+    .isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->as("alice",()->orderHistory.pos("alice",
+    new com.saumya.pos.checkout.OrderHistoryService.Filter("ALL","",null,null,0,10))))
+    .isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->as("alice",()->draftRecovery.pos("alice","nonexistent-order")))
+    .isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->as("alice",()->posCatalog.search(1,1,"","all","name",false,0,10)))
+    .isInstanceOf(RuntimeException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
  }
 
 }

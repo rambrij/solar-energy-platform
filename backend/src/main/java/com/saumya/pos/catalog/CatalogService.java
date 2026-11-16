@@ -27,7 +27,7 @@ public class CatalogService {
     }
     private VendorInfo info(TenantLifecycleService.TenantSummary t){return new VendorInfo(t.id(),t.slug(),t.name(),"ACTIVE".equals(t.lifecycleStatus()));}
     private ProductInfo info(long tenant,Product p){return info(tenant,p,false);}
-    private ProductInfo info(long tenant,Product p,boolean locked){var quote=promotions.price(tenant,p.id(),p.price(),locked);var category=categories.forProduct(tenant,p.id());return new ProductInfo(p.id(),p.sku(),p.barcode(),p.name(),quote.price(),p.taxRate(),p.published(),stock.available(tenant,p.id())>0,p.price(),quote.percent(),category.map(CategoryRow::id).orElse(null),category.map(CategoryRow::name).orElse("Other"),p.brand());}
+    private ProductInfo info(long tenant,Product p,boolean locked){var quote=promotions.price(tenant,p.id(),p.price(),locked);var category=categories.forProduct(tenant,p.id());return new ProductInfo(p.id(),p.sku(),p.barcode(),p.name(),quote.price(),p.taxRate(),p.published(),stock.publicInStock(tenant,p.id()),p.price(),quote.percent(),category.map(CategoryRow::id).orElse(null),category.map(CategoryRow::name).orElse("Other"),p.brand());}
     public List<CategoryInfo> categories(String slug){return publishedCategories(activeVendor(slug).id());}
     public List<CategoryInfo> publishedCategories(long tenant){return categories.published(tenant).stream().map(c->new CategoryInfo(c.id(),c.name(),c.slug(),c.products())).toList();}
     private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Catalogue resource unavailable");}

@@ -35,8 +35,7 @@ public class CatalogService {
     public VendorInfo activeVendor(String slug){return info(tenants.activeVendor(slug));}
     public VendorInfo vendor(long tenant){return info(tenants.get(tenant));}
     public long onlineBranch(long tenant){return tenants.onlineBranch(tenant);}
-    public long onlineAvailable(long tenant,long product){var vendor=tenants.get(tenant);if(!"ACTIVE".equals(vendor.lifecycleStatus())||vendor.onlineBranchId()==null)return 0;return stock.atBranch(tenant,vendor.onlineBranchId(),product);}
-    public boolean onlineInStock(long tenant,long product){return onlineAvailable(tenant,product)>0;}
+    public boolean onlineAvailableAtLeast(long tenant,long product,int quantity){var vendor=tenants.get(tenant);if(!"ACTIVE".equals(vendor.lifecycleStatus())||vendor.onlineBranchId()==null)return false;return stock.publicAvailableAtLeast(tenant,vendor.onlineBranchId(),product,quantity);}
     public List<ProductInfo> products(String slug){long tenant=activeVendor(slug).id();return products.findByTenantIdAndPublishedTrueOrderById(tenant).stream().map(p->info(tenant,p)).toList();}
     public ProductInfo product(long tenant,long id){return info(tenant,products.findByTenantIdAndId(tenant,id).orElseThrow(this::missing));}
     public ProductInfo published(long tenant,long id){var p=product(tenant,id);if(!p.published())throw missing();return p;}

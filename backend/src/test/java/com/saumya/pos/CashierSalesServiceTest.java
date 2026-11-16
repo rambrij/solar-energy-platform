@@ -35,6 +35,7 @@ class CashierSalesServiceTest {
                 if (denied) throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
                 return new Scope(7, 9, "user");
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions){if(denied)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);}
         };
         service = new CashierSalesService(repo, retail, Clock.fixed(Instant.parse("2026-11-13T00:30:00Z"), ZoneOffset.ofHours(-8)));
     }

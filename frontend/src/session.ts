@@ -20,7 +20,7 @@ export function restoreSession(){
  const current=generation;
  refreshTask=(async()=>{try{const value=await authRequest('/refresh',{});if(current!==generation)return false;token=value.accessToken;publish(value.account);return true;}catch{if(current===generation){token=undefined;publish(null);}return false;}finally{refreshTask=undefined;}})();return refreshTask;
 }
-export async function signIn(username:string,password:string,register=false){const current=++generation;const value=await authRequest(register?'/register':'/login',{username,password});if(current!==generation)throw Error('Sign-in superseded');token=value.accessToken;publish(value.account);}
+export async function signIn(username:string,password:string,register=false,totpCode?:string){const current=++generation;const value=await authRequest(register?'/register':'/login',{username,password,...(!register&&totpCode?{totpCode}: {})});if(current!==generation)throw Error('Sign-in superseded');token=value.accessToken;publish(value.account);}
 export async function signOut(){const current=++generation;await authRequest('/logout',{});if(current===generation){token=undefined;publish(null);}}
 function authorizedHeaders(source?:HeadersInit){const headers:Record<string,string>={};if(source instanceof Headers)source.forEach((value,key)=>{headers[key]=value;});else if(Array.isArray(source))source.forEach(([key,value])=>{headers[key]=value;});else Object.assign(headers,source);if(token)headers.Authorization='Bearer '+token;return headers;}
 export async function authenticatedFetch(path:string,options:RequestInit={}){

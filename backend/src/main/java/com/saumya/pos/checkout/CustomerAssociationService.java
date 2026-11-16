@@ -10,6 +10,7 @@ import java.time.*;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.*;
 @Service @Transactional
@@ -21,18 +22,23 @@ public class CustomerAssociationService {
  private ResponseStatusException missing(){return new ResponseStatusException(NOT_FOUND,"Customer association unavailable");}
  private String hash(String token){if(token==null||!token.matches("[A-Za-z0-9_-]{43}"))throw missing();try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
     
+    @PreAuthorize("hasAuthority('POS_SALE_CREATE')")
     public Challenge create(String username, String id, boolean customerRequested) {
         if (!customerRequested)
             throw new ResponseStatusException(BAD_REQUEST, "Customer must request account association");
         var scope = retail.scope();
+        retail.authorize(scope,username,"POS_SALE_CREATE");
         retail.lockOutlet(scope);
         var order = orders.lock(scope.tenant(), id).orElseThrow(this::missing);
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),scope.branch())||!username.equals(order.cashier())||!"DRAFT".equals(order.status())||order.customer()!=null||!order.expires().isAfter(clock.instant()))throw missing();
   retail.requireOpen(scope,order.session());byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);String token=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);Instant expires=clock.instant().plusSeconds(300);
   challenges.saveAndFlush(new CustomerChallenge(hash(token),order.tenant(),id,expires));retail.draftAudit(scope,"CUSTOMER_ASSOCIATION_REQUEST",id);return new Challenge(token,expires);
  }
- public Preview preview(String username,String token){long customer=customers.resolve(username);var challenge=challenges.findById(hash(token)).orElseThrow(this::missing);if(challenge.customer()==null&&!challenge.expires().isAfter(clock.instant())||challenge.customer()!=null&&challenge.customer()!=customer)throw missing();var order=orders.findByTenantIdAndId(challenge.tenant(),challenge.order()).orElseThrow(this::missing);return new Preview(catalog.vendor(order.tenant()).name(),order.total(),challenge.customer()==null?"AWAITING_CUSTOMER_CONSENT":"ASSOCIATED");}
+ @PreAuthorize("hasAuthority('CUSTOMER')")
+ public Preview preview(String username,String token){retail.authorizeCustomer(username);long customer=customers.resolve(username);var challenge=challenges.findById(hash(token)).orElseThrow(this::missing);if(challenge.customer()==null&&!challenge.expires().isAfter(clock.instant())||challenge.customer()!=null&&challenge.customer()!=customer)throw missing();var order=orders.findByTenantIdAndId(challenge.tenant(),challenge.order()).orElseThrow(this::missing);return new Preview(catalog.vendor(order.tenant()).name(),order.total(),challenge.customer()==null?"AWAITING_CUSTOMER_CONSENT":"ASSOCIATED");}
+ @PreAuthorize("hasAuthority('CUSTOMER')")
  public Preview approve(String username,String token,boolean consent){
+  retail.authorizeCustomer(username);
   if(!consent)throw new ResponseStatusException(BAD_REQUEST,"Explicit customer consent required");
   long customer=customers.resolve(username);customers.lock(customer);var challenge=challenges.locked(hash(token)).orElseThrow(this::missing);
   if(challenge.customer()!=null){if(challenge.customer()!=customer)throw missing();return preview(username,token);}

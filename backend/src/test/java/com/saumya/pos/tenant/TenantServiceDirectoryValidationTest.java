@@ -11,6 +11,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import static org.assertj.core.api.Assertions.*;
 
 class TenantServiceDirectoryValidationTest {
+    @org.junit.jupiter.api.AfterEach void clearSecurity(){SecurityContextHolder.clearContext();}
+
     @Test void directTenantCreationRequiresPlatformGrantBeforeSequenceOrRepositoryAccess(){
         var repository=mock(TenantRepository.class);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor-operator","n/a",java.util.List.of(new SimpleGrantedAuthority("POS_VIEW"))));

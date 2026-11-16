@@ -152,6 +152,11 @@ public class VendorRoleService {
         long oldBranch=((Number)emp.get("branch_id")).longValue();
         if(oldBranch==newBranch)return employee(c,subject,oldBranch,Boolean.TRUE.equals(emp.get("enabled")));
         var existingRoles=db.queryForList("SELECT role_id,active,assigned_by FROM employee_role_assignments WHERE tenant_id=? AND username=?",c.tenantId(),subject);
+        var existingRegisters=db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND username=?",Long.class,c.tenantId(),subject);
+        for(var assignment:existingRoles)if(Boolean.TRUE.equals(assignment.get("active")))
+            audit(c,subject,"ROLE_ASSIGNMENT",String.valueOf(assignment.get("role_id")),"ROLE_ASSIGNMENT_REVOKED_ON_BRANCH_CHANGE",why);
+        for(Long register:existingRegisters)
+            audit(c,subject,"REGISTER_ASSIGNMENT",Long.toString(register),"REGISTER_ASSIGNMENT_REVOKED_ON_BRANCH_CHANGE",why);
         db.update("DELETE FROM employee_register_assignments WHERE tenant_id=? AND username=?",c.tenantId(),subject);
         db.update("DELETE FROM employee_role_assignments WHERE tenant_id=? AND username=?",c.tenantId(),subject);
         db.update("UPDATE employees SET branch_id=? WHERE tenant_id=? AND username=?",newBranch,c.tenantId(),subject);
@@ -165,9 +170,13 @@ public class VendorRoleService {
         var c=require("USER_DISABLE");String why=reason(requestedReason);String subject=subject(c,username);
         if(subject.equals(c.username()))throw new ResponseStatusException(CONFLICT,"An administrator cannot disable their own membership");
         var emp=employeeRow(c,subject);
+        var previousRoles=db.queryForList("SELECT role_id FROM employee_role_assignments WHERE tenant_id=? AND username=? AND active=TRUE",Long.class,c.tenantId(),subject);
+        var previousRegisters=db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND username=? AND active=TRUE",Long.class,c.tenantId(),subject);
         db.update("UPDATE employees SET enabled=FALSE WHERE tenant_id=? AND username=?",c.tenantId(),subject);
         db.update("UPDATE employee_role_assignments SET active=FALSE,revoked_by=?,revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND username=? AND active=TRUE",c.username(),c.tenantId(),subject);
         db.update("UPDATE employee_register_assignments SET active=FALSE,revoked_by=?,revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND username=? AND active=TRUE",c.username(),c.tenantId(),subject);
+        for(Long id:previousRoles)audit(c,subject,"ROLE_ASSIGNMENT",Long.toString(id),"ROLE_REVOKED_ON_EMPLOYEE_DISABLE",why);
+        for(Long id:previousRegisters)audit(c,subject,"REGISTER_ASSIGNMENT",Long.toString(id),"REGISTER_REVOKED_ON_EMPLOYEE_DISABLE",why);
         audit(c,subject,"EMPLOYEE",subject,"EMPLOYEE_DISABLED",why);
     }
     public List<String> effectivePermissions(String username){

@@ -48,18 +48,19 @@ public class MembershipService implements VendorMembershipAccess {
         this.memberships=memberships;this.grants=grants;this.tenants=tenants;this.jdbc=jdbc;this.entitlements=entitlements;
     }
     
+    public record Access(long tenant,long branch,String username,List<String> permissions){}
     public record Provisioning(String username,long tenantId,long branchId,boolean created,int permissionCount){}
     @Override
     public Optional<VendorMembershipResolver.Membership> resolve(String username){
         return access(username).map(a->new VendorMembershipResolver.Membership(a.tenant(),a.branch(),a.username(),a.permissions()));
     }
-    public Optional<VendorMembershipAccess.Access> access(String username){
+    public Optional<Access> access(String username){
         return memberships.findByUsernameIgnoreCase(username).filter(EmployeeMembership::enabled)
             .filter(m->tenants.isActive(m.tenant()))
             .map(m->{
                 List<String> effective=effectiveVendorPermissions(m.username(),m.tenant());
                 if(entitlements!=null)effective=entitlements.permissions(m.tenant(),effective);
-                return new VendorMembershipAccess.Access(m.tenant(),m.branch(),m.username(),effective);
+                return new Access(m.tenant(),m.branch(),m.username(),effective);
             });
     }
     private List<String> effectiveVendorPermissions(String username,long tenant){
@@ -79,7 +80,7 @@ public class MembershipService implements VendorMembershipAccess {
             """,String.class,tenant,username);
     }
     @Override public boolean hasMembership(String username){return memberships.findByUsernameIgnoreCase(username).isPresent();}
-    public VendorMembershipAccess.Access require(String username){return access(username).orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN,"Active vendor membership required"));}
+    public Access require(String username){return access(username).orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN,"Active vendor membership required"));}
 
     @Transactional
     public Provisioning provisionInitialVendorAdmin(long tenantId,long branchId,String username){

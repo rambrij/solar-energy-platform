@@ -44,7 +44,7 @@ public class BranchPolicyService {
     
     @Transactional
     public Policy update(String username, Settings request) {
-        var scope = retail.scope();retail.authorize(scope,username,"POS_VIEW","POS_SETTINGS_MANAGE");
+        var scope = retail.scope();retail.authorize(scope,username,"POS_SETTINGS_MANAGE");
         var branch = branches.locked(scope.tenant(), scope.branch()).orElseThrow(() -> new ResponseStatusException(NOT_FOUND));
         em.refresh(branch, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (branch.version() != request.expectedVersion())

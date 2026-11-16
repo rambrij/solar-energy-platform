@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.util.AnnotatedElementUtils;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.web.bind.annotation.*;
 import static org.assertj.core.api.Assertions.*;
 

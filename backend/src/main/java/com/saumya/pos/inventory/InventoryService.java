@@ -105,10 +105,6 @@ public class InventoryService {
   return requested>0&&balances.atBranch(tenant,branch,product)>=requested;
  }
 
- /** Internal exact-quantity query. Callers must already hold a vendor scope or be a stock projection. */
- @Transactional(readOnly=true)
- public boolean publicInStock(long tenant,long branch,long product){return balances.atBranch(tenant,branch,product)>0;}
-
  /** Exact tenant-wide quantity is available only to an authenticated tenant member. */
  @Transactional(readOnly=true)
  public long available(long tenant,long product){
@@ -166,7 +162,7 @@ public class InventoryService {
    if(!context.isCustomer()){
     if(!"IN_STORE".equals(order.get("sales_channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
     context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
-    if(context.username().equals(row.get("cashier")))context.requirePermission("POS_SALE_CANCEL");
+    if(context.username().equals(order.get("cashier"))){if(!context.hasAnyPermission("POS_SALE_CANCEL","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Sale cancellation or payment resolution permission required");}
     else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))
      throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Payment resolution permission required");
    }else order=authorizeOrder(tenant,orderId,branch,"POS_SALE_CANCEL");

@@ -36,7 +36,6 @@ class SubscriptionPlanServiceTest {
         assertThat(result.versions()).extracting(SubscriptionPlanService.PlanVersionView::version).contains(1,2);
     }
     @Test void rejectsUnknownOrNonBooleanFeatureEntitlements(){
-        when(plans.findByPlanKey("starter")).thenReturn(Optional.empty());
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
         var unknown=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"{\"features\":{\"UNKNOWN\":true}}",7,"{}","plan");
         assertThatThrownBy(()->service.create(unknown,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);

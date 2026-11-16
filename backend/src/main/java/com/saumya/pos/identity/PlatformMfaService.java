@@ -4,6 +4,8 @@ import com.saumya.pos.identity.internal.GlobalUser;
 import com.saumya.pos.identity.internal.GlobalUserRepository;
 import com.saumya.pos.identity.internal.PlatformGrantRepository;
 import com.saumya.pos.membership.MembershipService;
+import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.platform.PlatformAuditService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -23,10 +25,36 @@ import static org.springframework.http.HttpStatus.*;
 public class PlatformMfaService {
     private final JdbcTemplate db;private final GlobalUserRepository users;private final PlatformGrantRepository grants;
     private final MembershipService memberships;private final PlatformMfaCrypto crypto;private final PlatformTotp totp;private final Clock clock;
+    private final AuthorizationContext authorization;private final PlatformAuditService audit;
     public PlatformMfaService(JdbcTemplate db,GlobalUserRepository users,PlatformGrantRepository grants,MembershipService memberships,
-        PlatformMfaCrypto crypto,PlatformTotp totp,Clock clock){this.db=db;this.users=users;this.grants=grants;this.memberships=memberships;this.crypto=crypto;this.totp=totp;this.clock=clock;}
+        PlatformMfaCrypto crypto,PlatformTotp totp,Clock clock,AuthorizationContext authorization,PlatformAuditService audit){
+        this.db=db;this.users=users;this.grants=grants;this.memberships=memberships;this.crypto=crypto;this.totp=totp;this.clock=clock;this.authorization=authorization;this.audit=audit;
+    }
     public record Enrollment(String username,String secret,String otpauthUri,String expiresAt){}
     public record EnrollmentStatus(boolean enrolled){}
+    public record IssuedEnrollment(String username,String token,String expiresAt){}
+    public IssuedEnrollment issueEnrollment(String targetUsername,String reason){
+        var actor=authorization.current();
+        if(!actor.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");
+        actor.requirePermission("PLATFORM_IDENTITY_MANAGE");
+        String target=targetUsername==null?"":targetUsername.strip().toLowerCase(java.util.Locale.ROOT);
+        String why=reason==null?"":reason.strip();
+        if(!target.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")||target.length()>100||why.isBlank()||why.length()>500)
+            throw new ResponseStatusException(BAD_REQUEST,"A valid platform identity and reason are required");
+        if(actor.username().equalsIgnoreCase(target))
+            throw new ResponseStatusException(FORBIDDEN,"MFA enrollment or reset requires a different authorized platform operator");
+        ensurePlatformOnly(target);
+        GlobalUser user=users.lockedByUsername(target).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Platform identity unavailable"));
+        user.resetPlatformMfa();
+        db.update("UPDATE identity_refresh_tokens SET revoked=TRUE WHERE username=?",target);
+        db.update("DELETE FROM platform_mfa_enrollment_tokens WHERE username=?",target);
+        byte[] raw=new byte[32];new java.security.SecureRandom().nextBytes(raw);
+        String token=Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
+        Instant expiry=clock.instant().plus(Duration.ofMinutes(30));
+        db.update("INSERT INTO platform_mfa_enrollment_tokens(token_hash,username,expires_at) VALUES(?,?,?)",hashToken(token),target,java.sql.Timestamp.from(expiry));
+        audit.record(actor.username(),"PLATFORM_MFA_ENROLLMENT_ISSUED","PLATFORM_IDENTITY",target,null,why,null);
+        return new IssuedEnrollment(target,token,expiry.toString());
+    }
     public Enrollment start(String token) {
         String hash=hashToken(token);
         var rows=db.queryForList("SELECT username,expires_at,pending_expires_at FROM platform_mfa_enrollment_tokens WHERE token_hash=? FOR UPDATE",hash);

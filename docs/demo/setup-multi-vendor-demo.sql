@@ -1,4 +1,4 @@
--- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V38+ first. Never run on production.
+-- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V40+ first. Never run on production.
 -- Select the local database in Workbench first; no database name is hardcoded here.
 -- Public demo credentials and exact permission presets: docs/demo/multi-vendor-testing.md.
 -- Run while the application is stopped; this script does not reset operational data.
@@ -141,7 +141,7 @@ INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM tenant_customers c WHERE 
 
 CREATE TEMPORARY TABLE demo_new_accounts AS SELECT d.* FROM demo_accounts d WHERE NOT EXISTS(SELECT 1 FROM users u WHERE u.id=d.id);
 
-INSERT INTO tenants(id,name,active,slug) SELECT d.id,d.name,TRUE,d.slug FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM tenants t WHERE t.id=d.id);
+INSERT INTO tenants(id,name,legal_name,lifecycle_status,slug) SELECT d.id,d.name,d.name,'ACTIVE',d.slug FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM tenants t WHERE t.id=d.id);
 
 INSERT INTO branches(id,tenant_id,name,invoice_required,pos_return_window_days,cash_refunds_enabled,split_tender_enabled) SELECT d.id,d.id,d.branch_name,FALSE,30,TRUE,TRUE FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM branches b WHERE b.id=d.id);
 
@@ -336,6 +336,9 @@ INSERT INTO demo_grants VALUES ('VENDOR_ADMIN','CRM_NOTE_CREATE'),
 INSERT INTO employee_permissions(username,permission,tenant_id) SELECT a.username,g.permission,a.tenant_id FROM demo_new_accounts a JOIN demo_grants g ON g.role_name=a.role_name;
 
 INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_CREATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
+INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_VIEW' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
+INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_REACTIVATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
+INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_IDENTITY_MANAGE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
 INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_UPDATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
@@ -358,6 +361,17 @@ INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLAT
 INSERT INTO catalog_discount_policy(tenant_id,maximum_percent) SELECT d.id,10.00 FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM catalog_discount_policy p WHERE p.tenant_id=d.id);
 
 INSERT INTO registers(id,tenant_id,branch_id) SELECT d.id,d.tenant_id,d.branch_id FROM demo_registers d WHERE NOT EXISTS(SELECT 1 FROM registers r WHERE r.id=d.id);
+-- Named POS cashiers receive the first configured till in their own tenant branch.
+INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)
+SELECT e.tenant_id,e.branch_id,e.username,MIN(r.id),TRUE,e.username
+FROM employees e
+JOIN employee_permissions p ON p.tenant_id=e.tenant_id AND p.username=e.username AND p.permission='POS_SESSION_OPEN'
+JOIN registers r ON r.tenant_id=e.tenant_id AND r.branch_id=e.branch_id
+WHERE e.username LIKE 'cashier@%'
+GROUP BY e.tenant_id,e.branch_id,e.username
+ON DUPLICATE KEY UPDATE active=TRUE,assigned_by=VALUES(assigned_by),assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL;
+
+
 
 INSERT INTO catalog_categories(id,tenant_id,name,slug) SELECT d.id,d.tenant_id,d.name,d.slug FROM demo_categories d WHERE NOT EXISTS(SELECT 1 FROM catalog_categories c WHERE c.id=d.id);
 

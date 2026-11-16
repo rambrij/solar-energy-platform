@@ -24,7 +24,7 @@ public class ReturnAuditService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Return unavailable");
   if (page < 0 || page > 10000 || size < 1 || size > 48)
    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose page 0-10000 and size 1-48");
-  var s = retail.scope();
+  var s = retail.scope();retail.authorize(s,s.cashier(),"POS_VIEW","POS_RETURN_VIEW","POS_RETURN_AUDIT_VIEW");
   var record = cases.findByTenantAndBranchAndId(s.tenant(), s.branch(), returned).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Return unavailable"));
   var result=events.history(s.tenant(),s.branch(),record.id(),PageRequest.of(page,size));
   return new History(record.id(),record.state(),page,size,result.getTotalElements(),result.getTotalPages(),result.stream().map(e->new Event(e.id(),e.actor(),e.action(),e.createdAt())).toList());

@@ -11,7 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import static org.assertj.core.api.Assertions.*;
 
 class SaleDiscountServiceTest {
- final DiscountPolicyService policy=new DiscountPolicyService(null,null){public BigDecimal maximum(long tenant){return new BigDecimal("20");}};
+ final DiscountPolicyService policy=new DiscountPolicyService(null,null,null){public BigDecimal maximum(long tenant){return new BigDecimal("20");}};
  final SaleDiscountService service=new SaleDiscountService(policy,new BillPricing());
  final List<BillPricing.Input> lines=List.of(new BillPricing.Input(1,new BigDecimal("100"),1,new BigDecimal("10"),BigDecimal.ZERO));
  @AfterEach void clear(){SecurityContextHolder.clearContext();}

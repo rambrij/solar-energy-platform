@@ -30,7 +30,7 @@ public class ReportExportService {
     
     public Export sales(String username, LocalDate from, LocalDate to, String channel, String requestedReason) {
         String reason = reason(requestedReason);
-        var s = retail.scope();
+        var s = retail.scope();retail.authorize(s,username,"POS_VIEW","POS_REPORT_VIEW","POS_REPORT_EXPORT");
         var r = sales.report(username, from, to, channel);
         scope(s, r.branchId());
         limit(1 + r.channels().size() + r.days().size());
@@ -43,7 +43,7 @@ public class ReportExportService {
     
     public Export refunds(String username, LocalDate from, LocalDate to, String requestedReason) {
         String reason = reason(requestedReason);
-        var s = retail.scope();
+        var s = retail.scope();retail.authorize(s,username,"POS_VIEW","POS_REPORT_VIEW","POS_REPORT_EXPORT","POS_REFUND_VIEW");
         var r = refunds.report(from, to);
         scope(s, r.branchId());
         limit(1 + r.days().size() + r.cashiers().size());

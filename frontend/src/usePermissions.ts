@@ -107,11 +107,11 @@ export const NAVIGATION_PERMISSIONS: Record<string, PermissionRequirement> = {
   'sale-receipt': { anyOf: ['POS_RECEIPT_VIEW'] },
   'pos-returns': { allOf: ['POS_VIEW', 'POS_RETURN_VIEW'] },
   'cash-refunds': { allOf: ['POS_VIEW', 'POS_REFUND_VIEW'] },
-  'category-management': { anyOf: ['PRODUCT_VIEW', 'PRODUCT_CREATE'] },
-  'product-management': { anyOf: ['PRODUCT_VIEW', 'PRODUCT_CREATE'] },
+  'category-management': { anyOf: ['PRODUCT_VIEW', 'PRODUCT_CREATE', 'PRODUCT_UPDATE'] },
+  'product-management': { anyOf: ['PRODUCT_VIEW', 'PRODUCT_CREATE', 'PRODUCT_UPDATE'] },
   'stock-receiving': { anyOf: ['INVENTORY_VIEW', 'INVENTORY_RECEIVE'] },
   'register': { allOf: ['POS_VIEW'] },
-  'shift-history': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW'] },
+  'shift-history': { allOf: ['POS_VIEW'] },
   'shift-reviews': { anyOf: ['POS_SHIFT_VARIANCE_APPROVE'] },
   'terminal-tender-review': { anyOf: ['POS_TENDER_MANUAL_VERIFY'] },
   'store-settings': { allOf: ['POS_VIEW'] },
@@ -119,6 +119,8 @@ export const NAVIGATION_PERMISSIONS: Record<string, PermissionRequirement> = {
   'sales-insights': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW'] },
   'refund-insights': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW', 'POS_REFUND_VIEW'] },
   'cashier-sales-insights': { allOf: ['POS_VIEW', 'POS_REPORT_VIEW', 'POS_CASHIER_REPORT_VIEW'] },
+  'role-management': { anyOf: ['ROLE_VIEW', 'ROLE_CREATE', 'ROLE_UPDATE', 'ROLE_ASSIGN'] },
+  'employee-management': { anyOf: ['USER_VIEW', 'USER_CREATE', 'USER_UPDATE', 'USER_DISABLE'] },
 
   // Online marketplace navigation (customer permissions)
   'vendor-directory': { anyOf: ['CUSTOMER'] }, // Public/customer access

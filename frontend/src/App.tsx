@@ -27,6 +27,7 @@ import StoreSettings from './StoreSettings';
 import CategoryManager from './CategoryManager';
 import ProductManager from './ProductManager';
 import StockReceiving from './StockReceiving';
+import VendorAccessAdmin from './VendorAccessAdmin';
 import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
 import {useSession} from './session';
 import RouteOutlet from './RouteOutlet';
@@ -43,8 +44,10 @@ export default function App() {
   const canViewPromotionHistory=has('POS_VIEW')&&has('CATALOG_PROMOTION_MANAGE')&&has('POS_DISCOUNT_APPROVE');
   const canReprintReceipt=has('POS_RECEIPT_REPRINT');
   const availableIds=navigationItems('pos').filter(item=>{
-    if(item.id==='category-management'||item.id==='product-management')return !!account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE'].includes(permission));
+    if(item.id==='category-management'||item.id==='product-management')return !!account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission));
     if(item.id==='stock-receiving')return !!account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission));
+    if(item.id==='role-management')return !!account?.permissions.some(permission=>['ROLE_VIEW','ROLE_CREATE','ROLE_UPDATE','ROLE_ASSIGN'].includes(permission));
+    if(item.id==='employee-management')return !!account?.permissions.some(permission=>['USER_VIEW','USER_CREATE','USER_UPDATE','USER_DISABLE'].includes(permission));
     return true;
   }).map(item=>item.id);
   const [refundPending,setRefundPending]=useState(()=>!!sessionStorage.getItem(refundStorageKey));
@@ -163,6 +166,8 @@ export default function App() {
     {account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission))&&<RouteOutlet id="stock-receiving" mode="pos"><StockReceiving key={`${account.username}:${account.tenantId}:${account.branchId}`} onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
     <RouteOutlet id="store-settings" mode="pos"><StoreSettings/></RouteOutlet>
     <RouteOutlet id="shift-reviews" mode="pos"><ShiftReviews/></RouteOutlet>
+    <RouteOutlet id="role-management" mode="pos"><VendorAccessAdmin mode="roles"/></RouteOutlet>
+    <RouteOutlet id="employee-management" mode="pos"><VendorAccessAdmin mode="employees"/></RouteOutlet>
     <RouteOutlet id="terminal-tender-review" mode="pos"><TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>
   </Shell>;
 }

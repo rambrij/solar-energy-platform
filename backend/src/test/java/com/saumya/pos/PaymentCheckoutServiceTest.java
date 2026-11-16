@@ -3,6 +3,9 @@ import com.saumya.pos.checkout.*;
 import com.saumya.pos.checkout.internal.*;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.retail.PosService;
+import com.saumya.pos.membership.TenantEntitlementPolicy;
+import org.springframework.test.util.ReflectionTestUtils;
+import static org.mockito.Mockito.*;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.time.*;
@@ -23,6 +26,8 @@ class PaymentCheckoutServiceTest {
             
             public void lockOutlet(Scope scope) {
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions) {}
+            @Override public void authorizeCustomer(String actor) {}
         };
         var order = new DraftOrder("sale", 1, null, 1L, "other-cashier", "session", "IN_STORE", "key", "hash", BigDecimal.TEN, 1, "owner", Instant.now().plusSeconds(600), false);
         var service = new PaymentCheckoutService(orders(order), null, null, policy(), null, null, null, retail, Clock.systemUTC());
@@ -42,8 +47,11 @@ class PaymentCheckoutServiceTest {
      var retail = new PosService(null, null, null) {
          public void lockOutlet(Scope scope) {
          }
+         @Override public void authorize(Scope scope,String actor,String... permissions) {}
+         @Override public void authorizeCustomer(String actor) {}
      };
      var service = new PaymentCheckoutService(orders(order), null, attempts, policy(), customer, null, null, retail, Clock.systemUTC());
+     ReflectionTestUtils.setField(service,"entitlements",mock(TenantEntitlementPolicy.class));
   assertThat(service.start("buyer","sale","UPI").attemptId()).isEqualTo(attempt.id());assertThatThrownBy(()->service.start("buyer","sale","CARD")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
  @Test void orderStatusTimeNeverRoundsIntoFuture(){

@@ -18,7 +18,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class SubscriptionPlanServiceTest {
     @Mock SubscriptionPlanRepository plans;@Mock SubscriptionPlanVersionRepository versions;
-    private SubscriptionPlanService.PlanInput input(String price){return new SubscriptionPlanService.PlanInput("starter","Starter",new BigDecimal(price),"INR","MONTHLY",5,1024,1,0,"{\"pos\":true}",7,"{\"gstRatePercent\":0}","Starter SaaS plan");}
+    private SubscriptionPlanService.PlanInput input(String price){return new SubscriptionPlanService.PlanInput("starter","Starter",new BigDecimal(price),"INR","MONTHLY",5,1024,1,0,"{\"features\":{\"POS\":true}}",7,"{\"gstRatePercent\":0}","Starter SaaS plan");}
     @Test void revisedPriceCreatesNewVersionWithoutChangingHistoricTerms(){
         var now=Instant.parse("2026-11-16T00:00:00Z");var plan=mock(SubscriptionPlan.class);
         when(plans.findById(1L)).thenReturn(Optional.of(plan));when(plan.id()).thenReturn(1L);when(plan.planKey()).thenReturn("starter");
@@ -34,6 +34,14 @@ class SubscriptionPlanServiceTest {
         assertThat(saved).hasSize(1);assertThat(saved.getFirst().version()).isEqualTo(2);assertThat(saved.getFirst().price()).isEqualByComparingTo("999");
         assertThat(old.version()).isEqualTo(1);assertThat(old.price()).isEqualByComparingTo("799");
         assertThat(result.versions()).extracting(SubscriptionPlanService.PlanVersionView::version).contains(1,2);
+    }
+    @Test void rejectsUnknownOrNonBooleanFeatureEntitlements(){
+        when(plans.findByPlanKey("starter")).thenReturn(Optional.empty());
+        var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
+        var unknown=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"{\"features\":{\"UNKNOWN\":true}}",7,"{}","plan");
+        assertThatThrownBy(()->service.create(unknown,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        var nonBoolean=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"{\"features\":{\"POS\":\"yes\"}}",7,"{}","plan");
+        assertThatThrownBy(()->service.create(nonBoolean,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
     @Test void rejectsMalformedEntitlementOrTaxSnapshotsBeforePersisting(){
         var plan=mock(SubscriptionPlan.class);

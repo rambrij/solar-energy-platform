@@ -41,9 +41,15 @@ class AuthorizationPolicyMatrixTest {
     }
 
     private void verifyPolicy(Class<?> type,Method method,String expression) {
-        MethodInvocation invocation=invocation(type,method);
+        if(expression.contains("#r.method()")){
+            verifyTenderConditional(type,method,expression);
+            return;
+        }
+        MethodInvocation invocation=invocation(type,method,"x");
         Set<String> mandatory=new LinkedHashSet<>();
-        Matcher mandatoryMatcher=Pattern.compile("hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)").matcher(expression);
+        int branchIndex=expression.indexOf("?");
+        String mandatoryExpression=branchIndex<0?expression:expression.substring(0,branchIndex);
+        Matcher mandatoryMatcher=Pattern.compile("hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)").matcher(mandatoryExpression);
         while(mandatoryMatcher.find())mandatory.add(mandatoryMatcher.group(1));
         List<Set<String>> alternatives=new ArrayList<>();
         Matcher anyMatcher=Pattern.compile("hasAnyAuthority\\(([^)]*)\\)").matcher(expression);
@@ -98,13 +104,59 @@ class AuthorizationPolicyMatrixTest {
         }
     }
 
-    private MethodInvocation invocation(Class<?> type,Method method){
+    private void verifyTenderConditional(Class<?> type,Method method,String expression){
+        Matcher mandatoryMatcher=Pattern.compile("hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)").matcher(expression.substring(0,expression.indexOf("?")));
+        Set<String> mandatory=new LinkedHashSet<>();while(mandatoryMatcher.find())mandatory.add(mandatoryMatcher.group(1));
+        Matcher branches=Pattern.compile("hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)").matcher(expression.substring(expression.indexOf("?")+1));
+        List<String> branchPermissions=new ArrayList<>();while(branches.find())branchPermissions.add(branches.group(1));
+        assertThat(branchPermissions).hasSize(2);
+        List<String> methods=List.of("CASH","UPI");
+        for(int i=0;i<methods.size();i++){
+            String branch=branchPermissions.get(i);Set<String> grants=new LinkedHashSet<>(mandatory);grants.add(branch);
+            MethodInvocation invocation=invocation(type,method,methods.get(i));
+            assertThat(evaluate(expression,invocation,grants,true))
+                .as("%s tender permission grants %s#%s",methods.get(i),type.getSimpleName(),method.getName()).isTrue();
+            grants.remove(branch);
+            assertThat(evaluate(expression,invocation,grants,true))
+                .as("%s tender permission is mandatory for %s#%s",branch,type.getSimpleName(),method.getName()).isFalse();
+            for(String required:mandatory){
+                Set<String> insufficient=new LinkedHashSet<>(mandatory);insufficient.remove(required);insufficient.add(branch);
+                assertThat(evaluate(expression,invocation,insufficient,true))
+                    .as("mandatory permission %s is required for %s#%s",required,type.getSimpleName(),method.getName()).isFalse();
+            }
+        }
+        assertThat(evaluate(expression,invocation(type,method,"CASH"),Set.of(),false)).isFalse();
+    }
+
+    private MethodInvocation invocation(Class<?> type,Method method,String tenderMethod){
+        Object[] args=Arrays.stream(method.getParameterTypes()).map(t->defaultValue(t,tenderMethod)).toArray();
         return new MethodInvocation(){
             @Override public Method getMethod(){return method;}
-            @Override public Object[] getArguments(){return new Object[0];}
+            @Override public Object[] getArguments(){return args;}
             @Override public Object getThis(){return AuthorizationPolicyMatrixTest.this;}
             @Override public java.lang.reflect.AccessibleObject getStaticPart(){return method;}
             @Override public Object proceed(){return null;}
         };
+    }
+    private Object defaultValue(Class<?> type,String tenderMethod){
+        if(type==String.class)return "x";
+        if(type==Long.class||type==long.class)return 1L;
+        if(type==Integer.class||type==int.class)return 1;
+        if(type==Boolean.class||type==boolean.class)return false;
+        if(type==java.math.BigDecimal.class)return java.math.BigDecimal.ONE;
+        if(List.class.isAssignableFrom(type)||Collection.class.isAssignableFrom(type))return List.of();
+        if(type.isArray())return java.lang.reflect.Array.newInstance(type.getComponentType(),0);
+        if(type.isRecord()){
+            try{
+                var components=type.getRecordComponents();
+                Class<?>[] parameterTypes=Arrays.stream(components).map(java.lang.reflect.RecordComponent::getType).toArray(Class<?>[]::new);
+                Object[] values=new Object[components.length];
+                for(int i=0;i<components.length;i++)
+                    values[i]=components[i].getName().equals("method")?tenderMethod:defaultValue(components[i].getType(),tenderMethod);
+                var constructor=type.getDeclaredConstructor(parameterTypes);constructor.setAccessible(true);
+                return constructor.newInstance(values);
+            }catch(Exception e){throw new IllegalStateException("Cannot create policy probe record "+type.getName(),e);}
+        }
+        return null;
     }
 }

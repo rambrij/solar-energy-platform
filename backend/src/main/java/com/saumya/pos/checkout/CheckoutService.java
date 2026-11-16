@@ -6,6 +6,7 @@ import com.saumya.pos.cart.CartService;
 import com.saumya.pos.catalog.CatalogService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.inventory.InventoryService;
+import com.saumya.pos.membership.TenantEntitlementPolicy;
 import com.saumya.pos.retail.PosService;
 import com.saumya.pos.shared.Pricing;
 import java.math.BigDecimal;
@@ -31,6 +32,7 @@ public class CheckoutService {
     @org.springframework.beans.factory.annotation.Autowired private PaymentPolicy paymentPolicy;
     @org.springframework.beans.factory.annotation.Autowired private BranchPolicyService terminalPolicies;
     @org.springframework.beans.factory.annotation.Autowired private SaleDiscountService discounts;
+ @org.springframework.beans.factory.annotation.Autowired private TenantEntitlementPolicy entitlements;
     private final DraftRepository orders;private final DraftLineRepository lines;private final CartService carts;
     private final CustomerAccess customers;private final CatalogService catalogue;private final InventoryService stock;
     private final PosService retail;private final Pricing pricing;private final Clock clock;private final long ttl;private final DraftRecoveryPolicy recoveryPolicy;
@@ -58,7 +60,11 @@ public class CheckoutService {
         long customer=customers.resolve(username);customers.lock(customer);String key=key("ONLINE:"+customer,clientKey),hash=sha(request.expectedCartId());
         var prior=orders.findByCustomerIdAndKey(customer,key);if(prior.isPresent())return replay(prior.get(),hash);
         var cart=carts.cart(customer);if(!Objects.equals(cart.id(),request.expectedCartId())||cart.items().isEmpty())conflict("Cart changed or is empty; reload first");
-        var vendor=catalogue.activeVendor(cart.vendorSlug());long branch=catalogue.onlineBranch(vendor.id());
+        var vendor=catalogue.activeVendor(cart.vendorSlug());
+        if(entitlements==null)throw new ResponseStatusException(FORBIDDEN,"Tenant entitlement policy unavailable");
+        entitlements.requireFeature(vendor.id(),"ORDERS",true);
+        entitlements.requireFeature(vendor.id(),"CATALOG",false);
+        long branch=catalogue.onlineBranch(vendor.id());
         return create(vendor.id(),customer,null,null,null,"ONLINE",key,hash,branch,"ONLINE:"+customer,
             cart.items().stream().map(i->new Item(i.productId(),i.quantity())).toList(),false,null);
     }

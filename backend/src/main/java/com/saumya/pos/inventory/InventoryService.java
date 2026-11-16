@@ -55,7 +55,7 @@ public class InventoryService {
   if(jdbc==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Inventory resource authorization unavailable");
   return jdbc.queryForList("""
       SELECT tenant_id,branch_id,COALESCE(stock_branch_id,branch_id) AS stock_branch_id,
-             cashier,customer_id,channel,status
+             cashier,customer_id,sales_channel AS channel,status
       FROM orders WHERE tenant_id=? AND id=?
       """,tenant,id).stream().findFirst()
       .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable"));
@@ -89,7 +89,7 @@ public class InventoryService {
   context.requireVendorMembership();
   context.requireTenant(tenant);
   context.requireBranch(branch);
-  if(!context.username().equals(order.get("cashier")))
+  if(!context.username().equals(row.get("cashier")))
    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
   context.requirePermission(permission);
   return row;

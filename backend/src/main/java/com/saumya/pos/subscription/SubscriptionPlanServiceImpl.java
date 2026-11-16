@@ -64,7 +64,22 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
         try{if(p.currency()==null||!Currency.getInstance(p.currency().toUpperCase(Locale.ROOT)).getCurrencyCode().equals(p.currency().toUpperCase(Locale.ROOT)))throw new IllegalArgumentException();}catch(Exception e){throw new ResponseStatusException(BAD_REQUEST,"Valid ISO currency code required");}
         if(p.billingInterval()==null||!INTERVALS.contains(p.billingInterval().toUpperCase(Locale.ROOT)))throw new ResponseStatusException(BAD_REQUEST,"Billing interval must be MONTHLY, QUARTERLY or YEARLY");
         if(p.maxUsers()<1||p.maxStorageMb()<0||p.maxBranches()<1||p.maxWarehouses()<0||p.graceDays()<0||p.graceDays()>90)throw new ResponseStatusException(BAD_REQUEST,"Plan limits are outside supported bounds");
-        normalizeJson(p.entitlements());normalizeJson(p.taxMetadata());
+        validateEntitlements(normalizeJson(p.entitlements()));
+        normalizeJson(p.taxMetadata());
+    }
+    private void validateEntitlements(String value){
+        try{
+            var root=json.readTree(value);
+            var features=root.path("features");
+            if(!features.isObject())throw new IllegalArgumentException("features object required");
+            Set<String> known=Set.of("POS","CATALOG","INVENTORY","ADMINISTRATION","CRM","LEADS","QUOTATIONS",
+                "ORDERS","RETURNS","FINANCE","SHIPMENTS","SERVICE","REPORTING");
+            var names=features.fieldNames();
+            while(names.hasNext()){
+                String key=names.next();
+                if(!known.contains(key)||!features.path(key).isBoolean())throw new IllegalArgumentException("Unknown or non-boolean feature: "+key);
+            }
+        }catch(Exception e){throw new ResponseStatusException(BAD_REQUEST,"Entitlements must contain a features object with supported boolean flags");}
     }
     private String normalizeJson(String value){
         try{var node=json.readTree(value);if(node==null||!node.isObject())throw new IllegalArgumentException();return json.writeValueAsString(node);}

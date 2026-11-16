@@ -112,8 +112,10 @@ public class VendorRoleService {
         List<Long> selected=roleIds==null?List.of():roleIds.stream().distinct().sorted().toList();
         if(selected.size()>50)throw new ResponseStatusException(BAD_REQUEST,"At most 50 roles may be assigned");
         for(long id:selected){var role=roleRow(c,id);if(!Boolean.TRUE.equals(role.get("active")))throw new ResponseStatusException(CONFLICT,"Inactive role cannot be assigned");requireRoleDelegable(c,id);}
+        var previousRoles=db.queryForList("SELECT role_id FROM employee_role_assignments WHERE tenant_id=? AND username=? AND active=TRUE",Long.class,c.tenantId(),subject);
         db.update("UPDATE employee_role_assignments SET active=FALSE,revoked_by=?,revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND username=? AND active=TRUE",
             c.username(),c.tenantId(),subject);
+        for(Long id:previousRoles)if(!selected.contains(id))audit(c,subject,"ROLE_ASSIGNMENT",Long.toString(id),"ROLE_REVOKED",why);
         for(long id:selected){
             int exists=db.update("UPDATE employee_role_assignments SET branch_id=?,active=TRUE,assigned_by=?,assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL WHERE tenant_id=? AND username=? AND role_id=?",
                 branch,c.username(),c.tenantId(),subject,id);
@@ -129,8 +131,10 @@ public class VendorRoleService {
         if(selected.size()>100)throw new ResponseStatusException(BAD_REQUEST,"At most 100 registers may be assigned");
         for(long id:selected)if(!Boolean.TRUE.equals(db.queryForObject("SELECT COUNT(*)>0 FROM registers WHERE tenant_id=? AND branch_id=? AND id=?",Boolean.class,c.tenantId(),branch,id)))
             throw new ResponseStatusException(NOT_FOUND,"Register unavailable in employee branch");
+        var previousRegisters=db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND username=? AND active=TRUE",Long.class,c.tenantId(),subject);
         db.update("UPDATE employee_register_assignments SET active=FALSE,revoked_by=?,revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND username=? AND active=TRUE",
             c.username(),c.tenantId(),subject);
+        for(Long id:previousRegisters)if(!selected.contains(id))audit(c,subject,"REGISTER_ASSIGNMENT",Long.toString(id),"REGISTER_REVOKED",why);
         for(long id:selected){
             int updated=db.update("UPDATE employee_register_assignments SET active=TRUE,assigned_by=?,assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL WHERE tenant_id=? AND username=? AND register_id=?",
                 c.username(),c.tenantId(),subject,id);

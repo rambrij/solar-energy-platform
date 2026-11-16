@@ -5,9 +5,21 @@ import java.lang.reflect.Proxy;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
+import com.saumya.pos.security.AuthorizationContext;
+import static org.mockito.Mockito.*;
 import static org.assertj.core.api.Assertions.*;
 
 class TenantServiceDirectoryValidationTest {
+    @Test void directTenantCreationRequiresPlatformGrantBeforeSequenceOrRepositoryAccess(){
+        var repository=mock(TenantRepository.class);
+        var authorization=mock(AuthorizationContext.class);
+        when(authorization.current()).thenReturn(new AuthorizationContext.Context("operator",null,null,java.util.Set.of("PLATFORM_SUPPORT_ACCESS"),true,false,false));
+        var service=new TenantService(repository,null,Clock.systemUTC(),authorization);
+        assertThatThrownBy(()->service.create(null)).isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("PLATFORM_TENANT_CREATE");
+        verifyNoInteractions(repository);
+    }
+
     @Test void invalidPublicDirectoryInputsAreRejectedBeforeTenantRepositoryReads(){
         int[] reads={0};
         var repository=(TenantRepository)Proxy.newProxyInstance(

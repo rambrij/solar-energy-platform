@@ -32,6 +32,7 @@ class PosTest {
  @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager em;
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
+ @Autowired com.saumya.pos.checkout.DraftExpiryJob draftExpiry;
  @Autowired com.saumya.pos.checkout.CashierSalesService cashierSales;
  @Autowired com.saumya.pos.checkout.OrderHistoryService orderHistory;
  @Autowired com.saumya.pos.checkout.DraftRecoveryService draftRecovery;
@@ -75,7 +76,7 @@ class PosTest {
   long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));
   update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);
-  for(String permission:List.of("CATALOG_PROMOTION_MANAGE",  "INVENTORY_RECEIVE", "INVENTORY_VIEW",  "POS_CASHIER_REPORT_VIEW", "POS_CASH_IN", "POS_CASH_OUT", "POS_DISCOUNT_APPLY", "POS_DISCOUNT_APPROVE", "POS_DISCOUNT_OVERRIDE", "POS_RECEIPT_REPRINT", "POS_RECEIPT_VIEW", "POS_REFUND_APPROVE", "POS_REFUND_CASH_RECORD", "POS_REFUND_PRINT", "POS_REFUND_VIEW", "POS_REPORT_EXPORT", "POS_REPORT_VIEW", "POS_RETURN_APPROVE", "POS_RETURN_AUDIT_VIEW", "POS_RETURN_CREATE", "POS_RETURN_INSPECT", "POS_RETURN_VIEW", "POS_SALE_CREATE", "POS_SALE_CANCEL", "POS_SESSION_CLOSE", "POS_SESSION_OPEN", "POS_SETTINGS_MANAGE", "POS_SAFE_DROP", "POS_SHIFT_VARIANCE_APPROVE", "POS_TENDER_CASH_RECORD", "POS_TENDER_EXTERNAL_RECORD", "POS_TENDER_MANUAL_VERIFY", "POS_VIEW", "PRICE_UPDATE", "PRODUCT_ARCHIVE", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_VIEW","PRICE_VIEW"))
+  for(String permission:List.of("CATALOG_PROMOTION_MANAGE",  "INVENTORY_ADJUST", "INVENTORY_RECEIVE", "INVENTORY_VIEW",  "POS_CASHIER_REPORT_VIEW", "POS_CASH_IN", "POS_CASH_OUT", "POS_DISCOUNT_APPLY", "POS_DISCOUNT_APPROVE", "POS_DISCOUNT_OVERRIDE", "POS_RECEIPT_REPRINT", "POS_RECEIPT_VIEW", "POS_REFUND_APPROVE", "POS_REFUND_CASH_RECORD", "POS_REFUND_PRINT", "POS_REFUND_VIEW", "POS_REPORT_EXPORT", "POS_REPORT_VIEW", "POS_RETURN_APPROVE", "POS_RETURN_AUDIT_VIEW", "POS_RETURN_CREATE", "POS_RETURN_INSPECT", "POS_RETURN_VIEW", "POS_SALE_CREATE", "POS_SALE_CANCEL", "POS_SESSION_CLOSE", "POS_SESSION_OPEN", "POS_SETTINGS_MANAGE", "POS_SAFE_DROP", "POS_SHIFT_VARIANCE_APPROVE", "POS_TENDER_CASH_RECORD", "POS_TENDER_EXTERNAL_RECORD", "POS_TENDER_MANUAL_VERIFY", "POS_VIEW", "PRICE_UPDATE", "PRODUCT_ARCHIVE", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_VIEW","PRICE_VIEW"))
    update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES(?,?,?)",username,permission,tenant);
    Long firstRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=? AND branch_id=?",Long.class,tenant,branch);
    if(firstRegister!=null)assignRegister(username,tenant,branch,firstRegister);
@@ -142,7 +143,7 @@ class PosTest {
 
  @Test void retailDraftProjectionBlocksShiftClosureUntilCollectedFundsAreFinalized(){
   update("UPDATE branches SET split_tender_enabled=TRUE WHERE id=1");var draft=as("alice", () -> checkout.pos("alice","active-draft-gate",posDraft()));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isEqualTo(1);assertThatThrownBy(()->asScope(a, () -> service.close(a,session,new BigDecimal("50")))).hasMessageContaining("Resolve reserved");
-  as("alice", () -> payments.tender("alice",draft.id(),"gate-partial",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40"))));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());checkout.expire(1,draft.id());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isEqualTo(1);assertThatThrownBy(()->asScope(a, () -> service.close(a,session,new BigDecimal("90")))).hasMessageContaining("Resolve reserved");
+  as("alice", () -> payments.tender("alice",draft.id(),"gate-partial",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40"))));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());draftExpiry.expireOne(1,draft.id());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isEqualTo(1);assertThatThrownBy(()->asScope(a, () -> service.close(a,session,new BigDecimal("90")))).hasMessageContaining("Resolve reserved");
   as("alice", () -> payments.tender("alice",draft.id(),"gate-remainder",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("70"),new BigDecimal("70"))));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isZero();assertThat(asScope(a, () -> service.close(a,session,new BigDecimal("160"))).state()).isEqualTo("CLOSED");
  }
  @Test void guestBuyerSnapshotsArePrivateTransactionFactsAndNeverCreateAccounts()throws Exception{
@@ -180,7 +181,7 @@ class PosTest {
   mvc.perform(post(path).header("Idempotency-Key","stock-key").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content(body.replace("quantity\":2","quantity\":3"))).andExpect(status().isConflict());
   mvc.perform(get(path).with(user("bob").authorities(()->"INVENTORY_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
   mvc.perform(get(path).with(user("alice").authorities(()->"INVENTORY_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].actor").value("alice"));
-  assertThat(stock.atBranch(1,1,1)).isEqualTo(3);assertThat(stock.atBranch(2,2,2)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(3);
+  assertThat(stock.atBranch(1,1,1)).isEqualTo(3);assertThat(as("bob", () -> stock.atBranch(2,2,2))).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(3);
  }
  @Test void concurrentStockReceiptRetriesCreateOneBalanceAndOneReceipt()throws Exception{
   update("INSERT INTO products(id,tenant_id,sku,name,price,tax_rate,published) VALUES(3,1,'NEW','New panel',100,10,FALSE)");String body="{\"productId\":3,\"quantity\":5,\"reason\":\"First delivery\"}";var gate=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);

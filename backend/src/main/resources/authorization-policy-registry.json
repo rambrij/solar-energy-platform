@@ -2,6 +2,7 @@
   "version": 1,
   "description": "Canonical authorization names, React workspace route policies, and controller-family inventory. Per-method @PreAuthorize/service guards remain authoritative; CI enforces inventory completeness and unknown-permission detection.",
   "vendorPermissions": [
+    "CATALOG_PROMOTION_MANAGE",
     "CRM_NOTE_CREATE",
     "CRM_NOTE_UPDATE",
     "CRM_NOTE_VIEW",
@@ -28,6 +29,7 @@
     "POS_CASH_IN",
     "POS_CASH_OUT",
     "POS_DISCOUNT_APPLY",
+    "POS_DISCOUNT_APPROVE",
     "POS_DISCOUNT_OVERRIDE",
     "POS_PRICE_OVERRIDE",
     "POS_RECEIPT_REPRINT",

@@ -219,7 +219,7 @@ public class PosService {
             if(!request.type().name().equals(row.get("movement_type")) ||
                 request.amount().compareTo((BigDecimal)row.get("amount"))!=0 || !reason.equals(row.get("reason")))
                 fail("Idempotency key already used for a different cash movement");
-            return movement(s,sessionId,(String)row.get("id"));
+            return movementView(row);
         }
         if(!"OPEN".equals(shift.get("state"))) fail("Session is closed");
         if(request.type()!=MovementType.CASH_IN &&
@@ -230,6 +230,12 @@ public class PosService {
             id,s.tenant,s.branch,s.cashier,sessionId,request.type().name(),request.amount(),reason,key);
         audit(s,request.type().name(),id);
         return movement(s,sessionId,id);
+    }
+    private Map<String,Object> movementView(Map<String,Object> row) {
+        Map<String,Object> view=new LinkedHashMap<>();
+        for(String field:List.of("id","movement_type","amount","reason","cashier","created_at"))
+            view.put(field,row.get(field));
+        return view;
     }
     private Map<String,Object> movement(Scope s,String sessionId,String id) {
         return one("SELECT id,movement_type,amount,reason,cashier,created_at FROM pos_cash_movements WHERE tenant_id=? AND session_id=? AND id=?",

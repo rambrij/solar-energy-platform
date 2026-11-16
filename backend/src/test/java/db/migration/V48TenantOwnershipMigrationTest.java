@@ -16,7 +16,7 @@ class V48TenantOwnershipMigrationTest {
         var db = new JdbcTemplate(source);
         db.execute("CREATE TABLE branches(tenant_id BIGINT NOT NULL,id BIGINT NOT NULL,PRIMARY KEY(tenant_id,id))");
         db.execute("CREATE TABLE pos_sessions(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,id VARCHAR(36) NOT NULL,PRIMARY KEY(tenant_id,branch_id,id))");
-        db.execute("CREATE TABLE orders(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,session_id VARCHAR(36) NOT NULL,id VARCHAR(36) NOT NULL,sales_channel VARCHAR(16) NOT NULL,PRIMARY KEY(tenant_id,id))");
+        db.execute("CREATE TABLE orders(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,cashier VARCHAR(100) NOT NULL,session_id VARCHAR(36) NOT NULL,id VARCHAR(36) NOT NULL,sales_channel VARCHAR(16) NOT NULL,status VARCHAR(24) NOT NULL,PRIMARY KEY(tenant_id,id))");
         db.execute("CREATE TABLE pos_drawer_tenders(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,session_id VARCHAR(36) NOT NULL,order_reference VARCHAR(36) NOT NULL)");
         db.execute("CREATE TABLE pos_active_drafts(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,cashier VARCHAR(100) NOT NULL,session_id VARCHAR(36) NOT NULL,order_reference VARCHAR(36) NOT NULL)");
         db.execute("CREATE TABLE tenant_subscriptions(tenant_id BIGINT NOT NULL,id BIGINT NOT NULL,PRIMARY KEY(tenant_id,id))");
@@ -29,7 +29,7 @@ class V48TenantOwnershipMigrationTest {
         JdbcTemplate db = database();
         db.update("INSERT INTO branches VALUES(1,10),(2,20)");
         db.update("INSERT INTO pos_sessions VALUES(1,10,'session-a'),(2,20,'session-b')");
-        db.update("INSERT INTO orders VALUES(1,10,'session-a','order-a','IN_STORE'),(2,20,'session-b','order-b','IN_STORE')");
+        db.update("INSERT INTO orders VALUES(1,10,'alice','session-a','order-a','IN_STORE','DRAFT'),(2,20,'bob','session-b','order-b','IN_STORE','DRAFT')");
         db.update("INSERT INTO tenant_subscriptions VALUES(1,100),(2,200)");
         db.update("INSERT INTO pos_drawer_tenders VALUES(1,10,'session-a','order-b')");
         db.update("INSERT INTO pos_active_drafts VALUES(1,10,'alice','session-a','order-b')");
@@ -55,7 +55,7 @@ class V48TenantOwnershipMigrationTest {
         JdbcTemplate db = database();
         db.update("INSERT INTO branches VALUES(1,10)");
         db.update("INSERT INTO pos_sessions VALUES(1,10,'session-a')");
-        db.update("INSERT INTO orders VALUES(1,10,'session-a','order-a','IN_STORE')");
+        db.update("INSERT INTO orders VALUES(1,10,'alice','session-a','order-a','IN_STORE','DRAFT')");
         db.update("INSERT INTO tenant_subscriptions VALUES(1,100)");
         db.update("INSERT INTO pos_drawer_tenders VALUES(1,10,'session-a','order-a')");
         db.update("INSERT INTO pos_active_drafts VALUES(1,10,'alice','session-a','order-a')");

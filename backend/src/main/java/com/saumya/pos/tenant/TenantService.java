@@ -1,8 +1,7 @@
 package com.saumya.pos.tenant;
 
 import com.saumya.pos.tenant.internal.*;
-import com.saumya.pos.security.AuthorizationContext;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.saumya.pos.platform.PlatformAuthorization;
 import java.time.Clock;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -15,10 +14,9 @@ import static org.springframework.http.HttpStatus.*;
 @Service @Transactional
 public class TenantService implements TenantLifecycleService {
     private static final Pattern SLUG=Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
-    private final TenantRepository tenants;private final TenantSequenceRepository sequences;private final Clock clock;private final AuthorizationContext authorization;
-    public TenantService(TenantRepository tenants,TenantSequenceRepository sequences,Clock clock){this(tenants,sequences,clock,null);}
-    @Autowired public TenantService(TenantRepository tenants,TenantSequenceRepository sequences,Clock clock,AuthorizationContext authorization){this.tenants=tenants;this.sequences=sequences;this.clock=clock;this.authorization=authorization;}
-    private void requirePlatform(String permission){if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Platform authorization context unavailable");var actor=authorization.current();if(!actor.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");actor.requirePermission(permission);}
+    private final TenantRepository tenants;private final TenantSequenceRepository sequences;private final Clock clock;
+    public TenantService(TenantRepository tenants,TenantSequenceRepository sequences,Clock clock){this.tenants=tenants;this.sequences=sequences;this.clock=clock;}
+    private void requirePlatform(String permission){PlatformAuthorization.require(permission,null);}
     @Override public TenantSummary create(Registration r){requirePlatform("PLATFORM_TENANT_CREATE");String slug=slug(r.slug());if(tenants.findBySlug(slug).isPresent())throw new ResponseStatusException(CONFLICT,"Store slug already exists");String name=required(r.name(),160,"Display name"),legal=required(r.legalName(),180,"Legal name"),admin=email(r.initialVendorAdminUsername());long id=sequences.locked().orElseThrow(()->new IllegalStateException("Tenant sequence unavailable")).allocate();var now=clock.instant();return view(tenants.saveAndFlush(new Tenant(id,slug,name,legal,emailOptional(r.contactEmail()),optional(r.contactPhone(),30),optional(r.taxIdentifier(),40),optional(r.address(),500),admin,null,now)));}
     @Override public TenantSummary updateProfile(long id,ProfileUpdate r){requirePlatform("PLATFORM_TENANT_UPDATE");var t=requiredTenant(id);try{t.updateProfile(required(r.name(),160,"Display name"),required(r.legalName(),180,"Legal name"),emailOptional(r.contactEmail()),optional(r.contactPhone(),30),optional(r.taxIdentifier(),40),optional(r.address(),500),clock.instant());}catch(IllegalStateException e){throw new ResponseStatusException(CONFLICT,e.getMessage());}return view(t);}
     @Override public TenantSummary transition(long id,TenantStatus target){requirePlatform(switch(target){case SUSPENDED->"PLATFORM_TENANT_SUSPEND";case CLOSED->"PLATFORM_TENANT_CLOSE";case ACTIVE->"PLATFORM_TENANT_REACTIVATE";default->"PLATFORM_TENANT_UPDATE";});var t=requiredTenant(id);try{t.transitionTo(target,clock.instant());}catch(IllegalStateException e){throw new ResponseStatusException(CONFLICT,e.getMessage());}return view(t);}

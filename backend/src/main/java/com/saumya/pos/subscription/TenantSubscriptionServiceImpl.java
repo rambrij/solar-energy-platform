@@ -17,12 +17,26 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
     private final SubscriptionPlanVersionRepository versions;private final SubscriptionEventRepository events;
     private final SubscriptionInvoiceRepository invoices;private final SubscriptionPaymentRepository payments;
     private final TenantLifecycleService tenants;private final ObjectMapper json;private final Clock clock;
+    @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.security.AuthorizationContext authorization;
+    private void requirePlatform(String actor,String permission){
+        if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Platform authorization context unavailable");
+        var context=authorization.current();
+        if(!context.isPlatformUser()||!context.username().equals(actor))throw new ResponseStatusException(FORBIDDEN,"Platform actor does not match authenticated identity");
+        context.requirePermission(permission);
+    }
+    private void requireRead(){
+        if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Platform authorization context unavailable");
+        var context=authorization.current();
+        if(!context.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");
+        context.requirePermission("PLATFORM_SUBSCRIPTION_VIEW");
+    }
     public TenantSubscriptionServiceImpl(TenantSubscriptionRepository subscriptions,SubscriptionPlanRepository plans,
         SubscriptionPlanVersionRepository versions,SubscriptionEventRepository events,SubscriptionInvoiceRepository invoices,
         SubscriptionPaymentRepository payments,TenantLifecycleService tenants,ObjectMapper json,Clock clock){
         this.subscriptions=subscriptions;this.plans=plans;this.versions=versions;this.events=events;this.invoices=invoices;this.payments=payments;this.tenants=tenants;this.json=json;this.clock=clock;
     }
     @Override public SubscriptionView create(SubscriptionInput input,String actor){
+        requirePlatform(actor,"PLATFORM_SUBSCRIPTION_ADJUST");
         var tenant=tenants.get(input.tenantId());
         if("CLOSED".equals(tenant.lifecycleStatus()))throw new ResponseStatusException(CONFLICT,"Closed tenants cannot receive subscriptions");
         if(input.periodStart()==null||input.periodEnd()==null||!input.periodEnd().isAfter(input.periodStart()))throw new ResponseStatusException(BAD_REQUEST,"Subscription period end must be after its start");
@@ -34,6 +48,7 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
         return view(entity);
     }
     @Override public SubscriptionView transition(long id,String target,String reason,String actor){
+        requirePlatform(actor,"PLATFORM_SUBSCRIPTION_ADJUST");
         var entity=subscriptions.findById(id).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Tenant subscription unavailable"));
         String old=entity.status(),next=target==null?"":target.strip().toUpperCase(Locale.ROOT);
         if(!allowed(old,next))throw new ResponseStatusException(CONFLICT,"Invalid subscription transition: "+old+" -> "+next);
@@ -42,13 +57,15 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
         entity.transition(next,now,grace);events.saveAndFlush(new SubscriptionEvent(entity.tenantId(),entity.id(),old,next,actor,required(reason),now));
         return view(entity);
     }
-    @Override @Transactional(readOnly=true) public List<SubscriptionView> forTenant(long tenantId){tenants.get(tenantId);return subscriptions.findByTenantIdOrderByCreatedAtDescIdDesc(tenantId).stream().map(this::view).toList();}
-    @Override @Transactional(readOnly=true) public List<SubscriptionView> all(){return subscriptions.findAllByOrderByCreatedAtDescIdDesc().stream().map(this::view).toList();}
+    @Override @Transactional(readOnly=true) public List<SubscriptionView> forTenant(long tenantId){requireRead();tenants.get(tenantId);return subscriptions.findByTenantIdOrderByCreatedAtDescIdDesc(tenantId).stream().map(this::view).toList();}
+    @Override @Transactional(readOnly=true) public List<SubscriptionView> all(){requireRead();return subscriptions.findAllByOrderByCreatedAtDescIdDesc().stream().map(this::view).toList();}
     @Override @Transactional(readOnly=true) public List<SubscriptionEventView> events(long subscriptionId){
+        requireRead();
         subscriptions.findById(subscriptionId).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Tenant subscription unavailable"));
         return events.findBySubscriptionIdOrderByOccurredAtDescIdDesc(subscriptionId).stream().map(e->new SubscriptionEventView(e.id(),e.oldStatus(),e.newStatus(),e.actor(),e.reason(),e.occurredAt())).toList();
     }
     @Override @Transactional(readOnly=true) public BillingHistory billingHistory(long subscriptionId){
+        requireRead();
         subscriptions.findById(subscriptionId).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Tenant subscription unavailable"));
         var rows=invoices.findBySubscriptionIdOrderByIssuedAtDescIdDesc(subscriptionId);
         var invoiceViews=rows.stream().map(i->new InvoiceView(i.id(),i.tenantId(),i.subscriptionId(),i.invoiceNumber(),i.periodStart(),i.periodEnd(),i.currency(),i.status(),i.subtotal(),i.taxAmount(),i.total(),i.dueAt(),i.issuedAt())).toList();

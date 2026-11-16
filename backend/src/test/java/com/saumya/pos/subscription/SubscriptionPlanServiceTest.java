@@ -32,8 +32,10 @@ class SubscriptionPlanServiceTest {
         assertThat(result.versions()).extracting(SubscriptionPlanService.PlanVersionView::version).contains(1,2);
     }
     @Test void rejectsMalformedEntitlementOrTaxSnapshotsBeforePersisting(){
-        var now=Instant.now();var plan=mock(SubscriptionPlan.class);when(plans.findByPlanKey("starter")).thenReturn(Optional.empty());
-        when(plans.saveAndFlush(any())).thenReturn(plan);when(plan.id()).thenReturn(1L);when(plan.currentVersion()).thenReturn(0);when(plan.planKey()).thenReturn("starter");when(plan.displayName()).thenReturn("Starter");when(plan.active()).thenReturn(true);when(plan.createdAt()).thenReturn(now);when(plan.updatedAt()).thenReturn(now);
+        var plan=mock(SubscriptionPlan.class);
+        when(plans.findByPlanKey("starter")).thenReturn(Optional.empty());
+        when(plans.saveAndFlush(any())).thenReturn(plan);
+        when(plan.id()).thenReturn(1L);
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
         var invalid=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"[]",7,"{}","plan");
         assertThatThrownBy(()->service.create(invalid,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);

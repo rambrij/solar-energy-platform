@@ -933,7 +933,7 @@ class PosTest {
  @Test void onlineReservationRacingWalkInSaleCannotOversell() throws Exception {
   configureOnline();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
   try(var pool=Executors.newFixedThreadPool(2)){
-   Callable<Boolean> online=()->{try{checkout.online("customer","race-online",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id()));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
+   Callable<Boolean> online=()->{try{asCustomer("customer",()->checkout.online("customer","race-online",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id())));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
    Callable<Boolean> pos=()->attempt("race-pos-sale");int won=0;
    for(var result:pool.invokeAll(List.of(online,pos)))if(result.get())won++;
    assertThat(won).isEqualTo(1);
@@ -1206,7 +1206,7 @@ class PosTest {
   assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(stock.atBranch(1,1,3)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(2);assertThat(service.reconciliation(a,session).expectedCash()).isEqualByComparingTo("180");
  }
  @Test void returnWindowAndOriginalPaidPosChannelAreEnforced(){
-  configureOnline();enableReturns();var draft=checkout.pos("alice","not-paid-return",posDraft());assertThatThrownBy(()->as("alice", () -> returns.eligibility(draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);checkout.cancelPos("alice",draft.id(),"Not sold");
+  configureOnline();enableReturns();var draft=checkout.pos("alice","not-paid-return",posDraft());assertThatThrownBy(()->as("alice", () -> returns.eligibility(draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);as("alice",()->checkout.cancelPos("alice",draft.id(),"Not sold"));
   var online=onlineDraft("online-no-return");assertThatThrownBy(()->as("alice", () -> returns.eligibility(online.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);checkout.cancelOnline("customer",online.id(),"Cancel hold");
   var receipt=checkout.cashSale(a.cashier(),"return-sale5",sale(1,"120"));String order=(String)receipt.get("id");update("UPDATE orders SET status_changed_at=? WHERE id=?",java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(31),order);
   assertThat(as("alice", () -> returns.eligibility(order)).eligible()).isFalse();assertThatThrownBy(()->as("alice", () -> returns.create("return-old5",returnRequest(order,1)))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);

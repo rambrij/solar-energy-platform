@@ -61,6 +61,7 @@ public class PosService {
             throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
     }
     public List<Map<String,Object>> products(Scope s) {
+        authorize(s,s.cashier(),"POS_VIEW");
         return catalogue.posProducts(s.tenant,s.branch);
     }
     public record SessionSummary(String id,long registerId,BigDecimal openingFloat,String state) {}
@@ -68,23 +69,27 @@ public class PosService {
         return new SessionSummary(rs.getString("id"),rs.getLong("register_id"),rs.getBigDecimal("opening_float"),rs.getString("state"));
     }
     public List<SessionSummary> activeSessions(Scope s) {
+        authorize(s,s.cashier(),"POS_VIEW");
         return db.query("SELECT p.id,p.register_id,p.opening_float,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.state IN ('OPEN','CLOSING') ORDER BY p.register_id,p.id",
             this::sessionSummary,s.tenant,s.branch,s.cashier);
     }
     public SessionSummary sessionDetails(Scope s,String id) {
+        authorize(s,s.cashier(),"POS_VIEW");
         return db.query("SELECT p.id,p.register_id,p.opening_float,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=?",
             this::sessionSummary,s.tenant,s.branch,s.cashier,id).stream().findFirst()
             .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Resource unavailable"));
     }
     @Transactional
     public SessionSummary resume(Scope s,String id) {
-        var shift=one("SELECT state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
+        authorize(s,s.cashier(),"POS_VIEW","POS_SESSION_OPEN");
+        var shift=one("SELECT p.state,p.register_id FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
         if(!Set.of("OPEN","CLOSING").contains(shift.get("state")))fail("Session is closed");
         audit(s,"SESSION_RESUME",id);
         return sessionDetails(s,id);
     }
     @Transactional
     public Map<String,Object> open(Scope s, OpenSession request) {
+        authorize(s,s.cashier(),"POS_SESSION_OPEN");
         // Lock the register before checking occupancy, including on MySQL.
         one("SELECT id FROM registers WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant,s.branch,request.registerId);
         if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",s.tenant,s.branch,s.cashier,request.registerId).isEmpty())
@@ -95,10 +100,13 @@ public class PosService {
         audit(s,"SESSION_OPEN",id);
         return Map.of("id",id);
     }
-    private void session(Scope s,String id) {
-        var row=one("SELECT register_id,state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
-        if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",s.tenant,s.branch,s.cashier,row.get("register_id")).isEmpty())
+    private void requireAssignedRegister(Scope s,long registerId) {
+        if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",
+            s.tenant,s.branch,s.cashier,registerId).isEmpty())
             throw new ResponseStatusException(FORBIDDEN,"Cashier is no longer assigned to this register");
+    }
+    private void session(Scope s,String id) {
+        var row=one("SELECT p.register_id,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
         if (!"OPEN".equals(row.get("state"))) fail("Session is closed");
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
@@ -124,6 +132,7 @@ public class PosService {
             r.getBigDecimal("cash_variance"),r.getString("variance_reason"),r.getString("reviewed_by"),r.getString("review_reason"));
     }
     public CloseResult closeStatus(Scope s,String id) {
+        authorize(s,s.cashier(),"POS_VIEW");
         return db.query("SELECT p.* FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=?",
             this::closeResult,s.tenant,s.branch,s.cashier,id).stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND));
     }
@@ -132,6 +141,7 @@ public class PosService {
         return close(s,id,counted,reason,null);
     }
     @Transactional public CloseResult close(Scope s,String id,BigDecimal counted,String reason,String requestId) {
+        authorize(s,s.cashier(),"POS_SESSION_CLOSE");
         var shift=one("SELECT p.* FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
         String normalized=reason==null||reason.isBlank()?null:reason.strip();
         if(requestId!=null) {
@@ -157,6 +167,7 @@ public class PosService {
         return closeStatus(s,id);
     }
     @Transactional public List<CloseResult> pendingVariances(Scope s) {
+        authorize(s,s.cashier(),"POS_SHIFT_VARIANCE_APPROVE");
         var rows=db.query("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier<>? AND state='CLOSING' ORDER BY close_requested_at,id",
             this::closeResult,s.tenant,s.branch,s.cashier);
         audit(s,"SHIFT_REVIEW_LIST",Long.toString(s.branch));
@@ -164,6 +175,7 @@ public class PosService {
     }
     public enum ReviewAction { APPROVE, RETURN_FOR_CORRECTION }
     @Transactional public Map<String,Object> reviewVariance(Scope s,String id,String requestId,String reason,ReviewAction action) {
+        authorize(s,s.cashier(),"POS_SHIFT_VARIANCE_APPROVE");
         var shift=one("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant,s.branch,id);
         if(s.cashier.equals(shift.get("cashier")))throw new ResponseStatusException(FORBIDDEN,"A different supervisor must review the count");
         var previous=db.queryForList("SELECT * FROM pos_shift_reviews WHERE tenant_id=? AND session_id=? AND close_request_id=?",s.tenant,id,requestId);
@@ -189,6 +201,7 @@ public class PosService {
     }
     @Transactional
     public Map<String,Object> cashMovement(Scope s, String sessionId, String key, CashMovement request) {
+        authorize(s,s.cashier(),"POS_"+request.type().name());
         if(key==null || !key.matches("[A-Za-z0-9_-]{8,80}"))
             throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");
         // The same session lock protects sales, closing and all drawer movements.
@@ -221,6 +234,7 @@ public class PosService {
     }
     @Transactional
     public Reconciliation reconciliation(Scope s,String id) {
+        authorize(s,s.cashier(),"POS_VIEW");
         var shift=one("SELECT p.state,p.opening_float,p.counted_cash,p.register_id FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",
             s.tenant,s.branch,s.cashier,id);
         var sales=db.queryForList("SELECT cash_received,change_given FROM pos_drawer_tenders WHERE tenant_id=? AND session_id=? ORDER BY id FOR UPDATE",s.tenant,id);

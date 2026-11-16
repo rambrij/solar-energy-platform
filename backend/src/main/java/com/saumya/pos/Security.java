@@ -1,7 +1,7 @@
 package com.saumya.pos;
 
 import com.saumya.pos.identity.AuthenticationService;
-import com.sa umya.pos.identity.JwtService;
+import com.saumya.pos.identity.JwtService;
 import org.springframework.context.annotation.*;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;

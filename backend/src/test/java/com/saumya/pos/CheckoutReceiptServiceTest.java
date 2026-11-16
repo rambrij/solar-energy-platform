@@ -26,6 +26,7 @@ class CheckoutReceiptServiceTest {
             public Scope scope() {
                 return new Scope(1, 1, "name");
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions){}
         };
         var orders = (DraftRepository) java.lang.reflect.Proxy.newProxyInstance(
                 DraftRepository.class.getClassLoader(), new Class<?>[] { DraftRepository.class }, (p, m, a) -> {

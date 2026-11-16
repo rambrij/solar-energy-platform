@@ -43,7 +43,7 @@ public class TenantEntitlementPolicy {
             case "GRACE_PERIOD","PAST_DUE"->graceActive;
             default->false;
         };
-        boolean readable=writable||Set.of("SUSPENDED","EXPIRED","CANCELLED","PAST_DUE","GRACE_PERIOD").contains(status);
+        boolean readable=writable||Set.of("ACTIVE","CANCEL_AT_PERIOD_END","SUSPENDED","EXPIRED","CANCELLED","PAST_DUE","GRACE_PERIOD").contains(status);
         if(!readable)return List.of();
         JsonNode entitlements;
         try{entitlements=json.readTree(String.valueOf(row.get("entitlements")));}catch(Exception e){return List.of();}

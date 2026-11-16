@@ -19,7 +19,8 @@ public class TenantEntitlementPolicy {
     private static final Set<String> READ_ONLY=Set.of("POS_VIEW","POS_RECEIPT_VIEW","PRODUCT_VIEW","PRICE_VIEW","INVENTORY_VIEW",
         "ORDER_VIEW","INVOICE_VIEW","VENDOR_PAYMENT_VIEW","REPORT_VIEW","REPORT_EXPORT","VENDOR_AUDIT_VIEW",
         "ROLE_VIEW","USER_VIEW","TENANT_PROFILE_VIEW","CUSTOMER_RELATION_VIEW","CRM_NOTE_VIEW",
-        "POS_REPORT_VIEW","POS_CASHIER_REPORT_VIEW","POS_REFUND_VIEW","POS_RETURN_VIEW","POS_TENDER_VIEW");
+        "LEAD_VIEW","QUOTATION_VIEW","RETURN_VIEW","SHIPMENT_VIEW","SERVICE_VIEW","INSTALLATION_VIEW",
+        "CART_SUPPORT_VIEW","POS_REPORT_VIEW","POS_CASHIER_REPORT_VIEW","POS_REFUND_VIEW","POS_RETURN_VIEW","POS_TENDER_VIEW");
     public TenantEntitlementPolicy(JdbcTemplate db,ObjectMapper json,Clock clock,Environment env){
         this.db=db;this.json=json;this.clock=clock;var profiles=Set.of(env.getActiveProfiles());
         this.enforced=Collections.disjoint(profiles,Set.of("local","test"));

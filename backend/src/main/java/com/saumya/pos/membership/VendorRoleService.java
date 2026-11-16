@@ -51,7 +51,7 @@ public class VendorRoleService {
         long id=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,c.tenantId(),key);
         for(String p:ps)db.update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",c.tenantId(),id,p,c.username());
         audit(c,null,"ROLE",Long.toString(id),"ROLE_CREATED",why);
-        return role(id);
+        return view(c,roleRow(c,id));
     }
     public Role update(long id,long expectedVersion,String displayName,List<String> requested,String requestedReason){
         var c=require("ROLE_UPDATE");String why=reason(requestedReason);var old=roleRow(c,id);
@@ -64,7 +64,7 @@ public class VendorRoleService {
         for(String p:ps)db.update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",c.tenantId(),id,p,c.username());
         audit(c,null,"ROLE",Long.toString(id),"ROLE_UPDATED",why);
         audit(c,null,"ROLE_PERMISSIONS_REPLACED",Long.toString(id),"ROLE_PERMISSIONS_CHANGED",why);
-        return role(id);
+        return view(c,roleRow(c,id));
     }
     public void deactivate(long id,String requestedReason){
         var c=require("ROLE_UPDATE");String why=reason(requestedReason);roleRow(c,id);
@@ -138,9 +138,12 @@ public class VendorRoleService {
             throw new ResponseStatusException(NOT_FOUND,"Branch unavailable");
         long oldBranch=((Number)emp.get("branch_id")).longValue();
         if(oldBranch==newBranch)return employee(c,subject,oldBranch,Boolean.TRUE.equals(emp.get("enabled")));
+        var existingRoles=db.queryForList("SELECT role_id,active,assigned_by FROM employee_role_assignments WHERE tenant_id=? AND username=?",c.tenantId(),subject);
         db.update("DELETE FROM employee_register_assignments WHERE tenant_id=? AND username=?",c.tenantId(),subject);
-        db.update("UPDATE employee_role_assignments SET branch_id=? WHERE tenant_id=? AND username=?",newBranch,c.tenantId(),subject);
+        db.update("DELETE FROM employee_role_assignments WHERE tenant_id=? AND username=?",c.tenantId(),subject);
         db.update("UPDATE employees SET branch_id=? WHERE tenant_id=? AND username=?",newBranch,c.tenantId(),subject);
+        for(var assignment:existingRoles)db.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,?,?)",
+            c.tenantId(),newBranch,subject,assignment.get("role_id"),assignment.get("active"),assignment.get("assigned_by"));
         audit(c,subject,"EMPLOYEE",subject,"EMPLOYEE_BRANCH_CHANGED",why);
         audit(c,subject,"REGISTER_ASSIGNMENT",subject,"REGISTER_ASSIGNMENTS_REVOKED_ON_BRANCH_CHANGE",why);
         return employee(c,subject,newBranch,Boolean.TRUE.equals(emp.get("enabled")));

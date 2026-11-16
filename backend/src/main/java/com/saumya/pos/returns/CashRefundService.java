@@ -60,7 +60,7 @@ public class CashRefundService {
     
     public Quote quote(String returned, String session) {
         if (session == null || session.isBlank() || session.length() > 36) bad("Owned open refund session required");
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD");
   retail.lockOutlet(scope);
   retail.requireOpen(scope, session);
   return quote(scope, returned, session, context(scope, returned));
@@ -79,7 +79,7 @@ public class CashRefundService {
  public View pay(String clientKey, Pay request) {
   if (request == null || clientKey == null || !clientKey.matches("[A-Za-z0-9_-]{8,80}") || request.returnId() == null || request.returnId().isBlank() || request.returnId().length() > 36 || request.sessionId() == null || request.sessionId().isBlank() || request.sessionId().length() > 36 || request.reason() == null || request.reason().isBlank() || request.reason().length() > 250 || request.quoteHash() == null || !request.quoteHash().matches("[0-9a-f]{64}") || !"CASH_HANDED_TO_BUYER".equals(request.confirmation()))
    bad("Exact quote, reason, cash handover confirmation and retry key required");
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD");
   String key = "refund-" + hash(List.of(scope.cashier(), clientKey));
   String reason = request.reason().strip();
   String fingerprint = hash(List.of(scope.cashier(), request.returnId(), request.sessionId(), reason, request.quoteHash(), request.confirmation()));
@@ -95,24 +95,24 @@ public class CashRefundService {
  }
  
  public View get(String id) {
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
   return view(refunds.findByTenantAndBranchAndId(scope.tenant(), scope.branch(), id).orElseThrow(this::missing), false);
  }
  
  public View byReturn(String returned) {
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
   var record = refunds.forReturn(scope.tenant(), returned).orElseThrow(this::missing);
   if (record.branch() != scope.branch()) throw missing();
   return view(record, false);
  }
  
  public List<View> list() {
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
   return refunds.findTop20ByTenantAndBranchOrderByPaidDescIdDesc(scope.tenant(), scope.branch()).stream().map(r -> view(r, false)).toList();
  }
  
  public View copy(String id) {
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW","POS_REFUND_PRINT");
   var refund = refunds.findByTenantAndBranchAndId(scope.tenant(), scope.branch(), id).orElseThrow(this::missing);
   event(refund, scope.cashier(), "REFUND_COPY");
   return view(refund, true);

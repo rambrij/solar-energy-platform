@@ -27,6 +27,12 @@ class IdentityProvisioningServiceTest {
     @Mock IdentityInvitationRepository invitations;
     @Mock PlatformGrantRepository platform;
     @Mock CustomerRepository customers;
+    @Test void directInvitationWithoutTrustedPlatformOrVendorActorIsDeniedBeforePersistence(){
+        var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,new BCryptPasswordEncoder(4),Clock.systemUTC());
+        assertThatThrownBy(()->service.issueInvitation("new-employee@vendor.test"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        verifyNoInteractions(users,sequences,invitations);
+    }
     @Test void vendorInvitationStoresOnlyHashAndCanBeConsumedOnce(){
         Instant now=Instant.parse("2026-11-16T00:00:00Z");
         var user=new GlobalUser(7,"admin@vendor.test","$2a$10$disabled",false);

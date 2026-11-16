@@ -109,7 +109,7 @@ class PlatformAdminTest {
   var vendorAuthorities=db.queryForList("SELECT permission FROM employee_permissions WHERE username='pa-admin1'",String.class);
   mvc.perform(get("/api/v1/platform/overview").with(op("pa-admin1",vendorAuthorities.toArray(String[]::new)))).andExpect(status().isForbidden());
   db.update("INSERT INTO platform_user_permissions(username,permission) VALUES('pa-admin1','PLATFORM_AUDIT_VIEW')");
-  mvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/login").with(csrf()).contentType(JSON).content(body(Map.of("username","pa-admin1","password",password)))).as("an identity that is both an operator and a vendor employee is refused").andExpect(status().isUnauthorized());
+  mvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/login").with(csrf()).contentType(JSON).content(body(Map.of("username","pa-admin1","password",password)))).andExpect(status().isUnauthorized());
  }
  @Test void platformOperatorsUseTheGlobalLoginButHaveNoVendorCommercialAuthority()throws Exception{
   operator("pa-root","S3cret-pass-12",PlatformPermissions.ALL);var token=bearer("pa-root","S3cret-pass-12");

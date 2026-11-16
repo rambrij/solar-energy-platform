@@ -1787,7 +1787,7 @@ class PosTest {
   assertThat(asCustomer(name,()->checkout.onlineList(name))).hasSize(2).extracting(CheckoutService.Draft::vendorName).containsExactlyInAnyOrder("Saumya Solar Rooftops","Helio Rural Energy");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE customer_id=949001 AND status='PAID'",Integer.class)).isEqualTo(2);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id IN (?,?) AND i.tenant_id<>p.tenant_id",Integer.class,ids.get(0),ids.get(1))).isZero();
-  assertThat(stock.atBranch(910001,910001,910301)).isEqualTo(39);assertThat(stock.atBranch(920001,920001,920301)).isEqualTo(11);assertThat(stock.atBranch(930001,930001,930301)).isEqualTo(35);
+  assertThat(db.queryForObject("SELECT quantity-reserved FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?",Integer.class,910001L,910001L,910301L)).isEqualTo(39);assertThat(db.queryForObject("SELECT quantity-reserved FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?",Integer.class,920001L,920001L,920301L)).isEqualTo(11);assertThat(db.queryForObject("SELECT quantity-reserved FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?",Integer.class,930001L,930001L,930301L)).isEqualTo(35);
   assertThat(db.queryForObject("SELECT SUM(reserved) FROM inventory WHERE tenant_id IN (910001,920001,930001)",Integer.class)).isZero();
  }
  @Test void demoTokensEnforcePlatformAndVendorAndCustomerBoundaries() throws Exception {
@@ -1842,7 +1842,7 @@ class PosTest {
   var reserved=mvc.perform(post(path).header("Authorization","Bearer "+token).header("Idempotency-Key","demo-discount-bill").with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn();
   String id=new com.fasterxml.jackson.databind.ObjectMapper().readTree(reserved.getResponse().getContentAsString()).get("id").asText();
   mvc.perform(post(path+"/"+id+"/finalize-cash").header("Authorization","Bearer "+token).with(csrf()).contentType("application/json").content("{\"cashReceived\":8075}")).andExpect(status().isOk());
-  assertThat(stock.atBranch(930001,930001,930301)).isEqualTo(34);assertThat(stock.atBranch(910001,910001,910301)).isEqualTo(40);
+  assertThat(db.queryForObject("SELECT quantity-reserved FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?",Integer.class,930001L,930001L,930301L)).isEqualTo(34);assertThat(db.queryForObject("SELECT quantity-reserved FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?",Integer.class,910001L,910001L,910301L)).isEqualTo(40);
   assertThat(db.queryForObject("SELECT customer_id FROM orders WHERE id=?",Long.class,id)).isNull();
   String other=demoToken("cashier@saumya.demo.test","SaumyaTill2026!");
   mvc.perform(get("/api/v1/vendor/pos/orders/"+id).header("Authorization","Bearer "+other)).andExpect(status().isNotFound());

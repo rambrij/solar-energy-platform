@@ -2,7 +2,7 @@ package com.saumya.pos.membership;
 
 import com.saumya.pos.membership.internal.*;
 import com.saumya.pos.tenant.TenantLifecycleService;
-import com.saumya.pos.security.VendorMembershipResolver;
+import com.saumya.pos.security.VendorMembershipAccess;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,7 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 @Service @Transactional(readOnly=true)
-public class MembershipService implements VendorMembershipResolver {
+public class MembershipService implements VendorMembershipAccess {
     static final List<String> VENDOR_ADMIN_PERMISSIONS=List.of(
         "TENANT_PROFILE_VIEW","TENANT_PROFILE_UPDATE","USER_VIEW","USER_CREATE","USER_UPDATE","USER_DISABLE",
         "ROLE_VIEW","ROLE_CREATE","ROLE_UPDATE","ROLE_ASSIGN","CUSTOMER_RELATION_VIEW","CUSTOMER_RELATION_CREATE",
@@ -47,19 +47,19 @@ public class MembershipService implements VendorMembershipResolver {
         JdbcTemplate jdbc,TenantEntitlementPolicy entitlements){
         this.memberships=memberships;this.grants=grants;this.tenants=tenants;this.jdbc=jdbc;this.entitlements=entitlements;
     }
-    public record Access(long tenant,long branch,String username,List<String> permissions){}
+    
     public record Provisioning(String username,long tenantId,long branchId,boolean created,int permissionCount){}
     @Override
     public Optional<VendorMembershipResolver.Membership> resolve(String username){
         return access(username).map(a->new VendorMembershipResolver.Membership(a.tenant(),a.branch(),a.username(),a.permissions()));
     }
-    public Optional<Access> access(String username){
+    public Optional<VendorMembershipAccess.Access> access(String username){
         return memberships.findByUsernameIgnoreCase(username).filter(EmployeeMembership::enabled)
             .filter(m->tenants.isActive(m.tenant()))
             .map(m->{
                 List<String> effective=effectiveVendorPermissions(m.username(),m.tenant());
                 if(entitlements!=null)effective=entitlements.permissions(m.tenant(),effective);
-                return new Access(m.tenant(),m.branch(),m.username(),effective);
+                return new VendorMembershipAccess.Access(m.tenant(),m.branch(),m.username(),effective);
             });
     }
     private List<String> effectiveVendorPermissions(String username,long tenant){
@@ -78,8 +78,8 @@ public class MembershipService implements VendorMembershipResolver {
             ORDER BY rp.permission
             """,String.class,tenant,username);
     }
-    public boolean hasMembership(String username){return memberships.findByUsernameIgnoreCase(username).isPresent();}
-    public Access require(String username){return access(username).orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN,"Active vendor membership required"));}
+    @Override public boolean hasMembership(String username){return memberships.findByUsernameIgnoreCase(username).isPresent();}
+    public VendorMembershipAccess.Access require(String username){return access(username).orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN,"Active vendor membership required"));}
 
     @Transactional
     public Provisioning provisionInitialVendorAdmin(long tenantId,long branchId,String username){

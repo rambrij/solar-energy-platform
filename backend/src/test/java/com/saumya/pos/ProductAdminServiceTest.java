@@ -34,8 +34,8 @@ class ProductAdminServiceTest {
  }
  @Test void invalidPricesTaxAndPaginationCannotReachPersistence(){
   var service=new ProductAdminService(null,null,null,null,null,Clock.systemUTC());authorize(service,"PRODUCT_CREATE","PRODUCT_VIEW");
-  assertThatThrownBy(()->service.create(7,"actor",new ProductAdminService.Input("SKU",null,"Panel",new BigDecimal("-1"),BigDecimal.ZERO,false,null,0,"Approved"))).hasMessageContaining("Valid product");
-  assertThatThrownBy(()->service.create(7,"actor",new ProductAdminService.Input("SKU",null,"Panel",BigDecimal.ONE,new BigDecimal("100.01"),false,null,0,"Approved"))).hasMessageContaining("Valid product");
+  assertThatThrownBy(()->service.create(7,"viewer",new ProductAdminService.Input("SKU",null,"Panel",new BigDecimal("-1"),BigDecimal.ZERO,false,null,0,"Approved"))).hasMessageContaining("Valid product");
+  assertThatThrownBy(()->service.create(7,"viewer",new ProductAdminService.Input("SKU",null,"Panel",BigDecimal.ONE,new BigDecimal("100.01"),false,null,0,"Approved"))).hasMessageContaining("Valid product");
   assertThatThrownBy(()->service.list(7,0,101)).hasMessageContaining("pagination");
  }
 }

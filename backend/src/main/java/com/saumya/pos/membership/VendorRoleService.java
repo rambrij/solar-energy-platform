@@ -12,8 +12,8 @@ import static org.springframework.http.HttpStatus.*;
 @Service
 @Transactional
 public class VendorRoleService {
-    private final JdbcTemplate db;private final AuthorizationContext auth;private final IdentityProvisioningService invitations;
-    public VendorRoleService(JdbcTemplate db,AuthorizationContext auth,IdentityProvisioningService invitations){this.db=db;this.auth=auth;this.invitations=invitations;}
+    private final JdbcTemplate db;private final AuthorizationContext auth;private final IdentityProvisioningService invitations;private final MembershipService memberships;
+    public VendorRoleService(JdbcTemplate db,AuthorizationContext auth,IdentityProvisioningService invitations,MembershipService memberships){this.db=db;this.auth=auth;this.invitations=invitations;this.memberships=memberships;}
     public record Role(long id,String key,String displayName,boolean active,long version,List<String> permissions){}
     public record Employee(String username,long branchId,boolean enabled,List<Long> roleIds,List<Long> registerIds){}
     public record EmployeeInvitation(String username,String invitationToken,String expiresAt,boolean accountAlreadyActive){}
@@ -22,6 +22,14 @@ public class VendorRoleService {
     private List<String> permissions(List<String> input){
         if(input==null||input.isEmpty()||input.size()>100)throw new ResponseStatusException(BAD_REQUEST,"A role requires 1-100 permissions");
         TreeSet<String> result=new TreeSet<>();for(String p:input)if(!result.add(VendorPermissionRegistry.requireVendorPermission(p)))throw new ResponseStatusException(BAD_REQUEST,"Duplicate role permission");return List.copyOf(result);
+    }
+    private void requireDelegable(AuthorizationContext.Context actor,List<String> requested){
+        for(String permission:requested)if(!actor.hasPermission(permission))
+            throw new ResponseStatusException(FORBIDDEN,"Cannot delegate a permission the acting administrator does not hold: "+permission);
+    }
+    private void requireRoleDelegable(AuthorizationContext.Context actor,long roleId){
+        var granted=db.queryForList("SELECT permission FROM vendor_role_permissions WHERE tenant_id=? AND role_id=?",String.class,actor.tenantId(),roleId);
+        requireDelegable(actor,granted);
     }
     private Map<String,Object> roleRow(AuthorizationContext.Context c,long id){
         return db.queryForList("SELECT id,role_key,display_name,active,version FROM vendor_roles WHERE tenant_id=? AND id=?",c.tenantId(),id)
@@ -43,7 +51,7 @@ public class VendorRoleService {
         String key=roleKey==null?"":roleKey.strip().toLowerCase(Locale.ROOT);
         String name=displayName==null?"":displayName.strip();
         if(!key.matches("[a-z][a-z0-9_-]{1,79}")||name.isBlank()||name.length()>120)throw new ResponseStatusException(BAD_REQUEST,"Valid role key and display name required");
-        List<String> ps=permissions(requested);
+        List<String> ps=permissions(requested);requireDelegable(c,ps);
         if(Boolean.TRUE.equals(db.queryForObject("SELECT COUNT(*)>0 FROM vendor_roles WHERE tenant_id=? AND role_key=?",Boolean.class,c.tenantId(),key)))
             throw new ResponseStatusException(CONFLICT,"Role key already exists");
         db.update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(?,?,?,?,?,?)",
@@ -55,7 +63,7 @@ public class VendorRoleService {
     }
     public Role update(long id,long expectedVersion,String displayName,List<String> requested,String requestedReason){
         var c=require("ROLE_UPDATE");String why=reason(requestedReason);var old=roleRow(c,id);
-        List<String> ps=permissions(requested);String name=displayName==null?"":displayName.strip();
+        List<String> ps=permissions(requested);requireDelegable(c,ps);String name=displayName==null?"":displayName.strip();
         if(name.isBlank()||name.length()>120)throw new ResponseStatusException(BAD_REQUEST,"Role display name required");
         int changed=db.update("UPDATE vendor_roles SET display_name=?,updated_by=?,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE tenant_id=? AND id=? AND version=?",
             name,c.username(),c.tenantId(),id,expectedVersion);
@@ -82,9 +90,10 @@ public class VendorRoleService {
         return new Employee(username,branch,enabled,roles,registers);
     }
     public EmployeeInvitation createEmployee(String username,long branchId,long roleId,String requestedReason){
-        var c=require("USER_CREATE");String why=reason(requestedReason);String normalized=username==null?"":username.strip().toLowerCase(Locale.ROOT);
+        var c=require("USER_CREATE");c.requirePermission("ROLE_ASSIGN");String why=reason(requestedReason);String normalized=username==null?"":username.strip().toLowerCase(Locale.ROOT);
         if(!normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")||normalized.length()>100)throw new ResponseStatusException(BAD_REQUEST,"Valid employee email required");
         var role=roleRow(c,roleId);if(!Boolean.TRUE.equals(role.get("active")))throw new ResponseStatusException(CONFLICT,"Inactive role cannot be assigned");
+        requireRoleDelegable(c,roleId);
         if(!Boolean.TRUE.equals(db.queryForObject("SELECT COUNT(*)>0 FROM branches WHERE tenant_id=? AND id=?",Boolean.class,c.tenantId(),branchId)))
             throw new ResponseStatusException(NOT_FOUND,"Branch unavailable");
         if(Boolean.TRUE.equals(db.queryForObject("SELECT COUNT(*)>0 FROM employees WHERE tenant_id=? AND username=?",Boolean.class,c.tenantId(),normalized)))
@@ -102,7 +111,7 @@ public class VendorRoleService {
         Map<String,Object> emp=employeeRow(c,subject);long branch=((Number)emp.get("branch_id")).longValue();
         List<Long> selected=roleIds==null?List.of():roleIds.stream().distinct().sorted().toList();
         if(selected.size()>50)throw new ResponseStatusException(BAD_REQUEST,"At most 50 roles may be assigned");
-        for(long id:selected){var role=roleRow(c,id);if(!Boolean.TRUE.equals(role.get("active")))throw new ResponseStatusException(CONFLICT,"Inactive role cannot be assigned");}
+        for(long id:selected){var role=roleRow(c,id);if(!Boolean.TRUE.equals(role.get("active")))throw new ResponseStatusException(CONFLICT,"Inactive role cannot be assigned");requireRoleDelegable(c,id);}
         db.update("UPDATE employee_role_assignments SET active=FALSE,revoked_by=?,revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND username=? AND active=TRUE",
             c.username(),c.tenantId(),subject);
         for(long id:selected){
@@ -161,13 +170,7 @@ public class VendorRoleService {
         var c=require("USER_VIEW");String subject=subject(c,username);
         var emp=employeeRow(c,subject);
         if(!Boolean.TRUE.equals(emp.get("enabled")))return List.of();
-        return db.queryForList("""
-            SELECT DISTINCT rp.permission FROM employee_role_assignments a
-            JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
-            JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id
-            WHERE a.tenant_id=? AND a.username=? AND a.active=TRUE AND r.active=TRUE
-            ORDER BY rp.permission
-            """,String.class,c.tenantId(),subject);
+        return memberships.access(subject).filter(a->a.tenant()==c.tenantId()).map(MembershipService.Access::permissions).orElse(List.of());
     }
     private String subject(AuthorizationContext.Context c,String value){
         String s=value==null?"":value.strip().toLowerCase(Locale.ROOT);

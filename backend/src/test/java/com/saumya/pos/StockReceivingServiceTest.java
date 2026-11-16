@@ -22,4 +22,18 @@ class StockReceivingServiceTest {
   assertThat(service.receive(1,1,"actor","receipt-key",new StockReceivingService.Input(7,5,"Delivery")).id()).isEqualTo(saved.id());
   assertThatThrownBy(()->service.receive(1,1,"actor","receipt-key",new StockReceivingService.Input(7,6,"Delivery"))).hasMessageContaining("different command");
  }
+
+ @Test void directReceiveWithoutPermissionIsDeniedBeforeRepositoryOrInventoryAccess(){
+  var repository=mock(StockReceiptRepository.class);
+  var inventory=mock(com.saumya.pos.inventory.InventoryService.class);
+  var service=new StockReceivingService(repository,inventory,Clock.systemUTC());
+  var authorization=mock(AuthorizationContext.class);
+  when(authorization.current()).thenReturn(new AuthorizationContext.Context("actor",1L,1L,Set.of(),false,false,true));
+  ReflectionTestUtils.setField(service,"authorization",authorization);
+  assertThatThrownBy(()->service.receive(1,1,"actor","receipt-key",new StockReceivingService.Input(7,5,"Delivery")))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+    .satisfies(error->assertThat(((org.springframework.web.server.ResponseStatusException)error).getStatusCode().value()).isEqualTo(403));
+  verifyNoInteractions(repository,inventory);
+ }
+
 }

@@ -39,6 +39,18 @@ class MembershipServiceTest {
         var access=new MembershipService(memberships,grants,tenants()).require("CASHIER");
         assertThat(access.username()).isEqualTo("cashier");assertThat(access.permissions()).containsExactly("POS_VIEW");
     }
+    @Test void vendorActorCannotInvokePlatformInitialMembershipProvisioning(){
+        var memberships=org.mockito.Mockito.mock(EmployeeMembershipRepository.class);
+        var grants=org.mockito.Mockito.mock(PermissionGrantRepository.class);
+        var authorization=org.mockito.Mockito.mock(AuthorizationContext.class);
+        org.mockito.Mockito.when(authorization.current()).thenReturn(new AuthorizationContext.Context(
+            "vendor-admin",7L,12L,Set.of("USER_CREATE"),false,false,true));
+        var service=new MembershipService(memberships,grants,tenants(),null,null,authorization);
+        assertThatThrownBy(()->service.provisionInitialVendorAdmin(7,12,"new-admin@example.com"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        org.mockito.Mockito.verifyNoInteractions(memberships,grants);
+    }
+
     @Test void firstVendorAdminProvisioningIsIdempotentAndNeverGrantsPlatformPermissions(){
         var rows=new HashMap<String,EmployeeMembership>();var rowsGrants=new ArrayList<PermissionGrant>();
         var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->{

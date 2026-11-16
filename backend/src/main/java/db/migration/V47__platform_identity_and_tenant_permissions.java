@@ -38,7 +38,7 @@ public class V47__platform_identity_and_tenant_permissions extends BaseJavaMigra
             while(rs.next())checks.add(rs.getString(1));
         }
         if(checks.size()!=1)throw new SQLException("Expected one platform grants permission CHECK, found "+checks.size());
-        String name=mysql?"`"+checks.getFirst().replace("`","``")+"`":"\""+checks.getFirst().replace("\"","\\"")+"\"";
+        String name=mysql?"`"+checks.getFirst().replace("`","``")+"`":"\""+checks.getFirst().replace("\"","\"\"")+"\"";
         try(Statement s=c.createStatement()){
             s.execute("ALTER TABLE platform_user_permissions "+(mysql?"DROP CHECK ":"DROP CONSTRAINT ")+name);
             s.execute("ALTER TABLE platform_user_permissions ADD CONSTRAINT chk_platform_permissions_v47 CHECK ("+CHECK+")");

@@ -77,7 +77,7 @@ public class InventoryService {
   String channel=String.valueOf(row.get("channel"));
   var context=actor();
   if("ONLINE".equals(channel)){
-   if(!context.isCustomer()||context.isPlatformUser()||context.isVendorEmployee())
+   if(!context.isCustomer()||context.isPlatformUser())
     throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
    long customer=customers.resolve(context.username());
    Object owner=row.get("customer_id");
@@ -101,11 +101,21 @@ public class InventoryService {
 
  /** Internal exact-quantity query. Callers must already hold a vendor scope or be a stock projection. */
  @Transactional(readOnly=true)
- public long available(long tenant,long product){return balances.available(tenant,product);}
+ public boolean publicInStock(long tenant,long branch,long product){return balances.atBranch(tenant,branch,product)>0;}
 
- /** Internal exact-quantity query used by authenticated POS/stock projections and catalogue composition. */
+ /** Exact tenant-wide quantity is available only to an authenticated tenant member. */
  @Transactional(readOnly=true)
- public long atBranch(long tenant,long branch,long product){return balances.atBranch(tenant,branch,product);}
+ public long available(long tenant,long product){
+  var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requirePermission("INVENTORY_VIEW");
+  return balances.available(tenant,product);
+ }
+
+ /** Exact branch quantity is available only to an authenticated member assigned to that branch. */
+ @Transactional(readOnly=true)
+ public long atBranch(long tenant,long branch,long product){
+  var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("INVENTORY_VIEW");
+  return balances.atBranch(tenant,branch,product);
+ }
 
  @Transactional
  public void issue(long tenant,long branch,long product,int quantity){
@@ -139,7 +149,13 @@ public class InventoryService {
    if(!"DRAFT".equals(order.get("status")))return;
   }else{
    long branch=((Number)order.get("stock_branch_id")).longValue();
-   order=authorizeOrder(tenant,orderId,branch,"POS_SALE_CANCEL");
+   var context=actor();
+   if(!context.isCustomer()){
+    context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
+    if(context.username().equals(row.get("cashier")))context.requirePermission("POS_SALE_CANCEL");
+    else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))
+     throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Payment resolution permission required");
+   }else order=authorizeOrder(tenant,orderId,branch,"POS_SALE_CANCEL");
    if(!"DRAFT".equals(order.get("status")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Only unpaid draft orders may release stock");
   }
   for(var reservation:reservations.held(tenant,orderId)){
@@ -152,7 +168,19 @@ public class InventoryService {
  public Map<Long,Integer> consume(long tenant,String orderId){
   Map<String,Object> row=order(tenant,orderId);
   long branch=((Number)row.get("stock_branch_id")).longValue();
-  row=authorizeOrder(tenant,orderId,branch,"POS_SALE_CREATE");
+  var context=actor();
+  if("ONLINE".equals(row.get("sales_channel"))){
+   if(!context.isCustomer()||context.isPlatformUser())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+   long customer=customers.resolve(context.username());Object owner=row.get("customer_id");
+   if(owner==null||((Number)owner).longValue()!=customer)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+  }else{
+   context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
+   if(!context.username().equals(row.get("cashier"))&&!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_CONFIRM"))
+    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+   if(context.username().equals(row.get("cashier")))context.requirePermission("POS_SALE_CREATE");
+   else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_CONFIRM"))
+    throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Payment confirmation permission required");
+  }
   if(!Set.of("DRAFT","PAID").contains(String.valueOf(row.get("status"))))
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Only payable draft orders may consume reserved stock");
   var consumed=new LinkedHashMap<Long,Integer>();

@@ -15,6 +15,7 @@ class ReceiptDocumentServiceTest {
             public Scope scope() {
                 return new Scope(1, 2, "username");
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions){}
         };
         assertThatThrownBy(() -> new ReceiptDocumentService(
                 retail, null, null, Clock.systemUTC(), new com.saumya.pos.checkout.CheckoutReceiptService(null, null, null, null, null, null) {

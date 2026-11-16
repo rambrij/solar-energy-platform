@@ -15,8 +15,16 @@ import static org.springframework.http.HttpStatus.*;
 public class PlatformSupportServiceImpl implements PlatformSupportService {
     private final PlatformSupportRepository repository;private final TenantLifecycleService tenants;
     private final PlatformAuditService audit;private final Clock clock;
+    @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.security.AuthorizationContext authorization;
+    private void requirePlatform(String actor,String permission){
+        if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Platform authorization context unavailable");
+        var context=authorization.current();
+        if(!context.isPlatformUser()||!context.username().equals(actor))throw new ResponseStatusException(FORBIDDEN,"Platform actor does not match authenticated identity");
+        context.requirePermission(permission);
+    }
     public PlatformSupportServiceImpl(PlatformSupportRepository repository,TenantLifecycleService tenants,PlatformAuditService audit,Clock clock){this.repository=repository;this.tenants=tenants;this.audit=audit;this.clock=clock;}
     @Override public SupportAccess grant(long tenantId,String actor,String purpose,String ticket,Instant expiry,String correlation){
+        requirePlatform(actor,"PLATFORM_SUPPORT_ACCESS");
         tenants.get(tenantId);
         String why=required(purpose,500,"Purpose");String ref=required(ticket,120,"Ticket/reference");
         Instant now=clock.instant();
@@ -28,11 +36,12 @@ public class PlatformSupportServiceImpl implements PlatformSupportService {
         return view(row,now);
     }
     @Override public SupportAccess revoke(long id,String actor,String reason,String correlation){
+        requirePlatform(actor,"PLATFORM_SUPPORT_ACCESS");
         var row=repository.findById(id).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Support access unavailable"));
         row.revoke(actor,clock.instant());audit.record(actor,"SUPPORT_ACCESS_REVOKED","SUPPORT_ACCESS",Long.toString(id),row.tenantId(),required(reason,500,"Reason"),correlation);
         return view(row,clock.instant());
     }
-    @Override @Transactional(readOnly=true) public List<SupportAccess> recent(){Instant now=clock.instant();return repository.findTop100ByOrderByGrantedAtDesc().stream().map(row->view(row,now)).toList();}
+    @Override @Transactional(readOnly=true) public List<SupportAccess> recent(){if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Platform authorization context unavailable");var context=authorization.current();if(!context.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");context.requirePermission("PLATFORM_SUPPORT_ACCESS");Instant now=clock.instant();return repository.findTop100ByOrderByGrantedAtDesc().stream().map(row->view(row,now)).toList();}
     private static SupportAccess view(PlatformSupportGrant row,Instant now){return new SupportAccess(row.id(),row.tenantId(),row.actor(),row.purpose(),row.ticketReference(),row.grantedAt(),row.expiresAt(),row.revokedAt(),row.activeAt(now));}
     private static String required(String v,int max,String label){if(v==null||v.isBlank()||v.strip().length()>max)throw new ResponseStatusException(BAD_REQUEST,label+" is required");return v.strip();}
 }

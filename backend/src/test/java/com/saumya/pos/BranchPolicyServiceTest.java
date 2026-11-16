@@ -22,6 +22,10 @@ class BranchPolicyServiceTest {
             public Scope scope() {
                 return new Scope(7, 9, "cashier");
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions){
+                assertThat(scope.cashier()).isEqualTo(actor);
+                assertThat(permissions).containsExactly("POS_VIEW");
+            }
         };
         var result = new BranchPolicyService(repository, retail, null, null, null, Clock.systemUTC()).current("cashier");
         assertThat(result.branch()).isEqualTo(9);

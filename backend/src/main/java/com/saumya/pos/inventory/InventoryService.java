@@ -97,7 +97,7 @@ public class InventoryService {
 
  /** Safe catalogue projection: only a boolean availability value is exposed to public catalogue reads. */
  @Transactional(readOnly=true)
- public boolean publicInStock(long tenant,long branch,long product){return balances.atBranch(tenant,branch,product)>0;}
+ public boolean publicInStock(long tenant,long product){return balances.available(tenant,product)>0;}
 
  /** Internal exact-quantity query. Callers must already hold a vendor scope or be a stock projection. */
  @Transactional(readOnly=true)

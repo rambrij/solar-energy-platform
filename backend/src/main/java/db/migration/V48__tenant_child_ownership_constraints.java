@@ -133,42 +133,36 @@ public class V48__tenant_child_ownership_constraints extends BaseJavaMigration {
 
     private static boolean indexExists(Connection connection, String table, String indexName)
             throws SQLException {
-        DatabaseMetaData metadata = connection.getMetaData();
-        for (String tableName : tableNames(table)) {
-            try (ResultSet indexes = metadata.getIndexInfo(
-                    connection.getCatalog(), connection.getSchema(), tableName, true, false)) {
-                while (indexes.next()) {
-                    if (indexName.equalsIgnoreCase(indexes.getString("INDEX_NAME"))) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        return constraintExists(connection, table, indexName, "UNIQUE");
     }
 
     private static boolean foreignKeyExists(Connection connection, String table, String foreignKeyName)
             throws SQLException {
-        DatabaseMetaData metadata = connection.getMetaData();
-        for (String tableName : tableNames(table)) {
-            try (ResultSet keys = metadata.getImportedKeys(
-                    connection.getCatalog(), connection.getSchema(), tableName)) {
-                while (keys.next()) {
-                    if (foreignKeyName.equalsIgnoreCase(keys.getString("FK_NAME"))) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        return constraintExists(connection, table, foreignKeyName, "FOREIGN KEY");
     }
 
-    private static String[] tableNames(String table) {
-        return new String[] {
-                table,
-                table.toUpperCase(Locale.ROOT),
-                table.toLowerCase(Locale.ROOT)
-        };
+    private static boolean constraintExists(Connection connection, String table, String constraintName,
+                                            String constraintType) throws SQLException {
+        String schema = connection.getSchema();
+        if (schema == null || schema.isBlank()) {
+            schema = connection.getCatalog();
+        }
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT COUNT(*)
+                FROM information_schema.table_constraints
+                WHERE UPPER(table_schema)=UPPER(?)
+                  AND UPPER(table_name)=UPPER(?)
+                  AND UPPER(constraint_name)=UPPER(?)
+                  AND constraint_type=?
+                """)) {
+            statement.setString(1, schema);
+            statement.setString(2, table);
+            statement.setString(3, constraintName);
+            statement.setString(4, constraintType);
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next() && rows.getLong(1) > 0;
+            }
+        }
     }
 
     private static void execute(Connection connection, String sql) throws SQLException {

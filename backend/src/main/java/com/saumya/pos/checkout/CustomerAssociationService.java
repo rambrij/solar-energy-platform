@@ -45,6 +45,6 @@ public class CustomerAssociationService {
   if(!challenge.expires().isAfter(clock.instant()))throw missing();var order=orders.lock(challenge.tenant(),challenge.order()).orElseThrow(this::missing);
   if(!"IN_STORE".equals(order.channel())||!"DRAFT".equals(order.status())||order.customer()!=null||!order.expires().isAfter(clock.instant()))throw missing();
   if(!catalog.vendor(order.tenant()).active())throw missing();retail.requireOpen(new PosService.Scope(order.tenant(),order.branch(),order.cashier()),order.session());
-  relationships.associate(order.tenant(),customer,clock.instant());order.associate(customer);challenge.approve(customer);orders.flush();challenges.flush();retail.draftAudit(new PosService.Scope(order.tenant(),order.branch(),"customer:"+customer),"CUSTOMER_ASSOCIATION_APPROVE",order.id());return new Preview(catalog.vendor(order.tenant()).name(),order.total(),"ASSOCIATED");
+  relationships.associate(order.tenant(),customer,clock.instant());order.associate(customer);challenge.approve(customer);orders.flush();challenges.flush();retail.customerDraftAudit(order.tenant(),order.branch(),customer,"CUSTOMER_ASSOCIATION_APPROVE",order.id());return new Preview(catalog.vendor(order.tenant()).name(),order.total(),"ASSOCIATED");
  }
 }

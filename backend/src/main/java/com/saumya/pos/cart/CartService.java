@@ -4,6 +4,7 @@ import com.saumya.pos.cart.internal.*;
 import com.saumya.pos.catalog.CatalogService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.inventory.InventoryService;
+import com.saumya.pos.membership.TenantEntitlementPolicy;
 import com.saumya.pos.shared.Pricing;
 import java.math.BigDecimal;
 import java.util.*;
@@ -16,6 +17,11 @@ import static org.springframework.http.HttpStatus.*;
 @Service @Transactional
 public class CartService {
  @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.security.AuthorizationContext authorization;
+ @org.springframework.beans.factory.annotation.Autowired private TenantEntitlementPolicy entitlements;
+ private void requireFeature(long tenant,String feature,boolean write){
+  if(entitlements==null)throw new ResponseStatusException(FORBIDDEN,"Tenant entitlement policy unavailable");
+  entitlements.requireFeature(tenant,feature,write);
+ }
  private void requireCustomer(long customerId){
   if(authorization==null)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED,"Customer authorization context unavailable");
   var context=authorization.current();
@@ -38,6 +44,7 @@ public class CartService {
     public Cart cart(long customer){requireCustomer(customer);customers.lock(customer);return view(active(customer));}
     private Cart view(ShoppingCart cart){
         if(cart==null)return new Cart(null,null,null,List.of(),BigDecimal.ZERO,false,PAYMENT_GATE);
+        requireFeature(cart.tenantId(),"CATALOG",false);
         var vendor=catalogue.vendor(cart.tenantId());var lines=new ArrayList<CartLine>();BigDecimal total=BigDecimal.ZERO;
         for(var item:items.items(cart.tenantId(),cart.id())){
             var product=catalogue.product(cart.tenantId(),item.productId());boolean published=vendor.active()&&product.published();
@@ -50,7 +57,8 @@ public class CartService {
         return new Cart(cart.id(),vendor.slug(),vendor.active()?vendor.name():"Vendor unavailable",lines,total,false,PAYMENT_GATE);
     }
     public Cart put(long customer,Item request){requireCustomer(customer);
-        customers.lock(customer);var vendor=catalogue.activeVendor(request.vendorSlug());catalogue.published(vendor.id(),request.productId());
+        customers.lock(customer);var vendor=catalogue.activeVendor(request.vendorSlug());
+        requireFeature(vendor.id(),"CATALOG",false);requireFeature(vendor.id(),"ORDERS",true);catalogue.published(vendor.id(),request.productId());
         var current=active(customer);
         if(current!=null&&current.tenantId()!=vendor.id())throw new com.saumya.pos.shared.DomainProblem("CART_VENDOR_MISMATCH", "Confirm a vendor cart switch");
         if(current==null)current=carts.saveAndFlush(new ShoppingCart(UUID.randomUUID().toString(),vendor.id(),customer));
@@ -60,18 +68,21 @@ public class CartService {
     }
     public Cart remove(long customer,long product){requireCustomer(customer);
         customers.lock(customer);var current=active(customer);
+        if(current!=null)requireFeature(current.tenantId(),"ORDERS",true);
         if(current!=null){items.item(current.tenantId(),current.id(),product).ifPresent(items::delete);items.flush();
             if(items.items(current.tenantId(),current.id()).isEmpty()){current.archive();carts.flush();return view(null);}}
         return view(current);
     }
     public Cart switchVendor(long customer,Switch request){requireCustomer(customer);
         customers.lock(customer);var current=active(customer);
+        if(current!=null)requireFeature(current.tenantId(),"ORDERS",true);
         if(current==null||!request.expectedCartId().equals(current.id()))throw new ResponseStatusException(CONFLICT,"Cart changed; reload before switching");
         var vendor=catalogue.activeVendor(request.vendorSlug());catalogue.published(vendor.id(),request.productId());
         current.archive();carts.flush();return put(customer,new Item(vendor.slug(),request.productId(),request.quantity()));
     }
     public Cart quote(long customer){requireCustomer(customer);
-        customers.lock(customer);Cart cart=view(active(customer));
+        customers.lock(customer);var current=active(customer);if(current!=null)requireFeature(current.tenantId(),"ORDERS",false);
+        Cart cart=view(current);
         if(cart.items().isEmpty()||cart.items().stream().anyMatch(item->!item.available()))throw new ResponseStatusException(CONFLICT,"Cart is empty or unavailable");
         return cart;
     }
@@ -89,6 +100,7 @@ public class CartService {
         if(!Objects.equals(current==null?null:current.id(),request.expectedCartId()))throw new ResponseStatusException(CONFLICT,"Active cart changed; reload before restoring");
         var archived=carts.findByIdAndCustomerIdAndState(request.archivedCartId(),customer,"ARCHIVED")
             .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Archived cart unavailable"));
+        requireFeature(archived.tenantId(),"CATALOG",false);requireFeature(archived.tenantId(),"ORDERS",true);
         var vendor=catalogue.vendor(archived.tenantId());if(!vendor.active())throw new ResponseStatusException(CONFLICT,"Vendor unavailable");
         var stored=items.items(archived.tenantId(),archived.id());
         if(stored.isEmpty())throw new ResponseStatusException(CONFLICT,"Archived cart is empty");

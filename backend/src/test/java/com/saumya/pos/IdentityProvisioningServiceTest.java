@@ -1,6 +1,7 @@
 package com.saumya.pos;
 
 import com.saumya.pos.identity.IdentityProvisioningServiceImpl;
+import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.identity.internal.*;
 import java.time.*;
 import java.util.Optional;
@@ -16,6 +17,11 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class IdentityProvisioningServiceTest {
+    private void authorize(IdentityProvisioningServiceImpl service,AuthorizationContext.Context actor){
+        var context=mock(AuthorizationContext.class);when(context.current()).thenReturn(actor);ReflectionTestUtils.setField(service,"authorization",context);
+    }
+    private AuthorizationContext.Context vendorActor(){return new AuthorizationContext.Context("vendor-admin",1L,1L,java.util.Set.of("USER_CREATE"),false,false,true);}
+    private AuthorizationContext.Context platformActor(){return new AuthorizationContext.Context("platform-admin",null,null,java.util.Set.of("PLATFORM_TENANT_CREATE"),true,false,false);}
     @Mock GlobalUserRepository users;
     @Mock IdentitySequenceRepository sequences;
     @Mock IdentityInvitationRepository invitations;
@@ -31,6 +37,7 @@ class IdentityProvisioningServiceTest {
         when(invitations.locked(anyString())).thenAnswer(inv->Optional.ofNullable(saved[0]));
         var encoder=new BCryptPasswordEncoder(4);
         var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,encoder,Clock.fixed(now,ZoneOffset.UTC));
+        authorize(service,vendorActor());
         var invitation=service.issueInvitation(" ADMIN@VENDOR.TEST ");
         assertThat(invitation.token()).hasSize(43);
         assertThat(ReflectionTestUtils.getField(saved[0],"tokenHash")).isNotEqualTo(invitation.token());
@@ -46,6 +53,7 @@ class IdentityProvisioningServiceTest {
         when(platform.permissions("customer@vendor.test")).thenReturn(java.util.List.of());
         when(customers.profileCount("customer@vendor.test")).thenReturn(1L);
         var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,new BCryptPasswordEncoder(4),Clock.systemUTC());
+        authorize(service,vendorActor());
         assertThatThrownBy(()->service.issueInvitation("customer@vendor.test"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
             .hasMessageContaining("Customer identities cannot receive vendor membership");
@@ -54,6 +62,7 @@ class IdentityProvisioningServiceTest {
     @Test void platformIdentityCannotBeReusedAsVendorAdmin(){
         when(platform.permissions("platform@saumya.test")).thenReturn(java.util.List.of("PLATFORM_TENANT_CREATE"));
         var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,new BCryptPasswordEncoder(4),Clock.systemUTC());
+        authorize(service,platformActor());
         assertThatThrownBy(()->service.ensureVendorEligible("platform@saumya.test"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
             .hasMessageContaining("Platform identities cannot receive vendor membership");

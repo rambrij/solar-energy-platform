@@ -1840,4 +1840,46 @@ class PosTest {
   String other=demoToken("cashier@saumya.demo.test","SaumyaTill2026!");
   mvc.perform(get("/api/v1/vendor/pos/orders/"+id).header("Authorization","Bearer "+other)).andExpect(status().isNotFound());
  }
+
+
+ @Test void tenantOwnedProjectionAndSubscriptionRowsRejectCrossTenantParents() {
+  var orderA=asScope(a,()->checkout.cashSale("alice","v48-owner-a",sale(1,"120")));
+  String orderAId=(String)orderA.get("id");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders WHERE tenant_id=1 AND order_reference=?",Integer.class,orderAId)).isEqualTo(1);
+
+  String sessionB=(String)asScope(b,()->service.open(b,new PosService.OpenSession(2,BigDecimal.ZERO)).get("id"));
+  var orderB=asScope(b,()->checkout.cashSale("bob","v48-owner-b",
+    new CheckoutService.CashSale(sessionB,List.of(new CheckoutService.Item(2,1)),new BigDecimal("100"),false,null,null)));
+  String orderBId=(String)orderB.get("id");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders WHERE tenant_id=2 AND order_reference=?",Integer.class,orderBId)).isEqualTo(1);
+
+  // The old single-column tenant FK accepted this valid tenant ID plus a
+  // different tenant's order. The V48 composite ownership FK must reject it.
+  assertThatThrownBy(()->update(
+    "INSERT INTO pos_drawer_tenders(id,tenant_id,branch_id,session_id,order_reference,cash_received,change_given) VALUES('v48-cross-order',1,1,?,?,100,0)",
+    session,orderBId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO pos_drawer_tenders(id,tenant_id,branch_id,session_id,order_reference,cash_received,change_given) VALUES('v48-cross-session',1,1,?,?,100,0)",
+    sessionB,orderAId)).isInstanceOf(RuntimeException.class);
+
+  var draft=as("alice",()->checkout.pos("alice","v48-draft",posDraft()));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts WHERE tenant_id=1 AND order_reference=?",Integer.class,draft.id())).isEqualTo(1);
+  assertThatThrownBy(()->update(
+    "INSERT INTO pos_active_drafts(tenant_id,branch_id,cashier,session_id,order_reference) VALUES(1,1,'alice',?,?)",
+    session,orderBId)).isInstanceOf(RuntimeException.class);
+
+  update("INSERT INTO subscription_plans(plan_key,display_name,active,current_version) VALUES('v48-plan','V48 test plan',TRUE,1)");
+  Long planId=db.queryForObject("SELECT id FROM subscription_plans WHERE plan_key='v48-plan'",Long.class);
+  update("INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by) VALUES(?,1,0,'INR','MONTHLY',1,0,1,0,'{}',0,'{}','V48 test','alice')",planId);
+  update("INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot) VALUES(1,?,1,'ACTIVE','2026-01-01','2026-12-31','{}'),(2,?,1,'ACTIVE','2026-01-01','2026-12-31','{}')",planId,planId);
+  Long subscriptionA=db.queryForObject("SELECT id FROM tenant_subscriptions WHERE tenant_id=1",Long.class);
+  Long subscriptionB=db.queryForObject("SELECT id FROM tenant_subscriptions WHERE tenant_id=2",Long.class);
+
+  update("INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(1,?,'ACTIVE','alice','same tenant event')",subscriptionA);
+  assertThatThrownBy(()->update(
+    "INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(1,?,'ACTIVE','alice','cross tenant event')",
+    subscriptionB)).isInstanceOf(RuntimeException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_events WHERE tenant_id=1 AND subscription_id=?",Integer.class,subscriptionA)).isEqualTo(1);
+ }
+
 }

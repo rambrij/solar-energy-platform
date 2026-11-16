@@ -1,0 +1,19 @@
+-- Optional LOCAL demonstration only, after pos-local-demo-setup.sql.
+-- Login: local-supervisor / LocalSupervisor2026!
+-- Safe to repeat: does not reset an existing password or grant cashier permissions.
+USE solar;
+INSERT INTO users(id,username,password_hash,enabled)
+SELECT 900003,'local-supervisor','$2a$10$OHCFHlJucaUXl7alduReS.DzvA5uz.NxwhkDYWptgYOXOLS7MNSWu',TRUE
+WHERE EXISTS(SELECT 1 FROM branches WHERE tenant_id=900001 AND id=900001)
+ AND NOT EXISTS(SELECT 1 FROM users WHERE id=900003 OR username='local-supervisor');
+INSERT INTO employees(username,tenant_id,branch_id,enabled)
+SELECT 'local-supervisor',900001,900001,TRUE
+WHERE EXISTS(SELECT 1 FROM users WHERE username='local-supervisor')
+ AND NOT EXISTS(SELECT 1 FROM employees WHERE username='local-supervisor');
+UPDATE identity_sequence SET next_id=GREATEST(next_id,900004) WHERE id=1;
+
+INSERT INTO employee_permissions(username,permission,tenant_id)
+SELECT e.username,p.permission,e.tenant_id FROM employees e
+CROSS JOIN(SELECT 'POS_VIEW' AS permission UNION ALL SELECT 'POS_SHIFT_VARIANCE_APPROVE') p
+WHERE e.username='local-supervisor' AND e.tenant_id=900001 AND e.branch_id=900001
+  AND NOT EXISTS(SELECT 1 FROM employee_permissions g WHERE g.username=e.username AND g.permission=p.permission);

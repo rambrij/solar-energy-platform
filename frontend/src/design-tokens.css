@@ -1,0 +1,174 @@
+/**
+ * Saumya Solar Energy Platform - Design Tokens
+ * Modern, professional solar-themed color palette
+ * Sun yellow/orange, deep blue, white, green accents
+ */
+
+:root {
+  /* --- Brand Colors --- */
+  --color-sun-50: #fffbf0;
+  --color-sun-100: #fff5d8;
+  --color-sun-200: #ffedb0;
+  --color-sun-300: #ffe289;
+  --color-sun-400: #ffd461;
+  --color-sun-500: #f5a623; /* Primary sun yellow */
+  --color-sun-600: #e89300;
+  --color-sun-700: #d07c00;
+  --color-sun-800: #b86500;
+  --color-sun-900: #9f4f00;
+
+  --color-sky-50: #f0f7fc;
+  --color-sky-100: #deedf9;
+  --color-sky-200: #b8d9f3;
+  --color-sky-300: #91c5ed;
+  --color-sky-400: #6bb1e7;
+  --color-sky-500: #3f7eb8;
+  --color-sky-600: #2d5a8c;
+  --color-sky-700: #1f4067;
+  --color-sky-800: #133250;
+  --color-sky-900: #0b2545; /* Primary deep blue */
+
+  --color-leaf-50: #f0faf4;
+  --color-leaf-100: #daf5e5;
+  --color-leaf-200: #b5eacb;
+  --color-leaf-300: #8fdfb1;
+  --color-leaf-400: #6ad497;
+  --color-leaf-500: #2e9e5b; /* Primary green accent */
+  --color-leaf-600: #227844;
+  --color-leaf-700: #1a5f36;
+  --color-leaf-800: #114628;
+  --color-leaf-900: #092d1a;
+
+  /* --- Neutral Colors --- */
+  --color-white: #ffffff;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+
+  /* --- Semantic Colors --- */
+  --color-success: var(--color-leaf-500);
+  --color-success-bg: var(--color-leaf-50);
+  --color-success-border: var(--color-leaf-200);
+
+  --color-warning: var(--color-sun-500);
+  --color-warning-bg: var(--color-sun-50);
+  --color-warning-border: var(--color-sun-200);
+
+  --color-error: #dc2626;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fecaca;
+
+  --color-info: var(--color-sky-500);
+  --color-info-bg: var(--color-sky-50);
+  --color-info-border: var(--color-sky-200);
+
+  /* --- Typography --- */
+  --font-family-sans: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+  --font-size-4xl: 2.25rem;   /* 36px */
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* --- Spacing Scale --- */
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+  --space-12: 3rem;    /* 48px */
+  --space-16: 4rem;    /* 64px */
+
+  /* --- Border Radius --- */
+  --radius-sm: 0.375rem;  /* 6px */
+  --radius-md: 0.5rem;    /* 8px */
+  --radius-lg: 0.75rem;   /* 12px */
+  --radius-xl: 1rem;      /* 16px */
+  --radius-2xl: 1.5rem;   /* 24px */
+  --radius-full: 9999px;
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  /* --- Z-Index Scale --- */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+
+  /* --- Transitions --- */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* --- Component-Specific Tokens --- */
+  --navbar-height: 4.5rem;     /* 72px */
+  --sidebar-width: 16rem;      /* 256px */
+  --sidebar-width-collapsed: 4rem; /* 64px */
+
+  /* --- Application Colors (mapped to brand) --- */
+  --primary: var(--color-sky-900);
+  --primary-hover: var(--color-sky-800);
+  --primary-light: var(--color-sky-100);
+
+  --secondary: var(--color-sun-500);
+  --secondary-hover: var(--color-sun-600);
+  --secondary-light: var(--color-sun-100);
+
+  --accent: var(--color-leaf-500);
+  --accent-hover: var(--color-leaf-600);
+  --accent-light: var(--color-leaf-100);
+
+  --background: var(--color-white);
+  --background-alt: var(--color-slate-50);
+  --surface: var(--color-white);
+  --surface-hover: var(--color-slate-100);
+
+  --text-primary: var(--color-slate-900);
+  --text-secondary: var(--color-slate-600);
+  --text-muted: var(--color-slate-500);
+  --text-disabled: var(--color-slate-400);
+
+  --border: var(--color-slate-200);
+  --border-hover: var(--color-slate-300);
+  --divider: var(--color-slate-200);
+}
+
+/* Dark mode variables (optional for future enhancement) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark mode color adjustments can be added here if needed */
+  }
+}

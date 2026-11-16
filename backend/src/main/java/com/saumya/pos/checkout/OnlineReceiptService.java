@@ -23,8 +23,8 @@ public class OnlineReceiptService {
  public record Receipt(String orderId,String seller,String outlet,Instant issuedAt,BigDecimal total,String paymentMethod,List<Line> items,List<Invoice> invoices,boolean copy,BuyerDetailsPolicy.Input buyer){}
  private ResponseStatusException missing(){return new ResponseStatusException(NOT_FOUND,"Online receipt unavailable");}
  private DraftOrder owned(String username,String id){
-  retail.authorizeCustomer(username);
   if(id==null||!id.matches("[A-Za-z0-9-]{1,36}"))throw missing();
+  retail.authorizeCustomer(username);
   long customer=customers.resolve(username);var order=orders.lockLinkedCustomer(customer,id).orElseThrow(this::missing);
   if(!"PAID".equals(order.status()))throw missing();
   return order;

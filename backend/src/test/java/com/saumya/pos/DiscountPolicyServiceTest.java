@@ -12,6 +12,10 @@ class DiscountPolicyServiceTest {
  @Test void absentPolicyDeniesDiscretionaryDiscountAndConfigurationValidatesLimit(){
   var stored=new AtomicReference<DiscountPolicy>();
   var repository=(DiscountPolicyRepository)Proxy.newProxyInstance(DiscountPolicyRepository.class.getClassLoader(),new Class<?>[]{DiscountPolicyRepository.class},(p,m,a)->{if(m.getName().equals("findById"))return Optional.ofNullable(stored.get());if(m.getName().equals("saveAndFlush")){stored.set((DiscountPolicy)a[0]);return a[0];}throw new AssertionError(m.getName());});
-  var service=new DiscountPolicyService(repository,new BillPricing());assertThat(service.maximum(1)).isZero();assertThatThrownBy(()->service.configure(1,new BigDecimal("101"))).isInstanceOf(IllegalArgumentException.class);service.configure(1,new BigDecimal("20"));assertThat(service.maximum(1)).isEqualByComparingTo("20");
+  var retail=new com.saumya.pos.retail.PosService(null,null,null){
+   @Override public Scope scope(){return new Scope(1,2,"cashier");}
+   @Override public void authorize(Scope scope,String actor,String... permissions){assertThat(scope.cashier()).isEqualTo(actor);}
+  };
+  var service=new DiscountPolicyService(repository,new BillPricing(),retail);assertThat(service.maximum(1)).isZero();assertThatThrownBy(()->service.configure(1,new BigDecimal("101"))).isInstanceOf(IllegalArgumentException.class);service.configure(1,new BigDecimal("20"));assertThat(service.maximum(1)).isEqualByComparingTo("20");
  }
 }

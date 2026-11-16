@@ -748,7 +748,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT state FROM carts WHERE id=?",String.class,cart.id())).isEqualTo("ARCHIVED");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM cart_items WHERE cart_id=?",Integer.class,cart.id())).isEqualTo(1);
   assertThatThrownBy(()->marketplace.switchVendor(100,new CartService.Switch(cart.id(),"vendor-1",1,1)));
-  assertThat(marketplace.cart(101).items()).isEmpty();
+  assertThatThrownBy(()->marketplace.cart(101)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThatThrownBy(()->marketplace.switchVendor(101,new CartService.Switch(switched.id(),"vendor-1",1,1)));
  }
  @Test void marketplaceAndPosSharePricingAndCurrentStock(){
@@ -810,7 +810,7 @@ class PosTest {
   customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
   var second=marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1));
   assertThat(marketplace.history(100)).extracting(CartService.Cart::id).containsExactly(first.id());
-  assertThat(marketplace.history(101)).isEmpty();
+  assertThatThrownBy(()->marketplace.history(101)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThatThrownBy(()->marketplace.restore(101,new CartService.Restore(first.id(),null)));
   assertThatThrownBy(()->marketplace.restore(100,new CartService.Restore(first.id(),first.id())));
   var restored=marketplace.restore(100,new CartService.Restore(first.id(),second.id()));

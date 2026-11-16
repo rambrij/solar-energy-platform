@@ -23,6 +23,10 @@ public class PromotionService {
  }
  @Transactional public Price approve(long tenant,String actor,long product,Change request){
   if(actor==null||actor.isBlank()||actor.length()>100||request.percent()==null||request.percent().signum()<0||request.percent().compareTo(new BigDecimal("100"))>0||request.percent().scale()>2||request.reason()==null||request.reason().isBlank()||request.reason().length()>250)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid promotion percent and reason required");
+  if(authorization==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authorization context required");
+  var context=authorization.current();context.requireVendorMembership();context.requireTenant(tenant);
+  if(!context.username().equals(actor))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Promotion actor must match authenticated identity");
+  context.requirePermissions("CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE");
   var p=products.lockPublished(tenant,product).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Catalogue resource unavailable"));
   var existing=promotions.locked(tenant,product);if(existing.isPresent())em.refresh(existing.get(),jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
   BigDecimal old=existing.map(Promotion::percent).orElse(BigDecimal.ZERO);

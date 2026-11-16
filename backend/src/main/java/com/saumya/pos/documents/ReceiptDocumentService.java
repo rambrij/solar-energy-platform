@@ -6,6 +6,7 @@ import java.security.MessageDigest;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 @Service @Transactional(isolation=Isolation.REPEATABLE_READ)

@@ -1,6 +1,6 @@
 package com.saumya.pos.identity;
 import com.saumya.pos.identity.internal.*;
-import com.saumya.pos.membership.MembershipService;
+import com.saumya.pos.security.VendorMembershipAccess;
 import java.time.*;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
@@ -15,7 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.*;
 @Service
 public class AuthenticationService {
- private final GlobalUserRepository users;private final CustomerRepository customers;private final IdentitySequenceRepository sequence;private final RefreshSessionRepository sessions;private final MembershipService memberships;private final PasswordEncoder passwords;private final JwtService jwt;private final Clock clock;private final String dummy;private final PlatformGrantRepository platform;private final boolean localPlatformAccess;
+ private final GlobalUserRepository users;private final CustomerRepository customers;private final IdentitySequenceRepository sequence;private final RefreshSessionRepository sessions;private final VendorMembershipAccess memberships;private final PasswordEncoder passwords;private final JwtService jwt;private final Clock clock;private final String dummy;private final PlatformGrantRepository platform;private final boolean localPlatformAccess;
  @Autowired private PlatformMfaCrypto mfaCrypto;
  @Autowired private PlatformTotp totp;
  public AuthenticationService(GlobalUserRepository users,CustomerRepository customers,IdentitySequenceRepository sequence,RefreshSessionRepository sessions,MembershipService memberships,PasswordEncoder passwords,JwtService jwt,Clock clock,PlatformGrantRepository platform,org.springframework.core.env.Environment environment){this.users=users;this.customers=customers;this.sequence=sequence;this.sessions=sessions;this.memberships=memberships;this.passwords=passwords;this.jwt=jwt;this.clock=clock;dummy=passwords.encode(UUID.randomUUID().toString());this.platform=platform;var profiles=Set.of(environment.getActiveProfiles());localPlatformAccess=!Collections.disjoint(profiles,Set.of("local","test"))&&!profiles.contains("prod")&&!profiles.contains("production");}
@@ -35,7 +35,7 @@ public class AuthenticationService {
   }
   var grants=new ArrayList<String>();if(customer)grants.add("CUSTOMER");membership.ifPresent(m->grants.addAll(m.permissions()));
   if(grants.isEmpty()&&membership.isEmpty())throw denied();
-  return new Account(username,membership.map(MembershipService.Access::tenant).orElse(null),membership.map(MembershipService.Access::branch).orElse(null),List.copyOf(grants));
+  return new Account(username,membership.map(VendorMembershipAccess.Access::tenant).orElse(null),membership.map(VendorMembershipAccess.Access::branch).orElse(null),List.copyOf(grants));
  }
  private Session issue(String username,String family,boolean mfaVerified){var account=account(username,mfaVerified);String refresh=random();sessions.saveAndFlush(new RefreshSession(hash(refresh),username,family,clock.instant().plusSeconds(604800),mfaVerified));return new Session(jwt.issue(username,family,account.tenantId()),300,account,refresh);}
  @Transactional(noRollbackFor=ResponseStatusException.class) public Session login(String username,String password){return login(username,password,null);}

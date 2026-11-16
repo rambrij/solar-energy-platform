@@ -5,7 +5,7 @@ INSERT INTO retail_sequences(name,next_id)
 SELECT 'BRANCH',COALESCE(MAX(id),0)+1 FROM branches;
 
 CREATE TABLE identity_invitations (
-    token_hash CHAR(64) PRIMARY KEY,
+    token_hash VARCHAR(64) PRIMARY KEY,
     username VARCHAR(100) NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP NOT NULL,

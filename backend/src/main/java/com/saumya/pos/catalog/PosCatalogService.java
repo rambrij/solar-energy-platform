@@ -4,17 +4,26 @@ import java.math.BigDecimal;
 import java.util.*;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.saumya.pos.retail.PosService;
 import org.springframework.http.HttpStatus;
 @Service @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
 public class PosCatalogService {
- private final PosCatalogRepository products;private final CatalogService catalogue;
- public PosCatalogService(PosCatalogRepository products,CatalogService catalogue){this.products=products;this.catalogue=catalogue;}
+ private final PosCatalogRepository products;private final CatalogService catalogue;private final PosService retail;
+ public PosCatalogService(PosCatalogRepository products,CatalogService catalogue,PosService retail){this.products=products;this.catalogue=catalogue;this.retail=retail;}
  public record Item(long id,String name,String sku,String barcode,BigDecimal price,BigDecimal tax_rate,long quantity,BigDecimal list_price,BigDecimal discount_percent,Long category_id,String category_name){}
  public record Result(List<Item> items,int page,int size,long totalElements,int totalPages,long catalogueTotal,List<CatalogSearchService.Category> categories){}
+ private void authorizeScope(long tenant,long branch){
+  var scope=retail.scope();
+  if(scope.tenant()!=tenant||scope.branch()!=branch)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Catalogue resource unavailable");
+  retail.authorize(scope,scope.cashier(),"POS_VIEW");
+ }
  private Item item(PosCatalogRow row){return new Item(row.getId(),row.getName(),row.getSku(),row.getBarcode(),row.getPrice(),row.getTaxRate(),Math.max(0,row.getAvailable()),row.getListPrice(),row.getDiscountPercent(),row.getCategoryId(),row.getCategoryName());}
+ @PreAuthorize("hasAuthority('POS_VIEW')")
  public Result search(long tenant,long branch,String requestedQuery,String category,String ordering,boolean stockOnly,int page,int size){
+  authorizeScope(tenant,branch);
   String query=requestedQuery==null?"":requestedQuery.strip();category=category==null?"all":category;ordering=ordering==null?"name":ordering;
   if(tenant<1||branch<1||query.length()>120||page<0||page>10000||size<1||size>48||!Set.of("name","price-low","price-high").contains(ordering))throw invalid();
   long categoryId=0;boolean other=category.equals("other");
@@ -26,7 +35,9 @@ public class PosCatalogService {
   if(all>categorized)categories.add(new CatalogSearchService.Category("other","Other",all-categorized));
   return new Result(result.stream().map(this::item).toList(),page,size,result.getTotalElements(),result.getTotalPages(),all,List.copyOf(categories));
  }
+ @PreAuthorize("hasAuthority('POS_VIEW')")
  public Item scan(long tenant,long branch,String requestedCode){
+  authorizeScope(tenant,branch);
   if(tenant<1||branch<1||requestedCode==null||requestedCode.isBlank()||requestedCode.strip().length()>80)throw invalid();
   var result=products.search(tenant,branch,"",requestedCode.strip().toLowerCase(Locale.ROOT),true,0,false,false,"name",PageRequest.of(0,2));
   if(result.getTotalElements()==0)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"No exact SKU or barcode match");

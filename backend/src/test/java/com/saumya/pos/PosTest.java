@@ -906,7 +906,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM carts WHERE state='ACTIVE'",Integer.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM cart_items",Integer.class)).isEqualTo(3);
  }
- boolean restoreAttempt(String archived,String current){try{asCustomer("customer",()->marketplace.restore(100,new CartService.Restore(archived,current));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
+ boolean restoreAttempt(String archived,String current){try{asCustomer("customer",()->marketplace.restore(100,new CartService.Restore(archived,current)));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
  com.saumya.pos.checkout.CheckoutService.PosDraft posDraft(){return new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1)),true,null,null);}
  com.saumya.pos.checkout.CheckoutService.Draft onlineDraft(String key){
   var cart=asCustomer("customer",()->marketplace.put(100,new CartService.Item("vendor-1",1,1)));

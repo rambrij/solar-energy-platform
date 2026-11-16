@@ -311,14 +311,14 @@ class PosTest {
   var draft=as("alice", () -> checkout.pos("alice","split-draft",posDraft()));
   var cash=as("alice", () -> payments.tender("alice",draft.id(),"split-cash",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("50"))));
   assertThat(cash.remaining()).isEqualByComparingTo("70");assertThat(cash.orderStatus()).isEqualTo("DRAFT");
-  assertThatThrownBy(()->payments.finalizeTenders("alice",draft.id())).hasMessageContaining("total");
+  assertThatThrownBy(()->as("alice",()->payments.finalizeTenders("alice",draft.id()))).hasMessageContaining("total");
   assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cannot discard received cash")));
   var external=as("alice", () -> payments.tender("alice",draft.id(),"split-upi",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("UPI",new BigDecimal("70"),null)));
   var attempt=external.tenders().stream().filter(t->"UPI".equals(t.method())).findFirst().orElseThrow();
-  assertThat(payments.awaitingReview("manager").getFirst().attemptId()).isEqualTo(attempt.attemptId());
+  assertThat(as("manager",()->payments.awaitingReview("manager")).getFirst().attemptId()).isEqualTo(attempt.attemptId());
   assertThatThrownBy(()->as("alice", () -> payments.tender("alice",draft.id(),"another-charge",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CARD",BigDecimal.ONE,null))));
   as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));
-  assertThat(payments.finalizeTenders("alice",draft.id()).orderStatus()).isEqualTo("PAID");
+  assertThat(as("alice",()->payments.finalizeTenders("alice",draft.id())).orderStatus()).isEqualTo("PAID");
   assertThat(as("alice", () -> payments.tender("alice",draft.id(),"split-cash",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("50")))).confirmed()).isEqualByComparingTo("110");
   assertThat(receiptReader.receipt(a,draft.id()).get("payment_method")).isEqualTo("SPLIT");assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("90");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);
@@ -383,7 +383,7 @@ class PosTest {
  @Test void terminalUnknownCanConfirmAfterOriginalTtlWithoutRechargingOrReleasingStock(){
   enableTerminal();var draft=as("alice", () -> checkout.pos("alice","terminal-late-result",posDraft()));var attempt=terminal("alice",draft.id(),"UPI");as("alice", () -> payments.unknown("alice",draft.id(),attempt.attemptId()));update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));checkout.expire(1,draft.id());
   assertThat(stock.atBranch(1,1,1)).isZero();assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cannot discard funds")));assertThatThrownBy(()->terminal("alice",draft.id(),"CARD"));assertThatThrownBy(()->as("bob", () -> tenderReviews.review("bob",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))));
-  assertThat(as("manager", () -> payments.awaitingReview("manager"))).hasSize(1);as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));assertThat(as("manager", () -> payments.awaitingReview("manager"))).isEmpty();assertThat(payments.reviewStatus("manager",draft.id()).state()).isEqualTo("CONFIRMED");assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts",String.class)).isEqualTo("manager");assertThat(db.queryForObject("SELECT evidence_reference FROM vendor_payment_attempts",String.class)).isEqualTo("evidence-record-123");assertThat(db.queryForObject("SELECT reviewed_at FROM vendor_payment_attempts",java.sql.Timestamp.class)).isNotNull();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
+  assertThat(as("manager", () -> payments.awaitingReview("manager"))).hasSize(1);as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));assertThat(as("manager", () -> payments.awaitingReview("manager"))).isEmpty();assertThat(as("manager",()->payments.reviewStatus("manager",draft.id())).state()).isEqualTo("CONFIRMED");assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts",String.class)).isEqualTo("manager");assertThat(db.queryForObject("SELECT evidence_reference FROM vendor_payment_attempts",String.class)).isEqualTo("evidence-record-123");assertThat(db.queryForObject("SELECT reviewed_at FROM vendor_payment_attempts",java.sql.Timestamp.class)).isNotNull();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
  }
  @Test void terminalReviewApiRequiresIndependentPermissionCsrfAndSafeEvidence() throws Exception {
   enableTerminal();var draft=as("alice", () -> checkout.pos("alice","terminal-review-api",posDraft()));var attempt=terminal("alice",draft.id(),"CARD");String path="/api/v1/vendor/pos/payments/review/"+draft.id();String body="{\"attemptId\":\""+attempt.attemptId()+"\",\"decision\":\"CONFIRM\",\"reference\":\"terminal-123\",\"evidence\":\"proof-123\",\"reason\":\"Verified original vendor account and full amount\"}";
@@ -1183,7 +1183,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM product_categories WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_categories WHERE tenant_id=900001",Integer.class)).isEqualTo(6);
-  as("demo-manager", () -> promotions.approve(900001,"demo-manager",900101,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Preserve demo offer")));
+  as("admin@saumya.demo.test", () -> promotions.approve(900001,"admin@saumya.demo.test",900101,new com.saumya.pos.catalog.PromotionService.Change(BigDecimal.TEN,"Preserve demo offer")));
   update("UPDATE products SET price=77,published=FALSE WHERE id=900101");
   update("UPDATE inventory SET quantity=23,reserved=3 WHERE tenant_id=900001 AND product_id=900101");
   update("UPDATE product_categories SET category_id=900024 WHERE tenant_id=900001 AND product_id=900101");loadSolarDemoSeed();

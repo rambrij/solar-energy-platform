@@ -55,3 +55,11 @@ it('builds marketplace tabs and dropdown from the marketplace navigation',()=>{
  const tabs=screen.getByRole('navigation',{name:'Workspace tabs'});expect(within(tabs).getByRole('link',{name:'Shop'})).toBeTruthy();expect(within(tabs).getByRole('link',{name:'Cart & checkout'})).toBeTruthy();
  fireEvent.click(screen.getByRole('button',{name:/Go to/}));expect(within(screen.getByRole('menu')).getByRole('menuitem',{name:'My cart'})).toBeTruthy();
 });
+it('renders platform mode with platform-only navigation, breadcrumb root and no vendor entry points',()=>{
+ window.history.replaceState({},'','/platform#platform-audit');
+ render(<Shell mode="platform"><section id="platform-dashboard">D</section><section id="platform-tenants">T</section><section id="platform-audit">A</section></Shell>);
+ const main=screen.getByRole('navigation',{name:'Main navigation'});expect(within(main).getByText('Platform console')).toBeTruthy();expect(within(main).queryByText('Store POS')).toBeNull();expect(within(main).queryByText('Marketplace')).toBeNull();
+ expect(screen.getByText('Platform operations')).toBeTruthy();
+ const crumbs=within(screen.getByRole('navigation',{name:'Breadcrumb'}));expect(crumbs.getByText('Platform')).toBeTruthy();expect(crumbs.getByText('Governance')).toBeTruthy();expect(crumbs.getByText('Platform audit')).toBeTruthy();
+ const tabs=within(screen.getByRole('navigation',{name:'Workspace tabs'}));expect(tabs.getByRole('link',{name:'Governance'}).getAttribute('aria-current')).toBe('true');expect(tabs.getByRole('link',{name:'Operations'})).toBeTruthy();expect(tabs.queryByRole('link',{name:'Sell'})).toBeNull();
+});

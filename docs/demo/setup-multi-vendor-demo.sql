@@ -141,7 +141,7 @@ INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM tenant_customers c WHERE 
 
 CREATE TEMPORARY TABLE demo_new_accounts AS SELECT d.* FROM demo_accounts d WHERE NOT EXISTS(SELECT 1 FROM users u WHERE u.id=d.id);
 
-INSERT INTO tenants(id,name,active,slug) SELECT d.id,d.name,TRUE,d.slug FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM tenants t WHERE t.id=d.id);
+INSERT INTO tenants(id,name,status,slug) SELECT d.id,d.name,'ACTIVE',d.slug FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM tenants t WHERE t.id=d.id);
 
 INSERT INTO branches(id,tenant_id,name,invoice_required,pos_return_window_days,cash_refunds_enabled,split_tender_enabled) SELECT d.id,d.id,d.branch_name,FALSE,30,TRUE,TRUE FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM branches b WHERE b.id=d.id);
 

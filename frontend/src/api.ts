@@ -8,3 +8,4 @@ async function request(url:string,method:string,body?:unknown,key?:string){
 }
 export function api(path:string,body?:unknown,key?:string){return request('/api/v1/vendor/pos'+path,body===undefined?'GET':'POST',body,key);}
 export function vendorApi(path:string,method='GET',body?:unknown,key?:string){return request('/api/v1/vendor'+path,method,body,key);}
+export function platformApi<T=any>(path:string,options:{method?:'GET'|'POST'|'PUT';body?:unknown}={}):Promise<T>{return request('/api/v1/platform'+path,options.method??(options.body===undefined?'GET':'POST'),options.body);}

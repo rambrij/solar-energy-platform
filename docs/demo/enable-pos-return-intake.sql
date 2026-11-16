@@ -4,7 +4,7 @@
 USE solar;
 UPDATE branches b SET pos_return_window_days=30
 WHERE b.id=900001 AND b.tenant_id=900001 AND b.pos_return_window_days=0
-AND EXISTS(SELECT 1 FROM tenants t WHERE t.id=b.tenant_id AND t.active=TRUE);
+AND EXISTS(SELECT 1 FROM tenants t WHERE t.id=b.tenant_id AND t.status='ACTIVE');
 INSERT INTO employee_permissions(username,permission,tenant_id)
 SELECT e.username,p.permission,e.tenant_id FROM employees e
 CROSS JOIN(SELECT 'POS_RETURN_VIEW' AS permission UNION ALL SELECT 'POS_RETURN_CREATE') p

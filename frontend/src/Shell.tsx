@@ -40,21 +40,21 @@ export default function Shell({ mode, children }: { mode: WorkspaceMode; childre
   }
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
-    <header className="site-header"><a className="brand" href={mode === 'pos' ? '/vendor/pos' : '/vendors'}><span className="brand-mark"><SolarMark/></span><span>Saumya Solar<small>ENERGY FOR A BRIGHTER TOMORROW</small></span></a>
-      <nav aria-label="Main navigation"><a href="/vendors" aria-current={mode === 'online' ? 'page' : undefined}>Marketplace</a><a href="/vendor/pos" aria-current={mode === 'pos' ? 'page' : undefined}>Store POS</a></nav>
+    <header className="site-header"><a className="brand" href={mode === 'pos' ? '/vendor/pos' : mode === 'platform' ? '/platform' : '/vendors'}><span className="brand-mark"><SolarMark/></span><span>Saumya Solar<small>ENERGY FOR A BRIGHTER TOMORROW</small></span></a>
+      <nav aria-label="Main navigation">{mode === 'platform' ? <a href="/platform" aria-current="page">Platform console</a> : <><a href="/vendors" aria-current={mode === 'online' ? 'page' : undefined}>Marketplace</a><a href="/vendor/pos" aria-current={mode === 'pos' ? 'page' : undefined}>Store POS</a></>}</nav>
       <div className="quick-jump" ref={jumpRoot} onKeyDown={event=>{if(event.key==='Escape'&&jumpOpen){setJumpOpen(false);jumpToggle.current?.focus();}}}>
         <button type="button" ref={jumpToggle} className="quick-jump-toggle" aria-haspopup="menu" aria-expanded={jumpOpen} aria-controls="quick-jump-menu" onClick={()=>setJumpOpen(value=>!value)}>Go to <span aria-hidden="true">▾</span></button>
         {jumpOpen&&<div id="quick-jump-menu" role="menu" aria-label="Go to section">{groups.map(group=><div role="group" aria-label={group} key={group}><span className="quick-jump-group" aria-hidden="true">{group}</span>{items.filter(item=>item.group===group).map(item=><button type="button" role="menuitem" key={item.id} aria-current={selected?.id===item.id?'location':undefined} onClick={()=>jump(item.id)}>{item.label}</button>)}</div>)}</div>}
       </div>
       <SessionControls/>
     </header>
-    <div className="workspace-bar"><span className="workspace-label"><span className="status-dot"/>{mode === 'pos' ? 'Retail workspace' : 'Solar marketplace'}</span><span>Shared stock · Vendor-owned sales</span></div>
+    <div className="workspace-bar"><span className="workspace-label"><span className="status-dot"/>{mode === 'pos' ? 'Retail workspace' : mode === 'platform' ? 'Platform operations' : 'Solar marketplace'}</span><span>{mode === 'platform' ? 'Tenant lifecycle · Subscriptions · Audit' : 'Shared stock · Vendor-owned sales'}</span></div>
     <div className="workspace-layout"><aside className={`workspace-menu ${open?'menu-open':''}`} aria-label="Workspace menu" onKeyDown={event=>{if(event.key==='Escape'&&open){setOpen(false);toggle.current?.focus();}}}>
       <button type="button" ref={toggle} className="workspace-menu-toggle" aria-expanded={open} aria-controls="workspace-navigation" onClick={()=>setOpen(value=>!value)}><span aria-hidden="true">☰</span> {open?'Close workspace menu':'Open workspace menu'}</button>
       <nav id="workspace-navigation" className="workspace-navigation" aria-label="Workspace sections">{groups.map(group=><div className="workspace-menu-group" key={group}><h2>{group}</h2><ul>{items.filter(item=>item.group===group).map(item=><li key={item.id}><a href={`#${item.id}`} aria-current={selected?.id===item.id?'location':undefined} onClick={event=>navigate(event,item.id)}>{item.label}</a></li>)}</ul></div>)}</nav>
-    </aside><div className="workspace-content"><nav className="workspace-breadcrumb" aria-label="Breadcrumb"><ol><li>{mode==='pos'?'Store POS':'Marketplace'}</li>{selected&&<><li>{selected.group}</li><li aria-current="location">{selected.label}</li></>}</ol></nav>
+    </aside><div className="workspace-content"><nav className="workspace-breadcrumb" aria-label="Breadcrumb"><ol><li>{mode==='pos'?'Store POS':mode==='platform'?'Platform':'Marketplace'}</li>{selected&&<><li>{selected.group}</li><li aria-current="location">{selected.label}</li></>}</ol></nav>
     <nav className="workspace-tabs" aria-label="Workspace tabs"><ul>{groups.map(group=>{const first=items.find(item=>item.group===group)!;const active=selected?.group===group;return <li key={group}><a href={`#${first.id}`} aria-current={active?'true':undefined} onClick={event=>navigate(event,first.id)}>{group}</a></li>;})}</ul></nav>
-    <main ref={main} tabIndex={-1} id="main-content" className={mode === 'pos' ? 'workspace pos-workspace' : 'workspace marketplace-workspace'}>{children}</main></div></div>
+    <main ref={main} tabIndex={-1} id="main-content" className={mode === 'pos' ? 'workspace pos-workspace' : mode === 'platform' ? 'workspace platform-workspace' : 'workspace marketplace-workspace'}>{children}</main></div></div>
     <footer className="site-footer"><span>Saumya Solar Energy</span><span>Smarter energy. Thoughtful service.</span></footer>
   </div>;
 }

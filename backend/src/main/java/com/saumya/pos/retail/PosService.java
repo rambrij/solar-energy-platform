@@ -11,7 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.*;
 
 @Service
-public class PosService {
+public class PosService implements com.saumya.pos.shared.TenantAuditReader, com.saumya.pos.shared.OutletProvisioner {
     @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.membership.MembershipService memberships;
     private final JdbcTemplate db;
     private final CatalogService catalogue;
@@ -27,6 +27,18 @@ public class PosService {
         BigDecimal cashReceived, BigDecimal changeGiven, BigDecimal cashIn,
         BigDecimal cashOut, BigDecimal safeDrops, BigDecimal expectedCash,
         BigDecimal countedCash, BigDecimal variance, List<Map<String,Object>> movements,BigDecimal cashRefunds) {}
+    /** Returns the tenant's first outlet, creating a default one during onboarding. Idempotent per tenant. */
+    @Override public long defaultOutlet(long tenant,String name){
+        var existing=db.queryForList("SELECT MIN(id) FROM branches WHERE tenant_id=?",Long.class,tenant);
+        if(!existing.isEmpty()&&existing.get(0)!=null)return existing.get(0);
+        long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM branches",Long.class);
+        db.update("INSERT INTO branches(id,tenant_id,name) VALUES(?,?,?)",id,tenant,name);return id;
+    }
+    /** Read-only view of a tenant's own operational audit trail for audited support access. */
+    @Override public java.util.List<AuditEntry> recentAudit(long tenantId,int limit){
+        return db.query("SELECT actor,action,resource_id,created_at FROM pos_audit WHERE tenant_id=? ORDER BY created_at DESC, id DESC LIMIT ?",
+            (r,n)->new AuditEntry(r.getString("actor"),r.getString("action"),r.getString("resource_id"),r.getTimestamp("created_at").toInstant()),tenantId,Math.max(1,Math.min(limit,200)));
+    }
     public Scope scope(String user) {var membership=memberships.require(user);return new Scope(membership.tenant(),membership.branch(),membership.username());}
     public List<Map<String,Object>> products(Scope s) {
         return catalogue.posProducts(s.tenant,s.branch);

@@ -29,8 +29,8 @@ public class CatalogService {
     public List<CategoryInfo> categories(String slug){return publishedCategories(activeVendor(slug).id());}
     public List<CategoryInfo> publishedCategories(long tenant){return categories.published(tenant).stream().map(c->new CategoryInfo(c.id(),c.name(),c.slug(),c.products())).toList();}
     private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Catalogue resource unavailable");}
-    public List<VendorInfo> vendors(){return vendors.findByActiveTrueAndSlugIsNotNullOrderByNameAscIdAsc().stream().map(this::info).toList();}
-    public VendorInfo activeVendor(String slug){return info(vendors.findBySlugAndActiveTrue(slug).orElseThrow(this::missing));}
+    public List<VendorInfo> vendors(){return vendors.findByStatusAndSlugIsNotNullOrderByNameAscIdAsc("ACTIVE").stream().map(this::info).toList();}
+    public VendorInfo activeVendor(String slug){return info(vendors.findBySlugAndStatus(slug,"ACTIVE").orElseThrow(this::missing));}
     public VendorInfo vendor(long tenant){return info(vendors.findById(tenant).orElseThrow(this::missing));}
     public long onlineBranch(long tenant){var v=vendors.findById(tenant).orElseThrow(this::missing);if(!v.active()||v.onlineBranchId()==null)throw new ResponseStatusException(HttpStatus.CONFLICT,"Vendor online stock location is not configured");return v.onlineBranchId();}
     public long onlineAvailable(long tenant,long product){var vendor=vendors.findById(tenant).orElseThrow(this::missing);return vendor.active()&&vendor.onlineBranchId()!=null?stock.atBranch(tenant,vendor.onlineBranchId(),product):0;}

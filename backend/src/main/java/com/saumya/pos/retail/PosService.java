@@ -110,7 +110,7 @@ public class PosService {
             r.getBigDecimal("cash_variance"),r.getString("variance_reason"),r.getString("reviewed_by"),r.getString("review_reason"));
     }
     public CloseResult closeStatus(Scope s,String id) {
-        return db.query("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=?",
+        return db.query("SELECT p.* FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=?",
             this::closeResult,s.tenant,s.branch,s.cashier,id).stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND));
     }
     @Transactional public CloseResult close(Scope s,String id,BigDecimal counted) { return close(s,id,counted,null); }
@@ -118,7 +118,7 @@ public class PosService {
         return close(s,id,counted,reason,null);
     }
     @Transactional public CloseResult close(Scope s,String id,BigDecimal counted,String reason,String requestId) {
-        var shift=one("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
+        var shift=one("SELECT p.* FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
         String normalized=reason==null||reason.isBlank()?null:reason.strip();
         if(requestId!=null) {
             var reviewed=db.queryForList("SELECT counted_cash,variance_reason FROM pos_shift_reviews WHERE tenant_id=? AND session_id=? AND close_request_id=?",s.tenant,id,requestId);
@@ -178,7 +178,7 @@ public class PosService {
         if(key==null || !key.matches("[A-Za-z0-9_-]{8,80}"))
             throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");
         // The same session lock protects sales, closing and all drawer movements.
-        var shift=one("SELECT state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",
+        var shift=one("SELECT p.state,p.register_id FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",
             s.tenant,s.branch,s.cashier,sessionId);
         String reason=request.reason().strip();
         var existing=db.queryForList("SELECT * FROM pos_cash_movements WHERE tenant_id=? AND session_id=? AND idempotency_key=?",
@@ -207,7 +207,7 @@ public class PosService {
     }
     @Transactional
     public Reconciliation reconciliation(Scope s,String id) {
-        var shift=one("SELECT state,opening_float,counted_cash FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",
+        var shift=one("SELECT p.state,p.opening_float,p.counted_cash,p.register_id FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",
             s.tenant,s.branch,s.cashier,id);
         var sales=db.queryForList("SELECT cash_received,change_given FROM pos_drawer_tenders WHERE tenant_id=? AND session_id=? ORDER BY id FOR UPDATE",s.tenant,id);
         var refunds=db.queryForList("SELECT amount FROM pos_cash_refunds WHERE tenant_id=? AND session_id=? ORDER BY id FOR UPDATE",s.tenant,id);

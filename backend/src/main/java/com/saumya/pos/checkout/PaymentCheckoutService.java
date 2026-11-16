@@ -71,7 +71,6 @@ public class PaymentCheckoutService {
             long customer = customers.resolve(username);
             customers.lock(customer);
             var order = orders.lockCustomer(customer, id).orElseThrow(this::missing);
-            retail.lockOutlet(new PosService.Scope(order.tenant(), order.stockBranch(), "customer:" + customer));
             return order;
         }
         var s = retail.scope();retail.authorize(s,username,"POS_VIEW");

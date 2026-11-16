@@ -334,12 +334,12 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
  }
  @Test void mixedVendorCartReturnsStableProblem() throws Exception {
-  configureOnline();marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  configureOnline();asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
   mvc.perform(post("/api/v1/customer/cart/items").with(csrf()).with(user("customer").authorities(()->"CUSTOMER"))
    .contentType("application/json").content("{\"vendorSlug\":\"vendor-2\",\"productId\":2,\"quantity\":1}"))
    .andExpect(status().isConflict()).andExpect(content().contentTypeCompatibleWith("application/problem+json"))
    .andExpect(jsonPath("$.code").value("CART_VENDOR_MISMATCH"));
-  assertThat(marketplace.cart(100).vendorSlug()).isEqualTo("vendor-1");
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).vendorSlug()).isEqualTo("vendor-1");
  }
  @Test void customerReceiptUsesSavedFactsAndCopiesDoNotCreateFinancialWrites(){
   configureOnline();update("UPDATE branches SET invoice_required=TRUE WHERE id=1");var draft=onlineDraft("receipt-online");var attempt=asCustomer("customer", () -> payments.start("customer",draft.id(),"UPI"));asCustomer("customer", () -> payments.confirm("customer",draft.id(),attempt.attemptId()));
@@ -367,12 +367,12 @@ class PosTest {
   assertThat(asCustomer("customer", () -> payments.confirm("customer",draft.id(),started.attemptId())).state()).isEqualTo("CONFIRMED");asCustomer("customer", () -> payments.confirm("customer",draft.id(),started.attemptId()));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT payment_method FROM orders",String.class)).isEqualTo("MOCK_UPI");
   assertThat(db.queryForObject("SELECT customer_id FROM orders",Long.class)).isEqualTo(100);assertThat(db.queryForObject("SELECT cash_received FROM orders",BigDecimal.class)).isNull();
-  assertThat(marketplace.cart(100).id()).isNull();
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).id()).isNull();
  }
  @Test void onlinePaymentKeepsEditedCartAndIssuesConfiguredTaxInvoice(){
   configureOnline();update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");update("UPDATE branches SET invoice_required=TRUE WHERE id=1");var draft=onlineDraft("online-edited-cart");var attempt=asCustomer("customer", () -> payments.start("customer",draft.id(),"CARD"));
-  marketplace.put(100,new CartService.Item("vendor-1",1,2));asCustomer("customer", () -> payments.confirm("customer",draft.id(),attempt.attemptId()));
-  assertThat(marketplace.cart(100).items().getFirst().quantity()).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT seller_name FROM vendor_invoices",String.class)).isEqualTo("Vendor A");
+  asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,2)));asCustomer("customer", () -> payments.confirm("customer",draft.id(),attempt.attemptId()));
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).items().getFirst().quantity()).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT seller_name FROM vendor_invoices",String.class)).isEqualTo("Vendor A");
  }
  void enableTerminal(){supervisor("manager");update("UPDATE branches SET manual_tender_enabled=TRUE,upi_merchant_reference='vendor-upi-account',card_merchant_reference='vendor-card-account' WHERE id=1");}
  com.saumya.pos.checkout.PaymentCheckoutService.Review terminalReview(String attempt,String decision){return new com.saumya.pos.checkout.PaymentCheckoutService.Review(attempt,decision,"terminal-result-123","evidence-record-123","Independent account and amount verification");}
@@ -764,9 +764,6 @@ class PosTest {
   update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(100,'customer',?,TRUE),(101,'other-customer',?,TRUE)",encoder.encode("CustomerPassword"),encoder.encode("OtherPassword"));
   update("INSERT INTO customer_profiles VALUES(100,100),(101,101)");
-  var context=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
-  context.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("customer","test",List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMER"))));
-  org.springframework.security.core.context.SecurityContextHolder.setContext(context);
  }
  <T> T asCustomer(String username,java.util.function.Supplier<T> action){
   var previous=org.springframework.security.core.context.SecurityContextHolder.getContext();
@@ -783,36 +780,36 @@ class PosTest {
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-2/products")).andExpect(status().isNotFound());
  }
  @Test void singleVendorCartSwitchIsExplicitScopedAndRetainsOldItems(){
-  customers();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
-  assertThatThrownBy(()->marketplace.put(100,new CartService.Item("vendor-2",2,1)));
-  assertThat(marketplace.cart(100).vendorSlug()).isEqualTo("vendor-1");
-  assertThatThrownBy(()->marketplace.switchVendor(100,new CartService.Switch(cart.id(),"vendor-2",1,1)));
-  assertThat(marketplace.cart(100).id()).isEqualTo(cart.id());
-  var switched=marketplace.switchVendor(100,new CartService.Switch(cart.id(),"vendor-2",2,1));
+  customers();var cart=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-2",2,1))));
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).vendorSlug()).isEqualTo("vendor-1");
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.switchVendor(100,new CartService.Switch(cart.id(),"vendor-2",1,1))));
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).id()).isEqualTo(cart.id());
+  var switched=asCustomer("customer", () -> marketplace.switchVendor(100,new CartService.Switch(cart.id(),"vendor-2",2,1)));
   assertThat(switched.vendorSlug()).isEqualTo("vendor-2");
   assertThat(db.queryForObject("SELECT state FROM carts WHERE id=?",String.class,cart.id())).isEqualTo("ARCHIVED");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM cart_items WHERE cart_id=?",Integer.class,cart.id())).isEqualTo(1);
-  assertThatThrownBy(()->marketplace.switchVendor(100,new CartService.Switch(cart.id(),"vendor-1",1,1)));
-  assertThatThrownBy(()->marketplace.cart(101)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  assertThatThrownBy(()->marketplace.switchVendor(101,new CartService.Switch(switched.id(),"vendor-1",1,1)));
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.switchVendor(100,new CartService.Switch(cart.id(),"vendor-1",1,1))));
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.cart(101))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.switchVendor(101,new CartService.Switch(switched.id(),"vendor-1",1,1))));
  }
  @Test void marketplaceAndPosSharePricingAndCurrentStock(){
-  customers();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  customers();var cart=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
   assertThat(cart.total()).isEqualByComparingTo("110");
-  assertThat(marketplace.quote(100).checkoutAvailable()).isFalse();
+  assertThat(asCustomer("customer", () -> marketplace.quote(100)).checkoutAvailable()).isFalse();
   var receipt=as("alice",()->as("alice", () -> checkout.cashSale(a.cashier(),"shared-stock",sale(1,"120"))));
   assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo(cart.total());
   assertThat(catalogue.products("vendor-1").getFirst().inStock()).isFalse();
-  assertThatThrownBy(()->marketplace.quote(100));
-  assertThat(marketplace.cart(100).items().getFirst().available()).isFalse();
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.quote(100)));
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).items().getFirst().available()).isFalse();
   update("UPDATE inventory SET quantity=5 WHERE tenant_id=1");
   update("UPDATE products SET price=200,tax_rate=5 WHERE id=1");
-  assertThat(marketplace.quote(100).total()).isEqualByComparingTo("210");
+  assertThat(asCustomer("customer", () -> marketplace.quote(100)).total()).isEqualByComparingTo("210");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);
   update("UPDATE products SET published=FALSE WHERE id=1");
-  assertThat(marketplace.cart(100).items().getFirst().name()).isEqualTo("Product unavailable");
-  assertThat(marketplace.cart(100).items().getFirst().unitPrice()).isNull();
-  assertThatThrownBy(()->marketplace.quote(100));
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).items().getFirst().name()).isEqualTo("Product unavailable");
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).items().getFirst().unitPrice()).isNull();
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.quote(100)));
  }
  @Test void customerAuthenticationPermissionsAndCsrfProtectCart() throws Exception {
   customers();String path="/api/v1/customer/cart/items",body="{\"vendorSlug\":\"vendor-1\",\"productId\":1,\"quantity\":1}";
@@ -827,13 +824,13 @@ class PosTest {
   mvc.perform(post(path).with(csrf()).with(bearer("customer","CustomerPassword")).contentType("application/json").content(body.replace("\"quantity\":1","\"quantity\":1,\"customerId\":101"))).andExpect(status().isBadRequest());
  }
  @Test void cartQuantityUpdatesAreIdempotentAndDatabaseRejectsMixedTenantItems(){
-  customers();var request=new CartService.Item("vendor-1",1,2);var cart=marketplace.put(100,request);
-  marketplace.put(100,request);
-  assertThat(marketplace.cart(100).items().getFirst().quantity()).isEqualTo(2);
+  customers();var request=new CartService.Item("vendor-1",1,2);var cart=asCustomer("customer", () -> marketplace.put(100,request));
+  asCustomer("customer", () -> marketplace.put(100,request));
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).items().getFirst().quantity()).isEqualTo(2);
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
   assertThatThrownBy(()->update("INSERT INTO cart_items VALUES(1,?,2,1)",cart.id())).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-  assertThat(marketplace.remove(100,1).items()).isEmpty();
-  assertThat(marketplace.put(100,new CartService.Item("vendor-2",2,1)).vendorSlug()).isEqualTo("vendor-2");
+  assertThat(asCustomer("customer", () -> marketplace.remove(100,1)).items()).isEmpty();
+  assertThat(asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-2",2,1))).vendorSlug()).isEqualTo("vendor-2");
  }
  @Test void concurrentDifferentVendorAddsCannotCreateMixedActiveCarts() throws Exception {
   customers();try(var pool=Executors.newFixedThreadPool(2)) {
@@ -842,9 +839,9 @@ class PosTest {
    assertThat(successes).isEqualTo(1);
   }
   assertThat(db.queryForObject("SELECT COUNT(*) FROM carts WHERE state='ACTIVE'",Integer.class)).isEqualTo(1);
-  assertThat(marketplace.cart(100).items()).hasSize(1);
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).items()).hasSize(1);
  }
- boolean cartAttempt(String slug,long product){try{marketplace.put(100,new CartService.Item(slug,product,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
+ boolean cartAttempt(String slug,long product){try{asCustomer("customer", () -> marketplace.put(100,new CartService.Item(slug,product,1)));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
  @Test void globalIdentityCannotDuplicateEmployeeAndDisabledCustomerTokensAreRejected() throws Exception {
   customers();assertThatThrownBy(()->update("INSERT INTO users(id,username,password_hash,enabled) VALUES(102,'alice','unused',TRUE)")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   mvc.perform(get("/api/v1/customer/cart").with(bearer("alice","StaffPasswordForTests"))).andExpect(status().isForbidden());
@@ -852,28 +849,28 @@ class PosTest {
  }
 
  @Test void archivedCartRestorePreservesBothVendorCartsAndScopesOwnership(){
-  customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
-  var second=marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1));
-  assertThat(marketplace.history(100)).extracting(CartService.Cart::id).containsExactly(first.id());
-  assertThatThrownBy(()->marketplace.history(101)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  assertThatThrownBy(()->marketplace.restore(101,new CartService.Restore(first.id(),null)));
-  assertThatThrownBy(()->marketplace.restore(100,new CartService.Restore(first.id(),first.id())));
-  var restored=marketplace.restore(100,new CartService.Restore(first.id(),second.id()));
+  customers();var first=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
+  var second=asCustomer("customer", () -> marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1)));
+  assertThat(asCustomer("customer", () -> marketplace.history(100))).extracting(CartService.Cart::id).containsExactly(first.id());
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.history(101))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.restore(101,new CartService.Restore(first.id(),null))));
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.restore(100,new CartService.Restore(first.id(),first.id()))));
+  var restored=asCustomer("customer", () -> marketplace.restore(100,new CartService.Restore(first.id(),second.id())));
   assertThat(restored.id()).isEqualTo(first.id());assertThat(restored.items().getFirst().productId()).isEqualTo(1);
-  assertThat(marketplace.history(100)).extracting(CartService.Cart::id).containsExactly(second.id());
+  assertThat(asCustomer("customer", () -> marketplace.history(100))).extracting(CartService.Cart::id).containsExactly(second.id());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM cart_items",Integer.class)).isEqualTo(2);
   assertThat(db.queryForObject("SELECT version FROM carts WHERE id=?",Long.class,first.id())).isGreaterThan(0);
-  assertThatThrownBy(()->marketplace.restore(100,new CartService.Restore(first.id(),second.id())));
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.restore(100,new CartService.Restore(first.id(),second.id()))));
  }
  @Test void invalidArchivedCartCannotReplaceActiveCart(){
-  customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
-  var second=marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1));
+  customers();var first=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
+  var second=asCustomer("customer", () -> marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1)));
   update("UPDATE products SET published=FALSE WHERE id=1");
-  assertThatThrownBy(()->marketplace.restore(100,new CartService.Restore(first.id(),second.id())));
-  assertThat(marketplace.cart(100).id()).isEqualTo(second.id());
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.restore(100,new CartService.Restore(first.id(),second.id()))));
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).id()).isEqualTo(second.id());
   update("UPDATE products SET published=TRUE WHERE id=1");update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=1");
-  assertThatThrownBy(()->marketplace.restore(100,new CartService.Restore(first.id(),second.id())));
-  assertThat(marketplace.cart(100).id()).isEqualTo(second.id());
+  assertThatThrownBy(()->asCustomer("customer", () -> marketplace.restore(100,new CartService.Restore(first.id(),second.id()))));
+  assertThat(asCustomer("customer", () -> marketplace.cart(100)).id()).isEqualTo(second.id());
  }
  @Test void jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary(){
   assertThat(transactions).isInstanceOf(org.springframework.orm.jpa.JpaTransactionManager.class);
@@ -887,8 +884,8 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE id='rollback'",Integer.class)).isZero();
  }
  @Test void archivedCartHttpPermissionsAndCsrfAreEnforced() throws Exception {
-  customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
-  var second=marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1));
+  customers();var first=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
+  var second=asCustomer("customer", () -> marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1)));
   mvc.perform(get("/api/v1/customer/cart/history").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/customer/cart/history").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(get("/api/v1/customer/cart/history").with(user("other-customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
@@ -897,9 +894,9 @@ class PosTest {
   mvc.perform(post("/api/v1/customer/cart/restore").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload)).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(first.id()));
  }
  @Test void concurrentRestoresCannotReplaceANewerActiveCart() throws Exception {
-  customers();var first=marketplace.put(100,new CartService.Item("vendor-1",1,1));
-  var second=marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1));
-  var current=marketplace.switchVendor(100,new CartService.Switch(second.id(),"vendor-1",1,1));
+  customers();var first=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
+  var second=asCustomer("customer", () -> marketplace.switchVendor(100,new CartService.Switch(first.id(),"vendor-2",2,1)));
+  var current=asCustomer("customer", () -> marketplace.switchVendor(100,new CartService.Switch(second.id(),"vendor-1",1,1)));
   try(var pool=Executors.newFixedThreadPool(2)) {
    Callable<Boolean> a=()->restoreAttempt(first.id(),current.id()),b=()->restoreAttempt(second.id(),current.id());
    int count=0;for(var result:pool.invokeAll(List.of(a,b)))if(result.get())count++;
@@ -908,11 +905,11 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM carts WHERE state='ACTIVE'",Integer.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM cart_items",Integer.class)).isEqualTo(3);
  }
- boolean restoreAttempt(String archived,String current){try{marketplace.restore(100,new CartService.Restore(archived,current));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
+ boolean restoreAttempt(String archived,String current){try{asCustomer("customer",()->marketplace.restore(100,new CartService.Restore(archived,current));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
  com.saumya.pos.checkout.CheckoutService.PosDraft posDraft(){return new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1)),true,null,null);}
  com.saumya.pos.checkout.CheckoutService.Draft onlineDraft(String key){
-  var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
-  return checkout.online("customer",key,new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id()));
+  var cart=asCustomer("customer",()->marketplace.put(100,new CartService.Item("vendor-1",1,1)));
+  return asCustomer("customer",()->checkout.online("customer",key,new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id())));
  }
  void configureOnline(){customers();update("UPDATE tenants SET online_branch_id=id");}
  @Test void onlineDraftReservesCanonicalStockAndCancelReleasesExactlyOnce(){
@@ -922,7 +919,7 @@ class PosTest {
   assertThat(db.queryForMap("SELECT branch_id,cashier,session_id,cash_received,receipt_number FROM orders").values()).allMatch(Objects::isNull);
   assertThat(stock.available(1,1)).isZero();assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
   assertThatThrownBy(()->as("alice", () -> checkout.cashSale(a.cashier(),"competing-pos",sale(1,"110"))));
-  var cart=marketplace.cart(100);
+  var cart=asCustomer("customer", () -> marketplace.cart(100));
   assertThat(checkout.online("customer","online-hold1",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id())).id()).isEqualTo(draft.id());
   assertThatThrownBy(()->checkout.online("customer","online-new1",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id())));
   assertThatThrownBy(()->checkout.cancelOnline("other-customer",draft.id(),"Not mine"));
@@ -976,7 +973,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations",Integer.class)).isZero();
  }
  @Test void onlineReservationRacingWalkInSaleCannotOversell() throws Exception {
-  configureOnline();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  configureOnline();var cart=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
   try(var pool=Executors.newFixedThreadPool(2)){
    Callable<Boolean> online=()->{try{asCustomer("customer",()->checkout.online("customer","race-online",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id())));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}};
    Callable<Boolean> pos=()->attempt("race-pos-sale");int won=0;
@@ -987,7 +984,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT quantity-reserved FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
  }
  @Test void draftHttpSecurityOwnershipAndContextConstraints() throws Exception {
-  configureOnline();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  configureOnline();var cart=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
   String payload="{\"expectedCartId\":\""+cart.id()+"\"}";
   mvc.perform(post("/api/v1/customer/checkout/drafts").with(csrf()).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(post("/api/v1/customer/checkout/drafts").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content(payload).header("Idempotency-Key","http-draft1")).andExpect(status().isForbidden());
@@ -1136,7 +1133,7 @@ class PosTest {
   mvc.perform(put(path).with(csrf()).with(user("manager").authorities(()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT actor FROM catalog_promotion_audit",String.class)).isEqualTo("manager");
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.listPrice").value(100)).andExpect(jsonPath("$.unitTotal").value(99));
-  var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));assertThat(cart.total()).isEqualByComparingTo("99");assertThat(cart.items().getFirst().discount()).isEqualByComparingTo("10");
+  var cart=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));assertThat(cart.total()).isEqualByComparingTo("99");assertThat(cart.items().getFirst().discount()).isEqualByComparingTo("10");
   var receipt=as("alice", () -> as("alice", () -> checkout.cashSale(a.cashier(),"promotion-cash",sale(1,"100"))));assertThat((BigDecimal)receipt.get("total")).isEqualByComparingTo("99");
   var item=(Map<?,?>)((List<?>)receipt.get("items")).getFirst();assertThat((BigDecimal)item.get("list_price")).isEqualByComparingTo("100");assertThat((BigDecimal)item.get("discount")).isEqualByComparingTo("10");
   as("manager", () -> promotions.approve(1,"manager",1,new com.saumya.pos.catalog.PromotionService.Change(new BigDecimal("20"),"New approved offer")));
@@ -1292,7 +1289,7 @@ class PosTest {
  }
  String refundSession(String floatAmount){
   update("INSERT INTO registers VALUES(3,1,1)");assignRegister("manager",1,1,3);
-  return (String)service.open(new PosService.Scope(1,1,"manager"),new PosService.OpenSession(3,new BigDecimal(floatAmount))).get("id");
+  return (String)as("manager",()->service.open(new PosService.Scope(1,1,"manager"),new PosService.OpenSession(3,new BigDecimal(floatAmount)))).get("id");
  }
  com.saumya.pos.returns.CashRefundService.Pay refundPay(String returned,String paying){
   var q=as("manager", () -> refunds.quote(returned,paying));
@@ -1629,9 +1626,9 @@ class PosTest {
  }
 
  @Test void browsingAnotherVendorDirectoryPagePreservesExistingCustomerCart() throws Exception {
-  customers();var cart=marketplace.put(100,new CartService.Item("vendor-1",1,1));
+  customers();var cart=asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-1",1,1)));
   mvc.perform(get("/api/v1/marketplace/directory").param("q","vendor-2")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
-  assertThat(marketplace.cart(100)).isEqualTo(cart);assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
+  assertThat(asCustomer("customer", () -> marketplace.cart(100))).isEqualTo(cart);assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
  }
 
  @Test void promotionAuditHistoryIsTenantScopedPagedAndReadOnlyForWithdrawnProducts() throws Exception {

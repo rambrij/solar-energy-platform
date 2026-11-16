@@ -1766,20 +1766,20 @@ class PosTest {
  }
  @Test void demoGlobalCustomerPurchasesFromTwoVendorsWithoutMixingCartsOrdersOrStock() throws Exception {
   multiVendorDemo();String name="asha@customer.demo.test",token=demoToken(name,"AshaBuyer2026!");
-  var first=marketplace.put(949001,new CartService.Item("saumya-rooftops",910301,1));
+  var first=asCustomer(name,()->marketplace.put(949001,new CartService.Item("saumya-rooftops",910301,1)));
   mvc.perform(post("/api/v1/customer/cart/items").header("Authorization","Bearer "+token).with(csrf()).contentType("application/json").content("{\"vendorSlug\":\"helio-rural\",\"productId\":920301,\"quantity\":1}")).andExpect(status().isConflict());
-  assertThat(marketplace.cart(949001).id()).isEqualTo(first.id());
-  var switched=marketplace.switchVendor(949001,new CartService.Switch(first.id(),"helio-rural",920301,1));
-  assertThat(marketplace.history(949001)).extracting(CartService.Cart::id).contains(first.id());
-  marketplace.switchVendor(949001,new CartService.Switch(switched.id(),"saumya-rooftops",910301,1));
+  assertThat(asCustomer(name,()->marketplace.cart(949001)).id()).isEqualTo(first.id());
+  var switched=asCustomer(name,()->marketplace.switchVendor(949001,new CartService.Switch(first.id(),"helio-rural",920301,1)));
+  assertThat(asCustomer(name,()->marketplace.history(949001))).extracting(CartService.Cart::id).contains(first.id());
+  asCustomer(name,()->marketplace.switchVendor(949001,new CartService.Switch(switched.id(),"saumya-rooftops",910301,1)));
   var ids=new ArrayList<String>();
   for(var item:List.of(new CartService.Item("saumya-rooftops",910301,1),new CartService.Item("helio-rural",920301,1))){
-   var cart=marketplace.put(949001,item);var draft=checkout.online(name,"demo-buy-"+item.vendorSlug(),new CheckoutService.OnlineDraft(cart.id()));
-   var payment=payments.start(name,draft.id(),"UPI");payments.confirm(name,draft.id(),payment.attemptId());ids.add(draft.id());
+   var cart=asCustomer(name,()->marketplace.put(949001,item));var draft=asCustomer(name,()->checkout.online(name,"demo-buy-"+item.vendorSlug(),new CheckoutService.OnlineDraft(cart.id())));
+   var payment=asCustomer(name,()->payments.start(name,draft.id(),"UPI"));asCustomer(name,()->payments.confirm(name,draft.id(),payment.attemptId()));ids.add(draft.id());
    mvc.perform(get("/api/v1/customer/orders/"+draft.id()).header("Authorization","Bearer "+token)).andExpect(status().isOk());
    mvc.perform(get("/api/v1/customer/orders/"+draft.id()).header("Authorization","Bearer "+demoToken("rahul@customer.demo.test","RahulBuyer2026!"))).andExpect(status().isNotFound());
   }
-  assertThat(checkout.onlineList(name)).hasSize(2).extracting(CheckoutService.Draft::vendorName).containsExactlyInAnyOrder("Saumya Solar Rooftops","Helio Rural Energy");
+  assertThat(asCustomer(name,()->checkout.onlineList(name))).hasSize(2).extracting(CheckoutService.Draft::vendorName).containsExactlyInAnyOrder("Saumya Solar Rooftops","Helio Rural Energy");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE customer_id=949001 AND status='PAID'",Integer.class)).isEqualTo(2);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id IN (?,?) AND i.tenant_id<>p.tenant_id",Integer.class,ids.get(0),ids.get(1))).isZero();
   assertThat(stock.atBranch(910001,910001,910301)).isEqualTo(39);assertThat(stock.atBranch(920001,920001,920301)).isEqualTo(11);assertThat(stock.atBranch(930001,930001,930301)).isEqualTo(35);

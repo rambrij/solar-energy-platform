@@ -358,6 +358,17 @@ INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLAT
 INSERT INTO catalog_discount_policy(tenant_id,maximum_percent) SELECT d.id,10.00 FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM catalog_discount_policy p WHERE p.tenant_id=d.id);
 
 INSERT INTO registers(id,tenant_id,branch_id) SELECT d.id,d.tenant_id,d.branch_id FROM demo_registers d WHERE NOT EXISTS(SELECT 1 FROM registers r WHERE r.id=d.id);
+-- Named POS cashiers receive the first configured till in their own tenant branch.
+INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)
+SELECT e.tenant_id,e.branch_id,e.username,MIN(r.id),TRUE,e.username
+FROM employees e
+JOIN employee_permissions p ON p.tenant_id=e.tenant_id AND p.username=e.username AND p.permission='POS_SESSION_OPEN'
+JOIN registers r ON r.tenant_id=e.tenant_id AND r.branch_id=e.branch_id
+WHERE e.username LIKE 'cashier@%'
+GROUP BY e.tenant_id,e.branch_id,e.username
+ON DUPLICATE KEY UPDATE active=TRUE,assigned_by=VALUES(assigned_by),assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL;
+
+
 
 INSERT INTO catalog_categories(id,tenant_id,name,slug) SELECT d.id,d.tenant_id,d.name,d.slug FROM demo_categories d WHERE NOT EXISTS(SELECT 1 FROM catalog_categories c WHERE c.id=d.id);
 

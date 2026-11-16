@@ -98,7 +98,8 @@ class AuthorizationPolicyMatrixTest {
         if(request==null)throw new AssertionError("Dynamic authorization expression requires a request record with type()");
         try{
             Object type=request.getClass().getDeclaredMethod("type").invoke(request);
-            String permission="POS_"+type.getClass().getDeclaredMethod("name").invoke(type);
+            if(!(type instanceof Enum<?> movementType))throw new AssertionError("Request type must be an enum for dynamic permission evaluation");
+            String permission="POS_"+movementType.name();
             return expression.replace(dynamic,"hasAuthority('"+permission+"')");
         }catch(ReflectiveOperationException error){throw new AssertionError("Cannot resolve dynamic request permission",error);}
     }

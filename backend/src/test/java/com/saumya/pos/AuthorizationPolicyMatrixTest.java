@@ -51,6 +51,7 @@ class AuthorizationPolicyMatrixTest {
         String mandatoryExpression=branchIndex<0?expression:expression.substring(0,branchIndex);
         Matcher mandatoryMatcher=Pattern.compile("hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)").matcher(mandatoryExpression);
         while(mandatoryMatcher.find())mandatory.add(mandatoryMatcher.group(1));
+        List<Set<String>> alternatives=new ArrayList<>();
         Matcher simpleOr=Pattern.compile("^\\s*hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)\\s+or\\s+hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)\\s*$").matcher(expression);
         if(simpleOr.matches()){
             mandatory.clear();
@@ -65,7 +66,6 @@ class AuthorizationPolicyMatrixTest {
                 }catch(ReflectiveOperationException ignored){ /* not the dynamic-permission request parameter */ }
             }
         }
-        List<Set<String>> alternatives=new ArrayList<>();
         Matcher anyMatcher=Pattern.compile("hasAnyAuthority\\(([^)]*)\\)").matcher(expression);
         while(anyMatcher.find()){
             Set<String> choices=new LinkedHashSet<>();

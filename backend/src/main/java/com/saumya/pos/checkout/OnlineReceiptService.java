@@ -35,5 +35,5 @@ public class OnlineReceiptService {
   return new Receipt(order.id(),order.receiptSeller(),order.receiptOutlet(),order.changed()==null?order.created():order.changed(),order.total(),order.paymentMethod(),items,saved,copy,buyer);
  }
  public Receipt read(String username,String id){return view(owned(username,id),false);}
- public Receipt copy(String username,String id){var order=owned(username,id);var receipt=view(order,true);retail.draftAudit(new PosService.Scope(order.tenant(),order.stockBranch(),"customer:"+order.customer()),"CUSTOMER_RECEIPT_COPY",id);return receipt;}
+ public Receipt copy(String username,String id){var order=owned(username,id);var receipt=view(order,true);retail.customerDraftAudit(order.tenant(),order.stockBranch(),order.customer(),"CUSTOMER_RECEIPT_COPY",id);return receipt;}
 }

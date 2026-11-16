@@ -138,6 +138,19 @@ public class PosService {
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public ReceiptAllocation allocateReceipt(Scope s){
         authorizeInternalScope(s,"POS_SALE_CREATE","POS_TENDER_EXTERNAL_CONFIRM","POS_TENDER_MANUAL_VERIFY");
+        return allocateReceiptInternal(s);
+    }
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public ReceiptAllocation allocateReceiptForCustomer(long tenant,long branch,long customer,String orderId){
+        var context=authContext.current();
+        if(!context.isCustomer()||customers==null||customers.resolve(context.username())!=customer)
+            throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
+        Boolean owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND stock_branch_id=? AND sales_channel='ONLINE' AND status='DRAFT'",
+            Boolean.class,tenant,orderId,customer,branch);
+        if(!Boolean.TRUE.equals(owned))throw new ResponseStatusException(NOT_FOUND,"Customer order unavailable");
+        return allocateReceiptInternal(new Scope(tenant,branch,"customer:"+customer));
+    }
+    private ReceiptAllocation allocateReceiptInternal(Scope s){
         var branch=one("SELECT * FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
         long number=((Number)branch.get("receipt_sequence")).longValue()+1;
         db.update("UPDATE branches SET receipt_sequence=? WHERE tenant_id=? AND id=?",number,s.tenant,s.branch);

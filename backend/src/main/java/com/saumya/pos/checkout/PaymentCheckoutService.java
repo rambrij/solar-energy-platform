@@ -37,7 +37,8 @@ public class PaymentCheckoutService {
  public TenderSummary tenderStatus(String username,String id){return summary(owned(username,id,false));}
  public TenderSummary tender(String username,String id,String key,TenderRequest request){
   if(key==null||!key.matches("[A-Za-z0-9_-]{8,80}")||request==null||request.method()==null||!Set.of("CASH","UPI","CARD").contains(request.method())||request.appliedAmount()==null||request.appliedAmount().signum()<0||request.appliedAmount().scale()>2||request.appliedAmount().precision()-request.appliedAmount().scale()>12)throw new ResponseStatusException(BAD_REQUEST,"Valid tender method, amount and idempotency key required");
-  var order=owned(username,id,false);String fingerprint=request.method()+"|"+request.appliedAmount().setScale(2)+"|"+(request.cashReceived()==null?"":request.cashReceived().stripTrailingZeros().toPlainString());
+  var order=owned(username,id,false);retail.authorize(new PosService.Scope(order.tenant(),order.branch(),username),username,
+      "POS_SALE_CREATE","CASH".equals(request.method())?"POS_TENDER_CASH_RECORD":"POS_TENDER_EXTERNAL_RECORD");String fingerprint=request.method()+"|"+request.appliedAmount().setScale(2)+"|"+(request.cashReceived()==null?"":request.cashReceived().stripTrailingZeros().toPlainString());
   String hash;try{hash=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(fingerprint.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}
   var prior=tenders(order).stream().filter(a->key.equals(a.key())).findFirst();if(prior.isPresent()){if(!hash.equals(prior.get().hash()))conflict("Idempotency key already used for a different tender");return summary(order);}
   payable(order,collected(order).signum()>0);var configured=terminalPolicy(order);var confirmed=collected(order);var remaining=order.total().subtract(confirmed);
@@ -57,13 +58,14 @@ public class PaymentCheckoutService {
   if("CASH".equals(request.method())&&collected(order).compareTo(order.total())==0)complete(order,attempt,false);
   return summary(order);
  }
- public TenderSummary finalizeTenders(String username,String id){var order=owned(username,id,false);if(!"PAID".equals(order.status())){payable(order,true);var rows=tenders(order);if(rows.isEmpty()||collected(order).compareTo(order.total())!=0||rows.stream().anyMatch(PaymentAttempt::unresolved))throw new com.saumya.pos.shared.DomainProblem("PAYMENT_TOTAL_MISMATCH","Confirmed tenders must equal the bill total");complete(order,rows.getFirst(),false);}return summary(order);}
+ public TenderSummary finalizeTenders(String username,String id){var order=owned(username,id,false);retail.authorize(new PosService.Scope(order.tenant(),order.branch(),username),username,"POS_SALE_CREATE");if(!"PAID".equals(order.status())){payable(order,true);var rows=tenders(order);if(rows.isEmpty()||collected(order).compareTo(order.total())!=0||rows.stream().anyMatch(PaymentAttempt::unresolved))throw new com.saumya.pos.shared.DomainProblem("PAYMENT_TOTAL_MISMATCH","Confirmed tenders must equal the bill total");complete(order,rows.getFirst(),false);}return summary(order);}
  public record View(String orderId,String attemptId,String method,String state,BigDecimal amount,String merchantAccount,boolean mockEnabled,String message,boolean terminalEnabled,String orderStatus,String cashier,String reference,String reviewedBy,Instant reviewedAt,String evidenceReference){}
  private void conflict(String reason){throw new ResponseStatusException(CONFLICT,reason);}
  private ResponseStatusException missing(){return new ResponseStatusException(NOT_FOUND,"Payment unavailable");}
     
     private DraftOrder owned(String username, String id, boolean online) {
         if (online) {
+            retail.authorizeCustomer(username);
             long customer = customers.resolve(username);
             customers.lock(customer);
             var order = orders.lockCustomer(customer, id).orElseThrow(this::missing);
@@ -123,6 +125,7 @@ public class PaymentCheckoutService {
  
  public View unknown(String username, String id, String attemptId) {
   var order = owned(username, id, false);
+  retail.authorize(new PosService.Scope(order.tenant(),order.branch(),username),username,"POS_TENDER_EXTERNAL_RECORD");
   var a = tenders(order).stream().filter(t -> t.id().equals(attemptId)).findFirst().orElseThrow(this::missing);
   if (!a.id().equals(attemptId) || !a.terminal()) throw missing();
   if ("PENDING_VERIFICATION".equals(a.state())) {
@@ -141,18 +144,18 @@ public class PaymentCheckoutService {
  }
  
  public View reviewStatus(String username, String id) {
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,username,"POS_TENDER_MANUAL_VERIFY");
   var order = supervisorOrder(scope, id);
   return tenderView(order, tenders(order).stream().filter(PaymentAttempt::unresolved).findFirst().orElseGet(() -> tenders(order).getLast()));
  }
  
  public List<View> awaitingReview(String username) {
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,username,"POS_TENDER_MANUAL_VERIFY");
   return attempts.awaitingReview(scope.tenant(), scope.branch(), org.springframework.data.domain.PageRequest.of(0, 20)).stream().map(a -> tenderView(orders.findById(a.order()).orElseThrow(this::missing), a)).toList();
  }
  
  public View finalizeVerified(String username, String id, String attemptId) {
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,username,"POS_TENDER_MANUAL_VERIFY");
   var order = supervisorOrder(scope, id);
   var a = tenders(order).stream().filter(t -> t.id().equals(attemptId)).findFirst().orElseThrow(this::missing);
   if (!"PAID".equals(order.status()) && collected(order).compareTo(order.total()) == 0) {
@@ -167,7 +170,7 @@ public class PaymentCheckoutService {
   if (request == null) throw new ResponseStatusException(BAD_REQUEST, "Verification evidence required");
   terminalRules.decision(request.decision());
   String reference = terminalRules.token(request.reference(), 80), evidence = terminalRules.token(request.evidence(), 100), reason = terminalRules.reason(request.reason());
-  var scope = retail.scope();
+  var scope = retail.scope();retail.authorize(scope,username,"POS_TENDER_MANUAL_VERIFY");
   var order = supervisorOrder(scope, id);
   terminalRules.independent(order.cashier(), scope.cashier());
   var a = tenders(order).stream().filter(t -> t.id().equals(request.attemptId())).findFirst().orElseThrow(this::missing);

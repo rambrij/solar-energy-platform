@@ -20,8 +20,8 @@ for(const match of block[1].matchAll(entryPattern)){
   actual[id]={[kind]:values};
 }
 const expected=registry.frontendRoutes;
-const sortObject=value=>Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)));
-if(JSON.stringify(sortObject(actual))!==JSON.stringify(sortObject(expected))){
+const normalize=value=>Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,rule])=>[key,Object.fromEntries(Object.entries(rule).map(([kind,items])=>[kind,[...items].sort()]))]));
+if(JSON.stringify(normalize(actual))!==JSON.stringify(normalize(expected))){
   throw new Error('Frontend NAVIGATION_PERMISSIONS diverge from canonical authorization-policy-registry.json');
 }
 const navIds=[...navigationSource.matchAll(/\bid:\s*'([^']+)'/g)].map(x=>x[1]);

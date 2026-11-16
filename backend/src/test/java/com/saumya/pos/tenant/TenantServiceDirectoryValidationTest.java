@@ -5,16 +5,16 @@ import java.lang.reflect.Proxy;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
-import com.saumya.pos.security.AuthorizationContext;
-import static org.mockito.Mockito.*;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import static org.assertj.core.api.Assertions.*;
 
 class TenantServiceDirectoryValidationTest {
     @Test void directTenantCreationRequiresPlatformGrantBeforeSequenceOrRepositoryAccess(){
         var repository=mock(TenantRepository.class);
-        var authorization=mock(AuthorizationContext.class);
-        when(authorization.current()).thenReturn(new AuthorizationContext.Context("operator",null,null,java.util.Set.of("PLATFORM_SUPPORT_ACCESS"),true,false,false));
-        var service=new TenantService(repository,null,Clock.systemUTC(),authorization);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor-operator","n/a",java.util.List.of(new SimpleGrantedAuthority("POS_VIEW"))));
+        var service=new TenantService(repository,null,Clock.systemUTC());
         assertThatThrownBy(()->service.create(null)).isInstanceOf(ResponseStatusException.class)
             .hasMessageContaining("PLATFORM_TENANT_CREATE");
         verifyNoInteractions(repository);

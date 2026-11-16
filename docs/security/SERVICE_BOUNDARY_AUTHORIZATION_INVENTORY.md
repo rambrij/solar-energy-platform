@@ -59,7 +59,7 @@ No frontend changes or schema migrations are part of P0-02.
 - StockReceivingServiceTest.directReceiveWithoutPermissionIsDeniedBeforeRepositoryOrInventoryAccess: verifies direct stock receipt invocation without INVENTORY_RECEIVE returns 403 and touches neither repository nor inventory adapter.
 - Existing AuthorizationContextTest, platform authorization tests, controller policy registry tests and POS MockMvc tests remain part of the regression suite.
 
-CI results are recorded only after the corresponding latest commit's GitHub Actions run completes. A previous run failed at test compilation after the POS catalogue constructor gained an authorization dependency; the test fixture was updated to provide an authorized POS scope. Do not treat that earlier run as a passing result.
+**Verified CI:** [GitHub Actions run 43952642426](https://github.com/rambrij/solar-energy-platform/actions/runs/43952642426) passed on source commit 92dd7bb5: MySQL 8.4 backend 500 tests (0 failures/errors), H2 backend 500 tests (0 failures/errors), and frontend test/build success. The later c23c931c change updates this inventory document only; no application source or test code changed after the tested source commit. Earlier failing runs were resolved before this successful run.
 
 ## 5. Explicit trusted-internal boundaries requiring full call-graph verification
 

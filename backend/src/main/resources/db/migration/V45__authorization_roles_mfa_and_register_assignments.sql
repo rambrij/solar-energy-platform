@@ -138,12 +138,3 @@ WHERE (SELECT COUNT(*) FROM registers r2 WHERE r2.tenant_id=e.tenant_id AND r2.b
     )
   )
 GROUP BY e.tenant_id,e.branch_id,e.username;
-
--- A register is occupied during both OPEN and CLOSING. NULL for CLOSED allows
--- unlimited historical sessions while the unique key arbitrates races.
-ALTER TABLE pos_sessions
-    ADD COLUMN active_register_guard BIGINT GENERATED ALWAYS AS (
-        CASE WHEN state IN ('OPEN','CLOSING') THEN register_id ELSE NULL END
-    );
-ALTER TABLE pos_sessions
-    ADD CONSTRAINT uk_pos_sessions_one_open_or_closing UNIQUE(tenant_id,active_register_guard);

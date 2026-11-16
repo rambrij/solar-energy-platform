@@ -153,7 +153,7 @@ class PosTest {
   var buyer=new com.saumya.pos.checkout.BuyerDetailsPolicy.Input("Invoice buyer",null,null,"Buyer street");var receipt=as("alice", () -> checkout.cashSale("alice","invoice-buyer",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1)),new BigDecimal("120"),true,null,buyer)));assertThat(receipt.get("tax_invoice")).isEqualTo(true);assertThat(receipt.get("buyer")).isEqualTo(buyer);assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();
  }
  @Test void cancellingOrExpiringAnUnpaidDraftRemovesItsOptionalBuyerSnapshot(){
-  var buyer=new com.saumya.pos.checkout.BuyerDetailsPolicy.Input("Guest",null,null,"Street");var request=new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1)),false,null,buyer);var draft=as("alice", () -> checkout.pos("alice","buyer-cancel",request));assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isEqualTo(1);as("alice", () -> checkout.cancelPos("alice",draft.id(),"Buyer left"));assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isZero();
+  var buyer=new com.saumya.pos.checkout.BuyerDetailsPolicy.Input("Guest",null,null,"Street");var request=new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1)),false,null,buyer);var draft=as("alice", () -> checkout.pos("alice","buyer-cancel",request));assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isEqualTo(1);String cancelDraftId=draft.id();as("alice", () -> checkout.cancelPos("alice",cancelDraftId,"Buyer left"));assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isZero();
   draft=as("alice", () -> checkout.pos("alice","buyer-expire",request));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());checkout.expire(1,draft.id());assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isZero();
  }
  @Test void concurrentInventoryChangesRefreshAnAlreadyLoadedCatalogProjection(){
@@ -1069,7 +1069,7 @@ class PosTest {
 
  @Test void orderHistoryPaginationIsStableForEqualTimestampsAndUtcDayBounds() throws Exception {
   update("UPDATE inventory SET quantity=3 WHERE tenant_id=1");var ids=new ArrayList<String>();
-  for(int n=0;n<3;n++)ids.add((String)as("alice", () -> checkout.cashSale(a.cashier(),"history-page"+n,sale(1,"120"))).get("id"));
+  for(int n=0;n<3;n++){final int page=n;ids.add((String)as("alice", () -> checkout.cashSale(a.cashier(),"history-page"+page,sale(1,"120"))).get("id"));}
   update("UPDATE orders SET created_at=? WHERE tenant_id=1",java.time.LocalDateTime.parse("2026-11-12T23:59:59"));
   ids.sort(Comparator.reverseOrder());
   mvc.perform(get("/api/v1/vendor/pos/orders").with(user("alice").authorities(()->"POS_VIEW")).param("size","2").param("from","2026-11-12").param("to","2026-11-12")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(2)).andExpect(jsonPath("$.items[0].id").value(ids.get(0))).andExpect(jsonPath("$.items[1].id").value(ids.get(1)));

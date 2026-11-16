@@ -90,8 +90,12 @@ class AuthorizationPolicyMatrixTest {
             authentication=new AnonymousAuthenticationToken("role-matrix","anonymous",
                 List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
         }
-        EvaluationContext context=handler.createEvaluationContext(()->authentication,invocation);
-        return Boolean.TRUE.equals(handler.getExpressionParser().parseExpression(expression).getValue(context,Boolean.class));
+        try {
+            EvaluationContext context=handler.createEvaluationContext(()->authentication,invocation);
+            return Boolean.TRUE.equals(handler.getExpressionParser().parseExpression(expression).getValue(context,Boolean.class));
+        } catch(RuntimeException error) {
+            throw new AssertionError("Could not evaluate endpoint authorization expression: "+expression,error);
+        }
     }
 
     private MethodInvocation invocation(Class<?> type,Method method){

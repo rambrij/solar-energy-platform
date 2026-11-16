@@ -131,10 +131,13 @@ public class PosService {
             r.getString("close_request_id"),r.getBigDecimal("expected_cash"),r.getBigDecimal("counted_cash"),
             r.getBigDecimal("cash_variance"),r.getString("variance_reason"),r.getString("reviewed_by"),r.getString("review_reason"));
     }
-    public CloseResult closeStatus(Scope s,String id) {
-        authorize(s,s.cashier(),"POS_VIEW");
+    private CloseResult closeStatusInternal(Scope s,String id) {
         return db.query("SELECT p.* FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=?",
             this::closeResult,s.tenant,s.branch,s.cashier,id).stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND));
+    }
+    public CloseResult closeStatus(Scope s,String id) {
+        authorize(s,s.cashier(),"POS_VIEW");
+        return closeStatusInternal(s,id);
     }
     @Transactional public CloseResult close(Scope s,String id,BigDecimal counted) { return close(s,id,counted,null); }
     @Transactional public CloseResult close(Scope s,String id,BigDecimal counted,String reason) {
@@ -149,7 +152,7 @@ public class PosService {
             if(!reviewed.isEmpty()) {
                 if(counted.compareTo((BigDecimal)reviewed.getFirst().get("counted_cash"))!=0||!Objects.equals(normalized,reviewed.getFirst().get("variance_reason")))
                     fail("Close request ID already used with different count or reason");
-                return closeStatus(s,id);
+                return closeStatusInternal(s,id);
             }
         }
         if(!"OPEN".equals(shift.get("state"))) {
@@ -157,7 +160,7 @@ public class PosService {
                 return closeStatus(s,id);
             fail("Close count is already frozen; supervisor review or a new corrected count is required");
         }
-        BigDecimal expected=reconciliation(s,id).expectedCash(),variance=counted.subtract(expected);
+        BigDecimal expected=reconciliationInternal(s,id).expectedCash(),variance=counted.subtract(expected);
         if(!db.queryForList("SELECT order_reference FROM pos_active_drafts WHERE tenant_id=? AND branch_id=? AND cashier=? AND session_id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id).isEmpty())fail("Resolve reserved draft sales before closing the session");
         if(variance.signum()!=0&&normalized==null)throw new ResponseStatusException(BAD_REQUEST,"A variance reason is required");
         String state=variance.signum()==0?"CLOSED":"CLOSING";
@@ -220,7 +223,7 @@ public class PosService {
         }
         if(!"OPEN".equals(shift.get("state"))) fail("Session is closed");
         if(request.type()!=MovementType.CASH_IN &&
-            request.amount().compareTo(reconciliation(s,sessionId).expectedCash())>0)
+            request.amount().compareTo(reconciliationInternal(s,sessionId).expectedCash())>0)
             fail("Cash removal exceeds expected drawer cash");
         String id=UUID.randomUUID().toString();
         db.update("INSERT INTO pos_cash_movements(id,tenant_id,branch_id,cashier,session_id,movement_type,amount,reason,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -235,6 +238,9 @@ public class PosService {
     @Transactional
     public Reconciliation reconciliation(Scope s,String id) {
         authorize(s,s.cashier(),"POS_VIEW");
+        return reconciliationInternal(s,id);
+    }
+    private Reconciliation reconciliationInternal(Scope s,String id) {
         var shift=one("SELECT p.state,p.opening_float,p.counted_cash,p.register_id FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",
             s.tenant,s.branch,s.cashier,id);
         var sales=db.queryForList("SELECT cash_received,change_given FROM pos_drawer_tenders WHERE tenant_id=? AND session_id=? ORDER BY id FOR UPDATE",s.tenant,id);

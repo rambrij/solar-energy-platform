@@ -1,13 +1,15 @@
 package com.saumya.pos.platform;
 
 import com.saumya.pos.platform.internal.*;
-import com.saumya.pos.security.AuthorizationContext;
 import java.time.*;
-import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -15,11 +17,12 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlatformConfigurationServiceTest {
-    @Mock PlatformConfigurationRepository repository;@Mock PlatformAuditService audit;@Mock AuthorizationContext authorization;
+    @Mock PlatformConfigurationRepository repository;@Mock PlatformAuditService audit;
+    @AfterEach void clearSecurityContext(){SecurityContextHolder.clearContext();}
     private PlatformConfigurationServiceImpl service(){
-        when(authorization.current()).thenReturn(new AuthorizationContext.Context("admin",null,null,
-            Set.of("PLATFORM_CONFIG_MANAGE"),true,false,false));
-        return new PlatformConfigurationServiceImpl(repository,audit,Clock.fixed(Instant.parse("2026-11-16T00:00:00Z"),ZoneOffset.UTC),authorization);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("admin","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_CONFIG_MANAGE"))));
+        return new PlatformConfigurationServiceImpl(repository,audit,Clock.fixed(Instant.parse("2026-11-16T00:00:00Z"),ZoneOffset.UTC));
     }
     @Test void rejectsRawCredentialsAndNeverReturnsSecretReferences(){
         var service=service();
@@ -34,8 +37,9 @@ class PlatformConfigurationServiceTest {
         assertThat(saved.toString()).doesNotContain("vault://payment/key");
     }
     @Test void configurationReadsRequirePlatformConfigurationPermission(){
-        when(authorization.current()).thenReturn(new AuthorizationContext.Context("vendor",1L,1L,Set.of("VENDOR_AUDIT_VIEW"),false,false,true));
-        var service=new PlatformConfigurationServiceImpl(repository,audit,Clock.systemUTC(),authorization);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+        var service=new PlatformConfigurationServiceImpl(repository,audit,Clock.systemUTC());
         assertThatThrownBy(service::list).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(repository);
     }

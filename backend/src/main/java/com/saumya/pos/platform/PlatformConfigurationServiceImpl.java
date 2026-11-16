@@ -1,7 +1,6 @@
 package com.saumya.pos.platform;
 
 import com.saumya.pos.platform.internal.*;
-import com.saumya.pos.security.AuthorizationContext;
 import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
@@ -18,15 +17,10 @@ public class PlatformConfigurationServiceImpl implements PlatformConfigurationSe
     private static final Pattern REF=Pattern.compile("(?:vault|secret-manager)://[A-Za-z0-9_./:@-]{3,240}");
     private static final Pattern SECRET_KEY=Pattern.compile(".*(SECRET|TOKEN|PASSWORD|API[_-]?KEY|CREDENTIAL|PRIVATE[_-]?KEY).*");
     private final PlatformConfigurationRepository repository;private final PlatformAuditService audit;private final Clock clock;
-    private final AuthorizationContext authorization;
-    public PlatformConfigurationServiceImpl(PlatformConfigurationRepository repository,PlatformAuditService audit,Clock clock,
-        AuthorizationContext authorization){this.repository=repository;this.audit=audit;this.clock=clock;this.authorization=authorization;}
-    private void requireActor(String actor){
-        var context=authorization.current();
-        if(!context.isPlatformUser()||actor==null||!context.username().equals(actor))
-            throw new ResponseStatusException(FORBIDDEN,"Platform actor does not match authenticated identity");
-        context.requirePermission("PLATFORM_CONFIG_MANAGE");
+    public PlatformConfigurationServiceImpl(PlatformConfigurationRepository repository,PlatformAuditService audit,Clock clock){
+        this.repository=repository;this.audit=audit;this.clock=clock;
     }
+    private void requireActor(String actor){PlatformAuthorization.require("PLATFORM_CONFIG_MANAGE",actor);}
     @Override public Setting put(Update update,String actor,String correlation){
         requireActor(actor);
         String key=update.key()==null?"":update.key().strip().toUpperCase(Locale.ROOT);
@@ -46,9 +40,7 @@ public class PlatformConfigurationServiceImpl implements PlatformConfigurationSe
         audit.record(actor,"PLATFORM_CONFIGURATION_UPDATED","CONFIGURATION",key,null,"Configuration updated",correlation);return view(entry);
     }
     @Override @Transactional(readOnly=true) public List<Setting> list(){
-        var context=authorization.current();
-        if(!context.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");
-        context.requirePermission("PLATFORM_CONFIG_MANAGE");
+        PlatformAuthorization.require("PLATFORM_CONFIG_MANAGE",null);
         return repository.findAll().stream().map(PlatformConfigurationServiceImpl::view).toList();
     }
     private static Setting view(PlatformConfigurationEntry e){return new Setting(e.key(),e.category(),e.sensitive()?null:e.plainValue(),e.sensitive(),e.sensitive()&&e.secretReference()!=null,e.updatedBy(),e.updatedAt(),e.version());}

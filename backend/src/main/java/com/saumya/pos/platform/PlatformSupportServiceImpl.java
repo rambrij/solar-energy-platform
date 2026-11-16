@@ -1,7 +1,6 @@
 package com.saumya.pos.platform;
 
 import com.saumya.pos.platform.internal.*;
-import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import java.time.Clock;
 import java.time.Duration;
@@ -15,16 +14,10 @@ import static org.springframework.http.HttpStatus.*;
 @Service @Transactional
 public class PlatformSupportServiceImpl implements PlatformSupportService {
     private final PlatformSupportRepository repository;private final TenantLifecycleService tenants;
-    private final PlatformAuditService audit;private final Clock clock;private final AuthorizationContext authorization;
+    private final PlatformAuditService audit;private final Clock clock;
     public PlatformSupportServiceImpl(PlatformSupportRepository repository,TenantLifecycleService tenants,
-        PlatformAuditService audit,Clock clock,AuthorizationContext authorization){
-        this.repository=repository;this.tenants=tenants;this.audit=audit;this.clock=clock;this.authorization=authorization;
-    }
-    private void requirePlatform(String actor,String permission){
-        var context=authorization.current();
-        if(!context.isPlatformUser()||!context.username().equals(actor))throw new ResponseStatusException(FORBIDDEN,"Platform actor does not match authenticated identity");
-        context.requirePermission(permission);
-    }
+        PlatformAuditService audit,Clock clock){this.repository=repository;this.tenants=tenants;this.audit=audit;this.clock=clock;}
+    private void requirePlatform(String actor,String permission){PlatformAuthorization.require(permission,actor);}
     @Override public SupportAccess grant(long tenantId,String actor,String purpose,String ticket,Instant expiry,String correlation){
         requirePlatform(actor,"PLATFORM_SUPPORT_ACCESS");
         tenants.get(tenantId);
@@ -44,9 +37,7 @@ public class PlatformSupportServiceImpl implements PlatformSupportService {
         return view(row,clock.instant());
     }
     @Override @Transactional(readOnly=true) public List<SupportAccess> recent(){
-        var context=authorization.current();
-        if(!context.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");
-        context.requirePermission("PLATFORM_SUPPORT_ACCESS");
+        PlatformAuthorization.require("PLATFORM_SUPPORT_ACCESS",null);
         Instant now=clock.instant();return repository.findTop100ByOrderByGrantedAtDesc().stream().map(row->view(row,now)).toList();
     }
     private static SupportAccess view(PlatformSupportGrant row,Instant now){return new SupportAccess(row.id(),row.tenantId(),row.actor(),row.purpose(),row.ticketReference(),row.grantedAt(),row.expiresAt(),row.revokedAt(),row.activeAt(now));}

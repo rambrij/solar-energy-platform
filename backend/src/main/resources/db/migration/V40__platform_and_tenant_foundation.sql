@@ -62,14 +62,14 @@ CREATE TABLE platform_configuration (
     category VARCHAR(60) NOT NULL,
     plain_value TEXT NULL,
     secret_reference VARCHAR(255) NULL,
-    sensitive BOOLEAN NOT NULL DEFAULT FALSE,
+    is_sensitive BOOLEAN NOT NULL DEFAULT FALSE,
     updated_by VARCHAR(100) NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     version BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT fk_platform_config_actor FOREIGN KEY(updated_by) REFERENCES users(username),
     CONSTRAINT chk_platform_config_secret CHECK (
-      (sensitive = TRUE AND plain_value IS NULL AND secret_reference IS NOT NULL)
-      OR (sensitive = FALSE AND secret_reference IS NULL)
+      (is_sensitive = TRUE AND plain_value IS NULL AND secret_reference IS NOT NULL)
+      OR (is_sensitive = FALSE AND secret_reference IS NULL)
     )
 );
 

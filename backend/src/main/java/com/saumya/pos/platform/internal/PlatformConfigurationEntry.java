@@ -9,7 +9,7 @@ public class PlatformConfigurationEntry {
     @Column(nullable=false,length=60) private String category;
     @Column(name="plain_value",columnDefinition="TEXT") private String plainValue;
     @Column(name="secret_reference",length=255) private String secretReference;
-    @Column(nullable=false) private boolean sensitive;
+    @Column(name="is_sensitive",nullable=false) private boolean sensitive;
     @Column(name="updated_by",nullable=false,length=100) private String updatedBy;
     @Column(name="updated_at",nullable=false) private Instant updatedAt;
     @Version @Column(nullable=false) private long version;

@@ -57,8 +57,10 @@ class AuthorizationPolicyRegistryTest {
                     if(!isMapped(method))continue;
                     PreAuthorize methodPolicy=AnnotatedElementUtils.findMergedAnnotation(method,PreAuthorize.class);
                     PreAuthorize classPolicy=AnnotatedElementUtils.findMergedAnnotation(type,PreAuthorize.class);
-                    if(methodPolicy!=null||classPolicy!=null)validateAuthorities(
-                        methodPolicy!=null?methodPolicy.value():classPolicy.value(),name+"#"+method.getName());
+                    assertThat(methodPolicy!=null||classPolicy!=null)
+                        .as("every mapped endpoint must have a machine-enforced @PreAuthorize policy or explicit permitAll policy: %s#%s",name,method.getName())
+                        .isTrue();
+                    validateAuthorities(methodPolicy!=null?methodPolicy.value():classPolicy.value(),name+"#"+method.getName());
                 }
             }
             Set<String> recorded=new TreeSet<>();policies.fieldNames().forEachRemaining(recorded::add);

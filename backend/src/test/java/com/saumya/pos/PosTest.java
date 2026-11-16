@@ -173,6 +173,23 @@ class PosTest {
   });}finally{pool.shutdownNow();}
   assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
  }
+ @Test void inventoryServiceRejectsCrossTenantDirectReadsAndMutationsBeforePersistence(){
+  int before=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=2 AND branch_id=2 AND product_id=2",Integer.class);
+  assertThatThrownBy(()->as("alice",()->stock.atBranch(2,2,2)))
+   .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+   .satisfies(error->assertThat(((org.springframework.web.server.ResponseStatusException)error).getStatusCode().value()).isEqualTo(403));
+  assertThatThrownBy(()->as("alice",()->stock.issue(2,2,2,1)))
+   .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+   .satisfies(error->assertThat(((org.springframework.web.server.ResponseStatusException)error).getStatusCode().value()).isEqualTo(403));
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=2 AND branch_id=2 AND product_id=2",Integer.class)).isEqualTo(before);
+ }
+
+ @Test void checkoutExpiryRejectsDirectInvocationOutsideTrustedWorker(){
+  assertThatThrownBy(()->checkout.expire(1,"nonexistent-order"))
+   .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+   .satisfies(error->assertThat(((org.springframework.web.server.ResponseStatusException)error).getStatusCode().value()).isEqualTo(403));
+ }
+
  @Test void stockReceivingUsesAssignedScopeAndIdempotentAuditedCommands()throws Exception{
   String path="/api/v1/vendor/inventory/receipts",body="{\"productId\":1,\"quantity\":2,\"reason\":\"Delivery inspected\"}";
   mvc.perform(post(path).header("Idempotency-Key","stock-key").with(csrf()).with(user("alice").authorities(()->"PRODUCT_VIEW")).contentType("application/json").content(body)).andExpect(status().isForbidden());

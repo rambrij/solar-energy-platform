@@ -72,7 +72,7 @@ public class PaymentCheckoutService {
             retail.lockOutlet(new PosService.Scope(order.tenant(), order.stockBranch(), "customer:" + customer));
             return order;
         }
-        var s = retail.scope();
+        var s = retail.scope();retail.authorize(s,username,"POS_VIEW");
         retail.lockOutlet(s);
         var order = orders.lock(s.tenant(), id).orElseThrow(this::missing);
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),s.branch())||!username.equals(order.cashier()))throw missing();

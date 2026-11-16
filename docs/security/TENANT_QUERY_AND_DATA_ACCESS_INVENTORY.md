@@ -1,34 +1,34 @@
 # P0-01 — Tenant Query and Data-Access Inventory
 
-**Repository:** \`rambrij/solar-energy-platform\`  
-**Branch:** \`feature/develop-authorization-gap-analysis\`  
-**Reviewed base:** \`develop\` at \`1d5c15eca4b7d870ac2eb0d0edb92732d5b7b709\`  
-**Source revision reviewed:** \`44cc0889f5425a8e3d7dab45f18d283b1a6b6ebf\`  
+**Repository:** `rambrij/solar-energy-platform`  
+**Branch:** `feature/develop-authorization-gap-analysis`  
+**Reviewed base:** `develop` at `1d5c15eca4b7d870ac2eb0d0edb92732d5b7b709`  
+**Source revision reviewed:** `44cc0889f5425a8e3d7dab45f18d283b1a6b6ebf`  
 **Review date:** 2026-11-17
 
 ## 1. Executive summary
 
-The backend contains **60 Spring Data repository interfaces** in the reviewed source tree. Their declarations contain **64 explicit \`@Query\` annotations**, including **4 native SQL queries**. The four native repository queries are:
+The backend contains **60 Spring Data repository interfaces** in the reviewed source tree. Their declarations contain **64 explicit `@Query` annotations**, including **4 native SQL queries**. The four native repository queries are:
 
-1. \`CatalogSearchRepository.search\` — native catalogue search and count query, both tenant-filtered.
-2. \`PosCatalogRepository.search\` — native POS catalogue search and count query, both tenant-filtered.
-3. \`CustomerRepository.resolve\` — resolves the authenticated username to the global customer profile.
-4. \`CustomerRepository.profileCount\` — counts global customer profiles for the authenticated username.
+1. `CatalogSearchRepository.search` — native catalogue search and count query, both tenant-filtered.
+2. `PosCatalogRepository.search` — native POS catalogue search and count query, both tenant-filtered.
+3. `CustomerRepository.resolve` — resolves the authenticated username to the global customer profile.
+4. `CustomerRepository.profileCount` — counts global customer profiles for the authenticated username.
 
-The source tree also has six confirmed direct \`JdbcTemplate\` persistence/access components:
+The source tree also has six confirmed direct `JdbcTemplate` persistence/access components:
 
-- \`MembershipService\`
-- \`PosService\`
-- \`VendorRoleService\`
-- \`TenantEntitlementPolicy\`
-- \`CashDrawerProjection\`
-- \`DraftSessionProjection\`
+- `MembershipService`
+- `PosService`
+- `VendorRoleService`
+- `TenantEntitlementPolicy`
+- `CashDrawerProjection`
+- `DraftSessionProjection`
 
-The six classes include parameterized tenant-aware SQL. \`PosService\` is the largest direct SQL surface and includes tenant, branch, cashier, register, assignment and session predicates. Role SQL uses tenant_id in role, permission, employee, assignment and audit operations. Projection listeners use persisted event payloads and write tenant-scoped projection keys.
+The six classes include parameterized tenant-aware SQL. `PosService` is the largest direct SQL surface and includes tenant, branch, cashier, register, assignment and session predicates. Role SQL uses tenant_id in role, permission, employee, assignment and audit operations. Projection listeners use persisted event payloads and write tenant-scoped projection keys.
 
-Other persistence mechanisms include JPA derived finder methods, \`JpaSpecificationExecutor\`, \`EntityManager\` locks/refresh/persist operations, and a scheduled reservation cleanup worker. No QueryDSL, Criteria API query builder or stored procedure call was identified in the reviewed persistence path. Specifications are used in order history and refund history.
+Other persistence mechanisms include JPA derived finder methods, `JpaSpecificationExecutor`, `EntityManager` locks/refresh/persist operations, and a scheduled reservation cleanup worker. No QueryDSL, Criteria API query builder or stored procedure call was identified in the reviewed persistence path. Specifications are used in order history and refund history.
 
-**Overall assessment:** the inspected repository queries and service paths generally derive vendor tenant context from \`AuthorizationContext\`/membership or from a persisted tenant-owned order. The review did not demonstrate a confirmed cross-tenant read or write exploit in the inspected query paths. It did find generic inherited repository methods, selected unscoped-by-tenant lookups whose safety relies on globally unique IDs or a prior scoped parent lookup, and the three database integrity gaps recorded in the resource inventory.
+**Overall assessment:** the inspected repository queries and service paths generally derive vendor tenant context from `AuthorizationContext`/membership or from a persisted tenant-owned order. The review did not demonstrate a confirmed cross-tenant read or write exploit in the inspected query paths. It did find generic inherited repository methods, selected unscoped-by-tenant lookups whose safety relies on globally unique IDs or a prior scoped parent lookup, and the three database integrity gaps recorded in the resource inventory.
 
 This document is an implementation inventory and evidence record, not a claim that every possible runtime path has passed adversarial testing.
 
@@ -51,129 +51,129 @@ A controller permission annotation alone is not considered proof of data isolati
 
 ## 3. Repository inventory
 
-All 60 repository interfaces below were reviewed. “Explicit queries” counts declared \`@Query\` annotations, not Spring Data derived finder methods or inherited \`JpaRepository\` methods.
+All 60 repository interfaces below were reviewed. “Explicit queries” counts declared `@Query` annotations, not Spring Data derived finder methods or inherited `JpaRepository` methods.
 
 | # | Repository | Entity / table family | Explicit @Query | Native |
 |---:|---|---|---:|---:|
-| 1 | \`cart/internal/CartItemRepository\` | cart_items | 2 | 0 |
-| 2 | \`cart/internal/CartRepository\` | carts | 2 | 0 |
-| 3 | \`catalog/internal/CatalogChangeEventRepository\` | catalog_change_events | 0 | 0 |
-| 4 | \`catalog/internal/CatalogSearchRepository\` | products/catalogue projection | 1 | 1 |
-| 5 | \`catalog/internal/CatalogSequenceRepository\` | catalog_sequences | 1 | 0 |
-| 6 | \`catalog/internal/CatalogStockRepository\` | catalog_stock | 0 | 0 |
-| 7 | \`catalog/internal/CategoryRepository\` | catalog_categories | 3 | 0 |
-| 8 | \`catalog/internal/DiscountPolicyRepository\` | catalog_discount_policy | 0 | 0 |
-| 9 | \`catalog/internal/PosCatalogRepository\` | products/POS catalogue projection | 1 | 1 |
-| 10 | \`catalog/internal/ProductCategoryRepository\` | product_categories | 1 | 0 |
-| 11 | \`catalog/internal/ProductRepository\` | products | 2 | 0 |
-| 12 | \`catalog/internal/PromotionAuditRepository\` | catalog_promotion_audit | 1 | 0 |
-| 13 | \`catalog/internal/PromotionRepository\` | catalog_promotions | 2 | 0 |
-| 14 | \`checkout/internal/BuyerSnapshotRepository\` | order_buyer_snapshots | 0 | 0 |
-| 15 | \`checkout/internal/CashierSalesRepository\` | orders/order_items report | 2 | 0 |
-| 16 | \`checkout/internal/CustomerChallengeRepository\` | pos_customer_challenges | 1 | 0 |
-| 17 | \`checkout/internal/DraftLineRepository\` | order_items | 2 | 0 |
-| 18 | \`checkout/internal/DraftRepository\` | orders | 5 | 0 |
-| 19 | \`checkout/internal/InvoiceSnapshotRepository\` | vendor_invoices | 0 | 0 |
-| 20 | \`checkout/internal/PaymentAttemptRepository\` | vendor_payment_attempts | 0 | 0 |
-| 21 | \`checkout/internal/SalesReportRepository\` | orders/order_items report | 2 | 0 |
-| 22 | \`customer/internal/VendorCustomerRepository\` | tenant_customers | 0 | 0 |
-| 23 | \`documents/internal/ReceiptDocumentAuditRepository\` | receipt_document_audit | 0 | 0 |
-| 24 | \`identity/internal/CustomerRepository\` | customer_profiles | 3 | 2 |
-| 25 | \`identity/internal/GlobalUserRepository\` | users | 1 | 0 |
-| 26 | \`identity/internal/IdentityInvitationRepository\` | identity_invitations | 1 | 0 |
-| 27 | \`identity/internal/IdentitySequenceRepository\` | identity_sequence | 1 | 0 |
-| 28 | \`identity/internal/PlatformGrantRepository\` | platform_user_permissions | 2 | 0 |
-| 29 | \`identity/internal/PlatformMfaEnrollmentRepository\` | platform_mfa_enrollment_tokens | 1 | 0 |
-| 30 | \`identity/internal/RefreshSessionRepository\` | identity_refresh_tokens | 3 | 0 |
-| 31 | \`inventory/internal/InventoryIssueRepository\` | inventory_ledger | 0 | 0 |
-| 32 | \`inventory/internal/InventoryRepository\` | inventory | 3 | 0 |
-| 33 | \`inventory/internal/ReservationRepository\` | stock_reservations | 1 | 0 |
-| 34 | \`inventory/internal/ReturnDispositionRepository\` | inventory_return_dispositions | 0 | 0 |
-| 35 | \`inventory/internal/StockReceiptRepository\` | inventory_receipts | 0 | 0 |
-| 36 | \`membership/internal/EmployeeMembershipRepository\` | employees | 0 | 0 |
-| 37 | \`membership/internal/PermissionGrantRepository\` | employee_permissions | 0 | 0 |
-| 38 | \`platform/internal/PlatformAuditRepository\` | platform_audit_events | 0 | 0 |
-| 39 | \`platform/internal/PlatformConfigurationRepository\` | platform_configuration | 0 | 0 |
-| 40 | \`platform/internal/PlatformSupportRepository\` | platform_support_access | 0 | 0 |
-| 41 | \`reporting/internal/ReportExportAuditRepository\` | report_export_audit | 0 | 0 |
-| 42 | \`retail/internal/BranchConfigurationRepository\` | branches | 1 | 0 |
-| 43 | \`retail/internal/BranchSettingsEventRepository\` | branch_settings_events | 0 | 0 |
-| 44 | \`retail/internal/ClosedShiftRepository\` | POS session history | 1 | 0 |
-| 45 | \`retail/internal/RegisterDirectoryRepository\` | registers/POS assignment | 1 | 0 |
-| 46 | \`retail/internal/RetailSequenceRepository\` | retail_sequences | 2 | 0 |
-| 47 | \`returns/internal/CashRefundItemRepository\` | pos_cash_refund_items | 2 | 0 |
-| 48 | \`returns/internal/CashRefundRepository\` | pos_cash_refunds | 2 | 0 |
-| 49 | \`returns/internal/RefundReportRepository\` | pos_cash_refunds/items report | 2 | 0 |
-| 50 | \`returns/internal/ReturnEventRepository\` | pos_return_events | 1 | 0 |
-| 51 | \`returns/internal/ReturnItemRepository\` | pos_return_items | 2 | 0 |
-| 52 | \`returns/internal/ReturnRepository\` | pos_returns | 3 | 0 |
-| 53 | \`subscription/internal/SubscriptionEventRepository\` | subscription_events | 0 | 0 |
-| 54 | \`subscription/internal/SubscriptionInvoiceRepository\` | subscription_invoices | 0 | 0 |
-| 55 | \`subscription/internal/SubscriptionPaymentRepository\` | subscription_payments | 0 | 0 |
-| 56 | \`subscription/internal/SubscriptionPlanRepository\` | subscription_plans | 0 | 0 |
-| 57 | \`subscription/internal/SubscriptionPlanVersionRepository\` | subscription_plan_versions | 0 | 0 |
-| 58 | \`subscription/internal/TenantSubscriptionRepository\` | tenant_subscriptions | 0 | 0 |
-| 59 | \`tenant/internal/TenantRepository\` | tenants | 2 | 0 |
-| 60 | \`tenant/internal/TenantSequenceRepository\` | tenant_sequences | 1 | 0 |
+| 1 | `cart/internal/CartItemRepository` | cart_items | 2 | 0 |
+| 2 | `cart/internal/CartRepository` | carts | 2 | 0 |
+| 3 | `catalog/internal/CatalogChangeEventRepository` | catalog_change_events | 0 | 0 |
+| 4 | `catalog/internal/CatalogSearchRepository` | products/catalogue projection | 1 | 1 |
+| 5 | `catalog/internal/CatalogSequenceRepository` | catalog_sequences | 1 | 0 |
+| 6 | `catalog/internal/CatalogStockRepository` | catalog_stock | 0 | 0 |
+| 7 | `catalog/internal/CategoryRepository` | catalog_categories | 3 | 0 |
+| 8 | `catalog/internal/DiscountPolicyRepository` | catalog_discount_policy | 0 | 0 |
+| 9 | `catalog/internal/PosCatalogRepository` | products/POS catalogue projection | 1 | 1 |
+| 10 | `catalog/internal/ProductCategoryRepository` | product_categories | 1 | 0 |
+| 11 | `catalog/internal/ProductRepository` | products | 2 | 0 |
+| 12 | `catalog/internal/PromotionAuditRepository` | catalog_promotion_audit | 1 | 0 |
+| 13 | `catalog/internal/PromotionRepository` | catalog_promotions | 2 | 0 |
+| 14 | `checkout/internal/BuyerSnapshotRepository` | order_buyer_snapshots | 0 | 0 |
+| 15 | `checkout/internal/CashierSalesRepository` | orders/order_items report | 2 | 0 |
+| 16 | `checkout/internal/CustomerChallengeRepository` | pos_customer_challenges | 1 | 0 |
+| 17 | `checkout/internal/DraftLineRepository` | order_items | 2 | 0 |
+| 18 | `checkout/internal/DraftRepository` | orders | 5 | 0 |
+| 19 | `checkout/internal/InvoiceSnapshotRepository` | vendor_invoices | 0 | 0 |
+| 20 | `checkout/internal/PaymentAttemptRepository` | vendor_payment_attempts | 0 | 0 |
+| 21 | `checkout/internal/SalesReportRepository` | orders/order_items report | 2 | 0 |
+| 22 | `customer/internal/VendorCustomerRepository` | tenant_customers | 0 | 0 |
+| 23 | `documents/internal/ReceiptDocumentAuditRepository` | receipt_document_audit | 0 | 0 |
+| 24 | `identity/internal/CustomerRepository` | customer_profiles | 3 | 2 |
+| 25 | `identity/internal/GlobalUserRepository` | users | 1 | 0 |
+| 26 | `identity/internal/IdentityInvitationRepository` | identity_invitations | 1 | 0 |
+| 27 | `identity/internal/IdentitySequenceRepository` | identity_sequence | 1 | 0 |
+| 28 | `identity/internal/PlatformGrantRepository` | platform_user_permissions | 2 | 0 |
+| 29 | `identity/internal/PlatformMfaEnrollmentRepository` | platform_mfa_enrollment_tokens | 1 | 0 |
+| 30 | `identity/internal/RefreshSessionRepository` | identity_refresh_tokens | 3 | 0 |
+| 31 | `inventory/internal/InventoryIssueRepository` | inventory_ledger | 0 | 0 |
+| 32 | `inventory/internal/InventoryRepository` | inventory | 3 | 0 |
+| 33 | `inventory/internal/ReservationRepository` | stock_reservations | 1 | 0 |
+| 34 | `inventory/internal/ReturnDispositionRepository` | inventory_return_dispositions | 0 | 0 |
+| 35 | `inventory/internal/StockReceiptRepository` | inventory_receipts | 0 | 0 |
+| 36 | `membership/internal/EmployeeMembershipRepository` | employees | 0 | 0 |
+| 37 | `membership/internal/PermissionGrantRepository` | employee_permissions | 0 | 0 |
+| 38 | `platform/internal/PlatformAuditRepository` | platform_audit_events | 0 | 0 |
+| 39 | `platform/internal/PlatformConfigurationRepository` | platform_configuration | 0 | 0 |
+| 40 | `platform/internal/PlatformSupportRepository` | platform_support_access | 0 | 0 |
+| 41 | `reporting/internal/ReportExportAuditRepository` | report_export_audit | 0 | 0 |
+| 42 | `retail/internal/BranchConfigurationRepository` | branches | 1 | 0 |
+| 43 | `retail/internal/BranchSettingsEventRepository` | branch_settings_events | 0 | 0 |
+| 44 | `retail/internal/ClosedShiftRepository` | POS session history | 1 | 0 |
+| 45 | `retail/internal/RegisterDirectoryRepository` | registers/POS assignment | 1 | 0 |
+| 46 | `retail/internal/RetailSequenceRepository` | retail_sequences | 2 | 0 |
+| 47 | `returns/internal/CashRefundItemRepository` | pos_cash_refund_items | 2 | 0 |
+| 48 | `returns/internal/CashRefundRepository` | pos_cash_refunds | 2 | 0 |
+| 49 | `returns/internal/RefundReportRepository` | pos_cash_refunds/items report | 2 | 0 |
+| 50 | `returns/internal/ReturnEventRepository` | pos_return_events | 1 | 0 |
+| 51 | `returns/internal/ReturnItemRepository` | pos_return_items | 2 | 0 |
+| 52 | `returns/internal/ReturnRepository` | pos_returns | 3 | 0 |
+| 53 | `subscription/internal/SubscriptionEventRepository` | subscription_events | 0 | 0 |
+| 54 | `subscription/internal/SubscriptionInvoiceRepository` | subscription_invoices | 0 | 0 |
+| 55 | `subscription/internal/SubscriptionPaymentRepository` | subscription_payments | 0 | 0 |
+| 56 | `subscription/internal/SubscriptionPlanRepository` | subscription_plans | 0 | 0 |
+| 57 | `subscription/internal/SubscriptionPlanVersionRepository` | subscription_plan_versions | 0 | 0 |
+| 58 | `subscription/internal/TenantSubscriptionRepository` | tenant_subscriptions | 0 | 0 |
+| 59 | `tenant/internal/TenantRepository` | tenants | 2 | 0 |
+| 60 | `tenant/internal/TenantSequenceRepository` | tenant_sequences | 1 | 0 |
 | | **Total** | **60 repository interfaces** | **64** | **4** |
 
 ### Generic/inherited CRUD caveat
 
-Many tenant repositories extend \`JpaRepository\` and therefore inherit methods such as \`findById\`, \`findAll\`, \`deleteById\` and \`save\`. This inventory does not label every inherited method a vulnerability. It records the security contract required at the callsite:
+Many tenant repositories extend `JpaRepository` and therefore inherit methods such as `findById`, `findAll`, `deleteById` and `save`. This inventory does not label every inherited method a vulnerability. It records the security contract required at the callsite:
 
-- Prefer a method that includes tenant and parent identifiers, e.g. \`findByTenantIdAndId\`, \`locked(tenant,id)\`, \`findByTenantAndBranchAndId\`.
+- Prefer a method that includes tenant and parent identifiers, e.g. `findByTenantIdAndId`, `locked(tenant,id)`, `findByTenantAndBranchAndId`.
 - For composite primary keys, construct the key from the server-derived tenant plus resource selector, never from a client tenant field.
 - Before saving a child, verify its parent using the same tenant.
-- Use generic \`findAll\` only for genuinely global/platform-owned data or after a platform-wide policy check.
-- A generic \`findById\` on a globally unique UUID may still be safe after a scoped parent lookup, but the dependency should be explicit and tested.
+- Use generic `findAll` only for genuinely global/platform-owned data or after a platform-wide policy check.
+- A generic `findById` on a globally unique UUID may still be safe after a scoped parent lookup, but the dependency should be explicit and tested.
 
 ## 4. Explicit query and repository scope review
 
 ### 4.1 Catalogue search, count, pagination and product/category queries
 
-- \`CatalogSearchRepository.search\`: native SQL includes \`p.tenant_id=:tenant\` and tenant equality in product, promotion, product-category, category and stock joins. Its count query repeats the same tenant and filter predicates.
-- \`PosCatalogRepository.search\`: native SQL includes \`p.tenant_id=:tenant\`; stock joins include tenant + branch + product; count query repeats the same predicates.
-- \`ProductRepository\`: list, lock, published and ID lookups use tenant ID.
-- \`CategoryRepository\`: tenant-scoped lock/list/published/category-product queries; joins compare tenant on product-category and product.
-- \`ProductCategoryRepository\`: tenant-scoped bulk delete and tenant-keyed product lookup. The composite key carries tenant.
-- \`PromotionRepository\`: both read and lock queries use tenant + product.
-- \`PromotionAuditRepository\`: history and count both use tenant + product.
-- \`CatalogStockRepository\`: uses composite key \`(tenant,branch,product)\`.
+- `CatalogSearchRepository.search`: native SQL includes `p.tenant_id=:tenant` and tenant equality in product, promotion, product-category, category and stock joins. Its count query repeats the same tenant and filter predicates.
+- `PosCatalogRepository.search`: native SQL includes `p.tenant_id=:tenant`; stock joins include tenant + branch + product; count query repeats the same predicates.
+- `ProductRepository`: list, lock, published and ID lookups use tenant ID.
+- `CategoryRepository`: tenant-scoped lock/list/published/category-product queries; joins compare tenant on product-category and product.
+- `ProductCategoryRepository`: tenant-scoped bulk delete and tenant-keyed product lookup. The composite key carries tenant.
+- `PromotionRepository`: both read and lock queries use tenant + product.
+- `PromotionAuditRepository`: history and count both use tenant + product.
+- `CatalogStockRepository`: uses composite key `(tenant,branch,product)`.
 
 **Assessment:** explicit catalogue query declarations are tenant-scoped. Continue to validate tenant input at service boundaries; public vendor slug is a public-catalogue routing selector only, never vendor administration authorization.
 
 ### 4.2 Cart and customer-owned queries
 
-- \`CartRepository.findByCustomerIdAndState\` and ID/customer/state finder bind the authenticated global customer ID. The active cart itself carries one tenant.
-- \`CartItemRepository.items/item\` bind tenant + cart + product.
-- \`CustomerRepository.resolve/profileCount\` resolve the global customer profile from the authenticated username; these are intentionally global identity lookups.
-- \`DraftRepository.findByCustomerIdAndKey\`, \`findTop20ByCustomerIdAndChannel\`, \`lockCustomer\`, \`recoverCustomer\` and customer Specifications are customer-scoped. The customer ID comes from \`CustomerAccess.resolve(username)\`.
-- \`OrderHistoryService.customerScope\` filters on authenticated customer ID. Detail uses the same Specification plus order ID.
-- \`OnlineReceiptService.owned\` locks an order by authenticated customer ID + order ID and checks PAID status.
-- \`CustomerAssociationService\` challenge token is hash-keyed; service checks expiry, customer identity, tenant/order and draft state before association.
+- `CartRepository.findByCustomerIdAndState` and ID/customer/state finder bind the authenticated global customer ID. The active cart itself carries one tenant.
+- `CartItemRepository.items/item` bind tenant + cart + product.
+- `CustomerRepository.resolve/profileCount` resolve the global customer profile from the authenticated username; these are intentionally global identity lookups.
+- `DraftRepository.findByCustomerIdAndKey`, `findTop20ByCustomerIdAndChannel`, `lockCustomer`, `recoverCustomer` and customer Specifications are customer-scoped. The customer ID comes from `CustomerAccess.resolve(username)`.
+- `OrderHistoryService.customerScope` filters on authenticated customer ID. Detail uses the same Specification plus order ID.
+- `OnlineReceiptService.owned` locks an order by authenticated customer ID + order ID and checks PAID status.
+- `CustomerAssociationService` challenge token is hash-keyed; service checks expiry, customer identity, tenant/order and draft state before association.
 
-**Assessment:** global customer identity is not used as a shortcut to vendor CRM. Vendor-specific relationship is persisted in \`tenant_customers\` and association requires customer authentication/consent. Test customer A/B and customer A order IDs against both order history and receipt/document paths.
+**Assessment:** global customer identity is not used as a shortcut to vendor CRM. Vendor-specific relationship is persisted in `tenant_customers` and association requires customer authentication/consent. Test customer A/B and customer A order IDs against both order history and receipt/document paths.
 
 ### 4.3 Checkout, payment and child-resource queries
 
-- \`DraftRepository.findByTenantIdAndId\`, \`lock(tenant,id)\`, \`findByTenantIdAndKey\`, and branch/customer recovery methods scope by tenant or authenticated customer and, for POS, branch/cashier/session.
-- \`DraftLineRepository.lines/lockedLines\` use tenant + order.
-- \`PaymentAttemptRepository.findAllByTenantAndOrderOrderByCreatedAscIdAsc\` uses tenant + order. \`awaitingReview\` joins order on both tenant and order ID and filters tenant + branch.
-- \`InvoiceSnapshotRepository\` uses composite key \`(tenant,order)\`; callsites construct that key from the scoped order.
-- \`BuyerSnapshotRepository\` uses composite key \`(tenant,order)\`.
-- \`CashierSalesRepository\` headers use tenant + branch + POS channel + paid status + time window. Lines join order items to order by order ID and tenant, then filter tenant + branch.
-- \`SalesReportRepository\` orders and line aggregates use tenant + branch/stock branch + channel + time window. Line join includes tenant.
-- \`CheckoutService\` creates order and lines using server tenant and product lookup; cancellation and finalization lock order by tenant + ID.
-- \`PaymentCheckoutService\` starts from an owned order, rechecks POS/customer context, uses tenant-scoped tender queries, validates stock/product against order tenant, and checks branch/session state before completing POS payment.
-- One review-queue mapping call currently loads an order through \`orders.findById(attempt.order())\` after a tenant/branch-scoped pending-attempt query. The attempt's composite tenant/order FK and globally unique order ID constrain the relationship, but using \`findByTenantIdAndId(attempt.tenant(),attempt.order())\` would make the tenant scope explicit. This is recorded as hardening, not a demonstrated vulnerability.
+- `DraftRepository.findByTenantIdAndId`, `lock(tenant,id)`, `findByTenantIdAndKey`, and branch/customer recovery methods scope by tenant or authenticated customer and, for POS, branch/cashier/session.
+- `DraftLineRepository.lines/lockedLines` use tenant + order.
+- `PaymentAttemptRepository.findAllByTenantAndOrderOrderByCreatedAscIdAsc` uses tenant + order. `awaitingReview` joins order on both tenant and order ID and filters tenant + branch.
+- `InvoiceSnapshotRepository` uses composite key `(tenant,order)`; callsites construct that key from the scoped order.
+- `BuyerSnapshotRepository` uses composite key `(tenant,order)`.
+- `CashierSalesRepository` headers use tenant + branch + POS channel + paid status + time window. Lines join order items to order by order ID and tenant, then filter tenant + branch.
+- `SalesReportRepository` orders and line aggregates use tenant + branch/stock branch + channel + time window. Line join includes tenant.
+- `CheckoutService` creates order and lines using server tenant and product lookup; cancellation and finalization lock order by tenant + ID.
+- `PaymentCheckoutService` starts from an owned order, rechecks POS/customer context, uses tenant-scoped tender queries, validates stock/product against order tenant, and checks branch/session state before completing POS payment.
+- One review-queue mapping call currently loads an order through `orders.findById(attempt.order())` after a tenant/branch-scoped pending-attempt query. The attempt's composite tenant/order FK and globally unique order ID constrain the relationship, but using `findByTenantIdAndId(attempt.tenant(),attempt.order())` would make the tenant scope explicit. This is recorded as hardening, not a demonstrated vulnerability.
 
 **Assessment:** main checkout/payment paths are tenant/customer scoped. Review-queue lookup should be made explicit in a later narrow hardening change with a regression test; do not classify it as a confirmed cross-tenant exposure while the composite FK and source query remain in place.
 
 ### 4.4 Inventory, receiving and reservations
 
-- \`InventoryRepository.available(tenant,product)\`, \`atBranch(tenant,branch,product)\`, and \`lock(tenant,branch,product)\` all include tenant.
-- \`ReservationRepository.held(tenant,order)\` scopes by tenant + order and HELD state.
-- \`StockReceiptRepository\` find and page methods scope by tenant + branch.
+- `InventoryRepository.available(tenant,product)`, `atBranch(tenant,branch,product)`, and `lock(tenant,branch,product)` all include tenant.
+- `ReservationRepository.held(tenant,order)` scopes by tenant + order and HELD state.
+- `StockReceiptRepository` find and page methods scope by tenant + branch.
 - InventoryService reserve/release/consume/inspect-return operations receive tenant from the checkout/return service and operate on tenant-keyed reservations/balances.
 - StockReceivingService checks vendor membership, tenant, branch and permission in its service guard before receiving or listing.
 - No warehouse aggregate or warehouse repository exists in the reviewed tree; inventory location is branch-scoped.
@@ -182,10 +182,10 @@ Many tenant repositories extend \`JpaRepository\` and therefore inherit methods 
 
 ### 4.5 POS branch, register, session, shift and cash queries
 
-- \`BranchConfigurationRepository.findByTenantAndId/locked\` scope branch reads/locks by tenant.
-- \`RegisterDirectoryRepository.directory\` joins employee register assignment by tenant + branch + username + register and filters the requested tenant/branch.
-- \`ClosedShiftRepository.history\` filters tenant + branch + cashier + CLOSED state + time window.
-- \`PosService\` uses parameterized JDBC queries. The active context supplies tenant, branch and username; its guard verifies vendor membership, expected actor, tenant/branch match and explicit permissions.
+- `BranchConfigurationRepository.findByTenantAndId/locked` scope branch reads/locks by tenant.
+- `RegisterDirectoryRepository.directory` joins employee register assignment by tenant + branch + username + register and filters the requested tenant/branch.
+- `ClosedShiftRepository.history` filters tenant + branch + cashier + CLOSED state + time window.
+- `PosService` uses parameterized JDBC queries. The active context supplies tenant, branch and username; its guard verifies vendor membership, expected actor, tenant/branch match and explicit permissions.
 - Register opening checks a tenant/branch register and an active employee-register assignment.
 - Session lookups join assignment to session by tenant/branch/cashier/register and constrain session ID.
 - Cash movements, shift reviews, active drafts, drawer tenders, cash refunds and audit inserts include tenant ID; branch/session predicates are included where the operation requires them.
@@ -195,12 +195,12 @@ Many tenant repositories extend \`JpaRepository\` and therefore inherit methods 
 
 ### 4.6 Returns and refunds
 
-- \`ReturnRepository.queue\`, branch/ID finders, key lookups and lock methods filter tenant + branch.
-- \`ReturnItemRepository.items/used\` filter tenant + return/order and join return on tenant.
-- \`ReturnEventRepository.history\` joins event to return by tenant + return ID and filters tenant + branch + return.
-- \`CashRefundRepository\` methods use tenant + branch + ID/key/return.
-- \`CashRefundItemRepository.items/forOrder\` use tenant + refund/order.
-- \`RefundReportRepository\` header and line aggregate queries use tenant + branch + time; line query joins refund to refund item using tenant.
+- `ReturnRepository.queue`, branch/ID finders, key lookups and lock methods filter tenant + branch.
+- `ReturnItemRepository.items/used` filter tenant + return/order and join return on tenant.
+- `ReturnEventRepository.history` joins event to return by tenant + return ID and filters tenant + branch + return.
+- `CashRefundRepository` methods use tenant + branch + ID/key/return.
+- `CashRefundItemRepository.items/forOrder` use tenant + refund/order.
+- `RefundReportRepository` header and line aggregate queries use tenant + branch + time; line query joins refund to refund item using tenant.
 - ReturnService locks sale by tenant + branch and creates return/return item/event with the same tenant; subsequent actions re-load by tenant + branch + return.
 - CashRefundService starts from tenant/branch-owned return and original sale, checks existing refund and item quantities, then creates refund items with tenant + refund + return + order.
 
@@ -208,22 +208,22 @@ Many tenant repositories extend \`JpaRepository\` and therefore inherit methods 
 
 ### 4.7 Membership and vendor-role JDBC
 
-- \`MembershipService\` resolves employee membership and effective permissions; its JDBC query for role assignments filters \`tenant_id=? AND username=?\`, and joins role/permission rows on tenant + role ID.
-- \`VendorRoleService\` SQL for role, permission, employee, assignment, branch and register reads/writes includes the active tenant. Mutations include tenant in UPDATE/DELETE predicates and insert tenant explicitly.
-- \`TenantEntitlementPolicy\` reads the effective subscription by tenant ID and filters permission entitlements against that tenant's subscription.
+- `MembershipService` resolves employee membership and effective permissions; its JDBC query for role assignments filters `tenant_id=? AND username=?`, and joins role/permission rows on tenant + role ID.
+- `VendorRoleService` SQL for role, permission, employee, assignment, branch and register reads/writes includes the active tenant. Mutations include tenant in UPDATE/DELETE predicates and insert tenant explicitly.
+- `TenantEntitlementPolicy` reads the effective subscription by tenant ID and filters permission entitlements against that tenant's subscription.
 - Assignment and role tables have composite FKs that bind tenant + employee/role/branch/register.
 
 **Assessment:** inspected vendor-role SQL is tenant-scoped. Membership's single-membership assumption conflicts with HLD §10.1's one-or-more tenant membership statement; see RC-08. Do not widen membership access by accepting request tenant IDs.
 
 ### 4.8 Platform and subscription repositories
 
-- \`TenantRepository\` and \`TenantSequenceRepository\` are platform tenant lifecycle/global sequence operations. Platform controller/service checks explicit platform permissions.
-- \`PlatformGrantRepository\`, \`PlatformConfigurationRepository\`, \`PlatformSupportRepository\` and \`PlatformAuditRepository\` are platform-only paths.
-- Platform audit supports a platform-wide page or a tenant-filtered page; both require \`PLATFORM_AUDIT_VIEW\`.
+- `TenantRepository` and `TenantSequenceRepository` are platform tenant lifecycle/global sequence operations. Platform controller/service checks explicit platform permissions.
+- `PlatformGrantRepository`, `PlatformConfigurationRepository`, `PlatformSupportRepository` and `PlatformAuditRepository` are platform-only paths.
+- Platform audit supports a platform-wide page or a tenant-filtered page; both require `PLATFORM_AUDIT_VIEW`.
 - Subscription plan and version repositories are platform-global definitions.
-- Tenant subscription, invoice, payment and event repositories are used by \`TenantSubscriptionServiceImpl\`, whose service boundary checks \`isPlatformUser\` and \`PLATFORM_SUBSCRIPTION_VIEW/ADJUST\`.
+- Tenant subscription, invoice, payment and event repositories are used by `TenantSubscriptionServiceImpl`, whose service boundary checks `isPlatformUser` and `PLATFORM_SUBSCRIPTION_VIEW/ADJUST`.
 - Subscription invoice and payment repository methods have tenant-specific list finders as well as subscription/invoice ID finders. Their callsites are in platform billing service after loading the parent subscription.
-- \`SubscriptionEventRepository.findBySubscriptionId\` is used only after a platform-authorized subscription lookup.
+- `SubscriptionEventRepository.findBySubscriptionId` is used only after a platform-authorized subscription lookup.
 - HLD describes vendor self-service view of its subscription and bills, but the inspected controller/service currently expose platform-only subscription routes. Record as RC-09 rather than silently adding vendor endpoints.
 
 **Assessment:** platform billing operations are separated from vendor customer-order payment attempts. Tenant association on subscription billing records does not make platform billing data a vendor-owned order payment.
@@ -232,25 +232,25 @@ Many tenant repositories extend \`JpaRepository\` and therefore inherit methods 
 
 | Query | Owner/scope | Tenant predicate | Assessment |
 |---|---|---|---|
-| Catalogue search result | Public published catalogue for resolved tenant | \`p.tenant_id=:tenant\`; joined promotions/categories/stock include tenant | TENANT-SCOPED |
+| Catalogue search result | Public published catalogue for resolved tenant | `p.tenant_id=:tenant`; joined promotions/categories/stock include tenant | TENANT-SCOPED |
 | Catalogue search count | Same as above | Same tenant predicate and filter clauses as result query | TENANT-SCOPED |
-| POS catalogue search result | POS branch catalogue for current tenant | \`p.tenant_id=:tenant\`; stock join tenant + requested branch + product | TENANT-SCOPED; branch is passed from service scope |
+| POS catalogue search result | POS branch catalogue for current tenant | `p.tenant_id=:tenant`; stock join tenant + requested branch + product | TENANT-SCOPED; branch is passed from service scope |
 | POS catalogue search count | Same as above | Same tenant/branch join and filter predicates | TENANT-SCOPED |
 | Customer profile resolve | Global customer profile | No tenant predicate by design; username is authenticated principal | GLOBAL / CUSTOMER-SCOPED |
 | Customer profile count | Global customer profile count | No tenant predicate by design; username is authenticated principal | GLOBAL / CUSTOMER-SCOPED |
 
-There are four native \`@Query\` declarations: two catalogue queries and two customer identity queries. The catalogue query annotations include a separate count query each, making six SQL statements in those two annotations (two result SQL + two count SQL + two customer SQL). No raw SQL string is used as a tenant authorization source.
+There are four native `@Query` declarations: two catalogue queries and two customer identity queries. The catalogue query annotations include a separate count query each, making six SQL statements in those two annotations (two result SQL + two count SQL + two customer SQL). No raw SQL string is used as a tenant authorization source.
 
 ## 6. Direct JDBC / SQL access inventory
 
 | Class | Main tables | Operations | Scope / trust source |
 |---|---|---|---|
-| \`MembershipService\` | employees, employee_permissions, employee_role_assignments, vendor_roles, vendor_role_permissions, vendor_access_audit_events | SELECT/COUNT/INSERT/BATCH INSERT | Tenant + username; role joins include tenant; tenant from membership/provisioning flow. |
-| \`PosService\` | branches, registers, employee_register_assignments, pos_sessions, pos_shift_reviews, pos_active_drafts, pos_cash_movements, pos_drawer_tenders, pos_cash_refunds, pos_audit | SELECT/INSERT/UPDATE | Current AuthorizationContext scope: tenant + branch + cashier; permissions and assignment/session checks at service boundary. |
-| \`VendorRoleService\` | vendor_roles, vendor_role_permissions, employees, employee_role_assignments, employee_register_assignments, branches, registers, vendor_access_audit_events | SELECT/INSERT/UPDATE/DELETE | Current authenticated tenant; role delegation and branch/register ownership checks. |
-| \`TenantEntitlementPolicy\` | tenant_subscriptions, subscription_plan_versions | SELECT | Tenant ID passed by validated membership/service; subscription query filtered by tenant. |
-| \`CashDrawerProjection\` | pos_drawer_tenders | INSERT | In-process CashTenderRecorded event emitted during transaction; database lacks same-tenant session/order FKs (INV-DB-001). |
-| \`DraftSessionProjection\` | pos_active_drafts | INSERT/DELETE | In-process PosDraftStateChanged event emitted from persisted order; database lacks FK to referenced order (INV-DB-002). |
+| `MembershipService` | employees, employee_permissions, employee_role_assignments, vendor_roles, vendor_role_permissions, vendor_access_audit_events | SELECT/COUNT/INSERT/BATCH INSERT | Tenant + username; role joins include tenant; tenant from membership/provisioning flow. |
+| `PosService` | branches, registers, employee_register_assignments, pos_sessions, pos_shift_reviews, pos_active_drafts, pos_cash_movements, pos_drawer_tenders, pos_cash_refunds, pos_audit | SELECT/INSERT/UPDATE | Current AuthorizationContext scope: tenant + branch + cashier; permissions and assignment/session checks at service boundary. |
+| `VendorRoleService` | vendor_roles, vendor_role_permissions, employees, employee_role_assignments, employee_register_assignments, branches, registers, vendor_access_audit_events | SELECT/INSERT/UPDATE/DELETE | Current authenticated tenant; role delegation and branch/register ownership checks. |
+| `TenantEntitlementPolicy` | tenant_subscriptions, subscription_plan_versions | SELECT | Tenant ID passed by validated membership/service; subscription query filtered by tenant. |
+| `CashDrawerProjection` | pos_drawer_tenders | INSERT | In-process CashTenderRecorded event emitted during transaction; database lacks same-tenant session/order FKs (INV-DB-001). |
+| `DraftSessionProjection` | pos_active_drafts | INSERT/DELETE | In-process PosDraftStateChanged event emitted from persisted order; database lacks FK to referenced order (INV-DB-002). |
 
 All inspected SQL uses parameter binding rather than string-concatenated client input. This does not by itself establish correct authorization; tenant/actor derivation and ownership validation remain necessary.
 
@@ -258,19 +258,19 @@ All inspected SQL uses parameter binding rather than string-concatenated client 
 
 ### 7.1 Authenticated vendor flow
 
-\`HTTP → Spring Security/JWT → AuthenticationService → MembershipService → AuthorizationContext → controller → application service → tenant-scoped repository/JDBC → MySQL\`
+`HTTP → Spring Security/JWT → AuthenticationService → MembershipService → AuthorizationContext → controller → application service → tenant-scoped repository/JDBC → MySQL`
 
 - Authentication re-resolves active membership and current permissions.
 - JWT tenant claim is checked against the current server-side membership.
-- \`AuthorizationContext.requireVendorMembership()\` rejects customer-only/platform-only identities and requires tenant context.
-- \`requireTenant\` compares any requested tenant selector with the authenticated tenant.
+- `AuthorizationContext.requireVendorMembership()` rejects customer-only/platform-only identities and requires tenant context.
+- `requireTenant` compares any requested tenant selector with the authenticated tenant.
 - POS context also requires branch and checks assignment/session on each relevant operation.
 - Service-level guards exist in major POS, product, stock receiving, promotion, membership/role, checkout, payment, return and refund flows.
 - Full public application-service method coverage has not been established; P0-02 remains the dedicated service-boundary audit.
 
 ### 7.2 Customer flow
 
-\`HTTP → authenticated global user → CustomerAccess.resolve(username) → customer-scoped order/cart/receipt query → tenant-owned order and children\`
+`HTTP → authenticated global user → CustomerAccess.resolve(username) → customer-scoped order/cart/receipt query → tenant-owned order and children`
 
 - Customer IDs are resolved from the authenticated username.
 - Customer order history is cross-vendor by design, but only for that one global customer.
@@ -280,13 +280,13 @@ All inspected SQL uses parameter binding rather than string-concatenated client 
 
 ### 7.3 Public marketplace flow
 
-\`public vendor slug → active tenant lookup → published catalogue query for resolved tenant\`
+`public vendor slug → active tenant lookup → published catalogue query for resolved tenant`
 
 The vendor slug selects a public storefront and does not authorize vendor administration or private records. Search, category, stock and promotion joins retain the selected tenant.
 
 ### 7.4 Platform flow
 
-\`HTTP → platform JWT authorities → PlatformAuthorization / AuthorizationContext → platform controller/service → platform repository\`
+`HTTP → platform JWT authorities → PlatformAuthorization / AuthorizationContext → platform controller/service → platform repository`
 
 Platform-wide reads (tenant directory, platform audit, plans, subscriptions, support grants, configuration) require platform permissions. Platform support access is a separately recorded grant and must not be treated as an implicit tenant ownership bypass.
 
@@ -302,16 +302,16 @@ Platform-wide reads (tenant directory, platform audit, plans, subscriptions, sup
 
 ### Exports
 
-- \`ReportExportService\` obtains current POS scope and authorizes POS view, report view and report export permissions (refund export also requires refund view).
+- `ReportExportService` obtains current POS scope and authorizes POS view, report view and report export permissions (refund export also requires refund view).
 - Export audit records include tenant, branch, cashier, kind, date range, row count, digest and reason.
 - The inspected implementation constructs CSV content from already-scoped report service results. It does not persist a tenant-addressable object-storage key.
 - Download/retention and signed object storage paths are not implemented in the inspected export module; do not claim them audited.
 
 ### Receipts and documents
 
-- \`CheckoutReceiptService.receipt(scope,order)\` checks requested tenant/branch against current POS scope, locks the order by tenant + ID, and loads lines/invoice/tenders/buyer snapshot by tenant + order.
-- \`OnlineReceiptService\` uses authenticated customer ID + order ID and PAID state; it loads order children by tenant + order.
-- \`ReceiptDocumentService.generate\` requires POS scope, generates a PDF from saved receipt data, validates branch/order, and writes tenant/branch/order/actor/reason/digest metadata to receipt document audit.
+- `CheckoutReceiptService.receipt(scope,order)` checks requested tenant/branch against current POS scope, locks the order by tenant + ID, and loads lines/invoice/tenders/buyer snapshot by tenant + order.
+- `OnlineReceiptService` uses authenticated customer ID + order ID and PAID state; it loads order children by tenant + order.
+- `ReceiptDocumentService.generate` requires POS scope, generates a PDF from saved receipt data, validates branch/order, and writes tenant/branch/order/actor/reason/digest metadata to receipt document audit.
 - PDF rendering is in memory in the inspected path. No persistent object store or signed URL issuer was identified.
 - Customer document entitlement for online orders follows authenticated customer ownership of the order; vendor/branch reprint is separately permission-controlled.
 
@@ -327,14 +327,14 @@ Platform-wide reads (tenant directory, platform audit, plans, subscriptions, sup
 
 | Path | Trigger | Payload/scope | Persistence and guard |
 |---|---|---|---|
-| Stock availability projection | \`StockAvailabilityChanged\` from InventoryService | tenant + branch + product + available | \`CatalogAvailabilityService\` uses composite CatalogStock key and updates projection in same transaction. |
-| POS draft projection | \`PosDraftStateChanged\` from checkout | tenant + branch + cashier + session + order + state | \`DraftSessionProjection\` writes/deletes by the full tenant/session/order tuple. DB lacks order FK (INV-DB-002). |
-| Cash drawer tender projection | \`CashTenderRecorded\` from confirmed cash checkout | tenant + branch + session + order + tender amounts | \`CashDrawerProjection\` validates amounts and inserts event values in same transaction. DB lacks session/order FKs (INV-DB-001). |
-| Reservation cleanup | \`@Scheduled\` sweep every configured delay | Loads up to 100 expired DRAFT orders globally; each row supplies persisted tenant + order ID | Calls \`CheckoutService.expire(tenant,id)\`; service locks by tenant + ID and releases tenant/order reservations. Trusted system worker, not user-selected tenant. |
+| Stock availability projection | `StockAvailabilityChanged` from InventoryService | tenant + branch + product + available | `CatalogAvailabilityService` uses composite CatalogStock key and updates projection in same transaction. |
+| POS draft projection | `PosDraftStateChanged` from checkout | tenant + branch + cashier + session + order + state | `DraftSessionProjection` writes/deletes by the full tenant/session/order tuple. DB lacks order FK (INV-DB-002). |
+| Cash drawer tender projection | `CashTenderRecorded` from confirmed cash checkout | tenant + branch + session + order + tender amounts | `CashDrawerProjection` validates amounts and inserts event values in same transaction. DB lacks session/order FKs (INV-DB-001). |
+| Reservation cleanup | `@Scheduled` sweep every configured delay | Loads up to 100 expired DRAFT orders globally; each row supplies persisted tenant + order ID | Calls `CheckoutService.expire(tenant,id)`; service locks by tenant + ID and releases tenant/order reservations. Trusted system worker, not user-selected tenant. |
 | Payment/webhook | Payment adapter boundary exists | Provider/merchant/order/tenant context | No fully approved production provider/webhook integration was established; do not mark provider signature/replay/amount validation complete. |
 | Cache/search/object storage | No complete cache or object-storage integration found in the reviewed path | N/A | No cache-key or object-key path to certify. Future implementations must include tenant and resource owner and reauthorize signed downloads. |
 
-Spring application events observed are synchronous in-process listeners with \`Propagation.MANDATORY\`; they are not durable external queue consumers. No \`@Async\`, message broker consumer or webhook handler with independent persistence path was identified in the reviewed tree.
+Spring application events observed are synchronous in-process listeners with `Propagation.MANDATORY`; they are not durable external queue consumers. No `@Async`, message broker consumer or webhook handler with independent persistence path was identified in the reviewed tree.
 
 ## 10. Unscoped/generic query and hardening register
 
@@ -342,19 +342,19 @@ These are not all confirmed vulnerabilities. They identify where an explicit ten
 
 | ID | Path | Current behavior | Risk classification | Recommended action |
 |---|---|---|---|---|
-| QRY-001 | \`PaymentCheckoutService\` manual-review queue mapping | Pending attempt list is tenant + branch scoped; order is then loaded via \`orders.findById(attempt.order())\`. Payment attempt has tenant/order composite FK and order IDs are globally unique. | P2 hardening; no exploit demonstrated | Use \`findByTenantIdAndId(attempt.tenant(),attempt.order())\`; test tenant mismatch and orphan attempt. |
-| QRY-002 | \`DraftRepository.findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc\` | Global scheduled sweep of expired drafts across tenants. | TRUSTED-INTERNAL; expected system operation | Keep callable only from scheduled worker; process each persisted tenant/order through scoped lock. Add worker test for tenant context and failure isolation. |
-| QRY-003 | Generic \`JpaRepository.findById/findAll/deleteById\` inherited across tenant repositories | Available by inheritance; not all callsites use generic methods. | GENERIC/UNVERIFIED until callsite | Prefer explicit tenant + parent method for tenant-owned records; restrict generic methods to composite IDs or trusted parent scope. Add architecture/static checks. |
-| QRY-004 | \`SubscriptionEventRepository.findBySubscriptionId\` | Uses subscription ID after platform-only subscription lookup. | PLATFORM-SCOPED; verify tenant-composite FK | Add composite tenant/subscription FK per INV-DB-003; optionally add tenant-aware finder. |
-| QRY-005 | \`SubscriptionInvoiceRepository.findBySubscriptionId\` and \`SubscriptionPaymentRepository.findByInvoiceId\` | Called after platform-only parent lookup; V41 has same-tenant composite invoice/payment FK. | PLATFORM-SCOPED | Keep parent-first lookup and add direct tenant-aware methods if vendor self-service billing is approved. |
-| QRY-006 | \`PlatformSupportServiceImpl.revoke(id)\` | Loads a platform-owned support grant by ID; actor and permission are platform-authorized. | PLATFORM-SCOPED | Preserve platform-only service guard and audit; verify grant expiry/revocation at every privileged support data path (separate P0-02/P0-04 work). |
+| QRY-001 | `PaymentCheckoutService` manual-review queue mapping | Pending attempt list is tenant + branch scoped; order is then loaded via `orders.findById(attempt.order())`. Payment attempt has tenant/order composite FK and order IDs are globally unique. | P2 hardening; no exploit demonstrated | Use `findByTenantIdAndId(attempt.tenant(),attempt.order())`; test tenant mismatch and orphan attempt. |
+| QRY-002 | `DraftRepository.findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc` | Global scheduled sweep of expired drafts across tenants. | TRUSTED-INTERNAL; expected system operation | Keep callable only from scheduled worker; process each persisted tenant/order through scoped lock. Add worker test for tenant context and failure isolation. |
+| QRY-003 | Generic `JpaRepository.findById/findAll/deleteById` inherited across tenant repositories | Available by inheritance; not all callsites use generic methods. | GENERIC/UNVERIFIED until callsite | Prefer explicit tenant + parent method for tenant-owned records; restrict generic methods to composite IDs or trusted parent scope. Add architecture/static checks. |
+| QRY-004 | `SubscriptionEventRepository.findBySubscriptionId` | Uses subscription ID after platform-only subscription lookup. | PLATFORM-SCOPED; verify tenant-composite FK | Add composite tenant/subscription FK per INV-DB-003; optionally add tenant-aware finder. |
+| QRY-005 | `SubscriptionInvoiceRepository.findBySubscriptionId` and `SubscriptionPaymentRepository.findByInvoiceId` | Called after platform-only parent lookup; V41 has same-tenant composite invoice/payment FK. | PLATFORM-SCOPED | Keep parent-first lookup and add direct tenant-aware methods if vendor self-service billing is approved. |
+| QRY-006 | `PlatformSupportServiceImpl.revoke(id)` | Loads a platform-owned support grant by ID; actor and permission are platform-authorized. | PLATFORM-SCOPED | Preserve platform-only service guard and audit; verify grant expiry/revocation at every privileged support data path (separate P0-02/P0-04 work). |
 | QRY-007 | Customer token/challenge hash lookups | Challenge/token hash is the lookup key; service then checks expiry, customer identity and tenant/order binding. | TRUSTED-INTERNAL secret-token lookup | Preserve non-enumerable error behavior, expiry, one-time use and owner validation; test replay and cross-customer use. |
 
 ## 11. Confirmed gaps versus unverified risks
 
 ### Confirmed from source
 
-1. Three missing same-tenant FK protections: drawer tender → session/order/branch, active draft projection → order, subscription event → same-tenant subscription. See \`INV-DB-001..003\`.
+1. Three missing same-tenant FK protections: drawer tender → session/order/branch, active draft projection → order, subscription event → same-tenant subscription. See `INV-DB-001..003`.
 2. Generic inherited repository methods exist and need continued callsite discipline; their existence is not proof of an exploitable query.
 3. Customer/vendor dual identity and multi-tenant membership behavior do not fully match the HLD's broader identity language; both require explicit policy decisions.
 4. Warehouse assignment cannot be validated because there is no warehouse persistence/resource module in the inspected tree.
@@ -394,13 +394,13 @@ Tests must assert both response behavior and absence of existence/count/metadata
 
 The reviewed backend test tree contains **82 Java test classes**. Existing tests cover many relevant service/controller paths, including membership, authorization context/policy registry, POS, catalogue, checkout, payment, reports, returns/refunds, receipt documents, vendor customer, platform support/audit, subscription separation and event projections.
 
-The repository workflow \`.github/workflows/pos-tests.yml\` has a database matrix with H2 and **MySQL 8.4** service. The Maven project uses Spring Boot 3.5.0, Java 21, Spring Data JPA, Spring JDBC, Flyway MySQL, MySQL connector, H2 test dependency and ArchUnit.
+The repository workflow `.github/workflows/pos-tests.yml` has a database matrix with H2 and **MySQL 8.4** service. The Maven project uses Spring Boot 3.5.0, Java 21, Spring Data JPA, Spring JDBC, Flyway MySQL, MySQL connector, H2 test dependency and ArchUnit.
 
 This P0-01 inventory did not execute CI or Maven tests. The existence of the workflow and test classes is not a test result. MySQL integration tests for the three identified composite FK gaps and complete Vendor A/B + Customer A/B negative matrix remain required.
 
 ## 14. P0-01 query/data-access conclusion
 
-The reviewed backend has a substantial tenant-scoped persistence foundation: 60 repository interfaces, 64 explicit \`@Query\` declarations, four native repository queries, and six confirmed JDBC access components. Catalogue, order, cart, inventory, POS, return/refund and report query paths inspected here generally retain tenant and relevant parent scope. Customer paths derive the global customer from the authenticated identity; platform billing and audit paths use platform-only authorization.
+The reviewed backend has a substantial tenant-scoped persistence foundation: 60 repository interfaces, 64 explicit `@Query` declarations, four native repository queries, and six confirmed JDBC access components. Catalogue, order, cart, inventory, POS, return/refund and report query paths inspected here generally retain tenant and relevant parent scope. Customer paths derive the global customer from the authenticated identity; platform billing and audit paths use platform-only authorization.
 
 The next work is targeted:
 

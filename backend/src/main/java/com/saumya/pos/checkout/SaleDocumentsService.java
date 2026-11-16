@@ -14,6 +14,7 @@ public class SaleDocumentsService {
   if(!"PAID".equals(order.status())||order.tenant()!=scope.tenant()||order.stockBranch()!=scope.branch()||online!= "ONLINE".equals(order.channel())||!online&&!java.util.Objects.equals(scope.cashier(),order.cashier()))throw new IllegalStateException("Issued document context does not match paid order");
   String seller=catalog.vendor(order.tenant()).name();order.receiptIdentity(seller,allocation.outlet());
   if(invoice){if(invoices.findById(new InvoiceSnapshot.Key(order.tenant(),order.id())).isPresent())throw new IllegalStateException("Invoice is already issued");invoices.saveAndFlush(new InvoiceSnapshot(order.tenant(),order.id(),"INV-"+scope.branch()+"-"+allocation.number(),seller,allocation.outlet(),order.total()));if(!online)retail.draftAudit(scope,"INVOICE_ISSUE",order.id());}
-  retail.draftAudit(scope,online?"MOCK_ONLINE_PAYMENT":"SALE_COMPLETE",order.id());
+  if(online)retail.customerDraftAudit(order.tenant(),order.stockBranch(),order.customer(),"MOCK_ONLINE_PAYMENT",order.id());
+  else retail.draftAudit(scope,"SALE_COMPLETE",order.id());
  }
 }

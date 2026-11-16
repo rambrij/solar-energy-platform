@@ -13,6 +13,7 @@ class CheckoutReceiptServiceTest {
             public Scope scope() {
                 return new Scope(1, 1, "name");
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions){}
         };
         var reader = new CheckoutReceiptService(null, null, null, null, null, retail);
         assertThatThrownBy(() -> reader.receipt(new PosService.Scope(2, 2, "alice"), "order")).hasMessageContaining("Receipt unavailable");

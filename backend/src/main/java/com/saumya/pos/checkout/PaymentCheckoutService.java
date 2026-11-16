@@ -5,6 +5,7 @@ import com.saumya.pos.retail.BranchPolicyService;
 import com.saumya.pos.catalog.CatalogService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.inventory.InventoryService;
+import com.saumya.pos.membership.TenantEntitlementPolicy;
 import com.saumya.pos.retail.PosService;
 import java.time.Clock;
 import java.time.Instant;
@@ -24,6 +25,7 @@ public class PaymentCheckoutService {
  @org.springframework.beans.factory.annotation.Autowired private BranchPolicyService terminalPolicies;
  @org.springframework.beans.factory.annotation.Autowired private TerminalTenderRules terminalRules;
  @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.cart.CartService carts;
+ @org.springframework.beans.factory.annotation.Autowired private TenantEntitlementPolicy entitlements;
  private final DraftRepository orders;private final DraftLineRepository lines;private final PaymentAttemptRepository attempts;
  private final PaymentPolicy policy;private final CustomerAccess customers;private final CatalogService catalogue;private final InventoryService stock;private final PosService retail;private final Clock clock;
  public PaymentCheckoutService(DraftRepository orders,DraftLineRepository lines,PaymentAttemptRepository attempts,PaymentPolicy policy,CustomerAccess customers,CatalogService catalogue,InventoryService stock,PosService retail,Clock clock){this.orders=orders;this.lines=lines;this.attempts=attempts;this.policy=policy;this.customers=customers;this.catalogue=catalogue;this.stock=stock;this.retail=retail;this.clock=clock;}
@@ -78,13 +80,18 @@ public class PaymentCheckoutService {
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),s.branch())||!username.equals(order.cashier()))throw missing();
   return order;
  }
+ private void requireOnlineEntitlement(DraftOrder order,boolean write){
+  if(entitlements==null)throw new ResponseStatusException(FORBIDDEN,"Tenant entitlement policy unavailable");
+  entitlements.requireFeature(order.tenant(),"ORDERS",write);
+  entitlements.requireFeature(order.tenant(),"CATALOG",false);
+ }
  private BranchPolicyService.Policy terminalPolicy(DraftOrder order){return terminalPolicies.find(order.tenant(),order.branch()).orElseThrow(this::missing);}
  private View view(DraftOrder order){
   boolean online="ONLINE".equals(order.channel()),enabled=!online&&terminalPolicy(order).enabled();var attempt=attempts.findByTenantAndOrder(order.tenant(),order.id());
   String message=online?(policy.enabled()?"Pre-production online simulation. No real funds are collected.":"Online vendor payment provider is not configured."):"Prepare before collecting payment on the vendor's separate terminal. Only a different authorized supervisor can confirm external evidence. Unknown outcomes must be reconciled; do not charge again.";
   return attempt.map(a->new View(order.id(),a.id(),a.method(),a.state(),a.amount(),a.merchant(),online&&policy.enabled(),message,enabled,order.status(),order.cashier(),a.reference(),a.reviewer(),a.reviewedAt(),a.evidence())).orElseGet(()->new View(order.id(),null,null,"NOT_STARTED",order.total(),null,online&&policy.enabled(),enabled||online?message:"Vendor manual terminal verification is not configured for this outlet.",enabled,order.status(),order.cashier(),null,null,null,null));
  }
- public View status(String username,String id){return view(owned(username,id,true));}
+ public View status(String username,String id){var order=owned(username,id,true);if("ONLINE".equals(order.channel()))requireOnlineEntitlement(order,false);return view(order);}
  private void payable(DraftOrder order){payable(order,false);}
  private void payable(DraftOrder order,boolean reconcilingFunds){
   if(!"DRAFT".equals(order.status())||(!reconcilingFunds&&!order.expires().isAfter(clock.instant())))conflict("Reservation is not payable; reload or cancel it");
@@ -98,13 +105,13 @@ public class PaymentCheckoutService {
   if(!reconcilingFunds&&!order.expires().isAfter(clock.instant()))conflict("Reservation expired during validation");
  }
  public View start(String username,String id,String method){
-  policy.requireEnabled();policy.method(method);var order=owned(username,id,true);
+  policy.requireEnabled();policy.method(method);var order=owned(username,id,true);if("ONLINE".equals(order.channel()))requireOnlineEntitlement(order,true);
   var prior=attempts.findByTenantAndOrder(order.tenant(),id);
   if(prior.isPresent()){if(!prior.get().method().equals(method))conflict("Recover the existing payment; payment method is frozen");return view(order);}
   payable(order);attempts.saveAndFlush(new PaymentAttempt(order.tenant(),id,method,order.total(),clock.instant()));return view(order);
  }
  public View confirm(String username,String id,String attemptId){
-  policy.requireEnabled();var order=owned(username,id,true);var attempt=attempts.findByTenantAndOrder(order.tenant(),id).orElseThrow(this::missing);
+  policy.requireEnabled();var order=owned(username,id,true);if("ONLINE".equals(order.channel()))requireOnlineEntitlement(order,true);var attempt=attempts.findByTenantAndOrder(order.tenant(),id).orElseThrow(this::missing);
   if(!attempt.id().equals(attemptId))throw missing();
   if("CONFIRMED".equals(attempt.state()))return view(order);
   payable(order);

@@ -140,6 +140,7 @@ class AuthorizationPolicyMatrixTest {
     }
     private Object defaultValue(Class<?> type,String tenderMethod){
         if(type==String.class)return "x";
+        if(type.isEnum())return type.getEnumConstants().length==0?null:type.getEnumConstants()[0];
         if(type==Long.class||type==long.class)return 1L;
         if(type==Integer.class||type==int.class)return 1;
         if(type==Boolean.class||type==boolean.class)return false;

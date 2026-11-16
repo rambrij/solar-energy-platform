@@ -9,10 +9,12 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.*;
 
 @RestController @RequestMapping("/api/v1/platform/identities")
+@PreAuthorize("hasAuthority('PLATFORM_IDENTITY_MANAGE')")
 public class PlatformIdentityController {
     private final JdbcTemplate db;private final PlatformMfaService mfa;private final AuthorizationContext auth;
     public PlatformIdentityController(JdbcTemplate db,PlatformMfaService mfa,AuthorizationContext auth){this.db=db;this.mfa=mfa;this.auth=auth;}

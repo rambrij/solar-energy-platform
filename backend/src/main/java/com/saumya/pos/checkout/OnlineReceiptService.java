@@ -8,10 +8,12 @@ import java.time.Instant;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service @Transactional(isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+@PreAuthorize("hasAuthority('CUSTOMER')")
 public class OnlineReceiptService {
  @org.springframework.beans.factory.annotation.Autowired private BuyerDetailsService buyers;
  private final DraftRepository orders;private final DraftLineRepository lines;private final InvoiceSnapshotRepository invoices;private final CustomerAccess customers;private final PosService retail;

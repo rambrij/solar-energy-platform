@@ -119,6 +119,16 @@ public class PosService {
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void requireOpen(Scope s,String id){authorizeInternalScope(s,"POS_SALE_CREATE","POS_RETURN_CREATE","POS_REFUND_CASH_RECORD");session(s,id);}
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireOpenForCustomer(long tenant,long branch,long customer,String orderId,String cashier,String sessionId){
+        var context=authContext.current();
+        if(!context.isCustomer()||customers==null||customers.resolve(context.username())!=customer)
+            throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
+        Boolean owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND branch_id=? AND cashier=? AND sales_channel='IN_STORE' AND status='DRAFT'",
+            Boolean.class,tenant,orderId,customer,branch,cashier);
+        if(!Boolean.TRUE.equals(owned))throw new ResponseStatusException(NOT_FOUND,"Customer order unavailable");
+        session(new Scope(tenant,branch,cashier),sessionId);
+    }
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void lockOutlet(Scope s){
         authorizeInternalScope(s,"POS_VIEW","POS_SALE_CREATE","POS_SALE_CANCEL","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT",
             "POS_REFUND_CASH_RECORD","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD","POS_RECEIPT_REPRINT","POS_SETTINGS_MANAGE");

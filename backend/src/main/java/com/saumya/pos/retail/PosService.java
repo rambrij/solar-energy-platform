@@ -54,11 +54,11 @@ public class PosService {
         return new SessionSummary(rs.getString("id"),rs.getLong("register_id"),rs.getBigDecimal("opening_float"),rs.getString("state"));
     }
     public List<SessionSummary> activeSessions(Scope s) {
-        return db.query("SELECT id,register_id,opening_float,state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND state IN ('OPEN','CLOSING') ORDER BY register_id,id",
+        return db.query("SELECT p.id,p.register_id,p.opening_float,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.state IN ('OPEN','CLOSING') ORDER BY p.register_id,p.id",
             this::sessionSummary,s.tenant,s.branch,s.cashier);
     }
     public SessionSummary sessionDetails(Scope s,String id) {
-        return db.query("SELECT id,register_id,opening_float,state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=?",
+        return db.query("SELECT p.id,p.register_id,p.opening_float,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=?",
             this::sessionSummary,s.tenant,s.branch,s.cashier,id).stream().findFirst()
             .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Resource unavailable"));
     }
@@ -73,6 +73,8 @@ public class PosService {
     public Map<String,Object> open(Scope s, OpenSession request) {
         // Lock the register before checking occupancy, including on MySQL.
         one("SELECT id FROM registers WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant,s.branch,request.registerId);
+        if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",s.tenant,s.branch,s.cashier,request.registerId).isEmpty())
+            throw new ResponseStatusException(FORBIDDEN,"Cashier is not assigned to this register");
         if (!db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=? AND register_id=? AND state IN ('OPEN','CLOSING')",s.tenant,request.registerId).isEmpty()) fail("Register already occupied");
         String id=UUID.randomUUID().toString();
         db.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float) VALUES(?,?,?,?,?,'OPEN',?)",id,s.tenant,s.branch,s.cashier,request.registerId,request.openingFloat);
@@ -80,7 +82,9 @@ public class PosService {
         return Map.of("id",id);
     }
     private void session(Scope s,String id) {
-        var row=one("SELECT state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
+        var row=one("SELECT register_id,state FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
+        if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",s.tenant,s.branch,s.cashier,row.get("register_id")).isEmpty())
+            throw new ResponseStatusException(FORBIDDEN,"Cashier is no longer assigned to this register");
         if (!"OPEN".equals(row.get("state"))) fail("Session is closed");
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)

@@ -3,6 +3,9 @@ package com.saumya.pos.membership;
 import com.saumya.pos.membership.internal.*;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import java.util.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -10,7 +13,7 @@ import org.springframework.http.HttpStatus;
 
 @Service @Transactional(readOnly=true)
 public class MembershipService {
-    private static final List<String> VENDOR_ADMIN_PERMISSIONS=List.of(
+    static final List<String> VENDOR_ADMIN_PERMISSIONS=List.of(
         "TENANT_PROFILE_VIEW","TENANT_PROFILE_UPDATE","USER_VIEW","USER_CREATE","USER_UPDATE","USER_DISABLE",
         "ROLE_VIEW","ROLE_CREATE","ROLE_UPDATE","ROLE_ASSIGN","CUSTOMER_RELATION_VIEW","CUSTOMER_RELATION_CREATE",
         "CUSTOMER_RELATION_UPDATE","CRM_NOTE_VIEW","CRM_NOTE_CREATE","CRM_NOTE_UPDATE",
@@ -31,17 +34,42 @@ public class MembershipService {
     private final EmployeeMembershipRepository memberships;
     private final PermissionGrantRepository grants;
     private final TenantLifecycleService tenants;
+    private final JdbcTemplate jdbc;
+    private final TenantEntitlementPolicy entitlements;
     public MembershipService(EmployeeMembershipRepository memberships,PermissionGrantRepository grants,TenantLifecycleService tenants){
-        this.memberships=memberships;this.grants=grants;this.tenants=tenants;
+        this(memberships,grants,tenants,null,null);
+    }
+    @Autowired
+    public MembershipService(EmployeeMembershipRepository memberships,PermissionGrantRepository grants,TenantLifecycleService tenants,
+        JdbcTemplate jdbc,TenantEntitlementPolicy entitlements){
+        this.memberships=memberships;this.grants=grants;this.tenants=tenants;this.jdbc=jdbc;this.entitlements=entitlements;
     }
     public record Access(long tenant,long branch,String username,List<String> permissions){}
     public record Provisioning(String username,long tenantId,long branchId,boolean created,int permissionCount){}
     public Optional<Access> access(String username){
         return memberships.findByUsernameIgnoreCase(username).filter(EmployeeMembership::enabled)
             .filter(m->tenants.isActive(m.tenant()))
-            .map(m->new Access(m.tenant(),m.branch(),m.username(),
-                grants.findByIdUsernameAndTenant(m.username(),m.tenant()).stream()
-                    .map(PermissionGrant::permission).filter(p->!p.startsWith("PLATFORM_")).toList()));
+            .map(m->{
+                List<String> effective=effectiveVendorPermissions(m.username(),m.tenant());
+                if(entitlements!=null)effective=entitlements.permissions(m.tenant(),effective);
+                return new Access(m.tenant(),m.branch(),m.username(),effective);
+            });
+    }
+    private List<String> effectiveVendorPermissions(String username,long tenant){
+        List<String> legacy=grants.findByIdUsernameAndTenant(username,tenant).stream().map(PermissionGrant::permission)
+            .filter(p->!p.startsWith("PLATFORM_")).toList();
+        if(jdbc==null)return legacy;
+        Integer assignmentCount=jdbc.queryForObject("SELECT COUNT(*) FROM employee_role_assignments WHERE tenant_id=? AND username=?",Integer.class,tenant,username);
+        if(assignmentCount==null||assignmentCount==0)return legacy;
+        return jdbc.queryForList("""
+            SELECT DISTINCT rp.permission
+            FROM employee_role_assignments a
+            JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
+            JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id
+            WHERE a.tenant_id=? AND a.username=? AND a.active=TRUE AND r.active=TRUE
+              AND rp.permission NOT LIKE 'PLATFORM_%'
+            ORDER BY rp.permission
+            """,String.class,tenant,username);
     }
     public boolean hasMembership(String username){return memberships.findByUsernameIgnoreCase(username).isPresent();}
     public Access require(String username){return access(username).orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN,"Active vendor membership required"));}
@@ -67,6 +95,19 @@ public class MembershipService {
             if(!permission.startsWith("PLATFORM_"))grants.save(new PermissionGrant(tenantId,actor,permission));
         }
         grants.flush();
+        if(jdbc!=null){
+            jdbc.update("""
+                INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
+                VALUES(?,?,?,?,?,?)
+                """,tenantId,"vendor-admin-initial","Vendor Admin",true,actor,actor);
+            Long roleId=jdbc.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenantId,"vendor-admin-initial");
+            jdbc.batchUpdate("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",
+                VENDOR_ADMIN_PERMISSIONS.stream().filter(p->!p.startsWith("PLATFORM_")).map(p->new Object[]{tenantId,roleId,p,actor}).toList());
+            jdbc.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",
+                tenantId,branchId,actor,roleId,actor);
+            jdbc.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username,resource_type,resource_id,action,reason) VALUES(?,?,?,?,?,?,?)",
+                tenantId,actor,actor,"ROLE",roleId.toString(),"INITIAL_VENDOR_ADMIN_ROLE_ASSIGNED","Initial Vendor Admin grants migrated to role assignment");
+        }
         return new Provisioning(actor,tenantId,branchId,true,VENDOR_ADMIN_PERMISSIONS.size());
     }
 }

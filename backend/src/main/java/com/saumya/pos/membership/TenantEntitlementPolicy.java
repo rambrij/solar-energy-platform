@@ -1,0 +1,74 @@
+package com.saumya.pos.membership;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.*;
+import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+/** Resolves tenant lifecycle/subscription/feature entitlement on every membership revalidation. */
+@Component
+public class TenantEntitlementPolicy {
+    private final JdbcTemplate db;private final ObjectMapper json;private final Clock clock;private final boolean enforced;
+    private static final Set<String> READ_ONLY=Set.of("POS_VIEW","POS_RECEIPT_VIEW","PRODUCT_VIEW","PRICE_VIEW","INVENTORY_VIEW",
+        "ORDER_VIEW","INVOICE_VIEW","VENDOR_PAYMENT_VIEW","REPORT_VIEW","REPORT_EXPORT","VENDOR_AUDIT_VIEW",
+        "ROLE_VIEW","USER_VIEW","TENANT_PROFILE_VIEW","CUSTOMER_RELATION_VIEW","CRM_NOTE_VIEW",
+        "POS_REPORT_VIEW","POS_CASHIER_REPORT_VIEW","POS_REFUND_VIEW","POS_RETURN_VIEW","POS_TENDER_VIEW");
+    public TenantEntitlementPolicy(JdbcTemplate db,ObjectMapper json,Clock clock,Environment env){
+        this.db=db;this.json=json;this.clock=clock;var profiles=Set.of(env.getActiveProfiles());
+        this.enforced=!profiles.isEmpty()&&Collections.disjoint(profiles,Set.of("local","test"));
+    }
+    public List<String> permissions(long tenant,List<String> grants){
+        if(!enforced)return grants;
+        var rows=db.queryForList("""
+            SELECT s.status,s.billing_period_end,s.grace_until,v.entitlements
+            FROM tenant_subscriptions s
+            JOIN subscription_plan_versions v ON v.plan_id=s.plan_id AND v.version=s.plan_version
+            WHERE s.tenant_id=?
+            ORDER BY s.created_at DESC,s.id DESC
+            """,tenant);
+        if(rows.isEmpty())return List.of();
+        var row=rows.getFirst();String status=((String)row.get("status")).toUpperCase(Locale.ROOT);
+        LocalDate end=((Date)row.get("billing_period_end")).toLocalDate();
+        Object graceValue=row.get("grace_until");Instant grace=graceValue==null?null:((Timestamp)graceValue).toInstant();
+        boolean graceActive=grace!=null&&grace.isAfter(clock.instant());
+        boolean writable=switch(status){
+            case "ACTIVE","CANCEL_AT_PERIOD_END"->!end.isBefore(LocalDate.now(clock));
+            case "GRACE_PERIOD","PAST_DUE"->graceActive;
+            default->false;
+        };
+        boolean readable=writable||Set.of("SUSPENDED","EXPIRED","CANCELLED","PAST_DUE","GRACE_PERIOD").contains(status);
+        if(!readable)return List.of();
+        JsonNode entitlements;
+        try{entitlements=json.readTree(String.valueOf(row.get("entitlements")));}catch(Exception e){return List.of();}
+        JsonNode features=entitlements.path("features");
+        List<String> result=new ArrayList<>();
+        for(String permission:grants){
+            if(!writable&&!READ_ONLY.contains(permission))continue;
+            String feature=feature(permission);
+            if(feature!=null&&features.isObject()&&features.has(feature)&&!features.path(feature).asBoolean(false))continue;
+            result.add(permission);
+        }
+        return List.copyOf(result);
+    }
+    private String feature(String permission){
+        if(permission.startsWith("POS_"))return "POS";
+        if(permission.startsWith("PRODUCT_")||permission.startsWith("CATALOG_")||permission.startsWith("PRICE_"))return "CATALOG";
+        if(permission.startsWith("INVENTORY_"))return "INVENTORY";
+        if(permission.startsWith("CRM_")||permission.startsWith("CUSTOMER_RELATION_"))return "CRM";
+        if(permission.startsWith("LEAD_"))return "LEADS";
+        if(permission.startsWith("QUOTATION_"))return "QUOTATIONS";
+        if(permission.startsWith("ORDER_"))return "ORDERS";
+        if(permission.startsWith("INVOICE_")||permission.startsWith("VENDOR_PAYMENT_"))return "FINANCE";
+        if(permission.startsWith("SHIPMENT_"))return "SHIPMENTS";
+        if(permission.startsWith("SERVICE_")||permission.startsWith("INSTALLATION_"))return "SERVICE";
+        if(permission.startsWith("REPORT_"))return "REPORTING";
+        return null;
+    }
+}

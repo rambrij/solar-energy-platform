@@ -4,6 +4,8 @@ import com.saumya.pos.reporting.internal.*;
 import com.saumya.pos.checkout.SalesReportService;
 import com.saumya.pos.returns.RefundReportService;
 import com.saumya.pos.retail.PosService;
+import com.saumya.pos.security.AuthorizationContext;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.lang.reflect.Proxy;
 import java.time.*;
 import java.math.BigDecimal;
@@ -17,7 +19,11 @@ class ReportExportServiceTest {
  ReportExportAudit audit;int reads;long branch=9;boolean large;ReportExportService service;
  @BeforeEach void setup(){
   var audits=(ReportExportAuditRepository)Proxy.newProxyInstance(ReportExportAuditRepository.class.getClassLoader(),new Class<?>[]{ReportExportAuditRepository.class},(p,m,args)->{audit=(ReportExportAudit)args[0];return audit;});
-  var retail=new PosService(null,null,null){@Override public Scope scope(){return new Scope(7,9,"test-user");}};
+  var retail=new PosService(null,null,null){@Override public Scope scope(){return new Scope(7,9,"manager");}};
+  var auth=org.mockito.Mockito.mock(AuthorizationContext.class);
+  org.mockito.Mockito.when(auth.current()).thenReturn(new AuthorizationContext.Context("manager",7L,9L,
+      Set.of("POS_VIEW","POS_REPORT_VIEW","POS_REPORT_EXPORT","POS_REFUND_VIEW"),false,false,true));
+  ReflectionTestUtils.setField(retail,"authContext",auth);
   var sales=new SalesReportService(null,null,clock){@Override public Report report(String user,LocalDate from,LocalDate to,String channel){reads++;var zero=BigDecimal.ZERO;var totals=new Totals(1,new BigDecimal("110"),BigDecimal.TEN,new BigDecimal("100"),new BigDecimal("120"),BigDecimal.TEN,new BigDecimal("110"),2,1,0,zero,0,0,zero);return new Report(branch,date,date,"ALL",clock.instant(),totals,List.of(new Channel("IN_STORE",totals)),List.of(new Day(date,totals)));}};
   var refunds=new RefundReportService(null,null,clock){@Override public Report report(LocalDate from,LocalDate to){reads++;var totals=new Totals(1,2,new BigDecimal("110"),new BigDecimal("100"),BigDecimal.TEN);var cashiers=large?Collections.nCopies(5000,new Cashier("manager",totals)):List.of(new Cashier("=unsafe",totals));return new Report(branch,date,date,clock.instant(),totals,List.of(new Day(date,totals)),cashiers);}};
   service=new ReportExportService(sales,refunds,retail,audits,new CsvWriter(),clock);

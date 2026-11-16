@@ -1,6 +1,6 @@
 package com.saumya.pos.security;
 
-import com.saumya.pos.membership.MembershipService;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +20,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuthorizationContextTest {
-    @Mock MembershipService membershipService;
+    @Mock VendorMembershipResolver membershipService;
     private AuthorizationContext authContext;
 
     @BeforeEach void setUp() { authContext = new AuthorizationContext(membershipService); }
@@ -35,7 +35,7 @@ class AuthorizationContextTest {
 
     @Test void currentReturnsContextFromSecurityContext() {
         authenticate("cashier@vendor.com", "POS_VIEW", "POS_SALE_CREATE");
-        when(membershipService.access("cashier@vendor.com")).thenReturn(Optional.of(new MembershipService.Access(1L,10L,"cashier@vendor.com",List.of("POS_VIEW","POS_SALE_CREATE"))));
+        when(membershipService.resolve("cashier@vendor.com")).thenReturn(Optional.of(new VendorMembershipResolver.Membership(1L,10L,"cashier@vendor.com",List.of("POS_VIEW","POS_SALE_CREATE"))));
         var ctx=authContext.current();
         assertThat(ctx.username()).isEqualTo("cashier@vendor.com");assertThat(ctx.tenantId()).isEqualTo(1L);assertThat(ctx.branchId()).isEqualTo(10L);
         assertThat(ctx.permissions()).contains("POS_VIEW","POS_SALE_CREATE");assertThat(ctx.isVendorEmployee()).isTrue();assertThat(ctx.isCustomer()).isFalse();assertThat(ctx.isPlatformUser()).isFalse();

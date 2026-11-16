@@ -27,8 +27,8 @@ class OnlineReceiptServiceTest {
   var invoices=repository(InvoiceSnapshotRepository.class,(p,m,a)->Optional.empty());var audit=new ArrayList<String>();
      var retail = new PosService(null, null, null) {
          public void authorizeCustomer(String actor){}
-         public void draftAudit(Scope scope, String action, String id) {
-             assertThat(scope).isEqualTo(new Scope(1, 2, "customer:7"));
+         public void customerDraftAudit(long tenant,long branch,long customer,String action,String id) {
+             assertThat(tenant).isEqualTo(1);assertThat(branch).isEqualTo(2);assertThat(customer).isEqualTo(7);
              audit.add(action + ":" + id);
          }
      };

@@ -53,6 +53,19 @@ class TenantEntitlementPolicyTest {
         assertThat(policy(db).permissions(10,List.of("POS_VIEW","POS_SALE_CREATE","ROLE_VIEW","ROLE_ASSIGN")))
             .containsExactly("POS_VIEW","ROLE_VIEW");
     }
+    @Test void featureGateAllowsActiveEntitlementAndBlocksExpiredOrMissingOrderFeature(){
+        JdbcTemplate db=mock(JdbcTemplate.class);
+        rows(db,subscription("ACTIVE",LocalDate.parse("2026-12-01"),null,"{\"features\":{\"ORDERS\":true,\"CATALOG\":true}}"));
+        assertThatCode(()->policy(db).requireFeature(10,"ORDERS",true)).doesNotThrowAnyException();
+        assertThatCode(()->policy(db).requireFeature(10,"CATALOG",false)).doesNotThrowAnyException();
+        rows(db,subscription("ACTIVE",LocalDate.parse("2026-11-15"),null,"{\"features\":{\"ORDERS\":true,\"CATALOG\":true}}"));
+        assertThatThrownBy(()->policy(db).requireFeature(10,"ORDERS",true))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatCode(()->policy(db).requireFeature(10,"ORDERS",false)).doesNotThrowAnyException();
+        rows(db,subscription("ACTIVE",LocalDate.parse("2026-12-01"),null,"{\"features\":{\"CATALOG\":true}}"));
+        assertThatThrownBy(()->policy(db).requireFeature(10,"ORDERS",true))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+    }
     @Test void expiredPeriodBlocksWritesEvenWhenStatusSaysActive(){
         JdbcTemplate db=mock(JdbcTemplate.class);
         rows(db,subscription("ACTIVE",LocalDate.parse("2026-11-15"),null,"{\"features\":{\"POS\":true}}"));

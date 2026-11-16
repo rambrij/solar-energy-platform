@@ -10,3 +10,5 @@ INSERT INTO customer_profiles(id,user_id)
 SELECT 900001,900001
 WHERE EXISTS(SELECT 1 FROM users WHERE id=900001 AND username='demo-customer')
   AND NOT EXISTS(SELECT 1 FROM customer_profiles WHERE id=900001 OR user_id=900001);
+
+UPDATE identity_sequence SET next_id=GREATEST(next_id,900002) WHERE id=1;

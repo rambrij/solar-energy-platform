@@ -4,7 +4,7 @@ Traceability: SRS RET-001/RET-002/RET-003 and POS-028/POS-031/POS-033/POS-036/PO
 
 ## API and scope
 
-All routes are under `/api/vendor/pos/returns` and require POS_VIEW + POS_RETURN_VIEW. Mutations require CSRF. Tenant, branch and named actor come from authenticated enabled employee membership in an active tenant. Forged request fields are rejected. No customer-account search or online return is exposed.
+All routes are under `/api/v1/vendor/pos/returns` and require POS_VIEW + POS_RETURN_VIEW. Mutations require CSRF. Tenant, branch and named actor come from authenticated enabled employee membership in an active tenant. Forged request fields are rejected. No customer-account search or online return is exposed.
 
 | Method / suffix | Additional permission | Behavior |
 |---|---|---|

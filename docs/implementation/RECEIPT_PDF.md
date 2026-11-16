@@ -2,7 +2,7 @@
 
 Traces SRS DOC-001/DOC-003 and POS-026/POS-027/POS-036/POS-040. Generates a downloadable COPY of an existing paid POS receipt; it never creates a sale, receipt number, invoice, credit note or tender.
 
-`POST /api/vendor/pos/receipts/{orderId}/document` with JSON `{ "reason": "Customer requested a copy" }` and CSRF.
+`POST /api/v1/vendor/pos/receipts/{orderId}/document` with JSON `{ "reason": "Customer requested a copy" }` and CSRF.
 
 ## Scope and audit
 

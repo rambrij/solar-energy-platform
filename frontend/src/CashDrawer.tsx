@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from './api';
+import { useSession } from './session';
 
 type MovementType = 'CASH_IN' | 'CASH_OUT' | 'SAFE_DROP';
 type Attempt = { key: string; body: { type: MovementType; amount: string; reason: string } };
@@ -27,6 +28,10 @@ const money = (value: number) => Number(value).toFixed(2);
 const labels = { CASH_IN: 'Cash-in', CASH_OUT: 'Cash-out', SAFE_DROP: 'Safe drop' };
 
 export default function CashDrawer({ session, revision, disabled, readOnly = false, onPendingChange, onBusyChange }: Props) {
+  const { account } = useSession();
+  const permissions = account?.permissions ?? [];
+  const canMove = (movement: MovementType) => permissions.includes(`POS_${movement}`);
+  const allowedTypes = (['CASH_IN', 'CASH_OUT', 'SAFE_DROP'] as MovementType[]).filter(canMove);
   const storageKey = `pos-drawer-attempt-v1:${session}`;
   const [pending, setPending] = useState<Attempt | undefined>(() => {
     try { return JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') ?? undefined; }
@@ -41,6 +46,7 @@ export default function CashDrawer({ session, revision, disabled, readOnly = fal
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => { onPendingChange(!!pending); }, [pending, onPendingChange]);
+  useEffect(() => { if (!allowedTypes.includes(type) && allowedTypes.length) setType(allowedTypes[0]); }, [allowedTypes.join('|'), type]);
   useEffect(() => {
     let active = true;
     setSummary(undefined);
@@ -54,7 +60,9 @@ export default function CashDrawer({ session, revision, disabled, readOnly = fal
 
   async function record(event: React.FormEvent) {
     event.preventDefault();
-    const attempt = pending ?? { key: crypto.randomUUID(), body: { type, amount, reason: reason.trim() } };
+    const movementType = pending?.body.type ?? type;
+    if (!canMove(movementType)) { setError('Your account does not have permission for this cash movement type.'); return; }
+    const attempt = pending ?? { key: crypto.randomUUID(), body: { type: movementType, amount, reason: reason.trim() } };
     // Save before posting so a lost response or reload can only retry this movement.
     try { sessionStorage.setItem(storageKey, JSON.stringify(attempt)); }
     catch { setError('Cannot save retry details. No cash movement was submitted.'); return; }
@@ -107,18 +115,18 @@ export default function CashDrawer({ session, revision, disabled, readOnly = fal
       )}</ul>
     </>}
     <button type="button" disabled={disabled} onClick={() => { setError(''); setRefresh(value => value + 1); }}>Refresh drawer totals</button>
-    <form onSubmit={record}>
+    {allowedTypes.length > 0 || (pending && canMove(pending.body.type)) ? <form onSubmit={record}>
       <fieldset disabled={disabled || !!pending || readOnly || (!!summary && summary.state !== 'OPEN')}>
         <legend>Record a cash movement</legend>
         <label>Movement type <select value={type} onChange={e => setType(e.target.value as MovementType)}>
-          <option value="CASH_IN">Cash-in</option><option value="CASH_OUT">Cash-out</option><option value="SAFE_DROP">Safe drop</option>
+          {allowedTypes.map(value => <option key={value} value={value}>{labels[value]}</option>)}
         </select></label>
         <label>Movement amount <input type="number" min="0.01" max="999999999999.99" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} /></label>
         <label>Movement reason <input maxLength={250} required pattern=".*\S.*" value={reason} onChange={e => setReason(e.target.value)} /></label>
       </fieldset>
-      <button type="submit" disabled={disabled || (!pending && (!amount || !reason.trim() || readOnly || (!!summary && summary.state !== 'OPEN')))}>
+      <button type="submit" disabled={disabled || (pending ? !canMove(pending.body.type) : !canMove(type) || !amount || !reason.trim() || readOnly || (!!summary && summary.state !== 'OPEN'))}>
         {pending ? 'Retry same cash movement' : 'Record cash movement'}
       </button>
-    </form>
+    </form> : <p role="status">You can view drawer totals, but no cash movement permission is assigned to your account.</p>}
   </section>;
 }

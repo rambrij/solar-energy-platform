@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.*;
-@RestController @RequestMapping("/api/vendor/pos/reports")
+@RestController @RequestMapping("/api/v1/vendor/pos/reports")
 public class ReportExportController {
  private final ReportExportService service;
  public ReportExportController(ReportExportService service){this.service=service;}

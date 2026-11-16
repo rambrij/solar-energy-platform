@@ -21,3 +21,11 @@ it('freezes edits while a financial outcome is unresolved and allows unavailable
  const remove = vi.fn(); view.rerender(<BillingBasket products={[]} cart={{ 99: 1 }} locked={false} onQuantity={vi.fn()} onRemove={remove} cash="" onCash={vi.fn()} invoice={false} onInvoice={vi.fn()}/>);
  fireEvent.click(screen.getByText('Remove unavailable product')); expect(remove).toHaveBeenCalledWith(99);
 });
+
+it('applies line and bill discounts before tax and exposes controlled discount inputs',()=>{
+ const discounts={linePercent:{1:10},billPercent:10,reason:'Approved'};
+ expect(billEstimate([{...products[0],price:100}],{1:1},discounts)).toEqual({subtotal:100,discount:19,tax:8.1,total:89.1});
+ const change=vi.fn();render(<BillingBasket products={products} cart={{1:1}} locked={false} onQuantity={vi.fn()} onRemove={vi.fn()} cash="" onCash={vi.fn()} invoice={false} onInvoice={vi.fn()} discounts={discounts} onDiscounts={change}/>);
+ fireEvent.change(screen.getByLabelText('Bill discount %'),{target:{value:'5'}});expect(change).toHaveBeenCalledWith({...discounts,billPercent:5});
+ expect(screen.getByLabelText('Discount reason')).toBeTruthy();
+});

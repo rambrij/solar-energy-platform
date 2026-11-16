@@ -6,8 +6,8 @@ Customers can open a completed online order in **My online orders**, choose **Op
 
 ## API and ownership
 
-- `GET /api/customer/orders/{id}/receipt` returns the customer's own paid ONLINE receipt.
-- `POST /api/customer/orders/{id}/receipt-copy` with `{}` returns a COPY and writes `CUSTOMER_RECEIPT_COPY` audit evidence with the derived global customer actor, vendor tenant, order and timestamp. Authentication, CUSTOMER authority and CSRF apply. Unknown body fields fail closed.
+- `GET /api/v1/customer/orders/{id}/receipt` returns the customer's own paid ONLINE receipt.
+- `POST /api/v1/customer/orders/{id}/receipt-copy` with `{}` returns a COPY and writes `CUSTOMER_RECEIPT_COPY` audit evidence with the derived global customer actor, vendor tenant, order and timestamp. Authentication, CUSTOMER authority and CSRF apply. Unknown body fields fail closed.
 - Unpaid/cancelled/expired orders, another customer's purchases and guest POS orders return the same generic unavailable response. Vendor suspension does not erase a buyer's paid receipt access.
 - The checkout module owns private JPA order/line/invoice read models. No catalogue lookup substitutes current names or prices into historical documents. Missing identity remains explicitly unrecorded.
 - A pessimistically locked owned order and READ_COMMITTED transaction provide saved receipt/invoice facts after concurrent payment completion; no MySQL repeatable-read snapshot can hide a newly committed invoice. Copy audit and response assembly share the transaction. Failure to save the audit prevents successful copy generation.

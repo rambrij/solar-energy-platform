@@ -1,0 +1,7 @@
+import {cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {afterEach,expect,it,vi} from 'vitest';
+import WalkInCustomer from './WalkInCustomer';
+import {api} from './api';
+vi.mock('./api',()=>({api:vi.fn()}));afterEach(()=>{cleanup();vi.resetAllMocks();});
+it('keeps guest checkout default and creates a link only after customer request',async()=>{vi.mocked(api).mockResolvedValue({token:'a'.repeat(43),expiresAt:'2026-11-14T20:00:00Z'});render(<WalkInCustomer orderId="sale-1"/>);expect(screen.getByText('Guest sale · No account, email or phone is required.')).toBeTruthy();expect((screen.getByText('Create customer approval link') as HTMLButtonElement).disabled).toBe(true);expect(api).not.toHaveBeenCalled();fireEvent.click(screen.getByLabelText('Customer requested linking their own account'));fireEvent.click(screen.getByText('Create customer approval link'));const link=await screen.findByText('Customer approval link');expect(link.getAttribute('href')).toContain('/customer/associate#'+'a'.repeat(43));expect(api).toHaveBeenCalledWith('/sales/sale-1/customer-association',{customerRequested:true});});
+it('a failed association never prevents continuing as a guest',async()=>{vi.mocked(api).mockRejectedValue(Error('Offline'));render(<WalkInCustomer orderId="sale-1"/>);fireEvent.click(screen.getByLabelText('Customer requested linking their own account'));fireEvent.click(screen.getByText('Create customer approval link'));expect((await screen.findByRole('alert')).textContent).toContain('guest');});

@@ -13,10 +13,25 @@ class SalesReportServiceTest {
     final LocalDate today=LocalDate.of(2026,11,13);
     int reads;List<SalesAggregate> orders=List.of();List<SalesLineAggregate> lines=List.of();boolean forbidden;
     Object[] arguments;SalesReportService service;
-    @BeforeEach void setup(){
-        var repo=(SalesReportRepository)Proxy.newProxyInstance(SalesReportRepository.class.getClassLoader(),new Class<?>[]{SalesReportRepository.class},(proxy,method,args)->{reads++;arguments=args;return method.getName().equals("orders")?orders:lines;});
-        var retail=new PosService(null,null){@Override public Scope scope(String username){assertThat(username).isEqualTo("cashier");if(forbidden)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);return new Scope(7,9,username);}};
-        service=new SalesReportService(repo,retail,Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"),ZoneOffset.UTC));
+    
+    @BeforeEach
+    void setup() {
+        var repo = (SalesReportRepository) Proxy.newProxyInstance(
+                SalesReportRepository.class.getClassLoader(), new Class<?>[] { SalesReportRepository.class
+                }, (proxy, method, args) -> {
+                    reads++;
+                    arguments = args;
+                    return method.getName().equals("orders") ? orders : lines;
+                }
+        );
+        var retail = new PosService(null, null, null) {
+            @Override
+            public Scope scope() {
+                if (forbidden) throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+                return new Scope(7, 9, "cashier");
+            }
+        };
+        service = new SalesReportService(repo, retail, Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"), ZoneOffset.UTC));
     }
     @Test void defaultsToSevenUtcDaysAndServerMembership(){
         var report=service.report("cashier",null,null,null);

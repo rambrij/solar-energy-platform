@@ -9,6 +9,7 @@ public class InventoryBalance {
         @Column(name="branch_id") private Long branchId;
         @Column(name="product_id") private Long productId;
         public Key() {}
+        public Key(long tenant,long branch,long product){tenantId=tenant;branchId=branch;productId=product;}
         @Override public boolean equals(Object o){return o instanceof Key k&&Objects.equals(tenantId,k.tenantId)&&Objects.equals(branchId,k.branchId)&&Objects.equals(productId,k.productId);}
         @Override public int hashCode(){return Objects.hash(tenantId,branchId,productId);}
     }
@@ -16,6 +17,8 @@ public class InventoryBalance {
     @Column(nullable=false) private int quantity;
     @Column(nullable=false) private int reserved;
     protected InventoryBalance() {}
+    public InventoryBalance(long tenant,long branch,long product){id=new Key(tenant,branch,product);}
+    public int available(){return quantity-reserved;}
     private void available(int amount){if(amount<=0||amount>quantity-reserved)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Insufficient available stock");}
     public void issue(int amount){available(amount);quantity-=amount;}
     public void reserve(int amount){available(amount);reserved+=amount;}

@@ -4,7 +4,7 @@ This increment implements the SRS server-side pagination/sorting/filtering requi
 
 ## API
 
-`GET /api/marketplace/vendors/{slug}/catalogue?q=panel&category=all&sort=price-low&inStock=true&page=0&size=24`
+`GET /api/v1/marketplace/vendors/{slug}/catalogue?q=panel&category=all&sort=price-low&inStock=true&page=0&size=24`
 
 This route is public. It first resolves an active public vendor and never accepts a tenant ID override.
 

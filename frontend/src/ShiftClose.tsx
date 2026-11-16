@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
+import { useSession } from './session';
 
 type Attempt = { countedCash: string; reason: string; requestId: string };
 type Status = { state: string; expectedCash: number; countedCash: number; variance: number; varianceReason: string; reviewedBy?: string; reviewReason?: string };
 type Props = { session: string; disabled: boolean; onStateChange: (state: string) => void; onPendingChange: (value: boolean) => void; onBusyChange: (value: boolean) => void };
 export default function ShiftClose({ session, disabled, onStateChange, onPendingChange, onBusyChange }: Props) {
+  const { account } = useSession();
+  const canClose = account?.permissions.includes('POS_SESSION_CLOSE') ?? false;
   const key = `pos-close-attempt-v1:${session}`;
   const [pending, setPending] = useState<Attempt | undefined>(() => { try { return JSON.parse(sessionStorage.getItem(key) ?? 'null') ?? undefined; } catch { return undefined; } });
   const [count, setCount] = useState(''), [reason, setReason] = useState('');
@@ -20,6 +23,7 @@ export default function ShiftClose({ session, disabled, onStateChange, onPending
   }, [session, revision, onStateChange]);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (!canClose) { setError('POS_SESSION_CLOSE permission is required to submit or retry a close request.'); return; }
     const attempt = pending ?? { countedCash: count, reason: reason.trim(), requestId: crypto.randomUUID() };
     try { sessionStorage.setItem(key, JSON.stringify(attempt)); } catch { setError('Cannot save retry details; no close request was sent.'); return; }
     requestVersion.current += 1;
@@ -40,7 +44,7 @@ export default function ShiftClose({ session, disabled, onStateChange, onPending
     {status?.state === 'CLOSING' && <p role="status">Awaiting a different supervisor's review. Expected: {Number(status.expectedCash).toFixed(2)} · Counted: {Number(status.countedCash).toFixed(2)} · Variance: {Number(status.variance).toFixed(2)} · Reason: {status.varianceReason}. The drawer is frozen.</p>}
     {status?.state === 'CLOSED' && <p role="status">Session closed.{status.reviewedBy ? ` Approved by ${status.reviewedBy}: ${status.reviewReason}` : ''}</p>}
     {status?.state === 'OPEN' && status.reviewedBy && <p role="status">Supervisor requested correction: {status.reviewReason}. Count the drawer again.</p>}
-    {(status?.state === 'OPEN' || pending || !status) && <form onSubmit={submit}>
+    {canClose && (status?.state === 'OPEN' || pending || !status) && <form onSubmit={submit}>
       <fieldset disabled={disabled || !!pending}>
         <label>Counted drawer cash <input type="number" min="0" step="0.01" required value={count} onChange={e => setCount(e.target.value)} /></label>
         <label>Variance reason (required for a discrepancy) <input maxLength={250} value={reason} onChange={e => setReason(e.target.value)} /></label>

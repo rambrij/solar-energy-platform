@@ -26,9 +26,13 @@ public class CashierSalesService {
  public Report report(String username,LocalDate requestedFrom,LocalDate requestedTo,int page,int size){
   LocalDate to=requestedTo==null?LocalDate.now(clock.withZone(ZoneOffset.UTC)):requestedTo;
   if(to.getYear()<1970||to.getYear()>9998)throw invalid();LocalDate from=requestedFrom==null?to.minusDays(6):requestedFrom;
-  if(from.getYear()<1970||from.isAfter(to)||ChronoUnit.DAYS.between(from,to)>365||page<0||page>10000||size<1||size>48)throw invalid();
-  var scope=retail.scope(username);Instant start=from.atStartOfDay(ZoneOffset.UTC).toInstant(),until=to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
-  var headers=reports.headers(scope.tenant(),scope.branch(),start,until,PageRequest.of(page,size));var buckets=new LinkedHashMap<String,Bucket>();var total=new Bucket();
+     if (from.getYear() < 1970 || from.isAfter(to) || ChronoUnit.DAYS.between(from, to) > 365 || page < 0 || page > 10000 || size < 1 || size > 48)
+         throw invalid();
+     var scope = retail.scope();
+     Instant start = from.atStartOfDay(ZoneOffset.UTC).toInstant(), until = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+     var headers = reports.headers(scope.tenant(), scope.branch(), start, until, PageRequest.of(page, size));
+     var buckets = new LinkedHashMap<String, Bucket>();
+     var total = new Bucket();
   for(var row:headers){var bucket=new Bucket();bucket.header(row);buckets.put(row.cashier(),bucket);total.header(row);}
   if(!buckets.isEmpty())for(var row:reports.lines(scope.tenant(),scope.branch(),start,until,List.copyOf(buckets.keySet()))){var bucket=buckets.get(row.cashier());if(bucket==null)throw new IllegalStateException("Unrequested cashier aggregate");bucket.lines(row);total.lines(row);}
   return new Report(scope.branch(),from,to,clock.instant(),page,size,headers.getTotalElements(),headers.getTotalPages(),total.view(),buckets.entrySet().stream().map(e->new Cashier(e.getKey(),e.getValue().view())).toList());

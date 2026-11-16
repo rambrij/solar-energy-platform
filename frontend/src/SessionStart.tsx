@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from './api';
 import RegisterPicker from './RegisterPicker';
+import { useSession } from './session';
 
 type Session = { id: string; registerId: number; openingFloat: number; state: string };
 type Props = { onSession: (id: string, state?: string) => void; requiredSessionId?: string };
 
 export default function SessionStart({ onSession, requiredSessionId }: Props) {
+  const { account } = useSession();
+  const permissions = account?.permissions ?? [];
+  const canViewSessions = permissions.includes('POS_VIEW');
+  const canOpenSession = permissions.includes('POS_SESSION_OPEN');
+  const canResumeSession = canViewSessions && canOpenSession;
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -15,6 +21,7 @@ export default function SessionStart({ onSession, requiredSessionId }: Props) {
 
   useEffect(() => {
     let active = true;
+    if (!canViewSessions) { setLoading(false); setSessionListFailed(true); setError('POS_VIEW permission is required to inspect assigned sessions.'); return () => { active = false; }; }
     setLoading(true);
     api('/sessions/active').then(value => {
       if (active) {setSessions(value);setSessionListFailed(false);}
@@ -22,9 +29,10 @@ export default function SessionStart({ onSession, requiredSessionId }: Props) {
       if (active) {setSessionListFailed(true);setError('Could not load your open sessions. Check your login and refresh the list before opening a new session.');}
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [revision]);
+  }, [revision, canViewSessions]);
 
   async function resume(id: string) {
+    if (!canResumeSession) { setError('POS_VIEW and POS_SESSION_OPEN permissions are required to resume a session.'); return; }
     setBusy(true); setError('');
     try {
       const session: Session = await api(`/sessions/${id}/resume`, {});
@@ -37,7 +45,7 @@ export default function SessionStart({ onSession, requiredSessionId }: Props) {
 
   async function open(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (requiredSessionId||!register||sessionListFailed||loading||busy) return;
+    if (!canOpenSession || !canViewSessions || requiredSessionId||!register||sessionListFailed||loading||busy) return;
     const data = new FormData(event.currentTarget);
     setBusy(true); setError('');
     try {
@@ -57,9 +65,9 @@ export default function SessionStart({ onSession, requiredSessionId }: Props) {
     <form onSubmit={open}>
       <h2>Open cashier session</h2>
       <fieldset disabled={busy || !!requiredSessionId || loading || sessionListFailed}>
-        <RegisterPicker disabled={busy||!!requiredSessionId||loading||sessionListFailed} onSelect={setRegister}/>
+        {canResumeSession && <RegisterPicker disabled={busy||!!requiredSessionId||loading||sessionListFailed} onSelect={setRegister}/>}
         <label>Opening float <input name="float" type="number" min="0" step="0.01" required /></label>
-        <button disabled={!register}>Open session</button>
+        {canOpenSession && <button disabled={!canViewSessions || !register}>Open session</button>}
       </fieldset>
     </form>
     <h2>Your open sessions</h2>
@@ -67,10 +75,10 @@ export default function SessionStart({ onSession, requiredSessionId }: Props) {
     {loading ? <p role="status">Loading open sessions…</p> : sessionListFailed ? <p>Open-session status is unavailable. Refresh before choosing a register.</p> : sessions.length === 0 ? <p>No open sessions found for your account.</p> :
       <ul>{sessions.map(session => <li key={session.id}>
         Register {session.registerId} · Opening float {Number(session.openingFloat).toFixed(2)} {session.state === 'CLOSING' ? '· Awaiting supervisor review' : ''}
-        <button disabled={busy || (!!requiredSessionId && requiredSessionId !== session.id)} onClick={() => resume(session.id)}>
+        {canResumeSession && <button disabled={busy || (!!requiredSessionId && requiredSessionId !== session.id)} onClick={() => resume(session.id)}>
           Resume register {session.registerId}
-        </button>
+        </button>}
       </li>)}</ul>}
-    <button disabled={busy || loading} onClick={() => { setError(''); setRevision(value => value + 1); }}>Refresh open sessions</button>
+    {canViewSessions && <button disabled={busy || loading} onClick={() => { setError(''); setRevision(value => value + 1); }}>Refresh open sessions</button>}
   </section>;
 }

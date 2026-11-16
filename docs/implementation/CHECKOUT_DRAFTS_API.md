@@ -4,13 +4,13 @@ Traceability: requirements online single-vendor checkout/shared inventory and wa
 
 | Method/path | Authorization and request |
 |---|---|
-| POST `/api/customer/checkout/drafts` | CUSTOMER; `{expectedCartId}`; Idempotency-Key |
-| GET `/api/customer/checkout/drafts` | CUSTOMER; own latest 20 ONLINE drafts |
-| POST `/api/customer/checkout/drafts/{id}/cancel` | CUSTOMER; owned order; `{reason}` |
-| POST `/api/vendor/pos/drafts` | POS_VIEW + POS_SALE_CREATE; `{sessionId,items:[{productId,quantity}],invoiceRequested}`; Idempotency-Key |
-| GET `/api/vendor/pos/drafts?sessionId=...` | POS_VIEW; own tenant/branch/cashier/session; latest 20 reserved drafts |
-| POST `/api/vendor/pos/drafts/{id}/cancel` | POS_SALE_CANCEL; own tenant/branch/cashier; `{reason}` |
-| POST `/api/vendor/pos/drafts/{id}/finalize-cash` | POS_SALE_CREATE + POS_TENDER_CASH_RECORD + POS_RECEIPT_VIEW; `{cashReceived}` |
+| POST `/api/v1/customer/checkout/drafts` | CUSTOMER; `{expectedCartId}`; Idempotency-Key |
+| GET `/api/v1/customer/checkout/drafts` | CUSTOMER; own latest 20 ONLINE drafts |
+| POST `/api/v1/customer/checkout/drafts/{id}/cancel` | CUSTOMER; owned order; `{reason}` |
+| POST `/api/v1/vendor/pos/drafts` | POS_VIEW + POS_SALE_CREATE; `{sessionId,items:[{productId,quantity}],invoiceRequested}`; Idempotency-Key |
+| GET `/api/v1/vendor/pos/drafts?sessionId=...` | POS_VIEW; own tenant/branch/cashier/session; latest 20 reserved drafts |
+| POST `/api/v1/vendor/pos/drafts/{id}/cancel` | POS_SALE_CANCEL; own tenant/branch/cashier; `{reason}` |
+| POST `/api/v1/vendor/pos/drafts/{id}/finalize-cash` | POS_SALE_CREATE + POS_TENDER_CASH_RECORD + POS_RECEIPT_VIEW; `{cashReceived}` |
 
 All mutations require CSRF. Client tenant, prices, cashier, customer or status overrides are rejected. Reasons are nonblank and at most 250 characters. Quantity is 1–10000, at most 100 distinct lines. Draft creation keys are 8–80 ASCII letters/digits/underscore/hyphen. Replaying the same key returns the original draft even after cancellation/payment; a changed command conflicts. Online retry fingerprints the explicit cart identity, so replay returns its original immutable snapshot even if cart contents subsequently changed. Use a new key for a new reservation after resolving the prior one.
 

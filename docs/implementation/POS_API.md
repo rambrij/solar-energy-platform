@@ -1,6 +1,6 @@
 # Cash POS API
 
-All paths use `/api/vendor/pos`. All requests require an authenticated, enabled named employee and an active tenant. Tenant and branch are resolved from persisted employee membership. Unknown JSON fields return 400. Tenant-owned resources outside the active branch return 404 without disclosing their data.
+All paths use `/api/v1/vendor/pos`. All requests require an authenticated, enabled named employee and an active tenant. Tenant and branch are resolved from persisted employee membership. Unknown JSON fields return 400. Tenant-owned resources outside the active branch return 404 without disclosing their data.
 
 Mutations require the CSRF token returned from `GET /csrf`, sent as `X-XSRF-TOKEN` together with the session cookie. HTTP Basic is the initial authentication mechanism; JWT integration is outstanding.
 

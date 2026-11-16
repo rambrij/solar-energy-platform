@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); vi.resetAllMocks(); });
 it('loads public vendor detail, shows tax-inclusive unit total and submits an absolute quantity', async () => {
   vi.mocked(marketplaceApi).mockResolvedValue(product); const add = vi.fn();
   render(<ProductDetails slug="solar" productId={1} disabled={false} onClose={vi.fn()} onAdd={add}/>);
-  await screen.findByText('540W Panel'); expect(marketplaceApi).toHaveBeenCalledWith('/api/marketplace/vendors/solar/products/1'); expect(screen.getByText('110.00')).toBeTruthy();
+  await screen.findByText('540W Panel'); expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/marketplace/vendors/solar/products/1'); expect(screen.getByText('110.00')).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Product detail quantity'), { target: { value: '3' } }); fireEvent.click(screen.getByText('Add or update this product in cart'));
   expect(add).toHaveBeenCalledWith(1, 3);
 });
@@ -36,4 +36,10 @@ it('ignores stale detail responses after the selected product changes', async ()
   const view = render(<ProductDetails slug="solar" productId={1} disabled={false} onClose={vi.fn()} onAdd={vi.fn()}/>);
   view.rerender(<ProductDetails slug="solar" productId={2} disabled={false} onClose={vi.fn()} onAdd={vi.fn()}/>); await screen.findByText('Inverter'); finish(product);
   await waitFor(() => expect(screen.queryByText('540W Panel')).toBeNull());
+});
+
+it('displays the vendor-owned brand returned by the API', async () => {
+  vi.mocked(marketplaceApi).mockResolvedValue({ ...product, brand: 'SunArc' });
+  render(<ProductDetails slug="solar" productId={1} disabled={false} onClose={vi.fn()} onAdd={vi.fn()}/>);
+  expect(await screen.findByText('Brand: SunArc')).toBeTruthy();
 });

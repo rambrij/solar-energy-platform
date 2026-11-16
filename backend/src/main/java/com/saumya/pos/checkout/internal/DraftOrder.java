@@ -21,6 +21,7 @@ public class DraftOrder {
     @Column(name="receipt_number") private Long receiptNumber;
     @Column(name="tax_invoice",nullable=false) private boolean taxInvoice;
     @Column(name="payment_method",nullable=false,length=16) private String paymentMethod="CASH";
+    @Column(name="payment_reference",length=80) private String paymentReference;
     @Column(name="receipt_seller_name",length=160) private String receiptSeller;
     @Column(name="receipt_outlet_name",length=160) private String receiptOutlet;
     @Column(name="invoice_requested",nullable=false) private boolean invoiceRequested;
@@ -31,10 +32,13 @@ public class DraftOrder {
     @Column(name="cancellation_reason",length=250) private String cancellationReason;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="status_changed_at") private Instant statusChangedAt;
     @JdbcTypeCode(SqlTypes.TIMESTAMP) @Column(name="created_at",insertable=false,updatable=false) private Instant createdAt;
+    @Column(name="discount_reason",length=250) private String discountReason;
+    public void discountReason(String value){discountReason=value==null?null:value.strip();}
     protected DraftOrder(){}
     public DraftOrder(String id,long tenant,Long customer,Long branch,String cashier,String session,String channel,String key,String hash,BigDecimal total,long stockBranch,String owner,Instant expires,boolean invoice){
         this.id=id;tenantId=tenant;customerId=customer;branchId=branch;this.cashier=cashier;sessionId=session;this.channel=channel;this.key=key;this.hash=hash;this.total=total;this.stockBranch=stockBranch;draftOwner=owner;expiresAt=expires;invoiceRequested=invoice;status="DRAFT";
     }
+    public void associate(long customer){if(!"IN_STORE".equals(channel)||customerId!=null)throw new IllegalStateException("Order cannot be associated");customerId=customer;}
     public String id(){return id;} public long tenant(){return tenantId;} public Long customer(){return customerId;} public Long branch(){return branchId;}
     public String cashier(){return cashier;} public String session(){return sessionId;} public String channel(){return channel;} public String hash(){return hash;}
     public BigDecimal total(){return total;} public BigDecimal cash(){return cashReceived;} public String status(){return status;} public Instant expires(){return expiresAt;}
@@ -42,9 +46,13 @@ public class DraftOrder {
     public boolean invoiceRequested(){return invoiceRequested;}
     public long stockBranch(){return stockBranch;}
     public String paymentMethod(){return paymentMethod;}
+    public void receiptIdentity(String seller,String outlet){if(receiptSeller!=null||receiptOutlet!=null)throw new IllegalStateException("Issued receipt identity is immutable");receiptSeller=seller;receiptOutlet=outlet;}
+    public String paymentReference(){return paymentReference;}
     public String receiptSeller(){return receiptSeller;}
     public String receiptOutlet(){return receiptOutlet;}
-    public void payExternal(String method,Long receipt,boolean invoice,Instant now){paymentMethod="MOCK_"+method;receiptNumber=receipt;taxInvoice=invoice;if("IN_STORE".equals(channel)){cashReceived=BigDecimal.ZERO;changeGiven=BigDecimal.ZERO;}finish("PAID",now);}
+    public void payOnlineMock(String method,boolean invoice,Instant now){if(!"ONLINE".equals(channel))throw new IllegalStateException("Online simulation cannot confirm a POS tender");paymentMethod="MOCK_"+method;taxInvoice=invoice;finish("PAID",now);}
+    public void payTerminal(String method,String reference,long receipt,boolean invoice,Instant now){paymentMethod=method;paymentReference=reference;receiptNumber=receipt;taxInvoice=invoice;cashReceived=BigDecimal.ZERO;changeGiven=BigDecimal.ZERO;finish("PAID",now);}
+    public void payTenders(String method,String reference,BigDecimal received,BigDecimal change,long receipt,boolean invoice,Instant now){paymentMethod=method;paymentReference=reference;cashReceived=received;changeGiven=change;receiptNumber=receipt;taxInvoice=invoice;finish("PAID",now);}
     public void finish(String state,Instant now){status=state;draftOwner=null;statusChangedAt=now.truncatedTo(java.time.temporal.ChronoUnit.MICROS);}
     public void cancel(String reason,Instant now){cancellationReason=reason;finish("CANCELLED",now);}
     public void pay(BigDecimal cash,long receipt,boolean invoice,Instant now){cashReceived=cash;changeGiven=cash.subtract(total);receiptNumber=receipt;taxInvoice=invoice;finish("PAID",now);}

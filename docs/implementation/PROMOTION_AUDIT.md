@@ -2,7 +2,7 @@
 
 Traces CAT-006, POS-036/POS-037 and the requirements for shared approved catalogue discounts. It exposes existing immutable product-percentage change facts to authorized catalogue approvers; it does not add price-edit or basket-override commands.
 
-`GET /api/vendor/pos/promotions/{productId}/history?page=0&size=12`
+`GET /api/v1/vendor/pos/promotions/{productId}/history?page=0&size=12`
 
 - Requires all POS_VIEW, CATALOG_PROMOTION_MANAGE and POS_DISCOUNT_APPROVE plus persisted enabled employee/active tenant membership. No grant is assigned automatically. Tenant comes only from membership. These promotions are tenant-wide, not branch-specific: a properly authorized employee in another branch of the same tenant may read them.
 - Positive product ID; page 0–10000, size 1–48. Parent product lookup and both page/count predicates use canonical tenant/product. Foreign/missing products return generic 404. Withdrawn products retain their audit history for authorized staff.

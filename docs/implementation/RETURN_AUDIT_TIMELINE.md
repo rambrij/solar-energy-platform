@@ -4,7 +4,7 @@ This increment extends SRS POS-037/POS-040 and vendor audit-history visibility f
 
 ## API and scope
 
-`GET /api/vendor/pos/returns/{id}/events?page=0&size=12`
+`GET /api/v1/vendor/pos/returns/{id}/events?page=0&size=12`
 
 Requires POS_VIEW, POS_RETURN_VIEW and the new POS_RETURN_AUDIT_VIEW, plus active canonical tenant/assigned-branch employee membership. No grant is assigned automatically. The case must exist in the viewer's tenant/branch; foreign and missing cases return the same generic 404. Client tenant/branch parameters cannot override scope. The timeline can be read after shift close without reopening the register.
 

@@ -4,10 +4,10 @@ Traceability: requirements customer order history and invoice/receipt access, sh
 
 | GET path | Authorization | Scope |
 |---|---|---|
-| `/api/customer/orders` | CUSTOMER | Own ONLINE orders across vendors |
-| `/api/customer/orders/{id}` | CUSTOMER | Own ONLINE order and saved line snapshots |
-| `/api/vendor/pos/orders` | POS_VIEW | Assigned active tenant and branch, IN_STORE only |
-| `/api/vendor/pos/orders/{id}` | POS_VIEW | Same assigned tenant/branch and channel |
+| `/api/v1/customer/orders` | CUSTOMER | Own ONLINE orders across vendors |
+| `/api/v1/customer/orders/{id}` | CUSTOMER | Own ONLINE order and saved line snapshots |
+| `/api/v1/vendor/pos/orders` | POS_VIEW | Assigned active tenant and branch, IN_STORE only |
+| `/api/v1/vendor/pos/orders/{id}` | POS_VIEW | Same assigned tenant/branch and channel |
 
 List parameters:
 
@@ -22,7 +22,7 @@ Detail response: `{order,items,cashReceived,changeGiven,cancellationReason,statu
 
 Foreign IDs return the same generic 404 as missing IDs. List counts and pages are scoped before filtering. Staff can read branch sales across cashiers/closed shifts consistently with existing branch receipt access; no open session is required for history. Branch membership and active tenant are resolved server-side, never from query parameters. Staff cannot use customer history, and customers cannot use POS history. IN_STORE guest transactions have no customer history association.
 
-History is read-only and does not reserve, release, charge or finalize. Receipt viewing uses existing `/api/vendor/pos/receipts/{id}` and independently enforces `POS_RECEIPT_VIEW`; unpaid drafts cannot produce receipts. Reprint uses the existing audited POST and its separate permission/CSRF checks. The UI preserves active sale inputs when opening a historical receipt. Draft cancellation and expiry are still managed through the existing reserved-draft workflow.
+History is read-only and does not reserve, release, charge or finalize. Receipt viewing uses existing `/api/v1/vendor/pos/receipts/{id}` and independently enforces `POS_RECEIPT_VIEW`; unpaid drafts cannot produce receipts. Reprint uses the existing audited POST and its separate permission/CSRF checks. The UI preserves active sale inputs when opening a historical receipt. Draft cancellation and expiry are still managed through the existing reserved-draft workflow.
 
 ## UI and verification
 

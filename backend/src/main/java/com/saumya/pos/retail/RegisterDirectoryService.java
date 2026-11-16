@@ -14,7 +14,8 @@ public class RegisterDirectoryService {
  public record Directory(long branchId,int page,int size,long totalElements,int totalPages,List<Register> items){}
  public Directory directory(String username,int page,int size){
   if(page<0||page>10000||size<1||size>48)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose page 0-10000 and size 1-48");
-  var scope=retail.scope(username);var result=registers.directory(scope.tenant(),scope.branch(),PageRequest.of(page,size));
+  var scope=retail.scope();retail.authorize(scope,username,"POS_VIEW");
+  var result=registers.directory(scope.tenant(),scope.branch(),scope.cashier(),PageRequest.of(page,size));
   return new Directory(scope.branch(),page,size,result.getTotalElements(),result.getTotalPages(),result.getContent());
  }
 }

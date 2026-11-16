@@ -2,7 +2,7 @@ package com.saumya.pos.checkout;
 import java.security.Principal;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-@RestController @RequestMapping("/api/customer/orders/{id}") @PreAuthorize("hasAuthority('CUSTOMER')")
+@RestController @RequestMapping("/api/v1/customer/orders/{id}") @PreAuthorize("hasAuthority('CUSTOMER')")
 public class OnlineReceiptController {
  private final OnlineReceiptService receipts;
  public OnlineReceiptController(OnlineReceiptService receipts){this.receipts=receipts;}

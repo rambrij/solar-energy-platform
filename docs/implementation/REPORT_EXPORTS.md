@@ -6,8 +6,8 @@ This increment extends requirements vendor analytics/exports and SRS POS-032/POS
 
 | POST route | Required permissions | JSON body |
 |---|---|---|
-| /api/vendor/pos/reports/sales/export | POS_VIEW, POS_REPORT_VIEW, POS_REPORT_EXPORT | from, to, channel, reason |
-| /api/vendor/pos/reports/cash-refunds/export | Above plus POS_REFUND_VIEW | from, to, reason |
+| /api/v1/vendor/pos/reports/sales/export | POS_VIEW, POS_REPORT_VIEW, POS_REPORT_EXPORT | from, to, channel, reason |
+| /api/v1/vendor/pos/reports/cash-refunds/export | Above plus POS_REFUND_VIEW | from, to, reason |
 
 Both routes require active canonical employee/tenant/branch membership and CSRF. Client scope overrides/unknown JSON fields fail closed. Reason is nonblank, at most 250 characters and validated before querying reports. Do not enter buyer contact/tax details. Free-form reason validation uses generic service errors rather than logging rejected reason values through bean validation. Dates/channel follow the existing report validation/defaults: inclusive UTC dates, up to 366 days, default seven-day window, and ALL/ONLINE/IN_STORE for sales. Refund exports have no sales-channel override.
 

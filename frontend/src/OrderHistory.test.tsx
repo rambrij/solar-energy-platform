@@ -10,12 +10,12 @@ const page = { items: [order], page: 0, size: 10, totalElements: 11, totalPages:
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 it('opens an owned online receipt from paid customer order details',async()=>{
  vi.mocked(marketplaceApi).mockImplementation(async path=>path.endsWith('/receipt')?{orderId:order.id,seller:'Saved seller',outlet:'Saved outlet',issuedAt:order.createdAt,total:110,paymentMethod:'MOCK_CARD',copy:false,items:[],invoices:[]}:path.includes('/orders/')?{order:{...order,channel:'ONLINE'},items:[],cashReceived:null,changeGiven:null,cancellationReason:null,statusChangedAt:order.createdAt}:page);
- render(<OrderHistory mode="online"/>);fireEvent.click(screen.getByText('Load order history'));fireEvent.click(await screen.findByText(`View order ${order.id}`));fireEvent.click(await screen.findByText('Open online receipt'));await screen.findByText('Saved seller');expect(marketplaceApi).toHaveBeenCalledWith(`/api/customer/orders/${order.id}/receipt`);expect(api).not.toHaveBeenCalled();fireEvent.click(screen.getByText('Close online receipt'));expect(screen.queryByLabelText('Online order receipt')).toBeNull();
+ render(<OrderHistory mode="online"/>);fireEvent.click(screen.getByText('Load order history'));fireEvent.click(await screen.findByText(`View order ${order.id}`));fireEvent.click(await screen.findByText('Open online receipt'));await screen.findByText('Saved seller');expect(marketplaceApi).toHaveBeenCalledWith(`/api/v1/customer/orders/${order.id}/receipt`);expect(api).not.toHaveBeenCalled();fireEvent.click(screen.getByText('Close online receipt'));expect(screen.queryByLabelText('Online order receipt')).toBeNull();
 });
 it('does not request protected history until explicitly loaded', () => {
   render(<OrderHistory mode="online"/>);
   expect(api).not.toHaveBeenCalled(); expect(marketplaceApi).not.toHaveBeenCalled();
-  expect(screen.getByText('My online orders')).toBeTruthy();
+  expect(screen.getByText('My orders')).toBeTruthy();
 });
 it('keeps pagination bound to applied filters rather than unsubmitted edits', async () => {
   vi.mocked(api).mockResolvedValue(page);
@@ -32,7 +32,7 @@ it('loads customer snapshot details and never offers a POS receipt action', asyn
   render(<OrderHistory mode="online"/>);
   fireEvent.click(screen.getByText('Load order history')); fireEvent.click(await screen.findByText(`View order ${order.id}`));
   await screen.findByText('Original panel'); await screen.findByText('Cancellation reason: Buying later');
-  expect(marketplaceApi).toHaveBeenCalledWith(`/api/customer/orders/${order.id}`);
+  expect(marketplaceApi).toHaveBeenCalledWith(`/api/v1/customer/orders/${order.id}`);
   expect(screen.queryByText('Open receipt 4')).toBeNull(); expect(api).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText('Close order details')); expect(screen.queryByLabelText('Order details')).toBeNull();
 });

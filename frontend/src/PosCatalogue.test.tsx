@@ -5,7 +5,7 @@ import { api,ApiError } from './api';
 vi.mock('./api',async original=>({...await original<typeof import('./api')>(),api:vi.fn()}));
 const product:PosProduct={id:1,name:'Panel',sku:'P1',barcode:'123',price:90,list_price:100,tax_rate:10,quantity:2};
 const page={items:[product],page:0,size:24,totalElements:25,totalPages:2,catalogueTotal:25,categories:[]};
-const props={locked:false,quantities:{},revision:0,onProducts:vi.fn(),onAdd:vi.fn(()=>true),onBusyChange:vi.fn()};
+const props={locked:false,canCreateSale:true,quantities:{},revision:0,onProducts:vi.fn(),onAdd:vi.fn(()=>true),onBusyChange:vi.fn()};
 afterEach(()=>{cleanup();vi.resetAllMocks();props.onAdd.mockReturnValue(true);});
 it('loads bounded branch products and forwards only an explicitly selected product',async()=>{
  vi.mocked(api).mockResolvedValue(page);render(<PosCatalogue {...props}/>);fireEvent.click(await screen.findByText('Add Panel'));expect(api).toHaveBeenCalledWith('/catalogue?q=&category=all&sort=name&inStock=false&page=0&size=24');expect(props.onAdd).toHaveBeenCalledWith(product);expect(props.onProducts).toHaveBeenCalledWith([product]);expect(vi.mocked(api).mock.calls.some(([path])=>path==='/products')).toBe(false);

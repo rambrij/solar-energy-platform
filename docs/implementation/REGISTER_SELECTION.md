@@ -2,7 +2,7 @@
 
 Traces requirements §9.2 and SRS POS-007/POS-020/POS-025/POS-043. Cashiers can choose from server-provided register references instead of manually entering an internal ID.
 
-`GET /api/vendor/pos/registers?page=0&size=12`
+`GET /api/v1/vendor/pos/registers?page=0&size=12`
 
 - Requires POS_VIEW and POS_SESSION_OPEN, plus persisted enabled employee and active tenant membership. Tenant/assigned branch are canonical; request parameters cannot override them.
 - Page 0–10000, size 1–48. Register ID ascending. Response: branchId, page/size/count/pages and items containing id/available only. No cashier identity, session reference, drawer balance, float or OPEN/CLOSING detail is exposed.

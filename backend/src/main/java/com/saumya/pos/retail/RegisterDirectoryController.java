@@ -6,6 +6,6 @@ import org.springframework.web.bind.annotation.*;
 public class RegisterDirectoryController {
  private final RegisterDirectoryService registers;
  public RegisterDirectoryController(RegisterDirectoryService registers){this.registers=registers;}
- @GetMapping("/api/vendor/pos/registers") @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_SESSION_OPEN')")
+ @GetMapping("/api/v1/vendor/pos/registers") @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_SESSION_OPEN')")
  Object directory(Principal p,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="12") int size){return registers.directory(p.getName(),page,size);}
 }

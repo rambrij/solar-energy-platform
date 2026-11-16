@@ -1,0 +1,11 @@
+# Global identity and secure browser sessions
+
+HTTP Basic and the separate employee password store have been removed. Flyway V28 moves existing staff credentials into global `users`, retains employee tenant/branch membership, and makes permission grants tenant-owned with composite membership constraints. Duplicate staff/customer usernames stop migration for deliberate identity resolution rather than silently merging credentials.
+
+`POST /api/v1/auth/register`, `/login`, `/refresh`, `/logout`; `GET /csrf`, `/me`. Customer registration is global. Vendor employees require a provisioned membership and grants. Login returns a five-minute HS256 JWT and account capabilities; the refresh token is returned only as an HttpOnly SameSite=Strict cookie, Secure outside local/test. Refresh tokens are 256-bit random bearer values, stored only as SHA-256 hashes. Every rotation consumes the old token; reuse revokes the whole family and invalidates family access tokens. Logout revokes the family. Global enabled state and active vendor membership/permissions are rechecked on every JWT request.
+
+The browser stores access JWTs only in memory. It restores through the refresh cookie, serializes concurrent refresh requests, and prevents an old in-flight refresh from overwriting a later sign-in/sign-out. Cookie-based auth mutations require CSRF. Bearer-only requests follow Spring Resource Server's bearer CSRF exemption; browser helpers continue sending CSRF for their mutations.
+
+Local/test may use an ephemeral signing key. Other environments fail startup without AUTH_JWT_SECRET containing at least 32 random bytes encoded as base64. Inject production signing material from secret management, never source control. The local Docker `.env.example` explicitly selects local; production must select an appropriate profile and configure the secret. Local seed scripts use the global user schema and must not run in production.
+
+The existing membership model assigns one employee identity to one vendor branch. A multi-membership selection UX is not implemented; no client-selected tenant override is accepted. Platform administration/MFA, verified email delivery and broader identity lifecycle remain separate foundation work; do not claim the whole SRS identity module is complete from this commercial-session slice.

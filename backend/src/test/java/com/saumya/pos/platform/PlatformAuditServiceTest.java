@@ -22,6 +22,8 @@ class PlatformAuditServiceTest {
     @Test void recordsActorResourceReasonTenantAndCorrelationAsAnAppendOnlyEvent(){
         Instant now=Instant.parse("2026-11-16T00:00:00Z");
         when(repository.saveAndFlush(any())).thenAnswer(inv->inv.getArgument(0));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_SUSPEND"))));
         var service=new PlatformAuditServiceImpl(repository,Clock.fixed(now,ZoneOffset.UTC));
         service.record("platform@example.test","TENANT_SUSPENDED","TENANT","12",12L,"Risk review","trace-12");
         var captor=ArgumentCaptor.forClass(PlatformAuditEvent.class);
@@ -32,6 +34,15 @@ class PlatformAuditServiceTest {
         assertThat(event.reason()).isEqualTo("Risk review");assertThat(event.correlationId()).isEqualTo("trace-12");
         assertThat(event.outcome()).isEqualTo("SUCCESS");assertThat(event.occurredAt()).isEqualTo(now);
     }
+    @Test void directAuditWriteRequiresMatchingPlatformActorAndActionPermission(){
+        var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+        assertThatThrownBy(()->service.record("vendor","TENANT_CREATED","TENANT","1",1L,"reason","trace"))
+            .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(repository);
+    }
+
     @Test void auditSearchRequiresPlatformAuditPermission(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
             java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));

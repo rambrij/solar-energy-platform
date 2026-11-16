@@ -15,12 +15,14 @@ public class ReceiptDocumentService {
  public ReceiptDocumentService(PosService retail,ReceiptPdfRenderer renderer,ReceiptDocumentAuditRepository audits,Clock clock,com.saumya.pos.checkout.CheckoutReceiptService receipts){this.receipts=receipts;this.retail=retail;this.renderer=renderer;this.audits=audits;this.clock=clock;}
  public record Download(String reference,String filename,byte[] content){}
     
-    public Download generate(String username, String order, String requestedReason) {
+    @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_RECEIPT_VIEW') and hasAuthority('POS_RECEIPT_REPRINT')")
+ public Download generate(String username, String order, String requestedReason) {
         if (order == null || !order.matches("[A-Za-z0-9-]{1,36}"))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt unavailable");
         if (requestedReason == null || requestedReason.isBlank() || requestedReason.length() > 250 || requestedReason.codePoints().anyMatch(Character::isISOControl))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Document reason required (1-250 plain characters)");
         var scope = retail.scope();
+        retail.authorize(scope,username,"POS_VIEW","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT");
         var receipt = receipts.receipt(scope, order);
         var data = ReceiptPdfData.saved(receipt);
         if (data.branch() != scope.branch() || !data.orderId().equals(order))

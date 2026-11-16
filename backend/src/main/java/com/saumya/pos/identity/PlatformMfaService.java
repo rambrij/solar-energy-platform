@@ -97,6 +97,9 @@ public class PlatformMfaService {
         return new EnrollmentStatus(true);
     }
     public EnrollmentStatus status(String username) {
+        var actor=authorization.current();
+        if(!actor.isPlatformUser()||!actor.username().equals(username))throw new ResponseStatusException(FORBIDDEN,"Platform actor does not match authenticated identity");
+        actor.requirePermission("PLATFORM_AUDIT_VIEW");
         var user=users.findByUsername(username).orElseThrow(()->new ResponseStatusException(UNAUTHORIZED,"Identity unavailable"));
         ensurePlatformOnly(username);return new EnrollmentStatus(user.platformMfaEnrolled());
     }

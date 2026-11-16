@@ -20,7 +20,7 @@ class Security {
                 .requestMatchers("/actuator/prometheus").hasAuthority("PLATFORM_ANALYTICS_VIEW")
                 .requestMatchers("/actuator/health","/actuator/info").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/marketplace/**","/api/v1/auth/csrf").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.POST,"/api/v1/auth/login","/api/v1/auth/register","/api/v1/auth/refresh","/api/v1/auth/logout","/api/v1/auth/invitations/accept").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST,"/api/v1/auth/login","/api/v1/auth/register","/api/v1/auth/refresh","/api/v1/auth/logout","/api/v1/auth/invitations/accept","/api/v1/auth/platform-mfa/enrollment/start","/api/v1/auth/platform-mfa/enrollment/complete").permitAll()
                 .anyRequest().authenticated())
             .sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .oauth2ResourceServer(o->o.jwt(j->j.decoder(jwt.decoder()).jwtAuthenticationConverter(identities::authenticate)))

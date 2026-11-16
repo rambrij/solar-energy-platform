@@ -4,6 +4,7 @@
 
 ALTER TABLE users ADD COLUMN platform_mfa_secret_enc VARCHAR(512) NULL;
 ALTER TABLE users ADD COLUMN platform_mfa_enrolled_at TIMESTAMP NULL;
+ALTER TABLE users ADD COLUMN platform_mfa_last_counter BIGINT NOT NULL DEFAULT -1;
 ALTER TABLE identity_refresh_tokens ADD COLUMN mfa_verified BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE TABLE platform_mfa_enrollment_tokens (

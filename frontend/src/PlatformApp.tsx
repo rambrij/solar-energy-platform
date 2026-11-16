@@ -34,7 +34,7 @@ export default function PlatformApp(){
  const [settings,setSettings]=useState<any[]>([]);
  const [reason,setReason]=useState(''),[invite,setInvite]=useState('');
  const [tenantForm,setTenantForm]=useState({slug:'',name:'',legalName:'',contactEmail:'',contactPhone:'',taxIdentifier:'',address:'',initialVendorAdminUsername:''});
- const [planForm,setPlanForm]=useState({planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{}',graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'});
+ const [planForm,setPlanForm]=useState({planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'});
  const [supportForm,setSupportForm]=useState({tenantId:'',purpose:'',ticketReference:'',expiresAt:''});
  const [configForm,setConfigForm]=useState({key:'',category:'INTEGRATION',value:'',sensitive:false,secretReference:''});
 

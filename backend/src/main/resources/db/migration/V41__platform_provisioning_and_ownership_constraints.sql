@@ -14,15 +14,19 @@ CREATE TABLE identity_invitations (
 );
 CREATE INDEX ix_invitation_user ON identity_invitations(username,expires_at);
 
+-- Add the ownership key and generated active-subscription key with portable DDL.
 ALTER TABLE tenant_subscriptions
-    ADD UNIQUE KEY uk_tenant_subscription_tenant_id(tenant_id,id),
+    ADD CONSTRAINT uk_tenant_subscription_tenant_id UNIQUE (tenant_id,id);
+ALTER TABLE tenant_subscriptions
     ADD COLUMN active_tenant_id BIGINT GENERATED ALWAYS AS (
         CASE WHEN status IN ('PENDING','ACTIVE','PAST_DUE','GRACE_PERIOD','SUSPENDED','CANCEL_AT_PERIOD_END')
              THEN tenant_id ELSE NULL END
-    ) STORED,
-    ADD UNIQUE KEY uk_tenant_effective_subscription(active_tenant_id);
+    );
+ALTER TABLE tenant_subscriptions
+    ADD CONSTRAINT uk_tenant_effective_subscription UNIQUE (active_tenant_id);
 ALTER TABLE subscription_invoices
-    ADD UNIQUE KEY uk_sub_invoice_tenant_id(tenant_id,id),
+    ADD CONSTRAINT uk_sub_invoice_tenant_id UNIQUE (tenant_id,id);
+ALTER TABLE subscription_invoices
     ADD CONSTRAINT fk_sub_invoice_subscription_owner
         FOREIGN KEY(tenant_id,subscription_id) REFERENCES tenant_subscriptions(tenant_id,id);
 ALTER TABLE subscription_payments

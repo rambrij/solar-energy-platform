@@ -1,20 +1,19 @@
 -- Version 2.0 platform ownership and lifecycle foundation.
-ALTER TABLE tenants
-    ADD COLUMN lifecycle_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    ADD COLUMN legal_name VARCHAR(180) NULL,
-    ADD COLUMN contact_email VARCHAR(100) NULL,
-    ADD COLUMN contact_phone VARCHAR(30) NULL,
-    ADD COLUMN tax_identifier VARCHAR(40) NULL,
-    ADD COLUMN address VARCHAR(500) NULL,
-    ADD COLUMN initial_vendor_admin_username VARCHAR(100) NULL,
-    ADD COLUMN terms_accepted_at TIMESTAMP NULL,
-    ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
+-- Keep every ALTER TABLE operation portable across MySQL and the H2 MySQL-mode test database.
+ALTER TABLE tenants ADD COLUMN lifecycle_status VARCHAR(20) NOT NULL DEFAULT 'PENDING';
+ALTER TABLE tenants ADD COLUMN legal_name VARCHAR(180) NOT NULL DEFAULT '';
+ALTER TABLE tenants ADD COLUMN contact_email VARCHAR(100) NULL;
+ALTER TABLE tenants ADD COLUMN contact_phone VARCHAR(30) NULL;
+ALTER TABLE tenants ADD COLUMN tax_identifier VARCHAR(40) NULL;
+ALTER TABLE tenants ADD COLUMN address VARCHAR(500) NULL;
+ALTER TABLE tenants ADD COLUMN initial_vendor_admin_username VARCHAR(100) NULL;
+ALTER TABLE tenants ADD COLUMN terms_accepted_at TIMESTAMP NULL;
+ALTER TABLE tenants ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE tenants ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE tenants ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
 
 UPDATE tenants SET lifecycle_status = CASE WHEN active = TRUE THEN 'ACTIVE' ELSE 'SUSPENDED' END,
     legal_name = name;
-ALTER TABLE tenants MODIFY COLUMN legal_name VARCHAR(180) NOT NULL;
 ALTER TABLE tenants ADD CONSTRAINT chk_tenant_lifecycle
     CHECK (lifecycle_status IN ('PENDING','UNDER_REVIEW','ACTIVE','SUSPENDED','CLOSED'));
 CREATE TABLE tenant_sequences (

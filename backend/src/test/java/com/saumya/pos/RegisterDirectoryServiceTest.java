@@ -25,6 +25,10 @@ class RegisterDirectoryServiceTest {
             public Scope scope() {
                 return new Scope(7, 9, "user");
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions){
+                assertThat(scope.cashier()).isEqualTo(actor);
+                assertThat(permissions).containsExactly("POS_VIEW");
+            }
         };
         service = new RegisterDirectoryService(repository, retail);
     }

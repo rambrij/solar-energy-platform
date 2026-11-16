@@ -18,6 +18,23 @@ class PaymentCheckoutServiceTest {
  private DraftRepository orders(DraftOrder order){return (DraftRepository)Proxy.newProxyInstance(DraftRepository.class.getClassLoader(),new Class<?>[]{DraftRepository.class},(p,m,a)->{if(m.getName().startsWith("lock"))return Optional.of(order);throw new AssertionError(m.getName());});}
     
     @Test
+    void directOnlinePaymentWithoutCustomerIdentityIsDeniedBeforeOrderOrProviderAccess() {
+        var orders=mock(DraftRepository.class);
+        var attempts=mock(PaymentAttemptRepository.class);
+        var adapter=mock(CheckoutAdapter.class);
+        var customers=mock(CustomerAccess.class);
+        var retail=new PosService(null,null,null) {
+            @Override public void authorizeCustomer(String actor) {
+                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+            }
+        };
+        var service=new PaymentCheckoutService(orders,null,attempts,policy(),customers,adapter,null,retail,Clock.systemUTC());
+        assertThatThrownBy(()->service.start("attacker","foreign-order","UPI"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        verifyNoInteractions(orders,attempts,adapter,customers);
+    }
+
+    @Test
     void rejectsCrossCashierBeforeReadingAttempts() {
         var retail = new PosService(null, null, null) {
             public Scope scope() {

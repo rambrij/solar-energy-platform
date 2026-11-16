@@ -24,12 +24,14 @@ public class CashierSalesService {
   void lines(CashierSalesLines l){tax=tax.add(l.tax());units+=l.units();discounts=discounts.add(l.discounts());}
   Totals view(){return new Totals(paid,sales,tax,sales.subtract(tax),cash,change,cash.subtract(change),units,invoices,discounts);}
  }
+ @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_REPORT_VIEW') and hasAuthority('POS_CASHIER_REPORT_VIEW')")
  public Report report(String username,LocalDate requestedFrom,LocalDate requestedTo,int page,int size){
   LocalDate to=requestedTo==null?LocalDate.now(clock.withZone(ZoneOffset.UTC)):requestedTo;
   if(to.getYear()<1970||to.getYear()>9998)throw invalid();LocalDate from=requestedFrom==null?to.minusDays(6):requestedFrom;
      if (from.getYear() < 1970 || from.isAfter(to) || ChronoUnit.DAYS.between(from, to) > 365 || page < 0 || page > 10000 || size < 1 || size > 48)
          throw invalid();
      var scope = retail.scope();
+     retail.authorize(scope,username,"POS_VIEW","POS_REPORT_VIEW","POS_CASHIER_REPORT_VIEW");
      Instant start = from.atStartOfDay(ZoneOffset.UTC).toInstant(), until = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
      var headers = reports.headers(scope.tenant(), scope.branch(), start, until, PageRequest.of(page, size));
      var buckets = new LinkedHashMap<String, Bucket>();

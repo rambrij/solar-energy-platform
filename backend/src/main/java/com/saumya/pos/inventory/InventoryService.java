@@ -116,10 +116,17 @@ public class InventoryService {
   return balances.available(tenant,product);
  }
 
- /** Exact branch quantity is available only to an authenticated member assigned to that branch. */
+ /** Exact branch quantity is available only to an inventory-authorized member. */
  @Transactional(readOnly=true)
  public long atBranch(long tenant,long branch,long product){
   var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("INVENTORY_VIEW");
+  return balances.atBranch(tenant,branch,product);
+ }
+
+ /** POS catalogue projection uses POS_VIEW and still enforces the authenticated tenant and branch. */
+ @Transactional(readOnly=true)
+ public long atBranchForPos(long tenant,long branch,long product){
+  var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("POS_VIEW");
   return balances.atBranch(tenant,branch,product);
  }
 
@@ -157,6 +164,7 @@ public class InventoryService {
    long branch=((Number)order.get("stock_branch_id")).longValue();
    var context=actor();
    if(!context.isCustomer()){
+    if(!"IN_STORE".equals(row.get("sales_channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
     context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
     if(context.username().equals(row.get("cashier")))context.requirePermission("POS_SALE_CANCEL");
     else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))

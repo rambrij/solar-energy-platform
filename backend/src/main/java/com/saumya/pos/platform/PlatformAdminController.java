@@ -8,6 +8,7 @@ import jakarta.validation.constraints.*;
 import java.time.Instant;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController @RequestMapping("/api/v1/platform")
 public class PlatformAdminController {
@@ -43,7 +44,7 @@ public class PlatformAdminController {
     @GetMapping("/audit") public Object audit(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="50") int size,@RequestParam(required=false) Long tenantId){require("PLATFORM_AUDIT_VIEW");return audit.search(page,size,tenantId);}
     @GetMapping("/support-access") public Object support(){require("PLATFORM_SUPPORT_ACCESS");return support.recent();}
     @PostMapping("/support-access") public ResponseEntity<?> grant(@Valid @RequestBody SupportRequest body,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
-        var actor=require("PLATFORM_SUPPORT_ACCESS");return ResponseEntity.status(CREATED).body(support.grant(body.tenantId(),actor.username(),body.purpose(),body.ticketReference(),body.expiresAt(),correlation(correlation)));
+        var actor=require("PLATFORM_SUPPORT_ACCESS");return ResponseEntity.status(HttpStatus.CREATED).body(support.grant(body.tenantId(),actor.username(),body.purpose(),body.ticketReference(),body.expiresAt(),correlation(correlation)));
     }
     @PostMapping("/support-access/{id}/revoke") public Object revoke(@PathVariable long id,@Valid @RequestBody SupportRevoke body,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){var actor=require("PLATFORM_SUPPORT_ACCESS");return support.revoke(id,actor.username(),body.reason(),correlation(correlation));}
     @GetMapping("/configuration") public Object settings(){require("PLATFORM_CONFIG_MANAGE");return configuration.list();}

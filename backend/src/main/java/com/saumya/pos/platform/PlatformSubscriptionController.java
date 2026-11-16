@@ -22,7 +22,7 @@ public class PlatformSubscriptionController {
     private SubscriptionPlanService.PlanInput input(PlanRequest p){return new SubscriptionPlanService.PlanInput(p.planKey(),p.displayName(),p.price(),p.currency(),p.billingInterval(),p.maxUsers(),p.maxStorageMb(),p.maxBranches(),p.maxWarehouses(),p.entitlements(),p.graceDays(),p.taxMetadata(),p.invoiceDescription());}
     @GetMapping public Object list(){actor("PLATFORM_SUBSCRIPTION_VIEW");return plans.list();}
     @PostMapping public ResponseEntity<?> create(@Valid @RequestBody PlanRequest request,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
-        String user=actor("PLATFORM_PLAN_MANAGE");var result=plans.create(input(request),user,correlation);audit.record(user,"SUBSCRIPTION_PLAN_CREATED","SUBSCRIPTION_PLAN",Long.toString(result.id()),null,"Plan version 1 created",correlation);return ResponseEntity.status(CREATED).body(result);
+        String user=actor("PLATFORM_PLAN_MANAGE");var result=plans.create(input(request),user,correlation);audit.record(user,"SUBSCRIPTION_PLAN_CREATED","SUBSCRIPTION_PLAN",Long.toString(result.id()),null,"Plan version 1 created",correlation);return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
     @PutMapping("/{id}/versions") public Object revise(@PathVariable long id,@Valid @RequestBody PlanRequest request,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
         String user=actor("PLATFORM_PLAN_MANAGE");var result=plans.revise(id,input(request),user,correlation);audit.record(user,"SUBSCRIPTION_PLAN_VERSION_CREATED","SUBSCRIPTION_PLAN",Long.toString(id),null,"New immutable price/entitlement version created",correlation);return result;

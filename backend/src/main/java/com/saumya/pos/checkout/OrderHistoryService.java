@@ -12,6 +12,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
 
 /** Read-only application API; financial and cancellation commands remain in their existing owners. */
@@ -60,12 +61,16 @@ public class OrderHistoryService {
         });
     }
     
+    @PreAuthorize("hasAuthority('CUSTOMER')")
     public History customer(String username, Filter filter) {
+        retail.authorizeCustomer(username);
         return search(customerScope(customers.resolve(username)), filter);
     }
     
+    @PreAuthorize("hasAuthority('POS_VIEW')")
     public History pos(String username, Filter filter) {
-        return search(branchScope(retail.scope()), filter);
+        var scope=retail.scope();retail.authorize(scope,username,"POS_VIEW");
+        return search(branchScope(scope), filter);
     }
     
     private Order view(DraftOrder order, Map<Long, String> names) {
@@ -77,12 +82,16 @@ public class OrderHistoryService {
         return new History(page.getContent().stream().map(o->view(o,names)).toList(),page.getNumber(),page.getSize(),page.getTotalElements(),page.getTotalPages());
     }
     
+    @PreAuthorize("hasAuthority('CUSTOMER')")
     public Detail customerDetail(String username, String id) {
+        retail.authorizeCustomer(username);
         return detail(customerScope(customers.resolve(username)), id);
     }
     
+    @PreAuthorize("hasAuthority('POS_VIEW')")
     public Detail posDetail(String username, String id) {
-        return detail(branchScope(retail.scope()), id);
+        var scope=retail.scope();retail.authorize(scope,username,"POS_VIEW");
+        return detail(branchScope(scope), id);
     }
     
     private Detail detail(Specification<DraftOrder> scope, String id) {

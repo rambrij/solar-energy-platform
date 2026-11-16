@@ -3,7 +3,9 @@ package com.saumya.pos;
 import com.saumya.pos.membership.*;
 import com.saumya.pos.membership.internal.*;
 import com.saumya.pos.tenant.TenantLifecycleService;
-import com.saumya.pos.security.AuthorizationContext;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import static org.mockito.Mockito.*;
 import java.lang.reflect.Proxy;
 import java.util.*;
@@ -42,10 +44,8 @@ class MembershipServiceTest {
     @Test void vendorActorCannotInvokePlatformInitialMembershipProvisioning(){
         var memberships=org.mockito.Mockito.mock(EmployeeMembershipRepository.class);
         var grants=org.mockito.Mockito.mock(PermissionGrantRepository.class);
-        var authorization=org.mockito.Mockito.mock(AuthorizationContext.class);
-        org.mockito.Mockito.when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-            "vendor-admin",7L,12L,Set.of("USER_CREATE"),false,false,true));
-        var service=new MembershipService(memberships,grants,tenants(),null,null,authorization);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor-admin","n/a",List.of(new SimpleGrantedAuthority("USER_CREATE"))));
+        var service=new MembershipService(memberships,grants,tenants(),null,null);
         assertThatThrownBy(()->service.provisionInitialVendorAdmin(7,12,"new-admin@example.com"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         org.mockito.Mockito.verifyNoInteractions(memberships,grants);
@@ -64,12 +64,12 @@ class MembershipServiceTest {
             if(m.getName().equals("flush"))return null;
             return null;
         });
-        var authorization=mock(AuthorizationContext.class);
-        when(authorization.current()).thenReturn(new AuthorizationContext.Context("platform-admin",null,null,Set.of("PLATFORM_TENANT_CREATE"),true,false,false));
-        var service=new MembershipService(memberships,grants,tenants(),null,null,authorization);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform-admin","n/a",List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_CREATE"))));
+        var service=new MembershipService(memberships,grants,tenants(),null,null);
         var created=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         var retried=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         assertThat(created.created()).isTrue();assertThat(retried.created()).isFalse();
         assertThat(rowsGrants).isNotEmpty().allSatisfy(g->assertThat(g.permission()).doesNotStartWith("PLATFORM_"));
+        SecurityContextHolder.clearContext();
     }
 }

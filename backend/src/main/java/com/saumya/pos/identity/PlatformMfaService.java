@@ -2,6 +2,10 @@ package com.saumya.pos.identity;
 
 import com.saumya.pos.identity.internal.GlobalUser;
 import com.saumya.pos.identity.internal.GlobalUserRepository;
+import com.saumya.pos.identity.internal.PlatformMfaEnrollmentRepository;
+import com.saumya.pos.identity.internal.PlatformMfaEnrollmentToken;
+import com.saumya.pos.identity.internal.RefreshSessionRepository;
+import com.saumya.pos.identity.internal.CustomerRepository;
 import com.saumya.pos.identity.internal.PlatformGrantRepository;
 import com.saumya.pos.membership.MembershipService;
 import com.saumya.pos.security.AuthorizationContext;
@@ -15,7 +19,6 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,12 +27,16 @@ import static org.springframework.http.HttpStatus.*;
 @Service
 @Transactional
 public class PlatformMfaService {
-    private final JdbcTemplate db;private final GlobalUserRepository users;private final PlatformGrantRepository grants;
-    private final MembershipService memberships;private final PlatformMfaCrypto crypto;private final PlatformTotp totp;private final Clock clock;
+    private final GlobalUserRepository users;private final PlatformGrantRepository grants;
+    private final PlatformMfaEnrollmentRepository enrollmentTokens;private final RefreshSessionRepository sessions;
+    private final CustomerRepository customers;private final MembershipService memberships;
+    private final PlatformMfaCrypto crypto;private final PlatformTotp totp;private final Clock clock;
     private final AuthorizationContext authorization;private final PlatformAuditService audit;
-    public PlatformMfaService(JdbcTemplate db,GlobalUserRepository users,PlatformGrantRepository grants,MembershipService memberships,
+    public PlatformMfaService(GlobalUserRepository users,PlatformGrantRepository grants,PlatformMfaEnrollmentRepository enrollmentTokens,
+        RefreshSessionRepository sessions,CustomerRepository customers,MembershipService memberships,
         PlatformMfaCrypto crypto,PlatformTotp totp,Clock clock,AuthorizationContext authorization,PlatformAuditService audit){
-        this.db=db;this.users=users;this.grants=grants;this.memberships=memberships;this.crypto=crypto;this.totp=totp;this.clock=clock;this.authorization=authorization;this.audit=audit;
+        this.users=users;this.grants=grants;this.enrollmentTokens=enrollmentTokens;this.sessions=sessions;this.customers=customers;
+        this.memberships=memberships;this.crypto=crypto;this.totp=totp;this.clock=clock;this.authorization=authorization;this.audit=audit;
     }
     public record Enrollment(String username,String secret,String otpauthUri,String expiresAt){}
     public record EnrollmentStatus(boolean enrolled){}
@@ -47,52 +54,45 @@ public class PlatformMfaService {
         ensurePlatformOnly(target);
         GlobalUser user=users.lockedByUsername(target).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Platform identity unavailable"));
         user.resetPlatformMfa();
-        db.update("UPDATE identity_refresh_tokens SET revoked=TRUE WHERE username=?",target);
-        db.update("DELETE FROM platform_mfa_enrollment_tokens WHERE username=?",target);
+        sessions.revokeByUsername(target);
+        enrollmentTokens.deleteByUsername(target);
         byte[] raw=new byte[32];new java.security.SecureRandom().nextBytes(raw);
         String token=Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
         Instant expiry=clock.instant().plus(Duration.ofMinutes(30));
-        db.update("INSERT INTO platform_mfa_enrollment_tokens(token_hash,username,expires_at) VALUES(?,?,?)",hashToken(token),target,java.sql.Timestamp.from(expiry));
+        enrollmentTokens.saveAndFlush(new PlatformMfaEnrollmentToken(hashToken(token),target,expiry,clock.instant()));
         audit.record(actor.username(),"PLATFORM_MFA_ENROLLMENT_ISSUED","PLATFORM_IDENTITY",target,null,why,null);
         return new IssuedEnrollment(target,token,expiry.toString());
     }
     public Enrollment start(String token) {
         String hash=hashToken(token);
-        var rows=db.queryForList("SELECT username,expires_at,pending_expires_at FROM platform_mfa_enrollment_tokens WHERE token_hash=? FOR UPDATE",hash);
-        if(rows.isEmpty())throw expired();
-        var row=rows.getFirst();String username=(String)row.get("username");
-        var expiry=((java.sql.Timestamp)row.get("expires_at")).toInstant();
-        if(!expiry.isAfter(clock.instant()))throw expired();
+        PlatformMfaEnrollmentToken row=enrollmentTokens.locked(hash).orElseThrow(this::expired);
+        String username=row.username();
+        if(!row.usableAt(clock.instant()))throw expired();
         ensurePlatformOnly(username);
         var user=users.lockedByUsername(username).orElseThrow(()->expired());
         if(user.platformMfaEnrolled())throw new ResponseStatusException(CONFLICT,"Platform MFA is already enrolled");
-        Object pending=row.get("pending_expires_at");
-        if(pending!=null&&((java.sql.Timestamp)pending).toInstant().isAfter(clock.instant()))
+        if(row.pendingAt(clock.instant()))
             throw new ResponseStatusException(CONFLICT,"An enrollment is already in progress; wait for it to expire");
         String secret=totp.newSecret(),encrypted=crypto.encrypt(secret);
         var pendingUntil=clock.instant().plus(Duration.ofMinutes(10));
-        db.update("UPDATE platform_mfa_enrollment_tokens SET pending_secret_enc=?,pending_expires_at=? WHERE token_hash=?",
-            encrypted,java.sql.Timestamp.from(pendingUntil),hash);
+        row.beginPending(encrypted,pendingUntil);
         String uri="otpauth://totp/Saumya%20Solar:"+java.net.URLEncoder.encode(username,StandardCharsets.UTF_8)
             +"?secret="+secret+"&issuer=Saumya%20Solar&algorithm=SHA1&digits=6&period=30";
         return new Enrollment(username,secret,uri,pendingUntil.toString());
     }
     public EnrollmentStatus complete(String token,String code) {
         String hash=hashToken(token);
-        var rows=db.queryForList("SELECT username,expires_at,pending_secret_enc,pending_expires_at FROM platform_mfa_enrollment_tokens WHERE token_hash=? FOR UPDATE",hash);
-        if(rows.isEmpty())throw expired();
-        var row=rows.getFirst();String username=(String)row.get("username");
-        if(!((java.sql.Timestamp)row.get("expires_at")).toInstant().isAfter(clock.instant())
-            ||row.get("pending_secret_enc")==null||row.get("pending_expires_at")==null
-            ||!((java.sql.Timestamp)row.get("pending_expires_at")).toInstant().isAfter(clock.instant()))throw expired();
+        PlatformMfaEnrollmentToken row=enrollmentTokens.locked(hash).orElseThrow(this::expired);
+        String username=row.username();
+        if(!row.usableAt(clock.instant())||!row.pendingAt(clock.instant()))throw expired();
         ensurePlatformOnly(username);
         GlobalUser user=users.lockedByUsername(username).orElseThrow(()->expired());
         if(user.platformMfaEnrolled())throw new ResponseStatusException(CONFLICT,"Platform MFA is already enrolled");
-        String secret=crypto.decrypt((String)row.get("pending_secret_enc"));
+        String secret=crypto.decrypt(row.pendingSecretEnc());
         long counter=totp.verifyCounter(secret,code,clock.instant().getEpochSecond());
         if(counter<0)throw new ResponseStatusException(UNAUTHORIZED,"Invalid MFA verification code");
         user.enrollPlatformMfa(crypto.encrypt(secret),clock.instant(),counter);
-        db.update("DELETE FROM platform_mfa_enrollment_tokens WHERE token_hash=?",hash);
+        enrollmentTokens.delete(row);
         return new EnrollmentStatus(true);
     }
     public EnrollmentStatus status(String username) {
@@ -102,7 +102,7 @@ public class PlatformMfaService {
     private void ensurePlatformOnly(String username) {
         if(grants.permissions(username).isEmpty()||memberships.hasMembership(username))
             throw new ResponseStatusException(FORBIDDEN,"A separate platform identity is required");
-        if(db.queryForObject("SELECT COUNT(*) FROM customer_profiles c JOIN users u ON u.id=c.user_id WHERE u.username=?",Long.class,username)>0)
+        if(customers.profileCount(username)>0)
             throw new ResponseStatusException(FORBIDDEN,"A separate platform identity is required");
     }
     private String hashToken(String token) {

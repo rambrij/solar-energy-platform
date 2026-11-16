@@ -40,13 +40,16 @@ public class IdentityProvisioningServiceImpl implements IdentityProvisioningServ
     }
     @Override public void ensureVendorEligible(String requested){
         var context=actor();if(!context.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");context.requirePermission("PLATFORM_TENANT_CREATE");
+        validateVendorEligible(requested);
+    }
+    private void validateVendorEligible(String requested){
         String username=normalize(requested);
         if(!platform.permissions(username).isEmpty())throw new ResponseStatusException(CONFLICT,"Platform identities cannot receive vendor membership; use a separate vendor identity");
         if(customers.profileCount(username)>0)throw new ResponseStatusException(CONFLICT,"Customer identities cannot receive vendor membership; use a separate vendor employee identity");
     }
     @Override public Invitation issueInvitation(String requested){
         var context=actor();if(context.isPlatformUser())context.requirePermission("PLATFORM_TENANT_CREATE");else{context.requireVendorMembership();context.requirePermission("USER_CREATE");}
-        String username=normalize(requested);ensureVendorEligible(username);
+        String username=normalize(requested);validateVendorEligible(username);
         var existing=users.findByUsername(username);
         if(existing.isPresent()&&existing.get().enabled())return new com.saumya.pos.security.IdentityInvitationPort.Invitation(username,null,null,true);
         if(existing.isEmpty()){

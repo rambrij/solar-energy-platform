@@ -275,7 +275,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT customer_id FROM orders WHERE id=?",Long.class,draft.id())).isEqualTo(100L);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE tenant_id=1 AND customer_id=100",Integer.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE tenant_id=2",Integer.class)).isZero();
-  as("alice", () -> checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));assertThat(onlineReceipts.read("customer",draft.id()).orderId()).isEqualTo(draft.id());
+  as("alice", () -> checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));assertThat(asCustomer("customer",()->onlineReceipts.read("customer",draft.id())).orderId()).isEqualTo(draft.id());
  }
  @Test void expiredAssociationTokenCannotAttachCustomer(){configureOnline();var draft=as("alice",()->as("alice", () -> checkout.pos("alice","expired-association",posDraft())));var challenge=as("alice", () -> associations.create("alice",draft.id(),true));update("UPDATE pos_customer_challenges SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));assertThatThrownBy(()->asCustomer("customer", () -> associations.approve("customer",challenge.token(),true)));assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();}
  @Test void partialCashImmediatelyAppearsInDrawerAndRetriesCannotDoubleCount(){

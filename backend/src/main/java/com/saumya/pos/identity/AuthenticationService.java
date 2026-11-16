@@ -1,6 +1,7 @@
 package com.saumya.pos.identity;
 import com.saumya.pos.identity.internal.*;
 import com.saumya.pos.security.VendorMembershipAccess;
+import com.saumya.pos.security.VendorMembershipResolver;
 import java.time.*;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
@@ -26,7 +27,7 @@ public class AuthenticationService {
  private String hash(String token){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
  private String random(){byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);}
  private Account account(String username,boolean mfaVerified){
-  boolean customer=customers.resolve(username).isPresent();var membership=memberships.access(username);var platformPermissions=platform.permissions(username);
+  boolean customer=customers.resolve(username).isPresent();var membership=memberships.resolve(username);var platformPermissions=platform.permissions(username);
   if(!platformPermissions.isEmpty()){
    var user=users.findByUsername(username).orElseThrow(this::denied);
    if(!localPlatformAccess&&(!mfaVerified||!user.platformMfaEnrolled()))throw denied();
@@ -35,7 +36,7 @@ public class AuthenticationService {
   }
   var grants=new ArrayList<String>();if(customer)grants.add("CUSTOMER");membership.ifPresent(m->grants.addAll(m.permissions()));
   if(grants.isEmpty()&&membership.isEmpty())throw denied();
-  return new Account(username,membership.map(VendorMembershipAccess.Access::tenant).orElse(null),membership.map(VendorMembershipAccess.Access::branch).orElse(null),List.copyOf(grants));
+  return new Account(username,membership.map(VendorMembershipResolver.Membership::tenant).orElse(null),membership.map(VendorMembershipResolver.Membership::branch).orElse(null),List.copyOf(grants));
  }
  private Session issue(String username,String family,boolean mfaVerified){var account=account(username,mfaVerified);String refresh=random();sessions.saveAndFlush(new RefreshSession(hash(refresh),username,family,clock.instant().plusSeconds(604800),mfaVerified));return new Session(jwt.issue(username,family,account.tenantId()),300,account,refresh);}
  @Transactional(noRollbackFor=ResponseStatusException.class) public Session login(String username,String password){return login(username,password,null);}

@@ -160,7 +160,7 @@ public class InventoryService {
    long branch=((Number)order.get("stock_branch_id")).longValue();
    var context=actor();
    if(!context.isCustomer()){
-    if(!"IN_STORE".equals(order.get("sales_channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+    if(!"IN_STORE".equals(order.get("channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
     context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
     if(context.username().equals(order.get("cashier"))){if(!context.hasAnyPermission("POS_SALE_CANCEL","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Sale cancellation or payment resolution permission required");}
     else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))
@@ -179,7 +179,7 @@ public class InventoryService {
   Map<String,Object> row=order(tenant,orderId);
   long branch=((Number)row.get("stock_branch_id")).longValue();
   var context=actor();
-  if("ONLINE".equals(row.get("sales_channel"))){
+  if("ONLINE".equals(row.get("channel"))){
    if(!context.isCustomer()||context.isPlatformUser())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
    long customer=customers.resolve(context.username());Object owner=row.get("customer_id");
    if(owner==null||((Number)owner).longValue()!=customer)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");

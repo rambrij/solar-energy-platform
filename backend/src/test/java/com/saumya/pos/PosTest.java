@@ -541,7 +541,7 @@ class PosTest {
  @Test void sessionDiscoveryAndResumeAreRestrictedToTheOwningCashier(){
   String bobSession=(String)service.open(b,new PosService.OpenSession(2,BigDecimal.ZERO)).get("id");
   employee("charlie",1,1);
-  update("INSERT INTO registers VALUES(3,1,1)");
+  update("INSERT INTO registers VALUES(3,1,1)");assignRegister("charlie",1,1,3);
   var charlie=new PosService.Scope(1,1,"charlie");
   String colleagueSession=(String)service.open(charlie,new PosService.OpenSession(3,BigDecimal.ZERO)).get("id");
   assertThat(service.activeSessions(a)).extracting(PosService.SessionSummary::id).containsExactly(session);
@@ -1236,7 +1236,7 @@ class PosTest {
   as("manager", () -> returns.review(r.id(),approveReturn()));as("manager", () -> returns.inspect(r.id(),inspectReturn("DAMAGED","QUARANTINE")));return r.id();
  }
  String refundSession(String floatAmount){
-  update("INSERT INTO registers VALUES(3,1,1)");
+  update("INSERT INTO registers VALUES(3,1,1)");assignRegister("manager",1,1,3);
   return (String)service.open(new PosService.Scope(1,1,"manager"),new PosService.OpenSession(3,new BigDecimal(floatAmount))).get("id");
  }
  com.saumya.pos.returns.CashRefundService.Pay refundPay(String returned,String paying){
@@ -1598,8 +1598,8 @@ class PosTest {
  }
 
  @Test void registerDirectoryIsPagedScopedAndHidesDrawerDetails() throws Exception {
-  for(int id=3;id<=26;id++)update("INSERT INTO registers VALUES(?,1,1)",id);
-  employee("register-colleague",1,1);var colleague=new PosService.Scope(1,1,"register-colleague");String closing=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("50"))).get("id");service.close(colleague,closing,new BigDecimal("49"),"Count discrepancy",UUID.randomUUID().toString());String closed=(String)service.open(a,new PosService.OpenSession(4,BigDecimal.ZERO)).get("id");service.close(a,closed,BigDecimal.ZERO);
+  for(int id=3;id<=26;id++){update("INSERT INTO registers VALUES(?,1,1)",id);assignRegister("alice",1,1,id);}
+  employee("register-colleague",1,1);assignRegister("register-colleague",1,1,3);var colleague=new PosService.Scope(1,1,"register-colleague");String closing=(String)service.open(colleague,new PosService.OpenSession(3,new BigDecimal("50"))).get("id");service.close(colleague,closing,new BigDecimal("49"),"Count discrepancy",UUID.randomUUID().toString());String closed=(String)service.open(a,new PosService.OpenSession(4,BigDecimal.ZERO)).get("id");service.close(a,closed,BigDecimal.ZERO);
   int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);var ids=db.queryForList("SELECT id FROM registers WHERE tenant_id=1 ORDER BY id",Long.class);String path="/api/v1/vendor/pos/registers";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("page",Integer.toString(page)).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(1)).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(ids.get(page*12))).andExpect(jsonPath("$.items[0].cashier").doesNotExist()).andExpect(jsonPath("$.items[0].openingFloat").doesNotExist()).andExpect(jsonPath("$.items[0].sessionId").doesNotExist()).andExpect(jsonPath("$.items[0].state").doesNotExist());
   mvc.perform(get(path).param("size","48").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].available").value(false)).andExpect(jsonPath("$.items[1].available").value(false)).andExpect(jsonPath("$.items[2].available").value(true));

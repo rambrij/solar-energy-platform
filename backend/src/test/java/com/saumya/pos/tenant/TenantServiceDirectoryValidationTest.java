@@ -18,7 +18,7 @@ class TenantServiceDirectoryValidationTest {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor-operator","n/a",java.util.List.of(new SimpleGrantedAuthority("POS_VIEW"))));
         var service=new TenantService(repository,null,Clock.systemUTC());
         assertThatThrownBy(()->service.create(null)).isInstanceOf(ResponseStatusException.class)
-            .hasMessageContaining("PLATFORM_TENANT_CREATE");
+            .hasMessageContaining("Platform identity required");
         verifyNoInteractions(repository);
     }
 

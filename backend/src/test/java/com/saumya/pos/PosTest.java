@@ -190,7 +190,7 @@ class PosTest {
   assertThatThrownBy(()->as("alice",()->stock.atBranch(2,2,2)))
    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
    .satisfies(error->assertThat(((org.springframework.web.server.ResponseStatusException)error).getStatusCode().value()).isEqualTo(403));
-  assertThatThrownBy(()->as("alice",()->stock.issue(2,2,2,1)))
+  assertThatThrownBy(()->as("alice",()->{stock.issue(2,2,2,1);return null;}))
    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
    .satisfies(error->assertThat(((org.springframework.web.server.ResponseStatusException)error).getStatusCode().value()).isEqualTo(403));
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=2 AND branch_id=2 AND product_id=2",Integer.class)).isEqualTo(before);

@@ -12,7 +12,18 @@ import static org.springframework.http.HttpStatus.*;
 public class PlatformAuditServiceImpl implements PlatformAuditService {
     private final PlatformAuditRepository repository; private final Clock clock;
     public PlatformAuditServiceImpl(PlatformAuditRepository repository,Clock clock){this.repository=repository;this.clock=clock;}
+    private String writePermission(String action){
+        if("TENANT_CREATED".equals(action))return "PLATFORM_TENANT_CREATE";
+        if("TENANT_UPDATED".equals(action))return "PLATFORM_TENANT_UPDATE";
+        if("TENANT_SUSPENDED".equals(action)||action.endsWith("_TO_SUSPENDED"))return "PLATFORM_TENANT_SUSPEND";
+        if("TENANT_CLOSED".equals(action)||action.endsWith("_TO_CLOSED"))return "PLATFORM_TENANT_CLOSE";
+        if(action.endsWith("_TO_ACTIVE"))return "PLATFORM_TENANT_REACTIVATE";
+        if(action.startsWith("SUPPORT_ACCESS_"))return "PLATFORM_SUPPORT_ACCESS";
+        if("PLATFORM_CONFIGURATION_UPDATED".equals(action))return "PLATFORM_CONFIG_MANAGE";
+        throw new ResponseStatusException(FORBIDDEN,"Unsupported platform audit action");
+    }
     @Override public void record(String actor,String action,String type,String resourceId,Long tenantId,String reason,String correlationId){
+        PlatformAuthorization.require(writePermission(action),actor);
         repository.saveAndFlush(new PlatformAuditEvent(actor,action,type,resourceId,tenantId,reason,"SUCCESS",correlationId,clock.instant()));
     }
     @Override @Transactional(readOnly=true) public AuditPage search(int page,int size,Long tenantId){

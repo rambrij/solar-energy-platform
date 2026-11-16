@@ -25,6 +25,29 @@ public class TenantEntitlementPolicy {
         this.db=db;this.json=json;this.clock=clock;var profiles=Set.of(env.getActiveProfiles());
         this.enforced=Collections.disjoint(profiles,Set.of("local","test"));
     }
+    /** Enforces a public commerce feature using the same authoritative subscription resolver as RBAC. */
+    public void requireFeature(long tenant,String feature,boolean write){
+        String probe=switch(feature){
+            case "POS" -> write?"POS_SALE_CREATE":"POS_VIEW";
+            case "CATALOG" -> write?"PRODUCT_UPDATE":"PRODUCT_VIEW";
+            case "INVENTORY" -> write?"INVENTORY_RECEIVE":"INVENTORY_VIEW";
+            case "ADMINISTRATION" -> write?"USER_UPDATE":"USER_VIEW";
+            case "CRM" -> write?"CRM_NOTE_UPDATE":"CRM_NOTE_VIEW";
+            case "LEADS" -> write?"LEAD_UPDATE":"LEAD_VIEW";
+            case "QUOTATIONS" -> write?"QUOTATION_UPDATE":"QUOTATION_VIEW";
+            case "ORDERS" -> write?"ORDER_CREATE":"ORDER_VIEW";
+            case "RETURNS" -> write?"RETURN_APPROVE":"RETURN_VIEW";
+            case "FINANCE" -> write?"INVOICE_CREATE":"INVOICE_VIEW";
+            case "SHIPMENTS" -> write?"SHIPMENT_UPDATE":"SHIPMENT_VIEW";
+            case "SERVICE" -> write?"SERVICE_UPDATE":"SERVICE_VIEW";
+            case "REPORTING" -> write?"REPORT_EXPORT":"REPORT_VIEW";
+            default -> throw new IllegalArgumentException("Unknown subscription feature: "+feature);
+        };
+        if(!permissions(tenant,List.of(probe)).contains(probe))
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.FORBIDDEN,
+                "Tenant subscription does not entitle "+(write?"write":"read")+" access to "+feature);
+    }
     public List<String> permissions(long tenant,List<String> grants){
         if(!enforced)return grants;
         var rows=db.queryForList("""

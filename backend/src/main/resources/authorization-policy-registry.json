@@ -1,0 +1,308 @@
+{
+  "version": 1,
+  "description": "Canonical authorization names, React workspace route policies, and controller-family inventory. Per-method @PreAuthorize/service guards remain authoritative; CI enforces inventory completeness and unknown-permission detection.",
+  "vendorPermissions": [
+    "CRM_NOTE_CREATE",
+    "CRM_NOTE_UPDATE",
+    "CRM_NOTE_VIEW",
+    "CUSTOMER_RELATION_CREATE",
+    "CUSTOMER_RELATION_UPDATE",
+    "CUSTOMER_RELATION_VIEW",
+    "INVENTORY_ADJUST",
+    "INVENTORY_RECEIVE",
+    "INVENTORY_RESERVE",
+    "INVENTORY_TRANSFER",
+    "INVENTORY_VIEW",
+    "INVOICE_CREATE",
+    "INVOICE_SEND",
+    "INVOICE_VIEW",
+    "LEAD_ASSIGN",
+    "LEAD_CREATE",
+    "LEAD_UPDATE",
+    "LEAD_VIEW",
+    "ORDER_CANCEL",
+    "ORDER_CREATE",
+    "ORDER_UPDATE",
+    "ORDER_VIEW",
+    "POS_CASHIER_REPORT_VIEW",
+    "POS_CASH_IN",
+    "POS_CASH_OUT",
+    "POS_DISCOUNT_APPLY",
+    "POS_DISCOUNT_OVERRIDE",
+    "POS_PRICE_OVERRIDE",
+    "POS_RECEIPT_REPRINT",
+    "POS_RECEIPT_VIEW",
+    "POS_REFUND_APPROVE",
+    "POS_REFUND_CASH_RECORD",
+    "POS_REFUND_PRINT",
+    "POS_REFUND_VIEW",
+    "POS_REPORT_EXPORT",
+    "POS_REPORT_VIEW",
+    "POS_RETURN_AUDIT_VIEW",
+    "POS_RETURN_CREATE",
+    "POS_RETURN_INSPECT",
+    "POS_RETURN_VIEW",
+    "POS_SAFE_DROP",
+    "POS_SALE_CANCEL",
+    "POS_SALE_CREATE",
+    "POS_SESSION_CLOSE",
+    "POS_SESSION_OPEN",
+    "POS_SESSION_REOPEN",
+    "POS_SETTINGS_MANAGE",
+    "POS_SHIFT_VARIANCE_APPROVE",
+    "POS_TENDER_CASH_RECORD",
+    "POS_TENDER_EXTERNAL_CONFIRM",
+    "POS_TENDER_EXTERNAL_RECORD",
+    "POS_TENDER_MANUAL_VERIFY",
+    "POS_TENDER_VIEW",
+    "POS_VIEW",
+    "PRICE_UPDATE",
+    "PRICE_VIEW",
+    "PRODUCT_CREATE",
+    "PRODUCT_UPDATE",
+    "PRODUCT_VIEW",
+    "QUOTATION_APPROVE",
+    "QUOTATION_CONVERT",
+    "QUOTATION_CREATE",
+    "QUOTATION_SEND",
+    "QUOTATION_UPDATE",
+    "QUOTATION_VIEW",
+    "REPORT_EXPORT",
+    "REPORT_VIEW",
+    "RETURN_APPROVE",
+    "RETURN_RECEIVE",
+    "RETURN_VIEW",
+    "ROLE_ASSIGN",
+    "ROLE_CREATE",
+    "ROLE_UPDATE",
+    "ROLE_VIEW",
+    "SHIPMENT_UPDATE",
+    "SHIPMENT_VIEW",
+    "TENANT_PROFILE_UPDATE",
+    "TENANT_PROFILE_VIEW",
+    "USER_CREATE",
+    "USER_DISABLE",
+    "USER_UPDATE",
+    "USER_VIEW",
+    "VENDOR_AUDIT_VIEW",
+    "VENDOR_PAYMENT_RECONCILE",
+    "VENDOR_PAYMENT_REFUND",
+    "VENDOR_PAYMENT_VIEW"
+  ],
+  "platformPermissions": [
+    "PLATFORM_ANALYTICS_VIEW",
+    "PLATFORM_AUDIT_VIEW",
+    "PLATFORM_CONFIG_MANAGE",
+    "PLATFORM_IDENTITY_MANAGE",
+    "PLATFORM_PLAN_MANAGE",
+    "PLATFORM_SUBSCRIPTION_ADJUST",
+    "PLATFORM_SUBSCRIPTION_VIEW",
+    "PLATFORM_SUPPORT_ACCESS",
+    "PLATFORM_TENANT_CLOSE",
+    "PLATFORM_TENANT_CREATE",
+    "PLATFORM_TENANT_REACTIVATE",
+    "PLATFORM_TENANT_SUSPEND",
+    "PLATFORM_TENANT_UPDATE",
+    "PLATFORM_TENANT_VIEW"
+  ],
+  "frontendRoutes": {
+    "checkout": {
+      "allOf": [
+        "POS_VIEW"
+      ]
+    },
+    "current-sale": {
+      "allOf": [
+        "POS_VIEW"
+      ]
+    },
+    "reserved-pos-checkout": {
+      "allOf": [
+        "POS_VIEW"
+      ]
+    },
+    "order-history": {
+      "allOf": [
+        "POS_VIEW"
+      ]
+    },
+    "sale-receipt": {
+      "anyOf": [
+        "POS_RECEIPT_VIEW"
+      ]
+    },
+    "pos-returns": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW"
+      ]
+    },
+    "cash-refunds": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_REFUND_VIEW"
+      ]
+    },
+    "category-management": {
+      "anyOf": [
+        "PRODUCT_VIEW",
+        "PRODUCT_CREATE",
+        "PRODUCT_UPDATE"
+      ]
+    },
+    "product-management": {
+      "anyOf": [
+        "PRODUCT_VIEW",
+        "PRODUCT_CREATE",
+        "PRODUCT_UPDATE"
+      ]
+    },
+    "stock-receiving": {
+      "anyOf": [
+        "INVENTORY_VIEW",
+        "INVENTORY_RECEIVE"
+      ]
+    },
+    "register": {
+      "allOf": [
+        "POS_VIEW"
+      ]
+    },
+    "shift-history": {
+      "allOf": [
+        "POS_VIEW"
+      ]
+    },
+    "shift-reviews": {
+      "anyOf": [
+        "POS_SHIFT_VARIANCE_APPROVE"
+      ]
+    },
+    "terminal-tender-review": {
+      "anyOf": [
+        "POS_TENDER_MANUAL_VERIFY"
+      ]
+    },
+    "store-settings": {
+      "allOf": [
+        "POS_VIEW"
+      ]
+    },
+    "promotion-history": {
+      "allOf": [
+        "POS_VIEW",
+        "CATALOG_PROMOTION_MANAGE",
+        "POS_DISCOUNT_APPROVE"
+      ]
+    },
+    "sales-insights": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW"
+      ]
+    },
+    "refund-insights": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_REFUND_VIEW"
+      ]
+    },
+    "cashier-sales-insights": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_CASHIER_REPORT_VIEW"
+      ]
+    },
+    "role-management": {
+      "anyOf": [
+        "ROLE_VIEW",
+        "ROLE_CREATE",
+        "ROLE_UPDATE",
+        "ROLE_ASSIGN"
+      ]
+    },
+    "employee-management": {
+      "anyOf": [
+        "USER_VIEW",
+        "USER_CREATE",
+        "USER_UPDATE",
+        "USER_DISABLE"
+      ]
+    },
+    "vendor-directory": {
+      "anyOf": [
+        "CUSTOMER"
+      ]
+    },
+    "storefront-products": {
+      "anyOf": [
+        "CUSTOMER"
+      ]
+    },
+    "customer-cart": {
+      "anyOf": [
+        "CUSTOMER"
+      ]
+    },
+    "online-checkout": {
+      "anyOf": [
+        "CUSTOMER"
+      ]
+    },
+    "saved-vendor-carts": {
+      "anyOf": [
+        "CUSTOMER"
+      ]
+    },
+    "customer-purchases": {
+      "anyOf": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "controllerPolicies": {
+    "CashierSalesController": "VENDOR_POS_REPORT_SCOPE",
+    "CheckoutController": "CUSTOMER_OR_POS_OWNER_SCOPE",
+    "CustomerAssociationController": "CUSTOMER_VERIFICATION_AND_POS_SCOPE",
+    "DraftRecoveryController": "CUSTOMER_OR_POS_OWNER_SCOPE",
+    "OnlineReceiptController": "CUSTOMER_ORDER_OWNER_SCOPE",
+    "OrderHistoryController": "CUSTOMER_OR_POS_OWNER_SCOPE",
+    "PaymentCheckoutController": "CUSTOMER_OR_POS_AND_SUPERVISOR_SCOPE",
+    "SalesReportController": "VENDOR_REPORT_SCOPE",
+    "ReceiptDocumentController": "RECEIPT_OWNER_AND_REPRINT_PERMISSION",
+    "SaleReceiptController": "VENDOR_RECEIPT_SCOPE",
+    "AuthenticationController": "AUTHENTICATION_FLOW",
+    "IdentityInvitationController": "ONE_TIME_INVITATION_TOKEN",
+    "PlatformIdentityController": "PLATFORM_IDENTITY_PERMISSION",
+    "PlatformMfaController": "ONE_TIME_MFA_ENROLLMENT_TOKEN",
+    "CatalogSearchController": "PUBLIC_PUBLISHED_CATALOGUE",
+    "CategoryAdminController": "VENDOR_CATALOGUE_PERMISSION",
+    "DiscountPolicyController": "VENDOR_POS_DISCOUNT_PERMISSION",
+    "MarketplaceController": "PUBLIC_OR_CUSTOMER_OWNER",
+    "ProductAdminController": "VENDOR_CATALOGUE_PERMISSION",
+    "ProductDetailController": "PUBLIC_PUBLISHED_CATALOGUE",
+    "PromotionController": "VENDOR_PROMOTION_PERMISSION",
+    "PromotionHistoryController": "VENDOR_PROMOTION_PERMISSION",
+    "StockReceivingController": "VENDOR_INVENTORY_PERMISSION",
+    "VendorDirectoryController": "PUBLIC_ACTIVE_VENDOR_DIRECTORY",
+    "VendorRoleController": "VENDOR_ROLE_AND_EMPLOYEE_PERMISSION",
+    "PlatformAdminController": "PLATFORM_TENANT_AND_AUDIT_PERMISSION",
+    "PlatformHealthController": "PLATFORM_ANALYTICS_PERMISSION",
+    "PlatformSubscriptionController": "PLATFORM_PLAN_PERMISSION",
+    "PlatformTenantSubscriptionController": "PLATFORM_SUBSCRIPTION_PERMISSION",
+    "ReportExportController": "VENDOR_REPORT_EXPORT_PERMISSION",
+    "BranchSettingsController": "VENDOR_BRANCH_SETTINGS_PERMISSION",
+    "PosCatalogController": "VENDOR_POS_VIEW_AND_BRANCH_SCOPE",
+    "PosController": "VENDOR_POS_PERMISSION_AND_SESSION_SCOPE",
+    "RegisterDirectoryController": "VENDOR_POS_REGISTER_ASSIGNMENT_SCOPE",
+    "ShiftHistoryController": "CASHIER_OWN_SHIFT_SCOPE",
+    "CashRefundController": "VENDOR_POS_REFUND_PERMISSION",
+    "RefundHistoryController": "VENDOR_POS_REFUND_PERMISSION",
+    "RefundReportController": "VENDOR_POS_REFUND_REPORT_PERMISSION",
+    "ReturnAuditController": "VENDOR_POS_RETURN_AUDIT_PERMISSION",
+    "ReturnController": "VENDOR_POS_RETURN_PERMISSION",
+    "ReturnQueueController": "VENDOR_POS_RETURN_QUEUE_PERMISSION"
+  }
+}

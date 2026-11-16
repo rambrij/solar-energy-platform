@@ -24,7 +24,7 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | P2 | Important hardening, missing verification, or defense-in-depth gap without a demonstrated exploit. |
 | P3 | Documentation, maintainability, or cleanup. |
 
-**P0-01 outcome:** no confirmed cross-tenant exploit was demonstrated in the inspected source paths. Three same-tenant database integrity gaps were confirmed and are P1. Several P2 items need tests or explicit scoped methods. No P0 vulnerability is asserted without evidence.
+**P0-01 outcome:** no confirmed cross-tenant exploit was demonstrated in the inspected source paths. Three same-tenant database integrity gaps were confirmed and are P1. The three P1 gaps are implemented by additive Flyway migration `V48__tenant_child_ownership_constraints.java`, including pre-DDL data validation and composite foreign keys. H2 and MySQL 8.4 CI suites both passed (497 tests each, zero failures/errors). No P0 vulnerability is asserted without evidence. Production deployment still depends on V48's live-data preflight succeeding.
 
 ## 2. Remediation backlog
 
@@ -41,11 +41,11 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | Expected behavior | Every drawer tender must reference an existing session and POS order belonging to the same tenant and branch. |
 | Security impact | Database does not independently reject a mismatched tenant/session/order tuple if a future or defective writer bypasses current service/event construction. The inspected event writer derives fields from a persisted order/tender, so no exploit was demonstrated. |
 | Evidence | `V32__cash_drawer_tender_projection.sql`; `CashDrawerProjection.record(CashTenderRecorded)`; `PosService` drawer queries filter tenant + session. |
-| Recommended implementation | Add the minimum parent unique keys required and composite FKs from `(tenant_id,branch_id,session_id)` to the corresponding POS session identity and from `(tenant_id,order_reference)` to `orders(tenant_id,id)`. If branch consistency is not expressible with existing session/order keys, introduce a carefully normalized parent reference only after design review. |
-| Migration required | Yes, additive Flyway migration only. Never edit V32. |
+| Recommended implementation | **Implemented in V48:** adds parent unique keys for POS session/order identities plus composite FKs for same-tenant branch, session and order ownership. The order FK binds tenant + branch + session + order ID. |
+| Migration required | **Implemented:** additive Flyway V48 only; V32 remains unchanged. The migration aborts before DDL if existing drawer rows do not resolve to the same tenant/branch/session/order. |
 | Tests required | MySQL 8.4: valid same-tenant tender insert succeeds; wrong tenant/session, wrong branch, wrong order and orphan session/order fail. Verify legacy rows before constraint rollout. |
 | Dependencies | Resource inventory; schema data-quality query; P2 MySQL migration suite. |
-| Acceptance criteria | MySQL rejects all mismatched tenant/session/branch/order references; no valid drawer reconciliation behavior changes; migration performs no silent data deletion. |
+| Acceptance criteria | **Verified in CI:** MySQL 8.4 and H2 reject cross-tenant/mismatched session/order inserts; valid same-tenant cash-sale projection writes pass. Migration performs no silent data deletion. Production V48 preflight must still pass against the deployment database. |
 
 ### INV-DB-002 — Bind POS active-draft projection to its order
 
@@ -60,11 +60,11 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | Expected behavior | Every active draft projection row must identify an existing order belonging to the same tenant; its session tuple must agree with the order's branch/cashier/session fields. |
 | Security impact | An orphan or mismatched projection can survive independently of its order and may interfere with session-close validation. The event writer uses a persisted order event and full tenant/session tuple; no cross-tenant exploit was demonstrated. |
 | Evidence | `V36__retail_active_draft_projection.sql`; `DraftSessionProjection.changed`; `PosService` session-close query. |
-| Recommended implementation | Add `FOREIGN KEY(tenant_id,order_reference) REFERENCES orders(tenant_id,id)`. Consider whether the database should also enforce that projection branch/cashier/session match the referenced order; add only if supported by a stable unique parent key and no invalid historical rows. |
-| Migration required | Yes, additive Flyway migration only. Never edit V36. |
+| Recommended implementation | **Implemented in V48:** adds a composite FK from `(tenant_id,branch_id,cashier,session_id,order_reference)` to the matching `orders` ownership tuple, so the projection cannot drift from its parent order's branch, cashier or session. |
+| Migration required | **Implemented:** additive Flyway V48 only; V36 remains unchanged. The migration aborts before DDL if an active-draft projection does not match a same-tenant in-store DRAFT order. |
 | Tests required | MySQL 8.4: valid same-tenant draft succeeds; missing order, wrong-tenant order and wrong-session relationship fail; state projection insert/delete remains atomic with order state. |
 | Dependencies | Validate existing projection rows; inspect orders' composite unique keys and session fields. |
-| Acceptance criteria | Orphan/cross-tenant projection cannot be persisted; existing POS draft recovery/session close behavior remains unchanged. |
+| Acceptance criteria | **Verified in CI:** H2 and MySQL 8.4 reject a draft projection referencing another tenant's order; valid same-tenant projection behavior and existing regression suite pass. Production V48 preflight must still pass against the deployment database. |
 
 ### INV-DB-003 — Enforce same-tenant subscription event ownership
 
@@ -79,11 +79,11 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | Expected behavior | Every event must reference a subscription belonging to the same tenant. |
 | Security impact | A malformed writer could associate a platform billing event with a different tenant's subscription. Current service constructs event tenant/subscription from the same persisted subscription object and access is platform-only; no exploit was demonstrated. |
 | Evidence | `V40__platform_and_tenant_foundation.sql`; `V41__platform_provisioning_and_ownership_constraints.sql` adds `UNIQUE(tenant_id,id)` to tenant_subscriptions and already uses composite ownership FKs for subscription invoices/payments; `TenantSubscriptionServiceImpl` event writes. |
-| Recommended implementation | Add `FOREIGN KEY(tenant_id,subscription_id) REFERENCES tenant_subscriptions(tenant_id,id)`. Reuse the V41 parent key. |
-| Migration required | Yes, additive Flyway migration only. Never edit V40/V41. |
+| Recommended implementation | **Implemented in V48:** adds `FOREIGN KEY(tenant_id,subscription_id) REFERENCES tenant_subscriptions(tenant_id,id)`, reusing the parent key created by V41. |
+| Migration required | **Implemented:** additive Flyway V48 only; V40/V41 remain unchanged. The migration aborts before DDL if any existing event's tenant differs from its subscription tenant. |
 | Tests required | MySQL 8.4: same-tenant event succeeds; tenant A event referencing tenant B subscription fails; null/orphan subscription fails. |
 | Dependencies | Verify current event rows and subscription parent uniqueness. |
-| Acceptance criteria | A subscription event cannot be stored under a tenant different from its subscription; event timeline behavior remains unchanged. |
+| Acceptance criteria | **Verified in CI:** H2 and MySQL 8.4 accept same-tenant events and reject tenant A events referencing tenant B subscriptions. Production V48 preflight must still pass against the deployment database. |
 
 ### INV-DB-004 — Add explicit tenant-aware order lookup in POS payment review queue
 
@@ -291,17 +291,18 @@ Before any migration:
 - [x] Reports, exports, receipts, audit, event projections and scheduled cleanup traced.
 - [x] Three same-tenant FK gaps have findings and acceptance criteria.
 - [x] Confirmed vulnerabilities distinguished from unverified risks.
-- [ ] Read-only data-quality checks executed against a current MySQL 8.4 database.
-- [ ] Additive FK migration implemented after data validation.
-- [ ] MySQL 8.4 positive/negative FK tests executed.
+- [ ] Read-only data-quality checks executed against the production/deployment MySQL 8.4 database (the migration preflight is implemented, but no production database was available in this task).
+- [x] Additive FK migration implemented with pre-DDL data validation (Flyway V48).
+- [x] MySQL 8.4 positive/negative FK tests executed in GitHub Actions.
+- [x] H2 preflight and full regression tests executed in GitHub Actions.
 - [ ] P0-02 service authorization audit completed.
 - [ ] P0-04 full Vendor A/B and Customer A/B isolation matrix executed.
 - [ ] P0-06 role × endpoint matrix completed.
 
-The unchecked items are follow-up implementation/verification work, not claims that P0-01 inventory failed. This backlog is not a declaration that complete tenant isolation has been proven.
+The unchecked production-data and P0-02/P0-04/P0-06 items remain outstanding. CI used disposable databases; it does not prove that existing production rows satisfy V48's preflight. This backlog is not a declaration that complete tenant isolation has been proven.
 
 ## 7. P0-01 backlog conclusion
 
-No P0 cross-tenant exploit is asserted from the reviewed code evidence. Three P1 same-tenant FK gaps are confirmed and actionable. Additional P2 hardening covers an explicit tenant-aware review-queue lookup, MySQL integration coverage, generic repository discipline and audit referential integrity. Membership, warehouse and vendor billing scope remain `REQUIRES CLARIFICATION`.
+No P0 cross-tenant exploit is asserted from the reviewed code evidence. The three P1 same-tenant FK gaps are implemented in additive Flyway V48. GitHub Actions run [#661](https://github.com/rambrij/solar-energy-platform/actions/runs/43946032530) passed the complete backend suite on both H2 and MySQL 8.4: 497 tests per database, zero failures and zero errors; frontend tests/build also passed. The tests cover preflight abort-without-data-loss, valid same-tenant writes, and rejection of cross-tenant drawer, draft and subscription-event relationships.
 
-Do not begin schema changes until the three FK data prechecks have been run against the target database. Do not claim tenant isolation complete until P0-02/P0-04 and MySQL integration acceptance tests pass.
+**Deployment gate:** apply V48 only after reviewing its read-only preflight counts on the target database. If it aborts, reconcile invalid rows from authoritative parent records; never delete or reassign them automatically. P2 hardening remains for the tenant-aware review-queue lookup, generic repository discipline and audit referential integrity. Membership, warehouse and vendor billing scope remain `REQUIRES CLARIFICATION`. Do not claim complete tenant isolation until P0-02/P0-04 and their service/API-level acceptance tests pass.

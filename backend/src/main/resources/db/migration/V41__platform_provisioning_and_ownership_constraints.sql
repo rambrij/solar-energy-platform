@@ -1,4 +1,4 @@
--- Tenant IDs are owned by the tenant module; no catalogue entity may map this table.
+-- Tenant IDs are owned by the tenant module; no catalogue entity maps this table.
 ALTER TABLE tenants DROP COLUMN active;
 
 INSERT INTO retail_sequences(name,next_id)
@@ -28,6 +28,3 @@ ALTER TABLE subscription_invoices
 ALTER TABLE subscription_payments
     ADD CONSTRAINT fk_sub_payment_invoice_owner
         FOREIGN KEY(tenant_id,subscription_invoice_id) REFERENCES subscription_invoices(tenant_id,id);
-ALTER TABLE subscription_plans
-    ADD CONSTRAINT fk_plan_current_version
-        FOREIGN KEY(id,current_version) REFERENCES subscription_plan_versions(plan_id,version);

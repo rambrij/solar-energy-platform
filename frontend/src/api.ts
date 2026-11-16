@@ -4,8 +4,10 @@ export class ApiError extends Error {constructor(public status:number,public cod
 async function request(url:string,method:string,body?:unknown,key?:string){
  if(body!==undefined&&!csrf){const response=await authenticatedFetch('/api/v1/auth/csrf',{credentials:'same-origin'});if(!response.ok)throw new ApiError(response.status);csrf=(await response.json()).token;}
  const response=await authenticatedFetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json',...(csrf?{'X-XSRF-TOKEN':csrf}:{}),...(key?{'Idempotency-Key':key}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
- if(!response.ok){const problem=await response.json().catch(()=>({}));throw new ApiError(response.status,problem.code,problem.detail);}return response.json();
+ if(!response.ok){const problem=await response.json().catch(()=>({}));throw new ApiError(response.status,problem.code,problem.detail);}return response.status===204?undefined:response.json();
 }
 export function authApi(path:string){return request(path,'GET');}
 export function api(path:string,body?:unknown,key?:string){return request('/api/v1/vendor/pos'+path,body===undefined?'GET':'POST',body,key);}
 export function vendorApi(path:string,method='GET',body?:unknown,key?:string){return request('/api/v1/vendor'+path,method,body,key);}
+export function platformApi(path:string,method='GET',body?:unknown){return request('/api/v1/platform'+path,method,body);}
+export function acceptVendorInvitation(token:string,password:string){return request('/api/v1/auth/invitations/accept','POST',{token,password});}

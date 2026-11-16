@@ -19,18 +19,19 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service @Transactional
 public class IdentityProvisioningServiceImpl implements IdentityProvisioningService {
-    private final GlobalUserRepository users;
-    private final IdentitySequenceRepository sequences;
-    private final IdentityInvitationRepository invitations;
-    private final PasswordEncoder passwords;
-    private final Clock clock;
+    private final GlobalUserRepository users;private final IdentitySequenceRepository sequences;
+    private final IdentityInvitationRepository invitations;private final PlatformGrantRepository platform;
+    private final PasswordEncoder passwords;private final Clock clock;
     public IdentityProvisioningServiceImpl(GlobalUserRepository users,IdentitySequenceRepository sequences,
-        IdentityInvitationRepository invitations,PasswordEncoder passwords,Clock clock){
-        this.users=users;this.sequences=sequences;this.invitations=invitations;this.passwords=passwords;this.clock=clock;
+        IdentityInvitationRepository invitations,PlatformGrantRepository platform,PasswordEncoder passwords,Clock clock){
+        this.users=users;this.sequences=sequences;this.invitations=invitations;this.platform=platform;this.passwords=passwords;this.clock=clock;
     }
-
-    @Override public Invitation issueInvitation(String requested){
+    @Override public void ensureVendorEligible(String requested){
         String username=normalize(requested);
+        if(!platform.permissions(username).isEmpty())throw new ResponseStatusException(CONFLICT,"Platform identities cannot receive vendor membership; use a separate vendor identity");
+    }
+    @Override public Invitation issueInvitation(String requested){
+        String username=normalize(requested);ensureVendorEligible(username);
         var existing=users.findByUsername(username);
         if(existing.isPresent()&&existing.get().enabled())return new Invitation(username,null,null,true);
         if(existing.isEmpty()){
@@ -38,31 +39,20 @@ public class IdentityProvisioningServiceImpl implements IdentityProvisioningServ
             users.saveAndFlush(new GlobalUser(id,username,passwords.encode(UUID.randomUUID().toString()),false));
         }
         invitations.deleteByUsername(username);
-        String token=randomToken();
-        Instant now=clock.instant(),expires=now.plus(Duration.ofHours(48));
+        String token=randomToken();Instant now=clock.instant(),expires=now.plus(Duration.ofHours(48));
         invitations.saveAndFlush(new IdentityInvitation(hash(token),username,expires,now));
         return new Invitation(username,token,expires,false);
     }
-
     @Override public void acceptInvitation(String rawToken,String newPassword){
-        if(rawToken==null||!rawToken.matches("[A-Za-z0-9_-]{43}")||newPassword==null||
-            newPassword.length()<12||newPassword.getBytes(StandardCharsets.UTF_8).length>72){
+        if(rawToken==null||!rawToken.matches("[A-Za-z0-9_-]{43}")||newPassword==null||newPassword.length()<12||newPassword.getBytes(StandardCharsets.UTF_8).length>72)
             throw new ResponseStatusException(BAD_REQUEST,"Valid invitation token and a 12 to 72 byte password are required");
-        }
         var invitation=invitations.locked(hash(rawToken)).orElseThrow(()->new ResponseStatusException(GONE,"Invitation unavailable or expired"));
         if(!invitation.usableAt(clock.instant()))throw new ResponseStatusException(GONE,"Invitation unavailable or expired");
         var user=users.findByUsername(invitation.username()).orElseThrow(()->new ResponseStatusException(GONE,"Invitation unavailable"));
         if(user.enabled())throw new ResponseStatusException(CONFLICT,"Account has already been activated");
-        user.activate(passwords.encode(newPassword));
-        invitation.consume(clock.instant());
+        user.activate(passwords.encode(newPassword));invitation.consume(clock.instant());
     }
-
-    private static String normalize(String value){
-        String normalized=value==null?"":value.strip().toLowerCase(Locale.ROOT);
-        if(normalized.length()>100||!normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
-            throw new ResponseStatusException(BAD_REQUEST,"A valid Vendor Admin email is required");
-        return normalized;
-    }
+    private static String normalize(String value){String s=value==null?"":value.strip().toLowerCase(Locale.ROOT);if(s.length()>100||!s.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))throw new ResponseStatusException(BAD_REQUEST,"A valid Vendor Admin email is required");return s;}
     private static String randomToken(){byte[] b=new byte[32];new SecureRandom().nextBytes(b);return Base64.getUrlEncoder().withoutPadding().encodeToString(b);}
     private static String hash(String value){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
 }

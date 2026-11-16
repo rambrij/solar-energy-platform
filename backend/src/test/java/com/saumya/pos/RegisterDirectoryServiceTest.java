@@ -32,6 +32,6 @@ class RegisterDirectoryServiceTest {
         };
         service = new RegisterDirectoryService(repository, retail);
     }
- @Test void usesCanonicalTenantBranchAndBoundedPage(){var r=service.directory("cashier",0,12);assertThat(arguments).containsExactly(7L,9L,"user",PageRequest.of(0,12));assertThat(r.branchId()).isEqualTo(9);assertThat(r.items()).containsExactly(new RegisterDirectoryService.Register(3,true));}
+ @Test void usesCanonicalTenantBranchAndBoundedPage(){var r=service.directory("user",0,12);assertThat(arguments).containsExactly(7L,9L,"user",PageRequest.of(0,12));assertThat(r.branchId()).isEqualTo(9);assertThat(r.items()).containsExactly(new RegisterDirectoryService.Register(3,true));}
  @Test void invalidBoundsStopBeforeRepositoryAccess(){for(int page:List.of(-1,10001))assertThatThrownBy(()->service.directory("cashier",page,12)).isInstanceOf(ResponseStatusException.class);for(int size:List.of(0,49))assertThatThrownBy(()->service.directory("cashier",0,size)).isInstanceOf(ResponseStatusException.class);assertThat(reads).isZero();}
 }

@@ -53,7 +53,7 @@ class PosTest {
   update("DELETE FROM vendor_payment_attempts");
   update("UPDATE tenants SET online_branch_id=NULL");
   for(String table:List.of("catalog_change_events","branch_settings_events","identity_refresh_tokens","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
-  update("INSERT INTO tenants(id,name,active) VALUES(1,'Vendor A',TRUE),(2,'Vendor B',TRUE)");
+  update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(1,'Vendor A','vendor-1','Vendor A','ACTIVE'),(2,'Vendor B','vendor-2','Vendor B','ACTIVE')");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",db.queryForList("SELECT permission FROM employee_permissions WHERE username=? ORDER BY permission",String.class,"alice").stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
   update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
@@ -292,7 +292,7 @@ class PosTest {
  }
  @Test void customerReceiptUsesSavedFactsAndCopiesDoNotCreateFinancialWrites(){
   configureOnline();update("UPDATE branches SET invoice_required=TRUE WHERE id=1");var draft=onlineDraft("receipt-online");var attempt=payments.start("customer",draft.id(),"UPI");payments.confirm("customer",draft.id(),attempt.attemptId());
-  update("UPDATE tenants SET name='Renamed',active=FALSE WHERE id=1");update("UPDATE branches SET name='Changed outlet' WHERE id=1");update("UPDATE products SET name='Changed panel',price=999 WHERE id=1");
+  update("UPDATE tenants SET name='Renamed',lifecycle_status='SUSPENDED' WHERE id=1");update("UPDATE branches SET name='Changed outlet' WHERE id=1");update("UPDATE products SET name='Changed panel',price=999 WHERE id=1");
   var receipt=onlineReceipts.read("customer",draft.id());assertThat(receipt.seller()).isEqualTo("Vendor A");assertThat(receipt.outlet()).isEqualTo("A");assertThat(receipt.items().getFirst().name()).isEqualTo("Panel");assertThat(receipt.total()).isEqualByComparingTo("110");assertThat(receipt.invoices().getFirst().seller()).isEqualTo("Vendor A");assertThat(receipt.copy()).isFalse();
   for(int i=0;i<2;i++){var copy=onlineReceipts.copy("customer",draft.id());assertThat(copy.copy()).isTrue();assertThat(copy.orderId()).isEqualTo(receipt.orderId());assertThat(copy.issuedAt()).isEqualTo(receipt.issuedAt());}
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CUSTOMER_RECEIPT_COPY' AND actor='customer:100'",Integer.class)).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
@@ -717,7 +717,7 @@ class PosTest {
  @Test void anonymousMarketplaceExposesOnlyActivePublishedCatalogue() throws Exception {
   customers();update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'SECRET',NULL,'Private draft',1,0,FALSE)");
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panel"));
-  update("UPDATE tenants SET active=FALSE WHERE id=2");
+  update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=2");
   mvc.perform(get("/api/v1/marketplace/vendors")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-2/products")).andExpect(status().isNotFound());
  }
@@ -810,7 +810,7 @@ class PosTest {
   update("UPDATE products SET published=FALSE WHERE id=1");
   assertThatThrownBy(()->marketplace.restore(100,new CartService.Restore(first.id(),second.id())));
   assertThat(marketplace.cart(100).id()).isEqualTo(second.id());
-  update("UPDATE products SET published=TRUE WHERE id=1");update("UPDATE tenants SET active=FALSE WHERE id=1");
+  update("UPDATE products SET published=TRUE WHERE id=1");update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=1");
   assertThatThrownBy(()->marketplace.restore(100,new CartService.Restore(first.id(),second.id())));
   assertThat(marketplace.cart(100).id()).isEqualTo(second.id());
  }
@@ -1031,7 +1031,7 @@ class PosTest {
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isOk()).andExpect(jsonPath("$.inStock").value(false));
   update("UPDATE products SET published=FALSE WHERE id=1");
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isNotFound());
-  update("UPDATE products SET published=TRUE WHERE id=1");update("UPDATE tenants SET active=FALSE WHERE id=1");
+  update("UPDATE products SET published=TRUE WHERE id=1");update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=1");
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products/1")).andExpect(status().isNotFound());
  }
  @Test void salesReportSeparatesPaidTaxCashAndOnlineReservationsWithoutDoubleCounting() throws Exception {
@@ -1066,7 +1066,7 @@ class PosTest {
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/categories")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Panels")).andExpect(jsonPath("$[0].products").value(1));
   mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/products")).andExpect(status().isOk()).andExpect(jsonPath("$[0].categoryId").value(1)).andExpect(jsonPath("$[0].categoryName").value("Panels"));
   assertThatThrownBy(()->update("UPDATE product_categories SET category_id=2 WHERE tenant_id=1 AND product_id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
-  update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/categories")).andExpect(status().isNotFound());
+  update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=1");mvc.perform(get("/api/v1/marketplace/vendors/vendor-1/categories")).andExpect(status().isNotFound());
  }
  @Test void approvedPromotionsAreSharedAuditedAndSavedOnCashReceiptsAndReports() throws Exception {
   configureOnline();update("UPDATE inventory SET quantity=5 WHERE tenant_id=1");supervisor("manager");
@@ -1118,7 +1118,7 @@ class PosTest {
    finally{if(!connection.getAutoCommit())connection.rollback();connection.setAutoCommit(autoCommit);}
   }
  }
- void demoStore(){update("INSERT INTO tenants(id,name,active,slug) VALUES(900001,'Demo store',TRUE,'vendor-900001')");update("INSERT INTO branches(id,tenant_id,name) VALUES(900001,900001,'Demo outlet')");}
+ void demoStore(){update("INSERT INTO tenants(id,name,legal_name,lifecycle_status,slug) VALUES(900001,'Demo store','Demo store','ACTIVE','vendor-900001')");update("INSERT INTO branches(id,tenant_id,name) VALUES(900001,900001,'Demo outlet')");}
  @Test void solarDemoSeedAddsCategorizedProductsAndPreservesEditsStockHoldsAndSales() throws Exception {
   var receipt=checkout.cashSale(a.cashier(),"demo-existing",sale(1,"120"));demoStore();loadSolarDemoSeed();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
@@ -1139,7 +1139,7 @@ class PosTest {
  }
  @Test void solarDemoSeedDoesNothingWithoutAnActiveAssignedDemoBranch() throws Exception {
   loadSolarDemoSeed();assertThat(db.queryForObject("SELECT COUNT(*) FROM products",Integer.class)).isEqualTo(2);
-  demoStore();update("UPDATE tenants SET active=FALSE WHERE id=900001");loadSolarDemoSeed();assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_categories",Integer.class)).isZero();
+  demoStore();update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=900001");loadSolarDemoSeed();assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_categories",Integer.class)).isZero();
  }
  @Test void solarDemoSeedSkipsForeignProductIdCollisions() throws Exception {
   demoStore();update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(900101,1,'FOREIGN',NULL,'Keep foreign product',9,0,TRUE)");loadSolarDemoSeed();
@@ -1352,7 +1352,7 @@ class PosTest {
  @Test void catalogueRejectsInvalidFiltersAndInactiveVendors() throws Exception {
   String path="/api/v1/marketplace/vendors/vendor-1/catalogue";
   for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"},new String[]{"sort","price;DROP"},new String[]{"category","-1"},new String[]{"category","9999999999999999999"},new String[]{"q","x".repeat(121)}))mvc.perform(get(path).param(bad[0],bad[1])).andExpect(status().isBadRequest());
-  update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/marketplace/vendors/unknown/catalogue")).andExpect(status().isNotFound());
+  update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=1");mvc.perform(get(path)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/marketplace/vendors/unknown/catalogue")).andExpect(status().isNotFound());
  }
 
  @Test void cataloguePriceSortingUsesRoundedPromotionsAndStableIdTies() throws Exception {
@@ -1552,15 +1552,15 @@ class PosTest {
 
  @Test void publicVendorDirectoryIsPagedSearchableAndContainsOnlyActivePublicCards() throws Exception {
   update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
-  for(int i=3;i<=27;i++)update("INSERT INTO tenants(id,name,active,slug) VALUES(?,? ,TRUE,?)",i,"Solar Partner", "solar-"+i);
-  update("INSERT INTO tenants(id,name,active,slug) VALUES(28,'Hidden inactive',FALSE,'hidden-inactive'),(29,'Hidden null',TRUE,NULL),(30,'Hidden blank',TRUE,'')");
+  for(int i=3;i<=27;i++)update("INSERT INTO tenants(id,name,legal_name,lifecycle_status,slug) VALUES(?,?,'Solar Partner','ACTIVE',?)",i,"Solar Partner", "solar-"+i);
+  update("INSERT INTO tenants(id,name,legal_name,lifecycle_status,slug) VALUES(28,'Hidden inactive','Hidden inactive','SUSPENDED','hidden-inactive'),(29,'Hidden null','Hidden null','ACTIVE',NULL),(30,'Hidden blank','Hidden blank','ACTIVE','')");
   String path="/api/v1/marketplace/directory";
   for(int page=0;page<3;page++)mvc.perform(get(path).param("q","sOlAr").param("size","12").param("page",Integer.toString(page))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(25)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.items[0].id").value(3+page*12)).andExpect(jsonPath("$.items[0].active").doesNotExist()).andExpect(jsonPath("$.items[0].onlineBranchId").doesNotExist());
   mvc.perform(get(path).param("q","solar-27")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].slug").value("solar-27"));
   mvc.perform(get(path).param("q","hidden")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   update("UPDATE tenants SET name='100%_! Solar' WHERE id=27");mvc.perform(get(path).param("q","%_!")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(27));
   mvc.perform(get(path).param("page","9999")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
-  update("UPDATE tenants SET active=FALSE WHERE id=27");mvc.perform(get(path).param("q","solar-27")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=27");mvc.perform(get(path).param("q","solar-27")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isZero();
  }
  @Test void publicVendorDirectoryRejectsUnboundedInput() throws Exception {
@@ -1588,7 +1588,7 @@ class PosTest {
   String path="/api/v1/vendor/pos/promotions/1/history";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   for(String missing:List.of("POS_VIEW","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE")){var rights=List.of("POS_VIEW","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE").stream().filter(p->!p.equals(missing)).map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList();mvc.perform(get(path).with(user("alice").authorities(rights))).andExpect(status().isForbidden());}
   for(String[] bad:List.of(new String[]{"page","-1"},new String[]{"size","49"}))mvc.perform(get(path).param(bad[0],bad[1]).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isBadRequest());
-  update("UPDATE tenants SET active=FALSE WHERE id=1");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isForbidden());
+  update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=1");mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isForbidden());
  }
 
  @Test void registerDirectoryIsPagedScopedAndHidesDrawerDetails() throws Exception {

@@ -19,6 +19,7 @@ public class CheckoutReceiptService {
     public Map<String, Object> receipt(PosService.Scope requested, String id) {
         if (requested == null || id == null || !id.matches("[A-Za-z0-9-]{1,36}")) throw missing();
         var scope = retail.scope();
+        retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RECEIPT_VIEW");
         if (scope.tenant() != requested.tenant() || scope.branch() != requested.branch()) throw missing();
         var order = orders.lock(scope.tenant(), id).orElseThrow(this::missing);
         em.refresh(order, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
@@ -29,5 +30,5 @@ public class CheckoutReceiptService {
   var confirmed=tenders.findAllByTenantAndOrderOrderByCreatedAscIdAsc(order.tenant(),id).stream().filter(row->"CONFIRMED".equals(row.state())).map(row->new PaymentCheckoutService.ReceiptTender(row.method(),row.amount(),row.cash(),row.change(),row.reference())).toList();if(!confirmed.isEmpty())receipt.put("tenders",confirmed);
   var buyer=buyers.snapshot(order.tenant(),id);if(buyer!=null){receipt.put("buyer",buyer);retail.draftAudit(scope,"BUYER_SNAPSHOT_VIEW",id);}return receipt;
  }
- public Map<String,Object> reprint(PosService.Scope scope,String id){var receipt=receipt(scope,id);retail.draftAudit(scope,"RECEIPT_REPRINT",id);receipt.put("copy",true);return receipt;}
+ public Map<String,Object> reprint(PosService.Scope scope,String id){var current=retail.scope();retail.authorize(current,current.cashier(),"POS_VIEW","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT");var receipt=receipt(scope,id);retail.draftAudit(scope,"RECEIPT_REPRINT",id);receipt.put("copy",true);return receipt;}
 }

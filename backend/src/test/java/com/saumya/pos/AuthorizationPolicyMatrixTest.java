@@ -71,6 +71,8 @@ class AuthorizationPolicyMatrixTest {
         }
 
         assertThat(permissions).as("permission references in %s#%s",type.getSimpleName(),method.getName()).isNotEmpty();
+        assertThat(evaluate(expression,invocation,Set.of(),true))
+            .as("authenticated principal without grants is denied (403 policy) for %s#%s",type.getSimpleName(),method.getName()).isFalse();
         assertThat(permissions.size()).as("policy complexity for %s#%s",type.getSimpleName(),method.getName()).isLessThanOrEqualTo(12);
 
         assertThat(evaluate(expression,invocation,permissions,true))

@@ -42,33 +42,33 @@ class AuthorizationContextTest {
     }
     @Test void requirePermissionThrowsWhenMissing() {
         authenticate("cashier@vendor.com","POS_VIEW");
-        when(membershipService.resolve("cashier@vendor.com")).thenReturn(Optional.of(new MembershipService.Access(1L,10L,"cashier@vendor.com",List.of("POS_VIEW"))));
+        when(membershipService.resolve("cashier@vendor.com")).thenReturn(Optional.of(new VendorMembershipResolver.Membership(1L,10L,"cashier@vendor.com",List.of("POS_VIEW"))));
         var ctx=authContext.current();
         assertThatThrownBy(()->ctx.requirePermission("POS_REFUND_APPROVE")).isInstanceOf(ResponseStatusException.class).hasFieldOrPropertyWithValue("status",HttpStatus.FORBIDDEN).hasMessageContaining("Missing required permission");
     }
     @Test void requirePermissionSucceedsWhenPresent() {
         authenticate("cashier@vendor.com","POS_VIEW");
-        when(membershipService.resolve("cashier@vendor.com")).thenReturn(Optional.of(new MembershipService.Access(1L,10L,"cashier@vendor.com",List.of("POS_VIEW"))));
+        when(membershipService.resolve("cashier@vendor.com")).thenReturn(Optional.of(new VendorMembershipResolver.Membership(1L,10L,"cashier@vendor.com",List.of("POS_VIEW"))));
         authContext.current().requirePermission("POS_VIEW");
     }
     @Test void requireTenantBlocksCrossTenantAccess() {
         authenticate("cashierA@vendor.com","POS_VIEW");
-        when(membershipService.resolve("cashierA@vendor.com")).thenReturn(Optional.of(new MembershipService.Access(1L,10L,"cashierA@vendor.com",List.of("POS_VIEW"))));
+        when(membershipService.resolve("cashierA@vendor.com")).thenReturn(Optional.of(new VendorMembershipResolver.Membership(1L,10L,"cashierA@vendor.com",List.of("POS_VIEW"))));
         assertThatThrownBy(()->authContext.current().requireTenant(2L)).isInstanceOf(ResponseStatusException.class).hasFieldOrPropertyWithValue("status",HttpStatus.FORBIDDEN).hasMessageContaining("Cross-tenant access denied");
     }
     @Test void requireTenantSucceedsForOwnTenant() {
         authenticate("cashierA@vendor.com","POS_VIEW");
-        when(membershipService.resolve("cashierA@vendor.com")).thenReturn(Optional.of(new MembershipService.Access(1L,10L,"cashierA@vendor.com",List.of("POS_VIEW"))));
+        when(membershipService.resolve("cashierA@vendor.com")).thenReturn(Optional.of(new VendorMembershipResolver.Membership(1L,10L,"cashierA@vendor.com",List.of("POS_VIEW"))));
         authContext.current().requireTenant(1L);
     }
     @Test void requireBranchBlocksWrongBranchAccess() {
         authenticate("cashierA@vendor.com","POS_VIEW");
-        when(membershipService.resolve("cashierA@vendor.com")).thenReturn(Optional.of(new MembershipService.Access(1L,10L,"cashierA@vendor.com",List.of("POS_VIEW"))));
+        when(membershipService.resolve("cashierA@vendor.com")).thenReturn(Optional.of(new VendorMembershipResolver.Membership(1L,10L,"cashierA@vendor.com",List.of("POS_VIEW"))));
         assertThatThrownBy(()->authContext.current().requireBranch(20L)).isInstanceOf(ResponseStatusException.class).hasFieldOrPropertyWithValue("status",HttpStatus.FORBIDDEN).hasMessageContaining("Branch assignment mismatch");
     }
     @Test void requireBranchSucceedsForAssignedBranch() {
         authenticate("cashierA@vendor.com","POS_VIEW");
-        when(membershipService.resolve("cashierA@vendor.com")).thenReturn(Optional.of(new MembershipService.Access(1L,10L,"cashierA@vendor.com",List.of("POS_VIEW"))));
+        when(membershipService.resolve("cashierA@vendor.com")).thenReturn(Optional.of(new VendorMembershipResolver.Membership(1L,10L,"cashierA@vendor.com",List.of("POS_VIEW"))));
         authContext.current().requireBranch(10L);
     }
     @Test void customerHasNoVendorMembership() {

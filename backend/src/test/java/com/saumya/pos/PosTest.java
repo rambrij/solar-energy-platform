@@ -173,6 +173,18 @@ class PosTest {
   });}finally{pool.shutdownNow();}
   assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
  }
+ @Test void inventoryApiCoversUnauthenticatedForbiddenAndNonDisclosingCrossTenantDenials()throws Exception{
+  String path="/api/v1/vendor/inventory/receipts";
+  int before=db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class);
+  mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  mvc.perform(get(path).with(user("alice").authorities(()->"PRODUCT_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(post(path).header("Idempotency-Key","cross-tenant-stock").with(csrf())
+    .with(user("bob").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json")
+    .content("{\"productId\":1,\"quantity\":1,\"reason\":\"Cross tenant attempt\"}"))
+    .andExpect(status().isNotFound());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class)).isEqualTo(before);
+ }
+
  @Test void inventoryServiceRejectsCrossTenantDirectReadsAndMutationsBeforePersistence(){
   int before=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=2 AND branch_id=2 AND product_id=2",Integer.class);
   assertThatThrownBy(()->as("alice",()->stock.atBranch(2,2,2)))

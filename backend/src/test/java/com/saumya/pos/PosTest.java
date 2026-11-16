@@ -67,7 +67,7 @@ class PosTest {
  @AfterEach void clearPrincipal(){org.springframework.security.core.context.SecurityContextHolder.clearContext();}
  void employee(String username,long tenant,long branch){
   long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
-  update("INSERT INTO users VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));
   update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);
   for(String permission:List.of("CATALOG_PROMOTION_MANAGE",  "INVENTORY_RECEIVE", "INVENTORY_VIEW",  "POS_CASHIER_REPORT_VIEW", "POS_CASH_IN", "POS_CASH_OUT", "POS_DISCOUNT_APPLY", "POS_DISCOUNT_APPROVE", "POS_DISCOUNT_OVERRIDE", "POS_RECEIPT_REPRINT", "POS_RECEIPT_VIEW", "POS_REFUND_APPROVE", "POS_REFUND_CASH_RECORD", "POS_REFUND_PRINT", "POS_REFUND_VIEW", "POS_REPORT_EXPORT", "POS_REPORT_VIEW", "POS_RETURN_APPROVE", "POS_RETURN_AUDIT_VIEW", "POS_RETURN_CREATE", "POS_RETURN_INSPECT", "POS_RETURN_VIEW", "POS_SALE_CREATE", "POS_SESSION_CLOSE", "POS_SESSION_OPEN", "POS_SETTINGS_MANAGE", "POS_SHIFT_VARIANCE_APPROVE", "POS_TENDER_CASH_RECORD", "POS_TENDER_EXTERNAL_RECORD", "POS_TENDER_MANUAL_VERIFY", "POS_VIEW", "PRICE_UPDATE", "PRODUCT_ARCHIVE", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_VIEW","PRICE_VIEW"))
    update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES(?,?,?)",username,permission,tenant);
@@ -352,7 +352,7 @@ class PosTest {
   configureOnline();var draft=onlineDraft("receipt-security");String path="/api/v1/customer/orders/"+draft.id();
   mvc.perform(get(path+"/receipt").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path+"/receipt").with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isForbidden());mvc.perform(get(path+"/receipt").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   var attempt=asCustomer("customer", () -> payments.start("customer",draft.id(),"CARD"));asCustomer("customer", () -> payments.confirm("customer",draft.id(),attempt.attemptId()));
-  update("INSERT INTO users VALUES(300,'other-buyer','unused',TRUE)");update("INSERT INTO customer_profiles VALUES(300,300)");mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(300,'other-buyer','unused',TRUE)");update("INSERT INTO customer_profiles VALUES(300,300)");mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   mvc.perform(post(path+"/receipt-copy").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isForbidden());
   mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{\"tenantId\":2}")).andExpect(status().isBadRequest());
   mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isOk()).andExpect(jsonPath("$.copy").value(true)).andExpect(jsonPath("$.paymentMethod").value("MOCK_CARD")).andExpect(jsonPath("$.seller").value("Vendor A"));
@@ -762,7 +762,7 @@ class PosTest {
  }
  void customers(){
   update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
-  update("INSERT INTO users VALUES(100,'customer',?,TRUE),(101,'other-customer',?,TRUE)",encoder.encode("CustomerPassword"),encoder.encode("OtherPassword"));
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(100,'customer',?,TRUE),(101,'other-customer',?,TRUE)",encoder.encode("CustomerPassword"),encoder.encode("OtherPassword"));
   update("INSERT INTO customer_profiles VALUES(100,100),(101,101)");
   var context=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
   context.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("customer","test",List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMER"))));
@@ -846,7 +846,7 @@ class PosTest {
  }
  boolean cartAttempt(String slug,long product){try{marketplace.put(100,new CartService.Item(slug,product,1));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
  @Test void globalIdentityCannotDuplicateEmployeeAndDisabledCustomerTokensAreRejected() throws Exception {
-  customers();assertThatThrownBy(()->update("INSERT INTO users VALUES(102,'alice','unused',TRUE)")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  customers();assertThatThrownBy(()->update("INSERT INTO users(id,username,password_hash,enabled) VALUES(102,'alice','unused',TRUE)")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   mvc.perform(get("/api/v1/customer/cart").with(bearer("alice","StaffPasswordForTests"))).andExpect(status().isForbidden());
   var token=bearer("customer","CustomerPassword");update("UPDATE users SET enabled=FALSE WHERE username='customer'");mvc.perform(get("/api/v1/customer/cart").with(token).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
  }

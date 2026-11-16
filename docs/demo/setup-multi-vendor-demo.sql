@@ -336,6 +336,9 @@ INSERT INTO demo_grants VALUES ('VENDOR_ADMIN','CRM_NOTE_CREATE'),
 INSERT INTO employee_permissions(username,permission,tenant_id) SELECT a.username,g.permission,a.tenant_id FROM demo_new_accounts a JOIN demo_grants g ON g.role_name=a.role_name;
 
 INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_CREATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
+INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_VIEW' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
+INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_REACTIVATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
+INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_IDENTITY_MANAGE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
 INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_UPDATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 

@@ -12,7 +12,7 @@ class PosServiceBoundaryTest {
         var db=mock(org.springframework.jdbc.core.JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);
         when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier",7L,12L,
-            java.util.Set.of("POS_VIEW"),false,false,true));
+            java.util.Set.of("PRODUCT_VIEW"),false,false,true));
         var service=new PosService(db,null,auth);
         var scope=new PosService.Scope(7,12,"cashier");
         assertThatThrownBy(()->service.lockOutlet(scope)).isInstanceOf(ResponseStatusException.class);

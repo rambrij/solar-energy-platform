@@ -5,6 +5,7 @@ import com.saumya.pos.membership.internal.*;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import java.lang.reflect.Proxy;
 import java.util.*;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
@@ -16,7 +17,7 @@ class MembershipServiceTest {
     private TenantLifecycleService tenants(){
         return repository(TenantLifecycleService.class,(p,m,a)->switch(m.getName()){
             case "isActive" -> true;
-            case "get" -> null;
+            case "get" -> new TenantLifecycleService.TenantSummary(7,"vendor-7","Vendor 7","Vendor 7",null,null,null,null,"PENDING",12L,"admin@example.com",Instant.EPOCH,Instant.EPOCH,0L);
             default -> null;
         });
     }

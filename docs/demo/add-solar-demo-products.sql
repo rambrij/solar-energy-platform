@@ -1,4 +1,4 @@
--- Optional LOCAL demo catalogue, after Flyway V10 and pos-local-demo-setup.sql.
+-- Optional LOCAL demo catalogue, after Flyway V40+ and the initial tenant lifecycle setup.
 -- Select the existing solar schema in Workbench and run the entire script.
 -- Prices are illustrative amounts; zero tax is demonstration data, not statutory tax advice.
 -- Adds 18 products only to tenant/branch 900001. Safe to repeat after successful completion.
@@ -38,27 +38,27 @@ INSERT INTO saumya_demo_solar_products(id,sku,barcode,name,category_slug,price,q
 START TRANSACTION;
 INSERT INTO catalog_categories(id,tenant_id,name,slug)
 SELECT s.id,t.id,s.name,s.slug FROM saumya_demo_solar_categories s
-JOIN tenants t ON t.id=900001 AND t.active=TRUE
+JOIN tenants t ON t.id=900001 AND t.lifecycle_status='ACTIVE'
 JOIN branches b ON b.tenant_id=t.id AND b.id=900001
 WHERE NOT EXISTS(SELECT 1 FROM catalog_categories c WHERE c.id=s.id OR (c.tenant_id=t.id AND c.slug=s.slug));
 
 INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published)
 SELECT s.id,t.id,s.sku,s.barcode,s.name,s.price,0.00,TRUE FROM saumya_demo_solar_products s
-JOIN tenants t ON t.id=900001 AND t.active=TRUE
+JOIN tenants t ON t.id=900001 AND t.lifecycle_status='ACTIVE'
 JOIN branches b ON b.tenant_id=t.id AND b.id=900001
 WHERE NOT EXISTS(SELECT 1 FROM products p WHERE p.id=s.id OR (p.tenant_id=t.id AND (p.sku=s.sku OR p.barcode=s.barcode)));
 
 INSERT INTO inventory(tenant_id,branch_id,product_id,quantity)
 SELECT p.tenant_id,b.id,p.id,s.quantity FROM saumya_demo_solar_products s
 JOIN products p ON p.id=s.id AND p.sku=s.sku AND p.tenant_id=900001
-JOIN tenants t ON t.id=p.tenant_id AND t.active=TRUE
+JOIN tenants t ON t.id=p.tenant_id AND t.lifecycle_status='ACTIVE'
 JOIN branches b ON b.tenant_id=t.id AND b.id=900001
 WHERE NOT EXISTS(SELECT 1 FROM inventory i WHERE i.tenant_id=p.tenant_id AND i.branch_id=b.id AND i.product_id=p.id);
 
 INSERT INTO product_categories(tenant_id,product_id,category_id)
 SELECT p.tenant_id,p.id,c.id FROM saumya_demo_solar_products s
 JOIN products p ON p.id=s.id AND p.sku=s.sku AND p.tenant_id=900001
-JOIN tenants t ON t.id=p.tenant_id AND t.active=TRUE
+JOIN tenants t ON t.id=p.tenant_id AND t.lifecycle_status='ACTIVE'
 JOIN branches b ON b.tenant_id=t.id AND b.id=900001
 JOIN catalog_categories c ON c.tenant_id=p.tenant_id AND c.slug=s.category_slug
 WHERE NOT EXISTS(SELECT 1 FROM product_categories a WHERE a.tenant_id=p.tenant_id AND a.product_id=p.id);

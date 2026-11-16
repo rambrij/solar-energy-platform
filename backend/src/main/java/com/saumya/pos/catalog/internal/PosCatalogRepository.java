@@ -7,7 +7,7 @@ public interface PosCatalogRepository extends Repository<Product,Long> {
  select p.id as id,p.barcode as barcode,p.sku as sku,p.name as name,round(p.price*(100-coalesce(offer.percent,0))/100,2) as price,p.tax_rate as taxRate,
  p.price as listPrice,coalesce(offer.percent,0) as discountPercent,pc.category_id as categoryId,
  coalesce(category.name,'Other') as categoryName,coalesce(stock.available,0) as available
- from products p join tenants t on t.id=p.tenant_id and t.active=TRUE
+ from products p join tenants t on t.id=p.tenant_id and t.lifecycle_status='ACTIVE'
  left join catalog_promotions offer on offer.tenant_id=p.tenant_id and offer.product_id=p.id
  left join product_categories pc on pc.tenant_id=p.tenant_id and pc.product_id=p.id
  left join catalog_categories category on category.tenant_id=pc.tenant_id and category.id=pc.category_id
@@ -22,7 +22,7 @@ public interface PosCatalogRepository extends Repository<Product,Long> {
  case when :ordering='name' then lower(p.name) end asc,p.id asc
  """,countQuery="""
  select count(*)
- from products p join tenants t on t.id=p.tenant_id and t.active=TRUE
+ from products p join tenants t on t.id=p.tenant_id and t.lifecycle_status='ACTIVE'
  left join catalog_promotions offer on offer.tenant_id=p.tenant_id and offer.product_id=p.id
  left join product_categories pc on pc.tenant_id=p.tenant_id and pc.product_id=p.id
  left join catalog_categories category on category.tenant_id=pc.tenant_id and category.id=pc.category_id

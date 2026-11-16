@@ -1,4 +1,4 @@
--- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V38+ first. Never run on production.
+-- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V40+ first. Never run on production.
 -- Select the local database in Workbench first; no database name is hardcoded here.
 -- Public demo credentials and exact permission presets: docs/demo/multi-vendor-testing.md.
 -- Run while the application is stopped; this script does not reset operational data.
@@ -141,7 +141,7 @@ INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM tenant_customers c WHERE 
 
 CREATE TEMPORARY TABLE demo_new_accounts AS SELECT d.* FROM demo_accounts d WHERE NOT EXISTS(SELECT 1 FROM users u WHERE u.id=d.id);
 
-INSERT INTO tenants(id,name,active,slug) SELECT d.id,d.name,TRUE,d.slug FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM tenants t WHERE t.id=d.id);
+INSERT INTO tenants(id,name,legal_name,lifecycle_status,slug) SELECT d.id,d.name,d.name,'ACTIVE',d.slug FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM tenants t WHERE t.id=d.id);
 
 INSERT INTO branches(id,tenant_id,name,invoice_required,pos_return_window_days,cash_refunds_enabled,split_tender_enabled) SELECT d.id,d.id,d.branch_name,FALSE,30,TRUE,TRUE FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM branches b WHERE b.id=d.id);
 

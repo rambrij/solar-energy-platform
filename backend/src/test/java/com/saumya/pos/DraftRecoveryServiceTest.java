@@ -26,6 +26,8 @@ class DraftRecoveryServiceTest {
             public Scope scope() {
                 return new Scope(7, 9, "cashier");
             }
+            @Override public void authorize(Scope scope,String actor,String... permissions){}
+            @Override public void authorizeCustomer(String actor){}
         };
         var customers = new CustomerAccess(null) {
             @Override

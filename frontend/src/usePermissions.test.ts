@@ -178,6 +178,18 @@ describe('hasNavigationPermission', () => {
     expect(hasNavigationPermission('cash-refunds', ['POS_REFUND_VIEW'])).toBe(false);
   });
 
+  it('allows update-only product and category users to enter their pages', () => {
+    expect(hasNavigationPermission('product-management', ['PRODUCT_UPDATE'])).toBe(true);
+    expect(hasNavigationPermission('category-management', ['PRODUCT_UPDATE'])).toBe(true);
+    expect(hasNavigationPermission('product-management', ['PRODUCT_VIEW'])).toBe(true);
+    expect(hasNavigationPermission('category-management', ['PRODUCT_CREATE'])).toBe(true);
+  });
+
+  it('allows cashier-owned shift history with POS_VIEW, matching its owner-scoped API', () => {
+    expect(hasNavigationPermission('shift-history', ['POS_VIEW'])).toBe(true);
+    expect(hasNavigationPermission('shift-history', ['POS_REPORT_VIEW'])).toBe(false);
+  });
+
   it('denies access to supervisor features without approval permissions', () => {
     expect(hasNavigationPermission('shift-reviews', ['POS_VIEW'])).toBe(false);
     expect(hasNavigationPermission('shift-reviews', ['POS_SHIFT_VARIANCE_APPROVE'])).toBe(true);

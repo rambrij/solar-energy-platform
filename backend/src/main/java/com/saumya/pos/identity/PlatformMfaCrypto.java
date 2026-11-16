@@ -19,8 +19,8 @@ public class PlatformMfaCrypto {
         byte[] material;
         if (configured == null || configured.isBlank()) {
             var profiles=java.util.Set.of(env.getActiveProfiles());
-            if (profiles.contains("prod") || profiles.contains("production"))
-                throw new IllegalStateException("AUTH_MFA_ENCRYPTION_KEY is required in production");
+            if (Collections.disjoint(profiles, java.util.Set.of("local","test")) || profiles.contains("prod") || profiles.contains("production"))
+                throw new IllegalStateException("AUTH_MFA_ENCRYPTION_KEY is required outside local/test profiles");
             material=sha256("local-test-only-platform-mfa-key-do-not-deploy");
         } else {
             try { material=Base64.getDecoder().decode(configured); }

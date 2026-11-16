@@ -99,6 +99,12 @@ public class InventoryService {
  @Transactional(readOnly=true)
  public boolean publicInStock(long tenant,long product){return balances.available(tenant,product)>0;}
 
+ /** Customer cart projection: reveals only whether the requested quantity is available. */
+ @Transactional(readOnly=true)
+ public boolean publicAvailableAtLeast(long tenant,long branch,long product,int requested){
+  return requested>0&&balances.atBranch(tenant,branch,product)>=requested;
+ }
+
  /** Internal exact-quantity query. Callers must already hold a vendor scope or be a stock projection. */
  @Transactional(readOnly=true)
  public boolean publicInStock(long tenant,long branch,long product){return balances.atBranch(tenant,branch,product)>0;}

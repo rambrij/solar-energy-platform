@@ -7,18 +7,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import com.saumya.pos.retail.PosService;
+import com.saumya.pos.security.AuthorizationContext;
 import org.springframework.http.HttpStatus;
 @Service @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
 public class PosCatalogService {
- private final PosCatalogRepository products;private final CatalogService catalogue;private final PosService retail;
- public PosCatalogService(PosCatalogRepository products,CatalogService catalogue,PosService retail){this.products=products;this.catalogue=catalogue;this.retail=retail;}
+ private final PosCatalogRepository products;private final CatalogService catalogue;private final AuthorizationContext authorization;
+ public PosCatalogService(PosCatalogRepository products,CatalogService catalogue,AuthorizationContext authorization){this.products=products;this.catalogue=catalogue;this.authorization=authorization;}
  public record Item(long id,String name,String sku,String barcode,BigDecimal price,BigDecimal tax_rate,long quantity,BigDecimal list_price,BigDecimal discount_percent,Long category_id,String category_name){}
  public record Result(List<Item> items,int page,int size,long totalElements,int totalPages,long catalogueTotal,List<CatalogSearchService.Category> categories){}
  private void authorizeScope(long tenant,long branch){
-  var scope=retail.scope();
-  if(scope.tenant()!=tenant||scope.branch()!=branch)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Catalogue resource unavailable");
-  retail.authorize(scope,scope.cashier(),"POS_VIEW");
+  if(authorization==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authorization context unavailable");
+  var context=authorization.current();context.requireVendorMembership();
+  if(context.tenantId()!=tenant||context.branchId()!=branch)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Catalogue resource unavailable");
+  context.requirePermission("POS_VIEW");
  }
  private Item item(PosCatalogRow row){return new Item(row.getId(),row.getName(),row.getSku(),row.getBarcode(),row.getPrice(),row.getTaxRate(),Math.max(0,row.getAvailable()),row.getListPrice(),row.getDiscountPercent(),row.getCategoryId(),row.getCategoryName());}
  @PreAuthorize("hasAuthority('POS_VIEW')")

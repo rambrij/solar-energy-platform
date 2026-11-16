@@ -120,7 +120,7 @@ public class PosService {
     public void requireOpen(Scope s,String id){authorizeInternalScope(s,"POS_SALE_CREATE","POS_RETURN_CREATE","POS_REFUND_CASH_RECORD");session(s,id);}
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void lockOutlet(Scope s){
-        authorizeInternalScope(s,"POS_SALE_CREATE","POS_SALE_CANCEL","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT",
+        authorizeInternalScope(s,"POS_VIEW","POS_SALE_CREATE","POS_SALE_CANCEL","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT",
             "POS_REFUND_CASH_RECORD","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD","POS_RECEIPT_REPRINT","POS_SETTINGS_MANAGE");
         one("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
     }
@@ -135,12 +135,21 @@ public class PosService {
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void draftAudit(Scope s,String action,String id){
+        if("TENDER_RECORD".equals(action)){
+            authorize(s,s.cashier(),"POS_SALE_CREATE");
+            var context=authContext.current();
+            if(!context.hasAnyPermission("POS_TENDER_CASH_RECORD","POS_TENDER_EXTERNAL_RECORD"))
+                throw new ResponseStatusException(FORBIDDEN,"Tender recording permission required");
+            audit(s,action,id);return;
+        }
         String permission=switch(action){
-            case "DRAFT_RESERVE"->"POS_SALE_CREATE";
+            case "DRAFT_RESERVE","SALE_COMPLETE","INVOICE_ISSUE","CUSTOMER_ASSOCIATION_REQUEST"->"POS_SALE_CREATE";
             case "DRAFT_CANCEL"->"POS_SALE_CANCEL";
             case "RECEIPT_REPRINT"->"POS_RECEIPT_REPRINT";
             case "BUYER_SNAPSHOT_VIEW"->"POS_RECEIPT_VIEW";
             case "REGISTER_CREATE"->"POS_SETTINGS_MANAGE";
+            case "TERMINAL_TENDER_UNKNOWN"->"POS_TENDER_EXTERNAL_RECORD";
+            case "TERMINAL_TENDER_CONFIRM","TERMINAL_TENDER_FAIL"->"POS_TENDER_MANUAL_VERIFY";
             default->throw new ResponseStatusException(FORBIDDEN,"Unsupported POS audit action");
         };
         authorize(s,s.cashier(),permission);audit(s,action,id);
@@ -150,9 +159,15 @@ public class PosService {
         var context=authContext.current();
         if(!context.isCustomer()||customers==null||customers.resolve(context.username())!=customer)
             throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
-        if(!"CUSTOMER_RECEIPT_COPY".equals(action))throw new ResponseStatusException(FORBIDDEN,"Unsupported customer audit action");
-        Boolean owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND stock_branch_id=? AND sales_channel='ONLINE' AND status='PAID'",
-            Boolean.class,tenant,id,customer,branch);
+        String channel,status;
+        switch(action){
+            case "CUSTOMER_RECEIPT_COPY","MOCK_ONLINE_PAYMENT"->{channel="ONLINE";status="PAID";}
+            case "CUSTOMER_ASSOCIATION_APPROVE"->{channel="IN_STORE";status="DRAFT";}
+            case "CUSTOMER_BUYER_SNAPSHOT_VIEW"->{channel="IN_STORE";status="PAID";}
+            default->throw new ResponseStatusException(FORBIDDEN,"Unsupported customer audit action");
+        }
+        Boolean owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND stock_branch_id=? AND sales_channel=? AND status=?",
+            Boolean.class,tenant,id,customer,branch,channel,status);
         if(!Boolean.TRUE.equals(owned))throw new ResponseStatusException(NOT_FOUND,"Receipt unavailable");
         audit(new Scope(tenant,branch,"customer:"+customer),action,id);
     }

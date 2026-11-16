@@ -61,14 +61,16 @@ public class TenantEntitlementPolicy {
         if(permission.startsWith("POS_"))return "POS";
         if(permission.startsWith("PRODUCT_")||permission.startsWith("CATALOG_")||permission.startsWith("PRICE_"))return "CATALOG";
         if(permission.startsWith("INVENTORY_"))return "INVENTORY";
-        if(permission.startsWith("CRM_")||permission.startsWith("CUSTOMER_RELATION_"))return "CRM";
+        if(permission.startsWith("USER_")||permission.startsWith("ROLE_")||permission.startsWith("TENANT_PROFILE_"))return "ADMINISTRATION";
+        if(permission.startsWith("CRM_")||permission.startsWith("CRM_NOTE_")||permission.startsWith("CUSTOMER_RELATION_"))return "CRM";
         if(permission.startsWith("LEAD_"))return "LEADS";
         if(permission.startsWith("QUOTATION_"))return "QUOTATIONS";
-        if(permission.startsWith("ORDER_"))return "ORDERS";
+        if(permission.startsWith("ORDER_")||permission.equals("CART_SUPPORT_VIEW"))return "ORDERS";
+        if(permission.startsWith("RETURN_"))return "RETURNS";
         if(permission.startsWith("INVOICE_")||permission.startsWith("VENDOR_PAYMENT_"))return "FINANCE";
         if(permission.startsWith("SHIPMENT_"))return "SHIPMENTS";
         if(permission.startsWith("SERVICE_")||permission.startsWith("INSTALLATION_"))return "SERVICE";
-        if(permission.startsWith("REPORT_"))return "REPORTING";
+        if(permission.startsWith("REPORT_")||permission.equals("VENDOR_AUDIT_VIEW"))return "REPORTING";
         return null;
     }
 }

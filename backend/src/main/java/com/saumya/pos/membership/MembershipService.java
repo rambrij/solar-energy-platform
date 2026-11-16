@@ -4,7 +4,7 @@ import com.saumya.pos.membership.internal.*;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import com.saumya.pos.security.VendorMembershipAccess;
 import com.saumya.pos.security.VendorMembershipResolver;
-import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.platform.PlatformAuthorization;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -41,16 +41,13 @@ public class MembershipService implements VendorMembershipAccess {
     private final TenantLifecycleService tenants;
     private final JdbcTemplate jdbc;
     private final TenantEntitlementPolicy entitlements;
-    private final AuthorizationContext authorization;
     public MembershipService(EmployeeMembershipRepository memberships,PermissionGrantRepository grants,TenantLifecycleService tenants){
-        this(memberships,grants,tenants,null,null,null);
+        this(memberships,grants,tenants,null,null);
     }
-    public MembershipService(EmployeeMembershipRepository memberships,PermissionGrantRepository grants,TenantLifecycleService tenants,
-        JdbcTemplate jdbc,TenantEntitlementPolicy entitlements){this(memberships,grants,tenants,jdbc,entitlements,null);}
     @Autowired
     public MembershipService(EmployeeMembershipRepository memberships,PermissionGrantRepository grants,TenantLifecycleService tenants,
-        JdbcTemplate jdbc,TenantEntitlementPolicy entitlements,AuthorizationContext authorization){
-        this.memberships=memberships;this.grants=grants;this.tenants=tenants;this.jdbc=jdbc;this.entitlements=entitlements;this.authorization=authorization;
+        JdbcTemplate jdbc,TenantEntitlementPolicy entitlements){
+        this.memberships=memberships;this.grants=grants;this.tenants=tenants;this.jdbc=jdbc;this.entitlements=entitlements;
     }
     
     public record Access(long tenant,long branch,String username,List<String> permissions){}
@@ -89,9 +86,7 @@ public class MembershipService implements VendorMembershipAccess {
 
     @Transactional
     public Provisioning provisionInitialVendorAdmin(long tenantId,long branchId,String username){
-        if(authorization==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Platform authorization context unavailable");
-        var platformActor=authorization.current();if(!platformActor.isPlatformUser())throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Platform identity required");
-        platformActor.requirePermission("PLATFORM_TENANT_CREATE");
+        PlatformAuthorization.require("PLATFORM_TENANT_CREATE",null);
         String actor=username==null?"":username.strip().toLowerCase(Locale.ROOT);
         if(actor.isBlank()||actor.length()>100)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid Vendor Admin identity required");
         var existing=memberships.findByUsernameIgnoreCase(actor);

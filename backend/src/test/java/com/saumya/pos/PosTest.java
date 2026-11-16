@@ -1843,6 +1843,7 @@ class PosTest {
 
 
  @Test void tenantOwnedProjectionAndSubscriptionRowsRejectCrossTenantParents() {
+  update("UPDATE inventory SET quantity=5 WHERE tenant_id IN (1,2)");
   var orderA=asScope(a,()->checkout.cashSale("alice","v48-owner-a",sale(1,"120")));
   String orderAId=(String)orderA.get("id");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders WHERE tenant_id=1 AND order_reference=?",Integer.class,orderAId)).isEqualTo(1);

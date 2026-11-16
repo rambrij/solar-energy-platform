@@ -46,6 +46,20 @@ public class PosService {
         ctx.requireVendorMembership();
         return new Scope(ctx.tenantId(), ctx.branchId(), ctx.username());
     }
+    /** Service-boundary guard: controller annotations are not the only authorization check. */
+    public void authorize(Scope scope,String expectedActor,String... permissions) {
+        var context=authContext.current();
+        context.requireVendorMembership();
+        if(!context.username().equals(expectedActor)||!context.username().equals(scope.cashier())
+            ||!Objects.equals(context.tenantId(),scope.tenant())||!Objects.equals(context.branchId(),scope.branch()))
+            throw new ResponseStatusException(FORBIDDEN,"Trusted vendor actor and scope are required");
+        context.requirePermissions(permissions);
+    }
+    public void authorizeCustomer(String expectedActor) {
+        var context=authContext.current();
+        if(!context.isCustomer()||!context.username().equals(expectedActor))
+            throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
+    }
     public List<Map<String,Object>> products(Scope s) {
         return catalogue.posProducts(s.tenant,s.branch);
     }

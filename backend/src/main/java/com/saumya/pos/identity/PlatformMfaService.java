@@ -7,9 +7,9 @@ import com.saumya.pos.identity.internal.PlatformMfaEnrollmentToken;
 import com.saumya.pos.identity.internal.RefreshSessionRepository;
 import com.saumya.pos.identity.internal.CustomerRepository;
 import com.saumya.pos.identity.internal.PlatformGrantRepository;
-import com.saumya.pos.membership.MembershipService;
+import com.saumya.pos.security.VendorMembershipAccess;
 import com.saumya.pos.security.AuthorizationContext;
-import com.saumya.pos.platform.PlatformAuditService;
+import com.saumya.pos.shared.PlatformAuditPort;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -29,9 +29,9 @@ import static org.springframework.http.HttpStatus.*;
 public class PlatformMfaService {
     private final GlobalUserRepository users;private final PlatformGrantRepository grants;
     private final PlatformMfaEnrollmentRepository enrollmentTokens;private final RefreshSessionRepository sessions;
-    private final CustomerRepository customers;private final MembershipService memberships;
+    private final CustomerRepository customers;private final VendorMembershipAccess memberships;
     private final PlatformMfaCrypto crypto;private final PlatformTotp totp;private final Clock clock;
-    private final AuthorizationContext authorization;private final PlatformAuditService audit;
+    private final AuthorizationContext authorization;private final PlatformAuditPort audit;
     public PlatformMfaService(GlobalUserRepository users,PlatformGrantRepository grants,PlatformMfaEnrollmentRepository enrollmentTokens,
         RefreshSessionRepository sessions,CustomerRepository customers,MembershipService memberships,
         PlatformMfaCrypto crypto,PlatformTotp totp,Clock clock,AuthorizationContext authorization,PlatformAuditService audit){

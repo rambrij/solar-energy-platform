@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {platformApi,ApiError} from './api';
+import PlatformIdentityAdmin from './PlatformIdentityAdmin';
 import {signOut,useSession} from './session';
 
 type Page='dashboard'|'tenants'|'plans'|'audit'|'support'|'configuration'|'identities';

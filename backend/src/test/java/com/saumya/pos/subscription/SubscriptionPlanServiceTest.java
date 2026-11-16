@@ -1,6 +1,8 @@
 package com.saumya.pos.subscription;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saumya.pos.security.AuthorizationContext;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.saumya.pos.subscription.internal.*;
 import java.math.BigDecimal;
 import java.time.*;
@@ -26,6 +28,8 @@ class SubscriptionPlanServiceTest {
         when(versions.saveAndFlush(any())).thenAnswer(inv->{var v=(SubscriptionPlanVersion)inv.getArgument(0);saved.add(v);return v;});
         when(versions.findByPlanIdOrderByVersionDesc(1L)).thenAnswer(inv->{var all=new ArrayList<SubscriptionPlanVersion>();all.addAll(saved);all.add(old);return all;});
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.fixed(now,ZoneOffset.UTC),new ObjectMapper());
+        var auth=mock(AuthorizationContext.class);when(auth.current()).thenReturn(new AuthorizationContext.Context("platform-admin",null,null,Set.of("PLATFORM_PLAN_MANAGE","PLATFORM_SUBSCRIPTION_VIEW"),true,false,false));
+        ReflectionTestUtils.setField(service,"authorization",auth);
         var result=service.revise(1,input("999"),"platform-admin","corr");
         assertThat(saved).hasSize(1);assertThat(saved.getFirst().version()).isEqualTo(2);assertThat(saved.getFirst().price()).isEqualByComparingTo("999");
         assertThat(old.version()).isEqualTo(1);assertThat(old.price()).isEqualByComparingTo("799");
@@ -37,6 +41,8 @@ class SubscriptionPlanServiceTest {
         when(plans.saveAndFlush(any())).thenReturn(plan);
         when(plan.id()).thenReturn(1L);
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
+        var auth=mock(AuthorizationContext.class);when(auth.current()).thenReturn(new AuthorizationContext.Context("admin",null,null,Set.of("PLATFORM_PLAN_MANAGE"),true,false,false));
+        ReflectionTestUtils.setField(service,"authorization",auth);
         var invalid=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"[]",7,"{}","plan");
         assertThatThrownBy(()->service.create(invalid,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verify(versions,never()).saveAndFlush(any());

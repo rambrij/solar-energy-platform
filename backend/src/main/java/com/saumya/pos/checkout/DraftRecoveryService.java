@@ -31,14 +31,18 @@ public class DraftRecoveryService {
         if (id == null || id.isBlank() || id.length() > 36) throw missing();
     }
     
+    @PreAuthorize("hasAuthority('POS_VIEW')")
     public Recovery pos(String username, String id) {
         validate(id);
         var scope = retail.scope();
+        retail.authorize(scope,username,"POS_VIEW");
         return view(orders.recoverPos(scope.tenant(), scope.branch(), scope.cashier(), id).orElseThrow(this::missing));
     }
     
+    @PreAuthorize("hasAuthority('CUSTOMER')")
     public Recovery customer(String username, String id) {
         validate(id);
+        retail.authorizeCustomer(username);
         return view(orders.recoverCustomer(customers.resolve(username), id).orElseThrow(this::missing));
     }
  private Recovery view(DraftOrder order){

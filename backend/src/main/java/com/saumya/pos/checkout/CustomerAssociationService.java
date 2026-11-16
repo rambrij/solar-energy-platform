@@ -35,12 +35,12 @@ public class CustomerAssociationService {
   challenges.saveAndFlush(new CustomerChallenge(hash(token),order.tenant(),id,expires));retail.draftAudit(scope,"CUSTOMER_ASSOCIATION_REQUEST",id);return new Challenge(token,expires);
  }
  @PreAuthorize("hasAuthority('CUSTOMER')")
- public Preview preview(String username,String token){retail.authorizeCustomer(username);long customer=customers.resolve(username);var challenge=challenges.findById(hash(token)).orElseThrow(this::missing);if(challenge.customer()==null&&!challenge.expires().isAfter(clock.instant())||challenge.customer()!=null&&challenge.customer()!=customer)throw missing();var order=orders.findByTenantIdAndId(challenge.tenant(),challenge.order()).orElseThrow(this::missing);return new Preview(catalog.vendor(order.tenant()).name(),order.total(),challenge.customer()==null?"AWAITING_CUSTOMER_CONSENT":"ASSOCIATED");}
+ public Preview preview(String username,String token){String tokenHash=hash(token);retail.authorizeCustomer(username);long customer=customers.resolve(username);var challenge=challenges.findById(tokenHash).orElseThrow(this::missing);if(challenge.customer()==null&&!challenge.expires().isAfter(clock.instant())||challenge.customer()!=null&&challenge.customer()!=customer)throw missing();var order=orders.findByTenantIdAndId(challenge.tenant(),challenge.order()).orElseThrow(this::missing);return new Preview(catalog.vendor(order.tenant()).name(),order.total(),challenge.customer()==null?"AWAITING_CUSTOMER_CONSENT":"ASSOCIATED");}
  @PreAuthorize("hasAuthority('CUSTOMER')")
  public Preview approve(String username,String token,boolean consent){
-  retail.authorizeCustomer(username);
   if(!consent)throw new ResponseStatusException(BAD_REQUEST,"Explicit customer consent required");
-  long customer=customers.resolve(username);customers.lock(customer);var challenge=challenges.locked(hash(token)).orElseThrow(this::missing);
+  String tokenHash=hash(token);retail.authorizeCustomer(username);
+  long customer=customers.resolve(username);customers.lock(customer);var challenge=challenges.locked(tokenHash).orElseThrow(this::missing);
   if(challenge.customer()!=null){if(challenge.customer()!=customer)throw missing();return preview(username,token);}
   if(!challenge.expires().isAfter(clock.instant()))throw missing();var order=orders.lock(challenge.tenant(),challenge.order()).orElseThrow(this::missing);
   if(!"IN_STORE".equals(order.channel())||!"DRAFT".equals(order.status())||order.customer()!=null||!order.expires().isAfter(clock.instant()))throw missing();

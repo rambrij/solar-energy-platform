@@ -29,7 +29,7 @@ public class PlatformAdminController {
     private AuthorizationContext.Context require(String permission){var ctx=auth.current();if(!ctx.isPlatformUser())throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Platform identity required");ctx.requirePermission(permission);return ctx;}
     private String correlation(String id){return id==null||id.isBlank()?null:id.strip().substring(0,Math.min(id.strip().length(),100));}
     @GetMapping("/dashboard") public Object dashboard(){require("PLATFORM_ANALYTICS_VIEW");return admin.dashboard();}
-    @GetMapping("/tenants") public Object tenants(@RequestParam(required=false) String q,@RequestParam(required=false) TenantStatus status,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){require("PLATFORM_TENANT_UPDATE");return admin.tenants(q,status,page,size);}
+    @GetMapping("/tenants") public Object tenants(@RequestParam(required=false) String q,@RequestParam(required=false) TenantStatus status,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){require("PLATFORM_TENANT_VIEW");return admin.tenants(q,status,page,size);}
     @PostMapping("/tenants") public ResponseEntity<?> create(@Valid @RequestBody TenantCreate body,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
         var actor=require("PLATFORM_TENANT_CREATE");var result=admin.onboard(new TenantLifecycleService.Registration(body.slug(),body.name(),body.legalName(),body.contactEmail(),body.contactPhone(),body.taxIdentifier(),body.address(),body.initialVendorAdminUsername()),actor.username(),correlation(correlation));
         return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore()).body(result);
@@ -38,7 +38,7 @@ public class PlatformAdminController {
         var actor=require("PLATFORM_TENANT_UPDATE");return admin.update(id,new TenantLifecycleService.ProfileUpdate(body.name(),body.legalName(),body.contactEmail(),body.contactPhone(),body.taxIdentifier(),body.address()),actor.username(),correlation(correlation));
     }
     @PostMapping("/tenants/{id}/lifecycle") public Object lifecycle(@PathVariable long id,@Valid @RequestBody LifecycleChange body,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
-        String permission=switch(body.status()){case SUSPENDED->"PLATFORM_TENANT_SUSPEND";case CLOSED->"PLATFORM_TENANT_CLOSE";default->"PLATFORM_TENANT_UPDATE";};
+        String permission=switch(body.status()){case SUSPENDED->"PLATFORM_TENANT_SUSPEND";case CLOSED->"PLATFORM_TENANT_CLOSE";case ACTIVE->"PLATFORM_TENANT_REACTIVATE";default->"PLATFORM_TENANT_UPDATE";};
         var actor=require(permission);return admin.transition(id,body.status(),body.reason(),actor.username(),correlation(correlation));
     }
     @GetMapping("/audit") public Object audit(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="50") int size,@RequestParam(required=false) Long tenantId){require("PLATFORM_AUDIT_VIEW");return audit.search(page,size,tenantId);}

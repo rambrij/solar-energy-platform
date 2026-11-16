@@ -3,6 +3,7 @@ package com.saumya.pos.membership;
 import com.saumya.pos.membership.internal.*;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import com.saumya.pos.security.VendorMembershipAccess;
+import com.saumya.pos.security.VendorMembershipResolver;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;

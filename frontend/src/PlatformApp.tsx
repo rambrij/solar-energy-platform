@@ -2,7 +2,7 @@ import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {platformApi,ApiError} from './api';
 import {signOut,useSession} from './session';
 
-type Page='dashboard'|'tenants'|'plans'|'audit'|'support'|'configuration';
+type Page='dashboard'|'tenants'|'plans'|'audit'|'support'|'configuration'|'identities';
 type Tenant={id:number;slug:string;name:string;legalName:string;lifecycleStatus:string;contactEmail?:string|null;contactPhone?:string|null;initialVendorAdminUsername?:string|null;createdAt:string;onlineBranchId?:number|null};
 type TenantPage={items:Tenant[];totalElements:number;totalPages:number;page:number};
 type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;graceDays:number;taxMetadata:string;invoiceDescription:string;createdAt:string};
@@ -15,12 +15,14 @@ const pages:{id:Page;label:string;description:string}[]=[
  {id:'plans',label:'Subscription plans',description:'Version SaaS prices and entitlements'},
  {id:'audit',label:'Platform audit',description:'Review platform administration activity'},
  {id:'support',label:'Support access',description:'Grant purpose-bound, expiring support windows'},
- {id:'configuration',label:'Configuration',description:'Manage global non-commercial configuration'}
+ {id:'configuration',label:'Configuration',description:'Manage global non-commercial configuration'},
+ {id:'identities',label:'Platform identities',description:'Manage platform-only identities and audited MFA enrollment/reset'}
 ];
 
 export default function PlatformApp(){
  const {account}=useSession();
  const [page,setPage]=useState<Page>('dashboard');
+ const visiblePages=pages.filter(item=>item.id!=='identities'||account?.permissions.includes('PLATFORM_IDENTITY_MANAGE'));
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [tenantPage,setTenantPage]=useState<TenantPage>({items:[],totalElements:0,totalPages:0,page:0});
  const [tenantSearch,setTenantSearch]=useState(''),[tenantStatus,setTenantStatus]=useState('');
@@ -93,11 +95,11 @@ export default function PlatformApp(){
   </header>
   <div className="platform-frame">
    <aside className="platform-sidebar"><span className="platform-kicker">SAAS CONTROL PLANE</span>
-    <nav aria-label="Platform navigation">{pages.map(item=><button type="button" key={item.id} className={page===item.id?'active':''} onClick={()=>setPage(item.id)}><span>{item.label}</span><small>{item.description}</small></button>)}</nav>
+    <nav aria-label="Platform navigation">{visiblePages.map(item=><button type="button" key={item.id} className={page===item.id?'active':''} onClick={()=>setPage(item.id)}><span>{item.label}</span><small>{item.description}</small></button>)}</nav>
     <p className="platform-sidebar-note">Commercial vendor operations are available only through a separate vendor tenant identity.</p>
    </aside>
    <main className="platform-content">
-    <div className="platform-page-heading"><div><span className="platform-kicker">PLATFORM / {page.toUpperCase()}</span><h1>{pages.find(p=>p.id===page)?.label}</h1><p>{pages.find(p=>p.id===page)?.description}</p></div><span className="platform-scope">Platform scope only</span></div>
+    <div className="platform-page-heading"><div><span className="platform-kicker">PLATFORM / {page.toUpperCase()}</span><h1>{visiblePages.find(p=>p.id===page)?.label}</h1><p>{visiblePages.find(p=>p.id===page)?.description}</p></div><span className="platform-scope">Platform scope only</span></div>
     {error&&<p className="platform-alert" role="alert">{error}</p>}{notice&&<p className="platform-notice" role="status">{notice}</p>}{busy&&<p role="status">Saving platform changes…</p>}
     {page==='dashboard'&&<section className="platform-panel"><div className="platform-panel-heading"><div><h2>Tenant lifecycle</h2><p>Aggregated platform-owned counts; no tenant-private CRM or transaction detail.</p></div><button className="secondary" onClick={()=>void load('dashboard')}>Refresh</button></div>
      <div className="platform-stat-grid">{(dashboard?.tenantStatuses??[]).map(item=><article key={item.status}><span>{item.status.replaceAll('_',' ')}</span><strong>{item.count}</strong></article>)}</div>
@@ -154,6 +156,7 @@ export default function PlatformApp(){
       <label className="platform-wide">Purpose / reason<textarea required value={supportForm.purpose} onChange={e=>setSupportForm({...supportForm,purpose:e.target.value})}/></label>
       <div className="platform-form-actions"><button disabled={busy}>Record support grant</button></div></form></section>
      <section className="platform-panel"><h2>Recent support grants</h2><div className="platform-table-wrap"><table><thead><tr><th>Tenant</th><th>Actor</th><th>Purpose</th><th>Ticket</th><th>Expiry</th><th>Status</th></tr></thead><tbody>{support.map(s=><tr key={s.id}><td>{s.tenantId}</td><td>{s.actor}</td><td>{s.purpose}</td><td>{s.ticketReference}</td><td>{new Date(s.expiresAt).toLocaleString()}</td><td>{s.active?'Active':s.revokedAt?'Revoked':'Expired'}</td></tr>)}</tbody></table></div></section></>}
+    {page==='identities'&&<PlatformIdentityAdmin/>}
     {page==='configuration'&&<><section className="platform-panel"><h2>Global platform configuration</h2><p>Secret values are never accepted. Sensitive settings require a reference to an external secret manager.</p><form className="platform-form-grid" onSubmit={saveConfig}>
       <label>Configuration key<input required value={configForm.key} onChange={e=>setConfigForm({...configForm,key:e.target.value.toUpperCase()})}/></label>
       <label>Category<select value={configForm.category} onChange={e=>setConfigForm({...configForm,category:e.target.value})}><option>INTEGRATION</option><option>EMAIL</option><option>PAYMENT</option><option>PLATFORM</option></select></label>

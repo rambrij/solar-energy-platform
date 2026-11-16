@@ -173,5 +173,5 @@ public class CheckoutService {
         order.pay(cash,receipt.number(),invoice,clock.instant());documents.issue(s,order,receipt,invoice,false);orders.flush();posState(order);
         return receipts.receipt(s,id);
     }
-    public void expire(long tenant,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){stock.release(tenant,id);buyers.discardUnpaid(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();posState(order);}}
+    public void expire(long tenant,String id){var authentication=org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();if(authentication==null||!authentication.isAuthenticated()||authentication.getAuthorities().stream().noneMatch(grant->"SYSTEM_DRAFT_EXPIRY".equals(grant.getAuthority())))throw new ResponseStatusException(FORBIDDEN,"Trusted draft-expiry worker required");var order=orders.lock(tenant,id).orElseThrow(this::missing);if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){stock.release(tenant,id);buyers.discardUnpaid(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();posState(order);}}
 }

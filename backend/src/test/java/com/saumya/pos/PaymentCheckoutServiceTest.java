@@ -47,8 +47,11 @@ class PaymentCheckoutServiceTest {
      var retail = new PosService(null, null, null) {
          public void lockOutlet(Scope scope) {
          }
+         @Override public void authorize(Scope scope,String actor,String... permissions) {}
+         @Override public void authorizeCustomer(String actor) {}
      };
      var service = new PaymentCheckoutService(orders(order), null, attempts, policy(), customer, null, null, retail, Clock.systemUTC());
+     ReflectionTestUtils.setField(service,"entitlements",mock(TenantEntitlementPolicy.class));
   assertThat(service.start("buyer","sale","UPI").attemptId()).isEqualTo(attempt.id());assertThatThrownBy(()->service.start("buyer","sale","CARD")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
  @Test void orderStatusTimeNeverRoundsIntoFuture(){

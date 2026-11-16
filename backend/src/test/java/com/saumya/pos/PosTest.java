@@ -162,13 +162,13 @@ class PosTest {
  }
  @Test void cancellingOrExpiringAnUnpaidDraftRemovesItsOptionalBuyerSnapshot(){
   var buyer=new com.saumya.pos.checkout.BuyerDetailsPolicy.Input("Guest",null,null,"Street");var request=new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1)),false,null,buyer);var draft=as("alice", () -> checkout.pos("alice","buyer-cancel",request));assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isEqualTo(1);String cancelDraftId=draft.id();as("alice", () -> checkout.cancelPos("alice",cancelDraftId,"Buyer left"));assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isZero();
-  draft=as("alice", () -> checkout.pos("alice","buyer-expire",request));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());checkout.expire(1,draft.id());assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isZero();
+  draft=as("alice", () -> checkout.pos("alice","buyer-expire",request));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());draftExpiry.expireOne(1,draft.id());assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots",Integer.class)).isZero();
  }
  @Test void concurrentInventoryChangesRefreshAnAlreadyLoadedCatalogProjection(){
   var pool=Executors.newSingleThreadExecutor();
   try{new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
    var key=new com.saumya.pos.catalog.internal.CatalogStock.Key(1,1,1);assertThat(em.find(com.saumya.pos.catalog.internal.CatalogStock.class,key).available()).isEqualTo(1);
-   try{pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(other->{service.lockOutlet(a);return stock.receive(1,1,1,2);})).get(20,TimeUnit.SECONDS);}catch(Exception failure){throw new IllegalStateException(failure);}
+   try{pool.submit(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(other->{service.lockOutlet(a);return stock.receive(1,1,1,2);}))).get(20,TimeUnit.SECONDS);}catch(Exception failure){throw new IllegalStateException(failure);}
    stock.issue(1,1,1,2);return null;
   });}finally{pool.shutdownNow();}
   assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
@@ -293,7 +293,7 @@ class PosTest {
  @Test void expiredPartialCashRetainsStockAndCanCompleteOnlyTheRemainingBalance(){
   enableTerminal();update("UPDATE branches SET split_tender_enabled=TRUE WHERE id=1");var draft=as("alice", () -> checkout.pos("alice","expired-partial",posDraft()));
   as("alice", () -> payments.tender("alice",draft.id(),"expired-cash",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40"))));
-  update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());checkout.expire(1,draft.id());
+  update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());draftExpiry.expireOne(1,draft.id());
   assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
   assertThat(stock.atBranch(1,1,1)).isZero();assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cancel"))).hasMessageContaining("Reconcile");
   assertThat(as("alice", () -> payments.tender("alice",draft.id(),"expired-rest",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("70"),new BigDecimal("70")))).orderStatus()).isEqualTo("PAID");
@@ -388,7 +388,7 @@ class PosTest {
   var draft=as("alice", () -> checkout.pos("alice","terminal-disabled",posDraft()));assertThat(as("alice", () -> payments.tenderStatus("alice",draft.id())).tenders()).isEmpty();assertThatThrownBy(()->terminal("alice",draft.id(),"UPI"));assertThatThrownBy(()->as("alice", () -> payments.confirm("alice",draft.id(),"arbitrary")));assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isZero();
  }
  @Test void terminalUnknownCanConfirmAfterOriginalTtlWithoutRechargingOrReleasingStock(){
-  enableTerminal();var draft=as("alice", () -> checkout.pos("alice","terminal-late-result",posDraft()));var attempt=terminal("alice",draft.id(),"UPI");as("alice", () -> payments.unknown("alice",draft.id(),attempt.attemptId()));update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));checkout.expire(1,draft.id());
+  enableTerminal();var draft=as("alice", () -> checkout.pos("alice","terminal-late-result",posDraft()));var attempt=terminal("alice",draft.id(),"UPI");as("alice", () -> payments.unknown("alice",draft.id(),attempt.attemptId()));update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));draftExpiry.expireOne(1,draft.id());
   assertThat(stock.atBranch(1,1,1)).isZero();assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cannot discard funds")));assertThatThrownBy(()->terminal("alice",draft.id(),"CARD"));assertThatThrownBy(()->as("bob", () -> tenderReviews.review("bob",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))));
   assertThat(as("manager", () -> payments.awaitingReview("manager"))).hasSize(1);as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));assertThat(as("manager", () -> payments.awaitingReview("manager"))).isEmpty();assertThat(as("manager",()->payments.reviewStatus("manager",draft.id())).state()).isEqualTo("CONFIRMED");assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts",String.class)).isEqualTo("manager");assertThat(db.queryForObject("SELECT evidence_reference FROM vendor_payment_attempts",String.class)).isEqualTo("evidence-record-123");assertThat(db.queryForObject("SELECT reviewed_at FROM vendor_payment_attempts",java.sql.Timestamp.class)).isNotNull();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
  }
@@ -412,7 +412,7 @@ class PosTest {
   enableTerminal();
   var draft=as("alice", () -> checkout.pos("alice","expire-payment",posDraft()));var attempt=terminal("alice",draft.id(),"UPI");
   update("UPDATE products SET price=200 WHERE id=1");assertThat(as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))).orderStatus()).isEqualTo("DRAFT");assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts",String.class)).isEqualTo("CONFIRMED");as("alice", () -> payments.unknown("alice",draft.id(),attempt.attemptId()));
-  update("UPDATE products SET price=100 WHERE id=1");update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));checkout.expire(1,draft.id());
+  update("UPDATE products SET price=100 WHERE id=1");update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));draftExpiry.expireOne(1,draft.id());
   assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Do not discard uncertain payment")));assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("DRAFT");assertThatThrownBy(()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"FAIL")));assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
  }
  @Test void concurrentPaymentConfirmationIssuesOneReceiptAndOneStockMovement() throws Exception {
@@ -965,7 +965,7 @@ class PosTest {
   var draft=as("alice", () -> checkout.pos("alice","expire-pos1",posDraft()));
   update("UPDATE orders SET expires_at=TIMESTAMP '2020-01-01 00:00:00' WHERE id=?",draft.id());
   assertThatThrownBy(()->as("alice", () -> checkout.finalizeCash("alice",draft.id(),new BigDecimal("110"))));
-  checkout.expire(1,draft.id());checkout.expire(1,draft.id());
+  draftExpiry.expireOne(1,draft.id());draftExpiry.expireOne(1,draft.id());
   assertThat(stock.available(1,1)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("EXPIRED");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
@@ -1467,7 +1467,7 @@ class PosTest {
   String path="/api/v1/vendor/pos/drafts/"+draft.id();
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.expired").value(true));
   assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isZero();
-  checkout.expire(1,draft.id());asScope(a, () -> service.close(a,session,new BigDecimal("50")));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("EXPIRED"));assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
+  draftExpiry.expireOne(1,draft.id());asScope(a, () -> service.close(a,session,new BigDecimal("50")));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("EXPIRED"));assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
  }
  @Test void paidDraftReferenceRecoveryNeverCreatesAnotherReceiptOrSale() throws Exception {
   var draft=as("alice", () -> checkout.pos("alice","recover-paid-draft",posDraft()));as("alice", () -> checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));asScope(a, () -> service.close(a,session,new BigDecimal("160")));

@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 @Service @Transactional(readOnly=true)
 public class PromotionService {
+ @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.security.AuthorizationContext authorization;
  @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager em;
  private final PromotionRepository promotions; private final PromotionAuditRepository audit; private final ProductRepository products; private final PromotionPricing pricing; private final Clock clock;
  public PromotionService(PromotionRepository promotions,PromotionAuditRepository audit,ProductRepository products,PromotionPricing pricing,Clock clock){this.promotions=promotions;this.audit=audit;this.products=products;this.pricing=pricing;this.clock=clock;}

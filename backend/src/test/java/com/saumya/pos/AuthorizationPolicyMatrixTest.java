@@ -51,6 +51,15 @@ class AuthorizationPolicyMatrixTest {
         String mandatoryExpression=branchIndex<0?expression:expression.substring(0,branchIndex);
         Matcher mandatoryMatcher=Pattern.compile("hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)").matcher(mandatoryExpression);
         while(mandatoryMatcher.find())mandatory.add(mandatoryMatcher.group(1));
+        if(expression.contains("#request.type().name()")){
+            for(Object argument:invocation.getArguments()){
+                if(argument==null)continue;
+                try{
+                    Object value=argument.getClass().getMethod("type").invoke(argument);
+                    if(value instanceof Enum<?> movement){mandatory.add("POS_"+movement.name());break;}
+                }catch(ReflectiveOperationException ignored){ /* not the dynamic-permission request parameter */ }
+            }
+        }
         List<Set<String>> alternatives=new ArrayList<>();
         Matcher anyMatcher=Pattern.compile("hasAnyAuthority\\(([^)]*)\\)").matcher(expression);
         while(anyMatcher.find()){

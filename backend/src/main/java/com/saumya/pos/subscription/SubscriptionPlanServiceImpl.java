@@ -16,8 +16,22 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
     private static final Pattern KEY=Pattern.compile("[a-z0-9][a-z0-9_-]{1,79}");
     private static final Set<String> INTERVALS=Set.of("MONTHLY","QUARTERLY","YEARLY");
     private final SubscriptionPlanRepository plans;private final SubscriptionPlanVersionRepository versions;private final Clock clock;private final ObjectMapper json;
+    @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.security.AuthorizationContext authorization;
+    private void requirePlatform(String actor,String permission){
+        if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Platform authorization context unavailable");
+        var context=authorization.current();
+        if(!context.isPlatformUser()||!context.username().equals(actor))throw new ResponseStatusException(FORBIDDEN,"Platform actor does not match authenticated identity");
+        context.requirePermission(permission);
+    }
+    private void requireRead(){
+        if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Platform authorization context unavailable");
+        var context=authorization.current();
+        if(!context.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");
+        if(!context.hasAnyPermission("PLATFORM_SUBSCRIPTION_VIEW","PLATFORM_PLAN_MANAGE"))throw new ResponseStatusException(FORBIDDEN,"Platform plan view permission required");
+    }
     public SubscriptionPlanServiceImpl(SubscriptionPlanRepository plans,SubscriptionPlanVersionRepository versions,Clock clock,ObjectMapper json){this.plans=plans;this.versions=versions;this.clock=clock;this.json=json;}
     @Override public PlanView create(PlanInput input,String actor,String correlation){
+        requirePlatform(actor,"PLATFORM_PLAN_MANAGE");
         String key=required(input.planKey(),80,"Plan key").toLowerCase(Locale.ROOT);
         if(!KEY.matcher(key).matches())throw new ResponseStatusException(BAD_REQUEST,"Plan key must use lowercase letters, numbers, underscore or hyphen");
         if(plans.findByPlanKey(key).isPresent())throw new ResponseStatusException(CONFLICT,"Plan key already exists");
@@ -26,6 +40,7 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
         return view(plan);
     }
     @Override public PlanView revise(long id,PlanInput input,String actor,String correlation){
+        requirePlatform(actor,"PLATFORM_PLAN_MANAGE");
         var plan=plans.findById(id).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Subscription plan unavailable"));
         if(input.planKey()==null||!plan.planKey().equalsIgnoreCase(input.planKey().strip()))throw new ResponseStatusException(BAD_REQUEST,"Plan key is immutable; create another plan for a different key");
         int next=plan.currentVersion()+1;var now=clock.instant();
@@ -33,10 +48,11 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
         return view(plan);
     }
     @Override public PlanView setActive(long id,boolean active,String actor,String correlation){
+        requirePlatform(actor,"PLATFORM_PLAN_MANAGE");
         var plan=plans.findById(id).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Subscription plan unavailable"));
         plan.active(active,clock.instant());return view(plan);
     }
-    @Override @Transactional(readOnly=true) public List<PlanView> list(){return plans.findAll().stream().sorted(Comparator.comparing(SubscriptionPlan::planKey)).map(this::view).toList();}
+    @Override @Transactional(readOnly=true) public List<PlanView> list(){requireRead();return plans.findAll().stream().sorted(Comparator.comparing(SubscriptionPlan::planKey)).map(this::view).toList();}
     private SubscriptionPlanVersion version(long id,int version,PlanInput p,String actor,java.time.Instant now){
         validate(p);
         return new SubscriptionPlanVersion(id,version,p.price(),p.currency().toUpperCase(Locale.ROOT),p.billingInterval().toUpperCase(Locale.ROOT),

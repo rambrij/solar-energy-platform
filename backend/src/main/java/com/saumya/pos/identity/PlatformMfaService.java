@@ -10,6 +10,7 @@ import com.saumya.pos.identity.internal.PlatformGrantRepository;
 import com.saumya.pos.security.VendorMembershipAccess;
 import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.shared.PlatformAuditPort;
+import com.saumya.pos.shared.PlatformAuditPort;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -33,8 +34,8 @@ public class PlatformMfaService {
     private final PlatformMfaCrypto crypto;private final PlatformTotp totp;private final Clock clock;
     private final AuthorizationContext authorization;private final PlatformAuditPort audit;
     public PlatformMfaService(GlobalUserRepository users,PlatformGrantRepository grants,PlatformMfaEnrollmentRepository enrollmentTokens,
-        RefreshSessionRepository sessions,CustomerRepository customers,MembershipService memberships,
-        PlatformMfaCrypto crypto,PlatformTotp totp,Clock clock,AuthorizationContext authorization,PlatformAuditService audit){
+        RefreshSessionRepository sessions,CustomerRepository customers,VendorMembershipAccess memberships,
+        PlatformMfaCrypto crypto,PlatformTotp totp,Clock clock,AuthorizationContext authorization,PlatformAuditPort audit){
         this.users=users;this.grants=grants;this.enrollmentTokens=enrollmentTokens;this.sessions=sessions;this.customers=customers;
         this.memberships=memberships;this.crypto=crypto;this.totp=totp;this.clock=clock;this.authorization=authorization;this.audit=audit;
     }

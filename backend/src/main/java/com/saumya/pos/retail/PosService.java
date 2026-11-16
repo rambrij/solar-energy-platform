@@ -157,7 +157,7 @@ public class PosService {
         }
         if(!"OPEN".equals(shift.get("state"))) {
             if((requestId==null||requestId.equals(shift.get("close_request_id")))&&counted.compareTo((BigDecimal)shift.get("counted_cash"))==0&&Objects.equals(normalized,shift.get("variance_reason")))
-                return closeStatus(s,id);
+                return closeStatusInternal(s,id);
             fail("Close count is already frozen; supervisor review or a new corrected count is required");
         }
         BigDecimal expected=reconciliationInternal(s,id).expectedCash(),variance=counted.subtract(expected);

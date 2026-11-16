@@ -22,6 +22,6 @@ public class PlatformMfaController {
     public ResponseEntity<?> complete(@Valid @RequestBody CompleteRequest request){
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.complete(request.enrollmentToken(),request.code()));
     }
-    @GetMapping("/status") @PreAuthorize("hasAuthority('PLATFORM_AUDIT_VIEW') or hasAuthority('PLATFORM_TENANT_VIEW')")
+    @GetMapping("/status") @PreAuthorize("hasAuthority('PLATFORM_AUDIT_VIEW')")
     public Object status(java.security.Principal actor){return service.status(actor.getName());}
 }

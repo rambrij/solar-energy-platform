@@ -22,7 +22,7 @@ public class TenantEntitlementPolicy {
         "POS_REPORT_VIEW","POS_CASHIER_REPORT_VIEW","POS_REFUND_VIEW","POS_RETURN_VIEW","POS_TENDER_VIEW");
     public TenantEntitlementPolicy(JdbcTemplate db,ObjectMapper json,Clock clock,Environment env){
         this.db=db;this.json=json;this.clock=clock;var profiles=Set.of(env.getActiveProfiles());
-        this.enforced=!profiles.isEmpty()&&Collections.disjoint(profiles,Set.of("local","test"));
+        this.enforced=Collections.disjoint(profiles,Set.of("local","test"));
     }
     public List<String> permissions(long tenant,List<String> grants){
         if(!enforced)return grants;
@@ -52,7 +52,7 @@ public class TenantEntitlementPolicy {
         for(String permission:grants){
             if(!writable&&!READ_ONLY.contains(permission))continue;
             String feature=feature(permission);
-            if(feature!=null&&features.isObject()&&features.has(feature)&&!features.path(feature).asBoolean(false))continue;
+            if(feature!=null&&(!features.isObject()||!features.path(feature).asBoolean(false)))continue;
             result.add(permission);
         }
         return List.copyOf(result);

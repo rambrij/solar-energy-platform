@@ -121,7 +121,7 @@ public class PosService {
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void lockOutlet(Scope s){
         authorizeInternalScope(s,"POS_SALE_CREATE","POS_SALE_CANCEL","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT",
-            "POS_REFUND_CASH_RECORD","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD","POS_RECEIPT_REPRINT");
+            "POS_REFUND_CASH_RECORD","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD","POS_RECEIPT_REPRINT","POS_SETTINGS_MANAGE");
         one("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
     }
     public record ReceiptAllocation(long number,boolean invoiceRequired,String outlet) {}
@@ -139,6 +139,7 @@ public class PosService {
             case "DRAFT_RESERVE"->"POS_SALE_CREATE";
             case "DRAFT_CANCEL"->"POS_SALE_CANCEL";
             case "RECEIPT_REPRINT"->"POS_RECEIPT_REPRINT";
+            case "REGISTER_CREATE"->"POS_SETTINGS_MANAGE";
             default->throw new ResponseStatusException(FORBIDDEN,"Unsupported POS audit action");
         };
         authorize(s,s.cashier(),permission);audit(s,action,id);

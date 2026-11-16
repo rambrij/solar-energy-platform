@@ -9,6 +9,7 @@ import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -30,6 +31,7 @@ public class SalesReportService {
         void add(Bucket b){discounts=discounts.add(b.discounts);paid+=b.paid;units+=b.units;invoices+=b.invoices;unpaid+=b.unpaid;cancelled+=b.cancelled;expired+=b.expired;sales=sales.add(b.sales);tax=tax.add(b.tax);cash=cash.add(b.cash);change=change.add(b.change);unpaidAmount=unpaidAmount.add(b.unpaidAmount);}
         Totals view(){return new Totals(paid,sales,tax,sales.subtract(tax),cash,change,cash.subtract(change),units,invoices,unpaid,unpaidAmount,cancelled,expired,discounts);}
     }
+    @PreAuthorize("hasAuthority('POS_VIEW') and hasAuthority('POS_REPORT_VIEW')")
     public Report report(String username,LocalDate requestedFrom,LocalDate requestedTo,String requestedChannel){
         LocalDate to=requestedTo==null?LocalDate.now(clock):requestedTo;
         if(to.getYear()<1970||to.getYear()>9998)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Date is out of range");

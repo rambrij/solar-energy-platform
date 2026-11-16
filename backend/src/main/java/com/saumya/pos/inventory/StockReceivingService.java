@@ -28,13 +28,13 @@ public class StockReceivingService {
  /** The application caller holds its assigned outlet lock in this transaction, serializing initial balance creation and retries. */
  @Transactional(propagation=Propagation.MANDATORY) @PreAuthorize("hasAuthority('INVENTORY_RECEIVE')")
  public View receive(long tenant,long branch,String actor,String key,Input input){
-  guard(tenant,branch,actor,"INVENTORY_RECEIVE");
   if(input==null||input.productId()<1||input.quantity()<1||input.quantity()>1000000||input.reason()==null||input.reason().isBlank()||input.reason().length()>250||key==null||!key.matches("[A-Za-z0-9_-]{8,80}"))throw new ResponseStatusException(BAD_REQUEST,"Valid product, quantity, reason and idempotency key required");
+  guard(tenant,branch,actor,"INVENTORY_RECEIVE");
   var previous=receipts.findByTenantAndBranchAndKey(tenant,branch,key);
   if(previous.isPresent()){var row=previous.get();if(row.product()!=input.productId()||row.quantity()!=input.quantity()||!row.actor().equals(actor)||!row.reason().equals(input.reason().strip()))throw new DomainProblem("IDEMPOTENCY_KEY_CONFLICT","Stock receiving key already identifies a different command");return view(row);}
   int available=stock.receive(tenant,branch,input.productId(),input.quantity());
   return view(receipts.saveAndFlush(new StockReceipt(tenant,branch,input.productId(),input.quantity(),actor,input.reason().strip(),key,available,clock.instant())));
  }
  @Transactional(readOnly=true) @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
- public Page list(long tenant,long branch,int page,int size){var context=authorization.current();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("INVENTORY_VIEW");if(page<0||page>10000||size<1||size>100)throw new ResponseStatusException(BAD_REQUEST,"Bounded receipt pagination required");var rows=receipts.findByTenantAndBranchOrderByCreatedDescIdDesc(tenant,branch,org.springframework.data.domain.PageRequest.of(page,size));return new Page(rows.stream().map(this::view).toList(),page,size,rows.getTotalElements(),rows.getTotalPages());}
+ public Page list(long tenant,long branch,int page,int size){if(page<0||page>10000||size<1||size>100)throw new ResponseStatusException(BAD_REQUEST,"Bounded receipt pagination required");var context=authorization.current();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("INVENTORY_VIEW");var rows=receipts.findByTenantAndBranchOrderByCreatedDescIdDesc(tenant,branch,org.springframework.data.domain.PageRequest.of(page,size));return new Page(rows.stream().map(this::view).toList(),page,size,rows.getTotalElements(),rows.getTotalPages());}
 }

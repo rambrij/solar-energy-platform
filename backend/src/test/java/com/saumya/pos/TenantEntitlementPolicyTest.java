@@ -49,7 +49,7 @@ class TenantEntitlementPolicyTest {
     }
     @Test void suspendedSubscriptionRetainsOnlyApprovedReadPermissions(){
         JdbcTemplate db=mock(JdbcTemplate.class);
-        rows(db,subscription("SUSPENDED",LocalDate.parse("2026-11-01"),null,"{\"features\":{\"POS\":true}}"));
+        rows(db,subscription("SUSPENDED",LocalDate.parse("2026-11-01"),null,"{\"features\":{\"POS\":true,\"ADMINISTRATION\":true}}"));
         assertThat(policy(db).permissions(10,List.of("POS_VIEW","POS_SALE_CREATE","ROLE_VIEW","ROLE_ASSIGN")))
             .containsExactly("POS_VIEW","ROLE_VIEW");
     }

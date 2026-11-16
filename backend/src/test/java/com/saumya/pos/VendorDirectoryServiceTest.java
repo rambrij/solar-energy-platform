@@ -4,8 +4,8 @@ import com.saumya.pos.catalog.VendorDirectoryService;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import java.lang.reflect.Proxy;
 import java.util.*;
-import org.junit.jupiter.api.*;
-import org.springframework.web.server.ResponseStatusException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 class VendorDirectoryServiceTest {
@@ -17,6 +17,15 @@ class VendorDirectoryServiceTest {
         });
         service=new VendorDirectoryService(tenants);
     }
-    @Test void delegatesBoundedSearchAndReturnsOnlyPublicCards(){var result=service.search("  SUN%_!  ",0,12);assertThat(arguments).containsExactly("  SUN%_!  ",0,12);assertThat(result.query()).isEqualTo("SUN%_!");assertThat(result.items().getFirst().slug()).isEqualTo("solar");assertThat(result.totalElements()).isEqualTo(1);}
-    @Test void defaultSearchIsBounded(){service.search(null,2,24);assertThat(arguments).containsExactly(null,2,24);}
-
+    @Test void delegatesBoundedSearchAndReturnsOnlyPublicCards(){
+        var result=service.search("  SUN%_!  ",0,12);
+        assertThat(arguments).containsExactly("  SUN%_!  ",0,12);
+        assertThat(result.query()).isEqualTo("SUN%_!");
+        assertThat(result.items().getFirst().slug()).isEqualTo("solar");
+        assertThat(result.totalElements()).isEqualTo(1);
+    }
+    @Test void defaultSearchIsBounded(){
+        service.search(null,2,24);
+        assertThat(arguments).containsExactly(null,2,24);
+    }
+}

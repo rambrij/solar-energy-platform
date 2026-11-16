@@ -36,6 +36,8 @@ class PosTest {
  @Autowired com.saumya.pos.checkout.OrderHistoryService orderHistory;
  @Autowired com.saumya.pos.checkout.DraftRecoveryService draftRecovery;
  @Autowired com.saumya.pos.catalog.PosCatalogService posCatalog;
+ @Autowired com.saumya.pos.catalog.ProductAdminService productAdmin;
+ @Autowired com.saumya.pos.catalog.CategoryAdminService categoryAdmin;
  @Autowired com.saumya.pos.checkout.PaymentCheckoutService payments;
  @Autowired com.saumya.pos.checkout.ReturnSaleAccess returnSaleAccess;
  @Autowired com.saumya.pos.checkout.OnlineReceiptService onlineReceipts;
@@ -1903,6 +1905,17 @@ class PosTest {
   assertThatThrownBy(()->as("alice",()->posCatalog.search(1,1,"","all","name",false,0,10)))
     .isInstanceOf(RuntimeException.class);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
+ }
+
+
+ @Test void catalogAdminServicesRejectMissingPermissionAndForgedTenantOnDirectInvocation() {
+  update("DELETE FROM employee_permissions WHERE username='alice' AND permission='PRODUCT_VIEW'");
+  assertThatThrownBy(()->as("alice",()->productAdmin.list(1,0,10))).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->as("alice",()->categoryAdmin.list(1,0,10))).isInstanceOf(RuntimeException.class);
+  update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES('alice','PRODUCT_VIEW',1)");
+  assertThatThrownBy(()->as("alice",()->productAdmin.list(2,0,10))).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->as("alice",()->categoryAdmin.list(2,0,10))).isInstanceOf(RuntimeException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=2",Integer.class)).isEqualTo(1);
  }
 
 }

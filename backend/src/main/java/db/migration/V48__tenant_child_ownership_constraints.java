@@ -30,8 +30,8 @@ public class V48__tenant_child_ownership_constraints extends BaseJavaMigration {
                 "tenant_id,branch_id,session_id,id");
         ensureUnique(connection, "orders", "uk_orders_tenant_branch_cashier_session_id",
                 "tenant_id,branch_id,cashier,session_id,id");
-        ensureUnique(connection, "tenant_subscriptions", "uk_tenant_subscription_tenant_id",
-                "tenant_id,id");
+        // V41 already creates uk_tenant_subscription_tenant_id(tenant_id,id).
+        // Reuse that reviewed parent key rather than duplicating it.
 
         ensureForeignKey(connection, "pos_drawer_tenders", "fk_pos_drawer_tender_branch",
                 "FOREIGN KEY (tenant_id,branch_id) REFERENCES branches(tenant_id,id)");

@@ -37,7 +37,7 @@ public class IdentityProvisioningServiceImpl implements IdentityProvisioningServ
     @Override public Invitation issueInvitation(String requested){
         String username=normalize(requested);ensureVendorEligible(username);
         var existing=users.findByUsername(username);
-        if(existing.isPresent()&&existing.get().enabled())return new Invitation(username,null,null,true);
+        if(existing.isPresent()&&existing.get().enabled())return new com.saumya.pos.security.IdentityInvitationPort.Invitation(username,null,null,true);
         if(existing.isEmpty()){
             long id=sequences.locked().orElseThrow(()->new IllegalStateException("Identity sequence unavailable")).allocate();
             users.saveAndFlush(new GlobalUser(id,username,passwords.encode(UUID.randomUUID().toString()),false));
@@ -45,7 +45,7 @@ public class IdentityProvisioningServiceImpl implements IdentityProvisioningServ
         invitations.deleteByUsername(username);
         String token=randomToken();Instant now=clock.instant(),expires=now.plus(Duration.ofHours(48));
         invitations.saveAndFlush(new IdentityInvitation(hash(token),username,expires,now));
-        return new Invitation(username,token,expires,false);
+        return new com.saumya.pos.security.IdentityInvitationPort.Invitation(username,token,expires,false);
     }
     @Override public void acceptInvitation(String rawToken,String newPassword){
         if(rawToken==null||!rawToken.matches("[A-Za-z0-9_-]{43}")||newPassword==null||newPassword.length()<12||newPassword.getBytes(StandardCharsets.UTF_8).length>72)

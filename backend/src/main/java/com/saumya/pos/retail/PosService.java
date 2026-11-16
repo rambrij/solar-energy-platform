@@ -211,7 +211,7 @@ public class PosService {
         var shift=one("SELECT p.state,p.register_id FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",
             s.tenant,s.branch,s.cashier,sessionId);
         String reason=request.reason().strip();
-        var existing=db.queryForList("SELECT * FROM pos_cash_movements WHERE tenant_id=? AND session_id=? AND idempotency_key=?",
+        var existing=db.queryForList("SELECT * FROM pos_cash_movements WHERE tenant_id=? AND session_id=? AND idempotency_key=? FOR UPDATE",
             s.tenant,sessionId,key);
         // An acknowledged retry is safe even after closing; no closed-session data is changed.
         if(!existing.isEmpty()) {

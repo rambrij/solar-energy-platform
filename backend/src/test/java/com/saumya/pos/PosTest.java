@@ -1179,7 +1179,7 @@ class PosTest {
  }
  void demoStore(){update("INSERT INTO tenants(id,name,legal_name,lifecycle_status,slug) VALUES(900001,'Demo store','Demo store','ACTIVE','vendor-900001')");update("INSERT INTO branches(id,tenant_id,name) VALUES(900001,900001,'Demo outlet')");}
  @Test void solarDemoSeedAddsCategorizedProductsAndPreservesEditsStockHoldsAndSales() throws Exception {
-  var receipt=as("alice", () -> checkout.cashSale(a.cashier(),"demo-existing",sale(1,"120")));demoStore();loadSolarDemoSeed();
+  var receipt=as("alice", () -> checkout.cashSale(a.cashier(),"demo-existing",sale(1,"120")));demoStore();employee("admin@saumya.demo.test",900001,900001);loadSolarDemoSeed();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM product_categories WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_categories WHERE tenant_id=900001",Integer.class)).isEqualTo(6);

@@ -12,6 +12,7 @@ class PosController {
     PosController(PosService service) { this.service=service; }
     
     @GetMapping("/csrf")
+    @PreAuthorize("permitAll()")
     Map<String, String> csrf(CsrfToken token) {
         return Map.of("token", token.getToken());
     }

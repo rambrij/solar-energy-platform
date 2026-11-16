@@ -20,6 +20,7 @@ class IdentityProvisioningServiceTest {
     @Mock IdentitySequenceRepository sequences;
     @Mock IdentityInvitationRepository invitations;
     @Mock PlatformGrantRepository platform;
+    @Mock CustomerRepository customers;
     @Test void vendorInvitationStoresOnlyHashAndCanBeConsumedOnce(){
         Instant now=Instant.parse("2026-11-16T00:00:00Z");
         var user=new GlobalUser(7,"admin@vendor.test","$2a$10$disabled",false);
@@ -29,7 +30,7 @@ class IdentityProvisioningServiceTest {
         when(invitations.saveAndFlush(any())).thenAnswer(inv->{saved[0]=inv.getArgument(0);return saved[0];});
         when(invitations.locked(anyString())).thenAnswer(inv->Optional.ofNullable(saved[0]));
         var encoder=new BCryptPasswordEncoder(4);
-        var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,encoder,Clock.fixed(now,ZoneOffset.UTC));
+        var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,encoder,Clock.fixed(now,ZoneOffset.UTC));
         var invitation=service.issueInvitation(" ADMIN@VENDOR.TEST ");
         assertThat(invitation.token()).hasSize(43);
         assertThat(ReflectionTestUtils.getField(saved[0],"tokenHash")).isNotEqualTo(invitation.token());
@@ -41,9 +42,18 @@ class IdentityProvisioningServiceTest {
         assertThatThrownBy(()->service.acceptInvitation(invitation.token(),"AnotherStrongPassword2026"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
+    @Test void customerIdentityCannotBeReusedAsVendorEmployee(){
+        when(platform.permissions("customer@vendor.test")).thenReturn(java.util.List.of());
+        when(customers.profileCount("customer@vendor.test")).thenReturn(1L);
+        var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,new BCryptPasswordEncoder(4),Clock.systemUTC());
+        assertThatThrownBy(()->service.issueInvitation("customer@vendor.test"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+            .hasMessageContaining("Customer identities cannot receive vendor membership");
+        verifyNoInteractions(users,sequences,invitations);
+    }
     @Test void platformIdentityCannotBeReusedAsVendorAdmin(){
         when(platform.permissions("platform@saumya.test")).thenReturn(java.util.List.of("PLATFORM_TENANT_CREATE"));
-        var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,new BCryptPasswordEncoder(4),Clock.systemUTC());
+        var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,new BCryptPasswordEncoder(4),Clock.systemUTC());
         assertThatThrownBy(()->service.ensureVendorEligible("platform@saumya.test"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
             .hasMessageContaining("Platform identities cannot receive vendor membership");

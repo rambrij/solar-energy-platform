@@ -43,6 +43,7 @@ class PosTest {
  @Autowired com.saumya.pos.identity.AuthenticationService authentication;
  @Autowired com.saumya.pos.identity.JwtService jwt;
  @Autowired com.saumya.pos.retail.BranchPolicyService branchPolicies;
+ @Autowired com.saumya.pos.membership.MembershipService memberships;
  PosService.Scope a=new PosService.Scope(1,1,"alice"),b=new PosService.Scope(2,2,"bob");
  String session;
  @BeforeEach void seed(){
@@ -88,6 +89,50 @@ class PosTest {
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=as(username, () -> payments.tenderStatus(username,id)).remaining();var result=as(username, () -> payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null)));return result.tenders().getLast();}
+
+ @Test void multipleVendorRolesComposeAndRevocationImmediatelyChangesEffectivePermissions() {
+  update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(1,'sales-role','Sales',TRUE,'alice','alice'),(1,'reports-role','Reports',TRUE,'alice','alice')");
+  Long sales=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=1 AND role_key='sales-role'",Long.class);
+  Long reports=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=1 AND role_key='reports-role'",Long.class);
+  update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(1,?,'POS_SALE_CREATE','alice'),(1,?,'POS_REPORT_VIEW','alice')",sales,reports);
+  update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(1,1,'alice',?,TRUE,'alice'),(1,1,'alice',?,TRUE,'alice')",sales,reports);
+  var effective=memberships.access("alice").orElseThrow().permissions();
+  assertThat(effective).contains("POS_SALE_CREATE","POS_REPORT_VIEW");
+  // The legacy direct grant set is ignored once role assignments exist.
+  assertThat(effective).doesNotContain("PRODUCT_CREATE","PRODUCT_UPDATE");
+  update("UPDATE employee_role_assignments SET active=FALSE,revoked_by='alice',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND role_id=?",sales);
+  assertThat(memberships.access("alice").orElseThrow().permissions()).doesNotContain("POS_SALE_CREATE").contains("POS_REPORT_VIEW");
+  update("UPDATE vendor_roles SET active=FALSE WHERE tenant_id=1 AND id=?",reports);
+  assertThat(memberships.access("alice").orElseThrow().permissions()).doesNotContain("POS_SALE_CREATE","POS_REPORT_VIEW");
+  assertThatThrownBy(()->update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(1,?,'PLATFORM_IDENTITY_MANAGE','alice')",sales))
+    .isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(2,2,'bob',?,TRUE,'bob')",sales))
+    .isInstanceOf(RuntimeException.class);
+ }
+
+ @Test void cashierCannotOpenOrResumeAnUnassignedRegister() {
+  employee("charlie",1,1);
+  update("INSERT INTO registers VALUES(3,1,1)");
+  update("DELETE FROM employee_register_assignments WHERE tenant_id=1 AND username='charlie'");
+  var charlie=new PosService.Scope(1,1,"charlie");
+  assertThatThrownBy(()->as("charlie",()->service.open(charlie,new PosService.OpenSession(3,BigDecimal.ZERO))))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assignRegister("charlie",1,1,3);
+  assertThat(as("charlie",()->service.open(charlie,new PosService.OpenSession(3,BigDecimal.ZERO)))).containsKey("id");
+  var opened=db.queryForObject("SELECT id FROM pos_sessions WHERE tenant_id=1 AND cashier='charlie' AND register_id=3",String.class);
+  update("DELETE FROM employee_register_assignments WHERE tenant_id=1 AND username='charlie' AND register_id=3");
+  assertThatThrownBy(()->as("charlie",()->service.sessionDetails(charlie,opened)))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+
+ @Test void closingSessionRemainsUniqueAtTheDatabaseLevel() {
+  update("UPDATE pos_sessions SET state='CLOSING' WHERE tenant_id=1 AND id=?",session);
+  employee("charlie",1,1);
+  String second=UUID.randomUUID().toString();
+  assertThatThrownBy(()->update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float) VALUES(?,1,1,'charlie',1,'CLOSING',0)",second))
+    .isInstanceOf(RuntimeException.class);
+ }
+
  @Test void retailDraftProjectionBlocksShiftClosureUntilCollectedFundsAreFinalized(){
   update("UPDATE branches SET split_tender_enabled=TRUE WHERE id=1");var draft=checkout.pos("alice","active-draft-gate",posDraft());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isEqualTo(1);assertThatThrownBy(()->service.close(a,session,new BigDecimal("50"))).hasMessageContaining("Resolve reserved");
   payments.tender("alice",draft.id(),"gate-partial",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40")));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());checkout.expire(1,draft.id());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isEqualTo(1);assertThatThrownBy(()->service.close(a,session,new BigDecimal("90"))).hasMessageContaining("Resolve reserved");

@@ -42,7 +42,7 @@ class TenantEntitlementPolicyTest {
     }
     @Test void gracePeriodAllowsWritesOnlyUntilTheConfiguredGraceInstant(){
         JdbcTemplate db=mock(JdbcTemplate.class);
-        rows(db,subscription("GRACE_PERIOD",LocalDate.parse("2026-11-01"),CLOCK.instant().plusSeconds(60),"{\"features\":{\"POS\":true}}"));
+        rows(db,subscription("GRACE_PERIOD",LocalDate.parse("2026-11-01"),CLOCK.instant().plusSeconds(60),"{\"features\":{\"POS\":true,\"ADMINISTRATION\":true}}"));
         assertThat(policy(db).permissions(10,List.of("POS_VIEW","POS_SALE_CREATE"))).containsExactly("POS_VIEW","POS_SALE_CREATE");
         rows(db,subscription("PAST_DUE",LocalDate.parse("2026-11-01"),CLOCK.instant().minusSeconds(1),"{\"features\":{\"POS\":true}}"));
         assertThat(policy(db).permissions(10,List.of("POS_VIEW","POS_SALE_CREATE"))).containsExactly("POS_VIEW");

@@ -45,7 +45,8 @@ class AuthorizationPolicyMatrixTest {
             verifyTenderConditional(type,method,expression);
             return;
         }
-        MethodInvocation invocation=invocation(type,method,"x");
+        MethodInvocation invocation=invocation(type,method,"CASH_IN");
+        expression=resolveDynamicAuthority(expression,invocation);
         Set<String> mandatory=new LinkedHashSet<>();
         int branchIndex=expression.indexOf("?");
         String mandatoryExpression=branchIndex<0?expression:expression.substring(0,branchIndex);
@@ -87,6 +88,21 @@ class AuthorizationPolicyMatrixTest {
         }
     }
 
+    private String resolveDynamicAuthority(String expression,MethodInvocation invocation){
+        String dynamic="hasAuthority('POS_' + #request.type().name())";
+        if(!expression.contains(dynamic))return expression;
+        Object request=null;
+        for(Object argument:invocation.getArguments())if(argument!=null&&argument.getClass().isRecord()){
+            try{argument.getClass().getDeclaredMethod("type");request=argument;break;}catch(NoSuchMethodException ignored){}
+        }
+        if(request==null)throw new AssertionError("Dynamic authorization expression requires a request record with type()");
+        try{
+            Object type=request.getClass().getDeclaredMethod("type").invoke(request);
+            String permission="POS_"+type.getClass().getDeclaredMethod("name").invoke(type);
+            return expression.replace(dynamic,"hasAuthority('"+permission+"')");
+        }catch(ReflectiveOperationException error){throw new AssertionError("Cannot resolve dynamic request permission",error);}
+    }
+
     private boolean evaluate(String expression,MethodInvocation invocation,Set<String> authorities,boolean authenticated){
         Authentication authentication;
         if(authenticated){
@@ -98,7 +114,7 @@ class AuthorizationPolicyMatrixTest {
         }
         try {
             EvaluationContext context=handler.createEvaluationContext(()->authentication,invocation);
-            return Boolean.TRUE.equals(handler.getExpressionParser().parseExpression(expression).getValue(context,Boolean.class));
+            return Boolean.TRUE.equals(handler.getExpressionParser().parseExpression(resolveDynamicAuthority(expression,invocation)).getValue(context,Boolean.class));
         } catch(RuntimeException error) {
             throw new AssertionError("Could not evaluate endpoint authorization expression: "+expression,error);
         }

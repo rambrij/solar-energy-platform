@@ -169,15 +169,21 @@ public class PosService {
         var context=authContext.current();
         if(!context.isCustomer()||customers==null||customers.resolve(context.username())!=customer)
             throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
-        String channel,status;
-        switch(action){
-            case "CUSTOMER_RECEIPT_COPY","MOCK_ONLINE_PAYMENT"->{channel="ONLINE";status="PAID";}
-            case "CUSTOMER_ASSOCIATION_APPROVE"->{channel="IN_STORE";status="DRAFT";}
-            case "CUSTOMER_BUYER_SNAPSHOT_VIEW"->{channel="IN_STORE";status="PAID";}
-            default->throw new ResponseStatusException(FORBIDDEN,"Unsupported customer audit action");
+        Boolean owned;
+        if("CUSTOMER_RECEIPT_COPY".equals(action)){
+            owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND stock_branch_id=? AND sales_channel IN ('ONLINE','IN_STORE') AND status='PAID'",
+                Boolean.class,tenant,id,customer,branch);
+        }else{
+            String channel,status;
+            switch(action){
+                case "MOCK_ONLINE_PAYMENT"->{channel="ONLINE";status="PAID";}
+                case "CUSTOMER_ASSOCIATION_APPROVE"->{channel="IN_STORE";status="DRAFT";}
+                case "CUSTOMER_BUYER_SNAPSHOT_VIEW"->{channel="IN_STORE";status="PAID";}
+                default->throw new ResponseStatusException(FORBIDDEN,"Unsupported customer audit action");
+            }
+            owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND stock_branch_id=? AND sales_channel=? AND status=?",
+                Boolean.class,tenant,id,customer,branch,channel,status);
         }
-        Boolean owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND stock_branch_id=? AND sales_channel=? AND status=?",
-            Boolean.class,tenant,id,customer,branch,channel,status);
         if(!Boolean.TRUE.equals(owned))throw new ResponseStatusException(NOT_FOUND,"Receipt unavailable");
         audit(new Scope(tenant,branch,"customer:"+customer),action,id);
     }

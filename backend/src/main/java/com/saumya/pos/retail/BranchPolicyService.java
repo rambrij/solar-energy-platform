@@ -18,11 +18,15 @@ public class BranchPolicyService {
     
     @Transactional(readOnly = true)
     public Optional<Policy> find(long tenant, long branch) {
+        var scope=retail.scope();if(scope.tenant()!=tenant||scope.branch()!=branch)throw new ResponseStatusException(NOT_FOUND,"Outlet unavailable");
+        retail.authorize(scope,scope.cashier(),"POS_VIEW");
         return branches.findByTenantAndId(tenant, branch).map(this::view);
     }
     
     @Transactional(propagation = Propagation.MANDATORY)
     public Optional<Policy> lock(long tenant, long branch) {
+        var scope=retail.scope();if(scope.tenant()!=tenant||scope.branch()!=branch)throw new ResponseStatusException(NOT_FOUND,"Outlet unavailable");
+        retail.authorize(scope,scope.cashier(),"POS_VIEW");
         return branches.locked(tenant, branch).map(b -> {
             em.refresh(b, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             return view(b);

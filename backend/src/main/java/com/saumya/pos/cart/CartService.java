@@ -51,7 +51,7 @@ public class CartService {
             var amount=pricing.line(product.price(),product.taxRate(),item.quantity());
             lines.add(new CartLine(product.id(),published?product.name():"Product unavailable",item.quantity(),published?product.price():null,
                 published?product.taxRate():null,published?amount.tax():null,published?amount.total():null,
-                published&&catalogue.onlineAvailable(cart.tenantId(),product.id())>=item.quantity(),published?product.listPrice():null,published?product.listPrice().subtract(product.price()).multiply(BigDecimal.valueOf(item.quantity())):null));
+                published&&catalogue.onlineAvailableAtLeast(cart.tenantId(),product.id(),item.quantity()),published?product.listPrice():null,published?product.listPrice().subtract(product.price()).multiply(BigDecimal.valueOf(item.quantity())):null));
             if(published)total=total.add(amount.total());
         }
         return new Cart(cart.id(),vendor.slug(),vendor.active()?vendor.name():"Vendor unavailable",lines,total,false,PAYMENT_GATE);

@@ -43,7 +43,7 @@ export default function App() {
   const canViewPromotionHistory=has('POS_VIEW')&&has('CATALOG_PROMOTION_MANAGE')&&has('POS_DISCOUNT_APPROVE');
   const canReprintReceipt=has('POS_RECEIPT_REPRINT');
   const availableIds=navigationItems('pos').filter(item=>{
-    if(item.id==='category-management'||item.id==='product-management')return !!account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE'].includes(permission));
+    if(item.id==='category-management'||item.id==='product-management')return !!account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission));
     if(item.id==='stock-receiving')return !!account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission));
     return true;
   }).map(item=>item.id);

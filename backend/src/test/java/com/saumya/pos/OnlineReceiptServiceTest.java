@@ -15,9 +15,9 @@ class OnlineReceiptServiceTest {
  @Test void invalidReferencesStopBeforeIdentityOrPersistence(){var service=new OnlineReceiptService(null,null,null,null,null);for(String id:new String[]{null,"","../order","x".repeat(37)})assertThatThrownBy(()->service.read("buyer",id)).isInstanceOf(ResponseStatusException.class);}
  @Test void missingOrUnpaidOrderCannotReadLinesOrInvoices(){
   var customers=new CustomerAccess(null){public long resolve(String name){return 7;}};
-  var orders=repository(DraftRepository.class,(p,m,a)->Optional.empty());var service=new OnlineReceiptService(orders,null,null,customers,null);assertThatThrownBy(()->service.read("buyer","order-1")).isInstanceOf(ResponseStatusException.class);
+  var orders=repository(DraftRepository.class,(p,m,a)->Optional.empty());var retail=new PosService(null,null,null){@Override public void authorizeCustomer(String actor){}};var service=new OnlineReceiptService(orders,null,null,customers,retail);assertThatThrownBy(()->service.read("buyer","order-1")).isInstanceOf(ResponseStatusException.class);
   var draft=new DraftOrder("order-1",1,7L,null,null,null,"ONLINE","key","hash",BigDecimal.TEN,2,"owner",Instant.now(),false);
-  orders=repository(DraftRepository.class,(p,m,a)->Optional.of(draft));var unpaid=new OnlineReceiptService(orders,null,null,customers,null);assertThatThrownBy(()->unpaid.copy("buyer","order-1")).isInstanceOf(ResponseStatusException.class);
+  orders=repository(DraftRepository.class,(p,m,a)->Optional.of(draft));var unpaid=new OnlineReceiptService(orders,null,null,customers,retail);assertThatThrownBy(()->unpaid.copy("buyer","order-1")).isInstanceOf(ResponseStatusException.class);
  }
  @Test void readsSavedAmountsAndOnlyCopiesWriteCustomerScopedAudit(){
   var order=new DraftOrder("order-1",1,7L,null,null,null,"ONLINE","key","hash",BigDecimal.TEN,2,"owner",Instant.now(),false);order.payOnlineMock("UPI",false,Instant.parse("2026-11-14T00:00:00Z"));
@@ -26,6 +26,7 @@ class OnlineReceiptServiceTest {
   var lines=repository(DraftLineRepository.class,(p,m,a)->{assertThat(a).containsExactly(1L,"order-1");return List.of(new DraftLine(1,"order-1",9,"Saved panel",1,BigDecimal.TEN,BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.TEN));});
   var invoices=repository(InvoiceSnapshotRepository.class,(p,m,a)->Optional.empty());var audit=new ArrayList<String>();
      var retail = new PosService(null, null, null) {
+         public void authorizeCustomer(String actor){}
          public void draftAudit(Scope scope, String action, String id) {
              assertThat(scope).isEqualTo(new Scope(1, 2, "customer:7"));
              audit.add(action + ":" + id);

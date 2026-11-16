@@ -12,6 +12,8 @@ public class GlobalUser {
     @Column(name="platform_mfa_secret_enc",length=512) private String platformMfaSecretEnc;
     @Column(name="platform_mfa_enrolled_at") private Instant platformMfaEnrolledAt;
     @Column(name="platform_mfa_last_counter",nullable=false) private long platformMfaLastCounter=-1;
+    @Column(name="platform_mfa_failed_attempts",nullable=false) private int platformMfaFailedAttempts;
+    @Column(name="platform_mfa_locked_until") private Instant platformMfaLockedUntil;
     protected GlobalUser(){}
     public GlobalUser(long id,String username,String password){this(id,username,password,true);}
     public GlobalUser(long id,String username,String password,boolean enabled){this.id=id;this.username=username;this.password=password;this.enabled=enabled;}
@@ -19,6 +21,18 @@ public class GlobalUser {
     public boolean platformMfaEnrolled(){return platformMfaSecretEnc!=null&&platformMfaEnrolledAt!=null;}
     public String platformMfaSecretEnc(){return platformMfaSecretEnc;}
     public long platformMfaLastCounter(){return platformMfaLastCounter;}
+    public boolean platformMfaLocked(Instant now){return platformMfaLockedUntil!=null&&platformMfaLockedUntil.isAfter(now);}
+    public int platformMfaFailedAttempts(){return platformMfaFailedAttempts;}
+    public Instant platformMfaLockedUntil(){return platformMfaLockedUntil;}
+    public void platformMfaFailure(Instant now){
+        platformMfaFailedAttempts++;
+        if(platformMfaFailedAttempts>=5){platformMfaFailedAttempts=0;platformMfaLockedUntil=now.plusSeconds(900);}
+    }
+    public void platformMfaSuccess(){platformMfaFailedAttempts=0;platformMfaLockedUntil=null;}
+    public void resetPlatformMfa(){
+        this.platformMfaSecretEnc=null;this.platformMfaEnrolledAt=null;this.platformMfaLastCounter=-1;
+        this.platformMfaFailedAttempts=0;this.platformMfaLockedUntil=null;
+    }
     public void activate(String passwordHash){this.password=passwordHash;this.enabled=true;}
     public void enrollPlatformMfa(String encryptedSecret,Instant now,long counter){
         if(encryptedSecret==null||encryptedSecret.isBlank()||now==null||counter<0)throw new IllegalArgumentException("Valid platform MFA material required");

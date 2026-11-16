@@ -5,7 +5,7 @@ export default function LoginPanel({onSignedIn}:{onSignedIn?:()=>void}){
  const [register,setRegister]=useState(false),[username,setUsername]=useState(''),[password,setPassword]=useState(''),[totpCode,setTotpCode]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  async function submit(){
   setBusy(true);setError('');
-  try{await signIn(username,password,register,totpCode);setPassword('');setTotpCode('');onSignedIn?.();}
+  try{if(totpCode)await signIn(username,password,register,totpCode);else await signIn(username,password,register);setPassword('');setTotpCode('');onSignedIn?.();}
   catch(e){setPassword('');setTotpCode('');setError((e as Error).message);}
   finally{setBusy(false);}
  }

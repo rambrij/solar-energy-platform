@@ -1,6 +1,8 @@
 package com.saumya.pos.identity;
 
 import com.saumya.pos.identity.internal.*;
+import com.saumya.pos.security.AuthorizationContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -22,19 +24,28 @@ import static org.springframework.http.HttpStatus.*;
 public class IdentityProvisioningServiceImpl implements IdentityProvisioningService {
     private final GlobalUserRepository users;private final IdentitySequenceRepository sequences;
     private final IdentityInvitationRepository invitations;private final PlatformGrantRepository platform;private final CustomerRepository customers;
-    private final PasswordEncoder passwords;private final Clock clock;
+    private final PasswordEncoder passwords;private final Clock clock;private final AuthorizationContext authorization;
     public IdentityProvisioningServiceImpl(GlobalUserRepository users,IdentitySequenceRepository sequences,
         IdentityInvitationRepository invitations,PlatformGrantRepository platform,CustomerRepository customers,
-        PasswordEncoder passwords,Clock clock){
+        PasswordEncoder passwords,Clock clock){this(users,sequences,invitations,platform,customers,passwords,clock,null);}
+    @Autowired public IdentityProvisioningServiceImpl(GlobalUserRepository users,IdentitySequenceRepository sequences,
+        IdentityInvitationRepository invitations,PlatformGrantRepository platform,CustomerRepository customers,
+        PasswordEncoder passwords,Clock clock,AuthorizationContext authorization){
         this.users=users;this.sequences=sequences;this.invitations=invitations;this.platform=platform;
-        this.customers=customers;this.passwords=passwords;this.clock=clock;
+        this.customers=customers;this.passwords=passwords;this.clock=clock;this.authorization=authorization;
+    }
+    private AuthorizationContext.Context actor(){
+        if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Identity provisioning authorization unavailable");
+        return authorization.current();
     }
     @Override public void ensureVendorEligible(String requested){
+        var context=actor();if(!context.isPlatformUser())throw new ResponseStatusException(FORBIDDEN,"Platform identity required");context.requirePermission("PLATFORM_TENANT_CREATE");
         String username=normalize(requested);
         if(!platform.permissions(username).isEmpty())throw new ResponseStatusException(CONFLICT,"Platform identities cannot receive vendor membership; use a separate vendor identity");
         if(customers.profileCount(username)>0)throw new ResponseStatusException(CONFLICT,"Customer identities cannot receive vendor membership; use a separate vendor employee identity");
     }
     @Override public Invitation issueInvitation(String requested){
+        var context=actor();if(context.isPlatformUser())context.requirePermission("PLATFORM_TENANT_CREATE");else{context.requireVendorMembership();context.requirePermission("USER_CREATE");}
         String username=normalize(requested);ensureVendorEligible(username);
         var existing=users.findByUsername(username);
         if(existing.isPresent()&&existing.get().enabled())return new com.saumya.pos.security.IdentityInvitationPort.Invitation(username,null,null,true);

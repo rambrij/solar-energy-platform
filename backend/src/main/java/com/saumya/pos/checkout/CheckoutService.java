@@ -54,6 +54,7 @@ public class CheckoutService {
     private Draft view(DraftOrder order){boolean expired=recoveryPolicy.expired(order.status(),order.expires(),clock.instant());return new Draft(order.id(),catalogue.vendor(order.tenant()).name(),order.channel(),order.status(),order.expires(),order.total(),stored(order).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList(),("ONLINE".equals(order.channel())?paymentPolicy.enabled():terminalPolicies.find(order.tenant(),order.branch()).map(BranchPolicyService.Policy::enabled).orElse(false))&&!expired&&"DRAFT".equals(order.status()),recoveryPolicy.message(order.status(),expired),order.session(),expired);}
     private Draft replay(DraftOrder order,String hash){if(!hash.equals(order.hash()))conflict("Idempotency key already used for a different draft request");return view(order);}
     public Draft online(String username,String clientKey,OnlineDraft request){
+        retail.authorizeCustomer(username);
         long customer=customers.resolve(username);customers.lock(customer);String key=key("ONLINE:"+customer,clientKey),hash=sha(request.expectedCartId());
         var prior=orders.findByCustomerIdAndKey(customer,key);if(prior.isPresent())return replay(prior.get(),hash);
         var cart=carts.cart(customer);if(!Objects.equals(cart.id(),request.expectedCartId())||cart.items().isEmpty())conflict("Cart changed or is empty; reload first");
@@ -63,12 +64,13 @@ public class CheckoutService {
     }
     
     public Draft pos(String username, String clientKey, PosDraft request) {
-        return reservePos(retail.scope(), clientKey, request, "POS", "");
+        var scope=retail.scope();retail.authorize(scope,username,"POS_VIEW","POS_SALE_CREATE");
+        return reservePos(scope, clientKey, request, "POS", "");
     }
     
     public Map<String, Object> cashSale(String username, String clientKey, CashSale request) {
         validateCash(request.cashReceived());
-        var scope = retail.scope();
+        var scope = retail.scope();retail.authorize(scope,username,"POS_SALE_CREATE","POS_TENDER_CASH_RECORD","POS_RECEIPT_VIEW");
         retail.lockOutlet(scope);
         var draft=reservePos(scope,clientKey,new PosDraft(request.sessionId(),request.items(),request.invoiceRequested(),request.discounts(),request.buyer()),"POS_CASH","|CASH|"+request.cashReceived().setScale(2).toPlainString());
         return finalizeOwnedCash(scope,draft.id(),request.cashReceived());
@@ -111,23 +113,25 @@ public class CheckoutService {
     }
     
     public List<Draft> onlineList(String username) {
+        retail.authorizeCustomer(username);
         long customer = customers.resolve(username);
         return orders.findTop20ByCustomerIdAndChannelOrderByExpiresAtDesc(customer, "ONLINE").stream().map(this::view).toList();
     }
     
     public List<Draft> posList(String username, String session) {
-        var s = retail.scope();
+        var s = retail.scope();retail.authorize(s,username,"POS_VIEW");
         return orders.findTop20ByTenantIdAndBranchIdAndCashierAndSessionIdAndExpiresAtIsNotNullOrderByExpiresAtDesc(s.tenant(), s.branch(), s.cashier(), session).stream().map(this::view).toList();
     }
     
     public Draft cancelOnline(String username, String id, String reason) {
+        retail.authorizeCustomer(username);
         var order = orders.lockCustomer(customers.resolve(username), id).orElseThrow(this::missing);
         cancel(order, reason);
         return view(order);
     }
     
     public Draft cancelPos(String username, String id, String reason) {
-        var s = retail.scope();
+        var s = retail.scope();retail.authorize(s,username,"POS_SALE_CANCEL");
         var order = orders.lock(s.tenant(), id).orElseThrow(this::missing);
         owned(s, order);
         if (cancel(order, reason)) retail.draftAudit(s, "DRAFT_CANCEL", id);
@@ -140,8 +144,9 @@ public class CheckoutService {
     }
     
     public Map<String, Object> finalizeCash(String username, String id, BigDecimal cash) {
-        validateCash(cash);
-        return finalizeOwnedCash(retail.scope(), id, cash);
+        validateCash(cash);var scope=retail.scope();
+        retail.authorize(scope,username,"POS_SALE_CREATE","POS_TENDER_CASH_RECORD","POS_RECEIPT_VIEW");
+        return finalizeOwnedCash(scope, id, cash);
     }
     private Map<String,Object> finalizeOwnedCash(PosService.Scope s,String id,BigDecimal cash){
         retail.lockOutlet(s);var order=orders.lock(s.tenant(),id).orElseThrow(this::missing);owned(s,order);

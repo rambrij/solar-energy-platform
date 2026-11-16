@@ -13,7 +13,7 @@ import static org.springframework.http.HttpStatus.*;
 @Transactional
 public class VendorRoleService {
     private final JdbcTemplate db;private final AuthorizationContext auth;private final IdentityInvitationPort invitations;private final MembershipService memberships;
-    public VendorRoleService(JdbcTemplate db,AuthorizationContext auth,IdentityProvisioningService invitations,MembershipService memberships){this.db=db;this.auth=auth;this.invitations=invitations;this.memberships=memberships;}
+    public VendorRoleService(JdbcTemplate db,AuthorizationContext auth,IdentityInvitationPort invitations,MembershipService memberships){this.db=db;this.auth=auth;this.invitations=invitations;this.memberships=memberships;}
     public record Role(long id,String key,String displayName,boolean active,long version,List<String> permissions){}
     public record Employee(String username,long branchId,boolean enabled,List<Long> roleIds,List<Long> registerIds){}
     public record EmployeeInvitation(String username,String invitationToken,String expiresAt,boolean accountAlreadyActive){}

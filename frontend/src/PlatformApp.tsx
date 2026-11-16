@@ -139,7 +139,7 @@ export default function PlatformApp(){
        <label>Branches<input type="number" min="1" value={planForm.maxBranches} onChange={e=>setPlanForm({...planForm,maxBranches:e.target.value})}/></label>
        <label>Warehouses<input type="number" min="0" value={planForm.maxWarehouses} onChange={e=>setPlanForm({...planForm,maxWarehouses:e.target.value})}/></label>
        <label>Grace days<input type="number" min="0" max="90" value={planForm.graceDays} onChange={e=>setPlanForm({...planForm,graceDays:e.target.value})}/></label>
-       <label className="platform-wide">Entitlements JSON<textarea required value={planForm.entitlements} onChange={e=>setPlanForm({...planForm,entitlements:e.target.value})}/></label>
+       <label className="platform-wide">Entitlements JSON<textarea required value={planForm.entitlements} onChange={e=>setPlanForm({...planForm,entitlements:e.target.value})}/><small>Use a features object with boolean flags such as POS, CATALOG, INVENTORY, ADMINISTRATION, CRM, ORDERS, FINANCE, RETURNS and REPORTING. Omitted or false features are denied.</small></label>
        <label className="platform-wide">Tax metadata JSON<textarea required value={planForm.taxMetadata} onChange={e=>setPlanForm({...planForm,taxMetadata:e.target.value})}/></label>
        <label className="platform-wide">Invoice description<input required value={planForm.invoiceDescription} onChange={e=>setPlanForm({...planForm,invoiceDescription:e.target.value})}/></label>
        <div className="platform-form-actions"><button disabled={busy}>Save plan version</button></div>

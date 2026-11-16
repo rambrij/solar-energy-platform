@@ -171,7 +171,7 @@ class PosTest {
    try{pool.submit(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(other->{service.lockOutlet(a);return stock.receive(1,1,1,2);}))).get(20,TimeUnit.SECONDS);}catch(Exception failure){throw new IllegalStateException(failure);}
    stock.issue(1,1,1,2);return null;
   });}finally{pool.shutdownNow();}
-  assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
  }
  @Test void inventoryApiCoversUnauthenticatedForbiddenAndNonDisclosingCrossTenantDenials()throws Exception{
   String path="/api/v1/vendor/inventory/receipts";
@@ -210,16 +210,16 @@ class PosTest {
   mvc.perform(post(path).header("Idempotency-Key","stock-key").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content(body.replace("quantity\":2","quantity\":3"))).andExpect(status().isConflict());
   mvc.perform(get(path).with(user("bob").authorities(()->"INVENTORY_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
   mvc.perform(get(path).with(user("alice").authorities(()->"INVENTORY_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].actor").value("alice"));
-  assertThat(stock.atBranch(1,1,1)).isEqualTo(3);assertThat(as("bob", () -> stock.atBranch(2,2,2))).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(3);
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(3);assertThat(as("bob", () -> stock.atBranch(2,2,2))).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(3);
  }
  @Test void concurrentStockReceiptRetriesCreateOneBalanceAndOneReceipt()throws Exception{
   update("INSERT INTO products(id,tenant_id,sku,name,price,tax_rate,published) VALUES(3,1,'NEW','New panel',100,10,FALSE)");String body="{\"productId\":3,\"quantity\":5,\"reason\":\"First delivery\"}";var gate=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
   try{Callable<String> command=()->{gate.await();var response=mvc.perform(post("/api/v1/vendor/inventory/receipts").header("Idempotency-Key","same-delivery").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content(body)).andExpect(status().isOk()).andReturn();return new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("id").asText();};var first=pool.submit(command);var second=pool.submit(command);gate.countDown();assertThat(first.get(20,TimeUnit.SECONDS)).isEqualTo(second.get(20,TimeUnit.SECONDS));}finally{pool.shutdownNow();}
-  assertThat(stock.atBranch(1,1,3)).isEqualTo(5);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=3",Integer.class)).isEqualTo(5);
+  assertThat(as("alice",()->stock.atBranch(1,1,3))).isEqualTo(5);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=3",Integer.class)).isEqualTo(5);
  }
  @Test void receivingBeyondStockCapacityCannotCreateAReceiptOrChangeAvailability()throws Exception{
   update("UPDATE inventory SET quantity=2147483646 WHERE tenant_id=1 AND product_id=1");mvc.perform(post("/api/v1/vendor/inventory/receipts").header("Idempotency-Key","capacity-check").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content("{\"productId\":1,\"quantity\":2,\"reason\":\"Capacity check\"}")).andExpect(status().isConflict());
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class)).isZero();assertThat(stock.atBranch(1,1,1)).isEqualTo(2147483646L);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(2147483646);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class)).isZero();assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(2147483646L);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(2147483646);
  }
  String productBody(String sku,String barcode,long version,boolean published,String price,Long category){return "{\"sku\":\""+sku+"\",\"barcode\":\""+barcode+"\",\"name\":\"New panel\",\"price\":"+price+",\"taxRate\":10,\"published\":"+published+",\"categoryId\":"+category+",\"expectedVersion\":"+version+",\"reason\":\"Approved catalogue change\"}";}
  @Test void productManagementIsTenantScopedAuditedAndVersioned()throws Exception{
@@ -235,7 +235,7 @@ class PosTest {
   var saved=mvc.perform(put(path+"/"+id).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE",()->"PRODUCT_ARCHIVE")).contentType("application/json").content(productBody("P-NEW","new-barcode",0,false,"125.50",null))).andExpect(status().isOk()).andExpect(jsonPath("$.published").value(false)).andReturn();
   long version=new com.fasterxml.jackson.databind.ObjectMapper().readTree(saved.getResponse().getContentAsString()).get("version").asLong();assertThat(version).isGreaterThan(0);
   mvc.perform(put(path+"/"+id).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(body)).andExpect(status().isConflict());
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_change_events WHERE resource_id=?",Integer.class,id)).isEqualTo(2);assertThat(stock.available(1,id)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_change_events WHERE resource_id=?",Integer.class,id)).isEqualTo(2);assertThat(as("alice",()->stock.available(1,id))).isZero();
  }
  @Test void productCategoryAssignmentAndPriceChangesUseTheirOwnPermissions()throws Exception{
   update("INSERT INTO catalog_categories(id,tenant_id,name,slug) VALUES(10,1,'Panels','panels'),(20,2,'Private','private')");String path="/api/v1/vendor/products/1";
@@ -324,7 +324,7 @@ class PosTest {
   as("alice", () -> payments.tender("alice",draft.id(),"expired-cash",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40"))));
   update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());draftExpiry.expireOne(1,draft.id());
   assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
-  assertThat(stock.atBranch(1,1,1)).isZero();assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cancel"))).hasMessageContaining("Reconcile");
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cancel"))).hasMessageContaining("Reconcile");
   assertThat(as("alice", () -> payments.tender("alice",draft.id(),"expired-rest",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("70"),new BigDecimal("70")))).orderStatus()).isEqualTo("PAID");
   assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("160");
  }
@@ -399,7 +399,7 @@ class PosTest {
  @Test void onlinePaymentIsDurableVendorOwnedAndConfirmedExactlyOnce(){
   configureOnline();var draft=onlineDraft("online-payment");var started=asCustomer("customer", () -> payments.start("customer",draft.id(),"UPI"));
   assertThat(started.merchantAccount()).isEqualTo("mock-vendor-1");assertThat(started.state()).isEqualTo("PENDING");
-  assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("DRAFT");assertThat(stock.atBranch(1,1,1)).isZero();
+  assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("DRAFT");assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();
   assertThat(asCustomer("customer", () -> payments.start("customer",draft.id(),"UPI")).attemptId()).isEqualTo(started.attemptId());assertThatThrownBy(()->asCustomer("customer", () -> payments.start("customer",draft.id(),"CARD")));
   assertThat(asCustomer("customer", () -> payments.confirm("customer",draft.id(),started.attemptId())).state()).isEqualTo("CONFIRMED");asCustomer("customer", () -> payments.confirm("customer",draft.id(),started.attemptId()));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT payment_method FROM orders",String.class)).isEqualTo("MOCK_UPI");
@@ -418,7 +418,7 @@ class PosTest {
  }
  @Test void terminalUnknownCanConfirmAfterOriginalTtlWithoutRechargingOrReleasingStock(){
   enableTerminal();var draft=as("alice", () -> checkout.pos("alice","terminal-late-result",posDraft()));var attempt=terminal("alice",draft.id(),"UPI");as("alice", () -> payments.unknown("alice",draft.id(),attempt.attemptId()));update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));draftExpiry.expireOne(1,draft.id());
-  assertThat(stock.atBranch(1,1,1)).isZero();assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cannot discard funds")));assertThatThrownBy(()->terminal("alice",draft.id(),"CARD"));assertThatThrownBy(()->as("bob", () -> tenderReviews.review("bob",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))));
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cannot discard funds")));assertThatThrownBy(()->terminal("alice",draft.id(),"CARD"));assertThatThrownBy(()->as("bob", () -> tenderReviews.review("bob",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))));
   assertThat(as("manager", () -> payments.awaitingReview("manager"))).hasSize(1);as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));assertThat(as("manager", () -> payments.awaitingReview("manager"))).isEmpty();assertThat(as("manager",()->payments.reviewStatus("manager",draft.id())).state()).isEqualTo("CONFIRMED");assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts",String.class)).isEqualTo("manager");assertThat(db.queryForObject("SELECT evidence_reference FROM vendor_payment_attempts",String.class)).isEqualTo("evidence-record-123");assertThat(db.queryForObject("SELECT reviewed_at FROM vendor_payment_attempts",java.sql.Timestamp.class)).isNotNull();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
  }
  @Test void terminalReviewApiRequiresIndependentPermissionCsrfAndSafeEvidence() throws Exception {
@@ -442,7 +442,7 @@ class PosTest {
   var draft=as("alice", () -> checkout.pos("alice","expire-payment",posDraft()));var attempt=terminal("alice",draft.id(),"UPI");
   update("UPDATE products SET price=200 WHERE id=1");assertThat(as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))).orderStatus()).isEqualTo("DRAFT");assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts",String.class)).isEqualTo("CONFIRMED");as("alice", () -> payments.unknown("alice",draft.id(),attempt.attemptId()));
   update("UPDATE products SET price=100 WHERE id=1");update("UPDATE orders SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));draftExpiry.expireOne(1,draft.id());
-  assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Do not discard uncertain payment")));assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("DRAFT");assertThatThrownBy(()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"FAIL")));assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
+  assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Do not discard uncertain payment")));assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("DRAFT");assertThatThrownBy(()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"FAIL")));assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
  }
  @Test void concurrentPaymentConfirmationIssuesOneReceiptAndOneStockMovement() throws Exception {
   enableTerminal();
@@ -954,14 +954,14 @@ class PosTest {
   assertThat(draft.channel()).isEqualTo("ONLINE");assertThat(draft.status()).isEqualTo("DRAFT");assertThat(draft.paymentAvailable()).isTrue();
   assertThat(db.queryForObject("SELECT customer_id FROM orders",Long.class)).isEqualTo(100);
   assertThat(db.queryForMap("SELECT branch_id,cashier,session_id,cash_received,receipt_number FROM orders").values()).allMatch(Objects::isNull);
-  assertThat(stock.available(1,1)).isZero();assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
+  assertThat(as("alice",()->stock.available(1,1))).isZero();assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
   assertThatThrownBy(()->as("alice", () -> checkout.cashSale(a.cashier(),"competing-pos",sale(1,"110"))));
   var cart=asCustomer("customer", () -> marketplace.cart(100));
   assertThat(asCustomer("customer", () -> checkout.online("customer","online-hold1",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id()))).id()).isEqualTo(draft.id());
   assertThatThrownBy(()->asCustomer("customer", () -> checkout.online("customer","online-new1",new com.saumya.pos.checkout.CheckoutService.OnlineDraft(cart.id()))));
   assertThatThrownBy(()->asCustomer("other-customer", () -> checkout.cancelOnline("other-customer",draft.id(),"Not mine")));
   asCustomer("customer", () -> checkout.cancelOnline("customer",draft.id(),"Changed mind"));asCustomer("customer", () -> checkout.cancelOnline("customer",draft.id(),"Retry"));
-  assertThat(stock.available(1,1)).isEqualTo(1);
+  assertThat(as("alice",()->stock.available(1,1))).isEqualTo(1);
   assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
   as("alice", () -> checkout.cashSale(a.cashier(),"after-release",sale(1,"110")));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE status='PAID'",Integer.class)).isEqualTo(1);
@@ -995,7 +995,7 @@ class PosTest {
   update("UPDATE orders SET expires_at=TIMESTAMP '2020-01-01 00:00:00' WHERE id=?",draft.id());
   assertThatThrownBy(()->as("alice", () -> checkout.finalizeCash("alice",draft.id(),new BigDecimal("110"))));
   draftExpiry.expireOne(1,draft.id());draftExpiry.expireOne(1,draft.id());
-  assertThat(stock.available(1,1)).isEqualTo(1);
+  assertThat(as("alice",()->stock.available(1,1))).isEqualTo(1);
   assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("EXPIRED");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isZero();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isZero();
@@ -1005,7 +1005,7 @@ class PosTest {
   update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'P3',NULL,'Missing stock',100,0,TRUE)");
   var request=new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1),new CheckoutService.Item(3,1)),false,null,null);
   assertThatThrownBy(()->as("alice", () -> checkout.pos("alice","rollback-hold",request)));
-  assertThat(stock.available(1,1)).isEqualTo(1);
+  assertThat(as("alice",()->stock.available(1,1))).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations",Integer.class)).isZero();
  }
@@ -1017,7 +1017,7 @@ class PosTest {
    for(var result:pool.invokeAll(List.of(online,pos)))if(result.get())won++;
    assertThat(won).isEqualTo(1);
   }
-  assertThat(stock.available(1,1)).isZero();
+  assertThat(as("alice",()->stock.available(1,1))).isZero();
   assertThat(db.queryForObject("SELECT quantity-reserved FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
  }
  @Test void draftHttpSecurityOwnershipAndContextConstraints() throws Exception {
@@ -1282,7 +1282,7 @@ class PosTest {
   update("UPDATE inventory SET quantity=? WHERE tenant_id=1 AND product_id=3",Integer.MAX_VALUE);assertThatThrownBy(()->as("manager", () -> returns.inspect(request.id(),inspection))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND product_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isZero();assertThat(as("alice", () -> returns.get(request.id())).state()).isEqualTo("APPROVED");
   update("UPDATE inventory SET quantity=0 WHERE tenant_id=1 AND product_id=3");as("manager", () -> returns.inspect(request.id(),inspection));as("manager", () -> returns.inspect(request.id(),inspection));
-  assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(stock.atBranch(1,1,3)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(2);assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("180");
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);assertThat(as("alice",()->stock.atBranch(1,1,3))).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(2);assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("180");
  }
  @Test void returnWindowAndOriginalPaidPosChannelAreEnforced(){
   configureOnline();enableReturns();var draft=as("alice",()->as("alice", () -> checkout.pos("alice","not-paid-return",posDraft())));assertThatThrownBy(()->as("alice", () -> returns.eligibility(draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);as("alice",()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Not sold")));
@@ -1309,7 +1309,7 @@ class PosTest {
  @Test void concurrentIdenticalInspectionsRestockOnlyOnce() throws Exception {
   enableReturns();supervisor("manager");var receipt=as("alice", () -> checkout.cashSale(a.cashier(),"return-sale8",sale(1,"120")));var request=as("alice", () -> returns.create("return-case8",returnRequest((String)receipt.get("id"),1)));as("manager", () -> returns.review(request.id(),approveReturn()));
   try(var pool=Executors.newFixedThreadPool(2)){Callable<String> inspect=()->as("manager", () -> returns.inspect(request.id(),inspectReturn("SELLABLE","RESTOCK"))).id();for(var result:pool.invokeAll(List.of(inspect,inspect)))assertThat(result.get()).isEqualTo(request.id());}
-  assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(3);
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(3);
  }
 
  @Test void newReturnCanReferenceAClosedOriginalSaleFromANewOwnedShift(){
@@ -1341,7 +1341,7 @@ class PosTest {
   assertThat(as("manager", () -> service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash()).isEqualByComparingTo("90");
   assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("160");
   assertThat(as("alice", () -> returns.get(returned)).refundStatus()).isEqualTo("PAID");
-  assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("PAID");
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThat(db.queryForObject("SELECT status FROM orders",String.class)).isEqualTo("PAID");
   as("manager", () -> service.close(new PosService.Scope(1,1,"manager"),paying,new BigDecimal("90")));update("UPDATE branches SET cash_refunds_enabled=FALSE WHERE id=1");
   assertThat(as("manager", () -> refunds.pay("refund-once1",command)).id()).isEqualTo(paid.id());
   assertThat(as("manager", () -> refunds.byReturn(returned)).id()).isEqualTo(paid.id());assertThat(as("manager", () -> refunds.copy(paid.id())).copy()).isTrue();
@@ -1495,8 +1495,8 @@ class PosTest {
   var draft=as("alice", () -> checkout.pos("alice","recover-expiry-draft",posDraft()));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)),draft.id());
   String path="/api/v1/vendor/pos/drafts/"+draft.id();
   mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andExpect(jsonPath("$.expired").value(true));
-  assertThat(stock.atBranch(1,1,1)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isZero();
-  draftExpiry.expireOne(1,draft.id());asScope(a, () -> service.close(a,session,new BigDecimal("50")));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("EXPIRED"));assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isZero();
+  draftExpiry.expireOne(1,draft.id());asScope(a, () -> service.close(a,session,new BigDecimal("50")));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("EXPIRED"));assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);
  }
  @Test void paidDraftReferenceRecoveryNeverCreatesAnotherReceiptOrSale() throws Exception {
   var draft=as("alice", () -> checkout.pos("alice","recover-paid-draft",posDraft()));as("alice", () -> checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));asScope(a, () -> service.close(a,session,new BigDecimal("160")));
@@ -1570,7 +1570,7 @@ class PosTest {
   mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("reference",receipt.get("receipt_number").toString()).with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3));
   mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("manager").authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other history branch')");employee("history-other",1,4);for(String actor:List.of("bob","history-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").with(user(actor).authorities(()->"POS_VIEW",()->"POS_REFUND_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  assertThat(as("manager", () -> service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash()).isEqualByComparingTo("170");assertThat(stock.atBranch(1,1,1)).isZero();
+  assertThat(as("manager", () -> service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash()).isEqualByComparingTo("170");assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();
  }
  @Test void refundHistoryRejectsInvalidFiltersAndMissingPermissions() throws Exception {
   String path="/api/v1/vendor/pos/refunds/history";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
@@ -1591,7 +1591,7 @@ class PosTest {
   update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other audit branch')");employee("audit-other",1,4);
   for(String actor:List.of("bob","audit-other"))mvc.perform(get(path).param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isNotFound());
   mvc.perform(get(path).param("size","49").with(user("manager").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW",()->"POS_RETURN_AUDIT_VIEW"))).andExpect(status().isBadRequest());
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(5);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(as("manager", () -> service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash()).isEqualByComparingTo("90");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(5);assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThat(as("manager", () -> service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash()).isEqualByComparingTo("90");
  }
  @Test void pagedReturnQueueFindsCasesBeyondTwentyAndEnforcesReadOnlyBranchScope() throws Exception {
   update("UPDATE branches SET pos_return_window_days=30 WHERE id=1");update("UPDATE inventory SET quantity=25 WHERE tenant_id=1");
@@ -1608,7 +1608,7 @@ class PosTest {
   for(String state:List.of("ALL","REQUESTED","APPROVED"))mvc.perform(get(path).param("state",state).param("from","2026-11-12").param("to","2026-11-12").with(user("alice").authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(state.equals("ALL")?25:state.equals("REQUESTED")?24:1));
   update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other queue branch')");employee("queue-other",1,4);
   for(String actor:List.of("bob","queue-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW",()->"POS_RETURN_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(26);assertThat(stock.atBranch(1,1,1)).isZero();assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("2800");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events",Integer.class)).isEqualTo(26);assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("2800");
  }
  @Test void returnQueueRejectsMissingPermissionsAndInvalidFilters() throws Exception {
   String path="/api/v1/vendor/pos/returns/queue";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());
@@ -1628,7 +1628,7 @@ class PosTest {
   mvc.perform(get(path).param("from","2026-11-13").param("to","2026-11-13").with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other shift branch')");employee("shift-other",1,4);
   for(String actor:List.of("bob","shift-other"))mvc.perform(get(path).param("from","2026-11-12").param("to","2026-11-12").param("cashier","alice").param("tenantId","1").param("branchId","1").with(user(actor).authorities(()->"POS_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(asScope(a, () -> service.reconciliation(a,open)).expectedCash()).isEqualByComparingTo("10");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
+  int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isOk());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(asScope(a, () -> service.reconciliation(a,open)).expectedCash()).isEqualByComparingTo("10");assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);
  }
  @Test void ownShiftHistoryRejectsMissingPermissionsAndInvalidBounds() throws Exception {
   String path="/api/v1/vendor/pos/sessions/history";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path).with(user("alice"))).andExpect(status().isForbidden());
@@ -1656,7 +1656,7 @@ class PosTest {
   update("UPDATE tenants SET name='100%_! Solar' WHERE id=27");mvc.perform(get(path).param("q","%_!")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(27));
   mvc.perform(get(path).param("page","9999")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
   update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=27");mvc.perform(get(path).param("q","solar-27")).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
-  assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isZero();
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM carts",Integer.class)).isZero();
  }
  @Test void publicVendorDirectoryRejectsUnboundedInput() throws Exception {
   for(String[] bad:List.of(new String[]{"q","x".repeat(121)},new String[]{"q","bad\nquery"},new String[]{"size","49"},new String[]{"page","-1"}))mvc.perform(get("/api/v1/marketplace/directory").param(bad[0],bad[1])).andExpect(status().isBadRequest());
@@ -1677,7 +1677,7 @@ class PosTest {
   mvc.perform(get(path).param("tenantId","1").with(user("bob").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
   mvc.perform(get("/api/v1/vendor/pos/promotions/2/history").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isNotFound());
   mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"CATALOG_PROMOTION_MANAGE",()->"POS_DISCOUNT_APPROVE"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(26);assertThat(promotions.price(1,1,new BigDecimal("100"),false).price()).isEqualByComparingTo("75");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("50");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_promotion_audit",Integer.class)).isEqualTo(26);assertThat(promotions.price(1,1,new BigDecimal("100"),false).price()).isEqualByComparingTo("75");assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("50");
  }
  @Test void promotionAuditRejectsMissingRightsInactiveMembershipAndBadBounds() throws Exception {
   String path="/api/v1/vendor/pos/promotions/1/history";mvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
@@ -1694,7 +1694,7 @@ class PosTest {
   mvc.perform(get(path).param("size","48").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].available").value(false)).andExpect(jsonPath("$.items[1].available").value(false)).andExpect(jsonPath("$.items[2].available").value(true));
   mvc.perform(get(path).param("tenantId","1").param("branchId","1").with(user("bob").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.branchId").value(2)).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(2));
   update("INSERT INTO branches(id,tenant_id,name) VALUES(4,1,'Other register branch')");employee("register-other",1,4);update("INSERT INTO registers VALUES(99,1,4)");assignRegister("register-other",1,4,99);mvc.perform(get(path).param("branchId","1").with(user("register-other").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(99));
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("50");assertThat(stock.atBranch(1,1,1)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(asScope(a, () -> service.reconciliation(a,session)).expectedCash()).isEqualByComparingTo("50");assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);
   asScope(a, () -> service.close(a,session,new BigDecimal("50")));mvc.perform(get(path).with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].available").value(true));
   mvc.perform(get(path).param("page","999").with(user("alice").authorities(()->"POS_VIEW",()->"POS_SESSION_OPEN"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
  }
@@ -1707,7 +1707,7 @@ class PosTest {
   var receipt=as("alice", () -> checkout.cashSale(a.cashier(),"identity-cash",sale(1,"120")));String id=(String)receipt.get("id");assertThat(receipt.get("receipt_seller_name")).isEqualTo("Vendor A");assertThat(receipt.get("receipt_outlet_name")).isEqualTo("A");assertThat(receipt.get("issued_at")).isNotNull();
   update("UPDATE tenants SET name='New seller' WHERE id=1");update("UPDATE branches SET name='New outlet' WHERE id=1");
   for(var copy:List.of(as("alice", () -> checkout.cashSale(a.cashier(),"identity-cash",sale(1,"120"))),receiptReader.reprint(a,id))){assertThat(copy.get("receipt_seller_name")).isEqualTo("Vendor A");assertThat(copy.get("receipt_outlet_name")).isEqualTo("A");assertThat(copy.get("issued_at")).isEqualTo(receipt.get("issued_at"));assertThat(copy.get("receipt_number")).isEqualTo(receipt.get("receipt_number"));}
-  mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("bob").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(stock.atBranch(1,1,1)).isZero();
+  mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("bob").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound());assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();
  }
  @Test void reservedReceiptIdentityIsCapturedAtPaymentAndInvoiceUsesTheSameNames(){
   var draft=as("alice", () -> checkout.pos("alice","identity-draft",new CheckoutService.PosDraft(session,List.of(new CheckoutService.Item(1,1)),true,null,null)));assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,draft.id())).isNull();
@@ -1719,7 +1719,7 @@ class PosTest {
  @Test void receiptIdentityRollsBackWithSaleAndLegacyReadNeverInventsNames(){
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{as("alice", () -> checkout.cashSale(a.cashier(),"identity-rollback",sale(1,"120")));throw new IllegalStateException("Rollback sale");})).isInstanceOf(IllegalStateException.class);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders",Integer.class)).isZero();
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(stock.atBranch(1,1,1)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isZero();
   String id=(String)as("alice", () -> checkout.cashSale(a.cashier(),"identity-legacy",sale(1,"120"))).get("id");update("UPDATE orders SET receipt_seller_name=NULL,receipt_outlet_name=NULL WHERE id=?",id);update("UPDATE tenants SET name='Mutable current seller' WHERE id=1");assertThat(receiptReader.receipt(a,id).get("receipt_seller_name")).isNull();assertThat(receiptReader.reprint(a,id).get("receipt_outlet_name")).isNull();assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,id)).isNull();
  }
 
@@ -1742,7 +1742,7 @@ class PosTest {
   var sale=as("alice", () -> checkout.cashSale("alice","pdf-original",sale(1,"120")));String id=(String)sale.get("id");update("UPDATE tenants SET name='Renamed seller' WHERE id=1");asScope(a, () -> service.close(a,session,new BigDecimal("160")));int audit=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);
   var response=mvc.perform(post("/api/v1/vendor/pos/receipts/"+id+"/document").with(csrf()).with(user("alice").authorities(()->"POS_VIEW",()->"POS_RECEIPT_VIEW",()->"POS_RECEIPT_REPRINT")).contentType("application/json").content("{\"reason\":\" Customer requested copy \"}")).andExpect(status().isOk()).andExpect(content().contentType("application/pdf")).andExpect(header().string("Cache-Control","no-store")).andReturn().getResponse();
   byte[] bytes=response.getContentAsByteArray();String reference=response.getHeader("X-Document-Reference");assertThat(reference).matches("[0-9a-f-]{36}");assertThat(response.getHeader("Content-Disposition")).contains(".pdf");String text;try(var reader=new org.openpdf.text.pdf.PdfReader(bytes)){text=new org.openpdf.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1);}assertThat(text).contains("COPY - Receipt 1/1","Vendor A","110.00",reference).doesNotContain("Renamed seller","Customer requested copy");
-  assertThat(db.queryForObject("SELECT content_sha256 FROM receipt_document_audit WHERE id=?",String.class,reference)).isEqualTo(HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));assertThat(db.queryForObject("SELECT content_length FROM receipt_document_audit WHERE id=?",Integer.class,reference)).isEqualTo(bytes.length);assertThat(db.queryForObject("SELECT reason FROM receipt_document_audit WHERE id=?",String.class,reference)).isEqualTo("Customer requested copy");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(1);assertThat(stock.atBranch(1,1,1)).isZero();
+  assertThat(db.queryForObject("SELECT content_sha256 FROM receipt_document_audit WHERE id=?",String.class,reference)).isEqualTo(HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));assertThat(db.queryForObject("SELECT content_length FROM receipt_document_audit WHERE id=?",Integer.class,reference)).isEqualTo(bytes.length);assertThat(db.queryForObject("SELECT reason FROM receipt_document_audit WHERE id=?",String.class,reference)).isEqualTo("Customer requested copy");assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(audit);assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(1);assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();
  }
  @Test void receiptPdfRejectsMissingRightsCsrfBadReasonForeignScopeAndUnsupportedGlyphs() throws Exception {
   update("UPDATE products SET name='Panel 😀' WHERE id=1");String id=(String)as("alice", () -> checkout.cashSale("alice","pdf-unsupported",sale(1,"120"))).get("id"),path="/api/v1/vendor/pos/receipts/"+id+"/document";

@@ -38,8 +38,8 @@ public class AuthenticationService {
   return new Account(username,membership.map(MembershipService.Access::tenant).orElse(null),membership.map(MembershipService.Access::branch).orElse(null),List.copyOf(grants));
  }
  private Session issue(String username,String family,boolean mfaVerified){var account=account(username,mfaVerified);String refresh=random();sessions.saveAndFlush(new RefreshSession(hash(refresh),username,family,clock.instant().plusSeconds(604800),mfaVerified));return new Session(jwt.issue(username,family,account.tenantId()),300,account,refresh);}
- @Transactional public Session login(String username,String password){return login(username,password,null);}
- @Transactional public Session login(String username,String password,String totpCode){
+ @Transactional(noRollbackFor=ResponseStatusException.class) public Session login(String username,String password){return login(username,password,null);}
+ @Transactional(noRollbackFor=ResponseStatusException.class) public Session login(String username,String password,String totpCode){
   String normalized=normalize(username);var user=users.findByUsername(normalized);
   boolean valid=password!=null&&passwords.matches(password,user.map(GlobalUser::password).orElse(dummy));
   if(!valid||user.isEmpty()||!user.get().enabled())throw denied();
@@ -47,10 +47,12 @@ public class AuthenticationService {
   if(isPlatform){
    var locked=users.lockedByUsername(normalized).orElseThrow(this::denied);
    if(locked.platformMfaEnrolled()){
-    if(mfaCrypto==null||totp==null)throw denied();
-    long counter=totp.verifyCounter(mfaCrypto.decrypt(locked.platformMfaSecretEnc()),totpCode,clock.instant().getEpochSecond());
-    if(counter<0||counter<=locked.platformMfaLastCounter())throw denied();
-    locked.acceptPlatformMfaCounter(counter);mfaVerified=true;
+    Instant now=clock.instant();
+    if(locked.platformMfaLocked(now))throw denied();
+    if(mfaCrypto==null||totp==null){locked.platformMfaFailure(now);throw denied();}
+    long counter=totp.verifyCounter(mfaCrypto.decrypt(locked.platformMfaSecretEnc()),totpCode,now.getEpochSecond());
+    if(counter<0||counter<=locked.platformMfaLastCounter()){locked.platformMfaFailure(now);throw denied();}
+    locked.acceptPlatformMfaCounter(counter);locked.platformMfaSuccess();mfaVerified=true;
    }else if(!localPlatformAccess)throw denied();
   }
   return issue(normalized,UUID.randomUUID().toString(),mfaVerified);

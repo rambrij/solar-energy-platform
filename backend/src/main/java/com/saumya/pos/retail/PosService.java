@@ -1,5 +1,7 @@
 package com.saumya.pos.retail;
 import com.saumya.pos.catalog.CatalogService;
+import com.saumya.pos.identity.CustomerAccess;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.*;
 import java.util.*;
@@ -15,15 +17,14 @@ public class PosService {
     private final JdbcTemplate db;
     private final CatalogService catalogue;
     private final com.saumya.pos.security.AuthorizationContext authContext;
+    private final CustomerAccess customers;
     
-    public PosService(
-            JdbcTemplate db,
-            CatalogService catalogue,
-            com.saumya.pos.security.AuthorizationContext authContext
-    ) {
-        this.db = db;
-        this.catalogue = catalogue;
-        this.authContext = authContext;
+    public PosService(JdbcTemplate db,CatalogService catalogue,com.saumya.pos.security.AuthorizationContext authContext){
+        this(db,catalogue,authContext,null);
+    }
+    @Autowired public PosService(JdbcTemplate db,CatalogService catalogue,
+            com.saumya.pos.security.AuthorizationContext authContext,CustomerAccess customers){
+        this.db=db;this.catalogue=catalogue;this.authContext=authContext;this.customers=customers;
     }
     public record Scope(long tenant, long branch, String cashier) {}
     public record OpenSession(@Positive long registerId, @NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal openingFloat) {}
@@ -109,20 +110,50 @@ public class PosService {
         var row=one("SELECT p.register_id,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
         if (!"OPEN".equals(row.get("state"))) fail("Session is closed");
     }
+    private void authorizeInternalScope(Scope s,String... permissions){
+        var context=authContext.current();context.requireVendorMembership();
+        if(!context.username().equals(s.cashier())||!Objects.equals(context.tenantId(),s.tenant())||!Objects.equals(context.branchId(),s.branch()))
+            throw new ResponseStatusException(FORBIDDEN,"Trusted POS actor and scope are required");
+        if(!context.hasAnyPermission(permissions))throw new ResponseStatusException(FORBIDDEN,"Missing required POS operation permission");
+    }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public void requireOpen(Scope s,String id){session(s,id);}
+    public void requireOpen(Scope s,String id){authorizeInternalScope(s,"POS_SALE_CREATE","POS_RETURN_CREATE","POS_REFUND_CASH_RECORD");session(s,id);}
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public void lockOutlet(Scope s){one("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);}
+    public void lockOutlet(Scope s){
+        authorizeInternalScope(s,"POS_SALE_CREATE","POS_SALE_CANCEL","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT",
+            "POS_REFUND_CASH_RECORD","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD","POS_RECEIPT_REPRINT");
+        one("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
+    }
     public record ReceiptAllocation(long number,boolean invoiceRequired,String outlet) {}
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public ReceiptAllocation allocateReceipt(Scope s){
+        authorizeInternalScope(s,"POS_SALE_CREATE","POS_TENDER_EXTERNAL_CONFIRM","POS_TENDER_MANUAL_VERIFY");
         var branch=one("SELECT * FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
         long number=((Number)branch.get("receipt_sequence")).longValue()+1;
         db.update("UPDATE branches SET receipt_sequence=? WHERE tenant_id=? AND id=?",number,s.tenant,s.branch);
         return new ReceiptAllocation(number,Boolean.TRUE.equals(branch.get("invoice_required")),(String)branch.get("name"));
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public void draftAudit(Scope s,String action,String id){audit(s,action,id);}
+    public void draftAudit(Scope s,String action,String id){
+        String permission=switch(action){
+            case "DRAFT_RESERVE"->"POS_SALE_CREATE";
+            case "DRAFT_CANCEL"->"POS_SALE_CANCEL";
+            case "RECEIPT_REPRINT"->"POS_RECEIPT_REPRINT";
+            default->throw new ResponseStatusException(FORBIDDEN,"Unsupported POS audit action");
+        };
+        authorize(s,s.cashier(),permission);audit(s,action,id);
+    }
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void customerDraftAudit(long tenant,long branch,long customer,String action,String id){
+        var context=authContext.current();
+        if(!context.isCustomer()||customers==null||customers.resolve(context.username())!=customer)
+            throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
+        if(!"CUSTOMER_RECEIPT_COPY".equals(action))throw new ResponseStatusException(FORBIDDEN,"Unsupported customer audit action");
+        Boolean owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND stock_branch_id=? AND sales_channel='ONLINE' AND status='PAID'",
+            Boolean.class,tenant,id,customer,branch);
+        if(!Boolean.TRUE.equals(owned))throw new ResponseStatusException(NOT_FOUND,"Receipt unavailable");
+        audit(new Scope(tenant,branch,"customer:"+customer),action,id);
+    }
     public record CloseResult(String sessionId,long registerId,String cashier,String state,String requestId,
         BigDecimal expectedCash,BigDecimal countedCash,BigDecimal variance,String varianceReason,
         String reviewedBy,String reviewReason) {}

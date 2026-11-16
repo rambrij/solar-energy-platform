@@ -4,7 +4,7 @@ import java.util.*;
 /** Single allow-list for permissions that tenant-owned vendor roles can contain. */
 public final class VendorPermissionRegistry {
     private static final Set<String> EXTRA=Set.of(
-        "POS_RETURN_VIEW","POS_REFUND_VIEW","POS_REPORT_EXPORT","POS_SETTINGS_MANAGE",
+        "POS_RETURN_VIEW","POS_RETURN_APPROVE","POS_REFUND_VIEW","POS_REPORT_EXPORT","POS_SETTINGS_MANAGE",
         "POS_TENDER_EXTERNAL_RECORD","POS_TENDER_EXTERNAL_CONFIRM","POS_TENDER_MANUAL_VERIFY",
         "POS_REFUND_CASH_RECORD","POS_REFUND_PRINT","POS_RETURN_INSPECT","POS_RETURN_AUDIT_VIEW",
         "POS_TENDER_VIEW"

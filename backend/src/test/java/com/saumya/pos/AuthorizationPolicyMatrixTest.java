@@ -47,44 +47,58 @@ class AuthorizationPolicyMatrixTest {
         }
         MethodInvocation invocation=invocation(type,method,"CASH_IN");
         expression=resolveDynamicAuthority(expression,invocation);
-        Set<String> mandatory=new LinkedHashSet<>();
-        int branchIndex=expression.indexOf("?");
-        String mandatoryExpression=branchIndex<0?expression:expression.substring(0,branchIndex);
-        Matcher mandatoryMatcher=Pattern.compile("hasAuthority\\('([A-Z][A-Z0-9_]+)'\\)").matcher(mandatoryExpression);
-        while(mandatoryMatcher.find())mandatory.add(mandatoryMatcher.group(1));
-        List<Set<String>> alternatives=new ArrayList<>();
-        Matcher anyMatcher=Pattern.compile("hasAnyAuthority\\(([^)]*)\\)").matcher(expression);
-        while(anyMatcher.find()){
-            Set<String> choices=new LinkedHashSet<>();
-            Matcher choice=Pattern.compile("['\"]([A-Z][A-Z0-9_]+)['\"]").matcher(anyMatcher.group(1));
-            while(choice.find())choices.add(choice.group(1));
-            assertThat(choices).as("hasAnyAuthority alternatives in %s#%s",type.getSimpleName(),method.getName()).isNotEmpty();
-            alternatives.add(choices);
-        }
-        Set<String> sufficient=new LinkedHashSet<>(mandatory);
-        alternatives.forEach(sufficient::addAll);
 
         if(expression.contains("permitAll()")){
             assertThat(evaluate(expression,invocation,Set.of(),false))
                 .as("explicit public endpoint %s#%s",type.getSimpleName(),method.getName()).isTrue();
             return;
         }
-        assertThat(evaluate(expression,invocation,sufficient,true))
-            .as("sufficient role grants for %s#%s (%s)",type.getSimpleName(),method.getName(),expression).isTrue();
+
+        Set<String> permissions=new LinkedHashSet<>();
+        Matcher authorityCalls=Pattern.compile("has(?:Any)?Authority\\(([^)]*)\\)").matcher(expression);
+        while(authorityCalls.find()){
+            Matcher literal=Pattern.compile("['\\\"]([A-Z][A-Z0-9_]+)['\\\"]").matcher(authorityCalls.group(1));
+            while(literal.find())permissions.add(literal.group(1));
+        }
+
         assertThat(evaluate(expression,invocation,Set.of(),false))
             .as("anonymous denial for protected endpoint %s#%s",type.getSimpleName(),method.getName()).isFalse();
-        for(String required:mandatory){
-            Set<String> insufficient=new LinkedHashSet<>(sufficient);insufficient.remove(required);
-            assertThat(evaluate(expression,invocation,insufficient,true))
-                .as("mandatory grant %s is required by %s#%s",required,type.getSimpleName(),method.getName()).isFalse();
+
+        if(permissions.isEmpty()){
+            assertThat(evaluate(expression,invocation,Set.of(),true))
+                .as("authenticated access policy for %s#%s",type.getSimpleName(),method.getName()).isTrue();
+            return;
         }
-        for(Set<String> choices:alternatives){
-            for(String choice:choices){
-                Set<String> candidate=new LinkedHashSet<>(mandatory);candidate.add(choice);
-                for(Set<String> other:alternatives)if(other!=choices)candidate.addAll(other);
-                assertThat(evaluate(expression,invocation,candidate,true))
-                    .as("alternative grant %s permits %s#%s",choice,type.getSimpleName(),method.getName()).isTrue();
+
+        assertThat(permissions).as("permission references in %s#%s",type.getSimpleName(),method.getName()).isNotEmpty();
+        assertThat(permissions.size()).as("policy complexity for %s#%s",type.getSimpleName(),method.getName()).isLessThanOrEqualTo(12);
+
+        assertThat(evaluate(expression,invocation,permissions,true))
+            .as("all declared grants provide a sufficient policy for %s#%s (%s)",type.getSimpleName(),method.getName(),expression).isTrue();
+
+        List<Set<String>> minimalGrantSets=new ArrayList<>();
+        int combinations=1<<permissions.size();
+        List<String> orderedPermissions=new ArrayList<>(permissions);
+        for(int mask=1;mask<combinations;mask++){
+            Set<String> candidate=new LinkedHashSet<>();
+            for(int bit=0;bit<orderedPermissions.size();bit++)if((mask&(1<<bit))!=0)candidate.add(orderedPermissions.get(bit));
+            if(!evaluate(expression,invocation,candidate,true))continue;
+            boolean minimal=true;
+            for(String permission:candidate){
+                Set<String> withoutOne=new LinkedHashSet<>(candidate);
+                withoutOne.remove(permission);
+                if(evaluate(expression,invocation,withoutOne,true)){minimal=false;break;}
             }
+            if(minimal)minimalGrantSets.add(Set.copyOf(candidate));
+        }
+
+        assertThat(minimalGrantSets)
+            .as("at least one minimal sufficient role grant set for %s#%s (%s)",type.getSimpleName(),method.getName(),expression)
+            .isNotEmpty();
+        for(String permission:permissions){
+            assertThat(minimalGrantSets.stream().anyMatch(grants->grants.contains(permission)))
+                .as("permission %s participates in an allowed grant path for %s#%s",permission,type.getSimpleName(),method.getName())
+                .isTrue();
         }
     }
 

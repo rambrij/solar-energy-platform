@@ -13,9 +13,9 @@ import java.util.Map;
 public class MarketplaceController {
     private final CartService service; private final CatalogService catalogue; private final CustomerAccess customers;
     public MarketplaceController(CartService service,CatalogService catalogue,CustomerAccess customers){this.service=service;this.catalogue=catalogue;this.customers=customers;}
-    @GetMapping("/api/v1/marketplace/vendors") Object vendors(){return catalogue.vendors();}
-    @GetMapping("/api/v1/marketplace/vendors/{slug}/products") Object products(@PathVariable String slug){return catalogue.products(slug);}
-    @GetMapping("/api/v1/marketplace/vendors/{slug}/categories") Object categories(@PathVariable String slug){return catalogue.categories(slug);}
+    @GetMapping("/api/v1/marketplace/vendors") @PreAuthorize("permitAll()") Object vendors(){return catalogue.vendors();}
+    @GetMapping("/api/v1/marketplace/vendors/{slug}/products") @PreAuthorize("permitAll()") Object products(@PathVariable String slug){return catalogue.products(slug);}
+    @GetMapping("/api/v1/marketplace/vendors/{slug}/categories") @PreAuthorize("permitAll()") Object categories(@PathVariable String slug){return catalogue.categories(slug);}
     @GetMapping("/api/v1/customer/csrf") @PreAuthorize("hasAuthority('CUSTOMER')")
     Object csrf(CsrfToken token){return Map.of("token",token.getToken());}
     @GetMapping("/api/v1/customer/cart") @PreAuthorize("hasAuthority('CUSTOMER')")

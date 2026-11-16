@@ -89,7 +89,7 @@ public class InventoryService {
   context.requireVendorMembership();
   context.requireTenant(tenant);
   context.requireBranch(branch);
-  if(!context.username().equals(row.get("cashier")))
+  if(!context.username().equals(order.get("cashier")))
    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
   context.requirePermission(permission);
   return row;
@@ -164,7 +164,7 @@ public class InventoryService {
    long branch=((Number)order.get("stock_branch_id")).longValue();
    var context=actor();
    if(!context.isCustomer()){
-    if(!"IN_STORE".equals(row.get("sales_channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+    if(!"IN_STORE".equals(order.get("sales_channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
     context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
     if(context.username().equals(row.get("cashier")))context.requirePermission("POS_SALE_CANCEL");
     else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))

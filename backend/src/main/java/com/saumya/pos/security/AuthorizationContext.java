@@ -1,6 +1,6 @@
 package com.saumya.pos.security;
 
-import com.saumya.pos.membership.MembershipService;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class AuthorizationContext {
-    private final MembershipService membershipService;
-    public AuthorizationContext(MembershipService membershipService){this.membershipService=membershipService;}
+    private final VendorMembershipResolver memberships;
+    public AuthorizationContext(VendorMembershipResolver memberships){this.memberships=memberships;}
     public record Context(String username,Long tenantId,Long branchId,Set<String> permissions,
         boolean isPlatformUser,boolean isCustomer,boolean isVendorEmployee){
         public void requirePermission(String permission){if(!permissions.contains(permission))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Missing required permission: "+permission);}
@@ -31,7 +31,7 @@ public class AuthorizationContext {
         boolean customer=permissions.contains("CUSTOMER"),platform=permissions.stream().anyMatch(p->p.startsWith("PLATFORM_"));
         if(platform)return new Context(username,null,null,permissions,true,false,false);
         if(customer){
-            var membership=membershipService.access(username);
+            var membership=memberships.resolve(username);
             if(membership.isEmpty())return new Context(username,null,null,permissions,false,true,false);
             return new Context(username,membership.get().tenant(),membership.get().branch(),Set.copyOf(membership.get().permissions()),false,true,true);
         }

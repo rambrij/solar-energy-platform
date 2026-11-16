@@ -210,7 +210,7 @@ class PosTest {
   mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isUnauthorized());
  }
  @Test void guestAssociationRequiresCustomerProofAndOnlyCreatesCurrentVendorRelationship(){
-  configureOnline();var draft=checkout.pos("alice","customer-association",posDraft());
+  configureOnline();var draft=as("alice",()->checkout.pos("alice","customer-association",posDraft()));
   assertThat(db.queryForObject("SELECT customer_id FROM orders WHERE id=?",Long.class,draft.id())).isNull();
   assertThatThrownBy(()->associations.create("alice",draft.id(),false));
   var challenge=associations.create("alice",draft.id(),true);
@@ -225,7 +225,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE tenant_id=2",Integer.class)).isZero();
   checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));assertThat(onlineReceipts.read("customer",draft.id()).orderId()).isEqualTo(draft.id());
  }
- @Test void expiredAssociationTokenCannotAttachCustomer(){configureOnline();var draft=checkout.pos("alice","expired-association",posDraft());var challenge=associations.create("alice",draft.id(),true);update("UPDATE pos_customer_challenges SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));assertThatThrownBy(()->associations.approve("customer",challenge.token(),true));assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();}
+ @Test void expiredAssociationTokenCannotAttachCustomer(){configureOnline();var draft=as("alice",()->checkout.pos("alice","expired-association",posDraft()));var challenge=associations.create("alice",draft.id(),true);update("UPDATE pos_customer_challenges SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));assertThatThrownBy(()->associations.approve("customer",challenge.token(),true));assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();}
  @Test void partialCashImmediatelyAppearsInDrawerAndRetriesCannotDoubleCount(){
   enableTerminal();update("UPDATE branches SET split_tender_enabled=TRUE WHERE id=1");
   var draft=checkout.pos("alice","drawer-partial",posDraft());var request=new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("50"));
@@ -313,7 +313,7 @@ class PosTest {
   mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isOk()).andExpect(jsonPath("$.copy").value(true)).andExpect(jsonPath("$.paymentMethod").value("MOCK_CARD")).andExpect(jsonPath("$.seller").value("Vendor A"));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CUSTOMER_RECEIPT_COPY'",Integer.class)).isEqualTo(1);
  }
- @Test void onlineReceiptCannotExposeGuestPosSale(){configureOnline();String id=(String)checkout.cashSale("alice","receipt-pos-private",sale(1,"120")).get("id");assertThatThrownBy(()->onlineReceipts.read("customer",id)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);}
+ @Test void onlineReceiptCannotExposeGuestPosSale(){configureOnline();String id=(String)as("alice",()->checkout.cashSale("alice","receipt-pos-private",sale(1,"120"))).get("id");assertThatThrownBy(()->onlineReceipts.read("customer",id)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);}
  @Test void onlinePaymentIsDurableVendorOwnedAndConfirmedExactlyOnce(){
   configureOnline();var draft=onlineDraft("online-payment");var started=payments.start("customer",draft.id(),"UPI");
   assertThat(started.merchantAccount()).isEqualTo("mock-vendor-1");assertThat(started.state()).isEqualTo("PENDING");
@@ -719,6 +719,16 @@ class PosTest {
   update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
   update("INSERT INTO users VALUES(100,'customer',?,TRUE),(101,'other-customer',?,TRUE)",encoder.encode("CustomerPassword"),encoder.encode("OtherPassword"));
   update("INSERT INTO customer_profiles VALUES(100,100),(101,101)");
+  var context=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+  context.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("customer","test",List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMER"))));
+  org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+ }
+ <T> T asCustomer(String username,java.util.function.Supplier<T> action){
+  var previous=org.springframework.security.core.context.SecurityContextHolder.getContext();
+  var context=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+  context.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username,"test",List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMER"))));
+  org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+  try{return action.get();}finally{org.springframework.security.core.context.SecurityContextHolder.setContext(previous);}
  }
  @Test void anonymousMarketplaceExposesOnlyActivePublishedCatalogue() throws Exception {
   customers();update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(3,1,'SECRET',NULL,'Private draft',1,0,FALSE)");

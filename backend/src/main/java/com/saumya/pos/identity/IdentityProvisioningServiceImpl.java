@@ -21,15 +21,18 @@ import static org.springframework.http.HttpStatus.*;
 @Service @Transactional
 public class IdentityProvisioningServiceImpl implements IdentityProvisioningService {
     private final GlobalUserRepository users;private final IdentitySequenceRepository sequences;
-    private final IdentityInvitationRepository invitations;private final PlatformGrantRepository platform;
+    private final IdentityInvitationRepository invitations;private final PlatformGrantRepository platform;private final CustomerRepository customers;
     private final PasswordEncoder passwords;private final Clock clock;
     public IdentityProvisioningServiceImpl(GlobalUserRepository users,IdentitySequenceRepository sequences,
-        IdentityInvitationRepository invitations,PlatformGrantRepository platform,PasswordEncoder passwords,Clock clock){
-        this.users=users;this.sequences=sequences;this.invitations=invitations;this.platform=platform;this.passwords=passwords;this.clock=clock;
+        IdentityInvitationRepository invitations,PlatformGrantRepository platform,CustomerRepository customers,
+        PasswordEncoder passwords,Clock clock){
+        this.users=users;this.sequences=sequences;this.invitations=invitations;this.platform=platform;
+        this.customers=customers;this.passwords=passwords;this.clock=clock;
     }
     @Override public void ensureVendorEligible(String requested){
         String username=normalize(requested);
         if(!platform.permissions(username).isEmpty())throw new ResponseStatusException(CONFLICT,"Platform identities cannot receive vendor membership; use a separate vendor identity");
+        if(customers.profileCount(username)>0)throw new ResponseStatusException(CONFLICT,"Customer identities cannot receive vendor membership; use a separate vendor employee identity");
     }
     @Override public Invitation issueInvitation(String requested){
         String username=normalize(requested);ensureVendorEligible(username);

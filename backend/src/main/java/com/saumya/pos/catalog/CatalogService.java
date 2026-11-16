@@ -3,6 +3,7 @@ package com.saumya.pos.catalog;
 import com.saumya.pos.catalog.internal.*;
 import com.saumya.pos.inventory.InventoryService;
 import com.saumya.pos.tenant.TenantLifecycleService;
+import com.saumya.pos.security.AuthorizationContext;
 import java.math.BigDecimal;
 import java.util.*;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 @Service @Transactional(readOnly=true)
 public class CatalogService {
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
+    @org.springframework.beans.factory.annotation.Autowired private AuthorizationContext authorization;
     private final TenantLifecycleService tenants;private final ProductRepository products;private final InventoryService stock;
     private final CategoryRepository categories;private final PromotionService promotions;
     @org.springframework.beans.factory.annotation.Autowired
@@ -40,6 +42,13 @@ public class CatalogService {
     public List<ProductInfo> products(String slug){long tenant=activeVendor(slug).id();return products.findByTenantIdAndPublishedTrueOrderById(tenant).stream().map(p->info(tenant,p)).toList();}
     public ProductInfo product(long tenant,long id){return info(tenant,products.findByTenantIdAndId(tenant,id).orElseThrow(this::missing));}
     public ProductInfo published(long tenant,long id){var p=product(tenant,id);if(!p.published())throw missing();return p;}
-    @Transactional public ProductInfo lockForSale(long tenant,long id){var p=products.lockPublished(tenant,id).orElseThrow(this::missing);entityManager.refresh(p,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);if(!p.published())throw missing();return info(tenant,p,true);}
-    public List<Map<String,Object>> posProducts(long tenant,long branch){return products.findByTenantIdAndPublishedTrueOrderById(tenant).stream().map(p->{Map<String,Object> row=new LinkedHashMap<>();row.put("id",p.id());row.put("sku",p.sku());row.put("barcode",p.barcode());row.put("name",p.name());row.put("brand",p.brand());var quoted=info(tenant,p);row.put("price",quoted.price());row.put("list_price",quoted.listPrice());row.put("discount_percent",quoted.discountPercent());row.put("category_id",quoted.categoryId());row.put("category_name",quoted.categoryName());row.put("tax_rate",p.taxRate());row.put("quantity",stock.atBranchForPos(tenant,branch,p.id()));return row;}).toList();}
+    @Transactional public ProductInfo lockForSale(long tenant,long id){
+        var actor=authorization.current();
+        if(actor.isCustomer()){if(actor.isPlatformUser())throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Customer identity required");}
+        else{actor.requireVendorMembership();actor.requireTenant(tenant);actor.requireBranch(actor.branchId());actor.requirePermission("POS_SALE_CREATE");}
+        var p=products.lockPublished(tenant,id).orElseThrow(this::missing);entityManager.refresh(p,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);if(!p.published())throw missing();return info(tenant,p,true);
+    }
+    public List<Map<String,Object>> posProducts(long tenant,long branch){
+        var actor=authorization.current();actor.requireVendorMembership();actor.requireTenant(tenant);actor.requireBranch(branch);actor.requirePermission("POS_VIEW");
+        return products.findByTenantIdAndPublishedTrueOrderById(tenant).stream().map(p->{Map<String,Object> row=new LinkedHashMap<>();row.put("id",p.id());row.put("sku",p.sku());row.put("barcode",p.barcode());row.put("name",p.name());row.put("brand",p.brand());var quoted=info(tenant,p);row.put("price",quoted.price());row.put("list_price",quoted.listPrice());row.put("discount_percent",quoted.discountPercent());row.put("category_id",quoted.categoryId());row.put("category_name",quoted.categoryName());row.put("tax_rate",p.taxRate());row.put("quantity",stock.atBranchForPos(tenant,branch,p.id()));return row;}).toList();}
 }

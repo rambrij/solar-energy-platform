@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 class MembershipServiceTest {
+    @org.junit.jupiter.api.AfterEach void clearSecurity(){SecurityContextHolder.clearContext();}
+
     @SuppressWarnings("unchecked")
     private <T>T repository(Class<T> type,java.lang.reflect.InvocationHandler handler){
         return (T)Proxy.newProxyInstance(type.getClassLoader(),new Class<?>[]{type},handler);

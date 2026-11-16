@@ -35,7 +35,7 @@ public class AuthorizationContext {
             if(membership.isEmpty())return new Context(username,null,null,permissions,false,true,false);
             return new Context(username,membership.get().tenant(),membership.get().branch(),Set.copyOf(membership.get().permissions()),false,true,true);
         }
-        var membership=membershipService.access(username);
+        var membership=memberships.resolve(username);
         if(membership.isEmpty())throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Active vendor membership required");
         var access=membership.get();
         return new Context(access.username(),access.tenant(),access.branch(),Set.copyOf(access.permissions()),false,false,true);

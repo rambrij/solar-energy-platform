@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -25,20 +24,22 @@ public class InventoryService {
  private final ApplicationEventPublisher events;
  private final AuthorizationContext authorization;
  private final CustomerAccess customers;
- private final JdbcTemplate jdbc;
+ private final InventoryOrderRepository orderRecords;
+ private final InventoryApprovedReturnRepository approvedReturns;
 
  @Autowired
  public InventoryService(InventoryRepository balances,ReservationRepository reservations,
      ReturnDispositionRepository returns,InventoryIssueRepository issues,ApplicationEventPublisher events,
-     AuthorizationContext authorization,CustomerAccess customers,JdbcTemplate jdbc){
+     AuthorizationContext authorization,CustomerAccess customers,InventoryOrderRepository orderRecords,
+     InventoryApprovedReturnRepository approvedReturns){
   this.balances=balances;this.reservations=reservations;this.returns=returns;this.issues=issues;this.events=events;
-  this.authorization=authorization;this.customers=customers;this.jdbc=jdbc;
+  this.authorization=authorization;this.customers=customers;this.orderRecords=orderRecords;this.approvedReturns=approvedReturns;
  }
 
  /** Compatibility constructor for isolated tests; mutation methods fail closed without an authorization context. */
  public InventoryService(InventoryRepository balances,ReservationRepository reservations,
      ReturnDispositionRepository returns,InventoryIssueRepository issues,ApplicationEventPublisher events){
-  this(balances,reservations,returns,issues,events,null,null,null);
+  this(balances,reservations,returns,issues,events,null,null,null,null);
  }
 
  private InventoryBalance locked(long tenant,long branch,long product){
@@ -52,13 +53,18 @@ public class InventoryService {
   return authorization.current();
  }
  private Map<String,Object> order(long tenant,String id){
-  if(jdbc==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Inventory resource authorization unavailable");
-  return jdbc.queryForList("""
-      SELECT tenant_id,branch_id,COALESCE(stock_branch_id,branch_id) AS stock_branch_id,
-             cashier,customer_id,sales_channel AS channel,status
-      FROM orders WHERE tenant_id=? AND id=?
-      """,tenant,id).stream().findFirst()
+  if(orderRecords==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Inventory resource authorization unavailable");
+  var record=orderRecords.findByTenantIdAndId(tenant,id)
       .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable"));
+  var row=new HashMap<String,Object>();
+  row.put("tenant_id",record.tenantId());
+  row.put("branch_id",record.branchId());
+  row.put("stock_branch_id",record.stockBranchId()==null?record.branchId():record.stockBranchId());
+  row.put("cashier",record.cashier());
+  row.put("customer_id",record.customerId());
+  row.put("channel",record.channel());
+  row.put("status",record.status());
+  return row;
  }
  private boolean expiryJob(){
   Authentication auth=SecurityContextHolder.getContext().getAuthentication();
@@ -241,9 +247,7 @@ public class InventoryService {
       ||!Set.of("SELLABLE","DAMAGED","INCOMPLETE").contains(condition)
       ||("RESTOCK".equals(disposition)&&!"SELLABLE".equals(condition)))
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Invalid return disposition");
-  if(jdbc==null||!Boolean.TRUE.equals(jdbc.queryForObject(
-      "SELECT COUNT(*)>0 FROM pos_returns WHERE tenant_id=? AND branch_id=? AND id=? AND state='APPROVED'",
-      Boolean.class,tenant,branch,id)))
+  if(approvedReturns==null||!approvedReturns.existsByTenantIdAndBranchIdAndIdAndState(tenant,branch,id,"APPROVED"))
    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Approved return unavailable");
   var key=new ReturnDisposition.Key(tenant,id,product);
   if(returns.existsById(key))throw new ResponseStatusException(HttpStatus.CONFLICT,"Return stock already recorded");

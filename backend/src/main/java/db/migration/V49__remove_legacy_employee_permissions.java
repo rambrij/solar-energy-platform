@@ -20,23 +20,30 @@ public class V49__remove_legacy_employee_permissions extends BaseJavaMigration {
     @Override
     public void migrate(Context context) throws Exception {
         Connection connection=context.getConnection();
+        removeLegacyData(connection);
+    }
+
+
+    static void removeLegacyData(Connection connection)throws SQLException{
         if(tableExists(connection,"employee_role_assignments")
                 &&tableExists(connection,"vendor_roles")
                 &&tableExists(connection,"vendor_role_permissions")){
             execute(connection,"""
-                DELETE FROM employee_role_assignments
-                 WHERE (tenant_id,role_id) IN (
-                   SELECT tenant_id,id FROM vendor_roles
-                    WHERE role_key=CONCAT('legacy-',created_by)
-                      AND display_name LIKE 'Migrated grants:%'
+                DELETE FROM employee_role_assignments a
+                 WHERE EXISTS (
+                   SELECT 1 FROM vendor_roles r
+                    WHERE r.tenant_id=a.tenant_id AND r.id=a.role_id
+                      AND r.role_key=CONCAT('legacy-',r.created_by)
+                      AND r.display_name LIKE 'Migrated grants:%'
                  )
                 """);
             execute(connection,"""
-                DELETE FROM vendor_role_permissions
-                 WHERE (tenant_id,role_id) IN (
-                   SELECT tenant_id,id FROM vendor_roles
-                    WHERE role_key=CONCAT('legacy-',created_by)
-                      AND display_name LIKE 'Migrated grants:%'
+                DELETE FROM vendor_role_permissions p
+                 WHERE EXISTS (
+                   SELECT 1 FROM vendor_roles r
+                    WHERE r.tenant_id=p.tenant_id AND r.id=p.role_id
+                      AND r.role_key=CONCAT('legacy-',r.created_by)
+                      AND r.display_name LIKE 'Migrated grants:%'
                  )
                 """);
             execute(connection,"""
@@ -45,9 +52,7 @@ public class V49__remove_legacy_employee_permissions extends BaseJavaMigration {
                    AND display_name LIKE 'Migrated grants:%'
                 """);
         }
-        if(tableExists(connection,"employee_permissions")){
-            execute(connection,"DROP TABLE employee_permissions");
-        }
+        if(tableExists(connection,"employee_permissions"))execute(connection,"DROP TABLE employee_permissions");
     }
 
     private static boolean tableExists(Connection connection,String table)throws SQLException{

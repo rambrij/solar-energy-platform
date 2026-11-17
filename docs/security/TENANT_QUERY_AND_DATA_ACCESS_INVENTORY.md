@@ -8,7 +8,7 @@
 
 ## 1. Executive summary
 
-The backend contains **60 Spring Data repository interfaces** in the reviewed source tree. Their declarations contain **64 explicit `@Query` annotations**, including **4 native SQL queries**. The four native repository queries are:
+The backend contains **62 Spring Data repository interfaces** in the current reviewed source tree. Their declarations contain **64 explicit `@Query` annotations**, including **4 native SQL queries**. The four native repository queries are:
 
 1. `CatalogSearchRepository.search` — native catalogue search and count query, both tenant-filtered.
 2. `PosCatalogRepository.search` — native POS catalogue search and count query, both tenant-filtered.
@@ -28,7 +28,7 @@ The six classes include parameterized tenant-aware SQL. `PosService` is the larg
 
 Other persistence mechanisms include JPA derived finder methods, `JpaSpecificationExecutor`, `EntityManager` locks/refresh/persist operations, and a scheduled reservation cleanup worker. No QueryDSL, Criteria API query builder or stored procedure call was identified in the reviewed persistence path. Specifications are used in order history and refund history.
 
-**Overall assessment:** the inspected repository queries and service paths generally derive vendor tenant context from `AuthorizationContext`/membership or from a persisted tenant-owned order. The review did not demonstrate a confirmed cross-tenant read or write exploit in the inspected query paths. It did find generic inherited repository methods, selected unscoped-by-tenant lookups whose safety relies on globally unique IDs or a prior scoped parent lookup, and the three database integrity gaps recorded in the resource inventory.
+**Overall assessment:** the inspected repository queries and service paths generally derive vendor tenant context from `AuthorizationContext`/membership or a persisted tenant-owned order. The review did not demonstrate a confirmed cross-tenant read/write exploit in the inspected paths. V48 now enforces the three same-tenant projection/subscription ownership relationships recorded in the resource inventory. One payment review queue global-ID lookup has been replaced with the authorized tenant-scoped finder and a regression test. Generic inherited repository CRUD and complete Vendor A/B + Customer A/B resource-family coverage remain hardening/acceptance work.
 
 This document is an implementation inventory and evidence record, not a claim that every possible runtime path has passed adversarial testing.
 
@@ -51,7 +51,7 @@ A controller permission annotation alone is not considered proof of data isolati
 
 ## 3. Repository inventory
 
-All 60 repository interfaces below were reviewed. “Explicit queries” counts declared `@Query` annotations, not Spring Data derived finder methods or inherited `JpaRepository` methods.
+All 62 repository interfaces below were reviewed. “Explicit queries” counts declared `@Query` annotations, not Spring Data derived finder methods or inherited `JpaRepository` methods.
 
 | # | Repository | Entity / table family | Explicit @Query | Native |
 |---:|---|---|---:|---:|
@@ -115,7 +115,9 @@ All 60 repository interfaces below were reviewed. “Explicit queries” counts 
 | 58 | `subscription/internal/TenantSubscriptionRepository` | tenant_subscriptions | 0 | 0 |
 | 59 | `tenant/internal/TenantRepository` | tenants | 2 | 0 |
 | 60 | `tenant/internal/TenantSequenceRepository` | tenant_sequences | 1 | 0 |
-| | **Total** | **60 repository interfaces** | **64** | **4** |
+| 61 | `inventory/internal/InventoryOrderRepository` | orders (read-only ownership projection) | 0 | 0 |
+| 62 | `inventory/internal/InventoryApprovedReturnRepository` | pos_returns (read-only approved-return projection) | 0 | 0 |
+| | **Total** | **62 repository interfaces** | **64** | **4** |
 
 ### Generic/inherited CRUD caveat
 
@@ -165,7 +167,7 @@ Many tenant repositories extend `JpaRepository` and therefore inherit methods su
 - `SalesReportRepository` orders and line aggregates use tenant + branch/stock branch + channel + time window. Line join includes tenant.
 - `CheckoutService` creates order and lines using server tenant and product lookup; cancellation and finalization lock order by tenant + ID.
 - `PaymentCheckoutService` starts from an owned order, rechecks POS/customer context, uses tenant-scoped tender queries, validates stock/product against order tenant, and checks branch/session state before completing POS payment.
-- One review-queue mapping call currently loads an order through `orders.findById(attempt.order())` after a tenant/branch-scoped pending-attempt query. The attempt's composite tenant/order FK and globally unique order ID constrain the relationship, but using `findByTenantIdAndId(attempt.tenant(),attempt.order())` would make the tenant scope explicit. This is recorded as hardening, not a demonstrated vulnerability.
+- The manual tender-review queue loads each order with `orders.findByTenantIdAndId(scope.tenant(),attempt.order())` after the tenant/branch-scoped pending-attempt query. `PaymentCheckoutServiceTest.paymentReviewQueueLoadsEachOrderWithTheAttemptTenantAndNeverUsesGlobalIdLookup` fails if the mapping calls `findById`.
 
 **Assessment:** main checkout/payment paths are tenant/customer scoped. Review-queue lookup should be made explicit in a later narrow hardening change with a regression test; do not classify it as a confirmed cross-tenant exposure while the composite FK and source query remain in place.
 
@@ -174,7 +176,7 @@ Many tenant repositories extend `JpaRepository` and therefore inherit methods su
 - `InventoryRepository.available(tenant,product)`, `atBranch(tenant,branch,product)`, and `lock(tenant,branch,product)` all include tenant.
 - `ReservationRepository.held(tenant,order)` scopes by tenant + order and HELD state.
 - `StockReceiptRepository` find and page methods scope by tenant + branch.
-- InventoryService reserve/release/consume/inspect-return operations receive tenant from the checkout/return service and operate on tenant-keyed reservations/balances.
+- InventoryService reserve/release/consume/inspect-return operations receive tenant from the checkout/return service, authorize actor/channel/tenant/branch before ownership reads, and operate on tenant-keyed reservation/balance repositories. Order and approved-return ownership reads use the inventory-owned `InventoryOrderRepository` and `InventoryApprovedReturnRepository`; InventoryService no longer performs direct JDBC order/return lookups.
 - StockReceivingService checks vendor membership, tenant, branch and permission in its service guard before receiving or listing.
 - No warehouse aggregate or warehouse repository exists in the reviewed tree; inventory location is branch-scoped.
 
@@ -249,7 +251,7 @@ There are four native `@Query` declarations: two catalogue queries and two custo
 | `PosService` | branches, registers, employee_register_assignments, pos_sessions, pos_shift_reviews, pos_active_drafts, pos_cash_movements, pos_drawer_tenders, pos_cash_refunds, pos_audit | SELECT/INSERT/UPDATE | Current AuthorizationContext scope: tenant + branch + cashier; permissions and assignment/session checks at service boundary. |
 | `VendorRoleService` | vendor_roles, vendor_role_permissions, employees, employee_role_assignments, employee_register_assignments, branches, registers, vendor_access_audit_events | SELECT/INSERT/UPDATE/DELETE | Current authenticated tenant; role delegation and branch/register ownership checks. |
 | `TenantEntitlementPolicy` | tenant_subscriptions, subscription_plan_versions | SELECT | Tenant ID passed by validated membership/service; subscription query filtered by tenant. |
-| `CashDrawerProjection` | pos_drawer_tenders | INSERT | In-process CashTenderRecorded event emitted during transaction; database lacks same-tenant session/order FKs (INV-DB-001). |
+| `CashDrawerProjection` | pos_drawer_tenders | INSERT | In-process CashTenderRecorded event emitted during transaction; V48 enforces same-tenant branch/session/order composite FKs after pre-DDL validation. |
 | `DraftSessionProjection` | pos_active_drafts | INSERT/DELETE | In-process PosDraftStateChanged event emitted from persisted order; database lacks FK to referenced order (INV-DB-002). |
 
 All inspected SQL uses parameter binding rather than string-concatenated client input. This does not by itself establish correct authorization; tenant/actor derivation and ownership validation remain necessary.
@@ -329,7 +331,7 @@ Platform-wide reads (tenant directory, platform audit, plans, subscriptions, sup
 |---|---|---|---|
 | Stock availability projection | `StockAvailabilityChanged` from InventoryService | tenant + branch + product + available | `CatalogAvailabilityService` uses composite CatalogStock key and updates projection in same transaction. |
 | POS draft projection | `PosDraftStateChanged` from checkout | tenant + branch + cashier + session + order + state | `DraftSessionProjection` writes/deletes by the full tenant/session/order tuple. DB lacks order FK (INV-DB-002). |
-| Cash drawer tender projection | `CashTenderRecorded` from confirmed cash checkout | tenant + branch + session + order + tender amounts | `CashDrawerProjection` validates amounts and inserts event values in same transaction. DB lacks session/order FKs (INV-DB-001). |
+| Cash drawer tender projection | `CashTenderRecorded` from confirmed cash checkout | tenant + branch + session + order + tender amounts | `CashDrawerProjection` validates amounts and inserts event values in the same transaction; V48 enforces same-tenant branch/session/order FKs. |
 | Reservation cleanup | `@Scheduled` sweep every configured delay | Loads up to 100 expired DRAFT orders globally; each row supplies persisted tenant + order ID | Calls `CheckoutService.expire(tenant,id)`; service locks by tenant + ID and releases tenant/order reservations. Trusted system worker, not user-selected tenant. |
 | Payment/webhook | Payment adapter boundary exists | Provider/merchant/order/tenant context | No fully approved production provider/webhook integration was established; do not mark provider signature/replay/amount validation complete. |
 | Cache/search/object storage | No complete cache or object-storage integration found in the reviewed path | N/A | No cache-key or object-key path to certify. Future implementations must include tenant and resource owner and reauthorize signed downloads. |
@@ -342,10 +344,10 @@ These are not all confirmed vulnerabilities. They identify where an explicit ten
 
 | ID | Path | Current behavior | Risk classification | Recommended action |
 |---|---|---|---|---|
-| QRY-001 | `PaymentCheckoutService` manual-review queue mapping | Pending attempt list is tenant + branch scoped; order is then loaded via `orders.findById(attempt.order())`. Payment attempt has tenant/order composite FK and order IDs are globally unique. | P2 hardening; no exploit demonstrated | Use `findByTenantIdAndId(attempt.tenant(),attempt.order())`; test tenant mismatch and orphan attempt. |
-| QRY-002 | `DraftRepository.findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc` | Global scheduled sweep of expired drafts across tenants. | TRUSTED-INTERNAL; expected system operation | Keep callable only from scheduled worker; process each persisted tenant/order through scoped lock. Add worker test for tenant context and failure isolation. |
+| QRY-001 | `PaymentCheckoutService` manual-review queue mapping | Queue order load now uses `orders.findByTenantIdAndId(scope.tenant(),attempt.order())`; `PaymentCheckoutServiceTest` asserts the authorized scope tenant and rejects any `findById` call. | **Implemented and test-covered** | Preserve the tenant-scoped lookup if the queue is refactored; maintain the regression test. |
+| QRY-002 | `DraftRepository.findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc` | Global scheduled sweep of expired drafts across tenants. `DraftExpiryJob` installs the exact system principal and reserved grant around each scoped expiry call; `ReservationCleanup.sweep` is an unscheduled compatibility delegate only. | TRUSTED-INTERNAL; verified worker boundary | Keep repository sweep behind DraftExpiryJob; preserve per-order tenant-scoped lock and dedicated system principal/authority tests. |
 | QRY-003 | Generic `JpaRepository.findById/findAll/deleteById` inherited across tenant repositories | Available by inheritance; not all callsites use generic methods. | GENERIC/UNVERIFIED until callsite | Prefer explicit tenant + parent method for tenant-owned records; restrict generic methods to composite IDs or trusted parent scope. Add architecture/static checks. |
-| QRY-004 | `SubscriptionEventRepository.findBySubscriptionId` | Uses subscription ID after platform-only subscription lookup. | PLATFORM-SCOPED; verify tenant-composite FK | Add composite tenant/subscription FK per INV-DB-003; optionally add tenant-aware finder. |
+| QRY-004 | `SubscriptionEventRepository.findBySubscriptionId` | Uses subscription ID after platform-only parent lookup; V48 now enforces the composite tenant/subscription FK for event writes. | PLATFORM-SCOPED; same-tenant referential integrity enforced by V48 | Preserve platform-only parent lookup and composite tenant/subscription FK; a separate tenant-aware finder is optional defense-in-depth. |
 | QRY-005 | `SubscriptionInvoiceRepository.findBySubscriptionId` and `SubscriptionPaymentRepository.findByInvoiceId` | Called after platform-only parent lookup; V41 has same-tenant composite invoice/payment FK. | PLATFORM-SCOPED | Keep parent-first lookup and add direct tenant-aware methods if vendor self-service billing is approved. |
 | QRY-006 | `PlatformSupportServiceImpl.revoke(id)` | Loads a platform-owned support grant by ID; actor and permission are platform-authorized. | PLATFORM-SCOPED | Preserve platform-only service guard and audit; verify grant expiry/revocation at every privileged support data path (separate P0-02/P0-04 work). |
 | QRY-007 | Customer token/challenge hash lookups | Challenge/token hash is the lookup key; service then checks expiry, customer identity and tenant/order binding. | TRUSTED-INTERNAL secret-token lookup | Preserve non-enumerable error behavior, expiry, one-time use and owner validation; test replay and cross-customer use. |
@@ -354,7 +356,7 @@ These are not all confirmed vulnerabilities. They identify where an explicit ten
 
 ### Confirmed from source
 
-1. Three missing same-tenant FK protections: drawer tender → session/order/branch, active draft projection → order, subscription event → same-tenant subscription. See `INV-DB-001..003`.
+1. V48 now implements the three same-tenant FK protections for drawer tender → branch/session/order, active draft projection → same-tenant order tuple, and subscription event → same-tenant subscription. The migration preflights all existing rows before DDL and never silently deletes/reassigns data.
 2. Generic inherited repository methods exist and need continued callsite discipline; their existence is not proof of an exploitable query.
 3. Customer/vendor dual identity and multi-tenant membership behavior do not fully match the HLD's broader identity language; both require explicit policy decisions.
 4. Warehouse assignment cannot be validated because there is no warehouse persistence/resource module in the inspected tree.
@@ -367,7 +369,7 @@ These are not all confirmed vulnerabilities. They identify where an explicit ten
 - No cross-tenant report aggregate was demonstrated in inspected sales/refund report queries.
 - No cross-tenant order line/return item read was demonstrated in inspected service call paths.
 - No object-storage/signed URL path was found to audit; the inspected receipt PDF path is in-memory.
-- No durable queue consumer or asynchronous worker was found beyond the scheduled cleanup and synchronous event projections.
+- No durable queue consumer or asynchronous worker was found beyond the scheduled cleanup and synchronous event projections. V48 adds no asynchronous data path.
 - No cross-tenant exploitation was performed against a live MySQL database in this inventory task.
 
 ## 12. Required follow-up test matrix
@@ -396,16 +398,16 @@ The reviewed backend test tree contains **82 Java test classes**. Existing tests
 
 The repository workflow `.github/workflows/pos-tests.yml` has a database matrix with H2 and **MySQL 8.4** service. The Maven project uses Spring Boot 3.5.0, Java 21, Spring Data JPA, Spring JDBC, Flyway MySQL, MySQL connector, H2 test dependency and ArchUnit.
 
-This P0-01 inventory did not execute CI or Maven tests. The existence of the workflow and test classes is not a test result. MySQL integration tests for the three identified composite FK gaps and complete Vendor A/B + Customer A/B negative matrix remain required.
+GitHub Actions run [#44014325812](https://github.com/rambrij/solar-energy-platform/actions/runs/44014325812) passed on commit `476e421db1b93d95ca6254b904d0004a93eed1a6`: H2 **530 tests**, MySQL 8.4 **530 tests**, frontend tests and production build, and module architecture check all passed. The CI suite includes V48 migration preflight and same-tenant/cross-tenant constraint tests. It does not substitute for applying V48's read-only preflight against the actual deployment database or the complete Vendor A/B + Customer A/B negative matrix.
 
 ## 14. P0-01 query/data-access conclusion
 
-The reviewed backend has a substantial tenant-scoped persistence foundation: 60 repository interfaces, 64 explicit `@Query` declarations, four native repository queries, and six confirmed JDBC access components. Catalogue, order, cart, inventory, POS, return/refund and report query paths inspected here generally retain tenant and relevant parent scope. Customer paths derive the global customer from the authenticated identity; platform billing and audit paths use platform-only authorization.
+The reviewed backend has a substantial tenant-scoped persistence foundation: 62 repository interfaces (including two inventory-owned read-only ownership projections), 64 explicit `@Query` declarations, four native repository queries, and six confirmed direct JDBC access components. Catalogue, order, cart, inventory, POS, return/refund and report query paths inspected here generally retain tenant and relevant parent scope. Customer paths derive the global customer from the authenticated identity; platform billing and audit paths use platform-only authorization.
 
 The next work is targeted:
 
-1. Add the three composite ownership constraints only after validating existing data.
-2. Make the payment review queue's tenant-aware order lookup explicit.
-3. Continue P0-02 service-boundary audit and P0-04 adversarial integration tests.
+1. V48 implements the three composite ownership constraints after a read-only pre-DDL validation; deployment still requires its preflight to pass against live rows.
+2. The payment review queue now uses the tenant-scoped finder and has a regression test preventing a global-ID lookup from returning.
+3. Complete the broader P0-02 service authorization and P0-04 adversarial tenant/customer test matrices.
 4. Resolve RC-01, RC-02, RC-08 and RC-09 before changing membership, warehouse or vendor billing APIs.
 5. Do not claim complete tenant isolation until MySQL integration tests validate same-tenant success, cross-tenant denial and database rejection across all relevant resource families.

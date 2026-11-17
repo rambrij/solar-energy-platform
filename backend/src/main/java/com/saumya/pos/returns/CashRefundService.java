@@ -96,7 +96,7 @@ public class CashRefundService {
  
  public View get(String id) {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
-  retail.requireOpenPosScope(scope,"POS_REFUND_VIEW");
+  retail.requireAssignedRegisterScope(scope,"POS_REFUND_VIEW");
   return view(refunds.findByTenantAndBranchAndId(scope.tenant(), scope.branch(), id).orElseThrow(this::missing), false);
  }
  
@@ -116,7 +116,7 @@ public class CashRefundService {
  
  public View copy(String id) {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW","POS_REFUND_PRINT");
-  retail.requireOpenPosScope(scope,"POS_REFUND_PRINT");
+  retail.requireAssignedRegisterScope(scope,"POS_REFUND_PRINT");
   var refund = refunds.findByTenantAndBranchAndId(scope.tenant(), scope.branch(), id).orElseThrow(this::missing);
   event(refund, scope.cashier(), "REFUND_COPY");
   return view(refund, true);

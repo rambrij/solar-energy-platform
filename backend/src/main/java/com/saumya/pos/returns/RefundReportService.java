@@ -34,7 +34,7 @@ public class RefundReportService {
   LocalDate from = requestedFrom == null ? to.minusDays(6) : requestedFrom;
   if (from.getYear() < 1970 || from.isAfter(to) || ChronoUnit.DAYS.between(from, to) > 365) throw invalid();
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REPORT_VIEW","POS_REFUND_VIEW");
-  retail.requireOpenPosScope(scope,"POS_REFUND_VIEW");
+  retail.requireAssignedRegisterScope(scope,"POS_REFUND_VIEW");
   Instant start = from.atStartOfDay(ZoneOffset.UTC).toInstant(), until = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
   var total = new Bucket();
   var days = new LinkedHashMap<LocalDate, Bucket>();

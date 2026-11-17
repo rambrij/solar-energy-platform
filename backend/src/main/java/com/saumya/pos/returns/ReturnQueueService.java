@@ -41,7 +41,7 @@ public class ReturnQueueService {
   if (!Set.of("ALL", "REQUESTED", "APPROVED", "REJECTED", "INSPECTED").contains(state == null ? "" : state) || from.getYear() < 1970 || to.getYear() > 9998 || from.isAfter(to) || ChronoUnit.DAYS.between(from, to) > 365 || page < 0 || page > 10000 || size < 1 || size > 48 || !reference.matches("[A-Za-z0-9-]{0,36}"))
    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a valid state, reference, inclusive UTC range up to 366 days, page 0-10000 and size 1-48");
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RETURN_VIEW");
-  retail.requireOpenPosScope(scope,"POS_RETURN_VIEW");
+  retail.requireAssignedRegisterScope(scope,"POS_RETURN_VIEW");
   var result = returns.queue(scope.tenant(), scope.branch(), state, from.atStartOfDay(ZoneOffset.UTC).toInstant(), to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant(), reference.toLowerCase(Locale.ROOT) + "%", PageRequest.of(page, size));
   return new Queue(scope.branch(),state,from,to,reference,page,size,result.getTotalElements(),result.getTotalPages(),result.getContent());
  }

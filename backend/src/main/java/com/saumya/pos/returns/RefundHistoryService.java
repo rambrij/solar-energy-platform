@@ -43,6 +43,7 @@ public class RefundHistoryService {
   if(from.getYear()<1970||from.isAfter(to)||ChronoUnit.DAYS.between(from,to)>365||page<0||page>10000||size<1||size>48||!reference.matches("[A-Za-z0-9-]{0,36}")||returned.length()>36)throw invalid();
   Long receipt = reference.matches("[0-9]{1,18}") ? Long.parseLong(reference) : null;
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
+  retail.requireAssignedRegisterScope(scope,"POS_REFUND_VIEW");
   Instant start = from.atStartOfDay(ZoneOffset.UTC).toInstant(), until = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
   String prefix = reference.toLowerCase(Locale.ROOT) + "%";
   Specification<CashRefund> owned = (r, q, b) -> {

@@ -22,6 +22,10 @@ BEGIN
  IF seed_lock IS NULL OR seed_lock<>1 THEN
   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Demo seed is already running';
  END IF;
+CREATE TABLE IF NOT EXISTS local_demo_role_permission_seed (
+ tenant_id BIGINT NOT NULL, username VARCHAR(100) NOT NULL, role_name VARCHAR(40) NOT NULL, permission VARCHAR(60) NOT NULL,
+ PRIMARY KEY(tenant_id,username,permission)
+);
  START TRANSACTION;
 -- BEGIN DEMO DATA
 DROP TEMPORARY TABLE IF EXISTS demo_check;
@@ -321,10 +325,6 @@ INSERT INTO demo_grants VALUES ('VENDOR_ADMIN','CRM_NOTE_CREATE'),
  ('ACCOUNTANT','POS_CASHIER_REPORT_VIEW'),
  ('ACCOUNTANT','POS_SHIFT_VARIANCE_APPROVE');
 
-CREATE TABLE IF NOT EXISTS local_demo_role_permission_seed (
- tenant_id BIGINT NOT NULL, username VARCHAR(100) NOT NULL, role_name VARCHAR(40) NOT NULL, permission VARCHAR(60) NOT NULL,
- PRIMARY KEY(tenant_id,username,permission)
-);
 DELETE FROM local_demo_role_permission_seed;
 INSERT INTO local_demo_role_permission_seed(tenant_id,username,role_name,permission)
 SELECT a.tenant_id,a.username,a.role_name,g.permission

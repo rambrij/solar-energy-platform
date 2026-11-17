@@ -2095,6 +2095,7 @@ class PosTest {
      assertThat(policy).as("method security policy for %s#%s",controllerType.getSimpleName(),method.getName()).isNotNull();
      if(policy.value().trim().equals("permitAll()"))continue;
      final String expression=policy.value();
+     method.setAccessible(true);
      Object[] args=Arrays.stream(method.getParameterTypes())
          .map(type->authorizationProbeValue(type,expression)).toArray();
      try{

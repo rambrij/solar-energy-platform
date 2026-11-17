@@ -24,7 +24,7 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | P2 | Important hardening, missing verification, or defense-in-depth gap without a demonstrated exploit. |
 | P3 | Documentation, maintainability, or cleanup. |
 
-**P0-01 outcome:** no confirmed cross-tenant exploit was demonstrated in the inspected source paths. The three same-tenant database integrity gaps are implemented by additive Flyway migration `V48__tenant_child_ownership_constraints.java`, including pre-DDL data validation and composite foreign keys. H2 and MySQL 8.4 CI suites both passed (531 tests each, zero failures/errors) in [run #44015181481](https://github.com/rambrij/solar-energy-platform/actions/runs/44015181481). The tenant-aware tender-review lookup is also regression-tested. Production deployment still depends on V48's live-data preflight succeeding; full Vendor A/B and Customer A/B endpoint/resource-family isolation remains outstanding under P0-04.
+**P0-01 outcome:** no confirmed cross-tenant exploit was demonstrated in the inspected source paths. The three same-tenant database integrity gaps are implemented by additive Flyway migration `V48__tenant_child_ownership_constraints.java`, including pre-DDL data validation and composite foreign keys. H2 and MySQL 8.4 CI suites both passed (539 tests each, zero failures/errors) in [run #44017112990](https://github.com/rambrij/solar-energy-platform/actions/runs/44017112990). The tenant-aware tender-review lookup is also regression-tested. Production deployment still depends on V48's live-data preflight succeeding; full Vendor A/B and Customer A/B endpoint/resource-family isolation remains outstanding under P0-04.
 
 ## 2. Remediation backlog
 

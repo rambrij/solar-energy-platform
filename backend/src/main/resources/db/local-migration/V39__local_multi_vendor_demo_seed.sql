@@ -325,6 +325,7 @@ CREATE TABLE IF NOT EXISTS local_demo_role_permission_seed (
  tenant_id BIGINT NOT NULL, username VARCHAR(100) NOT NULL, role_name VARCHAR(40) NOT NULL, permission VARCHAR(60) NOT NULL,
  PRIMARY KEY(tenant_id,username,permission)
 );
+DELETE FROM local_demo_role_permission_seed;
 INSERT INTO local_demo_role_permission_seed(tenant_id,username,role_name,permission)
 SELECT a.tenant_id,a.username,a.role_name,g.permission
 FROM demo_new_accounts a JOIN demo_grants g ON g.role_name=a.role_name

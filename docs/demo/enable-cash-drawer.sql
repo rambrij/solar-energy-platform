@@ -1,17 +1,9 @@
 -- Optional local demo upgrade. Run after the demo cashier already exists.
--- Does not recreate the store, reset inventory or change a password.
+-- Adds only cash drawer permissions to the existing cashier role.
 USE solar;
-INSERT INTO employee_permissions (username, permission, tenant_id)
-SELECT e.username, p.permission, e.tenant_id
-FROM employees e
-CROSS JOIN (
-    SELECT 'POS_CASH_IN' AS permission
-    UNION ALL SELECT 'POS_CASH_OUT'
-    UNION ALL SELECT 'POS_SAFE_DROP'
-) p
-WHERE e.username = 'local-cashier'
-  AND e.tenant_id = 900001 AND e.branch_id = 900001
-  AND NOT EXISTS (
-      SELECT 1 FROM employee_permissions granted
-      WHERE granted.username = e.username AND granted.permission = p.permission
-  );
+INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+SELECT 900001,r.id,p.permission,'local-cashier'
+FROM vendor_roles r
+CROSS JOIN (SELECT 'POS_CASH_IN' permission UNION ALL SELECT 'POS_CASH_OUT' UNION ALL SELECT 'POS_SAFE_DROP') p
+WHERE r.tenant_id=900001 AND r.role_key='local-cashier'
+AND NOT EXISTS(SELECT 1 FROM vendor_role_permissions x WHERE x.tenant_id=r.tenant_id AND x.role_id=r.id AND x.permission=p.permission);

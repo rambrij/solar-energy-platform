@@ -79,6 +79,54 @@ public class VendorRoleService {
         db.update("UPDATE vendor_roles SET active=FALSE,updated_by=?,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE tenant_id=? AND id=?",c.username(),c.tenantId(),id);
         audit(c,null,"ROLE",Long.toString(id),"ROLE_DEACTIVATED",why);
     }
+    /** Tenant-scoped, count-only reconciliation; never returns usernames or permission values. */
+    public Map<String,Long> permissionReconciliation(){
+        var c=require("USER_VIEW");long tenant=c.tenantId();
+        Map<String,Long> report=new LinkedHashMap<>();
+        report.put("active_employees_with_active_roles",count("""
+            SELECT COUNT(DISTINCT e.username) FROM employees e
+            JOIN employee_role_assignments a ON a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE
+            JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE
+            WHERE e.tenant_id=? AND e.enabled=TRUE
+            """,tenant));
+        report.put("legacy_grants_without_any_role_assignment",count("""
+            SELECT COUNT(DISTINCT p.username) FROM employee_permissions p
+            JOIN employees e ON e.tenant_id=p.tenant_id AND e.username=p.username
+            WHERE p.tenant_id=? AND e.enabled=TRUE
+              AND NOT EXISTS(SELECT 1 FROM employee_role_assignments a WHERE a.tenant_id=p.tenant_id AND a.username=p.username)
+            """,tenant));
+        report.put("active_employees_without_roles_or_legacy_grants",count("""
+            SELECT COUNT(*) FROM employees e WHERE e.tenant_id=? AND e.enabled=TRUE
+              AND NOT EXISTS(SELECT 1 FROM employee_role_assignments a WHERE a.tenant_id=e.tenant_id AND a.username=e.username)
+              AND NOT EXISTS(SELECT 1 FROM employee_permissions p WHERE p.tenant_id=e.tenant_id AND p.username=e.username)
+            """,tenant));
+        report.put("employees_with_only_inactive_or_deactivated_roles",count("""
+            SELECT COUNT(DISTINCT e.username) FROM employees e
+            WHERE e.tenant_id=? AND e.enabled=TRUE
+              AND EXISTS(SELECT 1 FROM employee_role_assignments a WHERE a.tenant_id=e.tenant_id AND a.username=e.username)
+              AND NOT EXISTS(SELECT 1 FROM employee_role_assignments a JOIN vendor_roles r
+                ON r.tenant_id=a.tenant_id AND r.id=a.role_id
+                WHERE a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE AND r.active=TRUE)
+            """,tenant));
+        var legacy= db.queryForList("SELECT DISTINCT p.username,p.permission FROM employee_permissions p WHERE p.tenant_id=?",tenant);
+        long invalid=legacy.stream().filter(row->{
+            Object permission=row.get("permission");
+            return !(permission instanceof String value)||!VendorPermissionRegistry.all().contains(value);
+        }).count();
+        long platform=legacy.stream().filter(row->row.get("permission") instanceof String value&&value.startsWith("PLATFORM_")).count();
+        report.put("invalid_or_unknown_legacy_permission_grants",invalid);
+        report.put("platform_permissions_in_vendor_legacy_grants",platform);
+        report.put("orphaned_or_cross_tenant_role_assignments",count("""
+            SELECT COUNT(*) FROM employee_role_assignments a
+            LEFT JOIN employees e ON e.tenant_id=a.tenant_id AND e.username=a.username
+            LEFT JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
+            WHERE a.tenant_id=? AND (e.username IS NULL OR r.id IS NULL)
+            """,tenant));
+        return Collections.unmodifiableMap(report);
+    }
+    private long count(String sql,long tenant){
+        Long value=db.queryForObject(sql,Long.class,tenant);return value==null?0L:value;
+    }
     public List<Employee> employees(){
         var c=require("USER_VIEW");
         var names=db.queryForList("SELECT username,branch_id,enabled FROM employees WHERE tenant_id=? ORDER BY username",c.tenantId());

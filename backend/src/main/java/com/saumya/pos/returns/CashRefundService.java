@@ -102,7 +102,7 @@ public class CashRefundService {
  
  public View byReturn(String returned) {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
-  retail.requireOpenPosScope(scope,"POS_REFUND_VIEW");
+  retail.requireAssignedRegisterScope(scope,"POS_REFUND_VIEW");
   var record = refunds.forReturn(scope.tenant(), returned).orElseThrow(this::missing);
   if (record.branch() != scope.branch()) throw missing();
   return view(record, false);

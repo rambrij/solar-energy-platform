@@ -140,7 +140,7 @@ public class ReturnService {
   if (state == null || !Set.of("REQUESTED", "APPROVED", "REJECTED", "INSPECTED").contains(state))
    bad("Valid return state required");
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RETURN_VIEW");
-   retail.requireOpenPosScope(scope,"POS_RETURN_VIEW");
+   retail.requireAssignedRegisterScope(scope,"POS_RETURN_VIEW");
   return ( Set.of("REQUESTED", "APPROVED").contains(state) ? cases.findTop20ByTenantAndBranchAndStateOrderByCreatedAscIdAsc(scope.tenant(), scope.branch(), state) : cases.findTop20ByTenantAndBranchAndStateOrderByCreatedDescIdDesc(scope.tenant(), scope.branch(), state) ).stream().map(this::view).toList();
  }
 }

@@ -92,7 +92,7 @@ public class OrderHistoryService {
     @PreAuthorize("hasAuthority('POS_VIEW')")
     public Detail posDetail(String username, String id) {
         var scope=retail.scope();retail.authorize(scope,username,"POS_VIEW");
-        retail.requireOpenPosScope(scope,"POS_VIEW");
+        retail.requireAssignedRegisterScope(scope,"POS_VIEW");
         return detail(branchScope(scope), id);
     }
     

@@ -119,6 +119,8 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 |---|---|---|
 | CartService | cart, put, remove, switchVendor, quote, archivePurchased, history, restore | CustomerAccess identity binding; archivePurchased is called after authorized checkout |
 | CatalogAvailabilityService | changed | Synchronous StockAvailabilityChanged event projection published by InventoryService only |
+| CashDrawerProjection | record | Synchronous CashTenderRecorded projection published by CheckoutService after a confirmed cash tender; `Propagation.MANDATORY` | 
+| DraftSessionProjection | changed | Synchronous PosDraftStateChanged projection published by CheckoutService on POS draft state transitions; `Propagation.MANDATORY` |
 | CatalogSearchService | search | Public active-vendor slug and published catalogue projection |
 | CatalogService | categories, publishedCategories, vendors, activeVendor, vendor, onlineBranch, onlineAvailableAtLeast, onlineInStock, products, product, published, lockForSale, lockForSaleForPaymentReview, posProducts | Public reads are active/published projections; lockForSale binds customer or POS actor; posProducts requires POS_VIEW and tenant/branch scope |
 | CategoryAdminService | list, create, update | Vendor membership, tenant, actor and PRODUCT_* permissions; archive sub-permission |
@@ -170,6 +172,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | TenantSubscriptionServiceImpl | create, transition, forTenant, all, events, billingHistory | Platform subscription permissions and tenant/actor audit |
 | TenantService | create, updateProfile, transition, assignOnlineBranch, get, findBySlug, activeVendor, activeVendors, isActive, onlineBranch, statusCounts, search, searchActiveVendors | Mutations require platform identity and specific tenant lifecycle permission; public directory methods expose active/published vendor metadata only |
 | DraftExpiryJob | scheduledCleanup, runBatch, expireOne | Trusted system worker; installs SYSTEM_DRAFT_EXPIRY only around CheckoutService.expire |
+| ReservationCleanup | sweep | Unscheduled compatibility facade in checkout.internal; delegates to DraftExpiryJob.scheduledCleanup and installs no authority itself |
 
 ### 9.1 InventoryService caller graph (INV-SVC-002)
 

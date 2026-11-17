@@ -327,8 +327,8 @@ class PosTest {
   assertThat(db.queryForObject("SELECT password_hash FROM users WHERE username='new-buyer@example.com'",String.class)).doesNotContain("CustomerPasswordForTests");
  }
  @Test void vendorMembershipIsRevalidatedForEveryJwtRequest() throws Exception {
-  setEmployeeRolePermissions("alice",List.of("POS_VIEW"));
-  mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isOk());
+  setEmployeeRolePermissions("alice",List.of("POS_VIEW"));var login=authentication.login("alice","StaffPasswordForTests");
+  mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+login.accessToken())).andExpect(status().isOk());
   update("UPDATE employees SET enabled=FALSE WHERE username='alice'");
   mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+login.accessToken())).andExpect(status().isUnauthorized());
  }

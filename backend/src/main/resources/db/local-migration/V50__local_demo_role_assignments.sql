@@ -45,7 +45,7 @@ JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id 
 JOIN registers reg ON reg.tenant_id=e.tenant_id AND reg.branch_id=e.branch_id
 WHERE e.username LIKE 'cashier@%'
 AND EXISTS(SELECT 1 FROM local_demo_role_permission_seed g WHERE g.tenant_id=e.tenant_id AND g.username=e.username)
-AND NOT EXISTS(SELECT 1 FROM employee_register_assignments existing WHERE existing.tenant_id=e.tenant_id AND existing.username=e.username AND existing.register_id=reg.id)
+AND NOT EXISTS(SELECT 1 FROM employee_register_assignments existing WHERE existing.tenant_id=e.tenant_id AND existing.username=e.username)
 GROUP BY e.tenant_id,e.branch_id,e.username;
 
 DROP TABLE local_demo_role_permission_seed;

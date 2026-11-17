@@ -48,6 +48,16 @@ public class CatalogService {
         else{actor.requireVendorMembership();actor.requireTenant(tenant);actor.requireBranch(actor.branchId());actor.requirePermission("POS_SALE_CREATE");}
         var p=products.lockPublished(tenant,id).orElseThrow(this::missing);entityManager.refresh(p,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);if(!p.published())throw missing();return info(tenant,p,true);
     }
+    /** Product snapshot lock for a separately authorized terminal-tender supervisor. */
+    @Transactional public ProductInfo lockForSaleForPaymentReview(long tenant,long id){
+        var actor=authorization.current();
+        actor.requireVendorMembership();actor.requireTenant(tenant);actor.requireBranch(actor.branchId());
+        actor.requirePermission("POS_TENDER_MANUAL_VERIFY");
+        var product=products.lockPublished(tenant,id).orElseThrow(this::missing);
+        entityManager.refresh(product,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if(!product.published())throw missing();
+        return info(tenant,product,true);
+    }
     public List<Map<String,Object>> posProducts(long tenant,long branch){
         var actor=authorization.current();actor.requireVendorMembership();actor.requireTenant(tenant);actor.requireBranch(branch);actor.requirePermission("POS_VIEW");
         return products.findByTenantIdAndPublishedTrueOrderById(tenant).stream().map(p->{Map<String,Object> row=new LinkedHashMap<>();row.put("id",p.id());row.put("sku",p.sku());row.put("barcode",p.barcode());row.put("name",p.name());row.put("brand",p.brand());var quoted=info(tenant,p);row.put("price",quoted.price());row.put("list_price",quoted.listPrice());row.put("discount_percent",quoted.discountPercent());row.put("category_id",quoted.categoryId());row.put("category_name",quoted.categoryName());row.put("tax_rate",p.taxRate());row.put("quantity",stock.atBranchForPos(tenant,branch,p.id()));return row;}).toList();}

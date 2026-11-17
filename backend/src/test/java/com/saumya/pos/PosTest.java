@@ -442,6 +442,25 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx->returnSaleAccess.cashSale(1,1,draft.id()))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
  }
+
+ @Test void independentTenderSupervisorCanFinalizeWithoutSaleCreatePermission(){
+  enableTerminal();
+  var draft=as("alice",()->checkout.pos("alice","supervisor-least-privilege",posDraft()));
+  var attempt=terminal("alice",draft.id(),"CARD");
+  update("DELETE FROM employee_permissions WHERE username='manager' AND permission='POS_SALE_CREATE'");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM employee_permissions WHERE username='manager' AND permission='POS_SALE_CREATE'",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM employee_permissions WHERE username='manager' AND permission='POS_TENDER_MANUAL_VERIFY'",Integer.class)).isEqualTo(1);
+
+  var result=as("manager",()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));
+
+  assertThat(result.state()).isEqualTo("CONFIRMED");
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("PAID");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE order_id=?",Integer.class,draft.id())).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SALE_COMPLETE' AND resource_id=?",Integer.class,draft.id())).isEqualTo(1);
+  var receipt=as("alice",()->receiptReader.receipt(a,draft.id()));
+  assertThat(receipt.get("payment_method")).isEqualTo("CARD");
+ }
+
  @Test void expiredOrChangedPaymentCannotConsumeStockOrConfirm(){
   enableTerminal();
   var draft=as("alice", () -> checkout.pos("alice","expire-payment",posDraft()));var attempt=terminal("alice",draft.id(),"UPI");

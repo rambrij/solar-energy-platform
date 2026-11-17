@@ -4,6 +4,9 @@ INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updat
 SELECT DISTINCT g.tenant_id,CONCAT('demo-',REPLACE(g.username,'@','-')),g.role_name,TRUE,g.username,g.username
 FROM local_demo_role_permission_seed g
 WHERE NOT EXISTS(
+  SELECT 1 FROM employee_role_assignments a WHERE a.tenant_id=g.tenant_id AND a.username=g.username
+)
+AND NOT EXISTS(
   SELECT 1 FROM vendor_roles r
   WHERE r.tenant_id=g.tenant_id AND r.role_key=CONCAT('demo-',REPLACE(g.username,'@','-'))
 );
@@ -13,6 +16,9 @@ SELECT g.tenant_id,r.id,g.permission,g.username
 FROM local_demo_role_permission_seed g
 JOIN vendor_roles r ON r.tenant_id=g.tenant_id AND r.role_key=CONCAT('demo-',REPLACE(g.username,'@','-'))
 WHERE NOT EXISTS(
+  SELECT 1 FROM employee_role_assignments a WHERE a.tenant_id=g.tenant_id AND a.username=g.username
+)
+AND NOT EXISTS(
   SELECT 1 FROM vendor_role_permissions p
   WHERE p.tenant_id=g.tenant_id AND p.role_id=r.id AND p.permission=g.permission
 );

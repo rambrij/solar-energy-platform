@@ -83,8 +83,14 @@ class P004TenantIsolationTest {
             seed.vendorBRoleId(), 0, "Forged Vendor B Role", List.of("ROLE_VIEW"), "P004 cross-tenant probe")));
         notFound(() -> asVendorB(() -> roles.update(
             seed.vendorARoleId(), 0, "Forged Vendor A Role", List.of("ROLE_VIEW"), "P004 cross-tenant probe")));
-        notFound(() -> asVendorA(() -> roles.deactivate(seed.vendorBRoleId(), "P004 cross-tenant probe")));
-        notFound(() -> asVendorB(() -> roles.deactivate(seed.vendorARoleId(), "P004 cross-tenant probe")));
+        notFound(() -> asVendorA(() -> {
+            roles.deactivate(seed.vendorBRoleId(), "P004 cross-tenant probe");
+            return null;
+        }));
+        notFound(() -> asVendorB(() -> {
+            roles.deactivate(seed.vendorARoleId(), "P004 cross-tenant probe");
+            return null;
+        }));
 
         // Employee targets are tenant-scoped independently of the supplied
         // username, role ID, branch ID or register ID.
@@ -133,8 +139,14 @@ class P004TenantIsolationTest {
 
         forbidden(() -> asCustomerA(() -> customers.resolve(CUSTOMER_B)));
         forbidden(() -> asCustomerB(() -> customers.resolve(CUSTOMER_A)));
-        notFound(() -> asCustomerA(() -> customers.lock(CUSTOMER_B_ID)));
-        notFound(() -> asCustomerB(() -> customers.lock(CUSTOMER_A_ID)));
+        notFound(() -> asCustomerA(() -> {
+            customers.lock(CUSTOMER_B_ID);
+            return null;
+        }));
+        notFound(() -> asCustomerB(() -> {
+            customers.lock(CUSTOMER_A_ID);
+            return null;
+        }));
 
         asCustomerA(() -> { customers.lock(CUSTOMER_A_ID); return null; });
         asCustomerB(() -> { customers.lock(CUSTOMER_B_ID); return null; });

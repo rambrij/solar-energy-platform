@@ -156,7 +156,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 
 | Service implementation | Public business methods | Policy / caller classification |
 |---|---|---|
-| CartService | cart, put, remove, switchVendor, quote, archivePurchased, history, restore | CustomerAccess identity binding; archivePurchased is called after authorized checkout |
+| CartService | cart, put, remove, switchVendor, quote, archivePurchased, history, restore | Every public method calls `requireCustomer(customerId)` before customer/cart/catalogue/inventory access; requires `AuthorizationContext.isCustomer()` and exact `CustomerAccess.resolve(authenticatedUsername)==customerId`. `archivePurchased` is called after checkout payment but independently repeats the customer binding. Direct denied-call test asserts all collaborators remain untouched. |
 | CatalogAvailabilityService | changed | Synchronous StockAvailabilityChanged event projection published by InventoryService only |
 | CashDrawerProjection | record | Synchronous CashTenderRecorded projection published by CheckoutService after a confirmed cash tender; `Propagation.MANDATORY` | 
 | DraftSessionProjection | changed | Synchronous PosDraftStateChanged projection published by CheckoutService on POS draft state transitions; `Propagation.MANDATORY` |

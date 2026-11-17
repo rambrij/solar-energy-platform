@@ -75,7 +75,7 @@ No frontend changes or schema migrations are part of P0-02.
 - PlatformAdminServiceAuthorizationTest, PlatformAuditServiceTest, BranchProvisioningServiceTest, IdentityProvisioningServiceTest, MembershipServiceTest and TenantServiceDirectoryValidationTest: verify platform actor/permission boundaries and provisioning denials before their repositories/sequences.
 - Existing POS/API tests cover 401/403 and cross-tenant 404 cases for inventory, product/category management, customer order/receipt ownership, POS sessions/tenders, returns/refunds, history, reports and exports.
 
-**Verified CI:** [GitHub Actions run #44017112990](https://github.com/rambrij/solar-energy-platform/actions/runs/44017112990) completed successfully on commit `72c4eae7f3f52554ceefcfac8e06bd8f79ce8c5d`: H2 backend **539 tests passed**, MySQL 8.4 backend **539 tests passed**, frontend tests and production build passed, and the module architecture test passed. This run includes CartService all-method denial, return/refund/export, branch-policy/read-only service denial, and the authenticated zero-authority protected-GET route matrix.
+**Verified CI:** [GitHub Actions run #44017985492](https://github.com/rambrij/solar-energy-platform/actions/runs/44017985492) completed successfully on commit `ab0604f0b87cf404ead8eeb53eb230a5b2122c28`: H2 backend **544 tests passed**, MySQL 8.4 backend **544 tests passed**, frontend tests and production build passed, and the module architecture test passed. This run includes CartService all-method denial, catalog/promotion/discount policy denials, return/refund/export, branch-policy/read-only service denial, and the authenticated zero-authority protected-GET route matrix.
 
 ## 5. Trusted-internal boundaries and caller verification
 
@@ -145,11 +145,11 @@ A green run validates the code snapshot attached to that run. INV-SVC-007 and IN
 
 **P0-02: IN PROGRESS — NOT ACCEPTANCE-COMPLETE.**
 
-INV-SVC-001 through INV-SVC-006 have documented inventories/caller evidence and dedicated source or regression tests. The latest verified application-code snapshot (run #44017112990) passed 539 backend tests on both H2 and MySQL 8.4, plus frontend tests/build and module architecture checks.
+INV-SVC-001 through INV-SVC-006 have documented inventories/caller evidence and dedicated source or regression tests. The latest verified application-code snapshot (run #44017985492) passed 544 backend tests on both H2 and MySQL 8.4, plus frontend tests/build and module architecture checks.
 
 INV-SVC-007 remains partial: the implementation exercises all protected controller mappings for anonymous 401, eligible protected GET mappings for runtime authenticated-zero-grant 403, and every declared policy's sufficient/minimal grant sets; data-backed cross-tenant 404 tests cover the principal tenant-owned resource families. It does not yet provide the complete DB-backed role × tenant × branch matrix for every protected resource family.
 
-INV-SVC-008 remains partial: denied calls now prove no persistence/adapter access across customer cart operations, inventory, payment, vendor roles, returns/refunds/history/exports, branch settings/register creation, sales/refund reports, return queue/audit, register/shift history, POS receipts/reprints, POS primitives, platform audit/configuration/support, subscription and provisioning boundaries. A uniform no-persistence/no-adapter assertion for every remaining public application-service method is not yet implemented.
+INV-SVC-008 remains partial: denied calls now prove no persistence/adapter access across customer cart operations, inventory, payment, vendor roles, catalog promotion/discount policy reads and writes, returns/refunds/history/exports, branch settings/register creation, sales/refund reports, return queue/audit, register/shift history, POS receipts/reprints, POS primitives, platform audit/configuration/support, subscription and provisioning boundaries. A uniform no-persistence/no-adapter assertion for every remaining public application-service method is not yet implemented.
 
 Expiry hardening is verified: CheckoutService.expire and InventoryService.release require both the reserved SYSTEM_DRAFT_EXPIRY authority and exact system:draft-expiry principal before repository access. DraftExpiryJob is the only scheduled expiry worker; ReservationCleanup is an unscheduled delegate.
 

@@ -139,6 +139,7 @@ class PosTest {
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=as(username, () -> payments.tenderStatus(username,id)).remaining();var result=as(username, () -> payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null)));return result.tenders().getLast();}
 
  @Test void multipleVendorRolesComposeAndRevocationImmediatelyChangesEffectivePermissions() {
+  update("UPDATE employee_role_assignments SET active=FALSE,revoked_by='alice',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND active=TRUE");
   update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(1,'sales-role','Sales',TRUE,'alice','alice'),(1,'reports-role','Reports',TRUE,'alice','alice')");
   Long sales=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=1 AND role_key='sales-role'",Long.class);
   Long reports=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=1 AND role_key='reports-role'",Long.class);
@@ -326,7 +327,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT password_hash FROM users WHERE username='new-buyer@example.com'",String.class)).doesNotContain("CustomerPasswordForTests");
  }
  @Test void vendorMembershipIsRevalidatedForEveryJwtRequest() throws Exception {
-  update("DELETE FROM employee_permissions WHERE username='alice' AND tenant_id=1");update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES('alice','POS_VIEW',1)");var session=authentication.login("alice","StaffPasswordForTests");
+  setEmployeeRolePermissions("alice",List.of("POS_VIEW"));
   mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isOk());
   update("UPDATE employees SET enabled=FALSE WHERE username='alice'");
   mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isUnauthorized());
@@ -482,9 +483,9 @@ class PosTest {
   enableTerminal();
   var draft=as("alice",()->checkout.pos("alice","supervisor-least-privilege",posDraft()));
   var attempt=terminal("alice",draft.id(),"CARD");
-  update("DELETE FROM employee_permissions WHERE username='manager' AND permission='POS_SALE_CREATE'");
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM employee_permissions WHERE username='manager' AND permission='POS_SALE_CREATE'",Integer.class)).isZero();
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM employee_permissions WHERE username='manager' AND permission='POS_TENDER_MANUAL_VERIFY'",Integer.class)).isEqualTo(1);
+  removeEmployeePermission("manager","POS_SALE_CREATE");
+  assertThat(employeePermissionCount("manager","POS_SALE_CREATE")).isZero();
+  assertThat(employeePermissionCount("manager","POS_TENDER_MANUAL_VERIFY")).isEqualTo(1);
 
   var result=as("manager",()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));
 
@@ -1897,7 +1898,7 @@ class PosTest {
   multiVendorDemo();String changed=encoder.encode("ChangedDemoPassword2026!");
   update("UPDATE inventory SET quantity=39,reserved=2 WHERE tenant_id=910001 AND product_id=910301");
   db.update("UPDATE products SET price=12345 WHERE id=910301");db.update("UPDATE users SET password_hash=? WHERE username='cashier@saumya.demo.test'",changed);
-  db.update("DELETE FROM employee_permissions WHERE username='cashier@saumya.demo.test' AND permission='POS_SALE_CREATE'");
+  removeEmployeePermission("cashier@saumya.demo.test","POS_SALE_CREATE");
   db.update("DELETE FROM platform_user_permissions WHERE permission='PLATFORM_SUPPORT_ACCESS'");
   db.update("UPDATE branches SET split_tender_enabled=FALSE WHERE id=910001");
   multiVendorDemo();
@@ -1983,7 +1984,7 @@ class PosTest {
  @Test void directServiceCallsRejectMissingPermissionBeforeBusinessQueries() {
   // No controller is involved: call the Spring service proxies directly with
   // the authenticated employee's permission removed from the persisted grants.
-  update("DELETE FROM employee_permissions WHERE username='alice' AND permission IN ('POS_CASHIER_REPORT_VIEW','POS_VIEW')");
+  removeEmployeePermission("alice","POS_CASHIER_REPORT_VIEW");removeEmployeePermission("alice","POS_VIEW");
   assertThatThrownBy(()->as("alice",()->cashierSales.report("alice",null,null,0,10)))
     .isInstanceOf(RuntimeException.class);
   assertThatThrownBy(()->as("alice",()->orderHistory.pos("alice",
@@ -1998,10 +1999,10 @@ class PosTest {
 
 
  @Test void catalogAdminServicesRejectMissingPermissionAndForgedTenantOnDirectInvocation() {
-  update("DELETE FROM employee_permissions WHERE username='alice' AND permission='PRODUCT_VIEW'");
+  removeEmployeePermission("alice","PRODUCT_VIEW");
   assertThatThrownBy(()->as("alice",()->productAdmin.list(1,0,10))).isInstanceOf(RuntimeException.class);
   assertThatThrownBy(()->as("alice",()->categoryAdmin.list(1,0,10))).isInstanceOf(RuntimeException.class);
-  update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES('alice','PRODUCT_VIEW',1)");
+  addEmployeePermission("alice","PRODUCT_VIEW");
   assertThatThrownBy(()->as("alice",()->productAdmin.list(2,0,10))).isInstanceOf(RuntimeException.class);
   assertThatThrownBy(()->as("alice",()->categoryAdmin.list(2,0,10))).isInstanceOf(RuntimeException.class);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=2",Integer.class)).isEqualTo(1);

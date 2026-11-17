@@ -26,9 +26,6 @@ payments:
   mock-enabled: ${PAYMENTS_MOCK_ENABLED:false}
 auth:
   jwt-secret: ${AUTH_JWT_SECRET:}
-  # Keep legacy employee_permissions fallback during controlled RC-05 migration.
-  # Set AUTH_LEGACY_PERMISSION_FALLBACK_ENABLED=false to fail closed for role-less employees.
-  legacy-permission-fallback-enabled: ${AUTH_LEGACY_PERMISSION_FALLBACK_ENABLED:true}
 management:
   endpoints:
     web:

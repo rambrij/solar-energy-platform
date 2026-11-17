@@ -56,15 +56,27 @@
 
 ### P0-03 — Close legacy permission fallback safely
 
-- **Requirement:** Effective permissions must come from active role assignments and must fail closed when no active grants remain.
-- **Current gap:** `MembershipService.effectiveVendorPermissions()` falls back to legacy employee permissions when no role-assignment row exists; V45 backfills legacy roles but preserves the fallback.
-- **Proposed implementation:** Reconcile all employee memberships after migration. Prove every supported provisioning path creates a role assignment. Add an operational query/report for employees with legacy grants and no role assignment. Do not remove fallback until reconciliation is complete and rollback window is closed.
-- **Backend changes:** Instrument fallback use in non-sensitive metrics/audit; ensure new provisioning cannot write only legacy grants; introduce a migration/version-controlled feature switch for fallback retirement. Final removal must be a separate reviewed change.
-- **Frontend changes:** Show effective permissions from the server, not inferred role labels.
-- **Database/schema changes:** Add reconciliation migration/report only if needed; do not delete legacy grants before verification.
-- **Tests required:** Existing user with migrated role; new invite; initial Vendor Admin; no-role employee; all roles revoked; inactive role; disabled employee; tenant suspended; rollback/fallback scenario.
-- **Dependencies:** P0-02; production data inventory.
-- **Acceptance criteria:** Every active employee has explicit effective role assignment or an approved migration exception; revoked-all yields no permissions; no new account can enter legacy fallback unintentionally.
+- **Requirement:** Effective permissions come from active role assignments, with fail-closed behavior after all roles are revoked; tenant lifecycle and entitlement filtering remain authoritative (Product Requirements §2.3; SRS authorization and membership controls).
+- **Implementation status (2026-11-17):** Code changes are present on `feature/develop-authorization-gap-analysis`; acceptance remains **PENDING CI and production reconciliation evidence**. No local build or database test execution was available during this repository session.
+- **Verified existing behavior:** `MembershipService.access()` rejects disabled employees and inactive tenants before resolving permissions, then applies `TenantEntitlementPolicy`. `effectiveVendorPermissions()` unions distinct permissions across active assignments and active roles. Migration V45 backfills legacy employees into roles and intentionally retains `employee_permissions`.
+- **Changes implemented:**
+  - Any role-assignment history row (active or revoked) is authoritative. Active role/permission union is returned; revoked-all and inactive-role states return zero permissions and never fall back.
+  - Both role-based and legacy results are filtered through `VendorPermissionRegistry`; unknown and `PLATFORM_*` grants cannot become vendor effective permissions.
+  - Added `auth.legacy-permission-fallback-enabled`, environment override `AUTH_LEGACY_PERMISSION_FALLBACK_ENABLED`, default `true` for compatibility. Set it to `false` to deny role-less employees without deleting their data.
+  - Actual fallback use increments the non-tenant-labelled Micrometer counter `authorization.legacy.permission.fallback.usage` and emits a log event containing no username, tenant, permission or grant values.
+  - Added tenant-scoped count-only reconciliation at `GET /api/v1/vendor/employees/permission-reconciliation` (requires `USER_VIEW`). It reports active employees with active roles, legacy grants without any role assignment, active employees with neither roles nor grants, employees whose assignment history has no active role, unknown legacy grants, platform grants in legacy rows, and orphan/cross-tenant role assignments. It does not return employee identities or raw grants.
+  - Existing employee provisioning remains role-first: initial Vendor Admin provisioning creates a Vendor Admin role and assignment in the JDBC-backed production path; vendor-created employees require an active, delegable role and persist the assignment in the same transaction as membership creation. Invitation acceptance activates the identity; the membership and role assignment are created at invitation issue time, not at acceptance.
+- **Provisioning path inventory:**
+  - Initial Vendor Admin: `MembershipService.provisionInitialVendorAdmin()`; explicit role + assignment in the production JDBC path. Legacy grants are retained for compatibility.
+  - Vendor-created employee: `VendorRoleService.createEmployee()`; role required, tenant/branch checked, role delegation checked, assignment inserted with employee row.
+  - Invitation issue/acceptance: `IdentityProvisioningServiceImpl.issueInvitation()` / `acceptInvitation()`; invite issuance is invoked inside employee provisioning after role validation; acceptance activates the pre-provisioned identity and does not create a second membership.
+  - Role assignment/replacement: `VendorRoleService.assignRoles()`; selected roles are validated, previous assignments are revoked, and empty selection leaves explicit revocation history so legacy grants cannot resurrect.
+  - Reactivation: no supported employee reactivation service/API was found in the reviewed branch. Do not infer one or silently add a workflow.
+  - Branch replacement: `updateBranch()` preserves assignment history rows and changes branch scope; needs regression verification under H2/MySQL.
+- **Tests added/updated (execution pending):** `MembershipServiceTest` covers fallback disabled, known-vendor permission allow-list, explicit role assignment overriding legacy grants, revoked-all fail-closed, multi-role union and suspended tenant denial. `AuthenticationServiceTest` verifies `/auth/me` service calculation returns membership-resolved effective permissions. `VendorRoleServiceAuthorizationBoundaryTest` verifies reconciliation is permission-gated. Existing `TenantEntitlementPolicyTest`, `IdentityProvisioningServiceTest`, initial-admin and role-controller tests remain part of the required regression suite.
+- **Data/migration decision:** No Flyway migration was added; V45 and all released migrations are unchanged. No legacy grant rows are deleted.
+- **Rollback:** Set `AUTH_LEGACY_PERMISSION_FALLBACK_ENABLED=true` and redeploy to restore legacy fallback for employees with no role-assignment history. This does not restore permissions for employees with explicit role-assignment history (including revoked-all); those remain role-authoritative by design. Keep DB rows intact.
+- **Acceptance gate still open:** Run the full backend H2 and MySQL 8.4 CI suites; verify migration/role assignment behavior on a production-like snapshot; review reconciliation counts and exceptions; obtain RC-05 approval before final fallback removal. The count-only endpoint is per authenticated tenant, not a substitute for a privileged all-tenant migration report.
 
 ### P0-04 — Prove Vendor A/Vendor B and Customer A/Customer B isolation
 

@@ -1,6 +1,7 @@
 package com.saumya.pos.checkout;
 import com.saumya.pos.checkout.internal.*;
 import com.saumya.pos.retail.BranchPolicyService;
+import com.saumya.pos.security.AuthorizationContext;
 import java.time.Instant;
 import java.math.BigDecimal;
 import java.util.*;
@@ -11,21 +12,40 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class ReturnSaleAccess {
  @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager em;
- private final DraftRepository orders;private final DraftLineRepository items;private final BranchPolicyService policies;
- public ReturnSaleAccess(DraftRepository orders,DraftLineRepository items,BranchPolicyService policies){this.orders=orders;this.items=items;this.policies=policies;}
+ private final DraftRepository orders;private final DraftLineRepository items;private final BranchPolicyService policies;private final AuthorizationContext authorization;
+ public ReturnSaleAccess(DraftRepository orders,DraftLineRepository items,BranchPolicyService policies,AuthorizationContext authorization){this.orders=orders;this.items=items;this.policies=policies;this.authorization=authorization;}
+ private AuthorizationContext.Context scope(long tenant,long branch){
+  var actor=authorization.current();
+  actor.requireVendorMembership();
+  actor.requireTenant(tenant);
+  actor.requireBranch(branch);
+  return actor;
+ }
+ private void requireCashRefundScope(AuthorizationContext.Context actor){
+  actor.requirePermissions("POS_VIEW","POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD");
+ }
+ private void requireReturnReadScope(AuthorizationContext.Context actor){
+  actor.requirePermissions("POS_VIEW","POS_RETURN_VIEW","POS_RETURN_CREATE");
+ }
+ private void requireReturnLockScope(AuthorizationContext.Context actor){
+  actor.requirePermissions("POS_VIEW","POS_RETURN_VIEW");
+  if(!actor.hasAnyPermission("POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT"))
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Missing required return operation permission");
+ }
  public record Line(long productId,String name,int quantity){}
  public record Sale(String id,Instant paidAt,int windowDays,List<Line> items){}
  public record CashLine(long productId,String name,int quantity,BigDecimal price,BigDecimal tax){}
  public record CashSale(String id,long receiptNumber,BigDecimal total,boolean taxInvoice,boolean refundsEnabled,List<CashLine> items){}
  @Transactional(propagation=Propagation.MANDATORY) public CashSale cashSale(long tenant,long branch,String id){
+  requireCashRefundScope(scope(tenant,branch));
   var order=orders.lock(tenant,id).orElseThrow(this::missing);em.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),branch)||!"PAID".equals(order.status())||!"CASH".equals(order.paymentMethod())||order.cash()==null||order.change()==null||order.cash().subtract(order.change()).compareTo(order.total())!=0)throw missing();
   var policy=policies.lock(tenant,branch).orElseThrow(this::missing);
   return new CashSale(id,order.receiptNumber(),order.total(),order.taxInvoice(),policy.cashRefunds(),items.lockedLines(tenant,id).stream().map(i->new CashLine(i.product(),i.name(),i.quantity(),i.total().subtract(i.tax()),i.tax())).toList());
  }
  private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Paid POS sale unavailable");}
- @Transactional(readOnly=true) public Sale read(long tenant,long branch,String id){return sale(tenant,branch,orders.findOne((r,q,b)->b.and(b.equal(r.get("tenantId"),tenant),b.equal(r.get("branchId"),branch),b.equal(r.get("id"),id))).orElseThrow(this::missing),false);}
- @Transactional(propagation=Propagation.MANDATORY) public Sale lock(long tenant,long branch,String id){var order=orders.lock(tenant,id).orElseThrow(this::missing);em.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);return sale(tenant,branch,order,true);}
+ @Transactional(readOnly=true) public Sale read(long tenant,long branch,String id){requireReturnReadScope(scope(tenant,branch));return sale(tenant,branch,orders.findOne((r,q,b)->b.and(b.equal(r.get("tenantId"),tenant),b.equal(r.get("branchId"),branch),b.equal(r.get("id"),id))).orElseThrow(this::missing),false);}
+ @Transactional(propagation=Propagation.MANDATORY) public Sale lock(long tenant,long branch,String id){requireReturnLockScope(scope(tenant,branch));var order=orders.lock(tenant,id).orElseThrow(this::missing);em.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);return sale(tenant,branch,order,true);}
  private Sale sale(long tenant,long branch,DraftOrder order,boolean locked){
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),branch)||!"PAID".equals(order.status()))throw missing();
   var policy=(locked?policies.lock(tenant,branch):policies.find(tenant,branch)).orElseThrow(this::missing);int days=policy.days();

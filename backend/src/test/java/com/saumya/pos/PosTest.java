@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PosTest {
  @Autowired com.saumya.pos.checkout.CheckoutReceiptService receiptReader;
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
- @Autowired RequestMappingHandlerMapping requestMappings;
+ @Autowired @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping requestMappings;
  @Autowired CartService marketplace;
  @Autowired CatalogService catalogue;
  @Autowired com.saumya.pos.inventory.InventoryService stock;

@@ -66,10 +66,10 @@ class PosTest {
   update("DELETE FROM order_buyer_snapshots");
   update("DELETE FROM vendor_payment_attempts");
   update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","employee_permissions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
+  for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
   update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(1,'Vendor A','vendor-1','Vendor A','ACTIVE'),(2,'Vendor B','vendor-2','Vendor B','ACTIVE')");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
-  employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",db.queryForList("SELECT permission FROM employee_permissions WHERE username=? ORDER BY permission",String.class,"alice").stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
+  employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",effectivePermissions("alice").stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
   update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
   update("INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by) VALUES(1,1,'alice',1,TRUE,'alice'),(2,2,'bob',2,TRUE,'bob')");
   update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
@@ -82,10 +82,44 @@ class PosTest {
   long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));
   update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);
-  for(String permission:List.of("CATALOG_PROMOTION_MANAGE",  "INVENTORY_ADJUST", "INVENTORY_RECEIVE", "INVENTORY_VIEW",  "POS_CASHIER_REPORT_VIEW", "POS_CASH_IN", "POS_CASH_OUT", "POS_DISCOUNT_APPLY", "POS_DISCOUNT_APPROVE", "POS_DISCOUNT_OVERRIDE", "POS_RECEIPT_REPRINT", "POS_RECEIPT_VIEW", "POS_REFUND_APPROVE", "POS_REFUND_CASH_RECORD", "POS_REFUND_PRINT", "POS_REFUND_VIEW", "POS_REPORT_EXPORT", "POS_REPORT_VIEW", "POS_RETURN_APPROVE", "POS_RETURN_AUDIT_VIEW", "POS_RETURN_CREATE", "POS_RETURN_INSPECT", "POS_RETURN_VIEW", "POS_SALE_CREATE", "POS_SALE_CANCEL", "POS_SESSION_CLOSE", "POS_SESSION_OPEN", "POS_SETTINGS_MANAGE", "POS_SAFE_DROP", "POS_SHIFT_VARIANCE_APPROVE", "POS_TENDER_CASH_RECORD", "POS_TENDER_EXTERNAL_RECORD", "POS_TENDER_MANUAL_VERIFY", "POS_VIEW", "PRICE_UPDATE", "PRODUCT_ARCHIVE", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_VIEW","PRICE_VIEW"))
-   update("INSERT INTO employee_permissions(username,permission,tenant_id) VALUES(?,?,?)",username,permission,tenant);
+  List<String> permissions=List.of("CATALOG_PROMOTION_MANAGE","INVENTORY_ADJUST","INVENTORY_RECEIVE","INVENTORY_VIEW","POS_CASHIER_REPORT_VIEW","POS_CASH_IN","POS_CASH_OUT","POS_DISCOUNT_APPLY","POS_DISCOUNT_APPROVE","POS_DISCOUNT_OVERRIDE","POS_RECEIPT_REPRINT","POS_RECEIPT_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD","POS_REFUND_PRINT","POS_REFUND_VIEW","POS_REPORT_EXPORT","POS_REPORT_VIEW","POS_RETURN_APPROVE","POS_RETURN_AUDIT_VIEW","POS_RETURN_CREATE","POS_RETURN_INSPECT","POS_RETURN_VIEW","POS_SALE_CREATE","POS_SALE_CANCEL","POS_SESSION_CLOSE","POS_SESSION_OPEN","POS_SETTINGS_MANAGE","POS_SAFE_DROP","POS_SHIFT_VARIANCE_APPROVE","POS_TENDER_CASH_RECORD","POS_TENDER_EXTERNAL_RECORD","POS_TENDER_MANUAL_VERIFY","POS_VIEW","PRICE_UPDATE","PRODUCT_ARCHIVE","PRODUCT_CREATE","PRODUCT_UPDATE","PRODUCT_VIEW","PRICE_VIEW");
+  String roleKey="test-"+username.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]","-");
+  update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(?,?,?,TRUE,?,?)",tenant,roleKey,"Test "+username,username,username);
+  Long roleId=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenant,roleKey);
+  for(String permission:permissions)update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",tenant,roleId,permission,username);
+  update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",tenant,branch,username,roleId,username);
    Long firstRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=? AND branch_id=?",Long.class,tenant,branch);
    if(firstRegister!=null)assignRegister(username,tenant,branch,firstRegister);
+ }
+ List<String> effectivePermissions(String username){
+  return db.queryForList("""
+   SELECT DISTINCT rp.permission FROM employee_role_assignments a
+   JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
+   JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id
+   WHERE a.username=? AND a.active=TRUE AND r.active=TRUE ORDER BY rp.permission
+   """,String.class,username);
+ }
+ void setEmployeeRolePermissions(String username,List<String> permissions){
+  Long tenant=db.queryForObject("SELECT tenant_id FROM employees WHERE username=?",Long.class,username);
+  Long branch=db.queryForObject("SELECT branch_id FROM employees WHERE username=?",Long.class,username);
+  update("UPDATE employee_role_assignments SET active=FALSE,revoked_by=?,revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND username=? AND active=TRUE",username,tenant,username);
+  String roleKey="restricted-"+username.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]","-");
+  update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(?,?,?,TRUE,?,?)",tenant,roleKey,"Restricted "+username,username,username);
+  Long roleId=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenant,roleKey);
+  for(String permission:permissions)update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",tenant,roleId,permission,username);
+  update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",tenant,branch,username,roleId,username);
+ }
+ void removeEmployeePermission(String username,String permission){
+  update("DELETE FROM vendor_role_permissions WHERE permission=? AND tenant_id=(SELECT tenant_id FROM employees WHERE username=?) AND role_id IN (SELECT role_id FROM employee_role_assignments WHERE username=? AND active=TRUE AND tenant_id=(SELECT tenant_id FROM employees WHERE username=?))",permission,username,username,username);
+ }
+ void addEmployeePermission(String username,String permission){
+  Long tenant=db.queryForObject("SELECT tenant_id FROM employees WHERE username=?",Long.class,username);
+  Long roleId=db.queryForObject("SELECT role_id FROM employee_role_assignments WHERE tenant_id=? AND username=? AND active=TRUE ORDER BY role_id LIMIT 1",Long.class,tenant,username);
+  update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",tenant,roleId,permission,username);
+ }
+ int employeePermissionCount(String username,String permission){
+  Integer count=db.queryForObject("SELECT COUNT(*) FROM employee_role_assignments a JOIN vendor_role_permissions rp ON rp.tenant_id=a.tenant_id AND rp.role_id=a.role_id JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id WHERE a.username=? AND a.active=TRUE AND r.active=TRUE AND rp.permission=?",Integer.class,username,permission);
+  return count==null?0:count;
  }
  void assignRegister(String username,long tenant,long branch,long register){
    update("INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?) ON DUPLICATE KEY UPDATE active=TRUE,assigned_by=VALUES(assigned_by),assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL",tenant,branch,username,register,username);
@@ -94,7 +128,7 @@ class PosTest {
  <T> T as(String username, java.util.function.Supplier<T> action) {
   var previous = org.springframework.security.core.context.SecurityContextHolder.getContext();
   var current = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
-  current.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username, "test", db.queryForList("SELECT permission FROM employee_permissions WHERE username=? ORDER BY permission",String.class,username).stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));
+  current.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username, "test", effectivePermissions(username).stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));
   org.springframework.security.core.context.SecurityContextHolder.setContext(current);
   try { return action.get(); }
   finally { org.springframework.security.core.context.SecurityContextHolder.setContext(previous); }
@@ -112,7 +146,7 @@ class PosTest {
   update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(1,1,'alice',?,TRUE,'alice'),(1,1,'alice',?,TRUE,'alice')",sales,reports);
   var effective=memberships.access("alice").orElseThrow().permissions();
   assertThat(effective).contains("POS_SALE_CREATE","POS_REPORT_VIEW");
-  // The legacy direct grant set is ignored once role assignments exist.
+  // Only the active assigned-role permission union is effective.
   assertThat(effective).doesNotContain("PRODUCT_CREATE","PRODUCT_UPDATE");
   update("UPDATE employee_role_assignments SET active=FALSE,revoked_by='alice',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND role_id=?",sales);
   assertThat(memberships.access("alice").orElseThrow().permissions()).doesNotContain("POS_SALE_CREATE").contains("POS_REPORT_VIEW");

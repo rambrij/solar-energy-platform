@@ -83,8 +83,8 @@ These methods are not intended as independent user-facing operations. Their call
 | Finding | Priority | Current gap | Required next action |
 |---|---|---|---|
 | INV-SVC-001 | P0 | **Implemented:** method-by-method inventory for the 54 concrete service/component implementations (constructors and DTO record accessors excluded); 8 service interfaces are represented by their implementations | maintain the inventory table in §9 and the source-scan regression checklist when services are added |
-| INV-SVC-002 | P0 | **Implemented for reviewed data plane:** InventoryService operations enforce actor/scope or explicit expiry authority; POS internal primitives re-check scope and operation grants; customer receipt audit verifies ownership | retain caller graph and direct-denial tests; review any future data-plane method additions |
-| INV-SVC-003 | P0 | **Implemented:** DraftExpiryJob scheduled worker is the sole production caller and installs a private system authority around CheckoutService.expire | verify cleanup-enabled and cleanup-delay configuration in deployment; no HTTP route exposes the job |
+| INV-SVC-002 | P0 | **Implemented for reviewed data plane:** InventoryService operations enforce actor/scope or a dedicated expiry-worker principal; POS internal primitives re-check scope and operation grants; customer receipt audit verifies ownership | retain caller graph and direct-denial tests; review any future data-plane method additions |
+| INV-SVC-003 | P0 | **Implemented:** DraftExpiryJob scheduled worker is the sole production caller and installs both a dedicated system principal and private system authority around CheckoutService.expire; the prior security context is restored in `finally` | verify cleanup-enabled and cleanup-delay configuration in deployment; no HTTP route exposes the job |
 | INV-SVC-004 | P1 | **Implemented for identified platform write paths:** audit writes map actions to platform permissions; tenant, initial branch, initial membership and identity provisioning enforce platform/vendor actor grants | keep platform actor and action mapping synchronized with new platform operations |
 | INV-SVC-005 | P1 | **No webhook/provider callback handler or provider callback endpoint exists in the backend Java/controller tree reviewed.** PaymentCheckoutService is actor-authenticated application flow, not a provider webhook | no callback signature test is applicable until an approved provider adapter/endpoint is introduced; do not accept unauthenticated provider callbacks |
 | INV-SVC-006 | P1 | **Implemented/verified:** DraftExpiryJob is the only scheduled job found; CatalogAvailabilityService.changed is the stock availability event projection. No @Async, message consumer, startup runner or outbox processor was found in the reviewed backend tree | preserve the explicit system authority and tenant tuple on any future worker/listener |
@@ -101,6 +101,8 @@ These methods are not intended as independent user-facing operations. Their call
 ## 8. Completion status
 
 **P0-02: IN PROGRESS — NOT ACCEPTANCE-COMPLETE.**
+
+Latest hardening on this branch: `CheckoutService.expire` and `InventoryService.release` now require the reserved `SYSTEM_DRAFT_EXPIRY` grant together with the exact `system:draft-expiry` worker principal. `DraftExpiryAuthorizationTest` verifies that an authenticated attacker with the reserved grant is rejected before the checkout repository or inventory JDBC/reservation collaborators are touched. This is a regression test addition; it must still be executed by CI before it is counted as passing evidence.
 
 The service guards and direct-invocation regression tests listed above are implemented. The full public-method inventory, internal caller verification, webhook/background audit, and comprehensive API negative matrix remain mandatory before P0-02 can be marked complete.
 
@@ -195,6 +197,6 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 ### 9.3 Scheduled, event, webhook and asynchronous entry-point audit (INV-SVC-003/005/006)
 
 - `DraftExpiryJob.scheduledCleanup` is the scheduled entry point. It is controlled by `checkout.cleanup-enabled` and `checkout.cleanup-delay-ms`, processes at most 100 expired drafts per batch, and invokes `CheckoutService.expire` under a temporary SYSTEM_DRAFT_EXPIRY authority. The previous SecurityContext is restored in a finally block.
-- `CheckoutService.expire` rejects direct calls without SYSTEM_DRAFT_EXPIRY before repository access. InventoryService.release accepts that authority only for DRAFT orders.
+- `CheckoutService.expire` now requires both SYSTEM_DRAFT_EXPIRY and the dedicated `system:draft-expiry` principal before repository access. `InventoryService.release` validates the same principal before even querying the order; a normal authenticated principal carrying a forged reserved grant is rejected before JDBC or reservation access. `DraftExpiryAuthorizationTest` asserts both no-query/no-repository-interaction properties.
 - `CatalogAvailabilityService.changed` is the only application event listener identified; it consumes StockAvailabilityChanged from InventoryService.
 - No `@Async`, message consumer, startup runner, outbox processor, webhook controller, or provider callback endpoint was found in the reviewed backend Java/controller tree. The payment module currently exposes authenticated application operations; it does not implement provider-to-server webhook callbacks. Do not add signature-validation logic for a nonexistent adapter.

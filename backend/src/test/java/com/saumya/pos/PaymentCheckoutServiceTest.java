@@ -21,7 +21,7 @@ class PaymentCheckoutServiceTest {
     void directOnlinePaymentWithoutCustomerIdentityIsDeniedBeforeOrderOrProviderAccess() {
         var orders=mock(DraftRepository.class);
         var attempts=mock(PaymentAttemptRepository.class);
-        var adapter=mock(CheckoutAdapter.class);
+        var adapter=mock(VendorPaymentAdapter.class);
         var customers=mock(CustomerAccess.class);
         var retail=new PosService(null,null,null) {
             @Override public void authorizeCustomer(String actor) {

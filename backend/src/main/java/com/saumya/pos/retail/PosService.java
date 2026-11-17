@@ -134,6 +134,12 @@ public class PosService {
             "POS_REFUND_CASH_RECORD","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD","POS_RECEIPT_REPRINT","POS_SETTINGS_MANAGE");
         one("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
     }
+    /** Inventory receipt serialization is a distinct boundary; inventory staff need not hold POS_VIEW. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void lockInventoryOutlet(Scope s){
+        authorizeInternalScope(s,"INVENTORY_RECEIVE");
+        one("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
+    }
     public record ReceiptAllocation(long number,boolean invoiceRequired,String outlet) {}
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public ReceiptAllocation allocateReceipt(Scope s){

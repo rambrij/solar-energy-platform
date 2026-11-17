@@ -4,7 +4,7 @@ import com.saumya.pos.membership.internal.*;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import com.saumya.pos.security.VendorMembershipAccess;
 import com.saumya.pos.security.VendorMembershipResolver;
-import com.saumya.pos.platform.PlatformAuthorization;
+import com.saumya.pos.security.PlatformAuthorization;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;

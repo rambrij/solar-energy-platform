@@ -56,4 +56,25 @@ class VendorRoleServiceProvisioningTest {
         verifyNoInteractions(invitations);
         verify(db,never()).update(contains("INSERT INTO employees"),any(Object[].class));
     }
+
+    @Test void crossTenantRoleIdCannotBeAssignedToAnEmployee(){
+        var db=mock(JdbcTemplate.class);
+        var auth=mock(AuthorizationContext.class);
+        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,
+            java.util.Set.of("ROLE_ASSIGN"),false,false,true);
+        when(auth.current()).thenReturn(actor);
+        when(db.queryForList(startsWith("SELECT username,branch_id,enabled"),eq(7L),eq("employee@vendor.test")))
+            .thenReturn(List.of(Map.of("username","employee@vendor.test","branch_id",12L,"enabled",true)));
+        // The role exists in another tenant, but the tenant-scoped lookup must not find it.
+        when(db.queryForList(startsWith("SELECT id,role_key,display_name,active,version"),eq(7L),eq(99L)))
+            .thenReturn(List.of());
+        var service=new VendorRoleService(db,auth,mock(IdentityInvitationPort.class),mock(MembershipService.class));
+
+        assertThatThrownBy(()->service.assignRoles("employee@vendor.test",List.of(99L),"cross tenant probe"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.NOT_FOUND);
+        verify(db,never()).update(contains("UPDATE employee_role_assignments"),any(Object[].class));
+        verify(db,never()).update(contains("INSERT INTO employee_role_assignments"),any(Object[].class));
+    }
+
 }

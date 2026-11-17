@@ -76,24 +76,34 @@ public class InventoryService {
   * by the authenticated customer who owns the online order; POS stock is changed only by the
   * authenticated cashier in the assigned tenant/branch with the operation-specific grant.
   */
+ private record OrderPrincipal(AuthorizationContext.Context context,Long customerId) {}
+ /** Authenticate and authorize the operation before any order or stock query is issued. */
+ private OrderPrincipal orderPrincipal(long tenant,String... vendorPermissions){
+  var context=actor();
+  if(context.isCustomer()&&!context.isPlatformUser())
+   return new OrderPrincipal(context,customers.resolve(context.username()));
+  context.requireVendorMembership();
+  context.requireTenant(tenant);
+  if(!context.hasAnyPermission(vendorPermissions))
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Inventory order operation permission required");
+  return new OrderPrincipal(context,null);
+ }
  private Map<String,Object> authorizeOrder(long tenant,String id,long branch,String permission){
+  var principal=orderPrincipal(tenant,permission);
   var row=order(tenant,id);
   if(!Objects.equals(((Number)row.get("stock_branch_id")).longValue(),branch))
    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
   String channel=String.valueOf(row.get("channel"));
-  var context=actor();
+  var context=principal.context();
   if("ONLINE".equals(channel)){
-   if(!context.isCustomer()||context.isPlatformUser())
-    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
-   long customer=customers.resolve(context.username());
+   if(principal.customerId()==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
    Object owner=row.get("customer_id");
-   if(owner==null||((Number)owner).longValue()!=customer)
+   if(owner==null||((Number)owner).longValue()!=principal.customerId())
     throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
    return row;
   }
-  if(!"IN_STORE".equals(channel))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
-  context.requireVendorMembership();
-  context.requireTenant(tenant);
+  if(!"IN_STORE".equals(channel)||principal.customerId()!=null)
+   throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
   context.requireBranch(branch);
   if(!context.username().equals(row.get("cashier")))
    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
@@ -162,19 +172,27 @@ public class InventoryService {
   // Validate the special system capability before even resolving the order. A user carrying
   // the reserved authority must not trigger a data-plane lookup or reservation mutation.
   boolean trustedExpiry=expiryJob();
+  OrderPrincipal principal=trustedExpiry?null:orderPrincipal(tenant,
+      "POS_SALE_CANCEL","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD");
   Map<String,Object> order=order(tenant,orderId);
   if(trustedExpiry){
    if(!"DRAFT".equals(order.get("status")))return;
   }else{
    long branch=((Number)order.get("stock_branch_id")).longValue();
-   var context=actor();
-   if(!context.isCustomer()){
+   var context=principal.context();
+   if(principal.customerId()!=null){
+    if(!"ONLINE".equals(order.get("channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+    Object owner=order.get("customer_id");
+    if(owner==null||((Number)owner).longValue()!=principal.customerId())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+   }else{
     if(!"IN_STORE".equals(order.get("channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
-    context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
-    if(context.username().equals(order.get("cashier"))){if(!context.hasAnyPermission("POS_SALE_CANCEL","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Sale cancellation or payment resolution permission required");}
-    else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))
+    context.requireBranch(branch);
+    if(context.username().equals(order.get("cashier"))){
+     if(!context.hasAnyPermission("POS_SALE_CANCEL","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Sale cancellation or payment resolution permission required");
+    }else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD"))
      throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Payment resolution permission required");
-   }else order=authorizeOrder(tenant,orderId,branch,"POS_SALE_CANCEL");
+   }
    if(!"DRAFT".equals(order.get("status")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Only unpaid draft orders may release stock");
   }
   for(var reservation:reservations.held(tenant,orderId)){
@@ -185,17 +203,18 @@ public class InventoryService {
 
  @Transactional
  public Map<Long,Integer> consume(long tenant,String orderId){
+  OrderPrincipal principal=orderPrincipal(tenant,
+      "POS_SALE_CREATE","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_CONFIRM");
   Map<String,Object> row=order(tenant,orderId);
   long branch=((Number)row.get("stock_branch_id")).longValue();
-  var context=actor();
-  if("ONLINE".equals(row.get("channel"))){
-   if(!context.isCustomer()||context.isPlatformUser())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
-   long customer=customers.resolve(context.username());Object owner=row.get("customer_id");
-   if(owner==null||((Number)owner).longValue()!=customer)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+  var context=principal.context();
+  if(principal.customerId()!=null){
+   if(!"ONLINE".equals(row.get("channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+   Object owner=row.get("customer_id");
+   if(owner==null||((Number)owner).longValue()!=principal.customerId())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
   }else{
-   context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
-   if(!context.username().equals(row.get("cashier"))&&!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_CONFIRM"))
-    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+   if(!"IN_STORE".equals(row.get("channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
+   context.requireBranch(branch);
    if(context.username().equals(row.get("cashier")))context.requirePermission("POS_SALE_CREATE");
    else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_CONFIRM"))
     throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Payment confirmation permission required");

@@ -114,4 +114,27 @@ class MembershipServiceTest {
         assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
             .isEqualTo(List.of("POS_VIEW"));
     }
+
+    @Test void permissionsAreUnionedAcrossMultipleActiveRoles(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->{throw new AssertionError("role assignments are authoritative");});
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(),eq(Integer.class),eq(1L),eq("cashier"))).thenReturn(3);
+        when(jdbc.queryForList(anyString(),eq(String.class),eq(1L),eq("cashier")))
+            .thenReturn(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
+        var service=new MembershipService(memberships,grants,tenants(),jdbc,null,true,null);
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
+            .isEqualTo(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
+    }
+
+    @Test void suspendedTenantDoesNotResolveMembershipOrPermissions(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->{throw new AssertionError("suspended tenant must be rejected first");});
+        var suspended=repository(TenantLifecycleService.class,(p,m,a)->switch(m.getName()){
+            case "isActive" -> false;
+            default -> null;
+        });
+        var service=new MembershipService(memberships,grants,suspended,null,null,false,null);
+        assertThat(service.access("cashier")).isEmpty();
+    }
 }

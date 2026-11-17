@@ -36,7 +36,9 @@ public class DraftRecoveryService {
         validate(id);
         var scope = retail.scope();
         retail.authorize(scope,username,"POS_VIEW");
-        return view(orders.recoverPos(scope.tenant(), scope.branch(), scope.cashier(), id).orElseThrow(this::missing));
+        var order=orders.recoverPos(scope.tenant(), scope.branch(), scope.cashier(), id).orElseThrow(this::missing);
+        retail.requireAssignedSession(scope,order.session());
+        return view(order);
     }
     
     @PreAuthorize("hasAuthority('CUSTOMER')")

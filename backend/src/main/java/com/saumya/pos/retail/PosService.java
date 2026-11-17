@@ -87,8 +87,7 @@ public class PosService {
     }
 
     public List<Map<String,Object>> products(Scope s) {
-        authorize(s,s.cashier(),"POS_VIEW");
-        catalogue.requirePosStockScope(s.tenant(),s.branch());
+        requireOpenPosScope(s,"POS_VIEW");
         return catalogue.posProducts(s.tenant,s.branch);
     }
     public record SessionSummary(String id,long registerId,BigDecimal openingFloat,String state) {}

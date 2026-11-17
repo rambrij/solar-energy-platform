@@ -126,6 +126,7 @@ public class CheckoutService {
     
     public List<Draft> posList(String username, String session) {
         var s = retail.scope();retail.authorize(s,username,"POS_VIEW");
+        retail.requireAssignedSession(s,session);
         return orders.findTop20ByTenantIdAndBranchIdAndCashierAndSessionIdAndExpiresAtIsNotNullOrderByExpiresAtDesc(s.tenant(), s.branch(), s.cashier(), session).stream().map(this::view).toList();
     }
     
@@ -140,6 +141,7 @@ public class CheckoutService {
         var s = retail.scope();retail.authorize(s,username,"POS_SALE_CANCEL");
         var order = orders.lock(s.tenant(), id).orElseThrow(this::missing);
         owned(s, order);
+        if ("DRAFT".equals(order.status())) retail.requireOpen(s,order.session());
         if (cancel(order, reason)) retail.draftAudit(s, "DRAFT_CANCEL", id);
         return view(order);
     }

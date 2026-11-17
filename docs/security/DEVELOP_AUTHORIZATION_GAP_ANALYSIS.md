@@ -18,7 +18,7 @@ The main gap is not the absence of RBAC primitives. It is the absence of complet
 1. Existing endpoint policy tests inspect `@PreAuthorize` expressions and verify controller inventory, but they are not a complete runtime role × endpoint × tenant × assignment integration matrix.
 2. Tenant ownership is enforced in several high-risk paths (POS, checkout, product administration and customer order history), but the reviewed evidence does not establish that every tenant-owned service, repository, native query, report, export, cache, document and background path is consistently scoped.
 3. POS branch/register assignment is implemented, but the runtime membership context exposes one employee branch and the inspected authorization model does not establish a first-class assigned-warehouse scope.
-4. Cross-tenant negative tests are not present as a comprehensive dedicated suite in the inspected test inventory.
+4. A dedicated P004TenantIsolationTest and reusable two-vendor/two-customer fixture have now been added on the working feature branch. They are not yet marked PASS: no test execution evidence is available until the post-commit H2/MySQL 8.4 CI jobs finish. The existing PosTest API scenarios remain the broad end-to-end evidence base.
 5. Browser-level direct-route and action-permission coverage is not established. The frontend uses Vitest and a permission-aware shell; Playwright is not in the frontend package dependencies.
 6. **Resolved:** legacy employee grants are no longer a runtime source. Membership permissions come exclusively from active tenant role assignments; V49 removes the obsolete table and V45-generated synthetic roles.
 
@@ -140,7 +140,7 @@ This is a repository evidence review, not a successful local execution of the fu
 
 1. **Complete tenant isolation is not proven.** Selected queries and constraints are tenant-scoped, but no evidence establishes coverage across every entity, repository, export, report, document, cache and asynchronous operation.
 2. **Authorization matrix coverage is incomplete.** The existing matrix validates policy expressions; it does not execute every endpoint with representative roles and cross-tenant resources.
-3. **Cross-tenant negative tests are incomplete.** No dedicated comprehensive Vendor A/Vendor B and Customer A/Customer B isolation suite was found in the inspected test inventory.
+3. **Cross-tenant negative tests are partially implemented, but execution is pending.** P004TenantIsolationTest and TenantIsolationFixture now provide dedicated two-vendor/two-customer service and database probes. Existing PosTest supplies the corresponding API scenarios for orders, inventory, carts, checkout, payments, receipts, returns/refunds and reports/exports. Do not mark this finding PASS until H2 and MySQL 8.4 runs pass.
 4. **Warehouse assignment enforcement is not established.** Membership exposes a branch; register assignments are present; warehouse/resource assignment must be verified against POS and inventory operations.
 5. **Legacy permission fallback has been removed, not retained.** Product owner direction (2026-11-17) confirms the application is still in development and must use role-only authorization without backward compatibility. Membership resolution now queries active role assignments only; the configuration switch, fallback metrics, reconciliation endpoint and legacy JPA persistence have been removed. Additive V49 removes V45-generated synthetic legacy roles/assignments and drops `employee_permissions`; explicit vendor roles remain. Latest V49 H2/MySQL CI is pending.
 6. **Dual customer/vendor employee identity is ambiguous.** Authentication can carry CUSTOMER and vendor permissions while AuthorizationContext treats the principal as a customer and refuses vendor membership. Product policy must decide whether dual-context identities are supported.
@@ -158,6 +158,50 @@ Product owner decision: the application is still in development and must not car
 - **RC-05:** Resolved by product owner instruction: remove legacy storage/fallback; do not preserve compatibility.
 - **Verification:** Run #988 passed 573 H2 tests, 573 MySQL 8.4 tests, frontend tests and frontend build. V49 and V50 migration tests passed. Remaining environment action: apply V49 to the developer database and explicitly assign roles to employees whose only previous access came from V45-generated roles. A local database that already applied the previous local-only V39 checksum must use a separate disposable dev database for the updated fixture; do not rewrite Flyway history or delete operational/financial data. No production reconciliation or legacy rollback is intended.
  
+## 6.1 P0-04 implementation update — Vendor A/B and Customer A/B isolation (2026-11-17)
+
+**Status: IMPLEMENTED — VERIFICATION PENDING. P0-04 is not COMPLETE.** This update applies to feature/develop-authorization-gap-analysis and preserves the Version 2.0 product requirements and SRS/HLD as the authority.
+
+### New dedicated fixture and tests
+
+- backend/src/test/java/com/saumya/pos/isolation/TenantIsolationFixture.java seeds two active tenants, one employee and tenant-specific role per vendor, two global customer profiles, one role-permission set per vendor, one product and inventory balance per vendor, and tenant-customer relationships. Customer A has a separate relationship with both vendors; Customer B is linked only to Vendor B.
+- backend/src/test/java/com/saumya/pos/P004TenantIsolationTest.java exercises both directions for tenant role/employee list and ID lookups, role update/deactivation, employee permission lookup/role assignment/branch and register assignment/disable, customer identity and profile locking, customer/vendor actor separation, vendor relationship ownership, inventory reads/writes, and database rejection of cross-tenant inventory and role-assignment parent references.
+- The fixture uses unique IDs and a transaction per test so its seed rows roll back and do not mutate demo or operational data. Denied stock mutations are followed by quantity assertions; role probes are checked for unchanged metadata and no resource audit record.
+
+### Existing current-implementation coverage reused
+
+PosTest is the existing HTTP/database end-to-end source for the implemented retail/POS domains. Relevant scenarios include:
+
+| Implemented resource family | Existing evidence used for P0-04 |
+|---|---|
+| Employees/roles/permissions | Role-only MembershipService and VendorRole service tests; P004 role/employee list and IDOR tests; VendorRole provisioning/authorization boundary tests |
+| Products/categories/pricing | Tenant-scoped product/category admin and public catalogue/POS catalogue list/search/count/filter tests |
+| Inventory | Cross-tenant inventory API denial, service denial, no receipt write, and unchanged foreign stock |
+| Customer identity/relationships | CustomerAccess boundary tests; verified consent association; P004 global customer relationship fixture and identity substitution tests |
+| Carts | Customer ownership, one-vendor active-cart invariant, mixed-vendor conflict, vendor switch/archive/restore and DB composite cart-item FK tests |
+| Orders/order items | Vendor-scoped POS order list/detail; customer-owned online order list/detail; cross-customer 0-count/404; cross-vendor Customer A transaction history |
+| Payments | Customer-owned online payment attempt/confirmation; POS tender and checkout authorization/ownership tests; no unauthorized stock/order finalization |
+| POS sessions/sales | Tenant/branch/cashier/register scope, cross-vendor product/session denial, forged body/filter attempts, and no sale/stock side effects |
+| Receipts/documents | Customer ownership for online receipts and PDF copies; vendor receipt scope, audit and byte-level export tests |
+| Returns/refunds | Foreign return detail 404; original-sale ownership, return queue/history, refund payer/session scope, and cross-branch report filters |
+| Reports/exports | Tenant/branch-scoped report/search/count, CSV export scope, forged tenant/branch filters, permission denials and export audit |
+| Audit | Tenant-keyed vendor/POS audit writes and existing immutable audit migration tests; P004 asserts rejected role probes create no resource audit rows |
+
+### Schema and migration boundary
+
+No new production schema change was justified by the inspected tests or current migration definitions. Existing applicable same-tenant constraints are retained and tested: V6 cart/cart-item composite keys; V27 tenant/customer relationship uniqueness and customer challenge/order composite ownership; V41 tenant/subscription and invoice/payment composite ownership; V45 tenant-scoped role, permission, employee and register assignment FKs; and V48 POS draft/drawer/order plus subscription-event composite ownership with preflight validation. The new tests additionally attempt foreign-product inventory rows and cross-tenant role assignments and require database integrity failures.
+
+### Findings and NOT APPLICABLE scope
+
+- **Confirmed production defects fixed in this pass:** None. No production defect is claimed without an executed failing regression test.
+- **NOT APPLICABLE (not implemented in this branch):** CRM notes/leads/quotes; shipment, installation, warranty and service modules; generic object-storage/signed download URLs; cache/async worker data access. Do not create these modules merely to manufacture P0-04 test coverage. Tenant-customer consent association exists and is in scope; vendor-private CRM note/read behavior is not an implemented API family.
+- **Production provider caveat:** Current online payment scenarios use the repository's configured mock/test adapter. They prove tenant/customer ownership of implemented payment commands, not provider production readiness or live external side-effect integration.
+- **Frontend:** No frontend changes were made; the P0-04 implementation is backend/test-only. Existing frontend CI remains included in the repository workflow, but no new browser E2E suite is added.
+
+### Verification gate
+
+At the time of this update, the new P0-04 tests have been authored but have **not** been run in this environment. GitHub branch CI must run the focused test, full H2 suite, and full MySQL 8.4 suite. Record the run ID, test count, failures/errors and frontend result here after observing actual completed jobs. Until then, the status remains **VERIFICATION PENDING / NOT COMPLETE**.
+
 ## 7. REQUIRES CLARIFICATION register
 
 | ID | Ambiguity / conflict | Why clarification is required | Safe interim behavior |

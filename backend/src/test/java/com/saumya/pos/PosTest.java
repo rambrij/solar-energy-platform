@@ -1997,6 +1997,55 @@ class PosTest {
   }
   assertThat(checked).as("protected controller routes exercised through the real HTTP security filter").isGreaterThan(50);
  }
+
+ @Test void everyEligibleProtectedGetRouteRejectsAuthenticatedPrincipalWithNoAuthorities() throws Exception {
+  int checked=0;
+  for(var entry:requestMappings.getHandlerMethods().entrySet()){
+   HandlerMethod handler=entry.getValue();
+   if(!handler.getBeanType().getPackageName().startsWith("com.saumya.pos"))continue;
+   Set<RequestMethod> declared=entry.getKey().getMethodsCondition().getMethods();
+   if(!declared.isEmpty()&&!declared.contains(RequestMethod.GET))continue;
+   var patterns=entry.getKey().getPatternValues();
+   if(patterns.isEmpty())continue;
+   String route=patterns.iterator().next();
+   if(publicRoute(RequestMethod.GET,route))continue;
+   var policy=org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(),org.springframework.security.access.prepost.PreAuthorize.class);
+   if(policy==null)policy=org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(handler.getBeanType(),org.springframework.security.access.prepost.PreAuthorize.class);
+   if(policy==null||!(policy.value().contains("hasAuthority(")||policy.value().contains("hasAnyAuthority(")))continue;
+
+   boolean eligible=true;
+   for(var parameter:handler.getMethod().getParameters()){
+    if(parameter.isAnnotationPresent(org.springframework.web.bind.annotation.RequestBody.class)
+        ||parameter.isAnnotationPresent(org.springframework.web.bind.annotation.RequestHeader.class)){
+     eligible=false;break;
+    }
+    var query=parameter.getAnnotation(org.springframework.web.bind.annotation.RequestParam.class);
+    if(query!=null&&query.required()
+        &&org.springframework.web.bind.annotation.ValueConstants.DEFAULT_NONE.equals(query.defaultValue())){
+     eligible=false;break;
+    }
+    var pathVariable=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
+    if(pathVariable!=null){
+     Class<?> type=parameter.getType();
+     if(!(type==String.class||type==long.class||type==Long.class||type==int.class||type==Integer.class)){
+      eligible=false;break;
+     }
+    }else if(query==null&&parameter.getType()!=java.security.Principal.class
+        &&parameter.getType()!=org.springframework.security.web.csrf.CsrfToken.class
+        &&parameter.getType()!=jakarta.servlet.http.HttpServletRequest.class
+        &&parameter.getType()!=jakarta.servlet.http.HttpServletResponse.class){
+     eligible=false;break;
+    }
+   }
+   if(!eligible)continue;
+   String concrete=route.replaceAll("\\{[^/]+\\}","1");
+   mvc.perform(get(concrete).with(user("p0-no-grants").authorities()).with(csrf()))
+       .andExpect(status().isForbidden());
+   checked++;
+  }
+  assertThat(checked).as("protected GET routes exercised with authenticated zero-authority principal").isGreaterThan(25);
+ }
+
  private static boolean publicRoute(RequestMethod method,String route){
   if(method==RequestMethod.GET&&(route.startsWith("/api/v1/marketplace/")||route.equals("/api/v1/auth/csrf")))return true;
   return method==RequestMethod.POST&&Set.of(

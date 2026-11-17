@@ -124,4 +124,42 @@ class PaymentCheckoutServiceTest {
       .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.FORBIDDEN);
  }
 
+
+ @Test
+ void paymentReviewQueueLoadsEachOrderWithTheAttemptTenantAndNeverUsesGlobalIdLookup() {
+  var paymentAttempts=mock(PaymentAttemptRepository.class);
+  var policyService=mock(com.saumya.pos.retail.BranchPolicyService.class);
+  var order=new DraftOrder("review-order",7,null,12L,"cashier","session-1","IN_STORE",
+      "review-key","review-hash",BigDecimal.TEN,1,"cashier",Instant.now().plusSeconds(600),false);
+  var attempt=new PaymentAttempt(7,"review-order","CARD",BigDecimal.TEN,Instant.now());
+  when(paymentAttempts.awaitingReview(eq(7L),eq(12L),any())).thenReturn(List.of(attempt));
+  when(policyService.find(7L,12L)).thenReturn(Optional.of(
+      new com.saumya.pos.retail.BranchPolicyService.Policy(12,"Outlet",0,true,"upi-ref","card-ref",
+          false,14,false,false,false,false,"INR")));
+  boolean[] tenantLookup={false};
+  var orders=(DraftRepository)Proxy.newProxyInstance(DraftRepository.class.getClassLoader(),
+      new Class<?>[]{DraftRepository.class},(proxy,method,args)->{
+       if(method.getName().equals("findByTenantIdAndId")){
+        tenantLookup[0]=true;
+        assertThat(args).containsExactly(7L,"review-order");
+        return Optional.of(order);
+       }
+       if(method.getName().equals("findById"))
+        throw new AssertionError("Payment review must not use a globally keyed order lookup");
+       throw new AssertionError("Unexpected DraftRepository call: "+method.getName());
+      });
+  var retail=new PosService(null,null,null){
+   @Override public Scope scope(){return new Scope(7,12,"manager");}
+   @Override public void authorize(Scope scope,String actor,String... permissions){}
+  };
+  var service=new PaymentCheckoutService(orders,null,paymentAttempts,policy(),null,null,null,retail,Clock.systemUTC());
+  ReflectionTestUtils.setField(service,"terminalPolicies",policyService);
+
+  var result=service.awaitingReview("manager");
+
+  assertThat(tenantLookup[0]).isTrue();
+  assertThat(result).hasSize(1);
+  assertThat(result.getFirst().orderId()).isEqualTo("review-order");
+ }
+
 }

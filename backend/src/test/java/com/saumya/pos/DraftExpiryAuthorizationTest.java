@@ -4,6 +4,8 @@ import com.saumya.pos.cart.CartService;
 import com.saumya.pos.catalog.CatalogService;
 import com.saumya.pos.checkout.CheckoutService;
 import com.saumya.pos.checkout.DraftRecoveryPolicy;
+import com.saumya.pos.checkout.DraftExpiryJob;
+import com.saumya.pos.checkout.internal.DraftOrder;
 import com.saumya.pos.checkout.internal.DraftLineRepository;
 import com.saumya.pos.checkout.internal.DraftRepository;
 import com.saumya.pos.identity.CustomerAccess;
@@ -26,6 +28,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class DraftExpiryAuthorizationTest {
     private static final String SYSTEM_GRANT = "SYSTEM_DRAFT_EXPIRY";

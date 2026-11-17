@@ -12,8 +12,22 @@ WHERE EXISTS(SELECT 1 FROM users WHERE username='local-supervisor')
  AND NOT EXISTS(SELECT 1 FROM employees WHERE username='local-supervisor');
 UPDATE identity_sequence SET next_id=GREATEST(next_id,900004) WHERE id=1;
 
-INSERT INTO employee_permissions(username,permission,tenant_id)
-SELECT e.username,p.permission,e.tenant_id FROM employees e
-CROSS JOIN(SELECT 'POS_VIEW' AS permission UNION ALL SELECT 'POS_SHIFT_VARIANCE_APPROVE') p
-WHERE e.username='local-supervisor' AND e.tenant_id=900001 AND e.branch_id=900001
-  AND NOT EXISTS(SELECT 1 FROM employee_permissions g WHERE g.username=e.username AND g.permission=p.permission);
+INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
+SELECT 900001,'local-supervisor','Local Supervisor',TRUE,'local-supervisor','local-supervisor'
+WHERE NOT EXISTS(SELECT 1 FROM vendor_roles WHERE tenant_id=900001 AND role_key='local-supervisor');
+
+INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+SELECT 900001,r.id,p.permission,'local-supervisor'
+FROM vendor_roles r CROSS JOIN (SELECT 'POS_VIEW' permission UNION ALL SELECT 'POS_SHIFT_VARIANCE_APPROVE') p
+WHERE r.tenant_id=900001 AND r.role_key='local-supervisor'
+AND NOT EXISTS(SELECT 1 FROM vendor_role_permissions x WHERE x.tenant_id=r.tenant_id AND x.role_id=r.id AND x.permission=p.permission);
+
+INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by)
+SELECT 900001,900001,'local-supervisor',r.id,TRUE,'local-supervisor'
+FROM vendor_roles r WHERE r.tenant_id=900001 AND r.role_key='local-supervisor'
+AND NOT EXISTS(SELECT 1 FROM employee_role_assignments a WHERE a.tenant_id=900001 AND a.username='local-supervisor' AND a.role_id=r.id);
+
+INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)
+SELECT 900001,900001,'local-supervisor',900001,TRUE,'local-supervisor'
+WHERE EXISTS(SELECT 1 FROM registers WHERE tenant_id=900001 AND branch_id=900001 AND id=900001)
+AND NOT EXISTS(SELECT 1 FROM employee_register_assignments WHERE tenant_id=900001 AND username='local-supervisor' AND register_id=900001);

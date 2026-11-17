@@ -1,8 +1,8 @@
 -- Local-only follow-up to V39. V39 stages demo grants before V45 creates RBAC tables.
--- V49 removes the old employee_permissions store; this migration creates real tenant roles.
+-- V49 completes the role schema; this migration creates local demo tenant roles.
 INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
 SELECT DISTINCT g.tenant_id,CONCAT('demo-',REPLACE(g.username,'@','-')),g.role_name,TRUE,g.username,g.username
-FROM local_demo_role_grants g
+FROM local_demo_role_permission_seed g
 WHERE NOT EXISTS(
   SELECT 1 FROM vendor_roles r
   WHERE r.tenant_id=g.tenant_id AND r.role_key=CONCAT('demo-',REPLACE(g.username,'@','-'))
@@ -10,7 +10,7 @@ WHERE NOT EXISTS(
 
 INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
 SELECT g.tenant_id,r.id,g.permission,g.username
-FROM local_demo_role_grants g
+FROM local_demo_role_permission_seed g
 JOIN vendor_roles r ON r.tenant_id=g.tenant_id AND r.role_key=CONCAT('demo-',REPLACE(g.username,'@','-'))
 WHERE NOT EXISTS(
   SELECT 1 FROM vendor_role_permissions p
@@ -22,7 +22,7 @@ SELECT e.tenant_id,e.branch_id,e.username,r.id,TRUE,e.username
 FROM employees e
 JOIN vendor_roles r ON r.tenant_id=e.tenant_id AND r.role_key=CONCAT('demo-',REPLACE(e.username,'@','-'))
 WHERE EXISTS(
-  SELECT 1 FROM local_demo_role_grants g
+  SELECT 1 FROM local_demo_role_permission_seed g
   WHERE g.tenant_id=e.tenant_id AND g.username=e.username
 )
 AND NOT EXISTS(
@@ -41,4 +41,4 @@ WHERE e.username LIKE 'cashier@%'
 GROUP BY e.tenant_id,e.branch_id,e.username
 ON DUPLICATE KEY UPDATE active=TRUE,assigned_by=VALUES(assigned_by),assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL;
 
-DROP TABLE local_demo_role_grants;
+DROP TABLE local_demo_role_permission_seed;

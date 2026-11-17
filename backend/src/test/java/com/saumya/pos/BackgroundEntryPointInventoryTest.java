@@ -41,7 +41,7 @@ class BackgroundEntryPointInventoryTest {
             }
         }
         assertThat(scheduled).containsExactly("DraftExpiryJob#scheduledCleanup");
-        assertThat(events).containsExactly("CatalogAvailabilityService#changed");
+        assertThat(events).containsExactly("CashDrawerProjection#record","CatalogAvailabilityService#changed","DraftSessionProjection#changed");
         assertThat(async).isEmpty();
         assertThat(messages).isEmpty();
         assertThat(webhooks).isEmpty();

@@ -52,31 +52,55 @@ No frontend changes or schema migrations are part of P0-02.
 | VendorRoleService | existing require(permission) gate verified across role/employee administration methods | authenticated vendor tenant |
 | PlatformAdminService, PlatformSupportServiceImpl, PlatformAuditServiceImpl.search, PlatformConfigurationServiceImpl, subscription plan/tenant subscription services | existing platform-only permission gates verified in reviewed methods | authenticated platform identity |
 
-## 4. Direct-invocation tests added
+## 4. Direct-invocation and side-effect tests added
 
-- PosTest.directServiceCallsRejectMissingPermissionBeforeBusinessQueries: directly invokes Spring service proxies for cashier reports, POS order history, draft recovery and POS catalogue search after removing required POS grants. It also asserts no order rows were created.
-- PosTest.catalogAdminServicesRejectMissingPermissionAndForgedTenantOnDirectInvocation: directly invokes product/category admin services; verifies missing PRODUCT_VIEW is denied and an Alice-to-Tenant-B scope forgery is denied.
-- StockReceivingServiceTest.directReceiveWithoutPermissionIsDeniedBeforeRepositoryOrInventoryAccess: verifies direct stock receipt invocation without INVENTORY_RECEIVE returns 403 and touches neither repository nor inventory adapter.
-- Existing AuthorizationContextTest, platform authorization tests, controller policy registry tests and POS MockMvc tests remain part of the regression suite.
+- PosTest.directServiceCallsRejectMissingPermissionBeforeBusinessQueries: directly invokes Spring service proxies for cashier reports, POS order history, draft recovery and POS catalogue search after removing required POS grants; verifies denial before business writes.
+- PosTest.catalogAdminServicesRejectMissingPermissionAndForgedTenantOnDirectInvocation: verifies missing PRODUCT_VIEW and forged cross-tenant product/category scopes are denied.
+- PosTest.everyProtectedControllerRouteRejectsAnonymousHttpRequests: discovers every protected controller mapping and exercises the actual MockMvc/Spring Security filter for anonymous 401 responses, excluding only explicitly public routes.
+- AuthorizationPolicyMatrixTest: scans every mapped controller method, requires an explicit method/class policy, rejects anonymous and authenticated zero-grant principals, and evaluates the declared positive/minimal grant paths, including conditional tender rules.
+- BackgroundEntryPointInventoryTest: source-scans scheduled methods, event listeners, async methods, broker listeners, application runners and webhook/callback routes and asserts the exact inventory.
+- DraftExpiryAuthorizationTest: rejects forged SYSTEM_DRAFT_EXPIRY principals before checkout/inventory repository access and verifies the worker installs the dedicated principal and restores the previous SecurityContext.
+- InventoryService direct-denial coverage: denied read/write/order/return operations touch neither inventory/order repositories nor event publishers; inventory-owned JPA projections replace direct cross-module JDBC ownership lookups.
+- VendorRoleServiceAuthorizationBoundaryTest: exercises all 12 public role/employee methods and verifies denied calls do not reach JDBC, invitation or membership collaborators.
+- PaymentCheckoutServiceTest: invokes every public payment entry point under a denied actor and verifies no order, tender, customer, catalogue, inventory or provider adapter access.
+- CatalogServicePaymentReviewAuthorizationTest and PosServiceBoundaryTest: prove that denied supervisor product locks, POS/inventory locks, receipt allocation, payment-review session access and sale-audit operations stop before persistence.
+- PlatformConfigurationServiceTest, PlatformSupportServiceTest, SubscriptionPlanServiceTest and TenantSubscriptionServiceAuthorizationTest: verify platform configuration, support-access and subscription operations reject vendor actors before repository, tenant or audit access.
+- PlatformAdminServiceAuthorizationTest, PlatformAuditServiceTest, BranchProvisioningServiceTest, IdentityProvisioningServiceTest, MembershipServiceTest and TenantServiceDirectoryValidationTest: verify platform actor/permission boundaries and provisioning denials before their repositories/sequences.
+- Existing POS/API tests cover 401/403 and cross-tenant 404 cases for inventory, product/category management, customer order/receipt ownership, POS sessions/tenders, returns/refunds, history, reports and exports.
 
-**Verified CI:** [GitHub Actions run 43952642426](https://github.com/rambrij/solar-energy-platform/actions/runs/43952642426) passed on source commit 92dd7bb5: MySQL 8.4 backend 500 tests (0 failures/errors), H2 backend 500 tests (0 failures/errors), and frontend test/build success. The later c23c931c change updates this inventory document only; no application source or test code changed after the tested source commit. Earlier failing runs were resolved before this successful run.
+**Verified CI:** [GitHub Actions run #44013599576](https://github.com/rambrij/solar-energy-platform/actions/runs/44013599576) completed successfully on commit 104baea9da81956ddf2cdb12b0fc601cd4bffdca: H2 backend **526 tests passed**, MySQL 8.4 backend **526 tests passed**, frontend tests and production build passed. The module architecture test also passed. This is the latest verified branch-head code snapshot.
 
-## 5. Explicit trusted-internal boundaries requiring full call-graph verification
+## 5. Trusted-internal boundaries and caller verification
 
-These methods are not intended as independent user-facing operations. Their callers must be checked and their internal-only contract preserved. They are **not marked PASS solely because they are public or transactional**.
+These methods are not independent user-facing operations. Their production callers and trust contracts are enumerated below. Public Java visibility or transactional annotations alone are not accepted as proof of a trusted boundary.
 
-| Service / method family | Intended caller / trust contract | Remaining verification |
+| Service / method family | Production caller / trust contract | Verified boundary |
 |---|---|---|
-| InventoryService.issue/reserve/release/consume/inspectReturn/receive | operation-specific AuthorizationContext, tenant/branch/actor checks; order-owner lookup for reserve/release/consume; only SYSTEM_DRAFT_EXPIRY may release through cleanup | production callers enumerated in §9; direct cross-tenant read/write tests added |
-| SaleDiscountService.calculate, SaleDocumentsService, BuyerDetailsService | checkout orchestration after checkout/POS/customer authorization | enumerate all callers and verify no controller/job invokes these directly |
-| VendorCustomerService.associate | customer-consent workflow; MANDATORY transaction | verify only CustomerAssociationService.approve calls it |
-| CatalogAvailabilityService.changed | synchronous StockAvailabilityChanged event projection from inventory changes | verify publisher allowlist, tenant tuple validation and event failure semantics |
-| PosService.requireOpen/lockOutlet/allocateReceipt/draftAudit/customerDraftAudit | internal POS transaction primitives now re-check authenticated tenant/branch/actor and operation-specific permission; customer receipt audit verifies customer ownership and paid online order | callers enumerated in §9; direct primitive-denial test added |
-| TenantService and BranchProvisioningServiceImpl | tenant lifecycle mutations and initial branch provisioning require platform identity plus PLATFORM_TENANT_CREATE/UPDATE/SUSPEND/CLOSE/REACTIVATE as applicable; public vendor directory reads remain published/active projections | direct tenant and branch provisioning denial tests added |
-| IdentityProvisioningServiceImpl.ensureVendorEligible/issueInvitation/acceptInvitation | eligibility requires PLATFORM_TENANT_CREATE; invitation issue requires platform create or vendor USER_CREATE; acceptance requires valid one-time invitation token | actor-bound direct invocation and token expiry/one-time tests added |
-| PlatformAuditServiceImpl.record/search | action-to-permission mapping is enforced at write boundary; search remains PLATFORM_AUDIT_VIEW scoped | direct vendor write denied before repository interaction; platform actor/action permission test added |
-| CheckoutService.expire | intended expiry/cleanup operation | no scheduler/job class was identified in the reviewed Java source tree; locate actual caller or reduce visibility safely after confirming no external integration |
-| PlatformMfaService.issueEnrollment/start/complete/status | issue requires PLATFORM_IDENTITY_MANAGE; start/complete require one-time enrollment token; status binds actor to platform audit permission | token hash/expiry/one-time verification retained |
+| InventoryService.issue | No production caller found; administrative adjustment remains permission-gated | INVENTORY_ADJUST plus authenticated vendor tenant/branch before stock lookup |
+| InventoryService.receive | StockReceivingService.receive | INVENTORY_RECEIVE plus authenticated tenant/branch; mandatory transaction; denied call stops before repository/inventory adapter |
+| InventoryService.reserve | CheckoutService online/POS draft creation | Authenticate customer or vendor operation before order lookup; persisted channel, tenant, stock branch, customer/cashier ownership are checked before stock reservation write |
+| InventoryService.release | CheckoutService cancellation; PaymentCheckoutService payment resolution; DraftExpiryJob | Customer/order owner or exact POS cancellation/payment-resolution permission; expiry additionally requires dedicated system principal and reserved authority before order lookup |
+| InventoryService.consume | CheckoutService cash finalization; PaymentCheckoutService tender completion | Authenticated customer/order owner or POS sale/payment-review permission before order lookup and stock consumption |
+| InventoryService.inspectReturn | ReturnService.inspect | Vendor actor, tenant/branch, actor-name match and POS_RETURN_INSPECT before approved-return lookup and stock mutation |
+| SaleDiscountService.calculate, SaleDocumentsService, BuyerDetailsService | CheckoutService orchestration; document/buyer methods are package-private transaction helpers | Not exposed as HTTP, scheduler or event entry points; discount calculation independently checks POS_DISCOUNT_APPLY, reason and tenant discount policy |
+| VendorCustomerService.associate | CustomerAssociationService.approve only | One-time challenge, customer consent and mandatory transaction precede association write |
+| CatalogAvailabilityService.changed | InventoryService StockAvailabilityChanged publisher | Sole stock availability projection subscriber; mandatory transaction; tenant/branch/product tuple retained |
+| CashDrawerProjection.record | CheckoutService CashTenderRecorded publisher after confirmed cash tender | Mandatory transaction; cash fact validation before drawer projection write |
+| DraftSessionProjection.changed | CheckoutService PosDraftStateChanged publisher | Mandatory transaction; tenant/branch/cashier/session/order tuple retained on insert/delete |
+| PosService.requireOpen | CheckoutService, ReturnService and CashRefundService | Rechecks authenticated POS actor, tenant/branch and operation permission before session lookup |
+| PosService.requireOpenForPaymentReview | PaymentCheckoutService.finalizeVerified | Supervisor requires POS_TENDER_MANUAL_VERIFY while locked session remains scoped to original cashier; no POS_SALE_CREATE elevation |
+| PosService.lockOutlet / lockInventoryOutlet | POS checkout/return/refund/settings flows; StockReceivingController for inventory lock | Separate POS and INVENTORY_RECEIVE permission boundaries; direct denied-call tests assert no JDBC access |
+| PosService.allocateReceipt / draftAudit / customerDraftAudit | Checkout/payment completion, receipts and online receipt copies | Actor-specific operation permission or authenticated customer ownership and paid online order verification before persistence |
+| TenantService and BranchProvisioningServiceImpl | PlatformAdminService tenant lifecycle and initial branch onboarding | Exact PLATFORM_TENANT_* or PLATFORM_TENANT_CREATE permission before tenant/branch repository or sequence access |
+| MembershipService.provisionInitialVendorAdmin | PlatformAdminService onboarding | PLATFORM_TENANT_CREATE before membership/grant/JDBC provisioning |
+| IdentityProvisioningServiceImpl.ensureVendorEligible / issueInvitation / acceptInvitation | PlatformAdminService and vendor employee invitation flows | Platform tenant-create or vendor USER_CREATE for invitation issue; one-time token hash/expiry/consumption for acceptance |
+| PlatformAuditServiceImpl.record / search | PlatformAdminService, configuration, support and subscription services through audit ports | Action-to-permission map for writes; PLATFORM_AUDIT_VIEW for reads; vendor write rejected before repository |
+| PlatformConfigurationServiceImpl.put / list | Platform configuration controller/application flow | PLATFORM_CONFIG_MANAGE plus actor binding before repository/audit access |
+| PlatformSupportServiceImpl.grant / revoke / recent | Platform support controller/application flow | PLATFORM_SUPPORT_ACCESS plus actor binding before support repository, tenant lookup or audit access |
+| SubscriptionPlanServiceImpl and TenantSubscriptionServiceImpl | Platform subscription administration flows | Platform-only permission and actor binding before plan/subscription repositories or tenant lifecycle lookup |
+| CheckoutService.expire | DraftExpiryJob.runBatch and expireOne only | Requires exact system:draft-expiry principal and SYSTEM_DRAFT_EXPIRY before DraftRepository access; ReservationCleanup.sweep is unscheduled and delegates to DraftExpiryJob |
+| DraftExpiryJob.scheduledCleanup / runBatch / expireOne | Spring scheduler; deterministic test/internal entry points | Sole scheduled worker; bounded batch; installs dedicated identity/authority and restores previous SecurityContext in finally |
+| PlatformMfaService.issueEnrollment / start / complete / status | Platform MFA controller and one-time enrollment flow | PLATFORM_IDENTITY_MANAGE or token hash/expiry/one-time checks; status is actor-bound |
 
 ## 6. Gaps still open
 
@@ -96,8 +120,9 @@ These methods are not intended as independent user-facing operations. Their call
 
 ### Verified CI evidence
 
-GitHub Actions run [#44012848396](https://github.com/rambrij/solar-energy-platform/actions/runs/44012848396) completed successfully on commit `6c158208fa6c0f0447df77e6c18caafeb44b0b9b`: H2 backend **518 tests passed**, MySQL 8.4 backend **518 tests passed**, frontend tests and production build passed, and the module architecture check passed. This evidence validates that commit only. The subsequent least-privilege supervisor-only catalog lock and its end-to-end regression test are newer changes and remain pending CI at the current branch head.
+GitHub Actions run [#44013599576](https://github.com/rambrij/solar-energy-platform/actions/runs/44013599576) completed successfully on branch-head commit 104baea9da81956ddf2cdb12b0fc601cd4bffdca: H2 backend **526 tests passed**, MySQL 8.4 backend **526 tests passed**, frontend test and production build passed, and the ArchUnit module architecture test passed.
 
+A green run validates the code snapshot attached to that run. INV-SVC-007 and INV-SVC-008 remain partial because route/policy tests and representative deny-before-side-effect tests are not a complete DB-backed role × tenant × branch matrix and do not prove zero collaborator interaction for every public method.
 ## 7. REQUIRES CLARIFICATION
 
 - Warehouse/stock-location assignment remains RC-02 from the P0-01 gap analysis. Do not invent a warehouse permission or new schema.
@@ -108,13 +133,16 @@ GitHub Actions run [#44012848396](https://github.com/rambrij/solar-energy-platfo
 
 **P0-02: IN PROGRESS — NOT ACCEPTANCE-COMPLETE.**
 
-The protected-route 401 scan, endpoint policy-expression matrix, event-listener inventory, inventory/role/payment deny-before-side-effect tests and the supervisor-owned finalization boundary have been expanded. The remaining acceptance gap is the complete data-backed role × tenant × branch 404 matrix and no-side-effect coverage for every remaining public service entry point.
+INV-SVC-001 through INV-SVC-006 have documented inventories/caller evidence and dedicated source or regression tests. The latest branch-head CI passed 526 backend tests on both H2 and MySQL 8.4, plus frontend tests/build and module architecture checks.
 
-Latest hardening on this branch: `CheckoutService.expire` and `InventoryService.release` now require the reserved `SYSTEM_DRAFT_EXPIRY` grant together with the exact `system:draft-expiry` worker principal. `DraftExpiryAuthorizationTest` verifies that an authenticated attacker with the reserved grant is rejected before the checkout repository or inventory JDBC/reservation collaborators are touched. This is a regression test addition; it must still be executed by CI before it is counted as passing evidence.
+INV-SVC-007 remains partial: the implementation exercises all protected controller mappings for anonymous 401 and policy 403, and includes data-backed cross-tenant 404 tests for the principal tenant-owned resource families. It does not yet provide the complete DB-backed role × tenant × branch matrix for every protected resource family.
 
-The service guards and direct-invocation regression tests listed above are implemented. The full public-method inventory, internal caller verification, webhook/background audit, and comprehensive API negative matrix remain mandatory before P0-02 can be marked complete.
+INV-SVC-008 remains partial: denied calls now prove no persistence/adapter access across inventory, payment, vendor role, POS primitives, platform audit/configuration/support, subscription and provisioning boundaries. A uniform no-persistence/no-adapter assertion for every remaining public application-service method is not yet implemented.
 
-A passing CI run validates only the code and tests on that exact commit. It does not substitute for the outstanding method inventory or caller review.
+Expiry hardening is verified: CheckoutService.expire and InventoryService.release require both the reserved SYSTEM_DRAFT_EXPIRY authority and exact system:draft-expiry principal before repository access. DraftExpiryJob is the only scheduled expiry worker; ReservationCleanup is an unscheduled delegate.
+
+A passing CI run is necessary but does not replace the still-open acceptance matrices. Do not mark P0-02 PASS until INV-SVC-007 and INV-SVC-008 have complete evidence.
+
 
 
 ## 9. Complete public business-method inventory (method-by-method)

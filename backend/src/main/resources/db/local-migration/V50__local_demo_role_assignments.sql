@@ -33,7 +33,7 @@ WHERE EXISTS(
 )
 AND NOT EXISTS(
   SELECT 1 FROM employee_role_assignments a
-  WHERE a.tenant_id=e.tenant_id AND a.username=e.username AND a.role_id=r.id
+  WHERE a.tenant_id=e.tenant_id AND a.username=e.username
 );
 
 INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)

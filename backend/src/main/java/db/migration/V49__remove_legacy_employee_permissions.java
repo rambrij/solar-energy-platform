@@ -29,19 +29,19 @@ public class V49__remove_legacy_employee_permissions extends BaseJavaMigration {
                 &&tableExists(connection,"vendor_roles")
                 &&tableExists(connection,"vendor_role_permissions")){
             execute(connection,"""
-                DELETE FROM employee_role_assignments a
+                DELETE FROM employee_role_assignments
                  WHERE EXISTS (
                    SELECT 1 FROM vendor_roles r
-                    WHERE r.tenant_id=a.tenant_id AND r.id=a.role_id
+                    WHERE r.tenant_id=employee_role_assignments.tenant_id AND r.id=employee_role_assignments.role_id
                       AND r.role_key=CONCAT('legacy-',r.created_by)
                       AND r.display_name LIKE 'Migrated grants:%'
                  )
                 """);
             execute(connection,"""
-                DELETE FROM vendor_role_permissions p
+                DELETE FROM vendor_role_permissions
                  WHERE EXISTS (
                    SELECT 1 FROM vendor_roles r
-                    WHERE r.tenant_id=p.tenant_id AND r.id=p.role_id
+                    WHERE r.tenant_id=vendor_role_permissions.tenant_id AND r.id=vendor_role_permissions.role_id
                       AND r.role_key=CONCAT('legacy-',r.created_by)
                       AND r.display_name LIKE 'Migrated grants:%'
                  )

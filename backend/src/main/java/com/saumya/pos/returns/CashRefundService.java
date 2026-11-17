@@ -96,11 +96,13 @@ public class CashRefundService {
  
  public View get(String id) {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
+  retail.requireOpenPosScope(scope,"POS_REFUND_VIEW");
   return view(refunds.findByTenantAndBranchAndId(scope.tenant(), scope.branch(), id).orElseThrow(this::missing), false);
  }
  
  public View byReturn(String returned) {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
+  retail.requireOpenPosScope(scope,"POS_REFUND_VIEW");
   var record = refunds.forReturn(scope.tenant(), returned).orElseThrow(this::missing);
   if (record.branch() != scope.branch()) throw missing();
   return view(record, false);
@@ -108,11 +110,13 @@ public class CashRefundService {
  
  public List<View> list() {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
+  retail.requireOpenPosScope(scope,"POS_REFUND_VIEW");
   return refunds.findTop20ByTenantAndBranchOrderByPaidDescIdDesc(scope.tenant(), scope.branch()).stream().map(r -> view(r, false)).toList();
  }
  
  public View copy(String id) {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW","POS_REFUND_PRINT");
+  retail.requireOpenPosScope(scope,"POS_REFUND_PRINT");
   var refund = refunds.findByTenantAndBranchAndId(scope.tenant(), scope.branch(), id).orElseThrow(this::missing);
   event(refund, scope.cashier(), "REFUND_COPY");
   return view(refund, true);

@@ -48,6 +48,7 @@ public class ReturnService {
     
     public Eligibility eligibility(String order) {
         var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RETURN_VIEW","POS_RETURN_CREATE");
+        retail.requireOpenPosScope(scope,"POS_RETURN_CREATE");
         var sale = sales.read(scope.tenant(), scope.branch(), order);
         var used = used(scope.tenant(), order);
         boolean eligible = rules.eligible(sale.paidAt(), sale.windowDays(), clock.instant());
@@ -71,6 +72,7 @@ public class ReturnService {
    if (i.productId() < 1 || i.quantity() < 1 || i.quantity() > 10000 || !seen.add(i.productId()))
     bad("Choose distinct positive products and quantities");
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RETURN_VIEW","POS_RETURN_CREATE");
+        retail.requireOpenPosScope(scope,"POS_RETURN_CREATE");
   String key = "return-" + hash(List.of(scope.cashier(), clientKey));
   var parts=new ArrayList<>(List.of(scope.cashier(),request.orderId(),request.sessionId(),reason,request.proof(),note));for(var i:chosen){parts.add(Long.toString(i.productId()));parts.add(Integer.toString(i.quantity()));}String fingerprint=hash(parts);
   var prior=cases.findByTenantAndKey(scope.tenant(),key);if(prior.isPresent())return replay(scope,prior.get(),fingerprint);
@@ -97,6 +99,7 @@ public class ReturnService {
   if (request.decision() == null || !Set.of("APPROVED", "REJECTED").contains(request.decision()))
    bad("Approve or reject the intake");
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RETURN_VIEW","POS_RETURN_APPROVE");
+   retail.requireOpenPosScope(scope,"POS_RETURN_APPROVE");
   var c = locked(scope, id);
   rules.independent(c.requester(), scope.cashier());
   if(!c.state().equals("REQUESTED")){if((c.state().equals(request.decision())||(c.state().equals("INSPECTED")&&request.decision().equals("APPROVED")))&&scope.cashier().equals(c.reviewer())&&reason.equals(c.reviewReason()))return view(c);conflict("Return already reviewed with another decision");}
@@ -110,6 +113,7 @@ public class ReturnService {
   var selected = new HashMap<Long, Inspection>();
   var parts = new ArrayList<String>();
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RETURN_VIEW","POS_RETURN_INSPECT");
+   retail.requireOpenPosScope(scope,"POS_RETURN_INSPECT");
   parts.add(scope.cashier());
   for(var line:commands){rules.disposition(line.condition(),line.disposition());String note=text(line.note());if(line.productId()<1||selected.put(line.productId(),line)!=null)bad("Distinct inspection products required");parts.add(Long.toString(line.productId()));parts.add(line.condition());parts.add(line.disposition());parts.add(note);}
   String fingerprint=hash(parts);var c=locked(scope,id);rules.independent(c.requester(),scope.cashier());
@@ -125,6 +129,7 @@ public class ReturnService {
  
  public View get(String id) {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RETURN_VIEW");
+   retail.requireOpenPosScope(scope,"POS_RETURN_VIEW");
   var c = cases.locked(scope.tenant(), scope.branch(), id).orElseThrow(this::missing);
   em.refresh(c, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
   return view(c);
@@ -134,6 +139,7 @@ public class ReturnService {
   if (state == null || !Set.of("REQUESTED", "APPROVED", "REJECTED", "INSPECTED").contains(state))
    bad("Valid return state required");
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_RETURN_VIEW");
+   retail.requireOpenPosScope(scope,"POS_RETURN_VIEW");
   return ( Set.of("REQUESTED", "APPROVED").contains(state) ? cases.findTop20ByTenantAndBranchAndStateOrderByCreatedAscIdAsc(scope.tenant(), scope.branch(), state) : cases.findTop20ByTenantAndBranchAndStateOrderByCreatedDescIdDesc(scope.tenant(), scope.branch(), state) ).stream().map(this::view).toList();
  }
 }

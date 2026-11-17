@@ -70,6 +70,7 @@ public class OrderHistoryService {
     @PreAuthorize("hasAuthority('POS_VIEW')")
     public History pos(String username, Filter filter) {
         var scope=retail.scope();retail.authorize(scope,username,"POS_VIEW");
+        retail.requireOpenPosScope(scope,"POS_VIEW");
         return search(branchScope(scope), filter);
     }
     
@@ -91,6 +92,7 @@ public class OrderHistoryService {
     @PreAuthorize("hasAuthority('POS_VIEW')")
     public Detail posDetail(String username, String id) {
         var scope=retail.scope();retail.authorize(scope,username,"POS_VIEW");
+        retail.requireOpenPosScope(scope,"POS_VIEW");
         return detail(branchScope(scope), id);
     }
     

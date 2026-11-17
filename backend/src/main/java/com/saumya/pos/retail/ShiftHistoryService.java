@@ -23,6 +23,7 @@ public class ShiftHistoryService {
      if (from.getYear() < 1970 || from.isAfter(to) || ChronoUnit.DAYS.between(from, to) > 365 || page < 0 || page > 10000 || size < 1 || size > 48 || !reference.matches("[A-Za-z0-9-]{0,36}"))
          throw invalid();
      var scope = retail.scope();retail.authorize(scope,username,"POS_VIEW");
+     retail.requireAssignedRegisterScope(scope,"POS_VIEW");
      var result = shifts.history(scope.tenant(), scope.branch(), scope.cashier(), from.atStartOfDay(ZoneOffset.UTC).toInstant(), to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant(), reference.toLowerCase(Locale.ROOT) + "%", PageRequest.of(page, size));
      return new History(scope.branch(), from, to, reference, page, size, result.getTotalElements(), result.getTotalPages(), result.getContent());
  }

@@ -10,6 +10,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -26,24 +27,123 @@ public class InventoryService {
  private final CustomerAccess customers;
  private final InventoryOrderRepository orderRecords;
  private final InventoryApprovedReturnRepository approvedReturns;
+ private final JdbcTemplate db;
 
  @Autowired
  public InventoryService(InventoryRepository balances,ReservationRepository reservations,
      ReturnDispositionRepository returns,InventoryIssueRepository issues,ApplicationEventPublisher events,
      AuthorizationContext authorization,CustomerAccess customers,InventoryOrderRepository orderRecords,
-     InventoryApprovedReturnRepository approvedReturns){
+     InventoryApprovedReturnRepository approvedReturns,JdbcTemplate db){
   this.balances=balances;this.reservations=reservations;this.returns=returns;this.issues=issues;this.events=events;
-  this.authorization=authorization;this.customers=customers;this.orderRecords=orderRecords;this.approvedReturns=approvedReturns;
+  this.authorization=authorization;this.customers=customers;this.orderRecords=orderRecords;this.approvedReturns=approvedReturns;this.db=db;
  }
 
- /** Compatibility constructor for isolated tests; mutation methods fail closed without an authorization context. */
+ /** Isolated-test constructor; physical stock access still fails closed without the server resolver. */
+ public InventoryService(InventoryRepository balances,ReservationRepository reservations,
+     ReturnDispositionRepository returns,InventoryIssueRepository issues,ApplicationEventPublisher events,
+     AuthorizationContext authorization,CustomerAccess customers,InventoryOrderRepository orderRecords,
+     InventoryApprovedReturnRepository approvedReturns){
+  this(balances,reservations,returns,issues,events,authorization,customers,orderRecords,approvedReturns,null);
+ }
+
  public InventoryService(InventoryRepository balances,ReservationRepository reservations,
      ReturnDispositionRepository returns,InventoryIssueRepository issues,ApplicationEventPublisher events){
-  this(balances,reservations,returns,issues,events,null,null,null,null);
+  this(balances,reservations,returns,issues,events,null,null,null,null,null);
  }
 
+ /** Resolves the sole server-configured POS stock location. No caller-supplied location id is accepted. */
+ private long designatedLocation(long tenant,long branch){
+  if(db==null)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Server stock-location resolver unavailable");
+  var rows=db.queryForList("SELECT stock_location_id FROM pos_stock_locations WHERE tenant_id=? AND branch_id=? AND active=TRUE",tenant,branch);
+  if(rows.size()!=1)throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Branch has no active designated stock location");
+  return ((Number)rows.getFirst().get("stock_location_id")).longValue();
+ }
+ private void requireAssignedRegister(AuthorizationContext.Context context,long tenant,long branch){
+  if(db==null)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"POS register assignment resolver unavailable");
+  Integer count=db.queryForObject("SELECT COUNT(*) FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND active=TRUE",Integer.class,tenant,branch,context.username());
+  if(count==null||count==0)throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Cashier has no active register assignment in this branch");
+ }
+ private long requireOwnerOpenSession(long tenant,long branch,String owner,String session){
+  if(session==null||session.isBlank()||"null".equals(session))
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN,"POS resource has no authoritative session");
+  var active=db.queryForList("""
+      SELECT p.register_id
+      FROM pos_sessions p
+      JOIN employee_register_assignments a
+        ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id
+       AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE
+      JOIN registers r
+        ON r.tenant_id=p.tenant_id AND r.branch_id=p.branch_id AND r.id=p.register_id
+      WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? AND p.state='OPEN'
+      FOR UPDATE
+      """,tenant,branch,owner,session);
+  if(active.size()!=1)throw new ResponseStatusException(HttpStatus.FORBIDDEN,"POS session is not OPEN or its cashier/register assignment was revoked");
+  return ((Number)active.getFirst().get("register_id")).longValue();
+ }
+ private void requireOpenOrderSession(AuthorizationContext.Context actor,Map<String,Object> order,String ownerPermission){
+  long tenant=((Number)order.get("tenant_id")).longValue();
+  long branch=((Number)order.get("branch_id")).longValue();
+  String owner=String.valueOf(order.get("cashier"));
+  actor.requireTenant(tenant);actor.requireBranch(branch);
+  if(actor.username().equals(owner)){
+   actor.requirePermission(ownerPermission);
+  }else{
+   actor.requirePermission("POS_TENDER_MANUAL_VERIFY");
+  }
+  long register=requireOwnerOpenSession(tenant,branch,owner,String.valueOf(order.get("session_id")));
+  if(!actor.username().equals(owner)){
+   Integer assigned=db.queryForObject("""
+       SELECT COUNT(*) FROM employee_register_assignments
+       WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE
+       """,Integer.class,tenant,branch,actor.username(),register);
+   if(assigned==null||assigned==0)
+    throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Supervisor is not assigned to the cashier's register");
+  }
+ }
+ private void requireCurrentOpenSession(AuthorizationContext.Context actor,long tenant,long branch){
+  requireCurrentOpenSession(actor,tenant,branch,false);
+ }
+ private void lockCurrentOpenSession(AuthorizationContext.Context actor,long tenant,long branch){
+  requireCurrentOpenSession(actor,tenant,branch,true);
+ }
+ private void requireCurrentOpenSession(AuthorizationContext.Context actor,long tenant,long branch,boolean lock){
+  actor.requireTenant(tenant);actor.requireBranch(branch);
+  String sql="""
+      SELECT p.id
+      FROM pos_sessions p
+      JOIN employee_register_assignments a
+        ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id
+       AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE
+      JOIN registers r
+        ON r.tenant_id=p.tenant_id AND r.branch_id=p.branch_id AND r.id=p.register_id
+      WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.state='OPEN'
+      """+(lock?" FOR UPDATE":"");
+  var active=db.queryForList(sql,tenant,branch,actor.username());
+  if(active.size()!=1)throw new ResponseStatusException(HttpStatus.FORBIDDEN,"An assigned OPEN register session is required");
+ }
  private InventoryBalance locked(long tenant,long branch,long product){
+  designatedLocation(tenant,branch);
   return balances.lock(tenant,branch,product).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock location unavailable"));
+ }
+ private long activeAvailable(long tenant,long branch,long product){
+  designatedLocation(tenant,branch);
+  Long value=db.queryForObject("""
+      SELECT COALESCE(SUM(i.quantity-i.reserved),0)
+      FROM inventory i JOIN pos_stock_locations l
+        ON l.tenant_id=i.tenant_id AND l.branch_id=i.branch_id AND l.active=TRUE
+      WHERE i.tenant_id=? AND i.branch_id=? AND i.product_id=?
+      """,Long.class,tenant,branch,product);
+  return value==null?0:value;
+ }
+ private long activeAvailable(long tenant,long product){
+  if(db==null)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Server stock-location resolver unavailable");
+  Long value=db.queryForObject("""
+      SELECT COALESCE(SUM(i.quantity-i.reserved),0)
+      FROM inventory i JOIN pos_stock_locations l
+        ON l.tenant_id=i.tenant_id AND l.branch_id=i.branch_id AND l.active=TRUE
+      WHERE i.tenant_id=? AND i.product_id=?
+      """,Long.class,tenant,product);
+  return value==null?0:value;
  }
  private void changed(long tenant,long branch,long product,InventoryBalance balance){
   balances.flush();events.publishEvent(new StockAvailabilityChanged(tenant,branch,product,balance.available()));
@@ -61,6 +161,7 @@ public class InventoryService {
   row.put("branch_id",record.branchId());
   row.put("stock_branch_id",record.stockBranchId()==null?record.branchId():record.stockBranchId());
   row.put("cashier",record.cashier());
+  row.put("session_id",record.sessionId());
   row.put("customer_id",record.customerId());
   row.put("channel",record.channel());
   row.put("status",record.status());
@@ -119,33 +220,47 @@ public class InventoryService {
 
  /** Safe catalogue projection: only a boolean availability value is exposed to public catalogue reads. */
  @Transactional(readOnly=true)
- public boolean publicInStock(long tenant,long product){return balances.available(tenant,product)>0;}
+ public boolean publicInStock(long tenant,long product){return activeAvailable(tenant,product)>0;}
 
  /** Customer cart projection: reveals only whether the requested quantity is available. */
  @Transactional(readOnly=true)
  public boolean publicAvailableAtLeast(long tenant,long branch,long product,int requested){
-  return requested>0&&balances.atBranch(tenant,branch,product)>=requested;
+  return requested>0&&activeAvailable(tenant,branch,product)>=requested;
  }
 
  /** Exact tenant-wide quantity is available only to an authenticated tenant member. */
  @Transactional(readOnly=true)
  public long available(long tenant,long product){
   var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requirePermission("INVENTORY_VIEW");
-  return balances.available(tenant,product);
+  return activeAvailable(tenant,product);
  }
 
  /** Exact branch quantity is available only to an inventory-authorized member. */
  @Transactional(readOnly=true)
  public long atBranch(long tenant,long branch,long product){
   var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("INVENTORY_VIEW");
-  return balances.atBranch(tenant,branch,product);
+  return activeAvailable(tenant,branch,product);
  }
 
- /** POS catalogue projection uses POS_VIEW and still enforces the authenticated tenant and branch. */
+ /** Require the designated branch stock room and at least one active assigned till for POS catalogue access. */
+ @Transactional(readOnly=true)
+ public void requirePosStockLocation(long tenant,long branch){
+  var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
+  designatedLocation(tenant,branch);
+ }
+
+ @Transactional(readOnly=true)
+ public void requirePosStockScope(long tenant,long branch){
+  var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("POS_VIEW");
+  designatedLocation(tenant,branch);requireAssignedRegister(context,tenant,branch);requireCurrentOpenSession(context,tenant,branch);
+ }
+
+ /** POS catalogue projection uses POS_VIEW and the server-resolved branch stock location. */
  @Transactional(readOnly=true)
  public long atBranchForPos(long tenant,long branch,long product){
   var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("POS_VIEW");
-  return balances.atBranch(tenant,branch,product);
+  designatedLocation(tenant,branch);requireAssignedRegister(context,tenant,branch);requireCurrentOpenSession(context,tenant,branch);
+  return activeAvailable(tenant,branch,product);
  }
 
  @Transactional
@@ -159,6 +274,7 @@ public class InventoryService {
  public int receive(long tenant,long branch,long product,int quantity){
   var context=actor();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);
   context.requirePermission("INVENTORY_RECEIVE");
+  designatedLocation(tenant,branch);
   var balance=balances.lock(tenant,branch,product).orElseGet(()->balances.saveAndFlush(new InventoryBalance(tenant,branch,product)));
   balance.restock(quantity);changed(tenant,branch,product,balance);return balance.available();
  }
@@ -167,6 +283,8 @@ public class InventoryService {
  public void reserve(long tenant,long branch,long product,int quantity,String orderId,Instant expires){
   var order=authorizeOrder(tenant,orderId,branch,"POS_SALE_CREATE");
   if(!"DRAFT".equals(order.get("status")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Only draft orders may reserve stock");
+  if("IN_STORE".equals(order.get("channel")))
+   requireOpenOrderSession(actor(),order,"POS_SALE_CREATE");
   var balance=locked(tenant,branch,product);balance.reserve(quantity);
   reservations.save(new StockReservation(tenant,orderId,product,branch,quantity,expires));
   changed(tenant,branch,product,balance);
@@ -200,6 +318,7 @@ public class InventoryService {
      throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Payment resolution permission required");
    }
    if(!"DRAFT".equals(order.get("status")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Only unpaid draft orders may release stock");
+   if("IN_STORE".equals(order.get("channel")))requireOpenOrderSession(context,order,"POS_SALE_CANCEL");
   }
   for(var reservation:reservations.held(tenant,orderId)){
    var balance=locked(tenant,reservation.branch(),reservation.product());
@@ -222,8 +341,8 @@ public class InventoryService {
    if(!"IN_STORE".equals(row.get("channel")))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Stock reservation unavailable");
    context.requireBranch(branch);
    if(context.username().equals(row.get("cashier")))context.requirePermission("POS_SALE_CREATE");
-   else if(!context.hasAnyPermission("POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_CONFIRM"))
-    throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Payment confirmation permission required");
+   else context.requirePermission("POS_TENDER_MANUAL_VERIFY");
+   requireOpenOrderSession(context,row,"POS_SALE_CREATE");
   }
   if(!Set.of("DRAFT","PAID").contains(String.valueOf(row.get("status"))))
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Only payable draft orders may consume reserved stock");
@@ -247,6 +366,8 @@ public class InventoryService {
       ||!Set.of("SELLABLE","DAMAGED","INCOMPLETE").contains(condition)
       ||("RESTOCK".equals(disposition)&&!"SELLABLE".equals(condition)))
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Invalid return disposition");
+  designatedLocation(tenant,branch);
+  lockCurrentOpenSession(context,tenant,branch);
   if(approvedReturns==null||!approvedReturns.existsByTenantIdAndBranchIdAndIdAndState(tenant,branch,id,"APPROVED"))
    throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Approved return unavailable");
   var key=new ReturnDisposition.Key(tenant,id,product);

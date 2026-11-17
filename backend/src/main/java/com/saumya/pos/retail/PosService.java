@@ -28,6 +28,7 @@ public class PosService {
     }
     public record Scope(long tenant, long branch, String cashier) {}
     public record OpenSession(@Positive long registerId, @NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal openingFloat) {}
+    public record ReopenSession(@NotNull @DecimalMin("0.00") @Digits(integer=12,fraction=2) BigDecimal openingFloat, @NotBlank @Size(max=250) String reason) {}
     public enum MovementType { CASH_IN, CASH_OUT, SAFE_DROP }
     public record CashMovement(
         @NotNull MovementType type,
@@ -61,8 +62,33 @@ public class PosService {
         if(!context.isCustomer()||!context.username().equals(expectedActor))
             throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
     }
+    /** Read boundary for historical POS functions: current tenant, branch, stock room and register assignment. */
+    public void requireAssignedRegisterScope(Scope s,String permission) {
+        authorize(s,s.cashier(),permission);
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
+        Integer count=db.queryForObject("SELECT COUNT(*) FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND active=TRUE",Integer.class,s.tenant(),s.branch(),s.cashier());
+        if(count==null||count==0)throw new ResponseStatusException(FORBIDDEN,"An active register assignment is required");
+    }
+
+    /** POS reads without an explicit session id use the authenticated cashier's sole OPEN session. */
+    public void requireOpenPosScope(Scope s,String permission) {
+        requireAssignedRegisterScope(s,permission);
+        var active=db.queryForList("""
+            SELECT p.id
+            FROM pos_sessions p
+            JOIN employee_register_assignments a
+              ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id
+             AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE
+            JOIN registers r
+              ON r.tenant_id=p.tenant_id AND r.branch_id=p.branch_id AND r.id=p.register_id
+            WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.state='OPEN'
+            """,s.tenant(),s.branch(),s.cashier());
+        if(active.size()!=1)throw new ResponseStatusException(FORBIDDEN,"An assigned OPEN register session is required");
+    }
+
     public List<Map<String,Object>> products(Scope s) {
         authorize(s,s.cashier(),"POS_VIEW");
+        catalogue.requirePosStockScope(s.tenant(),s.branch());
         return catalogue.posProducts(s.tenant,s.branch);
     }
     public record SessionSummary(String id,long registerId,BigDecimal openingFloat,String state) {}
@@ -71,11 +97,13 @@ public class PosService {
     }
     public List<SessionSummary> activeSessions(Scope s) {
         authorize(s,s.cashier(),"POS_VIEW");
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
         return db.query("SELECT p.id,p.register_id,p.opening_float,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.state IN ('OPEN','CLOSING') ORDER BY p.register_id,p.id",
             this::sessionSummary,s.tenant,s.branch,s.cashier);
     }
     public SessionSummary sessionDetails(Scope s,String id) {
         authorize(s,s.cashier(),"POS_VIEW");
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
         return db.query("SELECT p.id,p.register_id,p.opening_float,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=?",
             this::sessionSummary,s.tenant,s.branch,s.cashier,id).stream().findFirst()
             .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Resource unavailable"));
@@ -83,6 +111,7 @@ public class PosService {
     @Transactional
     public SessionSummary resume(Scope s,String id) {
         authorize(s,s.cashier(),"POS_VIEW","POS_SESSION_OPEN");
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
         var shift=one("SELECT p.state,p.register_id FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
         if(!Set.of("OPEN","CLOSING").contains(shift.get("state")))fail("Session is closed");
         audit(s,"SESSION_RESUME",id);
@@ -91,6 +120,7 @@ public class PosService {
     @Transactional
     public Map<String,Object> open(Scope s, OpenSession request) {
         authorize(s,s.cashier(),"POS_SESSION_OPEN");
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
         // Lock the register before checking occupancy, including on MySQL.
         one("SELECT id FROM registers WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant,s.branch,request.registerId);
         if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",s.tenant,s.branch,s.cashier,request.registerId).isEmpty())
@@ -101,6 +131,31 @@ public class PosService {
         audit(s,"SESSION_OPEN",id);
         return Map.of("id",id);
     }
+
+    /** Reopen as a new shift on the same register; the previously closed session remains immutable. */
+    @Transactional
+    public Map<String,Object> reopen(Scope s,String previousSessionId,ReopenSession request) {
+        authorize(s,s.cashier(),"POS_SESSION_REOPEN");
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
+        if(request==null||request.reason()==null||request.reason().isBlank())
+            throw new ResponseStatusException(BAD_REQUEST,"A reopen reason is required");
+        var prior=one("SELECT p.register_id,p.state FROM pos_sessions p WHERE p.tenant_id=? AND p.branch_id=? AND p.id=? FOR UPDATE",
+            s.tenant(),s.branch(),previousSessionId);
+        if(!"CLOSED".equals(prior.get("state")))throw new ResponseStatusException(CONFLICT,"Only a CLOSED session can be reopened as a new shift");
+        long register=((Number)prior.get("register_id")).longValue();
+        one("SELECT id FROM registers WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant(),s.branch(),register);
+        requireAssignedRegister(s,register);
+        if(!db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=? AND register_id=? AND state IN ('OPEN','CLOSING')",
+            s.tenant(),register).isEmpty())fail("Register already occupied");
+        String id=UUID.randomUUID().toString();
+        db.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float) VALUES(?,?,?,?,?,'OPEN',?)",
+            id,s.tenant(),s.branch(),s.cashier(),register,request.openingFloat());
+        db.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,resource_type,resource_id,action,reason) VALUES(?,?,?,?,?,?)",
+            s.tenant(),s.cashier(),"POS_SESSION",id,"SESSION_REOPENED",request.reason().strip());
+        audit(s,"SESSION_REOPEN",id);
+        return Map.of("id",id,"previousSessionId",previousSessionId);
+    }
+
     private void requireAssignedRegister(Scope s,long registerId) {
         if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",
             s.tenant,s.branch,s.cashier,registerId).isEmpty())
@@ -117,7 +172,7 @@ public class PosService {
         if(!context.hasAnyPermission(permissions))throw new ResponseStatusException(FORBIDDEN,"Missing required POS operation permission");
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public void requireOpen(Scope s,String id){authorizeInternalScope(s,"POS_SALE_CREATE","POS_RETURN_CREATE","POS_REFUND_CASH_RECORD");session(s,id);}
+    public void requireOpen(Scope s,String id){authorizeInternalScope(s,"POS_SALE_CREATE","POS_RETURN_CREATE","POS_REFUND_CASH_RECORD");catalogue.requirePosStockLocation(s.tenant(),s.branch());session(s,id);}
 
     /**
      * A separately authorized tender supervisor may finalize a cashier's paid sale.
@@ -127,7 +182,10 @@ public class PosService {
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void requireOpenForPaymentReview(Scope reviewer,String ownerCashier,String sessionId){
         authorizeInternalScope(reviewer,"POS_TENDER_MANUAL_VERIFY");
+        catalogue.requirePosStockLocation(reviewer.tenant(),reviewer.branch());
         session(new Scope(reviewer.tenant(),reviewer.branch(),ownerCashier),sessionId);
+        long register=((Number)one("SELECT register_id FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=?",reviewer.tenant(),reviewer.branch(),ownerCashier,sessionId).get("register_id")).longValue();
+        requireAssignedRegister(reviewer,register);
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void requireOpenForCustomer(long tenant,long branch,long customer,String orderId,String cashier,String sessionId){
@@ -145,6 +203,9 @@ public class PosService {
     public void lockOutlet(Scope s){
         authorizeInternalScope(s,"POS_VIEW","POS_SALE_CREATE","POS_SALE_CANCEL","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT",
             "POS_REFUND_CASH_RECORD","POS_TENDER_MANUAL_VERIFY","POS_TENDER_EXTERNAL_RECORD","POS_RECEIPT_REPRINT","POS_SETTINGS_MANAGE");
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
+        Integer assigned=db.queryForObject("SELECT COUNT(*) FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND active=TRUE",Integer.class,s.tenant(),s.branch(),s.cashier());
+        if(assigned==null||assigned==0)throw new ResponseStatusException(FORBIDDEN,"An active register assignment is required");
         one("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",s.tenant,s.branch);
     }
     /** Inventory receipt serialization is a distinct boundary; inventory staff need not hold POS_VIEW. */
@@ -236,7 +297,7 @@ public class PosService {
             this::closeResult,s.tenant,s.branch,s.cashier,id).stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND));
     }
     public CloseResult closeStatus(Scope s,String id) {
-        authorize(s,s.cashier(),"POS_VIEW");
+        requireAssignedRegisterScope(s,"POS_VIEW");
         return closeStatusInternal(s,id);
     }
     @Transactional public CloseResult close(Scope s,String id,BigDecimal counted) { return close(s,id,counted,null); }
@@ -245,6 +306,7 @@ public class PosService {
     }
     @Transactional public CloseResult close(Scope s,String id,BigDecimal counted,String reason,String requestId) {
         authorize(s,s.cashier(),"POS_SESSION_CLOSE");
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
         var shift=one("SELECT p.* FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);
         String normalized=reason==null||reason.isBlank()?null:reason.strip();
         if(requestId!=null) {
@@ -270,17 +332,23 @@ public class PosService {
         return closeStatus(s,id);
     }
     @Transactional public List<CloseResult> pendingVariances(Scope s) {
-        authorize(s,s.cashier(),"POS_SHIFT_VARIANCE_APPROVE");
-        var rows=db.query("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier<>? AND state='CLOSING' ORDER BY close_requested_at,id",
-            this::closeResult,s.tenant,s.branch,s.cashier);
+        requireAssignedRegisterScope(s,"POS_SHIFT_VARIANCE_APPROVE");
+        var rows=db.query("""
+            SELECT p.* FROM pos_sessions p
+            JOIN employee_register_assignments a
+              ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=? AND a.register_id=p.register_id AND a.active=TRUE
+            WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier<>? AND p.state='CLOSING'
+            ORDER BY p.close_requested_at,p.id
+            """,this::closeResult,s.cashier,s.tenant,s.branch,s.cashier);
         audit(s,"SHIFT_REVIEW_LIST",Long.toString(s.branch));
         return rows;
     }
     public enum ReviewAction { APPROVE, RETURN_FOR_CORRECTION }
     @Transactional public Map<String,Object> reviewVariance(Scope s,String id,String requestId,String reason,ReviewAction action) {
-        authorize(s,s.cashier(),"POS_SHIFT_VARIANCE_APPROVE");
+        requireAssignedRegisterScope(s,"POS_SHIFT_VARIANCE_APPROVE");
         var shift=one("SELECT * FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant,s.branch,id);
         if(s.cashier.equals(shift.get("cashier")))throw new ResponseStatusException(FORBIDDEN,"A different supervisor must review the count");
+        requireAssignedRegister(s,((Number)shift.get("register_id")).longValue());
         var previous=db.queryForList("SELECT * FROM pos_shift_reviews WHERE tenant_id=? AND session_id=? AND close_request_id=?",s.tenant,id,requestId);
         String normalized=reason.strip();
         if(!previous.isEmpty()) {
@@ -305,6 +373,7 @@ public class PosService {
     @Transactional
     public Map<String,Object> cashMovement(Scope s, String sessionId, String key, CashMovement request) {
         authorize(s,s.cashier(),"POS_"+request.type().name());
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
         if(key==null || !key.matches("[A-Za-z0-9_-]{8,80}"))
             throw new ResponseStatusException(BAD_REQUEST,"Valid Idempotency-Key required");
         // The same session lock protects sales, closing and all drawer movements.
@@ -343,7 +412,7 @@ public class PosService {
     }
     @Transactional
     public Reconciliation reconciliation(Scope s,String id) {
-        authorize(s,s.cashier(),"POS_VIEW");
+        requireAssignedRegisterScope(s,"POS_VIEW");
         return reconciliationInternal(s,id);
     }
     private Reconciliation reconciliationInternal(Scope s,String id) {

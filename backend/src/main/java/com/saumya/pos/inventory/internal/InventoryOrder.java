@@ -28,6 +28,9 @@ public class InventoryOrder {
     @Column(name = "cashier", length = 100)
     private String cashier;
 
+    @Column(name = "session_id", length = 36)
+    private String sessionId;
+
     @Column(name = "customer_id")
     private Long customerId;
 
@@ -44,6 +47,7 @@ public class InventoryOrder {
     public Long branchId() { return branchId; }
     public Long stockBranchId() { return stockBranchId; }
     public String cashier() { return cashier; }
+    public String sessionId() { return sessionId; }
     public Long customerId() { return customerId; }
     public String channel() { return channel; }
     public String status() { return status; }

@@ -58,7 +58,16 @@ public class CatalogService {
         if(!product.published())throw missing();
         return info(tenant,product,true);
     }
+    public void requirePosStockLocation(long tenant,long branch){
+        var actor=authorization.current();actor.requireVendorMembership();actor.requireTenant(tenant);actor.requireBranch(branch);
+        stock.requirePosStockLocation(tenant,branch);
+    }
+    public void requirePosStockScope(long tenant,long branch){
+        var actor=authorization.current();actor.requireVendorMembership();actor.requireTenant(tenant);actor.requireBranch(branch);actor.requirePermission("POS_VIEW");
+        stock.requirePosStockScope(tenant,branch);
+    }
     public List<Map<String,Object>> posProducts(long tenant,long branch){
         var actor=authorization.current();actor.requireVendorMembership();actor.requireTenant(tenant);actor.requireBranch(branch);actor.requirePermission("POS_VIEW");
+        stock.requirePosStockScope(tenant,branch);
         return products.findByTenantIdAndPublishedTrueOrderById(tenant).stream().map(p->{Map<String,Object> row=new LinkedHashMap<>();row.put("id",p.id());row.put("sku",p.sku());row.put("barcode",p.barcode());row.put("name",p.name());row.put("brand",p.brand());var quoted=info(tenant,p);row.put("price",quoted.price());row.put("list_price",quoted.listPrice());row.put("discount_percent",quoted.discountPercent());row.put("category_id",quoted.categoryId());row.put("category_name",quoted.categoryName());row.put("tax_rate",p.taxRate());row.put("quantity",stock.atBranchForPos(tenant,branch,p.id()));return row;}).toList();}
 }

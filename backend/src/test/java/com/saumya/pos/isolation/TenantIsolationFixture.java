@@ -44,6 +44,12 @@ public final class TenantIsolationFixture {
         db.update("INSERT INTO branches(id,tenant_id,name) VALUES(?,?,?),(?,?,?)",
             VENDOR_A_BRANCH, VENDOR_A_TENANT, "P004 Branch A",
             VENDOR_B_BRANCH, VENDOR_B_TENANT, "P004 Branch B");
+        db.update("""
+            INSERT INTO pos_stock_locations(tenant_id,branch_id,stock_location_id,location_code,display_name,active)
+            VALUES(?,?,?,'POS_DEFAULT',?,TRUE),(?,?,?,'POS_DEFAULT',?,TRUE)
+            """,
+            VENDOR_A_TENANT,VENDOR_A_BRANCH,VENDOR_A_BRANCH,"P004 Branch A POS stock room",
+            VENDOR_B_TENANT,VENDOR_B_BRANCH,VENDOR_B_BRANCH,"P004 Branch B POS stock room");
 
         db.update("""
             INSERT INTO users(id,username,password_hash,enabled)

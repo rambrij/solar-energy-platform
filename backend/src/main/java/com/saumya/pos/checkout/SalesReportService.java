@@ -41,6 +41,7 @@ public class SalesReportService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose ALL, IN_STORE or ONLINE and an inclusive UTC range of at most 366 days");
         var scope = retail.scope();
         retail.authorize(scope,username,"POS_VIEW","POS_REPORT_VIEW");
+        retail.requireOpenPosScope(scope,"POS_REPORT_VIEW");
         Instant start=from.atStartOfDay(ZoneOffset.UTC).toInstant(),until=to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
         var names=channel.equals("ALL")?List.of("ONLINE","IN_STORE"):List.of(channel);
         var buckets=new LinkedHashMap<LocalDate,Map<String,Bucket>>();

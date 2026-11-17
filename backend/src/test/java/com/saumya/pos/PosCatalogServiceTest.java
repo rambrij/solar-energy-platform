@@ -18,7 +18,8 @@ class PosCatalogServiceTest {
   var catalogue=new CatalogService(null,null,null){@Override public List<CategoryInfo> publishedCategories(long tenant){assertThat(tenant).isEqualTo(7);return List.of(new CategoryInfo(11,"Panels","panels",1));}};
   var auth=mock(AuthorizationContext.class);
   when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier",7L,9L,Set.of("POS_VIEW"),false,false,true));
-  service=new PosCatalogService(repo,catalogue,auth);
+  var stock=mock(com.saumya.pos.inventory.InventoryService.class);
+  service=new PosCatalogService(repo,catalogue,auth,stock);
  }
  @Test void bindsAssignedScopeAndEscapesBarcodeSearch(){rows=List.of(row());var result=service.search(7,9," P%_! ","11","price-low",true,2,12);assertThat(arguments).containsExactly(7L,9L,"%p!%!_!!%","",false,11L,false,true,"price-low",PageRequest.of(2,12));assertThat(result.items().getFirst().quantity()).isEqualTo(3);assertThat(result.categories()).extracting(CatalogSearchService.Category::count).containsExactly(1L,1L);}
  @Test void exactScanIgnoresPageAndStockFilters(){rows=List.of(row());assertThat(service.scan(7,9," P1 ").id()).isEqualTo(5);assertThat(arguments).containsExactly(7L,9L,"","p1",true,0L,false,false,"name",PageRequest.of(0,2));}

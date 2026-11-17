@@ -32,6 +32,7 @@ public class CashierSalesService {
          throw invalid();
      var scope = retail.scope();
      retail.authorize(scope,username,"POS_VIEW","POS_REPORT_VIEW","POS_CASHIER_REPORT_VIEW");
+     retail.requireOpenPosScope(scope,"POS_CASHIER_REPORT_VIEW");
      Instant start = from.atStartOfDay(ZoneOffset.UTC).toInstant(), until = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
      var headers = reports.headers(scope.tenant(), scope.branch(), start, until, PageRequest.of(page, size));
      var buckets = new LinkedHashMap<String, Bucket>();

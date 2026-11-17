@@ -66,7 +66,7 @@ class PosTest {
   update("DELETE FROM order_buyer_snapshots");
   update("DELETE FROM vendor_payment_attempts");
   update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","inventory","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
+  for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","inventory","pos_stock_locations","products","registers","employees","branches","tenants","users")) update("DELETE FROM "+table);
   update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(1,'Vendor A','vendor-1','Vendor A','ACTIVE'),(2,'Vendor B','vendor-2','Vendor B','ACTIVE')");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",effectivePermissions("alice").stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
@@ -76,7 +76,22 @@ class PosTest {
   update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,1,1),(2,2,2,1)");
   session=(String)asScope(a, () -> service.open(a,new PosService.OpenSession(1,new BigDecimal("50")))).get("id");
  }
- int update(String sql,Object...args){int result=db.update(sql,args);if(sql.matches("(?is)^\\s*(?:UPDATE\\s+inventory\\b|INSERT\\s+INTO\\s+inventory\\b|DELETE\\s+FROM\\s+inventory\\b).*")){db.update("DELETE FROM catalog_stock");db.update("INSERT INTO catalog_stock SELECT tenant_id,branch_id,product_id,quantity-reserved FROM inventory");}return result;}
+ int update(String sql,Object...args){
+  int result=db.update(sql,args);
+  if(sql.matches("(?is)^\\s*INSERT\\s+INTO\\s+branches\\b.*")){
+   db.update("""
+    INSERT INTO pos_stock_locations(tenant_id,branch_id,stock_location_id,location_code,display_name,active)
+    SELECT b.tenant_id,b.id,b.id,'POS_DEFAULT',CONCAT(b.name,' POS stock room'),TRUE
+    FROM branches b WHERE NOT EXISTS(
+      SELECT 1 FROM pos_stock_locations l WHERE l.tenant_id=b.tenant_id AND l.branch_id=b.id)
+    """);
+  }
+  if(sql.matches("(?is)^\\s*(?:UPDATE\\s+inventory\\b|INSERT\\s+INTO\\s+inventory\\b|DELETE\\s+FROM\\s+inventory\\b).*")){
+   db.update("DELETE FROM catalog_stock");
+   db.update("INSERT INTO catalog_stock SELECT tenant_id,branch_id,product_id,quantity-reserved FROM inventory");
+  }
+  return result;
+ }
  @AfterEach void clearPrincipal(){org.springframework.security.core.context.SecurityContextHolder.clearContext();}
  void employee(String username,long tenant,long branch){
   long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
@@ -552,6 +567,30 @@ class PosTest {
   }
  }
  boolean attempt(String key){try{as("alice",()->as("alice", () -> checkout.cashSale(a.cashier(),key,sale(1,"110"))));return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}}
+
+ @Test void concurrentSessionOpenAttemptsReserveARegisterExactlyOnce() throws Exception {
+  asScope(a,()->service.close(a,session,new BigDecimal("50")));
+  try(var pool=Executors.newFixedThreadPool(2)){
+   Callable<Boolean> open=()->{
+    try{asScope(a,()->service.open(a,new PosService.OpenSession(1,new BigDecimal("10"))));return true;}
+    catch(org.springframework.web.server.ResponseStatusException|org.springframework.dao.DataIntegrityViolationException denied){return false;}
+   };
+   var results=pool.invokeAll(List.of(open,open));
+   assertThat(results.get(0).get()^results.get(1).get()).isTrue();
+  }
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=1 AND register_id=1 AND state IN ('OPEN','CLOSING')",Integer.class)).isEqualTo(1);
+ }
+
+ @Test void databaseRejectsCrossBranchSessionAndOrderRelationships(){
+  var draft=as("alice",()->checkout.pos("alice","p005-cross-branch",posDraft()));
+  assertThatThrownBy(()->update("UPDATE pos_sessions SET branch_id=2 WHERE tenant_id=1 AND id=?",session))
+    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThatThrownBy(()->update("UPDATE orders SET branch_id=2 WHERE tenant_id=1 AND id=?",draft.id()))
+    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThat(db.queryForObject("SELECT branch_id FROM pos_sessions WHERE tenant_id=1 AND id=?",Long.class,session)).isEqualTo(1L);
+  assertThat(db.queryForObject("SELECT branch_id FROM orders WHERE tenant_id=1 AND id=?",Long.class,draft.id())).isEqualTo(1L);
+ }
+
  @Test void registerAndSessionScopeAreEnforced(){
   assertThatThrownBy(()->asScope(a, () -> service.open(a,new PosService.OpenSession(1,BigDecimal.ZERO))));
   assertThatThrownBy(()->as("bob", () -> checkout.cashSale(b.cashier(),"bad-sess1",sale(2,"110"))));
@@ -559,12 +598,124 @@ class PosTest {
   asScope(a, () -> service.close(a,session,new BigDecimal("50")));
   assertThatThrownBy(()->as("alice", () -> checkout.cashSale(a.cashier(),"closed-01",sale(1,"110"))));
  }
+
+ @Test void posStockLocationAndRegisterAssignmentAreServerResolvedAndFailClosed(){
+  assertThat(db.queryForObject("SELECT stock_location_id FROM pos_stock_locations WHERE tenant_id=1 AND branch_id=1",Long.class)).isEqualTo(1L);
+  assertThat(as("alice",()->stock.atBranchForPos(1,1,1))).isEqualTo(1L);
+  int quantity=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  update("UPDATE pos_stock_locations SET active=FALSE WHERE tenant_id=1 AND branch_id=1");
+  assertThatThrownBy(()->as("alice",()->stock.atBranchForPos(1,1,1)))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("alice",()->service.products(a)))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantity);
+  update("UPDATE pos_stock_locations SET active=TRUE WHERE tenant_id=1 AND branch_id=1");
+  update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='alice',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND register_id=1");
+  assertThatThrownBy(()->as("alice",()->stock.requirePosStockScope(1,1)))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("alice",()->stock.atBranchForPos(1,1,1)))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantity);
+ }
+
+ @Test void inventoryReservationConsumeAndReleaseRecheckLiveSessionAndRegisterAssignment(){
+  var draft=as("alice",()->checkout.pos("alice","p005-revoked-assignment",posDraft()));
+  int quantity=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  int reserved=db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  int holds=db.queryForObject("SELECT COUNT(*) FROM stock_reservations WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
+  int ledger=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class);
+  int ordersBefore=db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class);
+  int tendersBefore=db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders",Integer.class);
+  int paymentAttemptsBefore=db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class);
+  update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='alice',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND register_id=1");
+  assertThatThrownBy(()->as("alice",()->stock.reserve(1,1,1,1,draft.id(),java.time.Instant.now().plusSeconds(300))))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("alice",()->stock.consume(1,draft.id())))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("alice",()->stock.release(1,draft.id())))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantity);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(reserved);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(holds);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(ledger);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(ordersBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders",Integer.class)).isEqualTo(tendersBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(paymentAttemptsBefore);
+  assignRegister("alice",1,1,1);
+  update("UPDATE pos_sessions SET state='CLOSED',closed_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND id=?",session);
+  assertThatThrownBy(()->as("alice",()->stock.release(1,draft.id())))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->as("alice",()->stock.consume(1,draft.id())))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantity);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(reserved);
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE tenant_id=1 AND id=?",String.class,draft.id())).isEqualTo("DRAFT");
+ }
+
+ @Test void sessionReopenApiRequiresPermissionAndCannotChooseTheRegisterOrCashier() throws Exception {
+  asScope(a,()->service.close(a,session,new BigDecimal("50")));
+  String path="/api/v1/vendor/pos/sessions/"+session+"/reopen";
+  String body="{\"openingFloat\":20,\"reason\":\"Supervisor reviewed drawer\",\"tenantId\":2,\"branchId\":2,\"registerId\":2,\"cashierUserId\":\"bob\",\"posSessionId\":\"forged\"}";
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_REOPEN"))
+      .contentType("application/json").content(body))
+    .andExpect(status().isForbidden());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=1 AND register_id=1 AND state='OPEN'",Integer.class)).isZero();
+  employee("manager",1,1);
+  addAssignedRolePermission("manager","POS_SESSION_REOPEN");
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_SESSION_REOPEN"))
+      .contentType("application/json").content("{\"openingFloat\":20,\"reason\":\"Supervisor reviewed drawer\"}"))
+    .andExpect(status().isOk());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=1 AND register_id=1 AND state='OPEN'",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT state FROM pos_sessions WHERE tenant_id=1 AND id=?",String.class,session)).isEqualTo("CLOSED");
+ }
+
+ @Test void sessionReopenRequiresExplicitPermissionAndCreatesANewImmutableShift(){
+  var cashier=new PosService.Scope(1,1,"charlie");
+  employee("charlie",1,1);
+  asScope(a,()->service.close(a,session,new BigDecimal("50")));
+  assertThatThrownBy(()->asScope(cashier,()->service.reopen(cashier,session,new PosService.ReopenSession(BigDecimal.TEN,"Supervisor approved reopen"))))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  var manager=supervisor("manager");
+  addAssignedRolePermission("manager","POS_SESSION_REOPEN");
+  Map<String,Object> reopened=asScope(manager,()->service.reopen(manager,session,new PosService.ReopenSession(new BigDecimal("20"),"Drawer inspected and approved")));
+  String newSession=(String)reopened.get("id");
+  assertThat(newSession).isNotEqualTo(session);
+  assertThat(db.queryForObject("SELECT state FROM pos_sessions WHERE id=?",String.class,session)).isEqualTo("CLOSED");
+  assertThat(db.queryForObject("SELECT state FROM pos_sessions WHERE id=?",String.class,newSession)).isEqualTo("OPEN");
+  assertThat(db.queryForObject("SELECT cashier FROM pos_sessions WHERE id=?",String.class,newSession)).isEqualTo("manager");
+  assertThat(db.queryForObject("SELECT register_id FROM pos_sessions WHERE id=?",Long.class,newSession)).isEqualTo(1L);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=1 AND resource_id=? AND reason=?",Integer.class,newSession,"Drawer inspected and approved")).isEqualTo(1);
+  assertThatThrownBy(()->asScope(a,()->service.cashMovement(a,session,"closed-till",movement(PosService.MovementType.CASH_IN,"1","Closed drawer"))))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+ }
+
+ @Test void databaseRequiresTheBranchDesignatedStockLocationForInventoryRows(){
+  update("INSERT INTO branches(id,tenant_id,name) VALUES(77,1,'Unmapped branch')");
+  update("DELETE FROM pos_stock_locations WHERE tenant_id=1 AND branch_id=77");
+  assertThatThrownBy(()->update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,77,1,1)"))
+    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory WHERE tenant_id=1 AND branch_id=77",Integer.class)).isZero();
+ }
+
+ @Test void databaseBindsReservationsAndInventoryIssuesToTheOrderStockBranch(){
+  update("INSERT INTO branches(id,tenant_id,name) VALUES(78,1,'Second POS branch')");
+  update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,78,1,10)");
+  var draft=as("alice",()->checkout.pos("alice","p005-cross-branch-stock",posDraft()));
+  assertThatThrownBy(()->update("UPDATE orders SET stock_branch_id=78 WHERE tenant_id=1 AND id=?",draft.id()))
+    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThatThrownBy(()->update("INSERT INTO stock_reservations(tenant_id,order_id,product_id,branch_id,quantity,state,expires_at) VALUES(1,?,1,78,1,'HELD',CURRENT_TIMESTAMP)",draft.id()))
+    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThatThrownBy(()->update("INSERT INTO inventory_ledger(tenant_id,branch_id,product_id,order_id,quantity_delta) VALUES(1,78,1,?, -1)",draft.id()))
+    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+ }
  @Test void authenticationPermissionsCsrfAndForgedFields() throws Exception {
   mvc.perform(get("/api/v1/vendor/pos/products").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/vendor/pos/products").with(user("alice"))).andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/vendor/pos/sales").with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
-   .header("Idempotency-Key","forged-01").contentType("application/json").content("{\"tenantId\":2,\"sessionId\":\"x\",\"items\":[{\"productId\":1,\"quantity\":1}],\"cashReceived\":110}"))
+   .header("Idempotency-Key","forged-01").contentType("application/json").content("{\"tenantId\":2,\"branchId\":2,\"warehouseId\":99,\"stockLocationId\":99,\"registerId\":99,\"cashierUserId\":\"bob\",\"sessionId\":\"x\",\"items\":[{\"productId\":1,\"quantity\":1}],\"cashReceived\":110}"))
    .andExpect(status().isBadRequest());
  }
  @Test void httpCheckoutUsesAuthenticatedMembership() throws Exception {

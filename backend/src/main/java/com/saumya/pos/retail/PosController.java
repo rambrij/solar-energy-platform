@@ -47,6 +47,12 @@ class PosController {
         return service.resume(service.scope(), id);
     }
     record ResumeSession() {}
+
+    @PostMapping("/sessions/{id}/reopen")
+    @PreAuthorize("hasAuthority('POS_SESSION_REOPEN')")
+    Object reopen(@PathVariable String id, @Valid @RequestBody PosService.ReopenSession request) {
+        return service.reopen(service.scope(), id, request);
+    }
     record CloseSession(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("0.00") @jakarta.validation.constraints.Digits(integer=12,fraction=2) java.math.BigDecimal countedCash,
                         @jakarta.validation.constraints.Size(max=250) String reason,
                         @jakarta.validation.constraints.Pattern(regexp="[0-9a-fA-F-]{36}") String requestId) {}

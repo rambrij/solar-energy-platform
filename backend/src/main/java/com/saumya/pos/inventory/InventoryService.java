@@ -38,7 +38,7 @@ public class InventoryService {
 
  public InventoryService(InventoryRepository balances,ReservationRepository reservations,
      ReturnDispositionRepository returns,InventoryIssueRepository issues,ApplicationEventPublisher events){
-  this(balances,reservations,returns,issues,events,null,null,null,null,null);
+  this(balances,reservations,returns,issues,events,null,null,null,null);
  }
 
  /** Resolves the sole server-configured POS stock location. No caller-supplied location id is accepted. */

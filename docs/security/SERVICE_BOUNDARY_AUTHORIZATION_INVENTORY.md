@@ -85,7 +85,7 @@ No frontend changes or schema migrations are part of P0-02.
 - PlatformAdminServiceAuthorizationTest, PlatformAuditServiceTest, BranchProvisioningServiceTest, IdentityProvisioningServiceTest, MembershipServiceTest and TenantServiceDirectoryValidationTest: verify platform actor/permission boundaries and provisioning denials before their repositories/sequences.
 - Existing POS/API tests cover 401/403 and cross-tenant 404 cases for inventory, product/category management, customer order/receipt ownership, POS sessions/tenders, returns/refunds, history, reports and exports.
 
-**Verified CI:** [GitHub Actions run #44017985492](https://github.com/rambrij/solar-energy-platform/actions/runs/44017985492) completed successfully on commit `ab0604f0b87cf404ead8eeb53eb230a5b2122c28`: H2 backend **544 tests passed**, MySQL 8.4 backend **544 tests passed**, frontend tests and production build passed, and the module architecture test passed. This run includes CartService all-method denial, catalog/promotion/discount policy denials, return/refund/export, branch-policy/read-only service denial, and the authenticated zero-authority protected-GET route matrix.
+**Verified CI:** [GitHub Actions run #44048006296](https://github.com/rambrij/solar-energy-platform/actions/runs/44048006296) completed successfully on code commit `e6250e19acd59742cd850d1966bff3f7733b98fc`: H2 backend **565 tests passed**, MySQL 8.4 backend **565 tests passed**, frontend tests and production build passed, and the ArchUnit module architecture test passed. Both backend profiles report 0 failures and 0 errors. This run includes the method-inventory regression, direct CheckoutService denials, CustomerAccess and ReturnSaleAccess boundaries, trusted customer-association boundary, and controller method-security scan.
 
 ## 5. Trusted-internal boundaries and caller verification
 
@@ -190,7 +190,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | CashierSalesService | report | POS_VIEW, POS_REPORT_VIEW and POS_CASHIER_REPORT_VIEW |
 | CheckoutReceiptService | receipt, reprint | POS_RECEIPT_VIEW; reprint also POS_RECEIPT_REPRINT; buyer snapshot audit uses POS_RECEIPT_VIEW |
 | CheckoutService | online, pos, cashSale, onlineList, posList, cancelOnline, cancelPos, finalizeCash, expire | Customer or POS actor/resource ownership; expire accepts SYSTEM_DRAFT_EXPIRY only |
-| CustomerAccess | resolve, lock | Customer identity adapter; `resolve` requires isolated authenticated CUSTOMER actor (not Vendor or Platform) and exact username match; `lock` re-resolves that principal and compares its customer ID before row lock; no HTTP controller exposes either method |
+| CustomerAccess | resolve, lock | Customer identity adapter; `resolve` requires isolated authenticated CUSTOMER actor (not Vendor, Platform or a dual customer/vendor context) and exact username match; `lock` re-resolves that principal and compares its customer ID before row lock; no HTTP controller exposes either method |
 | CustomerAssociationService | create, preview, approve | POS sale actor or customer identity; approve requires explicit consent and one-time challenge |
 | DraftRecoveryService | pos, customer | POS scope or customer identity and owned order |
 | OnlineReceiptService | read, copy | Customer identity and owned online order; copy writes a customer-owned audit event |
@@ -199,7 +199,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | SaleDiscountService | calculate | Internal checkout calculation; applied discounts require POS_DISCOUNT_APPLY, reason and tenant policy |
 | SalesReportService | report | POS_VIEW and POS_REPORT_VIEW |
 | TenderReviewService | review | Delegates to PaymentCheckoutService.verifyEvidence, which checks tender review permission and order scope |
-| VendorCustomerService | associate | Trusted internal call from CustomerAssociationService.approve only; MANDATORY transaction |
+| VendorCustomerService | associate | Trusted internal call from CustomerAssociationService.approve only; exact `system:customer-association` principal plus `SYSTEM_CUSTOMER_ASSOCIATION` authority required before relationship repository access; MANDATORY transaction and original customer context restored by caller |
 | ReceiptDocumentService | generate | POS receipt/reprint permissions and owned receipt |
 | AuthenticationService | login, register, refresh, logout, authenticate, me | Authentication protocol/token/session checks; me binds username to authenticated principal |
 | IdentityProvisioningServiceImpl | ensureVendorEligible, issueInvitation, acceptInvitation | Platform tenant-create or vendor USER_CREATE; acceptance is one-time token-authorized |

@@ -104,7 +104,9 @@ public class PaymentCheckoutService {
   }
   else if(catalogue.onlineBranch(order.tenant())!=order.stockBranch())conflict("Vendor stock location changed");
   for(var line:lines.lines(order.tenant(),order.id())){
-   var p=catalogue.lockForSale(order.tenant(),line.product());
+   var p=reviewerScope==null
+       ?catalogue.lockForSale(order.tenant(),line.product())
+       :catalogue.lockForSaleForPaymentReview(order.tenant(),line.product());
    if(p.price().compareTo(line.price())!=0||p.taxRate().compareTo(line.rate())!=0||p.listPrice().compareTo(line.listPrice())!=0||p.discountPercent().compareTo(line.discountPercent())!=0)conflict("Price, tax or discount changed; cancel and recreate the draft");
   }
   if(!reconcilingFunds&&!order.expires().isAfter(clock.instant()))conflict("Reservation expired during validation");

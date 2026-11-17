@@ -79,7 +79,7 @@ class CustomerAccessAuthorizationBoundaryTest {
         assertThat(f.service().resolve("buyer-a")).isEqualTo(100L);
         f.service().lock(100L);
 
-        verify(f.customers()).resolve("buyer-a");
+        verify(f.customers(), times(2)).resolve("buyer-a");
         verify(f.customers()).lock(100L);
         verifyNoMoreInteractions(f.customers());
     }

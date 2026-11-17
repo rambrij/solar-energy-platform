@@ -214,7 +214,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | ReportExportService | sales, refunds | POS/report/export/refund permissions; tenant/branch actor scope and export audit |
 | BranchPolicyService | find, lock, current, update, createRegister | find/lock require POS_VIEW and exact tenant/branch; writes require POS_SETTINGS_MANAGE |
 | BranchProvisioningServiceImpl | createInitialBranch | Platform identity plus PLATFORM_TENANT_CREATE |
-| PosService | scope, authorize, authorizeCustomer, products, activeSessions, sessionDetails, resume, open, requireOpen, requireOpenForPaymentReview, lockOutlet, lockInventoryOutlet, allocateReceipt, draftAudit, customerDraftAudit, closeStatus, close, pendingVariances, reviewVariance, cashMovement, reconciliation | User-facing methods enforce POS grants; internal primitives re-check actor/tenant/branch and operation grant; customer audit verifies owned paid online order |
+| PosService | scope, authorize, authorizeCustomer, products, activeSessions, sessionDetails, resume, open, requireOpen, requireOpenForCustomer, requireOpenForPaymentReview, lockOutlet, lockInventoryOutlet, allocateReceipt, allocateReceiptForCustomer, draftAudit, customerDraftAudit, closeStatus, close, pendingVariances, reviewVariance, cashMovement, reconciliation | User-facing methods enforce POS grants; internal primitives re-check actor/tenant/branch and operation grant; customer audit verifies owned paid online order |
 | RegisterDirectoryService | directory | POS_VIEW and assigned tenant/branch |
 | ShiftHistoryService | history | POS_VIEW and assigned tenant/branch |
 | CashRefundService | quote, pay, get, byReturn, list, copy | Return ownership, POS refund/cash permissions and scoped audit |

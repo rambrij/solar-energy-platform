@@ -38,4 +38,41 @@ class PosServiceBoundaryTest {
         verifyNoInteractions(db);
     }
 
+
+    @Test void publicSessionVarianceMovementAndReconciliationMethodsDenyBeforeJdbc(){
+        var db=mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        var auth=mock(AuthorizationContext.class);
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier",7L,12L,
+            java.util.Set.of("PRODUCT_VIEW"),false,false,true));
+        var service=new PosService(db,null,auth);
+        var scope=new PosService.Scope(7,12,"cashier");
+        var open=new PosService.OpenSession(1,java.math.BigDecimal.ZERO);
+        var movement=new PosService.CashMovement(PosService.MovementType.CASH_IN,
+            java.math.BigDecimal.ONE,"Float");
+
+        assertThatThrownBy(()->service.products(scope)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.activeSessions(scope)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.sessionDetails(scope,"session-1")).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.resume(scope,"session-1")).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.open(scope,open)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.closeStatus(scope,"session-1")).isInstanceOf(ResponseStatusException.class);
+
+        assertThatThrownBy(()->service.close(scope,"session-1",java.math.BigDecimal.ZERO))
+            .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.close(scope,"session-1",java.math.BigDecimal.ZERO,"Counted"))
+            .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.close(scope,"session-1",java.math.BigDecimal.ZERO,"Counted","request-1"))
+            .isInstanceOf(ResponseStatusException.class);
+
+        assertThatThrownBy(()->service.pendingVariances(scope)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.reviewVariance(scope,"session-1","request-1","Reviewed",
+            PosService.ReviewAction.APPROVE)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.cashMovement(scope,"session-1","movement-1",movement))
+            .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.reconciliation(scope,"session-1"))
+            .isInstanceOf(ResponseStatusException.class);
+
+        verifyNoInteractions(db);
+    }
+
 }

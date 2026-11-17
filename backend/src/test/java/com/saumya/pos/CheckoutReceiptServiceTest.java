@@ -16,8 +16,6 @@ class CheckoutReceiptServiceTest {
             @Override public void authorize(Scope scope,String actor,String... permissions){}
             @Override public void requireAssignedRegisterScope(Scope scope,String permission){}
             @Override public void requireAssignedResourceSession(Scope scope,String owner,String session,String... permissions){}
-            @Override public void requireAssignedRegisterScope(Scope scope,String permission){}
-            @Override public void requireAssignedResourceSession(Scope scope,String owner,String session,String... permissions){}
         };
         var reader = new CheckoutReceiptService(null, null, null, null, null, retail);
         assertThatThrownBy(() -> reader.receipt(new PosService.Scope(2, 2, "alice"), "order")).hasMessageContaining("Receipt unavailable");
@@ -31,6 +29,8 @@ class CheckoutReceiptServiceTest {
                 return new Scope(1, 1, "name");
             }
             @Override public void authorize(Scope scope,String actor,String... permissions){}
+            @Override public void requireAssignedRegisterScope(Scope scope,String permission){}
+            @Override public void requireAssignedResourceSession(Scope scope,String owner,String session,String... permissions){}
         };
         var orders = (DraftRepository) java.lang.reflect.Proxy.newProxyInstance(
                 DraftRepository.class.getClassLoader(), new Class<?>[] { DraftRepository.class }, (p, m, a) -> {

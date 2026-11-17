@@ -110,7 +110,7 @@ public class CashRefundService {
  
  public List<View> list() {
   var scope = retail.scope();retail.authorize(scope,scope.cashier(),"POS_VIEW","POS_REFUND_VIEW");
-  retail.requireOpenPosScope(scope,"POS_REFUND_VIEW");
+  retail.requireAssignedRegisterScope(scope,"POS_REFUND_VIEW");
   return refunds.findTop20ByTenantAndBranchOrderByPaidDescIdDesc(scope.tenant(), scope.branch()).stream().map(r -> view(r, false)).toList();
  }
  

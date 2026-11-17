@@ -332,19 +332,14 @@ INSERT INTO demo_grants VALUES ('VENDOR_ADMIN','CRM_NOTE_CREATE'),
  ('ACCOUNTANT','POS_CASHIER_REPORT_VIEW'),
  ('ACCOUNTANT','POS_SHIFT_VARIANCE_APPROVE');
 
-INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
-SELECT a.tenant_id,CONCAT('demo-',REPLACE(a.username,'@','-')),a.role_name,TRUE,a.username,a.username
-FROM demo_new_accounts a WHERE a.tenant_id IS NOT NULL;
-
-INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
-SELECT a.tenant_id,r.id,g.permission,a.username
+CREATE TABLE IF NOT EXISTS local_demo_role_grants (
+ tenant_id BIGINT NOT NULL, username VARCHAR(100) NOT NULL, role_name VARCHAR(40) NOT NULL, permission VARCHAR(60) NOT NULL,
+ PRIMARY KEY(tenant_id,username,permission)
+);
+INSERT INTO local_demo_role_grants(tenant_id,username,role_name,permission)
+SELECT a.tenant_id,a.username,a.role_name,g.permission
 FROM demo_new_accounts a JOIN demo_grants g ON g.role_name=a.role_name
-JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.role_key=CONCAT('demo-',REPLACE(a.username,'@','-'));
-
-INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by)
-SELECT a.tenant_id,a.tenant_id,a.username,r.id,TRUE,a.username
-FROM demo_new_accounts a JOIN vendor_roles r
-ON r.tenant_id=a.tenant_id AND r.role_key=CONCAT('demo-',REPLACE(a.username,'@','-'));
+WHERE a.tenant_id IS NOT NULL;
 
 INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_CREATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 

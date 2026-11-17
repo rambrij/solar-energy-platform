@@ -47,4 +47,21 @@ class TenantServiceDirectoryValidationTest {
         }
         assertThat(reads[0]).isZero();
     }
+
+    @Test void everyPlatformTenantMutationAndAdministrativeReadRejectVendorBeforeRepositoryOrSequence(){
+        var repository=mock(TenantRepository.class);
+        var sequences=mock(com.saumya.pos.tenant.internal.TenantSequenceRepository.class);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+            "vendor-operator","n/a",java.util.List.of(new SimpleGrantedAuthority("POS_VIEW"))));
+        var service=new TenantService(repository,sequences,Clock.systemUTC());
+
+        assertThatThrownBy(()->service.updateProfile(7,null)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.transition(7,TenantStatus.SUSPENDED)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.assignOnlineBranch(7,12)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(service::statusCounts).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.search(null,null,0,20)).isInstanceOf(ResponseStatusException.class);
+
+        verifyNoInteractions(repository,sequences);
+    }
+
 }

@@ -20,7 +20,7 @@ public class StockReceivingController {
          @Valid @RequestBody StockReceivingService.Input input
  ) {
   var scope = retail.scope();
-  retail.lockOutlet(scope);
+  retail.lockInventoryOutlet(scope);
   catalog.product(scope.tenant(), input.productId());
   return receiving.receive(scope.tenant(), scope.branch(), scope.cashier(), key, input);
  }

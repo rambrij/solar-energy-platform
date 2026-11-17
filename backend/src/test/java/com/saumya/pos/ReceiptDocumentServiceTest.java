@@ -1,5 +1,6 @@
 package com.saumya.pos;
 import com.saumya.pos.documents.*;
+import com.saumya.pos.documents.internal.ReceiptDocumentAuditRepository;
 import com.saumya.pos.retail.PosService;
 import com.saumya.pos.checkout.CheckoutReceiptService;
 import com.saumya.pos.security.AuthorizationContext;

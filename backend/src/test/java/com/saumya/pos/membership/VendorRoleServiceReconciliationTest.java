@@ -33,7 +33,7 @@ class VendorRoleServiceReconciliationTest {
             .containsEntry("invalid_or_unknown_legacy_permission_grants",1L)
             .containsEntry("platform_permissions_in_vendor_legacy_grants",1L)
             .containsEntry("orphaned_or_cross_tenant_role_assignments",2L);
-        verify(db,times(6)).queryForObject(anyString(),eq(Long.class),eq(7L));
+        verify(db,times(5)).queryForObject(anyString(),eq(Long.class),eq(7L));
     }
 
     @Test void reconciliationRequiresVendorUserViewBeforeDatabaseAccess(){

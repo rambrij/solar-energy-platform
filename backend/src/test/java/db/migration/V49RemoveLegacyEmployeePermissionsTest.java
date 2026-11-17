@@ -32,6 +32,6 @@ class V49RemoveLegacyEmployeePermissionsTest {
         assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_role_permissions",Integer.class)).isEqualTo(1);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM employee_role_assignments",Integer.class)).isEqualTo(1);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM employee_role_assignments WHERE role_id=11",Integer.class)).isEqualTo(1);
-        assertThat(db.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='employee_permissions'",Integer.class)).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name)='employee_permissions'",Integer.class)).isZero();
     }
 }

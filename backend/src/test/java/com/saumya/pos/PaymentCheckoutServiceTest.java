@@ -2,6 +2,8 @@ package com.saumya.pos;
 import com.saumya.pos.checkout.*;
 import com.saumya.pos.checkout.internal.*;
 import com.saumya.pos.identity.CustomerAccess;
+import com.saumya.pos.catalog.CatalogService;
+import com.saumya.pos.inventory.InventoryService;
 import com.saumya.pos.retail.PosService;
 import com.saumya.pos.membership.TenantEntitlementPolicy;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -28,7 +30,9 @@ class PaymentCheckoutServiceTest {
                 throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
             }
         };
-        var service=new PaymentCheckoutService(orders,null,attempts,policy(),customers,adapter,null,retail,Clock.systemUTC());
+        var service=new PaymentCheckoutService(orders,null,attempts,policy(),customers,
+            mock(CatalogService.class),mock(InventoryService.class),retail,Clock.systemUTC());
+        ReflectionTestUtils.setField(service,"adapter",adapter);
         assertThatThrownBy(()->service.start("attacker","foreign-order","UPI"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verifyNoInteractions(orders,attempts,adapter,customers);

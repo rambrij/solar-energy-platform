@@ -93,9 +93,15 @@ public class PaymentCheckoutService {
  public View status(String username,String id){var order=owned(username,id,true);if("ONLINE".equals(order.channel()))requireOnlineEntitlement(order,false);return view(order);}
  private void payable(DraftOrder order){payable(order,false);}
  private void payable(DraftOrder order,boolean reconcilingFunds){
+  payable(order,reconcilingFunds,null);
+ }
+ private void payable(DraftOrder order,boolean reconcilingFunds,PosService.Scope reviewerScope){
   if(!"DRAFT".equals(order.status())||(!reconcilingFunds&&!order.expires().isAfter(clock.instant())))conflict("Reservation is not payable; reload or cancel it");
   if(!catalogue.vendor(order.tenant()).active())conflict("Vendor is not active");
-  if("IN_STORE".equals(order.channel()))retail.requireOpen(new PosService.Scope(order.tenant(),order.branch(),order.cashier()),order.session());
+  if("IN_STORE".equals(order.channel())){
+   if(reviewerScope==null)retail.requireOpen(new PosService.Scope(order.tenant(),order.branch(),order.cashier()),order.session());
+   else retail.requireOpenForPaymentReview(reviewerScope,order.cashier(),order.session());
+  }
   else if(catalogue.onlineBranch(order.tenant())!=order.stockBranch())conflict("Vendor stock location changed");
   for(var line:lines.lines(order.tenant(),order.id())){
    var p=catalogue.lockForSale(order.tenant(),line.product());
@@ -120,11 +126,31 @@ public class PaymentCheckoutService {
   attempt.confirm(clock.instant(),confirmation.reference());attempts.flush();complete(order,attempt,true);attempts.flush();return view(order);
  }
  private void complete(DraftOrder order,PaymentAttempt attempt,boolean online){
+  complete(order,attempt,online,null);
+ }
+
+ /** Payment supervisors finalize on their own authenticated scope without changing sale ownership. */
+ private void complete(DraftOrder order,PaymentAttempt attempt,boolean online,PosService.Scope finalizerScope){
   String id=order.id();var saved=lines.lines(order.tenant(),id);var expected=new LinkedHashMap<Long,Integer>();for(var line:saved)expected.put(line.product(),line.quantity());
   if(!stock.consume(order.tenant(),id).equals(expected))throw new IllegalStateException("Reservation does not match sale");
-  PosService.Scope scope=new PosService.Scope(order.tenant(),order.stockBranch(),online?"customer:"+order.customer():order.cashier());
-  if(online){var allocation=retail.allocateReceiptForCustomer(order.tenant(),order.stockBranch(),order.customer(),order.id());order.payOnlineMock(attempt.method(),allocation.invoiceRequired(),clock.instant());documents.issue(scope,order,allocation,allocation.invoiceRequired(),true);orders.flush();}
-  else{var confirmed=tenders(order).stream().filter(a->"CONFIRMED".equals(a.state())).toList();if(collected(order).compareTo(order.total())!=0||tenders(order).stream().anyMatch(PaymentAttempt::unresolved))throw new com.saumya.pos.shared.DomainProblem("PAYMENT_TOTAL_MISMATCH","Confirmed tenders must equal the bill total");var receipt=retail.allocateReceipt(scope);boolean invoice=receipt.invoiceRequired()||order.invoiceRequested();var received=confirmed.stream().map(PaymentAttempt::cash).reduce(BigDecimal.ZERO,BigDecimal::add);var change=confirmed.stream().map(PaymentAttempt::change).reduce(BigDecimal.ZERO,BigDecimal::add);order.payTenders(confirmed.size()==1?confirmed.getFirst().method():"SPLIT",attempt.reference(),received,change,receipt.number(),invoice,clock.instant());documents.issue(scope,order,receipt,invoice,false);orders.flush();}
+  PosService.Scope ownerScope=new PosService.Scope(order.tenant(),order.stockBranch(),online?"customer:"+order.customer():order.cashier());
+  PosService.Scope actorScope=finalizerScope==null?ownerScope:finalizerScope;
+  if(actorScope.tenant()!=ownerScope.tenant()||actorScope.branch()!=ownerScope.branch()||(online&&finalizerScope!=null))
+   throw new IllegalStateException("Payment finalizer scope does not match sale ownership");
+  if(online){
+   var allocation=retail.allocateReceiptForCustomer(order.tenant(),order.stockBranch(),order.customer(),order.id());
+   order.payOnlineMock(attempt.method(),allocation.invoiceRequired(),clock.instant());
+   documents.issue(ownerScope,actorScope,order,allocation,allocation.invoiceRequired(),true);orders.flush();
+  } else {
+   var confirmed=tenders(order).stream().filter(a->"CONFIRMED".equals(a.state())).toList();
+   if(collected(order).compareTo(order.total())!=0||tenders(order).stream().anyMatch(PaymentAttempt::unresolved))
+    throw new com.saumya.pos.shared.DomainProblem("PAYMENT_TOTAL_MISMATCH","Confirmed tenders must equal the bill total");
+   var receipt=retail.allocateReceipt(actorScope);boolean invoice=receipt.invoiceRequired()||order.invoiceRequested();
+   var received=confirmed.stream().map(PaymentAttempt::cash).reduce(BigDecimal.ZERO,BigDecimal::add);
+   var change=confirmed.stream().map(PaymentAttempt::change).reduce(BigDecimal.ZERO,BigDecimal::add);
+   order.payTenders(confirmed.size()==1?confirmed.getFirst().method():"SPLIT",attempt.reference(),received,change,receipt.number(),invoice,clock.instant());
+   documents.issue(ownerScope,actorScope,order,receipt,invoice,false);orders.flush();
+  }
   if(!online)events.publishEvent(new com.saumya.pos.shared.PosDraftStateChanged(order.tenant(),order.branch(),order.cashier(),order.session(),order.id(),order.status()));
   if(online)carts.archivePurchased(order.customer(),order.tenant(),expected);
  }
@@ -165,8 +191,8 @@ public class PaymentCheckoutService {
   var order = supervisorOrder(scope, id);
   var a = tenders(order).stream().filter(t -> t.id().equals(attemptId)).findFirst().orElseThrow(this::missing);
   if (!"PAID".equals(order.status()) && collected(order).compareTo(order.total()) == 0) {
-   payable(order, true);
-   complete(order, a, false);
+   payable(order, true, scope);
+   complete(order, a, false, scope);
   }
   return tenderView(order, a);
  }

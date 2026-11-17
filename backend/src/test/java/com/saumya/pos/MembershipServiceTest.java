@@ -74,4 +74,44 @@ class MembershipServiceTest {
         assertThat(rowsGrants).isNotEmpty().allSatisfy(g->assertThat(g.permission()).doesNotStartWith("PLATFORM_"));
         SecurityContextHolder.clearContext();
     }
+
+    @Test void disabledLegacyFallbackFailsClosedForEmployeeWithoutRoleAssignments(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->List.of(new PermissionGrant(1,"cashier","POS_VIEW")));
+        var service=new MembershipService(memberships,grants,tenants(),null,null,false,null);
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions).isEqualTo(List.of());
+    }
+
+    @Test void legacyFallbackAcceptsOnlyKnownVendorPermissions(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->List.of(
+            new PermissionGrant(1,"cashier","POS_VIEW"),
+            new PermissionGrant(1,"cashier","PLATFORM_TENANT_CREATE"),
+            new PermissionGrant(1,"cashier","MADE_UP_PERMISSION")));
+        var service=new MembershipService(memberships,grants,tenants(),null,null,true,null);
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
+            .isEqualTo(List.of("POS_VIEW"));
+    }
+
+    @Test void explicitRoleAssignmentsOverrideLegacyGrantsAndRevocationNeverFallsBack(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->{throw new AssertionError("legacy grants must not be read when assignments exist");});
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(),eq(Integer.class),eq(1L),eq("cashier"))).thenReturn(1);
+        when(jdbc.queryForList(anyString(),eq(String.class),eq(1L),eq("cashier"))).thenReturn(List.of());
+        var service=new MembershipService(memberships,grants,tenants(),jdbc,null,true,null);
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions).isEqualTo(List.of());
+    }
+
+    @Test void activeAssignedRolePermissionsAreFilteredToVendorRegistry(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->{throw new AssertionError("legacy grants must not be read");});
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(),eq(Integer.class),eq(1L),eq("cashier"))).thenReturn(1);
+        when(jdbc.queryForList(anyString(),eq(String.class),eq(1L),eq("cashier")))
+            .thenReturn(List.of("POS_VIEW","PLATFORM_TENANT_CREATE","UNKNOWN_PERMISSION"));
+        var service=new MembershipService(memberships,grants,tenants(),jdbc,null,true,null);
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
+            .isEqualTo(List.of("POS_VIEW"));
+    }
 }

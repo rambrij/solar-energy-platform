@@ -506,6 +506,19 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE order_id=?",Integer.class,draft.id())).isZero();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_CONFIRM' AND resource_id=?",Integer.class,draft.id())).isZero();
  }
+ @Test void supervisorTenderReviewRejectsRevokedOriginalCashierRegisterAssignment(){
+  enableTerminal();
+  var draft=as("alice",()->checkout.pos("alice","p005-review-revoked-cashier-assignment",posDraft()));
+  var attempt=terminal("alice",draft.id(),"CARD");
+  update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='admin',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND register_id=1");
+  assertThatThrownBy(()->as("manager",()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(as("manager",()->payments.awaitingReview("manager"))).isEmpty();
+  assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts WHERE id=?",String.class,attempt.attemptId())).isEqualTo("PENDING_VERIFICATION");
+  assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts WHERE id=?",String.class,attempt.attemptId())).isNull();
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE order_id=?",Integer.class,draft.id())).isZero();
+ }
  @Test void supervisorReviewQueueOnlyReturnsOpenSessionsOnRegistersAssignedToReviewer(){
   enableTerminal();
   var draft=as("alice",()->checkout.pos("alice","p005-review-register-scope",posDraft()));

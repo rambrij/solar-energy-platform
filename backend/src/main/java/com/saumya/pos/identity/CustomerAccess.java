@@ -27,7 +27,7 @@ public class CustomerAccess {
         if(authorization==null)
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Authenticated customer context required");
         var actor=authorization.current();
-        if(!actor.isCustomer()||!Objects.equals(actor.username(),username))
+        if(!actor.isCustomer()||actor.isVendorEmployee()||actor.isPlatformUser()||!Objects.equals(actor.username(),username))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Customer identity does not match authenticated actor");
         return actor;
     }
@@ -43,8 +43,8 @@ public class CustomerAccess {
         if(authorization==null)
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Authenticated customer context required");
         var actor=authorization.current();
-        if(!actor.isCustomer())
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Authenticated customer required");
+        if(!actor.isCustomer()||actor.isVendorEmployee()||actor.isPlatformUser())
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Isolated authenticated customer required");
         long owner=customers.resolve(actor.username())
             .orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN));
         if(owner!=id)

@@ -43,6 +43,19 @@ class CustomerAccessAuthorizationBoundaryTest {
         verifyNoInteractions(platform.customers());
     }
 
+
+    @Test
+    void dualCustomerAndVendorContextCannotCrossActorBoundary() {
+        var f = fixture(new AuthorizationContext.Context(
+            "dual-actor", 7L, 12L, Set.of("CUSTOMER", "POS_VIEW"),
+            false, true, true
+        ));
+
+        forbidden(() -> f.service().resolve("dual-actor"));
+        forbidden(() -> f.service().lock(100L));
+        verifyNoInteractions(f.customers());
+    }
+
     @Test
     void customerCannotResolveAnotherUsername() {
         var f = fixture(new AuthorizationContext.Context(

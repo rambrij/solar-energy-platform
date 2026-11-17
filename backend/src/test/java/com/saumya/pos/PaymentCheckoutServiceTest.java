@@ -132,7 +132,9 @@ class PaymentCheckoutServiceTest {
   var order=new DraftOrder("review-order",7,null,12L,"cashier","session-1","IN_STORE",
       "review-key","review-hash",BigDecimal.TEN,1,"cashier",Instant.now().plusSeconds(600),false);
   var attempt=new PaymentAttempt(7,"review-order","CARD",BigDecimal.TEN,Instant.now());
-  when(paymentAttempts.awaitingReview(eq(7L),eq(12L),any())).thenReturn(List.of(attempt));
+  when(paymentAttempts.awaitingReview(eq(7L),eq(12L),eq("manager"),
+      org.mockito.ArgumentMatchers.any(org.springframework.data.domain.Pageable.class)))
+      .thenReturn(List.of(attempt));
   when(policyService.find(7L,12L)).thenReturn(Optional.of(
       new com.saumya.pos.retail.BranchPolicyService.Policy(12,"Outlet",0,true,"upi-ref","card-ref",
           false,14,false,false,false,false,"INR")));
@@ -151,12 +153,15 @@ class PaymentCheckoutServiceTest {
   var retail=new PosService(null,null,null){
    @Override public Scope scope(){return new Scope(7,12,"manager");}
    @Override public void authorize(Scope scope,String actor,String... permissions){}
+   @Override public void requireAssignedRegisterScope(Scope scope,String permission){}
   };
   var service=new PaymentCheckoutService(orders,null,paymentAttempts,policy(),null,null,null,retail,Clock.systemUTC());
   ReflectionTestUtils.setField(service,"terminalPolicies",policyService);
 
   var result=service.awaitingReview("manager");
 
+  verify(paymentAttempts).awaitingReview(eq(7L),eq(12L),eq("manager"),
+      org.mockito.ArgumentMatchers.any(org.springframework.data.domain.Pageable.class));
   assertThat(tenantLookup[0]).isTrue();
   assertThat(result).hasSize(1);
   assertThat(result.getFirst().orderId()).isEqualTo("review-order");

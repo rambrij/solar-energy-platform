@@ -477,6 +477,61 @@ class PosTest {
   assertThat(as("alice",()->stock.atBranch(1,1,1))).isZero();assertThatThrownBy(()->as("alice", () -> checkout.cancelPos("alice",draft.id(),"Cannot discard funds")));assertThatThrownBy(()->terminal("alice",draft.id(),"CARD"));assertThatThrownBy(()->as("bob", () -> tenderReviews.review("bob",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))));
   assertThat(as("manager", () -> payments.awaitingReview("manager"))).hasSize(1);as("manager", () -> tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM")));assertThat(as("manager", () -> payments.awaitingReview("manager"))).isEmpty();assertThat(as("manager",()->payments.reviewStatus("manager",draft.id())).state()).isEqualTo("CONFIRMED");assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts",String.class)).isEqualTo("manager");assertThat(db.queryForObject("SELECT evidence_reference FROM vendor_payment_attempts",String.class)).isEqualTo("evidence-record-123");assertThat(db.queryForObject("SELECT reviewed_at FROM vendor_payment_attempts",java.sql.Timestamp.class)).isNotNull();assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
  }
+ @Test void unknownTerminalTenderRequiresOpenCashierSessionAndHasNoSideEffects(){
+  enableTerminal();
+  var draft=as("alice",()->checkout.pos("alice","p005-unknown-after-close",posDraft()));
+  var attempt=terminal("alice",draft.id(),"UPI");
+  int reserved=db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  update("UPDATE pos_sessions SET state='CLOSED',closed_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND id=?",session);
+  assertThatThrownBy(()->as("alice",()->payments.unknown("alice",draft.id(),attempt.attemptId())))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts WHERE id=?",String.class,attempt.attemptId())).isEqualTo("PENDING_VERIFICATION");
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(reserved);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_UNKNOWN' AND resource_id=?",Integer.class,draft.id())).isZero();
+ }
+ @Test void supervisorTenderReviewRequiresOpenAssignedOriginalSessionAndHasNoSideEffects(){
+  enableTerminal();
+  var draft=as("alice",()->checkout.pos("alice","p005-review-after-close",posDraft()));
+  var attempt=terminal("alice",draft.id(),"CARD");
+  int reserved=db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  update("UPDATE pos_sessions SET state='CLOSED',closed_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND id=?",session);
+  assertThatThrownBy(()->as("manager",()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts WHERE id=?",String.class,attempt.attemptId())).isEqualTo("PENDING_VERIFICATION");
+  assertThat(db.queryForObject("SELECT reviewed_by FROM vendor_payment_attempts WHERE id=?",String.class,attempt.attemptId())).isNull();
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(reserved);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_CONFIRM' AND resource_id=?",Integer.class,draft.id())).isZero();
+ }
+ @Test void supervisorReviewQueueOnlyReturnsOpenSessionsOnRegistersAssignedToReviewer(){
+  enableTerminal();
+  var draft=as("alice",()->checkout.pos("alice","p005-review-register-scope",posDraft()));
+  var attempt=terminal("alice",draft.id(),"UPI");
+  assertThat(as("manager",()->payments.awaitingReview("manager"))).hasSize(1);
+  update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(3,1,1)");
+  update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='manager',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='manager' AND register_id=1");
+  assignRegister("manager",1,1,3);
+  assertThat(as("manager",()->payments.awaitingReview("manager"))).isEmpty();
+  assertThatThrownBy(()->as("manager",()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts WHERE id=?",String.class,attempt.attemptId())).isEqualTo("PENDING_VERIFICATION");
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE order_id=?",Integer.class,draft.id())).isZero();
+ }
+ @Test void tenderStatusRejectsRevokedOriginalRegisterAssignmentEvenWhenAnotherTillRemainsAssigned(){
+  update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(3,1,1)");
+  assignRegister("alice",1,1,3);
+  var draft=as("alice",()->checkout.pos("alice","p005-tender-read-revoked-register",posDraft()));
+  var attempt=terminal("alice",draft.id(),"CARD");
+  update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='alice',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND register_id=1");
+  assertThatThrownBy(()->as("alice",()->payments.tenderStatus("alice",draft.id())))
+    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThat(db.queryForObject("SELECT state FROM vendor_payment_attempts WHERE id=?",String.class,attempt.attemptId())).isEqualTo("PENDING_VERIFICATION");
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE id=?",String.class,draft.id())).isEqualTo("DRAFT");
+ }
  @Test void terminalReviewApiRequiresIndependentPermissionCsrfAndSafeEvidence() throws Exception {
   enableTerminal();var draft=as("alice", () -> checkout.pos("alice","terminal-review-api",posDraft()));var attempt=terminal("alice",draft.id(),"CARD");String path="/api/v1/vendor/pos/payments/review/"+draft.id();String body="{\"attemptId\":\""+attempt.attemptId()+"\",\"decision\":\"CONFIRM\",\"reference\":\"terminal-123\",\"evidence\":\"proof-123\",\"reason\":\"Verified original vendor account and full amount\"}";
   mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());mvc.perform(post(path).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());

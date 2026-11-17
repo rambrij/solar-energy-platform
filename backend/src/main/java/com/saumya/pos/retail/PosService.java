@@ -174,6 +174,33 @@ public class PosService {
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void requireOpen(Scope s,String id){authorizeInternalScope(s,"POS_SALE_CREATE","POS_RETURN_CREATE","POS_REFUND_CASH_RECORD");catalogue.requirePosStockLocation(s.tenant(),s.branch());session(s,id);}
 
+    /** Cash tender state changes must be tied to the caller's assigned OPEN till session. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireOpenForTender(Scope s,String id,String permission){
+        if(!"POS_TENDER_EXTERNAL_RECORD".equals(permission)&&!"POS_TENDER_CASH_RECORD".equals(permission))
+            throw new ResponseStatusException(FORBIDDEN,"A tender-record permission is required");
+        authorizeInternalScope(s,permission);
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
+        session(s,id);
+    }
+
+    /** Historical tender reads still require the cashier's persisted assignment to that exact register. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireAssignedSession(Scope s,String id){
+        authorizeInternalScope(s,"POS_VIEW");
+        catalogue.requirePosStockLocation(s.tenant(),s.branch());
+        var row=one("""
+            SELECT p.register_id
+            FROM pos_sessions p
+            JOIN employee_register_assignments a
+              ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id
+             AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE
+            WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=?
+            FOR UPDATE
+            """,s.tenant(),s.branch(),s.cashier(),id);
+        requireAssignedRegister(s,((Number)row.get("register_id")).longValue());
+    }
+
     /**
      * A separately authorized tender supervisor may finalize a cashier's paid sale.
      * Authorization is bound to the supervisor, while the locked session lookup remains

@@ -44,7 +44,8 @@ JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=T
 JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id AND rp.permission='POS_SESSION_OPEN'
 JOIN registers reg ON reg.tenant_id=e.tenant_id AND reg.branch_id=e.branch_id
 WHERE e.username LIKE 'cashier@%'
-GROUP BY e.tenant_id,e.branch_id,e.username
-ON DUPLICATE KEY UPDATE active=TRUE,assigned_by=VALUES(assigned_by),assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL;
+AND EXISTS(SELECT 1 FROM local_demo_role_permission_seed g WHERE g.tenant_id=e.tenant_id AND g.username=e.username)
+AND NOT EXISTS(SELECT 1 FROM employee_register_assignments existing WHERE existing.tenant_id=e.tenant_id AND existing.username=e.username AND existing.register_id=reg.id)
+GROUP BY e.tenant_id,e.branch_id,e.username;
 
 DROP TABLE local_demo_role_permission_seed;

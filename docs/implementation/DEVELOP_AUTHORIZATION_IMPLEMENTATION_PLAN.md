@@ -251,7 +251,7 @@ flowchart TD
   E[RC-01 Identity context decision] --> F[P0-07 Actor-context enforcement]
   G[RC-02 Stock-location decision] --> H[P0-05 POS assignment enforcement]
   A --> H
-  I[P0-03 Legacy grant reconciliation] --> D
+  I[P0-03 Role-only authorization and V49 data cleanup] --> D
   D --> J[P1-01 Custom role lifecycle]
   J --> K[P1-02 Standard role templates]
   D --> L[P1-03 Permission catalogue parity]
@@ -263,19 +263,13 @@ flowchart TD
   N --> R[P3 UX and cleanup]
 ```
 
-## 8. Backward compatibility and rollout controls
+## 8. Permission model and data lifecycle controls
 
-- Do not delete `employee_permissions` or remove legacy fallback until all production memberships are reconciled and the rollback window is approved.
-- Do not rename permission IDs without a dual-read/dual-write migration and a test proving old role grants are preserved.
-- Do not change route paths, receipt/order identifiers, API payload shapes or database keys as part of authorization cleanup unless a compatibility plan exists.
+- Vendor permissions are sourced only from active tenant role assignments and active role permission rows.
+- Do not reintroduce `employee_permissions`, `PermissionGrant`, legacy permission fallback, compatibility switches or per-employee grant copying.
+- V49 removes the obsolete development-stage permission table and V45 synthetic copied roles. Employees without an explicit role remain denied until a tenant administrator assigns one.
+- Do not rename permission IDs or alter unrelated route paths, receipt/order identifiers, API payload shapes or database keys as part of authorization cleanup.
 - Keep existing POS draft/idempotency/session recovery semantics intact.
-- Apply new constraints only after validating existing rows; migration must fail visibly rather than silently delete or rewrite business data.
-- Use additive Flyway migrations. Avoid editing released V1–V47 migrations.
-- Keep platform support access and tenant lifecycle suspension separate from subscription delinquency.
-- Keep mock payment/messaging disabled in production; do not turn a mock result into payment evidence.
-- A security fix that denies access may change behavior for previously over-privileged roles. Document the exact permission required and provide a controlled admin migration path rather than broadening access.
-- Do not enable a feature that depends on unresolved tax, payment provider, KYC, privacy or identity policy.
-
 ## 9. Delivery and verification checklist
 
 - [ ] Both Version 2.0 source documents remain unchanged and authoritative.

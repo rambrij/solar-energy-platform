@@ -118,6 +118,17 @@ public class PosService {
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void requireOpen(Scope s,String id){authorizeInternalScope(s,"POS_SALE_CREATE","POS_RETURN_CREATE","POS_REFUND_CASH_RECORD");session(s,id);}
+
+    /**
+     * A separately authorized tender supervisor may finalize a cashier's paid sale.
+     * Authorization is bound to the supervisor, while the locked session lookup remains
+     * bound to the original cashier and assigned register.
+     */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireOpenForPaymentReview(Scope reviewer,String ownerCashier,String sessionId){
+        authorizeInternalScope(reviewer,"POS_TENDER_MANUAL_VERIFY");
+        session(new Scope(reviewer.tenant(),reviewer.branch(),ownerCashier),sessionId);
+    }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void requireOpenForCustomer(long tenant,long branch,long customer,String orderId,String cashier,String sessionId){
         var context=authContext.current();
@@ -173,8 +184,12 @@ public class PosService {
                 throw new ResponseStatusException(FORBIDDEN,"Tender recording permission required");
             audit(s,action,id);return;
         }
+        if("SALE_COMPLETE".equals(action)||"INVOICE_ISSUE".equals(action)){
+            authorizeInternalScope(s,"POS_SALE_CREATE","POS_TENDER_MANUAL_VERIFY");
+            audit(s,action,id);return;
+        }
         String permission=switch(action){
-            case "DRAFT_RESERVE","SALE_COMPLETE","INVOICE_ISSUE","CUSTOMER_ASSOCIATION_REQUEST"->"POS_SALE_CREATE";
+            case "DRAFT_RESERVE","CUSTOMER_ASSOCIATION_REQUEST"->"POS_SALE_CREATE";
             case "DRAFT_CANCEL"->"POS_SALE_CANCEL";
             case "RECEIPT_REPRINT"->"POS_RECEIPT_REPRINT";
             case "BUYER_SNAPSHOT_VIEW"->"POS_RECEIPT_VIEW";

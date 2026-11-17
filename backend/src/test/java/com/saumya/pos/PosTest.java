@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PosTest {
  @Autowired com.saumya.pos.checkout.CheckoutReceiptService receiptReader;
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
+ @org.springframework.beans.factory.annotation.Autowired org.springframework.context.ApplicationContext applicationContext;
  @Autowired @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping requestMappings;
  @Autowired CartService marketplace;
  @Autowired CatalogService catalogue;
@@ -2052,6 +2053,103 @@ class PosTest {
       "/api/v1/auth/login","/api/v1/auth/register","/api/v1/auth/refresh","/api/v1/auth/logout",
       "/api/v1/auth/invitations/accept","/api/v1/auth/platform-mfa/enrollment/start",
       "/api/v1/auth/platform-mfa/enrollment/complete").contains(route);
+ }
+
+
+ @Test void checkoutServiceDirectInvocationHidesVendorBOrderFromVendorA() {
+  String bobSession=(String)asScope(b,()->service.open(b,new PosService.OpenSession(2,BigDecimal.ZERO)).get("id"));
+  var foreignDraft=asScope(b,()->checkout.pos("bob","vendor-b-direct-draft-01",
+      new CheckoutService.PosDraft(bobSession,List.of(new CheckoutService.Item(2,1)),false,null,null)));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE tenant_id=2 AND id=?",Integer.class,foreignDraft.id())).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=2 AND branch_id=2 AND product_id=2",Integer.class)).isEqualTo(1);
+
+  assertThatThrownBy(()->as("alice",()->checkout.cancelPos("alice",foreignDraft.id(),"Cross-tenant probe")))
+      .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class,error->
+          assertThat(error.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND));
+
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE tenant_id=2 AND id=?",String.class,foreignDraft.id())).isEqualTo("DRAFT");
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=2 AND branch_id=2 AND product_id=2",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1 AND resource_id=?",Integer.class,foreignDraft.id())).isZero();
+ }
+
+
+ @Test void everyProtectedControllerMethodRejectsAuthenticatedZeroAuthorityDirectInvocation() throws Exception {
+  var previous=org.springframework.security.core.context.SecurityContextHolder.getContext();
+  var noGrants=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+  noGrants.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(
+      "p0-runtime-no-grants",null,List.of()));
+  org.springframework.security.core.context.SecurityContextHolder.setContext(noGrants);
+  int checked=0;
+  int ordersBefore=db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class);
+  int auditBefore=db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class);
+  try{
+   var scanner=new org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider(false);
+   scanner.addIncludeFilter(new org.springframework.core.type.filter.AnnotationTypeFilter(org.springframework.web.bind.annotation.RestController.class));
+   for(var candidate:scanner.findCandidateComponents("com.saumya.pos")){
+    Class<?> controllerType=Class.forName(candidate.getBeanClassName());
+    Object controller=applicationContext.getBean(controllerType);
+    for(var method:controllerType.getDeclaredMethods()){
+     if(!org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(method,org.springframework.web.bind.annotation.RequestMapping.class))continue;
+     var policy=org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(method,org.springframework.security.access.prepost.PreAuthorize.class);
+     if(policy==null)policy=org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(controllerType,org.springframework.security.access.prepost.PreAuthorize.class);
+     assertThat(policy).as("method security policy for %s#%s",controllerType.getSimpleName(),method.getName()).isNotNull();
+     if(policy.value().trim().equals("permitAll()"))continue;
+     final String expression=policy.value();
+     Object[] args=Arrays.stream(method.getParameterTypes())
+         .map(type->authorizationProbeValue(type,expression)).toArray();
+     try{
+      method.invoke(controller,args);
+      fail("Protected controller method accepted a principal with no grants: "+controllerType.getSimpleName()+"#"+method.getName());
+     }catch(java.lang.reflect.InvocationTargetException invocation){
+      Throwable cause=invocation.getTargetException();
+      while(cause.getCause()!=null&&cause.getCause()!=cause)cause=cause.getCause();
+      boolean denied=cause instanceof org.springframework.security.access.AccessDeniedException
+          ||(cause instanceof org.springframework.web.server.ResponseStatusException response
+             &&Set.of(401,403,404).contains(response.getStatusCode().value()));
+      assertThat(denied).as("zero-grant invocation must be denied before controller execution: %s#%s (%s)",
+          controllerType.getSimpleName(),method.getName(),cause).isTrue();
+     }
+     checked++;
+    }
+   }
+  }finally{
+   org.springframework.security.core.context.SecurityContextHolder.setContext(previous);
+  }
+  assertThat(checked).as("protected controller methods exercised through their Spring security proxies").isGreaterThan(50);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isEqualTo(ordersBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit",Integer.class)).isEqualTo(auditBefore);
+ }
+
+ private static Object authorizationProbeValue(Class<?> type,String expression){
+  if(type==String.class)return "CASH";
+  if(type==long.class||type==Long.class)return 1L;
+  if(type==int.class||type==Integer.class)return 0;
+  if(type==boolean.class||type==Boolean.class)return false;
+  if(type==BigDecimal.class)return BigDecimal.ONE;
+  if(type==java.time.LocalDate.class)return java.time.LocalDate.of(2026,11,17);
+  if(type==java.time.Instant.class)return java.time.Instant.parse("2026-11-17T00:00:00Z");
+  if(type.isEnum())return type.getEnumConstants().length==0?null:type.getEnumConstants()[0];
+  if(List.class.isAssignableFrom(type))return List.of();
+  if(Set.class.isAssignableFrom(type))return Set.of();
+  if(Map.class.isAssignableFrom(type))return Map.of();
+  if(type.isArray())return java.lang.reflect.Array.newInstance(type.getComponentType(),0);
+  if(type.isRecord()&&(expression.contains("#r.method()")||expression.contains("#request.type()"))){
+   try{
+    var components=type.getRecordComponents();
+    Class<?>[] parameterTypes=Arrays.stream(components).map(java.lang.reflect.RecordComponent::getType).toArray(Class<?>[]::new);
+    Object[] values=new Object[components.length];
+    for(int i=0;i<components.length;i++){
+     var component=components[i];
+     values[i]=component.getName().equals("method")&&component.getType()==String.class
+         ?"CASH":authorizationProbeValue(component.getType(),expression);
+    }
+    var constructor=type.getDeclaredConstructor(parameterTypes);constructor.setAccessible(true);
+    return constructor.newInstance(values);
+   }catch(ReflectiveOperationException error){
+    throw new AssertionError("Cannot construct authorization probe for "+type.getName(),error);
+   }
+  }
+  return null;
  }
 
 }

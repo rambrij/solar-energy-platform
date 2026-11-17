@@ -181,7 +181,7 @@ class PosTest {
  @Test void inventoryApiCoversUnauthenticatedForbiddenAndNonDisclosingCrossTenantDenials()throws Exception{
   String path="/api/v1/vendor/inventory/receipts";
   int before=db.queryForObject("SELECT COUNT(*) FROM inventory_receipts",Integer.class);
-  mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  mvc.perform(get(path).with(anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get(path).with(user("alice").authorities(()->"PRODUCT_VIEW"))).andExpect(status().isForbidden());
   mvc.perform(post(path).header("Idempotency-Key","cross-tenant-stock").with(csrf())
     .with(user("bob").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json")

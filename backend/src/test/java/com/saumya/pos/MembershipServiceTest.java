@@ -67,11 +67,14 @@ class MembershipServiceTest {
             return null;
         });
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform-admin","n/a",List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_CREATE"))));
-        var service=new MembershipService(memberships,grants,tenants(),null,null);
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(),eq(Long.class),eq(7L),eq("vendor-admin-initial"))).thenReturn(99L);
+        var service=new MembershipService(memberships,grants,tenants(),jdbc,null,true,null);
         var created=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         var retried=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         assertThat(created.created()).isTrue();assertThat(retried.created()).isFalse();
         assertThat(rowsGrants).isNotEmpty().allSatisfy(g->assertThat(g.permission()).doesNotStartWith("PLATFORM_"));
+        verify(jdbc).update(contains("INSERT INTO employee_role_assignments"),eq(7L),eq(12L),eq("admin@example.com"),eq(99L),eq("admin@example.com"));
         SecurityContextHolder.clearContext();
     }
 

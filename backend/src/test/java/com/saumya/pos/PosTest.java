@@ -643,7 +643,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(paymentAttemptsBefore);
   assignRegister("alice",1,1,1);
   update("UPDATE pos_sessions SET state='CLOSED',closed_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND id=?",session);
-  assertThatThrownBy(()->as("alice",()->stock.release(1,draft.id())))
+  assertThatThrownBy(()->as("alice",()->{stock.release(1,draft.id());return null;}))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThatThrownBy(()->as("alice",()->stock.consume(1,draft.id())))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);

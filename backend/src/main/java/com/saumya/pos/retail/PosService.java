@@ -123,8 +123,10 @@ public class PosService {
         var context=authContext.current();
         if(!context.isCustomer()||customers==null||customers.resolve(context.username())!=customer)
             throw new ResponseStatusException(FORBIDDEN,"Authenticated customer ownership required");
-        Boolean owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id=? AND branch_id=? AND cashier=? AND sales_channel='IN_STORE' AND status='DRAFT'",
-            Boolean.class,tenant,orderId,customer,branch,cashier);
+        // The customer association challenge is explicitly for an unassociated walk-in POS draft.
+        // Consent plus the one-time challenge binds the customer; the order must still be unclaimed.
+        Boolean owned=db.queryForObject("SELECT COUNT(*)>0 FROM orders WHERE tenant_id=? AND id=? AND customer_id IS NULL AND branch_id=? AND cashier=? AND sales_channel='IN_STORE' AND status='DRAFT'",
+            Boolean.class,tenant,orderId,branch,cashier);
         if(!Boolean.TRUE.equals(owned))throw new ResponseStatusException(NOT_FOUND,"Customer order unavailable");
         session(new Scope(tenant,branch,cashier),sessionId);
     }

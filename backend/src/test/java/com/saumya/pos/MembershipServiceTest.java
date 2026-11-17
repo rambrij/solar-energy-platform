@@ -59,7 +59,7 @@ class MembershipServiceTest {
         var db=mock(JdbcTemplate.class);
         when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier"))).thenReturn(List.of());
         var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db);
-        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions).isEmpty();
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions).isEqualTo(List.of());
     }
 
     @Test void unknownAndPlatformPermissionsAreNeverReturnedFromRoleRows(){

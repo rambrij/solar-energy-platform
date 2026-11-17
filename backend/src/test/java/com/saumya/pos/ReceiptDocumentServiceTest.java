@@ -5,12 +5,10 @@ import com.saumya.pos.checkout.CheckoutReceiptService;
 import com.saumya.pos.security.AuthorizationContext;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 import static org.mockito.Mockito.*;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.*;
 class ReceiptDocumentServiceTest {
  @Test void invalidReasonAndReferenceCannotReachReceiptOrAuditPersistence(){var service=new ReceiptDocumentService(null,null,null,Clock.systemUTC(),null);for(String reason:new String[]{null," ","x".repeat(251),"private\nnotes"})assertThatThrownBy(()->service.generate("cashier","order-1",reason)).isInstanceOf(ResponseStatusException.class);assertThatThrownBy(()->service.generate("cashier","bad/reference","Copy request")).isInstanceOf(ResponseStatusException.class);}

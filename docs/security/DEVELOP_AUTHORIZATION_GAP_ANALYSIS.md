@@ -66,8 +66,8 @@ This is a repository evidence review, not a successful local execution of the fu
 | Requirement / Feature | Expected behavior | Current implementation and evidence | Status | Missing behavior / recommended action | Security impact |
 |---|---|---|---|---|---|
 | AUTH-001 Deny by default | Unauthenticated requests denied; every protected API explicitly authorized; no implicit grant | `Security.java` enables method security, protects non-public routes with authentication, and uses `anyRequest().authenticated()`. `AuthorizationPolicyRegistryTest` and `AuthorizationPolicyMatrixTest` require mapped controller methods to have `@PreAuthorize` or class policy. | PARTIAL | Add runtime API tests for all mapped endpoints and service-level entry points; verify explicit public exceptions are narrowly scoped. | Critical. |
-| AUTH-002 Effective permissions | Permission grants derive from active membership, active roles and entitlements, not hardcoded role names | `MembershipService.access()` resolves enabled membership, tenant lifecycle and entitlement filtering; `effectiveVendorPermissions()` unions active assigned role grants and excludes PLATFORM_* grants. | PARTIAL | Add DB-backed tests for multiple roles, inactive role, revoked assignment, entitlement removal, membership disable, tenant suspension, and no-role state. Document and eventually retire legacy grant fallback. | Critical. |
-| AUTH-003 Legacy permission fallback | Migration compatibility must not create an authorization bypass | `MembershipService.effectiveVendorPermissions()` falls back to `employee_permissions` when no assignment rows exist; V45 backfills legacy roles and comments that any role-assignment row causes role-based resolution. | PARTIAL | Verify every supported employee provisioning path creates role assignments; add migration reconciliation query/test; define a versioned cutoff to remove fallback after all data is migrated. | High: stale grants could persist for accounts that never receive a role row. |
+| AUTH-002 Effective permissions | Permission grants derive from active membership, active roles and entitlements, not hardcoded role names | `MembershipService.access()` rejects disabled membership/inactive tenant and applies `TenantEntitlementPolicy`; role resolution unions active assigned roles and filters through `VendorPermissionRegistry`. | PARTIAL | Added unit coverage for multiple-role union, disabled membership, suspended tenant and registry filtering; H2/MySQL execution and DB-backed entitlement/role integration evidence remain pending. | Critical. |
+| AUTH-003 Legacy permission fallback | Migration compatibility must not create an authorization bypass | Fallback is now controlled by `auth.legacy-permission-fallback-enabled` / `AUTH_LEGACY_PERMISSION_FALLBACK_ENABLED`; any role-assignment history is authoritative; both paths filter against `VendorPermissionRegistry`; actual fallback use increments a non-sensitive Micrometer counter and emits a value-free log event. | PARTIAL — implementation present, CI/data reconciliation pending | Added tenant-scoped count-only report at `GET /api/v1/vendor/employees/permission-reconciliation` and tests for switch-off, invalid/platform grants, explicit assignment override, revoked-all, multi-role union, tenant suspension and `/auth/me`. Run H2/MySQL 8.4 and reconcile production data. Keep `employee_permissions` and fallback until RC-05 approval. | High until production reconciliation and fallback retirement are approved. |
 | AUTH-004 Custom vendor roles | Tenant admins create/update/deactivate roles; roles contain only known vendor permissions; delegated permissions cannot exceed actor authority | `VendorRoleService` validates through `VendorPermissionRegistry`, scopes role queries by tenant, checks actor delegation authority, version-checks updates and audits changes. `VendorRoleController` has method-level policies. | PARTIAL | Add full lifecycle tests with multiple tenants, multiple roles, revoked roles, stale versions, permission escalation attempts and end-user effective permission changes after assignment. Validate frontend role UI end-to-end. | Critical. |
 | AUTH-005 Standard role templates | Standard roles from SRS §11.1 are available or explicitly seeded/configured | Runtime registry contains vendor permissions and Vendor Admin initial role provisioning. V45 backfills per-employee legacy roles; inspected migration does not establish the complete standard role-template catalogue (Sales Manager, POS Cashier, Accountant, etc.). | NOT IMPLEMENTED | Confirm whether standard roles are mandatory seeded templates or merely examples. If required, add tenant-scoped templates that can be customized without elevating permissions. | High: users may be assigned inconsistent grants. |
 | AUTH-006 Platform/vendor permission separation | Vendor roles cannot grant PLATFORM_*; platform identities use platform-only grants and separate scope | `VendorPermissionRegistry.requireVendorPermission()` rejects PLATFORM_*; V45 has a DB CHECK; `AuthenticationService.account()` rejects platform identities that also have customer or vendor membership; `AuthorizationContext` identifies platform scope separately. | PARTIAL | Add integration tests proving platform users cannot invoke vendor APIs and vendor admins cannot invoke platform APIs even with forged client data or mixed grants. | Critical. |
@@ -142,11 +142,25 @@ This is a repository evidence review, not a successful local execution of the fu
 2. **Authorization matrix coverage is incomplete.** The existing matrix validates policy expressions; it does not execute every endpoint with representative roles and cross-tenant resources.
 3. **Cross-tenant negative tests are incomplete.** No dedicated comprehensive Vendor A/Vendor B and Customer A/Customer B isolation suite was found in the inspected test inventory.
 4. **Warehouse assignment enforcement is not established.** Membership exposes a branch; register assignments are present; warehouse/resource assignment must be verified against POS and inventory operations.
-5. **Legacy permission fallback needs a retirement contract.** Migration V45 backfills roles, but runtime retains legacy grant fallback when no role-assignment row exists.
+5. **Legacy permission fallback has a controlled retirement path; final retirement is pending.** The fallback switch, permission allow-list filtering, usage metric/log event and tenant-scoped reconciliation report are implemented on the working branch. V45 data and `employee_permissions` remain intact; CI and production reconciliation have not yet been executed, and RC-05 remains open.
 6. **Dual customer/vendor employee identity is ambiguous.** Authentication can carry CUSTOMER and vendor permissions while AuthorizationContext treats the principal as a customer and refuses vendor membership. Product policy must decide whether dual-context identities are supported.
 7. **Production provider approval remains an explicit gate.** Vendor-direct settlement and tax/legal requirements cannot be marked complete from the presence of an adapter or mock provider.
 
-## 6. REQUIRES CLARIFICATION register
+## 6. P0-03 implementation evidence — 2026-11-17
+
+The working branch now contains a controlled fallback switch and reconciliation/reporting path. This is an implementation update, not a claim that P0-03 has passed its release gate.
+
+- **Fallback resolution:** role-assignment history is authoritative, including revoked/inactive rows. Only active assignments to active tenant roles contribute permissions; an empty effective role union returns no permissions and does not fall back.
+- **Permission hygiene:** the vendor permission registry is applied to both role and legacy results. Unknown and `PLATFORM_*` legacy permissions are excluded.
+- **Fallback control:** `auth.legacy-permission-fallback-enabled` defaults to `true` for compatibility and is configurable with `AUTH_LEGACY_PERMISSION_FALLBACK_ENABLED=false` to fail closed for role-less employees.
+- **Observability:** actual fallback use increments `authorization.legacy.permission.fallback.usage` and logs a constant event name only. No user, tenant, grant or permission value is emitted.
+- **Reconciliation endpoint:** authenticated tenant administrators with `USER_VIEW` can obtain count-only categories from `/api/v1/vendor/employees/permission-reconciliation`. It reports active employees with active roles, legacy grants with no role history, active employees with neither roles nor grants, role-assignment history without an active role, unknown legacy grants, `PLATFORM_*` legacy grants and orphan/cross-tenant assignment rows. The report is tenant-scoped and does not disclose identities or permission strings.
+- **Provisioning review:** initial Vendor Admin and vendor-created employee paths create role assignments in the JDBC-backed production path. Invitation acceptance activates an identity whose membership/role assignment was created at invite issuance. Role replacement retains revoked assignment history. No employee reactivation API/service was found.
+- **Tests changed:** membership fallback/role tests, `/auth/me` service test and reconciliation authorization boundary test were added/updated. These tests have **not been executed in this session**.
+- **Migration/data safety:** no Flyway migration changed; V45 remains unchanged; no legacy permission data was deleted.
+- **Remaining verification:** H2 suite, MySQL 8.4 suite, production-like reconciliation and rollback rehearsal are required. RC-05 is unresolved. The final fallback removal is a separate reviewed change.
+
+## 7. REQUIRES CLARIFICATION register
 
 | ID | Ambiguity / conflict | Why clarification is required | Safe interim behavior |
 |---|---|---|---|
@@ -158,7 +172,7 @@ This is a repository evidence review, not a successful local execution of the fu
 | RC-06 | Which SRS permission names are required for not-yet-implemented CRM/Operations modules? | Runtime registry and SRS catalogue do not yet show complete feature-family parity. | Do not invent grants; create permission IDs only alongside approved module/API contracts. |
 | RC-07 | Which provider and tax/invoice rules are approved for production India operations? | Product/SRS explicitly require provider, commercial, legal and tax approval; application defaults cannot decide these matters. | Keep mock providers non-production only; fail production activation until approved configuration exists. |
 
-## 7. Recommended implementation order
+## 8. Recommended implementation order
 
 See the companion `DEVELOP_AUTHORIZATION_IMPLEMENTATION_PLAN.md` for task-level implementation detail and acceptance criteria.
 
@@ -167,12 +181,12 @@ See the companion `DEVELOP_AUTHORIZATION_IMPLEMENTATION_PLAN.md` for task-level 
 - **P2:** MySQL integration and browser E2E coverage, migration upgrade tests, architecture rules, document/export/cache/async audit.
 - **P3:** navigation consistency, responsive UX, breadcrumbs, keyboard accessibility and cleanup after authorization contracts stabilize.
 
-## 8. Files and modules reviewed
+## 9. Files and modules reviewed
 
 - `backend/pom.xml`, `backend/src/main/resources/application.yml`, `.github/workflows/pos-tests.yml`
 - `backend/src/main/java/com/saumya/pos/Security.java`
 - `backend/src/main/java/com/saumya/pos/security/*`
-- `backend/src/main/java/com/saumya/pos/membership/*`
+- `backend/src/main/java/com/saumya/pos/membership/*` (including fallback switch, metrics and reconciliation report)
 - `backend/src/main/java/com/saumya/pos/identity/AuthenticationService.java`
 - `backend/src/main/java/com/saumya/pos/platform/*`
 - `backend/src/main/java/com/saumya/pos/tenant/*`
@@ -185,11 +199,11 @@ See the companion `DEVELOP_AUTHORIZATION_IMPLEMENTATION_PLAN.md` for task-level 
 - `backend/src/main/resources/db/migration/V45__authorization_roles_mfa_and_register_assignments.sql`
 - `backend/src/main/java/db/migration/V47__platform_identity_and_tenant_permissions.java`
 - `backend/src/test/java/com/saumya/pos/AuthorizationPolicyMatrixTest.java`
-- `backend/src/test/java/com/saumya/pos/AuthorizationPolicyRegistryTest.java`
+- `backend/src/test/java/com/saumya/pos/AuthorizationPolicyRegistryTest.java`, `MembershipServiceTest.java`, `AuthenticationServiceTest.java`, `VendorRoleServiceAuthorizationBoundaryTest.java`
 - Controller authorization tests under `backend/src/test/java/com/saumya/pos/**`
 - `frontend/src/main.tsx`, `AuthenticationBoundary.tsx`, `PlatformBoundary.tsx`, `Shell.tsx`, `RouteOutlet.tsx`, `navigation.ts`, `usePermissions.ts`, `App.tsx`, `PlatformApp.tsx`
 - `frontend/scripts/check-authorization-registry.mjs`, `frontend/package.json`
 
-## 9. Review conclusion
+## 10. Review conclusion
 
 The existing implementation has useful authorization controls and must be preserved. The correct next step is targeted hardening and verification, not replacing the RBAC system or rewriting navigation. No security-critical requirement should be considered complete until its UI/API/service/resource/data/test path has evidence. No production payment, tax or privacy approval is implied by this code review.

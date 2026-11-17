@@ -20,7 +20,7 @@ The main gap is not the absence of RBAC primitives. It is the absence of complet
 3. POS branch/register assignment is implemented, but the runtime membership context exposes one employee branch and the inspected authorization model does not establish a first-class assigned-warehouse scope.
 4. Cross-tenant negative tests are not present as a comprehensive dedicated suite in the inspected test inventory.
 5. Browser-level direct-route and action-permission coverage is not established. The frontend uses Vitest and a permission-aware shell; Playwright is not in the frontend package dependencies.
-6. Legacy employee permission grants remain a runtime fallback when no role-assignment row exists. This is migration-compatible, but its long-term lifecycle and fail-closed removal criteria need to be explicit and tested.
+6. **Resolved:** legacy employee grants are no longer a runtime source. Membership permissions come exclusively from active tenant role assignments; V49 removes the obsolete table and V45-generated synthetic roles.
 
 No implementation requirement is marked PASS merely because a corresponding class, route, entity or migration exists. PASS is reserved for a complete validated implementation path; the statuses below are conservative.
 
@@ -142,7 +142,7 @@ This is a repository evidence review, not a successful local execution of the fu
 2. **Authorization matrix coverage is incomplete.** The existing matrix validates policy expressions; it does not execute every endpoint with representative roles and cross-tenant resources.
 3. **Cross-tenant negative tests are incomplete.** No dedicated comprehensive Vendor A/Vendor B and Customer A/Customer B isolation suite was found in the inspected test inventory.
 4. **Warehouse assignment enforcement is not established.** Membership exposes a branch; register assignments are present; warehouse/resource assignment must be verified against POS and inventory operations.
-5. **Legacy permission fallback is being removed, not retained.** Product owner direction (2026-11-17) confirms the application is still in development and must use role-only authorization without backward compatibility. Membership resolution now queries active role assignments only; the configuration switch, fallback metrics, reconciliation endpoint and legacy JPA persistence have been removed. Additive V49 removes V45-generated synthetic legacy roles/assignments and drops `employee_permissions`; explicit vendor roles remain. Latest V49 H2/MySQL CI is pending.
+5. **Legacy permission fallback has been removed, not retained.** Product owner direction (2026-11-17) confirms the application is still in development and must use role-only authorization without backward compatibility. Membership resolution now queries active role assignments only; the configuration switch, fallback metrics, reconciliation endpoint and legacy JPA persistence have been removed. Additive V49 removes V45-generated synthetic legacy roles/assignments and drops `employee_permissions`; explicit vendor roles remain. Latest V49 H2/MySQL CI is pending.
 6. **Dual customer/vendor employee identity is ambiguous.** Authentication can carry CUSTOMER and vendor permissions while AuthorizationContext treats the principal as a customer and refuses vendor membership. Product policy must decide whether dual-context identities are supported.
 7. **Production provider approval remains an explicit gate.** Vendor-direct settlement and tax/legal requirements cannot be marked complete from the presence of an adapter or mock provider.
 

@@ -43,4 +43,17 @@ class PlatformConfigurationServiceTest {
         assertThatThrownBy(service::list).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(repository);
     }
+
+    @Test void configurationWritesRequirePlatformGrantBeforeRepositoryOrAuditAccess(){
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+        var service=new PlatformConfigurationServiceImpl(repository,audit,Clock.systemUTC());
+        var update=new PlatformConfigurationService.Update("PUBLIC_SITE_NAME","GENERAL","Vendor Name",false,null);
+
+        assertThatThrownBy(()->service.put(update,"vendor","trace"))
+            .isInstanceOf(ResponseStatusException.class);
+
+        verifyNoInteractions(repository,audit);
+    }
+
 }

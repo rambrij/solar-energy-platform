@@ -50,6 +50,15 @@ class V51LocalDemoCredentialsTest {
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM employee_role_assignments WHERE username='admin@saumya.demo.test' AND active=FALSE", Integer.class
         )).isEqualTo(1);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM users WHERE username='local-cashier' AND enabled=FALSE", Integer.class
+        )).isEqualTo(1);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM employee_role_assignments WHERE username='local-cashier' AND active=FALSE", Integer.class
+        )).isEqualTo(1);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM employee_register_assignments WHERE username='local-cashier' AND active=FALSE", Integer.class
+        )).isEqualTo(1);
 
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM vendor_role_permissions p JOIN vendor_roles r " +
@@ -105,6 +114,11 @@ class V51LocalDemoCredentialsTest {
         db.update("INSERT INTO users VALUES(949002,'rahul@customer.demo.test','legacy-hash',TRUE)");
         db.update("INSERT INTO users VALUES(900003,'local-supervisor','legacy-hash',TRUE)");
         db.update("INSERT INTO users VALUES(900001,'demo-customer','legacy-hash',TRUE)");
+        db.update("INSERT INTO users VALUES(900002,'local-cashier','legacy-hash',TRUE)");
+        db.update("INSERT INTO employees VALUES('local-cashier',900001,900001,TRUE)");
+        db.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(900001,900001,'local-cashier',2,TRUE,'local-cashier')");
+        db.update("INSERT INTO registers VALUES(900001,900001,900001)");
+        db.update("INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by) VALUES(900001,900001,'local-cashier',900001,TRUE,'local-cashier')");
         for (long tenant : new long[] {910001,920001,930001}) {
             db.update("INSERT INTO registers VALUES(?,?,?)", tenant+10,tenant,tenant);
             db.update("INSERT INTO registers VALUES(?,?,?)", tenant+11,tenant,tenant);

@@ -4,7 +4,7 @@
 
 ## Automatic setup
 
-The local profile loads `classpath:db/local-migration`. V51 refreshes the old demo identities after historical V39/V50 setup: every previous `@*.demo.test`, `local-supervisor` and `demo-customer` login is disabled and its employee role/register assignments are revoked. V51 then creates the active accounts below with BCrypt password hashes and explicit tenant-owned role grants. Existing V39/V50 migration files are left immutable.
+The local profile loads `classpath:db/local-migration`. V51 refreshes the old demo identities after historical V39/V50 setup: every previous `@*.demo.test`, `local-supervisor`, `demo-customer` and `local-cashier` login is disabled and its employee role/register assignments are revoked. V51 then creates the active accounts below with BCrypt password hashes and explicit tenant-owned role grants. Existing V39/V50 migration files are left immutable.
 
 For a fresh disposable local database:
 

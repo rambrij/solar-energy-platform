@@ -11,6 +11,8 @@ import com.saumya.pos.checkout.internal.DraftRepository;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.inventory.InventoryService;
 import com.saumya.pos.inventory.internal.InventoryIssueRepository;
+import com.saumya.pos.inventory.internal.InventoryOrderRepository;
+import com.saumya.pos.inventory.internal.InventoryApprovedReturnRepository;
 import com.saumya.pos.inventory.internal.InventoryRepository;
 import com.saumya.pos.inventory.internal.ReservationRepository;
 import com.saumya.pos.inventory.internal.ReturnDispositionRepository;
@@ -22,7 +24,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -47,12 +48,13 @@ class DraftExpiryAuthorizationTest {
 
     @Test
     void inventoryReleaseRejectsSpoofedSystemGrantBeforeOrderLookupOrReservationAccess() {
-        var jdbc = mock(JdbcTemplate.class);
+        var orderRecords = mock(InventoryOrderRepository.class);
+        var approvedReturns = mock(InventoryApprovedReturnRepository.class);
         var reservations = mock(ReservationRepository.class);
         var service = new InventoryService(
             mock(InventoryRepository.class), reservations,
             mock(ReturnDispositionRepository.class), mock(InventoryIssueRepository.class),
-            mock(ApplicationEventPublisher.class), null, null, jdbc);
+            mock(ApplicationEventPublisher.class), null, null, orderRecords, approvedReturns);
 
         authenticate("attacker");
 
@@ -60,7 +62,7 @@ class DraftExpiryAuthorizationTest {
             .isInstanceOf(ResponseStatusException.class)
             .hasMessageContaining("Trusted draft-expiry worker required");
 
-        verifyNoInteractions(jdbc, reservations);
+        verifyNoInteractions(orderRecords, approvedReturns, reservations);
     }
 
     @Test
@@ -112,9 +114,10 @@ class DraftExpiryAuthorizationTest {
         var events = mock(ApplicationEventPublisher.class);
         var auth = mock(com.saumya.pos.security.AuthorizationContext.class);
         var customers = mock(CustomerAccess.class);
-        var jdbc = mock(JdbcTemplate.class);
+        var orderRecords = mock(InventoryOrderRepository.class);
+        var approvedReturns = mock(InventoryApprovedReturnRepository.class);
         when(auth.current()).thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "No inventory actor"));
-        var service = new InventoryService(balances, reservations, returns, issues, events, auth, customers, jdbc);
+        var service = new InventoryService(balances, reservations, returns, issues, events, auth, customers, orderRecords, approvedReturns);
 
         assertDenied(() -> service.available(7L, 11L));
         assertDenied(() -> service.atBranch(7L, 9L, 11L));
@@ -127,7 +130,7 @@ class DraftExpiryAuthorizationTest {
         assertDenied(() -> service.inspectReturn(7L, 9L, "return-1", 11L, 1,
             "RESTOCK", "SELLABLE", "attacker", java.time.Instant.now()));
 
-        verifyNoInteractions(balances, reservations, returns, issues, events, customers, jdbc);
+        verifyNoInteractions(balances, reservations, returns, issues, events, customers, orderRecords, approvedReturns);
     }
 
     private static void assertDenied(org.assertj.core.api.ThrowableAssert.ThrowingCallable operation) {

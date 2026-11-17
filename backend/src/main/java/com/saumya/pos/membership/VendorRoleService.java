@@ -111,7 +111,7 @@ public class VendorRoleService {
         var legacy= db.queryForList("SELECT DISTINCT p.username,p.permission FROM employee_permissions p WHERE p.tenant_id=?",tenant);
         long invalid=legacy.stream().filter(row->{
             Object permission=row.get("permission");
-            return !(permission instanceof String value)||!VendorPermissionRegistry.all().contains(value);
+            return !(permission instanceof String value)||(!value.startsWith("PLATFORM_")&&!VendorPermissionRegistry.all().contains(value));
         }).count();
         long platform=legacy.stream().filter(row->row.get("permission") instanceof String value&&value.startsWith("PLATFORM_")).count();
         report.put("invalid_or_unknown_legacy_permission_grants",invalid);

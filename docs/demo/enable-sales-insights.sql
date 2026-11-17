@@ -1,7 +1,9 @@
 -- Optional local demo only. Run after the named demo staff accounts exist.
 -- Grants read-only reporting to staff assigned to this demo tenant/branch; changes no balances or passwords.
 USE solar;
-INSERT INTO employee_permissions(username,permission,tenant_id)
-SELECT e.username,'POS_REPORT_VIEW',e.tenant_id FROM employees e
-WHERE e.username IN ('local-cashier','local-supervisor') AND e.tenant_id=900001 AND e.branch_id=900001
-AND NOT EXISTS(SELECT 1 FROM employee_permissions p WHERE p.username=e.username AND p.permission='POS_REPORT_VIEW');
+INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+SELECT 900001,r.id,p.permission,r.created_by
+FROM vendor_roles r
+CROSS JOIN (SELECT 'POS_REPORT_VIEW' permission) p
+WHERE r.tenant_id=900001 AND r.role_key IN ('local-cashier','local-supervisor')
+AND NOT EXISTS(SELECT 1 FROM vendor_role_permissions x WHERE x.tenant_id=r.tenant_id AND x.role_id=r.id AND x.permission=p.permission);

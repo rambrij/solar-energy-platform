@@ -215,6 +215,35 @@ public class PosService {
         requireAssignedRegister(reviewer,register);
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    /** Supervisor operation against the original cashier's persisted OPEN session and register. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireOpenResourceSession(Scope actor,String ownerCashier,String sessionId,String... permissions){
+        authorizeInternalScope(actor,permissions);
+        catalogue.requirePosStockLocation(actor.tenant(),actor.branch());
+        session(new Scope(actor.tenant(),actor.branch(),ownerCashier),sessionId);
+        long register=((Number)one("SELECT register_id FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=?",
+            actor.tenant(),actor.branch(),ownerCashier,sessionId).get("register_id")).longValue();
+        requireAssignedRegister(actor,register);
+    }
+
+    /** Historical reads/reprints require current owner and viewer assignments to the persisted register. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireAssignedResourceSession(Scope actor,String ownerCashier,String sessionId,String... permissions){
+        authorizeInternalScope(actor,permissions);
+        catalogue.requirePosStockLocation(actor.tenant(),actor.branch());
+        var row=one("""
+            SELECT p.register_id FROM pos_sessions p
+            JOIN employee_register_assignments owner_assignment
+              ON owner_assignment.tenant_id=p.tenant_id AND owner_assignment.branch_id=p.branch_id
+             AND owner_assignment.username=p.cashier AND owner_assignment.register_id=p.register_id
+             AND owner_assignment.active=TRUE
+            JOIN registers r
+              ON r.tenant_id=p.tenant_id AND r.branch_id=p.branch_id AND r.id=p.register_id
+            WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=?
+            """,actor.tenant(),actor.branch(),ownerCashier,sessionId);
+        requireAssignedRegister(actor,((Number)row.get("register_id")).longValue());
+    }
+
     public void requireOpenForCustomer(long tenant,long branch,long customer,String orderId,String cashier,String sessionId){
         var context=authContext.current();
         if(!context.isCustomer()||customers==null||customers.resolve(context.username())!=customer)

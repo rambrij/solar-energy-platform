@@ -12,6 +12,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.http.HttpMethod;
+import org.springframework.web.bind.annotation.RequestMethod;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -25,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PosTest {
  @Autowired com.saumya.pos.checkout.CheckoutReceiptService receiptReader;
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
+ @Autowired RequestMappingHandlerMapping requestMappings;
  @Autowired CartService marketplace;
  @Autowired CatalogService catalogue;
  @Autowired com.saumya.pos.inventory.InventoryService stock;

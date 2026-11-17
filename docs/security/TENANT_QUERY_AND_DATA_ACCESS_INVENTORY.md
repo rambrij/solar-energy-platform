@@ -398,7 +398,7 @@ The reviewed backend test tree contains **82 Java test classes**. Existing tests
 
 The repository workflow `.github/workflows/pos-tests.yml` has a database matrix with H2 and **MySQL 8.4** service. The Maven project uses Spring Boot 3.5.0, Java 21, Spring Data JPA, Spring JDBC, Flyway MySQL, MySQL connector, H2 test dependency and ArchUnit.
 
-GitHub Actions run [#44015181481](https://github.com/rambrij/solar-energy-platform/actions/runs/44015181481) passed on commit `edbcf1e577aaf1e862c7716ec6b5367520f8ae8b`: H2 **531 tests**, MySQL 8.4 **531 tests**, frontend tests and production build, and module architecture check all passed. This run includes the tenant-scoped payment review queue lookup and its regression test. The CI suite includes V48 migration preflight and same-tenant/cross-tenant constraint tests. It does not substitute for applying V48's read-only preflight against the actual deployment database or the complete Vendor A/B + Customer A/B negative matrix.
+GitHub Actions run [#44017112990](https://github.com/rambrij/solar-energy-platform/actions/runs/44017112990) passed on commit `72c4eae7f3f52554ceefcfac8e06bd8f79ce8c5d`: H2 **539 tests**, MySQL 8.4 **539 tests**, frontend tests and production build, and module architecture check all passed. This run includes V48 migration preflight/constraint tests and the tenant-scoped payment review queue regression. It does not substitute for applying V48's read-only preflight against the actual deployment database or the complete Vendor A/B + Customer A/B negative matrix.
 
 ## 14. P0-01 query/data-access conclusion
 

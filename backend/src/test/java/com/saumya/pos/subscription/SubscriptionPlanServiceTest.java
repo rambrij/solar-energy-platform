@@ -54,4 +54,24 @@ class SubscriptionPlanServiceTest {
         assertThatThrownBy(()->service.create(invalid,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verify(versions,never()).saveAndFlush(any());
     }
+
+    @Test void planCreateReviseActivateAndListDenyBeforeRepositoryAccessForVendorActor(){
+        var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
+        var auth=mock(AuthorizationContext.class);
+        when(auth.current()).thenReturn(new AuthorizationContext.Context(
+            "vendor",7L,12L,Set.of("POS_VIEW"),false,false,true));
+        ReflectionTestUtils.setField(service,"authorization",auth);
+
+        assertThatThrownBy(()->service.create(input("799"),"vendor",null))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(()->service.revise(1,input("999"),"vendor",null))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(()->service.setActive(1,false,"vendor",null))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(service::list)
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+
+        verifyNoInteractions(plans,versions);
+    }
+
 }

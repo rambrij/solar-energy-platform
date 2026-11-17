@@ -358,5 +358,3 @@ INSERT INTO tenant_customers(id,tenant_id,customer_id,consent_at,provenance)
 SELECT 'local-v51-rahul-920001',920001,949012,CURRENT_TIMESTAMP,'DEMO_EXPLICIT_CONSENT'
 WHERE NOT EXISTS(SELECT 1 FROM tenant_customers c WHERE c.tenant_id=920001 AND c.customer_id=949012);
 
-DROP TEMPORARY TABLE demo_v51_role_grants;
-DROP TEMPORARY TABLE demo_v51_accounts;

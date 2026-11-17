@@ -1263,8 +1263,11 @@ class PosTest {
  }
 
  void loadSolarDemoSeed() throws Exception {
-  var file=java.nio.file.Path.of(System.getProperty("basedir"),"..","docs","demo","add-solar-demo-products.sql");
-  String sql=java.nio.file.Files.readString(file).replace("USE solar;","");
+  String sql;
+  try(var resource=getClass().getResourceAsStream("/demo/add-solar-demo-products.sql")){
+   if(resource==null)throw new IllegalStateException("Missing test demo catalogue fixture");
+   sql=new String(resource.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8).replace("USE solar;","");
+  }
   try(var connection=db.getDataSource().getConnection()){
    // H2 lacks MySQL's START TRANSACTION spelling; all seed DML is identical in both jobs.
    if(connection.getMetaData().getDatabaseProductName().equals("H2"))sql=sql.replace("START TRANSACTION;","SET AUTOCOMMIT FALSE;");
@@ -1815,7 +1818,11 @@ class PosTest {
 
  // Exercise the checked-in manual seed, not a duplicate Java fixture implementation.
  void multiVendorDemo() throws Exception {
-  String script=java.nio.file.Files.readString(java.nio.file.Path.of("../docs/demo/setup-multi-vendor-demo.sql"));
+  String script;
+  try(var resource=getClass().getResourceAsStream("/demo/setup-multi-vendor-demo.sql")){
+   if(resource==null)throw new IllegalStateException("Missing test multi-vendor fixture");
+   script=new String(resource.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
+  }
   try(var connection=db.getDataSource().getConnection();var statement=connection.createStatement()){
    if(connection.getMetaData().getDatabaseProductName().equals("MySQL")){
     String procedure=script.substring(script.indexOf("CREATE PROCEDURE"),script.indexOf("END$$")+3);

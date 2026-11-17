@@ -34,7 +34,6 @@ public class V49__remove_legacy_employee_permissions extends BaseJavaMigration {
                    SELECT 1 FROM vendor_roles r
                     WHERE r.tenant_id=employee_role_assignments.tenant_id AND r.id=employee_role_assignments.role_id
                       AND r.role_key=CONCAT('legacy-',r.created_by)
-                      AND r.display_name LIKE 'Migrated grants:%'
                  )
                 """);
             execute(connection,"""
@@ -49,7 +48,6 @@ public class V49__remove_legacy_employee_permissions extends BaseJavaMigration {
             execute(connection,"""
                 DELETE FROM vendor_roles
                  WHERE role_key=CONCAT('legacy-',created_by)
-                   AND display_name LIKE 'Migrated grants:%'
                 """);
         }
         if(tableExists(connection,"employee_permissions"))execute(connection,"DROP TABLE employee_permissions");

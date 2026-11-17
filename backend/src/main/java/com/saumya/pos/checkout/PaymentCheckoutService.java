@@ -77,6 +77,7 @@ public class PaymentCheckoutService {
         retail.lockOutlet(s);
         var order = orders.lock(s.tenant(), id).orElseThrow(this::missing);
   if(!"IN_STORE".equals(order.channel())||!Objects.equals(order.branch(),s.branch())||!username.equals(order.cashier()))throw missing();
+  retail.requireAssignedSession(s,order.session());
   return order;
  }
  private void requireOnlineEntitlement(DraftOrder order,boolean write){
@@ -163,6 +164,8 @@ public class PaymentCheckoutService {
   var a = tenders(order).stream().filter(t -> t.id().equals(attemptId)).findFirst().orElseThrow(this::missing);
   if (!a.id().equals(attemptId) || !a.terminal()) throw missing();
   if ("PENDING_VERIFICATION".equals(a.state())) {
+   if(!"DRAFT".equals(order.status()))conflict("Only an unresolved draft tender can be marked unknown");
+   retail.requireOpenForTender(new PosService.Scope(order.tenant(),order.branch(),username),order.session(),"POS_TENDER_EXTERNAL_RECORD");
    a.unknown();
    attempts.flush();
    retail.draftAudit(new PosService.Scope(order.tenant(), order.branch(), username), "TERMINAL_TENDER_UNKNOWN", id);
@@ -174,6 +177,9 @@ public class PaymentCheckoutService {
   retail.lockOutlet(scope);
   var order = orders.lock(scope.tenant(), id).orElseThrow(this::missing);
   if (!"IN_STORE".equals(order.channel()) || !Objects.equals(order.branch(), scope.branch())) throw missing();
+  // A supervisor may review another cashier's tender only while that exact original
+  // register session is OPEN and both cashier and reviewer assignments remain active.
+  retail.requireOpenForPaymentReview(scope,order.cashier(),order.session());
   return order;
  }
  
@@ -185,7 +191,11 @@ public class PaymentCheckoutService {
  
  public List<View> awaitingReview(String username) {
   var scope = retail.scope();retail.authorize(scope,username,"POS_TENDER_MANUAL_VERIFY");
-  return attempts.awaitingReview(scope.tenant(), scope.branch(), org.springframework.data.domain.PageRequest.of(0, 20)).stream().map(a -> tenderView(orders.findByTenantIdAndId(scope.tenant(), a.order()).orElseThrow(this::missing), a)).toList();
+  retail.requireAssignedRegisterScope(scope,"POS_TENDER_MANUAL_VERIFY");
+  return attempts.awaitingReview(scope.tenant(),scope.branch(),scope.cashier(),
+      org.springframework.data.domain.PageRequest.of(0,20)).stream()
+      .map(a -> tenderView(orders.findByTenantIdAndId(scope.tenant(),a.order()).orElseThrow(this::missing),a))
+      .toList();
  }
  
  public View finalizeVerified(String username, String id, String attemptId) {

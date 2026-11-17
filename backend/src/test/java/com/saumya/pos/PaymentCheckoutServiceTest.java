@@ -78,4 +78,50 @@ class PaymentCheckoutServiceTest {
  @Test void orderStatusTimeNeverRoundsIntoFuture(){
   var order=new DraftOrder("sale",1,null,1L,"cashier","session","IN_STORE","key","hash",BigDecimal.TEN,1,"owner",Instant.now(),false);var now=Instant.parse("2026-11-14T00:00:00.123456789Z");order.finish("PAID",now);assertThat(order.changed()).isEqualTo(Instant.parse("2026-11-14T00:00:00.123456Z"));assertThat(order.changed()).isBefore(now);
  }
+
+ @Test
+ void everyPublicPaymentEntryPointRejectsMissingActorBeforePersistenceOrProviderAccess() {
+  var orders=mock(DraftRepository.class);
+  var lines=mock(DraftLineRepository.class);
+  var attempts=mock(PaymentAttemptRepository.class);
+  var customers=mock(CustomerAccess.class);
+  var catalogue=mock(CatalogService.class);
+  var stock=mock(InventoryService.class);
+  var adapter=mock(VendorPaymentAdapter.class);
+  var retail=new PosService(null,null,null) {
+   @Override public Scope scope(){return new Scope(7,9,"attacker");}
+   @Override public void authorize(Scope scope,String actor,String... permissions){
+    throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,"No payment actor");
+   }
+   @Override public void authorizeCustomer(String actor){
+    throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,"No customer actor");
+   }
+  };
+  var service=new PaymentCheckoutService(orders,lines,attempts,policy(),customers,catalogue,stock,retail,Clock.systemUTC());
+  ReflectionTestUtils.setField(service,"adapter",adapter);
+  ReflectionTestUtils.setField(service,"terminalRules",new TerminalTenderRules());
+  var review=new PaymentCheckoutService.Review("attempt-1","CONFIRM","opaque-reference","evidence-ref","Verified test evidence");
+
+  assertDenied(()->service.tenderStatus("attacker","order-1"));
+  assertDenied(()->service.tender("attacker","order-1","idempotency-key",
+      new PaymentCheckoutService.TenderRequest("UPI",BigDecimal.TEN,null)));
+  assertDenied(()->service.finalizeTenders("attacker","order-1"));
+  assertDenied(()->service.status("attacker","order-1"));
+  assertDenied(()->service.start("attacker","order-1","UPI"));
+  assertDenied(()->service.confirm("attacker","order-1","attempt-1"));
+  assertDenied(()->service.unknown("attacker","order-1","attempt-1"));
+  assertDenied(()->service.reviewStatus("attacker","order-1"));
+  assertDenied(()->service.awaitingReview("attacker"));
+  assertDenied(()->service.finalizeVerified("attacker","order-1","attempt-1"));
+  assertDenied(()->service.verifyEvidence("attacker","order-1",review));
+
+  verifyNoInteractions(orders,lines,attempts,customers,catalogue,stock,adapter);
+ }
+
+ private static void assertDenied(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {
+  assertThatThrownBy(call)
+      .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+      .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.FORBIDDEN);
+ }
+
 }

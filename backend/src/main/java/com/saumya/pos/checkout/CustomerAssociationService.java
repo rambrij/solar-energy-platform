@@ -11,6 +11,9 @@ import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.*;
 @Service @Transactional
@@ -45,6 +48,22 @@ public class CustomerAssociationService {
   if(!challenge.expires().isAfter(clock.instant()))throw missing();var order=orders.lock(challenge.tenant(),challenge.order()).orElseThrow(this::missing);
   if(!"IN_STORE".equals(order.channel())||!"DRAFT".equals(order.status())||order.customer()!=null||!order.expires().isAfter(clock.instant()))throw missing();
   if(!catalog.vendor(order.tenant()).active())throw missing();retail.requireOpenForCustomer(order.tenant(),order.branch(),customer,order.id(),order.cashier(),order.session());
-  relationships.associate(order.tenant(),customer,clock.instant());order.associate(customer);challenge.approve(customer);orders.flush();challenges.flush();retail.customerDraftAudit(order.tenant(),order.branch(),customer,"CUSTOMER_ASSOCIATION_APPROVE",order.id());return new Preview(catalog.vendor(order.tenant()).name(),order.total(),"ASSOCIATED");
+  associateWithVerifiedConsent(order.tenant(),customer,clock.instant());
+  order.associate(customer);challenge.approve(customer);orders.flush();challenges.flush();retail.customerDraftAudit(order.tenant(),order.branch(),customer,"CUSTOMER_ASSOCIATION_APPROVE",order.id());return new Preview(catalog.vendor(order.tenant()).name(),order.total(),"ASSOCIATED");
  }
+
+ private void associateWithVerifiedConsent(long tenant,long customer,Instant consent){
+  var previous=SecurityContextHolder.getContext();
+  var delegated=SecurityContextHolder.createEmptyContext();
+  delegated.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+      VendorCustomerService.APPROVAL_PRINCIPAL,null,
+      List.of(new SimpleGrantedAuthority(VendorCustomerService.APPROVAL_AUTHORITY))));
+  SecurityContextHolder.setContext(delegated);
+  try{
+   relationships.associate(tenant,customer,consent);
+  }finally{
+   SecurityContextHolder.setContext(previous);
+  }
+ }
+
 }

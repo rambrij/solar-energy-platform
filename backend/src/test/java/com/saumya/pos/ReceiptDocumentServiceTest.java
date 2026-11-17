@@ -1,6 +1,13 @@
 package com.saumya.pos;
 import com.saumya.pos.documents.*;
 import com.saumya.pos.retail.PosService;
+import com.saumya.pos.checkout.CheckoutReceiptService;
+import com.saumya.pos.security.AuthorizationContext;
+import java.util.Set;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.server.ResponseStatusException;
+import static org.mockito.Mockito.*;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,4 +33,20 @@ class ReceiptDocumentServiceTest {
         }
         ).generate("cashier", "order-1", "Copy request")).isInstanceOf(ResponseStatusException.class);
     }
+
+ @Test void authenticatedVendorWithoutReceiptReprintGrantIsDeniedBeforeReceiptRenderOrAudit(){
+  var authorization=mock(AuthorizationContext.class);
+  when(authorization.current()).thenReturn(new AuthorizationContext.Context(
+      "cashier",7L,12L,Set.of("POS_VIEW"),false,false,true));
+  var receipts=mock(CheckoutReceiptService.class);
+  var renderer=mock(ReceiptPdfRenderer.class);
+  var audits=mock(ReceiptDocumentAuditRepository.class);
+  var service=new ReceiptDocumentService(new PosService(null,null,authorization),renderer,audits,
+      Clock.systemUTC(),receipts);
+  assertThatThrownBy(()->service.generate("cashier","order-1","Customer requested a copy"))
+      .isInstanceOfSatisfying(ResponseStatusException.class,error->
+          assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+  verifyNoInteractions(receipts,renderer,audits);
+ }
+
 }

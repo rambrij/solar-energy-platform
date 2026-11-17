@@ -9,8 +9,9 @@ INSERT INTO product_categories(tenant_id,product_id,category_id)
 SELECT p.tenant_id,p.id,c.id FROM products p JOIN catalog_categories c ON c.tenant_id=p.tenant_id AND c.slug='solar-panels'
 WHERE p.tenant_id=900001 AND p.sku='DEMO-PANEL'
 AND NOT EXISTS(SELECT 1 FROM product_categories a WHERE a.tenant_id=p.tenant_id AND a.product_id=p.id);
-INSERT INTO employee_permissions(username,permission,tenant_id)
-SELECT e.username,p.permission,e.tenant_id FROM employees e
-CROSS JOIN(SELECT 'CATALOG_PROMOTION_MANAGE' AS permission UNION ALL SELECT 'POS_DISCOUNT_APPROVE') p
-WHERE e.username='local-supervisor' AND e.tenant_id=900001 AND e.branch_id=900001
-AND NOT EXISTS(SELECT 1 FROM employee_permissions g WHERE g.username=e.username AND g.permission=p.permission);
+INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+SELECT 900001,r.id,p.permission,'local-supervisor'
+FROM vendor_roles r
+CROSS JOIN (SELECT 'CATALOG_PROMOTION_MANAGE' permission UNION ALL SELECT 'POS_DISCOUNT_APPROVE') p
+WHERE r.tenant_id=900001 AND r.role_key='local-supervisor'
+AND NOT EXISTS(SELECT 1 FROM vendor_role_permissions x WHERE x.tenant_id=r.tenant_id AND x.role_id=r.id AND x.permission=p.permission);

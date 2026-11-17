@@ -1953,4 +1953,37 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=2",Integer.class)).isEqualTo(1);
  }
 
+
+ @Test void everyProtectedControllerRouteRejectsAnonymousHttpRequests() throws Exception {
+  int checked=0;
+  for(var entry:requestMappings.getHandlerMethods().entrySet()){
+   var handler=entry.getValue();
+   if(!handler.getBeanType().getPackageName().startsWith("com.saumya.pos"))continue;
+   var patterns=entry.getKey().getPatternValues();
+   if(patterns.isEmpty())continue;
+   String route=patterns.iterator().next();
+   Set<RequestMethod> declared=entry.getKey().getMethodsCondition().getMethods();
+   List<RequestMethod> methods=declared.isEmpty()?List.of(RequestMethod.GET):declared.stream()
+       .filter(m->Set.of(RequestMethod.GET,RequestMethod.POST,RequestMethod.PUT,RequestMethod.PATCH,RequestMethod.DELETE).contains(m))
+       .toList();
+   for(RequestMethod method:methods){
+    if(publicRoute(method,route))continue;
+    String concrete=route.replaceAll("\\{[^/]+\\}","1");
+    var builder=request(HttpMethod.valueOf(method.name()),concrete).with(csrf()).with(anonymous());
+    if(!Set.of(RequestMethod.GET,RequestMethod.DELETE).contains(method))
+     builder.contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}");
+    mvc.perform(builder).andExpect(status().isUnauthorized());
+    checked++;
+   }
+  }
+  assertThat(checked).as("protected controller routes exercised through the real HTTP security filter").isGreaterThan(50);
+ }
+ private static boolean publicRoute(RequestMethod method,String route){
+  if(method==RequestMethod.GET&&(route.startsWith("/api/v1/marketplace/")||route.equals("/api/v1/auth/csrf")))return true;
+  return method==RequestMethod.POST&&Set.of(
+      "/api/v1/auth/login","/api/v1/auth/register","/api/v1/auth/refresh","/api/v1/auth/logout",
+      "/api/v1/auth/invitations/accept","/api/v1/auth/platform-mfa/enrollment/start",
+      "/api/v1/auth/platform-mfa/enrollment/complete").contains(route);
+ }
+
 }

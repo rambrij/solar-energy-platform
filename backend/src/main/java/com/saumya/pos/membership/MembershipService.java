@@ -136,12 +136,10 @@ public class MembershipService implements VendorMembershipAccess {
            !tenants.get(tenantId).lifecycleStatus().equals("UNDER_REVIEW") &&
            !tenants.get(tenantId).lifecycleStatus().equals("ACTIVE"))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Tenant cannot receive an initial Vendor Admin in its current state");
+        if(jdbc==null)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+            "Role assignment provisioning is unavailable; initial Vendor Admin was not created");
         memberships.saveAndFlush(new EmployeeMembership(actor,tenantId,branchId,true));
-        for(String permission:VENDOR_ADMIN_PERMISSIONS){
-            if(!permission.startsWith("PLATFORM_"))grants.save(new PermissionGrant(tenantId,actor,permission));
-        }
-        grants.flush();
-        if(jdbc!=null){
+        {
             jdbc.update("""
                 INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
                 VALUES(?,?,?,?,?,?)

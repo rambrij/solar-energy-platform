@@ -134,13 +134,13 @@ This is a repository evidence review, not a successful local execution of the fu
 | Service authorization | `PosService.authorize()`, `VendorRoleService.require()`, checkout customer/POS guards | Partial; not all services audited. |
 | Tenant/assignment/ownership | Membership-derived scope; POS branch/register/session predicates; customer order scope | Partial; warehouse and all resource families unverified. |
 | Repository/data scope | Tenant predicates in inspected queries and selected composite FKs | Partial; no complete repository/query inventory. |
-| Automated tests | Static policy matrix, registry tests, controller tests and many service tests | Partial; no complete MySQL role × endpoint × cross-tenant integration matrix. |
+| Automated tests | Static policy matrix, registry tests, controller tests, service tests, P004 fixture, and PosTest API/database scenarios for current retail/POS resource families | P0-04 current implementation inventory verified by H2 and MySQL 8.4; future/unimplemented domains remain NOT APPLICABLE. |
 
 ## 5. P0 security findings
 
-1. **Complete tenant isolation is not proven.** Selected queries and constraints are tenant-scoped, but no evidence establishes coverage across every entity, repository, export, report, document, cache and asynchronous operation.
+1. **Implemented-scope boundary:** P0-04 now verifies the currently implemented retail/POS resource families through dedicated two-vendor/two-customer isolation tests, existing API integration cases and database ownership constraints. Cache/async, generic signed-object downloads and the unimplemented domains listed in §6.1 remain NOT APPLICABLE and must be brought into the isolation gate when those capabilities are introduced.
 2. **Authorization matrix coverage is incomplete.** The existing matrix validates policy expressions; it does not execute every endpoint with representative roles and cross-tenant resources.
-3. **Cross-tenant negative tests are partially implemented, but execution is pending.** P004TenantIsolationTest and TenantIsolationFixture now provide dedicated two-vendor/two-customer service and database probes. Existing PosTest supplies the corresponding API scenarios for orders, inventory, carts, checkout, payments, receipts, returns/refunds and reports/exports. Do not mark this finding PASS until H2 and MySQL 8.4 runs pass.
+3. **Cross-tenant negative tests — PASS for the current implementation inventory.** P004TenantIsolationTest and TenantIsolationFixture passed on H2 and MySQL 8.4 (3/3 tests each). Existing PosTest supplies API scenarios for orders, inventory, carts, checkout, payments, receipts, returns/refunds and reports/exports. Full backend suites passed on both DBs (577/577 each). Run #1006 is green; unimplemented domains remain NOT APPLICABLE as detailed in §6.1.
 4. **Warehouse assignment enforcement is not established.** Membership exposes a branch; register assignments are present; warehouse/resource assignment must be verified against POS and inventory operations.
 5. **Legacy permission fallback has been removed, not retained.** Product owner direction (2026-11-17) confirms the application is still in development and must use role-only authorization without backward compatibility. Membership resolution now queries active role assignments only; the configuration switch, fallback metrics, reconciliation endpoint and legacy JPA persistence have been removed. Additive V49 removes V45-generated synthetic legacy roles/assignments and drops `employee_permissions`; explicit vendor roles remain. Latest V49 H2/MySQL CI is pending.
 6. **Dual customer/vendor employee identity is ambiguous.** Authentication can carry CUSTOMER and vendor permissions while AuthorizationContext treats the principal as a customer and refuses vendor membership. Product policy must decide whether dual-context identities are supported.
@@ -160,7 +160,7 @@ Product owner decision: the application is still in development and must not car
  
 ## 6.1 P0-04 implementation update — Vendor A/B and Customer A/B isolation (2026-11-17)
 
-**Status: IMPLEMENTED — VERIFICATION PENDING. P0-04 is not COMPLETE.** This update applies to feature/develop-authorization-gap-analysis and preserves the Version 2.0 product requirements and SRS/HLD as the authority.
+**Status: COMPLETE — VERIFIED 2026-11-17 for the currently implemented resource families.** This update applies to feature/develop-authorization-gap-analysis and preserves the Version 2.0 product requirements and SRS/HLD as the authority.
 
 ### New dedicated fixture and tests
 
@@ -193,14 +193,25 @@ No new production schema change was justified by the inspected tests or current 
 
 ### Findings and NOT APPLICABLE scope
 
-- **Confirmed production defects fixed in this pass:** None. No production defect is claimed without an executed failing regression test.
+- **Confirmed production authorization/isolation defects fixed in this pass:** None were exposed by the final passing tests. CI did expose and we fixed test-only defects: void service lambdas did not satisfy the Supplier-based actor helper, and the fixture roles initially omitted ROLE_ASSIGN / USER_UPDATE / USER_DISABLE grants needed for employee-management probes to reach tenant ownership checks. The 404 isolation assertions were preserved; no test was weakened.
 - **NOT APPLICABLE (not implemented in this branch):** CRM notes/leads/quotes; shipment, installation, warranty and service modules; generic object-storage/signed download URLs; cache/async worker data access. Do not create these modules merely to manufacture P0-04 test coverage. Tenant-customer consent association exists and is in scope; vendor-private CRM note/read behavior is not an implemented API family.
 - **Production provider caveat:** Current online payment scenarios use the repository's configured mock/test adapter. They prove tenant/customer ownership of implemented payment commands, not provider production readiness or live external side-effect integration.
-- **Frontend:** No frontend changes were made; the P0-04 implementation is backend/test-only. Existing frontend CI remains included in the repository workflow, but no new browser E2E suite is added.
+- **Frontend:** No frontend application code was changed. The existing frontend CI job passed: 58 test files / 286 tests, plus TypeScript and Vite production build. No new browser E2E suite was added.
 
 ### Verification gate
 
-At the time of this update, the new P0-04 tests have been authored but have **not** been run in this environment. GitHub branch CI must run the focused test, full H2 suite, and full MySQL 8.4 suite. Record the run ID, test count, failures/errors and frontend result here after observing actual completed jobs. Until then, the status remains **VERIFICATION PENDING / NOT COMPLETE**.
+**Completed evidence — GitHub Actions run #1006, run ID 44111433246, commit ef9dfa51c046d1804ab557ac7d602b812168fed9:**
+
+| Check | Result |
+|---|---|
+| Focused `P004TenantIsolationTest` — H2 | 3 tests; 0 failures, 0 errors, 0 skipped |
+| Focused `P004TenantIsolationTest` — MySQL 8.4 | 3 tests; 0 failures, 0 errors, 0 skipped |
+| Full backend H2 suite | 577 tests; 0 failures, 0 errors, 0 skipped; BUILD SUCCESS |
+| Full backend MySQL 8.4 suite | 577 tests; 0 failures, 0 errors, 0 skipped; BUILD SUCCESS |
+| Frontend `npm test` | 58 test files; 286 tests passed |
+| Frontend `npm run build` | TypeScript check and Vite production build passed |
+
+Both backend database matrix jobs and the frontend job concluded success. Workflow: https://github.com/rambrij/solar-energy-platform/actions/runs/44111433246. This completes the P0-04 verification gate for the currently implemented resource families; NOT APPLICABLE domains remain outside this completion claim.
 
 ## 7. REQUIRES CLARIFICATION register
 

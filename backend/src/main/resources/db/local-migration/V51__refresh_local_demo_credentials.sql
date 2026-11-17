@@ -6,10 +6,10 @@ WHERE username LIKE '%@%.demo.test' OR username IN ('local-supervisor','demo-cus
 UPDATE employees SET enabled=FALSE
 WHERE username LIKE '%@%.demo.test' OR username IN ('local-supervisor','demo-customer','local-cashier');
 UPDATE employee_role_assignments
-SET active=FALSE,revoked_by='local-demo-v51-refresh',revoked_at=CURRENT_TIMESTAMP
+SET active=FALSE,revoked_by=username,revoked_at=CURRENT_TIMESTAMP
 WHERE active=TRUE AND (username LIKE '%@%.demo.test' OR username IN ('local-supervisor','demo-customer','local-cashier'));
 UPDATE employee_register_assignments
-SET active=FALSE,revoked_by='local-demo-v51-refresh',revoked_at=CURRENT_TIMESTAMP
+SET active=FALSE,revoked_by=username,revoked_at=CURRENT_TIMESTAMP
 WHERE active=TRUE AND (username LIKE '%@%.demo.test' OR username IN ('local-supervisor','demo-customer','local-cashier'));
 
 CREATE TEMPORARY TABLE demo_v51_accounts (

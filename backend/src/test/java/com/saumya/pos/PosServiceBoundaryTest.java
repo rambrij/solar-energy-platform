@@ -16,8 +16,10 @@ class PosServiceBoundaryTest {
         var service=new PosService(db,null,auth);
         var scope=new PosService.Scope(7,12,"cashier");
         assertThatThrownBy(()->service.lockOutlet(scope)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.lockInventoryOutlet(scope)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(()->service.allocateReceipt(scope)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(()->service.draftAudit(scope,"DRAFT_RESERVE","draft-1")).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.draftAudit(scope,"SALE_COMPLETE","draft-1")).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(db);
     }
 

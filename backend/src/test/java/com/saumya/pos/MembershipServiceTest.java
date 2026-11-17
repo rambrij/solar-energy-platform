@@ -140,4 +140,50 @@ class MembershipServiceTest {
         var service=new MembershipService(memberships,grants,suspended,null,null,false,null);
         assertThat(service.access("cashier")).isEmpty();
     }
+
+    @Test void migratedExistingEmployeeUsesRolePermissionsAndNeverMergesRetainedLegacyGrants(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->{
+            throw new AssertionError("migrated employee must not read retained employee_permissions");
+        });
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(),eq(Integer.class),eq(1L),eq("cashier"))).thenReturn(1);
+        when(jdbc.queryForList(anyString(),eq(String.class),eq(1L),eq("cashier")))
+            .thenReturn(List.of("POS_VIEW","ORDER_VIEW"));
+        var service=new MembershipService(memberships,grants,tenants(),jdbc,null,true,null);
+
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
+            .isEqualTo(List.of("POS_VIEW","ORDER_VIEW"));
+        verify(jdbc).queryForList(argThat(sql->sql.contains("a.active=TRUE")&&sql.contains("r.active=TRUE")),eq(String.class),eq(1L),eq("cashier"));
+    }
+
+    @Test void inactiveOrDeactivatedRoleAssignmentsReturnNoPermissionsWithoutLegacyFallback(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->{
+            throw new AssertionError("inactive role history must not fall back to legacy grants");
+        });
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(),eq(Integer.class),eq(1L),eq("cashier"))).thenReturn(1);
+        when(jdbc.queryForList(anyString(),eq(String.class),eq(1L),eq("cashier"))).thenReturn(List.of());
+        var service=new MembershipService(memberships,grants,tenants(),jdbc,null,true,null);
+
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
+            .isEqualTo(List.of());
+        verify(jdbc).queryForList(argThat(sql->sql.contains("a.active=TRUE")&&sql.contains("r.active=TRUE")),eq(String.class),eq(1L),eq("cashier"));
+    }
+
+    @Test void actualLegacyFallbackUsageIncrementsNonTenantLabelledMetric(){
+        var memberships=repository(EmployeeMembershipRepository.class,(p,m,a)->Optional.of(new EmployeeMembership("cashier",1,2,true)));
+        var grants=repository(PermissionGrantRepository.class,(p,m,a)->List.of(new PermissionGrant(1,"cashier","POS_VIEW")));
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(),eq(Integer.class),eq(1L),eq("cashier"))).thenReturn(0);
+        var registry=new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        var service=new MembershipService(memberships,grants,tenants(),jdbc,null,true,registry);
+
+        assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
+            .isEqualTo(List.of("POS_VIEW"));
+        assertThat(registry.get("authorization.legacy.permission.fallback.usage").counter().count()).isEqualTo(1.0);
+        registry.close();
+    }
+
 }

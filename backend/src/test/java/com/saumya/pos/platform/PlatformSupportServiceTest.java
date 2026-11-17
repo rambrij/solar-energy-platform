@@ -35,4 +35,19 @@ class PlatformSupportServiceTest {
         assertThatThrownBy(()->service.grant(10,"platform@solar.test","Purpose","SUP-43",now.plus(Duration.ofHours(5)),null)).isInstanceOf(ResponseStatusException.class);
         verify(repository,times(1)).saveAndFlush(any());
     }
+
+    @Test void supportGrantRevokeAndReadRequirePlatformAuthorityBeforePersistenceOrTenantLookup(){
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
+            List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+        var service=new PlatformSupportServiceImpl(repository,tenants,audit,Clock.systemUTC());
+
+        assertThatThrownBy(()->service.grant(10,"vendor","Investigation","SUP-99",
+            Instant.now().plus(Duration.ofHours(1)),"trace")).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.revoke(1,"vendor","Completed","trace"))
+            .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(service::recent).isInstanceOf(ResponseStatusException.class);
+
+        verifyNoInteractions(repository,tenants,audit);
+    }
+
 }

@@ -1,7 +1,7 @@
 package com.saumya.pos.tenant;
 
 import com.saumya.pos.tenant.internal.*;
-import com.saumya.pos.platform.PlatformAuthorization;
+import com.saumya.pos.security.PlatformAuthorization;
 import java.time.Clock;
 import java.util.*;
 import java.util.regex.Pattern;

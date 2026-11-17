@@ -510,7 +510,7 @@ class PosTest {
   enableTerminal();
   var draft=as("alice",()->checkout.pos("alice","p005-review-revoked-cashier-assignment",posDraft()));
   var attempt=terminal("alice",draft.id(),"CARD");
-  update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='admin',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND register_id=1");
+  update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='manager',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND register_id=1");
   assertThatThrownBy(()->as("manager",()->tenderReviews.review("manager",draft.id(),terminalReview(attempt.attemptId(),"CONFIRM"))))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThat(as("manager",()->payments.awaitingReview("manager"))).isEmpty();
@@ -535,6 +535,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE order_id=?",Integer.class,draft.id())).isZero();
  }
  @Test void tenderStatusRejectsRevokedOriginalRegisterAssignmentEvenWhenAnotherTillRemainsAssigned(){
+  enableTerminal();
   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(3,1,1)");
   assignRegister("alice",1,1,3);
   var draft=as("alice",()->checkout.pos("alice","p005-tender-read-revoked-register",posDraft()));

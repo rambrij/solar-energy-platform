@@ -29,6 +29,7 @@ class RegisterDirectoryServiceTest {
                 assertThat(scope.cashier()).isEqualTo(actor);
                 assertThat(permissions).containsExactly("POS_VIEW");
             }
+            @Override public void requireAssignedRegisterScope(Scope scope,String permission){}
         };
         service = new RegisterDirectoryService(repository, retail);
     }

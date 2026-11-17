@@ -47,6 +47,7 @@ class OrderHistoryServiceTest {
                 return new Scope(1, 2, "username");
             }
             @Override public void authorize(Scope scope,String actor,String... permissions){if(disabled)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);}
+            @Override public void requireAssignedRegisterScope(Scope scope,String permission){if(disabled)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);}
             @Override public void authorizeCustomer(String actor){}
         };
         var catalog = new CatalogService(null, null, null) {

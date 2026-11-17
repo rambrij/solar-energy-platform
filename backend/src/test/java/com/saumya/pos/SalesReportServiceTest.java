@@ -31,6 +31,7 @@ class SalesReportServiceTest {
                 return new Scope(7, 9, "cashier");
             }
             @Override public void authorize(Scope scope,String actor,String... permissions){if(forbidden)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);}
+            @Override public void requireAssignedRegisterScope(Scope scope,String permission){if(forbidden)throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);}
         };
         service = new SalesReportService(repo, retail, Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"), ZoneOffset.UTC));
     }

@@ -139,8 +139,7 @@ public class MembershipService implements VendorMembershipAccess {
         if(jdbc==null)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
             "Role assignment provisioning is unavailable; initial Vendor Admin was not created");
         memberships.saveAndFlush(new EmployeeMembership(actor,tenantId,branchId,true));
-        {
-            jdbc.update("""
+        jdbc.update("""
                 INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
                 VALUES(?,?,?,?,?,?)
                 """,tenantId,"vendor-admin-initial","Vendor Admin",true,actor,actor);
@@ -149,9 +148,8 @@ public class MembershipService implements VendorMembershipAccess {
                 VENDOR_ADMIN_PERMISSIONS.stream().filter(p->!p.startsWith("PLATFORM_")).map(p->new Object[]{tenantId,roleId,p,actor}).toList());
             jdbc.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",
                 tenantId,branchId,actor,roleId,actor);
-            jdbc.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username,resource_type,resource_id,action,reason) VALUES(?,?,?,?,?,?,?)",
-                tenantId,actor,actor,"ROLE",roleId.toString(),"INITIAL_VENDOR_ADMIN_ROLE_ASSIGNED","Initial Vendor Admin grants migrated to role assignment");
-        }
+        jdbc.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username,resource_type,resource_id,action,reason) VALUES(?,?,?,?,?,?,?)",
+            tenantId,actor,actor,"ROLE",roleId.toString(),"INITIAL_VENDOR_ADMIN_ROLE_ASSIGNED","Initial Vendor Admin grants migrated to role assignment");
         return new Provisioning(actor,tenantId,branchId,true,VENDOR_ADMIN_PERMISSIONS.size());
     }
 }

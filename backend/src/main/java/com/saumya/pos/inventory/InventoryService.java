@@ -62,8 +62,14 @@ public class InventoryService {
  }
  private boolean expiryJob(){
   Authentication auth=SecurityContextHolder.getContext().getAuthentication();
-  return auth!=null&&auth.isAuthenticated()&&auth.getAuthorities().stream()
+  boolean carriesSystemGrant=auth!=null&&auth.getAuthorities().stream()
       .anyMatch(a->EXPIRY_JOB_AUTHORITY.equals(a.getAuthority()));
+  if(!carriesSystemGrant)return false;
+  // The system authority is not a user permission. Bind it to the private worker identity
+  // installed by DraftExpiryJob so a forged/accidentally assigned grant cannot release stock.
+  if(!auth.isAuthenticated()||!"system:draft-expiry".equals(auth.getName()))
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Trusted draft-expiry worker required");
+  return true;
  }
  /**
   * Checks the persisted order owner before reservation mutation. Online stock is changed only
@@ -153,8 +159,11 @@ public class InventoryService {
  /** Releases only an owned online/POS draft. System expiry is separately authorized by the scheduled expiry worker. */
  @Transactional
  public void release(long tenant,String orderId){
+  // Validate the special system capability before even resolving the order. A user carrying
+  // the reserved authority must not trigger a data-plane lookup or reservation mutation.
+  boolean trustedExpiry=expiryJob();
   Map<String,Object> order=order(tenant,orderId);
-  if(expiryJob()){
+  if(trustedExpiry){
    if(!"DRAFT".equals(order.get("status")))return;
   }else{
    long branch=((Number)order.get("stock_branch_id")).longValue();

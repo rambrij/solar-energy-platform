@@ -71,7 +71,7 @@ No frontend changes or schema migrations are part of P0-02.
 - PlatformAdminServiceAuthorizationTest, PlatformAuditServiceTest, BranchProvisioningServiceTest, IdentityProvisioningServiceTest, MembershipServiceTest and TenantServiceDirectoryValidationTest: verify platform actor/permission boundaries and provisioning denials before their repositories/sequences.
 - Existing POS/API tests cover 401/403 and cross-tenant 404 cases for inventory, product/category management, customer order/receipt ownership, POS sessions/tenders, returns/refunds, history, reports and exports.
 
-**Verified CI:** [GitHub Actions run #44013599576](https://github.com/rambrij/solar-energy-platform/actions/runs/44013599576) completed successfully on commit 104baea9da81956ddf2cdb12b0fc601cd4bffdca: H2 backend **526 tests passed**, MySQL 8.4 backend **526 tests passed**, frontend tests and production build passed. The module architecture test also passed. This is the latest verified branch-head code snapshot.
+**Verified CI:** [GitHub Actions run #44015643379](https://github.com/rambrij/solar-energy-platform/actions/runs/44015643379) completed successfully on commit `bf101c0b49239aaf36f68b47a83576a72004df07`: H2 backend **537 tests passed**, MySQL 8.4 backend **537 tests passed**, frontend tests and production build passed, and the module architecture test passed. This run includes the return/refund/export, branch-policy and read-only service denial tests.
 
 ## 5. Trusted-internal boundaries and caller verification
 
@@ -136,7 +136,7 @@ A green run validates the code snapshot attached to that run. INV-SVC-007 and IN
 
 **P0-02: IN PROGRESS — NOT ACCEPTANCE-COMPLETE.**
 
-INV-SVC-001 through INV-SVC-006 have documented inventories/caller evidence and dedicated source or regression tests. The latest branch-head CI passed 526 backend tests on both H2 and MySQL 8.4, plus frontend tests/build and module architecture checks.
+INV-SVC-001 through INV-SVC-006 have documented inventories/caller evidence and dedicated source or regression tests. The latest verified application-code snapshot (run #44015643379) passed 537 backend tests on both H2 and MySQL 8.4, plus frontend tests/build and module architecture checks.
 
 INV-SVC-007 remains partial: the implementation exercises all protected controller mappings for anonymous 401 and policy 403, and includes data-backed cross-tenant 404 tests for the principal tenant-owned resource families. It does not yet provide the complete DB-backed role × tenant × branch matrix for every protected resource family.
 

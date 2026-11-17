@@ -185,7 +185,7 @@ public class PaymentCheckoutService {
  
  public List<View> awaitingReview(String username) {
   var scope = retail.scope();retail.authorize(scope,username,"POS_TENDER_MANUAL_VERIFY");
-  return attempts.awaitingReview(scope.tenant(), scope.branch(), org.springframework.data.domain.PageRequest.of(0, 20)).stream().map(a -> tenderView(orders.findByTenantIdAndId(a.tenant(), a.order()).orElseThrow(this::missing), a)).toList();
+  return attempts.awaitingReview(scope.tenant(), scope.branch(), org.springframework.data.domain.PageRequest.of(0, 20)).stream().map(a -> tenderView(orders.findByTenantIdAndId(scope.tenant(), a.order()).orElseThrow(this::missing), a)).toList();
  }
  
  public View finalizeVerified(String username, String id, String attemptId) {

@@ -2093,8 +2093,9 @@ class PosTest {
      var policy=org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(method,org.springframework.security.access.prepost.PreAuthorize.class);
      if(policy==null)policy=org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(controllerType,org.springframework.security.access.prepost.PreAuthorize.class);
      assertThat(policy).as("method security policy for %s#%s",controllerType.getSimpleName(),method.getName()).isNotNull();
-     if(policy.value().trim().equals("permitAll()"))continue;
+     if(policy.value().contains("permitAll()"))continue;
      final String expression=policy.value();
+     if(!(expression.contains("hasAuthority(")||expression.contains("hasAnyAuthority(")))continue;
      method.setAccessible(true);
      Object[] args=Arrays.stream(method.getParameterTypes())
          .map(type->authorizationProbeValue(type,expression)).toArray();

@@ -73,7 +73,7 @@ class MembershipServiceTest {
         var created=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         var retried=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         assertThat(created.created()).isTrue();assertThat(retried.created()).isFalse();
-        assertThat(rowsGrants).isNotEmpty().allSatisfy(g->assertThat(g.permission()).doesNotStartWith("PLATFORM_"));
+        assertThat(rowsGrants).isEmpty();
         verify(jdbc).update(contains("INSERT INTO employee_role_assignments"),eq(7L),eq(12L),eq("admin@example.com"),eq(99L),eq("admin@example.com"));
         SecurityContextHolder.clearContext();
     }

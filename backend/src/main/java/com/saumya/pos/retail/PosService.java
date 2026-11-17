@@ -214,7 +214,6 @@ public class PosService {
         long register=((Number)one("SELECT register_id FROM pos_sessions WHERE tenant_id=? AND branch_id=? AND cashier=? AND id=?",reviewer.tenant(),reviewer.branch(),ownerCashier,sessionId).get("register_id")).longValue();
         requireAssignedRegister(reviewer,register);
     }
-    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     /** Supervisor operation against the original cashier's persisted OPEN session and register. */
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void requireOpenResourceSession(Scope actor,String ownerCashier,String sessionId,String... permissions){
@@ -244,6 +243,7 @@ public class PosService {
         requireAssignedRegister(actor,((Number)row.get("register_id")).longValue());
     }
 
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void requireOpenForCustomer(long tenant,long branch,long customer,String orderId,String cashier,String sessionId){
         var context=authContext.current();
         if(!context.isCustomer()||customers==null||customers.resolve(context.username())!=customer)

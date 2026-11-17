@@ -54,10 +54,10 @@ class V51LocalDemoCredentialsTest {
             "SELECT COUNT(*) FROM users WHERE username='local-cashier' AND enabled=FALSE", Integer.class
         )).isEqualTo(1);
         assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM employee_role_assignments WHERE username='local-cashier' AND active=FALSE", Integer.class
+            "SELECT COUNT(*) FROM employee_role_assignments WHERE username='local-cashier' AND active=FALSE AND revoked_by=username", Integer.class
         )).isEqualTo(1);
         assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM employee_register_assignments WHERE username='local-cashier' AND active=FALSE", Integer.class
+            "SELECT COUNT(*) FROM employee_register_assignments WHERE username='local-cashier' AND active=FALSE AND revoked_by=username", Integer.class
         )).isEqualTo(1);
 
         assertThat(db.queryForObject(
@@ -93,9 +93,9 @@ class V51LocalDemoCredentialsTest {
 
     private void createSchema(JdbcTemplate db) {
         db.execute("CREATE TABLE users(id BIGINT PRIMARY KEY,username VARCHAR(100) UNIQUE,password_hash VARCHAR(200),enabled BOOLEAN)");
-        db.execute("CREATE TABLE employees(username VARCHAR(100) PRIMARY KEY,tenant_id BIGINT,branch_id BIGINT,enabled BOOLEAN)");
-        db.execute("CREATE TABLE employee_role_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),role_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,role_id))");
-        db.execute("CREATE TABLE employee_register_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),register_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,register_id))");
+        db.execute("CREATE TABLE employees(username VARCHAR(100) PRIMARY KEY,tenant_id BIGINT,branch_id BIGINT,enabled BOOLEAN,UNIQUE(tenant_id,username))");
+        db.execute("CREATE TABLE employee_role_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),role_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,role_id),CONSTRAINT fk_employee_role_revoked_by FOREIGN KEY(tenant_id,revoked_by) REFERENCES employees(tenant_id,username))");
+        db.execute("CREATE TABLE employee_register_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),register_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,register_id),CONSTRAINT fk_employee_register_revoked_by FOREIGN KEY(tenant_id,revoked_by) REFERENCES employees(tenant_id,username))");
         db.execute("CREATE TABLE vendor_roles(tenant_id BIGINT,id BIGINT AUTO_INCREMENT,role_key VARCHAR(120),display_name VARCHAR(120),active BOOLEAN,version BIGINT DEFAULT 0,created_by VARCHAR(100),updated_by VARCHAR(100),PRIMARY KEY(tenant_id,id),UNIQUE(tenant_id,role_key))");
         db.execute("CREATE TABLE vendor_role_permissions(tenant_id BIGINT,role_id BIGINT,permission VARCHAR(80),created_by VARCHAR(100),UNIQUE(tenant_id,role_id,permission))");
         db.execute("CREATE TABLE platform_user_permissions(username VARCHAR(100),permission VARCHAR(80),PRIMARY KEY(username,permission))");

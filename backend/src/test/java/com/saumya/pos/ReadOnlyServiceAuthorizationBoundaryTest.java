@@ -2,7 +2,7 @@ package com.saumya.pos;
 
 import com.saumya.pos.checkout.*;
 import com.saumya.pos.checkout.internal.*;
-import com.saumya.pos.reporting.internal.CashierSalesRepository;
+import com.saumya.pos.checkout.internal.CashierSalesRepository;
 import com.saumya.pos.returns.*;
 import com.saumya.pos.returns.internal.*;
 import com.saumya.pos.retail.*;

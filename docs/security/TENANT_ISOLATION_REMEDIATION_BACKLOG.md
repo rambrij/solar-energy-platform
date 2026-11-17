@@ -24,13 +24,13 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | P2 | Important hardening, missing verification, or defense-in-depth gap without a demonstrated exploit. |
 | P3 | Documentation, maintainability, or cleanup. |
 
-**P0-01 outcome:** no confirmed cross-tenant exploit was demonstrated in the inspected source paths. Three same-tenant database integrity gaps were confirmed and are P1. The three P1 gaps are implemented by additive Flyway migration `V48__tenant_child_ownership_constraints.java`, including pre-DDL data validation and composite foreign keys. H2 and MySQL 8.4 CI suites both passed (497 tests each, zero failures/errors). No P0 vulnerability is asserted without evidence. Production deployment still depends on V48's live-data preflight succeeding.
+**P0-01 outcome:** no confirmed cross-tenant exploit was demonstrated in the inspected source paths. The three same-tenant database integrity gaps are implemented by additive Flyway migration `V48__tenant_child_ownership_constraints.java`, including pre-DDL data validation and composite foreign keys. H2 and MySQL 8.4 CI suites both passed (530 tests each, zero failures/errors) in [run #44014325812](https://github.com/rambrij/solar-energy-platform/actions/runs/44014325812). Production deployment still depends on V48's live-data preflight succeeding; full Vendor A/B and Customer A/B endpoint/resource-family isolation remains outstanding under P0-04.
 
 ## 2. Remediation backlog
 
 ### INV-DB-001 — Add same-tenant constraints for POS drawer tender projection
 
-**Priority: P1** — Confirmed schema gap
+**Priority: P1 — IMPLEMENTED by V48; CI verified.**
 
 | Field | Detail |
 |---|---|
@@ -85,7 +85,7 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | Dependencies | Verify current event rows and subscription parent uniqueness. |
 | Acceptance criteria | **Verified in CI:** H2 and MySQL 8.4 accept same-tenant events and reject tenant A events referencing tenant B subscriptions. Production V48 preflight must still pass against the deployment database. |
 
-### INV-DB-004 — Add explicit tenant-aware order lookup in POS payment review queue
+### INV-DB-004 — Add explicit tenant-aware order lookup in POS payment review queue — IMPLEMENTED
 
 **Priority: P2** — Hardening; no exploit demonstrated
 
@@ -93,15 +93,15 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 |---|---|
 | Affected module | POS external tender manual review |
 | Table/repository/service | `vendor_payment_attempts`, `orders`; `PaymentAttemptRepository.awaitingReview`; `PaymentCheckoutService` review queue |
-| Current behavior | Pending attempts are selected by tenant + branch and joined to orders by tenant + order ID. The mapping then loads the order with `orders.findById(attempt.order())`. The composite payment-attempt/order FK and globally unique order ID constrain this path. |
+| Current behavior | **Implemented:** pending attempts are selected by tenant + branch and mapped with `orders.findByTenantIdAndId(scope.tenant(),attempt.order())`; there is no global `findById` lookup in this path. |
 | Expected behavior | Tenant scope should remain explicit through the final order load, not rely only on a previous join and global identifier uniqueness. |
 | Security impact | Defense-in-depth and code-review clarity. No exploit demonstrated while the composite FK and scoped pending-attempt query are present. |
 | Evidence | `PaymentAttemptRepository.awaitingReview`; `PaymentCheckoutService` manual review listing. |
-| Recommended implementation | Replace the final lookup with `findByTenantIdAndId(attempt.tenant(),attempt.order())`; return the same non-enumerable missing response. |
+| Recommended implementation | **Completed:** payment review mapping uses the tenant from the authenticated `PosService.Scope` plus the persisted order ID; missing rows retain the non-enumerable missing response. |
 | Migration required | No. |
-| Tests required | Unit/integration test that a mismatched attempt tenant/order cannot produce a review row; preserve current review ordering and permissions. |
+| Tests required | `PaymentCheckoutServiceTest.paymentReviewQueueLoadsEachOrderWithTheAttemptTenantAndNeverUsesGlobalIdLookup` asserts the authorized tenant is used and fails on any `findById` call. |
 | Dependencies | Existing scoped DraftRepository method. |
-| Acceptance criteria | Review mapping uses explicit tenant-aware order lookup and existing tender-review tests pass. |
+| Acceptance criteria | **Implemented; pending exact-head CI:** review mapping uses explicit tenant-aware order lookup and the regression test rejects global-ID access. |
 
 ### INV-DB-005 — Add cross-tenant FK and null-ownership MySQL integration tests
 
@@ -131,7 +131,7 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | Current behavior | Tenant repositories inherit generic `JpaRepository` operations such as `findById`, `findAll`, `deleteById` and `save`. Many callsites correctly use composite keys or scoped finders; some use a generic lookup after a scoped parent lookup. |
 | Expected behavior | Tenant-owned resources should use explicit tenant + resource/parent methods or composite keys, with ownership validation before mutations. Generic unscoped methods should be limited to global/platform data or documented trusted internal use. |
 | Security impact | Future code can accidentally introduce unscoped access if inherited CRUD is treated as safe by default. No single exploitable inherited-method call was established by interface declarations alone. |
-| Evidence | 60 repository interfaces in the current tree; examples include composite-key InvoiceSnapshot/BuyerSnapshot/CatalogStock and tenant-aware Product/Draft/Return repositories. |
+| Evidence | 62 repository interfaces in the current tree; examples include composite-key InvoiceSnapshot/BuyerSnapshot/CatalogStock and tenant-aware Product/Draft/Return repositories. |
 | Recommended implementation | Add ArchUnit/static checks for tenant-owned modules; document allowed generic method use; add tenant-aware methods where a concrete callsite needs them. Do not blanket-remove inherited repository methods or rewrite architecture. |
 | Migration required | No. |
 | Tests required | Static architecture rule mutation tests; direct service tests for any changed callsite. |
@@ -258,12 +258,11 @@ flowchart TD
 
 Suggested order:
 
-1. Run read-only data-quality queries for INV-DB-001..003.
-2. Design the minimal composite parent keys/FKs; confirm MySQL 8.4 and Flyway behavior.
-3. Add one additive migration (or a small set of independently reversible migrations) with clear preconditions.
-4. Add MySQL 8.4 integration tests proving valid inserts and invalid cross-tenant/orphan rejection.
-5. Apply P2 query hardening INV-DB-004 and tests.
-6. Complete P0-02 and P0-04 before claiming the tenant-isolation acceptance criteria.
+1. Review the read-only V48 preflight counts against the deployment MySQL 8.4 database before applying the migration.
+2. V48's additive parent keys and composite FKs are implemented, with existing rows validated before DDL.
+3. H2 and MySQL 8.4 migration tests prove valid same-tenant relationships and reject mismatched/orphan drawer, active-draft and subscription-event relationships.
+4. INV-DB-004 now uses the tenant-aware payment-review order lookup and has a regression test.
+5. Complete P0-02 and the full P0-04 Vendor A/B + Customer A/B endpoint/resource-family tests before claiming tenant-isolation acceptance.
 
 ## 5. Migration safety requirements
 
@@ -284,7 +283,7 @@ Before any migration:
 
 - [x] Source-of-truth requirements and P0-01 implementation plan reviewed.
 - [x] All 65 database tables classified.
-- [x] 60 repository interfaces inventoried.
+- [x] 62 repository interfaces inventoried.
 - [x] 64 explicit `@Query` annotations counted.
 - [x] 4 native repository queries reviewed.
 - [x] Six direct JDBC access components inventoried.
@@ -303,6 +302,6 @@ The unchecked production-data and P0-02/P0-04/P0-06 items remain outstanding. CI
 
 ## 7. P0-01 backlog conclusion
 
-No P0 cross-tenant exploit is asserted from the reviewed code evidence. The three P1 same-tenant FK gaps are implemented in additive Flyway V48. GitHub Actions run [#661](https://github.com/rambrij/solar-energy-platform/actions/runs/43946032530) passed the complete backend suite on both H2 and MySQL 8.4: 497 tests per database, zero failures and zero errors; frontend tests/build also passed. The tests cover preflight abort-without-data-loss, valid same-tenant writes, and rejection of cross-tenant drawer, draft and subscription-event relationships.
+No P0 cross-tenant exploit is asserted from the reviewed code evidence. The three P1 same-tenant FK gaps are implemented in additive Flyway V48. GitHub Actions run [#44014325812](https://github.com/rambrij/solar-energy-platform/actions/runs/44014325812) passed the backend suite on both H2 and MySQL 8.4: 530 tests per database, zero failures and zero errors; frontend tests/build and module architecture checks also passed. The tests cover preflight abort-without-data-loss, valid same-tenant writes, and rejection of cross-tenant drawer, draft and subscription-event relationships.
 
 **Deployment gate:** apply V48 only after reviewing its read-only preflight counts on the target database. If it aborts, reconcile invalid rows from authoritative parent records; never delete or reassign them automatically. P2 hardening remains for the tenant-aware review-queue lookup, generic repository discipline and audit referential integrity. Membership, warehouse and vendor billing scope remain `REQUIRES CLARIFICATION`. Do not claim complete tenant isolation until P0-02/P0-04 and their service/API-level acceptance tests pass.

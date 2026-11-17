@@ -1,4 +1,4 @@
--- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V40+ first. Never run on production.
+-- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V50+ first so POS stock-location ownership is enforced. Never run on production.
 -- Select the local database in Workbench first; no database name is hardcoded here.
 -- Public demo credentials and exact permission presets: docs/demo/multi-vendor-testing.md.
 -- Run while the application is stopped; this script does not reset operational data.
@@ -16,8 +16,9 @@ BEGIN
  -- Check schema before referencing any fixture or application tables.
  IF DATABASE() IS NULL OR
     NOT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='platform_user_permissions') OR
+    NOT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='pos_stock_locations') OR
     NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='products' AND column_name='brand') THEN
-  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Demo seed requires Flyway V37 and V38. Rebuild/start updated backend on this database, then stop it and rerun seed.';
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Demo seed requires Flyway V50 (POS stock-location ownership). Rebuild/start updated backend on this database, then stop it and rerun seed.';
  END IF;
  SELECT GET_LOCK('solar_multi_vendor_demo',10) INTO seed_lock;
  IF seed_lock IS NULL OR seed_lock<>1 THEN
@@ -144,6 +145,12 @@ CREATE TEMPORARY TABLE demo_new_accounts AS SELECT d.* FROM demo_accounts d WHER
 INSERT INTO tenants(id,name,legal_name,lifecycle_status,slug) SELECT d.id,d.name,d.name,'ACTIVE',d.slug FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM tenants t WHERE t.id=d.id);
 
 INSERT INTO branches(id,tenant_id,name,invoice_required,pos_return_window_days,cash_refunds_enabled,split_tender_enabled) SELECT d.id,d.id,d.branch_name,FALSE,30,TRUE,TRUE FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM branches b WHERE b.id=d.id);
+
+-- Branches created after the V50 backfill need their server-designated POS stock room in this seed transaction.
+INSERT INTO pos_stock_locations(tenant_id,branch_id,stock_location_id,location_code,display_name,active)
+SELECT d.id,d.id,d.id,'POS_DEFAULT',CONCAT(d.branch_name,' POS stock room'),TRUE
+FROM demo_vendors d
+WHERE NOT EXISTS(SELECT 1 FROM pos_stock_locations p WHERE p.tenant_id=d.id AND p.branch_id=d.id);
 
 UPDATE tenants SET online_branch_id=id WHERE id IN (SELECT id FROM demo_vendors) AND online_branch_id IS NULL AND NOT EXISTS(SELECT 1 FROM products p WHERE p.tenant_id=tenants.id);
 

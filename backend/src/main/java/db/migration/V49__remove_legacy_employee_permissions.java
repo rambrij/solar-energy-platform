@@ -2,7 +2,6 @@ package db.migration;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
@@ -42,7 +41,6 @@ public class V49__remove_legacy_employee_permissions extends BaseJavaMigration {
                    SELECT 1 FROM vendor_roles r
                     WHERE r.tenant_id=vendor_role_permissions.tenant_id AND r.id=vendor_role_permissions.role_id
                       AND r.role_key=CONCAT('legacy-',r.created_by)
-                      AND r.display_name LIKE 'Migrated grants:%'
                  )
                 """);
             execute(connection,"""

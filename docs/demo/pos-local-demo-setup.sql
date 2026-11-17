@@ -24,20 +24,27 @@ BEGIN
     INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES('local-cashier',900001,900001,TRUE);
     UPDATE identity_sequence SET next_id=GREATEST(next_id,900003) WHERE id=1;
 
-    INSERT INTO employee_permissions (username, permission, tenant_id) VALUES
-        ('local-cashier', 'POS_VIEW', 900001),
-        ('local-cashier', 'POS_SESSION_OPEN', 900001),
-        ('local-cashier', 'POS_SESSION_CLOSE', 900001),
-        ('local-cashier', 'POS_SALE_CREATE', 900001),
-        ('local-cashier', 'POS_TENDER_CASH_RECORD', 900001),
-        ('local-cashier', 'POS_RECEIPT_VIEW', 900001),
-        ('local-cashier', 'POS_RECEIPT_REPRINT', 900001),
-        ('local-cashier', 'POS_CASH_IN', 900001),
-        ('local-cashier', 'POS_CASH_OUT', 900001),
-        ('local-cashier', 'POS_SAFE_DROP', 900001);
+    INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
+    VALUES(900001,'local-cashier','Local Cashier',TRUE,'local-cashier','local-cashier');
+
+    INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+    SELECT 900001,id,p.permission,'local-cashier'
+    FROM vendor_roles
+    JOIN (SELECT 'POS_VIEW' permission UNION ALL SELECT 'POS_SESSION_OPEN' UNION ALL SELECT 'POS_SESSION_CLOSE'
+          UNION ALL SELECT 'POS_SALE_CREATE' UNION ALL SELECT 'POS_TENDER_CASH_RECORD' UNION ALL SELECT 'POS_RECEIPT_VIEW'
+          UNION ALL SELECT 'POS_RECEIPT_REPRINT' UNION ALL SELECT 'POS_CASH_IN' UNION ALL SELECT 'POS_CASH_OUT'
+          UNION ALL SELECT 'POS_SAFE_DROP') p
+    WHERE tenant_id=900001 AND role_key='local-cashier';
+
+    INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by)
+    SELECT 900001,900001,'local-cashier',id,TRUE,'local-cashier'
+    FROM vendor_roles WHERE tenant_id=900001 AND role_key='local-cashier';
 
     INSERT INTO registers (id, tenant_id, branch_id)
     VALUES (900001, 900001, 900001);
+
+    INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)
+    VALUES(900001,900001,'local-cashier',900001,TRUE,'local-cashier');
 
     UPDATE retail_sequences SET next_id=GREATEST(next_id,900002) WHERE name='REGISTER';
 

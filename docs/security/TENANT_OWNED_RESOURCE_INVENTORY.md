@@ -31,13 +31,7 @@ The principal design is consistent with the approved shared-schema model:
 - Tenant subscription, invoice, payment and event rows are tenant-associated platform-billing records; they are not vendor customer-order payments.
 - Child rows generally carry `tenant_id` and use composite parent references in the commercial/POS tables.
 
-**Three concrete same-tenant relational integrity gaps** were verified in the schema:
-
-1. `pos_drawer_tenders` has a tenant FK but no same-tenant FK to its referenced session, branch or order.
-2. `pos_active_drafts` has a same-tenant session FK but no FK from `(tenant_id, order_reference)` to the corresponding order.
-3. `subscription_events` has separate tenant and subscription FKs, but no composite FK requiring the subscription to belong to the same tenant.
-
-The inspected application write paths for these three tables derive values from persisted server-side order/session/subscription objects or trusted in-process events. No cross-tenant exploit was demonstrated from those paths. They are therefore recorded as confirmed **database integrity / defense-in-depth gaps**, not as proven cross-tenant read vulnerabilities. See the remediation backlog.
+**Three same-tenant relational integrity gaps were originally identified and are now remediated by V48.** The additive `V48__tenant_child_ownership_constraints.java` migration runs all three read-only ownership preflights before DDL, adds composite parent keys where needed, and adds same-tenant branch/session/order FKs for `pos_drawer_tenders`, a same-tenant cashier/session/order FK for `pos_active_drafts`, and a composite tenant/subscription FK for `subscription_events`. The migration aborts before DDL if existing rows do not resolve to their authoritative parent; it does not delete or reassign data. H2 and MySQL 8.4 CI test this migration and the valid/invalid relationship behavior. Applying V48 to a deployment database remains gated on reviewing the preflight against that database.
 
 No tenant table is identified as missing `tenant_id`. That does not close the broader P0 isolation work: the application must still scope every read, mutation, report, export, document and child lookup.
 
@@ -153,13 +147,13 @@ The table list is derived from the production Flyway SQL and Java migrations und
 | `branch_settings_events` | Branch settings audit | TENANT_CHILD | Yes, NOT NULL | Tenant/branch composite relationship; actor username currently stored as a value without employee FK. |
 | `catalog_stock` | Catalogue stock projection | TENANT_CHILD | Yes, NOT NULL | Composite tenant/branch/product identity and FKs; updated from an internal stock-change event. |
 | `catalog_change_events` | Catalogue audit | TENANT_CHILD | Yes, NOT NULL | Tenant FK exists; actor and resource ID are polymorphic values without a tenant/resource composite FK. |
-| `pos_drawer_tenders` | POS cash tender projection | TENANT_CHILD | Yes, NOT NULL | Tenant FK and tenant-leading session index only; **missing same-tenant FKs to session, branch and order**. See finding `INV-DB-001`. |
+| `pos_drawer_tenders` | POS cash tender projection | TENANT_CHILD | Yes, NOT NULL | V48 adds composite FKs to same-tenant branch, branch/session and branch/session/order; preflight validates channel and ownership before DDL. |
 | `inventory_receipts` | Inventory receiving | TENANT_CHILD | Yes, NOT NULL | Tenant/branch/product composite FKs; actor username is a stored value without an employee FK. |
 | `order_buyer_snapshots` | Checkout documents | TENANT_CHILD | Yes, NOT NULL | Composite tenant/order key/FK; customer-provided buyer snapshot is tied to a tenant-owned order. |
-| `pos_active_drafts` | POS draft projection | TENANT_CHILD | Yes, NOT NULL | Composite tenant/order PK and tenant/branch/cashier/session FK; **no FK to the referenced order**. See finding `INV-DB-002`. |
+| `pos_active_drafts` | POS draft projection | TENANT_CHILD | Yes, NOT NULL | V48 adds a composite FK to the exact same-tenant in-store order tuple `(tenant,branch,cashier,session,order)`; preflight requires the referenced order to be IN_STORE and DRAFT. |
 | `subscription_invoices` | Platform subscription billing | TENANT_CHILD | Yes, NOT NULL | Tenant association; V41 adds composite FK `(tenant_id,subscription_id)` to same-tenant subscription. |
 | `subscription_payments` | Platform subscription billing | TENANT_CHILD | Yes, NOT NULL | Tenant association; V41 adds composite FK `(tenant_id,subscription_invoice_id)` to same-tenant invoice. |
-| `subscription_events` | Platform subscription audit | TENANT_CHILD | Yes, NOT NULL | Tenant and global actor references exist, but subscription FK is only by `subscription_id`; **missing composite tenant/subscription FK**. See finding `INV-DB-003`. |
+| `subscription_events` | Platform subscription audit | TENANT_CHILD | Yes, NOT NULL | V48 adds the composite FK `(tenant_id,subscription_id)` to `tenant_subscriptions(tenant_id,id)`; V41 already supplies the required parent key. |
 | `vendor_role_permissions` | Vendor authorization | TENANT_CHILD | Yes, NOT NULL | Composite PK and FKs to same-tenant role and employee actor; platform permission prefix is prohibited by check constraint. |
 | `employee_role_assignments` | Vendor authorization | TENANT_CHILD | Yes, NOT NULL | Composite FKs to same-tenant employee, branch and role; assignment/revocation actors are employee-scoped. |
 | `employee_register_assignments` | POS assignment | TENANT_CHILD | Yes, NOT NULL | Composite FKs to same-tenant employee and branch/register; assignment/revocation actors are employee-scoped. |
@@ -193,9 +187,9 @@ These constraints are valuable because a tenant predicate in application code an
 
 | Finding | Relationship | Current schema | Runtime write/read evidence | Assessment |
 |---|---|---|---|---|
-| INV-DB-001 | `pos_drawer_tenders` → session, branch, order | FK only to `tenants`; index is `(tenant_id,branch_id,session_id)`; no parent FKs | `CashDrawerProjection.record(CashTenderRecorded)` inserts event values; `PosService` drawer queries filter tenant + session | Confirmed database integrity gap; no cross-tenant exploit demonstrated. |
-| INV-DB-002 | `pos_active_drafts` → order | PK `(tenant_id,order_reference)`; session FK composite; no FK to `orders` | `DraftSessionProjection.changed` writes/deletes tenant + branch + cashier + session + order from a server-published event; cleanup reads persisted order then expires by tenant + id | Confirmed projection integrity gap; no cross-tenant exploit demonstrated. |
-| INV-DB-003 | `subscription_events` → subscription | Separate FK to tenant and FK to subscription ID; not a composite tenant/subscription FK | `TenantSubscriptionServiceImpl` writes event from persisted subscription object; event reads are platform-authorized and keyed by subscription ID | Confirmed database integrity gap; no vendor-facing data path or exploit demonstrated. |
+| INV-DB-001 | `pos_drawer_tenders` → session, branch, order | **Remediated by V48:** composite FKs bind branch, session and originating order to the same tenant/branch/session tuple | `CashDrawerProjection.record(CashTenderRecorded)` inserts the trusted event tuple in the same transaction; V48 preflight checks existing rows before DDL | **Implemented and CI-verified** on H2 and MySQL 8.4; production preflight still required before deployment. |
+| INV-DB-002 | `pos_active_drafts` → order | **Remediated by V48:** composite FK binds tenant, branch, cashier, session and order reference to the exact parent order tuple | `DraftSessionProjection.changed` writes/deletes the server-published tuple in the order transaction; V48 preflight rejects missing or non-draft parents | **Implemented and CI-verified** on H2 and MySQL 8.4; production preflight still required before deployment. |
+| INV-DB-003 | `subscription_events` → subscription | **Remediated by V48:** composite FK enforces `(tenant_id,subscription_id)` parent ownership | `TenantSubscriptionServiceImpl` creates event rows from the persisted subscription object; platform-only service boundary remains | **Implemented and CI-verified** on H2 and MySQL 8.4; production preflight still required before deployment. |
 | INV-DB-004 | `pos_audit` → actor/resource | Tenant FK only; actor/resource are values | POS service writes using server-derived `Scope`; no complete vendor audit read API was established | Audit integrity/traceability gap; polymorphic resource FK requires design decision. |
 | INV-DB-005 | `catalog_change_events` → actor/resource | Tenant FK only; actor/resource are values | ProductAdminService writes after tenant-scoped product/category access; repository is append-only in observed callsites | Audit integrity/traceability gap; resource-type-specific linking or immutable snapshots required. |
 | INV-DB-006 | `branch_settings_events` → actor | Tenant/branch FK; actor is a value | Branch settings service derives tenant/branch/actor from authenticated POS scope | Actor referential-integrity hardening; not a demonstrated isolation exploit. |
@@ -263,9 +257,9 @@ Only additive migrations should be used. Do not modify a released V1–V47 migra
 
 ### Recommended, after data validation
 
-1. **INV-DB-001:** add tenant-composite unique parent keys where required and FKs from `pos_drawer_tenders` to `pos_sessions` and `orders`, with branch consistency enforced either by a matching unique parent key or by a narrower normalized reference. Validate that `branch_id`, `session_id` and `order_reference` all belong to the same tenant/branch before the FK is added.
-2. **INV-DB-002:** add an FK from `pos_active_drafts(tenant_id,order_reference)` to `orders(tenant_id,id)`. Existing rows must be checked for orphan or non-IN_STORE/non-DRAFT order references before constraint application.
-3. **INV-DB-003:** add `UNIQUE(tenant_id,id)` to `tenant_subscriptions` if not already available in the migration history, then add `FOREIGN KEY(tenant_id,subscription_id)` to `subscription_events`. V41 already uses this pattern for invoice and payment chains.
+1. **INV-DB-001 — implemented in V48:** composite unique parent keys and FKs bind drawer-tender tenant/branch/session/order. The preflight checks branch, session and IN_STORE order consistency before DDL.
+2. **INV-DB-002 — implemented in V48:** composite FK binds each active-draft projection row to the matching tenant/branch/cashier/session/order. The preflight requires an IN_STORE DRAFT order.
+3. **INV-DB-003 — implemented in V48:** composite FK binds subscription events to same-tenant subscriptions using the parent key introduced in V41.
 4. For `pos_audit`, `catalog_change_events`, `branch_settings_events` and `inventory_receipts`, decide actor/resource integrity policy. Add employee composite actor FKs where actor is always a vendor employee; do not add a vendor-employee FK for valid customer/system actors.
 5. Maintain tenant-leading indexes for tenant-filtered read, count, sort and export queries. Validate query plans on MySQL 8.4 before adding new indexes.
 
@@ -336,6 +330,6 @@ Specific weak-FK evidence: `V32__cash_drawer_tender_projection.sql`, `V36__retai
 
 ## 10. P0-01 conclusion
 
-The canonical database ownership inventory is established for all **65 production tables**. It distinguishes 6 GLOBAL, 1 CUSTOMER, 9 PLATFORM, 9 TENANT and 40 TENANT_CHILD tables. All 49 tenant-owned/child tables have a non-null tenant column. Important commercial relationships already use composite tenant foreign keys; three additional same-tenant FK protections are missing and are entered as concrete remediation findings.
+The canonical database ownership inventory is established for all **65 production tables**: 6 GLOBAL, 1 CUSTOMER, 9 PLATFORM, 9 TENANT and 40 TENANT_CHILD. All 49 tenant-owned/child tables have a non-null tenant column. The three same-tenant FK gaps originally recorded as INV-DB-001..003 are implemented in V48 and pass the H2/MySQL 8.4 migration tests. The deployment database must still pass V48's read-only data preflight before that migration is applied.
 
-This is a schema ownership result. It does **not** certify the full tenant-isolation contract, customer/vendor/branch assignment matrix, service-level authorization, or all end-to-end paths. The companion query/data-access inventory and backlog identify what was traced, what is still a hardening item, and what must be decided before any migration is written.
+**P0-01 is not declared fully accepted by this schema inventory alone.** The query/data-access inventory and P0-04 adversarial tests still track the broader Vendor A/B and Customer A/B read, write, search, count, export, document and child-resource matrix. Warehouse/stock-location, dual identity, multi-tenant membership and vendor subscription visibility remain explicit clarification items; no speculative schema was added.

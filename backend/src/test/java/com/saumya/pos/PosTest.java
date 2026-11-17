@@ -330,7 +330,7 @@ class PosTest {
   setEmployeeRolePermissions("alice",List.of("POS_VIEW"));
   mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isOk());
   update("UPDATE employees SET enabled=FALSE WHERE username='alice'");
-  mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+session.accessToken())).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+login.accessToken())).andExpect(status().isUnauthorized());
  }
  @Test void guestAssociationRequiresCustomerProofAndOnlyCreatesCurrentVendorRelationship(){
   configureOnline();var draft=as("alice",()->as("alice", () -> checkout.pos("alice","customer-association",posDraft())));

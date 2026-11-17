@@ -20,4 +20,20 @@ class PosServiceBoundaryTest {
         assertThatThrownBy(()->service.draftAudit(scope,"DRAFT_RESERVE","draft-1")).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(db);
     }
+
+    @Test void supervisorSessionFinalizationRequiresManualVerificationBeforeJdbc(){
+        var db=mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        var auth=mock(AuthorizationContext.class);
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("manager",7L,12L,
+            java.util.Set.of("POS_VIEW"),false,false,true));
+        var service=new PosService(db,null,auth);
+        var supervisorScope=new PosService.Scope(7,12,"manager");
+
+        assertThatThrownBy(()->service.requireOpenForPaymentReview(supervisorScope,"cashier","session-1"))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("Missing required POS operation permission");
+
+        verifyNoInteractions(db);
+    }
+
 }

@@ -1,16 +1,12 @@
 package com.saumya.pos.membership;
 
-import com.saumya.pos.membership.internal.*;
+import com.saumya.pos.membership.internal.EmployeeMembership;
+import com.saumya.pos.membership.internal.EmployeeMembershipRepository;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import com.saumya.pos.security.VendorMembershipAccess;
 import com.saumya.pos.security.VendorMembershipResolver;
 import com.saumya.pos.security.PlatformAuthorization;
 import java.util.*;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.core.env.Environment;
@@ -42,32 +38,17 @@ public class MembershipService implements VendorMembershipAccess {
         "POS_REFUND_CASH_RECORD","POS_REFUND_PRINT","POS_RETURN_INSPECT","POS_RETURN_AUDIT_VIEW","POS_TENDER_VIEW"
     );
     private final EmployeeMembershipRepository memberships;
-    private final PermissionGrantRepository grants;
     private final TenantLifecycleService tenants;
     private final JdbcTemplate jdbc;
     private final TenantEntitlementPolicy entitlements;
-    private final boolean legacyFallbackEnabled;
-    private final Counter legacyFallbackUsage;
-    private static final Logger log=LoggerFactory.getLogger(MembershipService.class);
-    public MembershipService(EmployeeMembershipRepository memberships,PermissionGrantRepository grants,TenantLifecycleService tenants){
-        this(memberships,grants,tenants,null,null,true,null);
-    }
-    public MembershipService(EmployeeMembershipRepository memberships,PermissionGrantRepository grants,TenantLifecycleService tenants,
-        JdbcTemplate jdbc,TenantEntitlementPolicy entitlements){
-        this(memberships,grants,tenants,jdbc,entitlements,true,null);
+    public MembershipService(EmployeeMembershipRepository memberships,TenantLifecycleService tenants,JdbcTemplate jdbc){
+        this(memberships,tenants,jdbc,null);
     }
     @Autowired
-    public MembershipService(EmployeeMembershipRepository memberships,PermissionGrantRepository grants,TenantLifecycleService tenants,
-        JdbcTemplate jdbc,TenantEntitlementPolicy entitlements,
-        @Value("${auth.legacy-permission-fallback-enabled:true}") boolean legacyFallbackEnabled,
-        MeterRegistry meterRegistry){
-        this.memberships=memberships;this.grants=grants;this.tenants=tenants;this.jdbc=jdbc;this.entitlements=entitlements;
-        this.legacyFallbackEnabled=legacyFallbackEnabled;
-        this.legacyFallbackUsage=meterRegistry==null?null:Counter.builder("authorization.legacy.permission.fallback.usage")
-            .description("Number of effective-permission resolutions that used legacy employee_permissions fallback")
-            .register(meterRegistry);
+    public MembershipService(EmployeeMembershipRepository memberships,TenantLifecycleService tenants,JdbcTemplate jdbc,
+        TenantEntitlementPolicy entitlements){
+        this.memberships=memberships;this.tenants=tenants;this.jdbc=jdbc;this.entitlements=entitlements;
     }
-    
     public record Access(long tenant,long branch,String username,List<String> permissions){}
     public record Provisioning(String username,long tenantId,long branchId,boolean created,int permissionCount){}
     @Override
@@ -84,36 +65,16 @@ public class MembershipService implements VendorMembershipAccess {
             });
     }
     private List<String> effectiveVendorPermissions(String username,long tenant){
-        // Any persisted assignment row (including revoked rows) is an explicit
-        // role-management decision. Never resurrect employee_permissions after
-        // revocation, role deactivation, or replacement with an empty role set.
-        Integer assignmentCount=jdbc==null?null:jdbc.queryForObject(
-            "SELECT COUNT(*) FROM employee_role_assignments WHERE tenant_id=? AND username=?",
-            Integer.class,tenant,username);
-        if(assignmentCount!=null&&assignmentCount>0){
-            return jdbc.queryForList("""
-                SELECT DISTINCT rp.permission
-                FROM employee_role_assignments a
-                JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
-                JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id
-                WHERE a.tenant_id=? AND a.username=? AND a.active=TRUE AND r.active=TRUE
-                ORDER BY rp.permission
-                """,String.class,tenant,username).stream()
-                .filter(VendorPermissionRegistry.all()::contains)
-                .toList();
-        }
-        if(!legacyFallbackEnabled)return List.of();
-        if(jdbc!=null){
-            if(legacyFallbackUsage!=null)legacyFallbackUsage.increment();
-            // Deliberately omit identity, tenant, permission and grant values.
-            // This event is safe for operational log aggregation.
-            log.warn("authorization_legacy_permission_fallback_used");
-        }
-        return grants.findByIdUsernameAndTenant(username,tenant).stream()
-            .map(PermissionGrant::permission)
-            .filter(Objects::nonNull)
+        if(jdbc==null)return List.of();
+        return jdbc.queryForList("""
+            SELECT DISTINCT rp.permission
+            FROM employee_role_assignments a
+            JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
+            JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id
+            WHERE a.tenant_id=? AND a.username=? AND a.active=TRUE AND r.active=TRUE
+            ORDER BY rp.permission
+            """,String.class,tenant,username).stream()
             .filter(VendorPermissionRegistry.all()::contains)
-            .sorted()
             .toList();
     }
     @Override public boolean hasMembership(String username){return memberships.findByUsernameIgnoreCase(username).isPresent();}
@@ -124,32 +85,47 @@ public class MembershipService implements VendorMembershipAccess {
         PlatformAuthorization.require("PLATFORM_TENANT_CREATE",null);
         String actor=username==null?"":username.strip().toLowerCase(Locale.ROOT);
         if(actor.isBlank()||actor.length()>100)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid Vendor Admin identity required");
+        if(jdbc==null)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+            "Role assignment provisioning is unavailable; initial Vendor Admin was not created");
         var existing=memberships.findByUsernameIgnoreCase(actor);
         if(existing.isPresent()){
             var current=existing.get();
             if(current.tenant()!=tenantId||current.branch()!=branchId)
                 throw new ResponseStatusException(HttpStatus.CONFLICT,"The identity is already assigned to a different vendor membership");
-            var existingGrants=grants.findByIdUsernameAndTenant(current.username(),tenantId);
-            return new Provisioning(current.username(),tenantId,branchId,false,existingGrants.size());
+        }else{
+            String status=tenants.get(tenantId).lifecycleStatus();
+            if(!List.of("PENDING","UNDER_REVIEW","ACTIVE").contains(status))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,"Tenant cannot receive an initial Vendor Admin in its current state");
+            memberships.saveAndFlush(new EmployeeMembership(actor,tenantId,branchId,true));
         }
-        if(!tenants.get(tenantId).lifecycleStatus().equals("PENDING") &&
-           !tenants.get(tenantId).lifecycleStatus().equals("UNDER_REVIEW") &&
-           !tenants.get(tenantId).lifecycleStatus().equals("ACTIVE"))
-            throw new ResponseStatusException(HttpStatus.CONFLICT,"Tenant cannot receive an initial Vendor Admin in its current state");
-        if(jdbc==null)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-            "Role assignment provisioning is unavailable; initial Vendor Admin was not created");
-        memberships.saveAndFlush(new EmployeeMembership(actor,tenantId,branchId,true));
-        jdbc.update("""
+
+        boolean roleExists=Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT COUNT(*)>0 FROM vendor_roles WHERE tenant_id=? AND role_key=?",
+            Boolean.class,tenantId,"vendor-admin-initial"));
+        if(!roleExists){
+            jdbc.update("""
                 INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
                 VALUES(?,?,?,?,?,?)
                 """,tenantId,"vendor-admin-initial","Vendor Admin",true,actor,actor);
-            Long roleId=jdbc.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenantId,"vendor-admin-initial");
+            Long newRoleId=jdbc.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",
+                Long.class,tenantId,"vendor-admin-initial");
             jdbc.batchUpdate("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",
-                VENDOR_ADMIN_PERMISSIONS.stream().filter(p->!p.startsWith("PLATFORM_")).map(p->new Object[]{tenantId,roleId,p,actor}).toList());
+                VENDOR_ADMIN_PERMISSIONS.stream().map(p->new Object[]{tenantId,newRoleId,p,actor}).toList());
+        }
+        Long roleId=jdbc.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",
+            Long.class,tenantId,"vendor-admin-initial");
+        Integer assignmentHistory=jdbc.queryForObject(
+            "SELECT COUNT(*) FROM employee_role_assignments WHERE tenant_id=? AND username=?",
+            Integer.class,tenantId,actor);
+        if(assignmentHistory==null||assignmentHistory==0){
             jdbc.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",
                 tenantId,branchId,actor,roleId,actor);
-        jdbc.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username,resource_type,resource_id,action,reason) VALUES(?,?,?,?,?,?,?)",
-            tenantId,actor,actor,"ROLE",roleId.toString(),"INITIAL_VENDOR_ADMIN_ROLE_ASSIGNED","Initial Vendor Admin grants migrated to role assignment");
-        return new Provisioning(actor,tenantId,branchId,true,VENDOR_ADMIN_PERMISSIONS.size());
+            jdbc.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username,resource_type,resource_id,action,reason) VALUES(?,?,?,?,?,?,?)",
+                tenantId,actor,actor,"ROLE",roleId.toString(),"INITIAL_VENDOR_ADMIN_ROLE_ASSIGNED","Initial Vendor Admin role assigned during tenant provisioning");
+        }
+        Integer permissionCount=jdbc.queryForObject(
+            "SELECT COUNT(*) FROM vendor_role_permissions WHERE tenant_id=? AND role_id=?",Integer.class,tenantId,roleId);
+        return new Provisioning(actor,tenantId,branchId,existing.isEmpty(),permissionCount==null?0:permissionCount);
     }
+
 }

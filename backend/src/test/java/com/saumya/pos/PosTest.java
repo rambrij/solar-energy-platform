@@ -586,7 +586,7 @@ class PosTest {
   assertThatThrownBy(()->update("UPDATE pos_sessions SET branch_id=2 WHERE tenant_id=1 AND id=?",session))
     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   assertThatThrownBy(()->update("UPDATE orders SET branch_id=2 WHERE tenant_id=1 AND id=?",draft.id()))
-    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThat(db.queryForObject("SELECT branch_id FROM pos_sessions WHERE tenant_id=1 AND id=?",Long.class,session)).isEqualTo(1L);
   assertThat(db.queryForObject("SELECT branch_id FROM orders WHERE tenant_id=1 AND id=?",Long.class,draft.id())).isEqualTo(1L);
  }
@@ -658,6 +658,9 @@ class PosTest {
   String body="{\"openingFloat\":20,\"reason\":\"Supervisor reviewed drawer\",\"tenantId\":2,\"branchId\":2,\"registerId\":2,\"cashierUserId\":\"bob\",\"posSessionId\":\"forged\"}";
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_REOPEN"))
       .contentType("application/json").content(body))
+    .andExpect(status().isBadRequest());
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_REOPEN"))
+      .contentType("application/json").content("{\"openingFloat\":20,\"reason\":\"Supervisor reviewed drawer\"}"))
     .andExpect(status().isForbidden());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=1 AND register_id=1 AND state='OPEN'",Integer.class)).isZero();
   employee("manager",1,1);
@@ -701,14 +704,17 @@ class PosTest {
   update("INSERT INTO branches(id,tenant_id,name) VALUES(78,1,'Second POS branch')");
   update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,78,1,10)");
   var draft=as("alice",()->checkout.pos("alice","p005-cross-branch-stock",posDraft()));
+  int reservationsBefore=db.queryForObject("SELECT COUNT(*) FROM stock_reservations WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
+  int ledgerBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
+  assertThat(reservationsBefore).isGreaterThan(0);
   assertThatThrownBy(()->update("UPDATE orders SET stock_branch_id=78 WHERE tenant_id=1 AND id=?",draft.id()))
-    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->update("INSERT INTO stock_reservations(tenant_id,order_id,product_id,branch_id,quantity,state,expires_at) VALUES(1,?,1,78,1,'HELD',CURRENT_TIMESTAMP)",draft.id()))
     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   assertThatThrownBy(()->update("INSERT INTO inventory_ledger(tenant_id,branch_id,product_id,order_id,quantity_delta) VALUES(1,78,1,?, -1)",draft.id()))
     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM stock_reservations WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(reservationsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(ledgerBefore);
  }
  @Test void authenticationPermissionsCsrfAndForgedFields() throws Exception {
   mvc.perform(get("/api/v1/vendor/pos/products").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());

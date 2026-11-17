@@ -1,6 +1,6 @@
 # Multi-vendor local testing dataset
 
-The two root requirements documents govern this optional, synthetic local/test dataset. Flyway V37-V38 add platform grant storage and vendor-owned product brand metadata. Flyway V39 installs the demo accounts and catalogue from `db/local-migration` only when the Spring `local` profile is active.
+The two root requirements documents govern this optional, synthetic local/test dataset. Flyway V37-V38 add platform permission storage and vendor-owned product brand metadata. Local-only V39 stages the demo accounts/catalogue and role-permission fixture; main V45/V49 create and clean the RBAC schema; local-only V50 creates explicit tenant roles, employee-role assignments and cashier register assignments.
 
 ## Automatic local setup
 
@@ -11,23 +11,23 @@ docker compose up --build -d
 docker compose logs -f backend
 ```
 
-On a fresh database, Flyway applies the regular schema migrations first and then V39 automatically loads the three vendors, demo users, permissions, products, stock, registers and customer relationships. On an existing database that has already applied V38, starting the backend with the local profile applies V39 once without resetting the MySQL volume or existing operational data. No PowerShell helper, manual Workbench SQL, or stopping/restarting the backend is required.
+On a fresh database, Flyway applies the regular schema migrations and then local-only V39/V50 load the three vendors, demo users, explicit tenant roles and role assignments, products, stock, registers and customer relationships. On an existing database, starting the backend with the local profile applies any pending migrations once without resetting the MySQL volume or existing operational data. No PowerShell helper, manual Workbench SQL, or stopping/restarting the backend is required.
 
 The local migration is deliberately outside the normal migration location. It is included only by `application-local.yml`; never activate `SPRING_PROFILES_ACTIVE=local` in production. The fixture credentials below are public local-demo credentials, not production accounts.
 
 For simulated online payment only, additionally set `PAYMENTS_MOCK_ENABLED=true` under local/test. Otherwise checkout correctly stops at the unavailable payment integration. POS cash works without a payment gateway. No merchant credentials or terminal verification are invented.
 
-V39 is a versioned Flyway migration and runs once per database. It serializes its MySQL transaction and validates reserved identity/tenant bindings before writing; a conflict aborts and rolls back persistent writes. Existing records are not repurposed, and existing accounts/passwords, enabled flags, grants, stock/reservations, prices and branch settings are preserved. If you need a completely fresh fixture, use a separate disposable local database/volume; do not reset a database containing operational financial data. Do not edit an already-applied migration or try to rerun it manually.
+V39 and V50 are versioned local Flyway migrations and run once per database. V39 validates reserved identity/tenant bindings and stages the demo role catalogue; V50 persists explicit vendor roles, role permissions and employee-role/register assignments after the main RBAC schema exists. Existing accounts/passwords, enabled flags, explicit roles, stock/reservations, prices and branch settings are preserved. Vendor permissions are role-only; the demo never creates employee-level permission rows. If you need a completely fresh fixture, use a separate disposable local database/volume; do not reset a database containing operational financial data. Do not edit an already-applied migration or try to rerun it manually.
 
 ## Migration troubleshooting
 
-V39 depends on the schema changes from V37 and V38. The backend runs these migrations in version order automatically when the local profile is active. If the seed does not appear, verify that the backend is connected to the same database you are inspecting and that Flyway V37, V38 and V39 report success:
+V39 depends on the schema changes from V37 and V38. The backend runs main migrations and local-only migrations in version order automatically when the local profile is active. If the seed does not appear, verify that the backend is connected to the same database you are inspecting and that Flyway V37, V38, V39, V45, V49 and V50 report success:
 
 ```sql
 SELECT DATABASE();
 SELECT version, description, success
 FROM flyway_schema_history
-WHERE version IN ('37','38','39')
+WHERE version IN ('37','38','39','45','49','50')
 ORDER BY version;
 SHOW COLUMNS FROM products LIKE 'brand';
 SHOW TABLES LIKE 'platform_user_permissions';
@@ -70,7 +70,7 @@ Barcode format is the six-digit tenant ID followed by the zero-based product ind
 
 ## Public demo credentials
 
-These passwords are public fixture credentials, not secrets. Stored hashes were generated with the application's BCryptPasswordEncoder (strength 10); tests verify every password. Role names below are documented permission presets, not a second role engine: this application persists individual employee grants. Assignment changes must use existing grant/security mechanisms. No platform user is an employee or customer; no customer has employee/platform grants.
+These passwords are public fixture credentials, not secrets. Stored hashes were generated with the application's BCryptPasswordEncoder (strength 10); tests verify every password. Role names below correspond to actual tenant-owned `vendor_roles`; their permissions are stored in `vendor_role_permissions` and linked through `employee_role_assignments`. The application has no employee-level permission grant store. Assignment changes must use the vendor role-management APIs. No platform user is an employee or customer; no customer has employee/platform grants.
 
 | Login | Password | Role preset | Vendor |
 | --- | --- | --- | --- |
@@ -112,7 +112,7 @@ The current implementation uses additional specific POS grants (e.g. `POS_TENDER
 
 ### VENDOR_ADMIN
 
-`CRM_NOTE_CREATE`, `CRM_NOTE_UPDATE`, `CRM_NOTE_VIEW`, `CUSTOMER_RELATION_CREATE`, `CUSTOMER_RELATION_UPDATE`, `CUSTOMER_RELATION_VIEW`, `INSTALLATION_ASSIGN`, `INSTALLATION_COMMISSION`, `INSTALLATION_UPDATE`, `INSTALLATION_VIEW`, `INVENTORY_ADJUST`, `INVENTORY_RECEIVE`, `INVENTORY_RESERVE`, `INVENTORY_TRANSFER`, `INVENTORY_VIEW`, `INVOICE_CREATE`, `INVOICE_SEND`, `INVOICE_VIEW`, `INVOICE_VOID`, `LEAD_ASSIGN`, `LEAD_CREATE`, `LEAD_UPDATE`, `LEAD_VIEW`, `ORDER_CANCEL`, `ORDER_CREATE`, `ORDER_UPDATE`, `ORDER_VIEW`, `POS_CASHIER_REPORT_VIEW`, `POS_CASH_IN`, `POS_CASH_OUT`, `POS_DISCOUNT_APPLY`, `POS_DISCOUNT_APPROVE`, `POS_DISCOUNT_OVERRIDE`, `POS_PRICE_OVERRIDE`, `POS_RECEIPT_REPRINT`, `POS_RECEIPT_VIEW`, `POS_REFUND_APPROVE`, `POS_REFUND_CASH_RECORD`, `POS_REFUND_PRINT`, `POS_REFUND_VIEW`, `POS_REPORT_EXPORT`, `POS_REPORT_VIEW`, `POS_RETURN_APPROVE`, `POS_RETURN_AUDIT_VIEW`, `POS_RETURN_CREATE`, `POS_RETURN_INSPECT`, `POS_RETURN_VIEW`, `POS_SAFE_DROP`, `POS_SALE_CANCEL`, `POS_SALE_CREATE`, `POS_SESSION_CLOSE`, `POS_SESSION_OPEN`, `POS_SESSION_REOPEN`, `POS_SETTINGS_MANAGE`, `POS_SHIFT_VARIANCE_APPROVE`, `POS_TENDER_CASH_RECORD`, `POS_TENDER_EXTERNAL_RECORD`, `POS_TENDER_MANUAL_VERIFY`, `POS_VIEW`, `PRICE_UPDATE`, `PRICE_VIEW`, `PRODUCT_ARCHIVE`, `PRODUCT_CREATE`, `PRODUCT_UPDATE`, `PRODUCT_VIEW`, `QUOTATION_APPROVE`, `QUOTATION_CONVERT`, `QUOTATION_CREATE`, `QUOTATION_SEND`, `QUOTATION_UPDATE`, `QUOTATION_VIEW`, `REPORT_EXPORT`, `REPORT_VIEW`, `RETURN_APPROVE`, `RETURN_RECEIVE`, `RETURN_VIEW`, `ROLE_ASSIGN`, `ROLE_CREATE`, `ROLE_UPDATE`, `ROLE_VIEW`, `SERVICE_ASSIGN`, `SERVICE_CREATE`, `SERVICE_RESOLVE`, `SERVICE_UPDATE`, `SERVICE_VIEW`, `SHIPMENT_UPDATE`, `SHIPMENT_VIEW`, `TENANT_PROFILE_UPDATE`, `TENANT_PROFILE_VIEW`, `USER_CREATE`, `USER_DISABLE`, `USER_UPDATE`, `USER_VIEW`, `VENDOR_AUDIT_VIEW`, `VENDOR_PAYMENT_RECONCILE`, `VENDOR_PAYMENT_REFUND`, `VENDOR_PAYMENT_VIEW`.
+`CRM_NOTE_CREATE`, `CRM_NOTE_UPDATE`, `CRM_NOTE_VIEW`, `CUSTOMER_RELATION_CREATE`, `CUSTOMER_RELATION_UPDATE`, `CUSTOMER_RELATION_VIEW`, `INVENTORY_ADJUST`, `INVENTORY_RECEIVE`, `INVENTORY_RESERVE`, `INVENTORY_TRANSFER`, `INVENTORY_VIEW`, `INVOICE_CREATE`, `INVOICE_SEND`, `INVOICE_VIEW`, `LEAD_ASSIGN`, `LEAD_CREATE`, `LEAD_UPDATE`, `LEAD_VIEW`, `ORDER_CANCEL`, `ORDER_CREATE`, `ORDER_UPDATE`, `ORDER_VIEW`, `POS_CASHIER_REPORT_VIEW`, `POS_CASH_IN`, `POS_CASH_OUT`, `POS_DISCOUNT_APPLY`, `POS_DISCOUNT_APPROVE`, `POS_DISCOUNT_OVERRIDE`, `POS_PRICE_OVERRIDE`, `POS_RECEIPT_REPRINT`, `POS_RECEIPT_VIEW`, `POS_REFUND_APPROVE`, `POS_REFUND_CASH_RECORD`, `POS_REFUND_PRINT`, `POS_REFUND_VIEW`, `POS_REPORT_EXPORT`, `POS_REPORT_VIEW`, `POS_RETURN_APPROVE`, `POS_RETURN_AUDIT_VIEW`, `POS_RETURN_CREATE`, `POS_RETURN_INSPECT`, `POS_RETURN_VIEW`, `POS_SAFE_DROP`, `POS_SALE_CANCEL`, `POS_SALE_CREATE`, `POS_SESSION_CLOSE`, `POS_SESSION_OPEN`, `POS_SESSION_REOPEN`, `POS_SETTINGS_MANAGE`, `POS_SHIFT_VARIANCE_APPROVE`, `POS_TENDER_CASH_RECORD`, `POS_TENDER_EXTERNAL_RECORD`, `POS_TENDER_MANUAL_VERIFY`, `POS_VIEW`, `PRICE_UPDATE`, `PRICE_VIEW`, `PRODUCT_ARCHIVE`, `PRODUCT_CREATE`, `PRODUCT_UPDATE`, `PRODUCT_VIEW`, `QUOTATION_APPROVE`, `QUOTATION_CONVERT`, `QUOTATION_CREATE`, `QUOTATION_SEND`, `QUOTATION_UPDATE`, `QUOTATION_VIEW`, `REPORT_EXPORT`, `REPORT_VIEW`, `RETURN_APPROVE`, `RETURN_RECEIVE`, `RETURN_VIEW`, `ROLE_ASSIGN`, `ROLE_CREATE`, `ROLE_UPDATE`, `ROLE_VIEW`, `SHIPMENT_UPDATE`, `SHIPMENT_VIEW`, `TENANT_PROFILE_UPDATE`, `TENANT_PROFILE_VIEW`, `USER_CREATE`, `USER_DISABLE`, `USER_UPDATE`, `USER_VIEW`, `VENDOR_AUDIT_VIEW`, `VENDOR_PAYMENT_RECONCILE`, `VENDOR_PAYMENT_REFUND`, `VENDOR_PAYMENT_VIEW`.
 
 ### SALES_MANAGER
 
@@ -128,7 +128,7 @@ The current implementation uses additional specific POS grants (e.g. `POS_TENDER
 
 ### ACCOUNTANT
 
-`PRICE_VIEW`, `ORDER_VIEW`, `INVOICE_VIEW`, `INVOICE_CREATE`, `INVOICE_SEND`, `INVOICE_VOID`, `VENDOR_PAYMENT_VIEW`, `VENDOR_PAYMENT_RECONCILE`, `VENDOR_PAYMENT_REFUND`, `REPORT_VIEW`, `REPORT_EXPORT`, `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SESSION_CLOSE`, `POS_RECEIPT_VIEW`, `POS_RECEIPT_REPRINT`, `POS_TENDER_MANUAL_VERIFY`, `POS_RETURN_VIEW`, `POS_RETURN_APPROVE`, `POS_RETURN_INSPECT`, `POS_RETURN_AUDIT_VIEW`, `POS_REFUND_APPROVE`, `POS_REFUND_CASH_RECORD`, `POS_REFUND_VIEW`, `POS_REFUND_PRINT`, `POS_REPORT_VIEW`, `POS_REPORT_EXPORT`, `POS_CASHIER_REPORT_VIEW`, `POS_SHIFT_VARIANCE_APPROVE`.
+`PRICE_VIEW`, `ORDER_VIEW`, `INVOICE_VIEW`, `INVOICE_CREATE`, `INVOICE_SEND`, `VENDOR_PAYMENT_VIEW`, `VENDOR_PAYMENT_RECONCILE`, `VENDOR_PAYMENT_REFUND`, `REPORT_VIEW`, `REPORT_EXPORT`, `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SESSION_CLOSE`, `POS_RECEIPT_VIEW`, `POS_RECEIPT_REPRINT`, `POS_TENDER_MANUAL_VERIFY`, `POS_RETURN_VIEW`, `POS_RETURN_APPROVE`, `POS_RETURN_INSPECT`, `POS_RETURN_AUDIT_VIEW`, `POS_REFUND_APPROVE`, `POS_REFUND_CASH_RECORD`, `POS_REFUND_VIEW`, `POS_REFUND_PRINT`, `POS_REPORT_VIEW`, `POS_REPORT_EXPORT`, `POS_CASHIER_REPORT_VIEW`, `POS_SHIFT_VARIANCE_APPROVE`.
 
 ## End-to-end checks
 
@@ -137,6 +137,6 @@ The current implementation uses additional specific POS grants (e.g. `POS_TENDER
 3. With explicit local mock payments enabled, reserve and confirm a Saumya purchase, then a Helio purchase using the same account. Order history must show both vendor labels, with each order containing exactly one vendor's products. Rahul cannot read Asha's order IDs or carts. Reservation/payment paths must deduct only the selected branch's stock and maintain reserved balances.
 4. Sign in as each cashier on its assigned register. Scan the documented barcode, edit quantity, apply an allowed discount, take cash or configured split tenders and print. Opening float must match actual demo drawer cash. No session is pre-opened. Another vendor's barcode/product/order must be unavailable.
 5. Inventory staff can receive stock only for its own vendor; Sales cannot receive stock or bill at POS. Finance can perform permitted independent reviews; a cashier cannot self-approve. Platform admin gets only platform grants and commercial endpoints return 403; vendor users get no platform grants.
-6. Change demo prices/stock or revoke a grant and verify those changes persist. Flyway V39 is applied once and is not a recurring reseed job. To restore the original fixture, use a separate fresh disposable local database; never delete operational financial rows to reset a store.
+6. Change demo prices/stock or revoke a grant and verify those changes persist. Local Flyway V39/V50 are applied once and are not recurring reseed jobs. To restore the original fixture, use a separate fresh disposable local database; never delete operational financial rows to reset a store.
 
 Automated tests verify the actual seed, BCrypt credentials, distinct catalogues, per-user authority boundaries, rerun preservation, collision rollback, cart switching, and real checkout/order isolation on H2 and MySQL CI. See PR validation for commands/results.

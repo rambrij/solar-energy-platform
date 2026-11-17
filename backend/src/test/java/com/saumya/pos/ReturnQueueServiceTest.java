@@ -16,6 +16,7 @@ class ReturnQueueServiceTest {
   var retail=new PosService(null,null,null){
    @Override public Scope scope(){return new Scope(7,9,"test-user");}
    @Override public void authorize(Scope scope,String actor,String... permissions){assertThat(scope.cashier()).isEqualTo(actor);assertThat(permissions).containsExactly("POS_VIEW","POS_RETURN_VIEW");}
+   @Override public void requireAssignedRegisterScope(Scope scope,String permission){}
   };
   service=new ReturnQueueService(cases,retail,Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"),ZoneOffset.UTC));
  }

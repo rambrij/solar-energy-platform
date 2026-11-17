@@ -17,6 +17,7 @@ class ReturnAuditServiceTest {
   var retail=new PosService(null,null,null){
   @Override public Scope scope(){return new Scope(7,9,"test-user");}
   @Override public void authorize(Scope scope,String actor,String... permissions){assertThat(scope.cashier()).isEqualTo(actor);assertThat(permissions).containsExactly("POS_VIEW","POS_RETURN_VIEW","POS_RETURN_AUDIT_VIEW");}
+  @Override public void requireAssignedRegisterScope(Scope scope,String permission){}
  };service=new ReturnAuditService(cases,events,retail);
  }
  @Test void bindsBranchOwnershipAndReturnsExplicitMetadata(){var r=service.history("return-id",0,12);assertThat(arguments).containsExactly(7L,9L,"return-id",PageRequest.of(0,12));assertThat(r.state()).isEqualTo("REQUESTED");assertThat(r.items().getFirst().actor()).isEqualTo("reviewer");assertThat(r.totalElements()).isEqualTo(1);}

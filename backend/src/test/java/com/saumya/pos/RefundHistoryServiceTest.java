@@ -34,6 +34,7 @@ class RefundHistoryServiceTest {
                 assertThat(scope.cashier()).isEqualTo(actor);
                 assertThat(permissions).containsExactly("POS_VIEW","POS_REFUND_VIEW");
             }
+            @Override public void requireAssignedRegisterScope(Scope scope,String permission){}
         };
         service = new RefundHistoryService(repo, retail, Clock.fixed(Instant.parse("2026-11-13T00:30:00Z"), ZoneOffset.ofHours(-8)));
     }

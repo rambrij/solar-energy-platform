@@ -611,7 +611,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantity);
   update("UPDATE pos_stock_locations SET active=TRUE WHERE tenant_id=1 AND branch_id=1");
   update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='alice',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND register_id=1");
-  assertThatThrownBy(()->as("alice",()->stock.requirePosStockScope(1,1)))
+  assertThatThrownBy(()->as("alice",()->{stock.requirePosStockScope(1,1);return null;}))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThatThrownBy(()->as("alice",()->stock.atBranchForPos(1,1,1)))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
@@ -628,11 +628,11 @@ class PosTest {
   int tendersBefore=db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders",Integer.class);
   int paymentAttemptsBefore=db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class);
   update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='alice',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=1 AND username='alice' AND register_id=1");
-  assertThatThrownBy(()->as("alice",()->stock.reserve(1,1,1,1,draft.id(),java.time.Instant.now().plusSeconds(300))))
+  assertThatThrownBy(()->as("alice",()->{stock.reserve(1,1,1,1,draft.id(),java.time.Instant.now().plusSeconds(300));return null;}))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThatThrownBy(()->as("alice",()->stock.consume(1,draft.id())))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-  assertThatThrownBy(()->as("alice",()->stock.release(1,draft.id())))
+  assertThatThrownBy(()->as("alice",()->{stock.release(1,draft.id());return null;}))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantity);
   assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(reserved);

@@ -24,7 +24,7 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | P2 | Important hardening, missing verification, or defense-in-depth gap without a demonstrated exploit. |
 | P3 | Documentation, maintainability, or cleanup. |
 
-**P0-01 outcome:** no confirmed cross-tenant exploit was demonstrated in the inspected source paths. The three same-tenant database integrity gaps are implemented by additive Flyway migration `V48__tenant_child_ownership_constraints.java`, including pre-DDL data validation and composite foreign keys. H2 and MySQL 8.4 CI suites both passed (530 tests each, zero failures/errors) in [run #44014325812](https://github.com/rambrij/solar-energy-platform/actions/runs/44014325812). Production deployment still depends on V48's live-data preflight succeeding; full Vendor A/B and Customer A/B endpoint/resource-family isolation remains outstanding under P0-04.
+**P0-01 outcome:** no confirmed cross-tenant exploit was demonstrated in the inspected source paths. The three same-tenant database integrity gaps are implemented by additive Flyway migration `V48__tenant_child_ownership_constraints.java`, including pre-DDL data validation and composite foreign keys. H2 and MySQL 8.4 CI suites both passed (531 tests each, zero failures/errors) in [run #44015181481](https://github.com/rambrij/solar-energy-platform/actions/runs/44015181481). The tenant-aware tender-review lookup is also regression-tested. Production deployment still depends on V48's live-data preflight succeeding; full Vendor A/B and Customer A/B endpoint/resource-family isolation remains outstanding under P0-04.
 
 ## 2. Remediation backlog
 
@@ -101,7 +101,7 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | Migration required | No. |
 | Tests required | `PaymentCheckoutServiceTest.paymentReviewQueueLoadsEachOrderWithTheAttemptTenantAndNeverUsesGlobalIdLookup` asserts the authorized tenant is used and fails on any `findById` call. |
 | Dependencies | Existing scoped DraftRepository method. |
-| Acceptance criteria | **Implemented; pending exact-head CI:** review mapping uses explicit tenant-aware order lookup and the regression test rejects global-ID access. |
+| Acceptance criteria | **Verified in CI:** review mapping uses explicit tenant-aware order lookup and `PaymentCheckoutServiceTest.paymentReviewQueueLoadsEachOrderWithTheAttemptTenantAndNeverUsesGlobalIdLookup` rejects global-ID access. [Run #44015181481](https://github.com/rambrij/solar-energy-platform/actions/runs/44015181481) passed 531 H2 and 531 MySQL tests. |
 
 ### INV-DB-005 — Add cross-tenant FK and null-ownership MySQL integration tests
 

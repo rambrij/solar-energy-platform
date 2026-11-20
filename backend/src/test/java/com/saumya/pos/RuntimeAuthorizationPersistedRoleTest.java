@@ -52,8 +52,10 @@ class RuntimeAuthorizationPersistedRoleTest {
         db.update("DELETE FROM employees WHERE username=?", USER);
         db.update("DELETE FROM users WHERE username=?", USER);
 
-        db.update("MERGE INTO tenants (id,name,slug,legal_name,lifecycle_status) KEY(id) VALUES (91001,'Runtime Matrix Vendor','runtime-matrix-vendor','Runtime Matrix Vendor','ACTIVE')");
-        db.update("MERGE INTO branches (id,tenant_id,name) KEY(id) VALUES (91001,91001,'Runtime Matrix Branch')");
+        db.update("DELETE FROM branches WHERE id=91001");
+        db.update("DELETE FROM tenants WHERE id=91001");
+        db.update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(91001,'Runtime Matrix Vendor','runtime-matrix-vendor','Runtime Matrix Vendor','ACTIVE')");
+        db.update("INSERT INTO branches(id,tenant_id,name) VALUES(91001,91001,'Runtime Matrix Branch')");
         db.update("INSERT INTO users(id,username,password_hash,enabled) VALUES(91001,?,?,TRUE)",
             USER, passwords.encode(PASSWORD));
         db.update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,91001,91001,TRUE)", USER);

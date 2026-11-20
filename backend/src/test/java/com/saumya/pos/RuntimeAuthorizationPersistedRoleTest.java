@@ -53,8 +53,10 @@ class RuntimeAuthorizationPersistedRoleTest {
         db.update("DELETE FROM employees WHERE username=?", USER);
         db.update("DELETE FROM users WHERE username=?", USER);
 
-        db.update("DELETE FROM branches WHERE id=91001");
-        db.update("DELETE FROM tenants WHERE id=91001");
+        db.update("DELETE FROM employees WHERE username='runtime.foreign@example.test'");
+        db.update("DELETE FROM users WHERE username='runtime.foreign@example.test'");
+        db.update("DELETE FROM branches WHERE id IN (91001,91002)");
+        db.update("DELETE FROM tenants WHERE id IN (91001,91002)");
         db.update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(91001,'Runtime Matrix Vendor','runtime-matrix-vendor','Runtime Matrix Vendor','ACTIVE')");
         db.update("INSERT INTO branches(id,tenant_id,name) VALUES(91001,91001,'Runtime Matrix Branch')");
         db.update("INSERT INTO users(id,username,password_hash,enabled) VALUES(91001,?,?,TRUE)",
@@ -140,7 +142,11 @@ class RuntimeAuthorizationPersistedRoleTest {
     @Test
     void forgedTenantHeaderCannotChangePersistedVendorMembershipScope() throws Exception {
         db.update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(91002,'Foreign Runtime Tenant','foreign-runtime-tenant','Foreign Runtime Tenant','ACTIVE')");
-        db.update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(91002,'foreign-runtime-secret-role','Foreign Tenant Secret Role',TRUE,?,?)", USER, USER);
+        db.update("INSERT INTO branches(id,tenant_id,name) VALUES(91002,91002,'Foreign Runtime Branch')");
+        db.update("INSERT INTO users(id,username,password_hash,enabled) VALUES(91002,'runtime.foreign@example.test',?,TRUE)",
+            passwords.encode("ForeignRuntimePassword!2026"));
+        db.update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES('runtime.foreign@example.test',91002,91002,TRUE)");
+        db.update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(91002,'foreign-runtime-secret-role','Foreign Tenant Secret Role',TRUE,'runtime.foreign@example.test','runtime.foreign@example.test')");
 
         String token = bearerToken();
         String ownTenantResponse = mvc.perform(get("/api/v1/vendor/roles")

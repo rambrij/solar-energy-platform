@@ -2820,9 +2820,21 @@ class PosTest {
  }
 
  @Test
- @org.springframework.transaction.annotation.Transactional
  void p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor() throws Exception {
   multiVendorDemo();
+  try {
+   new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
+    status.setRollbackOnly();
+    try { p006ExecutePersistedEndpointActorMatrix(); }
+    catch(Exception failure) { throw new IllegalStateException("Endpoint actor matrix failed",failure); }
+   });
+  } catch(IllegalStateException failure) {
+   if(failure.getCause() instanceof Exception cause) throw cause;
+   throw failure;
+  }
+ }
+
+ private void p006ExecutePersistedEndpointActorMatrix() throws Exception {
   String supportUsername="p006.matrix.support@platform.demo.test";
   long supportId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",supportId,

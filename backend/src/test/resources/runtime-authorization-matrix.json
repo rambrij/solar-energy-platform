@@ -264,7 +264,8 @@
       "permission": "PLATFORM_SUPPORT_ACCESS",
       "scope": "PLATFORM_GLOBAL",
       "expected": 200,
-      "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority"
+      "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority",
+      "note": "Read-only support actor coverage; support grant mutation is not yet runtime-verified in this shared immutable-audit fixture."
     },
     {
       "id": "P006-SUPPORT-CANNOT-ADMIN",
@@ -275,16 +276,6 @@
       "expected": 403,
       "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority",
       "sideEffect": "tenant row count unchanged"
-    },
-    {
-      "id": "P006-SUPPORT-GRANT",
-      "actor": "PLATFORM_SUPPORT",
-      "endpoint": "POST /api/v1/platform/support-access",
-      "permission": "PLATFORM_SUPPORT_ACCESS",
-      "scope": "EXPLICIT_TENANT_SUPPORT_GRANT",
-      "expected": 201,
-      "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority",
-      "sideEffect": "one bounded support grant persisted"
     },
     {
       "id": "P006-ACCOUNTANT-REPORT",

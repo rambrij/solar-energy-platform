@@ -382,6 +382,145 @@
       "expected": 200,
       "test": "PlatformSupportRuntimeAuthorizationAcceptance#persistedPlatformSupportCanGrantAndRevokeAuditedTimeBoundAccess",
       "sideEffect": "grant revoked and immutable SUPPORT_ACCESS_REVOKED audit event persisted"
+    },
+    {
+      "id": "P006-VENDOR-ADMIN-FOREIGN-ROLE",
+      "actor": "VENDOR_ADMIN",
+      "endpoint": "GET /api/v1/vendor/roles/{foreignRoleId}",
+      "permission": "ROLE_VIEW",
+      "scope": "AUTHENTICATED_TENANT_ONLY",
+      "expected": 404,
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped"
+    },
+    {
+      "id": "P006-VENDOR-ADMIN-CREATE-CUSTOM-ROLE",
+      "actor": "VENDOR_ADMIN",
+      "endpoint": "POST /api/v1/vendor/roles",
+      "permission": "ROLE_CREATE",
+      "scope": "AUTHENTICATED_TENANT_ONLY",
+      "expected": 201,
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped",
+      "sideEffect": "persisted role and PRODUCT_VIEW permission"
+    },
+    {
+      "id": "P006-CUSTOM-ROLE-EXACT-GRANT",
+      "actor": "CUSTOM_VENDOR_ROLE",
+      "endpoint": "GET /api/v1/vendor/products",
+      "permission": "PRODUCT_VIEW",
+      "scope": "PERSISTED_TENANT_ROLE_ASSIGNMENT",
+      "expected": 200,
+      "test": "RuntimeAuthorizationPersistedRoleTest#persistedProductViewPermissionAllowsReadButNeverProductCreate"
+    },
+    {
+      "id": "P006-CASHIER-SAME-TENANT-UNASSIGNED-REGISTER",
+      "actor": "POS_CASHIER",
+      "endpoint": "POST /api/v1/vendor/pos/sessions",
+      "permission": "POS_SESSION_OPEN",
+      "scope": "ASSIGNED_REGISTER_ONLY",
+      "expected": 404,
+      "test": "PosTest#p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession",
+      "sideEffect": "pos_sessions row count unchanged"
+    },
+    {
+      "id": "P006-CASHIER-OTHER-CASHIER-SESSION",
+      "actor": "POS_CASHIER",
+      "endpoint": "GET /api/v1/vendor/pos/sessions/{id}",
+      "permission": "POS_VIEW",
+      "scope": "CASHIER_REGISTER_ASSIGNMENT_AND_SESSION_OWNER",
+      "expected": 404,
+      "test": "PosTest#p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession"
+    },
+    {
+      "id": "P006-CASHIER-WRONG-BRANCH-REGISTER",
+      "actor": "POS_CASHIER",
+      "endpoint": "POST /api/v1/vendor/pos/sessions",
+      "permission": "POS_SESSION_OPEN",
+      "scope": "TENANT_BRANCH_REGISTER_ASSIGNMENT",
+      "expected": 404,
+      "test": "PosTest#p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession",
+      "sideEffect": "pos_sessions row count unchanged"
+    },
+    {
+      "id": "P006-CUSTOMER-OWN-CART",
+      "actor": "CUSTOMER",
+      "endpoint": "GET /api/v1/customer/cart",
+      "permission": "CUSTOMER",
+      "scope": "CUSTOMER_PROFILE_FROM_AUTHENTICATED_IDENTITY",
+      "expected": 200,
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped"
+    },
+    {
+      "id": "P006-CUSTOMER-FOREIGN-CART",
+      "actor": "WRONG_CUSTOMER",
+      "endpoint": "GET /api/v1/customer/cart",
+      "permission": "CUSTOMER",
+      "scope": "OTHER_CUSTOMER_OWN_CART_ONLY",
+      "expected": 200,
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped",
+      "sideEffect": "foreign cart item absent"
+    },
+    {
+      "id": "P006-CUSTOMER-OWN-ORDER",
+      "actor": "CUSTOMER",
+      "endpoint": "GET /api/v1/customer/orders/{id}",
+      "permission": "CUSTOMER",
+      "scope": "CUSTOMER_ORDER_OWNER",
+      "expected": 200,
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped"
+    },
+    {
+      "id": "P006-CUSTOMER-FOREIGN-ORDER-404",
+      "actor": "WRONG_CUSTOMER",
+      "endpoint": "GET /api/v1/customer/orders/{id}",
+      "permission": "CUSTOMER",
+      "scope": "CUSTOMER_ORDER_OWNER",
+      "expected": 404,
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped"
+    },
+    {
+      "id": "P006-CUSTOMER-FOREIGN-RECEIPT-404",
+      "actor": "WRONG_CUSTOMER",
+      "endpoint": "GET /api/v1/customer/orders/{id}/receipt",
+      "permission": "CUSTOMER",
+      "scope": "CUSTOMER_ORDER_OWNER",
+      "expected": 404,
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped"
+    },
+    {
+      "id": "P006-CUSTOMER-CART-MIXED-VENDOR-409",
+      "actor": "CUSTOMER",
+      "endpoint": "POST /api/v1/customer/cart/items",
+      "permission": "CUSTOMER",
+      "scope": "SINGLE_VENDOR_PER_CART",
+      "expected": 409,
+      "test": "PosTest#demoGlobalCustomerPurchasesFromTwoVendorsWithoutMixingCartsOrdersOrStock"
+    },
+    {
+      "id": "P006-POS-FOREIGN-PRODUCT-404",
+      "actor": "POS_CASHIER",
+      "endpoint": "POST /api/v1/vendor/pos/drafts",
+      "permission": "POS_SALE_CREATE",
+      "scope": "ACTIVE_REGISTER_BRANCH_AND_PRODUCT_TENANT",
+      "expected": 404,
+      "test": "PosTest#demoCashierCanBillOwnStoreWithPolicyDiscountButCannotUseAnotherStoresRegisterOrProduct"
+    },
+    {
+      "id": "P006-POS-INVALID-DISCOUNT-409",
+      "actor": "POS_CASHIER",
+      "endpoint": "POST /api/v1/vendor/pos/drafts",
+      "permission": "POS_SALE_CREATE",
+      "scope": "SESSION_AND_DISCOUNT_POLICY_STATE",
+      "expected": 409,
+      "test": "PosTest#demoCashierCanBillOwnStoreWithPolicyDiscountButCannotUseAnotherStoresRegisterOrProduct"
+    },
+    {
+      "id": "P006-RETURN-FOREIGN-ORDER-404",
+      "actor": "WRONG_TENANT",
+      "endpoint": "GET /api/v1/vendor/pos/returns/{id}",
+      "permission": "POS_VIEW+POS_RETURN_VIEW",
+      "scope": "TENANT_BRANCH_RETURN_OWNERSHIP",
+      "expected": 404,
+      "test": "PosTest#returnHttpPermissionsCsrfOriginalOwnershipAndForgedFieldsFailClosed"
     }
   ]
 }

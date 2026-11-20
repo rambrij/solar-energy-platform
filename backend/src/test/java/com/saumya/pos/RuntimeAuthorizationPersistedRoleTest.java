@@ -635,17 +635,40 @@ class RuntimeAuthorizationPersistedRoleTest {
         return defaultArgument(type);
     }
 
+    private <A extends java.lang.annotation.Annotation> A validationAnnotation(
+        RecordComponent component, Class<A> annotationType) {
+        A annotation = component.getAnnotation(annotationType);
+        if (annotation != null) return annotation;
+        try {
+            annotation = component.getDeclaringRecord().getDeclaredField(component.getName()).getAnnotation(annotationType);
+            if (annotation != null) return annotation;
+            annotation = component.getAccessor().getAnnotation(annotationType);
+            if (annotation != null) return annotation;
+            Class<?>[] types = Arrays.stream(component.getDeclaringRecord().getRecordComponents())
+                .map(RecordComponent::getType).toArray(Class<?>[]::new);
+            var constructor = component.getDeclaringRecord().getDeclaredConstructor(types);
+            for (int i = 0; i < types.length; i++) {
+                if (component.getDeclaringRecord().getRecordComponents()[i].getName().equals(component.getName())) {
+                    return constructor.getParameters()[i].getAnnotation(annotationType);
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Some non-record or generated DTO metadata does not expose all targets.
+        }
+        return null;
+    }
+
     private Object defaultRecordComponent(RecordComponent component) {
         Class<?> type = component.getType();
         String name = component.getName();
         if ((type == boolean.class || type == Boolean.class)
-            && component.isAnnotationPresent(jakarta.validation.constraints.AssertTrue.class)) return true;
+            && validationAnnotation(component, jakarta.validation.constraints.AssertTrue.class) != null) return true;
         if (type == String.class) {
-            var pattern = component.getAnnotation(jakarta.validation.constraints.Pattern.class);
+            var pattern = validationAnnotation(component, jakarta.validation.constraints.Pattern.class);
             if (pattern != null) return sampleForPattern(pattern.regexp());
-            if (component.isAnnotationPresent(jakarta.validation.constraints.Email.class))
+            if (validationAnnotation(component, jakarta.validation.constraints.Email.class) != null)
                 return "runtime.matrix.viewer@example.test";
-            var size = component.getAnnotation(jakarta.validation.constraints.Size.class);
+            var size = validationAnnotation(component, jakarta.validation.constraints.Size.class);
             String value = (String) defaultArgument(type, name, component.getGenericType());
             if (size != null && size.min() > value.length()) {
                 return value + "X".repeat(size.min() - value.length());
@@ -660,14 +683,14 @@ class RuntimeAuthorizationPersistedRoleTest {
                 elementType = rawElement;
             }
             Object item = defaultArgument(elementType);
-            var size = component.getAnnotation(jakarta.validation.constraints.Size.class);
+            var size = validationAnnotation(component, jakarta.validation.constraints.Size.class);
             int count = size == null ? 1 : Math.max(1, size.min());
             List<Object> values = new ArrayList<>();
             for (int i = 0; i < count; i++) values.add(item);
             return Set.class.isAssignableFrom(type) ? new LinkedHashSet<>(values) : values;
         }
         if (Map.class.isAssignableFrom(type)
-            && component.isAnnotationPresent(jakarta.validation.constraints.NotEmpty.class)) {
+            && validationAnnotation(component, jakarta.validation.constraints.NotEmpty.class) != null) {
             return Map.of("RUNTIME", "1");
         }
         return defaultArgument(type, name, component.getGenericType());

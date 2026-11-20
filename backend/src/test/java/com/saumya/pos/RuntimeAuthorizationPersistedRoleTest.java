@@ -46,7 +46,6 @@ class RuntimeAuthorizationPersistedRoleTest {
     @BeforeEach
     void seedPersistedViewOnlyActor() {
         db.update("DELETE FROM identity_refresh_tokens WHERE username=?", USER);
-        db.update("DELETE FROM identity_access_tokens WHERE username=?", USER);
         db.update("DELETE FROM employee_register_assignments WHERE username=?", USER);
         db.update("DELETE FROM employee_role_assignments WHERE username=?", USER);
         db.update("DELETE FROM vendor_role_permissions WHERE role_id IN (SELECT id FROM vendor_roles WHERE role_key='runtime-matrix-viewer')");

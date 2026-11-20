@@ -603,7 +603,7 @@
       "permission": "POS_VIEW+POS_REFUND_VIEW",
       "scope": "VENDOR_TENANT_BRANCH_REFUND_HISTORY",
       "expected": 403,
-      "test": "RefundHistoryControllerAuthorizationTest#historyReturns403WithUnrelatedAuthority",
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped",
       "note": "No customer-owned refund-history endpoint is implemented; refund history is a vendor POS resource."
     }
   ],

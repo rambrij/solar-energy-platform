@@ -362,6 +362,26 @@
       "expected": 200,
       "test": "RuntimeAuthorizationPersistedRoleTest#forgedTenantHeaderCannotChangePersistedVendorMembershipScope",
       "sideEffect": "foreign role absent"
+    },
+    {
+      "id": "P006-SUPPORT-GRANT-AUDITED",
+      "actor": "PLATFORM_SUPPORT",
+      "endpoint": "POST /api/v1/platform/support-access",
+      "permission": "PLATFORM_SUPPORT_ACCESS",
+      "scope": "PLATFORM_GLOBAL_TO_EXPLICIT_TENANT_WITH_PURPOSE_TICKET_AND_MAX_4H_EXPIRY",
+      "expected": 201,
+      "test": "PlatformSupportRuntimeAuthorizationAcceptance#persistedPlatformSupportCanGrantAndRevokeAuditedTimeBoundAccess",
+      "sideEffect": "support grant and immutable SUPPORT_ACCESS_GRANTED audit event persisted"
+    },
+    {
+      "id": "P006-SUPPORT-REVOKE-AUDITED",
+      "actor": "PLATFORM_SUPPORT",
+      "endpoint": "POST /api/v1/platform/support-access/{id}/revoke",
+      "permission": "PLATFORM_SUPPORT_ACCESS",
+      "scope": "GRANT_ACTOR_AND_TENANT_BOUND",
+      "expected": 200,
+      "test": "PlatformSupportRuntimeAuthorizationAcceptance#persistedPlatformSupportCanGrantAndRevokeAuditedTimeBoundAccess",
+      "sideEffect": "grant revoked and immutable SUPPORT_ACCESS_REVOKED audit event persisted"
     }
   ]
 }

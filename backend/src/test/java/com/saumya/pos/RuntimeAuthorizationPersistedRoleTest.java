@@ -451,18 +451,7 @@ class RuntimeAuthorizationPersistedRoleTest {
                     .map(RecordComponent::getType).toArray(Class<?>[]::new);
                 Object[] values = new Object[components.length];
                 for (int i = 0; i < components.length; i++) {
-                    String name = components[i].getName().toLowerCase(Locale.ROOT);
-                    Class<?> componentType = components[i].getType();
-                    if (componentType == String.class && (name.contains("username") || name.contains("email")
-                        || name.equals("actor") || name.equals("cashier"))) {
-                        values[i] = USER;
-                    } else if (componentType == String.class && name.contains("reason")) {
-                        values[i] = "Runtime matrix authorization test";
-                    } else if (componentType == String.class && name.contains("method")) {
-                        values[i] = "CASH";
-                    } else {
-                        values[i] = defaultRecordComponent(components[i]);
-                    }
+                    values[i] = defaultRecordComponent(components[i]);
                 }
                 Constructor<?> constructor = type.getDeclaredConstructor(parameterTypes);
                 constructor.setAccessible(true);

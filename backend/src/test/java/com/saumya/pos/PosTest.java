@@ -2522,4 +2522,76 @@ class PosTest {
   assertThat(forged).contains("910301").doesNotContain("920301");
  }
 
+
+ @Test void p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped() throws Exception {
+  multiVendorDemo();
+  String adminToken=demoToken("admin@saumya.demo.test","SaumyaAdmin2026!");
+  mvc.perform(get("/api/v1/vendor/roles").header("Authorization","Bearer "+adminToken))
+    .andExpect(status().isOk());
+  Long foreignRole=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=920001",Long.class);
+  mvc.perform(get("/api/v1/vendor/roles/"+foreignRole).header("Authorization","Bearer "+adminToken))
+    .andExpect(status().isNotFound());
+
+  String createRole="{\"roleKey\":\"p006-catalog-viewer\",\"displayName\":\"P0-06 catalogue viewer\",\"permissions\":[\"PRODUCT_VIEW\"],\"reason\":\"Create least-privilege custom role for runtime matrix\"}";
+  mvc.perform(post("/api/v1/vendor/roles").header("Authorization","Bearer "+adminToken).with(csrf())
+      .contentType("application/json").content(createRole))
+    .andExpect(status().isCreated());
+  Long customRole=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=910001 AND role_key='p006-catalog-viewer'",Long.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_role_permissions WHERE tenant_id=910001 AND role_id=? AND permission='PRODUCT_VIEW'",Integer.class,customRole)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_role_permissions WHERE tenant_id=910001 AND role_id=? AND permission<>'PRODUCT_VIEW'",Integer.class,customRole)).isZero();
+
+  String customerA="asha@customer.demo.test",customerB="rahul@customer.demo.test";
+  String tokenA=demoToken(customerA,"AshaBuyer2026!"),tokenB=demoToken(customerB,"RahulBuyer2026!");
+  asCustomer(customerA,()->marketplace.put(949001,new CartService.Item("saumya-rooftops",910301,1)));
+  String ownCart=mvc.perform(get("/api/v1/customer/cart").header("Authorization","Bearer "+tokenA))
+    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+  assertThat(ownCart).contains("910301");
+  String foreignCart=mvc.perform(get("/api/v1/customer/cart").header("Authorization","Bearer "+tokenB))
+    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+  assertThat(foreignCart).doesNotContain("910301");
+
+  var cart=asCustomer(customerA,()->marketplace.cart(949001));
+  var draft=asCustomer(customerA,()->checkout.online(customerA,"p006-customer-ownership",new CheckoutService.OnlineDraft(cart.id())));
+  var attempt=asCustomer(customerA,()->payments.start(customerA,draft.id(),"UPI"));
+  asCustomer(customerA,()->payments.confirm(customerA,draft.id(),attempt.attemptId()));
+  mvc.perform(get("/api/v1/customer/orders/"+draft.id()).header("Authorization","Bearer "+tokenA))
+    .andExpect(status().isOk());
+  mvc.perform(get("/api/v1/customer/orders/"+draft.id()).header("Authorization","Bearer "+tokenB))
+    .andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/customer/orders/"+draft.id()+"/receipt").header("Authorization","Bearer "+tokenB))
+    .andExpect(status().isNotFound());
+ }
+
+ @Test void p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession() throws Exception {
+  multiVendorDemo();
+  update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(930012,930001,930001)");
+  employee("cashier2@lumina.demo.test",930001,930001);
+  update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='admin@lumina.demo.test',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=930001 AND username='cashier2@lumina.demo.test'");
+  assignRegister("cashier2@lumina.demo.test",930001,930001,930012);
+
+  String cashierOne=demoToken("cashier@lumina.demo.test","LuminaTill2026!");
+  String cashierTwo=demoToken("cashier2@lumina.demo.test","StaffPasswordForTests");
+  String sessionBody="{\"registerId\":930011,\"openingFloat\":0}";
+  var opened=mvc.perform(post("/api/v1/vendor/pos/sessions").header("Authorization","Bearer "+cashierOne).with(csrf())
+      .contentType("application/json").content(sessionBody))
+    .andExpect(status().isOk()).andReturn();
+  String sessionId=new com.fasterxml.jackson.databind.ObjectMapper().readTree(opened.getResponse().getContentAsString()).get("id").asText();
+
+  int sessionsBefore=db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=930001",Integer.class);
+  mvc.perform(post("/api/v1/vendor/pos/sessions").header("Authorization","Bearer "+cashierTwo).with(csrf())
+      .contentType("application/json").content(sessionBody))
+    .andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/vendor/pos/sessions/"+sessionId).header("Authorization","Bearer "+cashierTwo))
+    .andExpect(status().isNotFound());
+  mvc.perform(post("/api/v1/vendor/pos/sessions").header("Authorization","Bearer "+cashierOne).with(csrf())
+      .contentType("application/json").content("{\"registerId\":920011,\"openingFloat\":0}"))
+    .andExpect(status().isNotFound());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=930001",Integer.class))
+    .as("wrong-register and wrong-branch session opens must not create a session").isEqualTo(sessionsBefore);
+
+  mvc.perform(post("/api/v1/vendor/pos/sessions").header("Authorization","Bearer "+cashierTwo).with(csrf())
+      .contentType("application/json").content("{\"registerId\":930012,\"openingFloat\":0}"))
+    .andExpect(status().isOk());
+ }
+
 }

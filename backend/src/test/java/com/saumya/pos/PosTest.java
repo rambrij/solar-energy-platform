@@ -2566,10 +2566,11 @@ class PosTest {
 
  @Test void p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession() throws Exception {
   multiVendorDemo();
-  update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(930012,930001,930001)");
+  long secondRegister=db.queryForObject("SELECT COALESCE(MAX(id),0)+100 FROM registers WHERE tenant_id=930001 AND branch_id=930001",Long.class);
+  update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,?,?)",secondRegister,930001L,930001L);
   employee("cashier2@lumina.demo.test",930001,930001);
   update("UPDATE employee_register_assignments SET active=FALSE,revoked_by='admin@lumina.demo.test',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=930001 AND username='cashier2@lumina.demo.test'");
-  assignRegister("cashier2@lumina.demo.test",930001,930001,930012);
+  assignRegister("cashier2@lumina.demo.test",930001,930001,secondRegister);
 
   String cashierOne=demoToken("cashier@lumina.demo.test","LuminaTill2026!");
   String cashierTwo=demoToken("cashier2@lumina.demo.test","StaffPasswordForTests");
@@ -2592,7 +2593,7 @@ class PosTest {
     .as("wrong-register and wrong-branch session opens must not create a session").isEqualTo(sessionsBefore);
 
   mvc.perform(post("/api/v1/vendor/pos/sessions").header("Authorization","Bearer "+cashierTwo).with(csrf())
-      .contentType("application/json").content("{\"registerId\":930012,\"openingFloat\":0}"))
+      .contentType("application/json").content("{\"registerId\":"+secondRegister+",\"openingFloat\":0}"))
     .andExpect(status().isOk());
  }
 

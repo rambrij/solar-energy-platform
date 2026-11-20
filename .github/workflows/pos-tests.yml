@@ -47,6 +47,16 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority+p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory+p006VendorAdminCannotForgeTenantScopeThroughQueryParameters' test
+      - name: P0-06 vendor admin, customer ownership and POS assignment HTTP cases (H2)
+        if: matrix.database == 'h2'
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped+p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession' test
+      - name: P0-06 vendor admin, customer ownership and POS assignment HTTP cases (MySQL 8.4)
+        if: matrix.database == 'mysql'
+        env:
+          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: disposable-test-password
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped+p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession' test
       - name: P0-06 Platform Support grant/revoke acceptance (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test
@@ -85,7 +95,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: p0-06-runtime-authorization-${{ matrix.database }}
-          path: backend/target/surefire-reports/
+          path: |
+            backend/target/surefire-reports/
+            backend/target/p0-06-runtime-authorization-report.csv
           if-no-files-found: warn
           retention-days: 30
       - name: H2 suite

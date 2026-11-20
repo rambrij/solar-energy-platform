@@ -2815,7 +2815,8 @@ class PosTest {
   }
   assertThat(tokens).as("persisted actor token for %s",selected).containsKey(selected);
   assertThat(matrixActorSatisfies(permissions.getOrDefault(selected,Set.of()),expression))
-      .as("persisted actor %s must satisfy mapped policy %s for %s",selected,expression,controller).isTrue();
+      .as("persisted actor %s must satisfy mapped policy %s for %s; groups=%s; effective permissions=%s",
+          selected,expression,controller,matrixAuthorityGroups(expression),permissions.getOrDefault(selected,Set.of())).isTrue();
   return selected;
  }
 

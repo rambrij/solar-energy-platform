@@ -647,7 +647,51 @@ class RuntimeAuthorizationPersistedRoleTest {
     }
 
     private Object defaultRecordComponent(RecordComponent component) {
-        return defaultArgument(component.getType(), component.getName(), component.getGenericType());
+        Class<?> type = component.getType();
+        String name = component.getName();
+        if ((type == boolean.class || type == Boolean.class)
+            && component.isAnnotationPresent(jakarta.validation.constraints.AssertTrue.class)) return true;
+        if (type == String.class) {
+            var pattern = component.getAnnotation(jakarta.validation.constraints.Pattern.class);
+            if (pattern != null) return sampleForPattern(pattern.regexp());
+            if (component.isAnnotationPresent(jakarta.validation.constraints.Email.class))
+                return "runtime.matrix.viewer@example.test";
+            var size = component.getAnnotation(jakarta.validation.constraints.Size.class);
+            String value = (String) defaultArgument(type, name, component.getGenericType());
+            if (size != null && size.min() > value.length()) {
+                return value + "X".repeat(size.min() - value.length());
+            }
+            return value;
+        }
+        if (Collection.class.isAssignableFrom(type)) {
+            Class<?> elementType = String.class;
+            if (component.getGenericType() instanceof ParameterizedType parameterized
+                && parameterized.getActualTypeArguments().length > 0
+                && parameterized.getActualTypeArguments()[0] instanceof Class<?> rawElement) {
+                elementType = rawElement;
+            }
+            Object item = defaultArgument(elementType);
+            var size = component.getAnnotation(jakarta.validation.constraints.Size.class);
+            int count = size == null ? 1 : Math.max(1, size.min());
+            List<Object> values = new ArrayList<>();
+            for (int i = 0; i < count; i++) values.add(item);
+            return Set.class.isAssignableFrom(type) ? new LinkedHashSet<>(values) : values;
+        }
+        if (Map.class.isAssignableFrom(type)
+            && component.isAnnotationPresent(jakarta.validation.constraints.NotEmpty.class)) {
+            return Map.of("RUNTIME", "1");
+        }
+        return defaultArgument(type, name, component.getGenericType());
+    }
+
+    private String sampleForPattern(String regex) {
+        if (regex.contains("a-fA-F") && regex.contains("36"))
+            return "550e8400-e29b-41d4-a716-446655440000";
+        if (regex.contains("0-9") && !regex.contains("A-Za-z")) return "123456";
+        if (regex.contains("A-Za-z0-9") && (regex.contains("_") || regex.contains("-")))
+            return "RUNTIME-KEY-0001";
+        if (regex.contains("https?://")) return "https://example.test";
+        return "P006-VALID-REF";
     }
 
 }

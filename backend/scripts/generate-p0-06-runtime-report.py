@@ -83,7 +83,7 @@ def build() -> int:
         "actual_status", "result", "test_reference",
         "anonymous_expected", "anonymous_actual", "anonymous_result",
         "view_mutation_expected", "view_mutation_actual", "view_mutation_result",
-        "other_actor_matrix"
+        "view_mutation_evidence", "other_actor_matrix"
     ]
     combined: list[dict[str, str]] = []
 
@@ -103,6 +103,7 @@ def build() -> int:
             "view_mutation_expected": route.get("view_mutation_expected", ""),
             "view_mutation_actual": route.get("view_mutation_actual", ""),
             "view_mutation_result": route.get("view_mutation_result", ""),
+            "view_mutation_evidence": route.get("view_mutation_evidence", ""),
             "other_actor_matrix": "NOT_EXECUTED"
         })
         combined.append(row)

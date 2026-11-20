@@ -150,6 +150,14 @@ class RuntimeAuthorizationPersistedRoleTest {
     }
 
     @Test
+    void activeMembershipWithoutEffectivePermissionIsForbidden() throws Exception {
+        String token = bearerToken();
+        db.update("DELETE FROM vendor_role_permissions WHERE role_id IN (SELECT id FROM vendor_roles WHERE role_key='runtime-matrix-viewer')");
+        mvc.perform(get("/api/v1/vendor/products").header("Authorization", "Bearer " + token))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
     void disabledPersistedIdentityCannotAuthenticate() throws Exception {
         db.update("UPDATE users SET enabled=FALSE WHERE username=?", USER);
         String body = json.writeValueAsString(Map.of("username", USER, "password", PASSWORD));

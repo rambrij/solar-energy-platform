@@ -484,6 +484,21 @@ class RuntimeAuthorizationPersistedRoleTest {
         int denied = 0;
         int identitySelf = 0;
         int publicNotApplicable = 0;
+        List<String> protectedTables = List.of(
+            "products", "orders", "order_items", "inventory", "inventory_ledger",
+            "inventory_receipts", "stock_reservations", "pos_sessions", "pos_drawer_tenders",
+            "pos_cash_movements", "pos_cash_refunds", "pos_returns", "pos_return_events",
+            "pos_audit", "pos_shift_reviews", "carts", "cart_items", "vendor_roles",
+            "vendor_role_permissions", "employee_role_assignments", "employee_register_assignments",
+            "platform_support_access", "platform_configuration", "platform_audit_events",
+            "report_export_audit", "vendor_payment_attempts", "tenant_subscriptions",
+            "subscription_invoices", "subscription_payments", "subscription_events",
+            "catalog_promotions", "catalog_change_events", "receipt_document_audit"
+        );
+        Map<String, Long> countsBefore = new LinkedHashMap<>();
+        for (String table : protectedTables) {
+            countsBefore.put(table, db.queryForObject("SELECT COUNT(*) FROM " + table, Long.class));
+        }
 
         for (var entry : requestMappings.getHandlerMethods().entrySet()) {
             HandlerMethod handler = entry.getValue();
@@ -575,6 +590,14 @@ class RuntimeAuthorizationPersistedRoleTest {
 
         assertThat(denied).as("every permission-protected mapped endpoint denies the persisted no-permission actor")
             .isGreaterThan(100);
+        for (String table : protectedTables) {
+            Long after = db.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
+            assertThat(after).as("denied HTTP requests must not create side effects in %s", table)
+                .isEqualTo(countsBefore.get(table));
+        }
+        org.mockito.Mockito.verifyNoInteractions(mockPaymentAdapter);
+        System.out.println("RUNTIME_AUTHORIZATION_NO_PERMISSION_SIDE_EFFECTS|tables="
+            + protectedTables.size() + "|paymentAdapterCalls=0|PASS");
         Path reportPath = Path.of("target", "p0-06-runtime-no-permission-http.csv");
         try {
             Files.createDirectories(reportPath.getParent());

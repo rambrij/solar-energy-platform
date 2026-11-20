@@ -106,6 +106,10 @@
 - **Dependencies:** P0-02, P0-03, P0-05.
 - **Acceptance criteria:** No mapped endpoint is absent from the matrix; all mutation endpoints deny VIEW-only grants; all positive and negative runtime cases pass on MySQL 8.4.
 
+- **Implementation progress (2026-11-20): IN PROGRESS — NOT VERIFIED.** Added `backend/src/test/resources/runtime-authorization-matrix.json` as the canonical controller-scope and actor-profile metadata. It describes persisted actor fixtures and the expected 401/403/404/409 semantics while retaining the existing static `AuthorizationPolicyMatrixTest` and `authorization-policy-registry.json`. Exact method/path/handler operation enumeration and runtime execution must be supplied by the integration test harness; the JSON metadata alone is not runtime evidence and P0-06 must not be marked COMPLETE.
+- **Baseline evidence:** GitHub Actions run [#44766410198](https://github.com/rambrij/solar-energy-platform/actions/runs/44766410198) passed the full H2 backend suite, full MySQL 8.4 backend suite and frontend tests/build on the parent commit. The POS-focused step ran on H2 and MySQL in their respective lanes; P0-04 isolation likewise ran in both lanes. This is baseline evidence only, not P0-06 matrix coverage.
+- **Remaining implementation:** Add persisted-role MockMvc tests that execute every mapped protected endpoint; assert positive and negative access for the listed actor profiles; verify effective permissions from persisted role assignments, tenant/customer ownership, POS branch/register/session assignment, status semantics and denied-mutation side-effect absence; then publish per-endpoint PASS/FAIL/NOT APPLICABLE results and rerun focused, H2 and MySQL suites.
+
 ### P0-07 — Define and enforce actor-context separation
 
 - **Requirement:** Platform, vendor employee and global customer permissions remain separate; a global customer identity never grants employee access.

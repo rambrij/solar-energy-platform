@@ -697,6 +697,8 @@ class RuntimeAuthorizationPersistedRoleTest {
     }
 
     private String sampleForPattern(String regex) {
+        if (regex.contains("A-Za-z") && regex.contains("3") && !regex.contains("0-9"))
+            return "INR";
         if (regex.contains("0-9a-f") && regex.contains("64"))
             return "0".repeat(64);
         if (regex.contains("UPI") && regex.contains("CARD")) return "UPI";

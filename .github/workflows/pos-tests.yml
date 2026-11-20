@@ -47,6 +47,16 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority+p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory+p006VendorAdminCannotForgeTenantScopeThroughQueryParameters' test
+      - name: P0-06 Platform Support grant/revoke acceptance (H2)
+        if: matrix.database == 'h2'
+        run: mvn -B -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test
+      - name: P0-06 Platform Support grant/revoke acceptance (MySQL 8.4)
+        if: matrix.database == 'mysql'
+        env:
+          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: disposable-test-password
+        run: mvn -B -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test
       - name: P0-05 POS scope, session and stock-location tests (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=PosTest#registerAndSessionScopeAreEnforced+databaseRejectsMixedTenantReferences+posStockLocationAndRegisterAssignmentAreServerResolvedAndFailClosed+inventoryReservationConsumeAndReleaseRecheckLiveSessionAndRegisterAssignment+sessionReopenRequiresExplicitPermissionAndCreatesANewImmutableShift+databaseRequiresTheBranchDesignatedStockLocationForInventoryRows+concurrentSessionOpenAttemptsReserveARegisterExactlyOnce+databaseRejectsCrossBranchSessionAndOrderRelationships+databaseBindsReservationsAndInventoryIssuesToTheOrderStockBranch+sessionReopenApiRequiresPermissionAndCannotChooseTheRegisterOrCashier+unknownTerminalTenderRequiresOpenCashierSessionAndHasNoSideEffects+supervisorTenderReviewRequiresOpenAssignedOriginalSessionAndHasNoSideEffects+supervisorReviewQueueOnlyReturnsOpenSessionsOnRegistersAssignedToReviewer+tenderStatusRejectsRevokedOriginalRegisterAssignmentEvenWhenAnotherTillRemainsAssigned+supervisorTenderReviewRejectsRevokedOriginalCashierRegisterAssignment,PosServiceBoundaryTest,ServiceBoundaryMethodInventoryTest,BranchProvisioningServiceTest,PosCatalogServiceTest' test
@@ -67,6 +77,14 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml -Dtest=P004TenantIsolationTest test
+      - name: Upload P0-06 runtime authorization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-06-runtime-authorization-${{ matrix.database }}
+          path: backend/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 30
       - name: H2 suite
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml test

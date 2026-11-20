@@ -53,6 +53,9 @@ class RuntimeAuthorizationPersistedRoleTest {
         db.update("DELETE FROM employees WHERE username=?", USER);
         db.update("DELETE FROM users WHERE username=?", USER);
 
+        // Remove tenant-owned rows before their creator employee to respect
+        // the composite (tenant_id, created_by) foreign key on vendor_roles.
+        db.update("DELETE FROM vendor_roles WHERE tenant_id=91002");
         db.update("DELETE FROM employees WHERE username='runtime.foreign@example.test'");
         db.update("DELETE FROM users WHERE username='runtime.foreign@example.test'");
         db.update("DELETE FROM branches WHERE id IN (91001,91002)");

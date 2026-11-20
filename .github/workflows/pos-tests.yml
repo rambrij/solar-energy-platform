@@ -47,6 +47,16 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority+p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory+p006VendorAdminCannotForgeTenantScopeThroughQueryParameters' test
+      - name: P0-06 all protected endpoints with persisted matching actors (H2)
+        if: matrix.database == 'h2'
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor' test
+      - name: P0-06 all protected endpoints with persisted matching actors (MySQL 8.4)
+        if: matrix.database == 'mysql'
+        env:
+          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: disposable-test-password
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor' test
       - name: P0-06 vendor admin, customer ownership and POS assignment HTTP cases (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped+p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession' test
@@ -112,6 +122,7 @@ jobs:
             backend/target/surefire-reports/
             backend/target/p0-06-runtime-authorization-report.csv
             backend/target/p0-06-runtime-no-permission-http.csv
+            backend/target/p0-06-runtime-actor-endpoint-http.csv
           if-no-files-found: warn
           retention-days: 30
   frontend:

@@ -585,7 +585,9 @@ class RuntimeAuthorizationPersistedRoleTest {
         if (type == String.class) {
             if (name.contains("email") || name.contains("username") || name.contains("actor")
                 || name.contains("cashier")) return "runtime.matrix.viewer@example.test";
-            if (name.contains("reason") || name.contains("purpose") || name.contains("ticket")) return "Runtime authorization matrix";
+            if (name.contains("ticket")) return "P006-TICKET-REF";
+            if (name.contains("code") || name.contains("otp")) return "123456";
+            if (name.contains("reason") || name.contains("purpose")) return "Runtime authorization matrix";
             if (name.contains("currency")) return "INR";
             if (name.contains("rolekey")) return "runtime-role";
             if (name.contains("slug")) return "runtime-slug";

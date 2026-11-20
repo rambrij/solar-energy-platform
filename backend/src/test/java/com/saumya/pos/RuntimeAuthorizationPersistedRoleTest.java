@@ -41,7 +41,6 @@ import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -369,8 +368,8 @@ class RuntimeAuthorizationPersistedRoleTest {
                     String anonymousExpected = policy.value().contains("permitAll()") ? "PUBLIC" : "401";
                     String anonymousActual;
                     try {
-                        anonymousActual = Integer.toString(mvc.perform(request(
-                            org.springframework.http.HttpMethod.valueOf(httpMethod.name()), concretePath).with(csrf()))
+                        anonymousActual = Integer.toString(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request(
+                            httpMethod.name(), concretePath).with(csrf()))
                             .andReturn().getResponse().getStatus());
                     } catch (Exception failure) {
                         anonymousActual = "EXECUTION_ERROR";

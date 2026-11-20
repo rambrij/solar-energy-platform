@@ -98,8 +98,10 @@ class RuntimeAuthorizationEndpointInventoryTest {
 
         assertThat(liveControllers).isNotEmpty();
         assertThat(endpoints).as("live endpoint inventory is non-empty").hasSizeGreaterThan(50);
+        Set<String> policyControllers = new TreeSet<>();
+        policies.fieldNames().forEachRemaining(policyControllers::add);
         assertThat(liveControllers).as("all controller policy metadata is referenced by a live endpoint")
-            .containsAll(java.util.stream.StreamSupport.stream(policies.fieldNames().spliterator(), false).toList());
+            .containsAll(policyControllers);
 
         // Stable report payload makes the exact live route inventory available
         // in CI failure output without maintaining a second handwritten route list.

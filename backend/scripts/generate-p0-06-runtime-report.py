@@ -21,6 +21,7 @@ MATRIX = BACKEND_ROOT / "src/test/resources/runtime-authorization-matrix.json"
 SUREFIRE = BACKEND_ROOT / "target/surefire-reports"
 ROUTE_REPORT = BACKEND_ROOT / "target/p0-06-runtime-authorization-report.csv"
 NO_PERMISSION_REPORT = BACKEND_ROOT / "target/p0-06-runtime-no-permission-http.csv"
+ACTOR_ENDPOINT_REPORT = BACKEND_ROOT / "target/p0-06-runtime-actor-endpoint-http.csv"
 SUMMARY_REPORT = BACKEND_ROOT / "target/p0-06-runtime-authorization-summary.json"
 
 
@@ -79,6 +80,11 @@ def build() -> int:
     tests = junit_results(SUREFIRE)
     route_rows = load_route_rows(ROUTE_REPORT)
     missing_permission_rows = load_route_rows(NO_PERMISSION_REPORT)
+    actor_endpoint_rows = load_route_rows(ACTOR_ENDPOINT_REPORT)
+    actor_endpoint_by_route = {
+        (row.get("method", ""), normalize_route(row.get("route", ""))): row
+        for row in actor_endpoint_rows
+    }
     missing_permission_by_route = {
         (row.get("method", ""), normalize_route(row.get("route", ""))): row
         for row in missing_permission_rows
@@ -92,6 +98,8 @@ def build() -> int:
         "view_mutation_evidence",
         "missing_permission_expected", "missing_permission_actual",
         "missing_permission_result", "missing_permission_evidence",
+        "runtime_actor", "runtime_actor_expected", "runtime_actor_actual",
+        "runtime_actor_result", "runtime_actor_evidence", "runtime_actor_test_reference",
         "other_actor_matrix"
     ]
     combined: list[dict[str, str]] = []
@@ -117,6 +125,12 @@ def build() -> int:
             "missing_permission_actual": "",
             "missing_permission_result": "NOT_EXECUTED",
             "missing_permission_evidence": "PERSISTED_USER_HTTP",
+            "runtime_actor": "",
+            "runtime_actor_expected": "",
+            "runtime_actor_actual": "",
+            "runtime_actor_result": "NOT_EXECUTED",
+            "runtime_actor_evidence": "PERSISTED_ACTOR_HTTP",
+            "runtime_actor_test_reference": "PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor",
             "other_actor_matrix": "NOT_EXECUTED"
         })
         combined.append(row)
@@ -190,12 +204,21 @@ def build() -> int:
             continue
         key = (row.get("method", ""), normalize_route(row.get("route", "")))
         no_permission = missing_permission_by_route.get(key)
-        if no_permission is None and key[0] == "ANY":
-            no_permission = missing_permission_by_route.get(("GET", key[1]))
+        actor_endpoint = actor_endpoint_by_route.get(key)
+        if key[0] == "ANY":
+            no_permission = no_permission or missing_permission_by_route.get(("GET", key[1]))
+            actor_endpoint = actor_endpoint or actor_endpoint_by_route.get(("GET", key[1]))
         if no_permission is not None:
             row["missing_permission_expected"] = no_permission.get("expected_status", "")
             row["missing_permission_actual"] = no_permission.get("actual_status", "")
             row["missing_permission_result"] = no_permission.get("result", "")
+        if actor_endpoint is not None:
+            row["runtime_actor"] = actor_endpoint.get("actor", "")
+            row["runtime_actor_expected"] = actor_endpoint.get("expected", "")
+            row["runtime_actor_actual"] = actor_endpoint.get("actual", "")
+            row["runtime_actor_result"] = actor_endpoint.get("result", "")
+            row["runtime_actor_evidence"] = "PERSISTED_ACTOR_HTTP"
+            row["runtime_actor_test_reference"] = actor_endpoint.get("test_reference", "")
         row["other_actor_matrix"] = ";".join(actor_coverage.get(key, [])) or "NOT_EXECUTED"
 
     ROUTE_REPORT.parent.mkdir(parents=True, exist_ok=True)
@@ -222,6 +245,15 @@ def build() -> int:
         row.get("row_type") == "LIVE_ENDPOINT" and row.get("missing_permission_result") == "NOT_EXECUTED"
         for row in combined
     )
+    actor_endpoint_pass = sum(row.get("result") == "PASS" for row in actor_endpoint_rows)
+    actor_endpoint_fail = sum(row.get("result") == "FAIL" for row in actor_endpoint_rows)
+    actor_endpoint_unexecuted = sum(row.get("result") == "NOT_EXECUTED" for row in actor_endpoint_rows)
+    actor_endpoint_route_unexecuted = sum(
+        row.get("row_type") == "LIVE_ENDPOINT"
+        and row.get("anonymous_expected") == "401"
+        and row.get("runtime_actor_result") == "NOT_EXECUTED"
+        for row in combined
+    )
     summary: dict[str, Any] = {
         "database": "resolved by current CI matrix job",
         "liveEndpointRows": live_count,
@@ -236,6 +268,10 @@ def build() -> int:
         "missingPermissionHttpChecksFailed": missing_permission_fail,
         "missingPermissionHttpChecksNotExecuted": missing_permission_unexecuted,
         "missingPermissionRouteRowsNotExecuted": missing_permission_route_unexecuted,
+        "persistedActorEndpointChecksPassed": actor_endpoint_pass,
+        "persistedActorEndpointChecksFailed": actor_endpoint_fail,
+        "persistedActorEndpointChecksNotExecuted": actor_endpoint_unexecuted,
+        "protectedRoutesWithoutPersistedMatchingActor": actor_endpoint_route_unexecuted,
         "actorScenariosDeclared": len(matrix.get("runtimeScenarios", [])),
         "notApplicableResourceRows": len(matrix.get("notApplicableResources", [])),
         "actorScenariosPassed": scenario_pass,
@@ -249,7 +285,7 @@ def build() -> int:
     }
     SUMMARY_REPORT.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print("P0-06_RUNTIME_REPORT|" + json.dumps(summary, sort_keys=True))
-    return 1 if anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or missing_permission_route_unexecuted or scenario_fail or scenario_unexecuted else 0
+    return 1 if anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or missing_permission_route_unexecuted or actor_endpoint_fail or actor_endpoint_unexecuted or actor_endpoint_route_unexecuted or scenario_fail or scenario_unexecuted else 0
 
 
 if __name__ == "__main__":

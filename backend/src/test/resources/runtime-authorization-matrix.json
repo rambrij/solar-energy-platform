@@ -541,6 +541,60 @@
       "expected": 403,
       "test": "RuntimeAuthorizationPersistedRoleTest#everyMappedMutationRejectsPersistedViewOnlyActorBeforeAnySideEffect",
       "sideEffect": "MockVendorPaymentAdapter has zero interactions"
+    },
+    {
+      "id": "P006-ANONYMOUS-PROTECTED-ROLE-LIST",
+      "actor": "ANONYMOUS",
+      "endpoint": "GET /api/v1/vendor/roles",
+      "permission": "AUTHENTICATED_VENDOR_ROLE_VIEW",
+      "scope": "AUTHENTICATED_VENDOR_MEMBERSHIP",
+      "expected": 401,
+      "test": "RuntimeAuthorizationPersistedRoleTest#anonymousProtectedEndpointReturnsUnauthorized"
+    },
+    {
+      "id": "P006-NO-EFFECTIVE-PERMISSION",
+      "actor": "NO_PERMISSION",
+      "endpoint": "GET /api/v1/vendor/products",
+      "permission": "PRODUCT_VIEW",
+      "scope": "ACTIVE_MEMBERSHIP_WITHOUT_ACTIVE_ROLE_ASSIGNMENT",
+      "expected": 403,
+      "test": "RuntimeAuthorizationPersistedRoleTest#activeMembershipWithoutEffectivePermissionIsForbidden"
+    },
+    {
+      "id": "P006-DISABLED-USER",
+      "actor": "DISABLED",
+      "endpoint": "POST /api/v1/auth/login",
+      "permission": "ENABLED_GLOBAL_USER",
+      "scope": "DISABLED_IDENTITY",
+      "expected": 401,
+      "test": "RuntimeAuthorizationPersistedRoleTest#disabledPersistedIdentityCannotAuthenticate"
+    },
+    {
+      "id": "P006-PLATFORM-TO-CUSTOMER-BOUNDARY",
+      "actor": "PLATFORM_SUPER_ADMIN",
+      "endpoint": "GET /api/v1/customer/cart",
+      "permission": "CUSTOMER",
+      "scope": "PLATFORM_IDENTITY_WITHOUT_CUSTOMER_PROFILE",
+      "expected": 403,
+      "test": "PosTest#demoTokensEnforcePlatformAndVendorAndCustomerBoundaries"
+    },
+    {
+      "id": "P006-PLATFORM-TO-VENDOR-BOUNDARY",
+      "actor": "PLATFORM_SUPER_ADMIN",
+      "endpoint": "GET /api/v1/vendor/products",
+      "permission": "PRODUCT_VIEW",
+      "scope": "PLATFORM_IDENTITY_WITHOUT_VENDOR_MEMBERSHIP",
+      "expected": 403,
+      "test": "PosTest#demoTokensEnforcePlatformAndVendorAndCustomerBoundaries"
+    },
+    {
+      "id": "P006-PLATFORM-TO-POS-BOUNDARY",
+      "actor": "PLATFORM_SUPER_ADMIN",
+      "endpoint": "GET /api/v1/vendor/pos/orders",
+      "permission": "POS_VIEW",
+      "scope": "PLATFORM_IDENTITY_WITHOUT_VENDOR_MEMBERSHIP",
+      "expected": 403,
+      "test": "PosTest#demoTokensEnforcePlatformAndVendorAndCustomerBoundaries"
     }
   ]
 }

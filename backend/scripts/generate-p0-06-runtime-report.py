@@ -20,6 +20,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 MATRIX = BACKEND_ROOT / "src/test/resources/runtime-authorization-matrix.json"
 SUREFIRE = BACKEND_ROOT / "target/surefire-reports"
 ROUTE_REPORT = BACKEND_ROOT / "target/p0-06-runtime-authorization-report.csv"
+NO_PERMISSION_REPORT = BACKEND_ROOT / "target/p0-06-runtime-no-permission-http.csv"
 SUMMARY_REPORT = BACKEND_ROOT / "target/p0-06-runtime-authorization-summary.json"
 
 
@@ -77,13 +78,21 @@ def build() -> int:
     matrix = json.loads(MATRIX.read_text(encoding="utf-8"))
     tests = junit_results(SUREFIRE)
     route_rows = load_route_rows(ROUTE_REPORT)
+    missing_permission_rows = load_route_rows(NO_PERMISSION_REPORT)
+    missing_permission_by_route = {
+        (row.get("method", ""), normalize_route(row.get("route", ""))): row
+        for row in missing_permission_rows
+    }
     columns = [
         "row_type", "method", "route", "controller", "operation",
         "effective_permission", "scope", "actor", "expected_status",
         "actual_status", "result", "test_reference",
         "anonymous_expected", "anonymous_actual", "anonymous_result",
         "view_mutation_expected", "view_mutation_actual", "view_mutation_result",
-        "view_mutation_evidence", "other_actor_matrix"
+        "view_mutation_evidence",
+        "missing_permission_expected", "missing_permission_actual",
+        "missing_permission_result", "missing_permission_evidence",
+        "other_actor_matrix"
     ]
     combined: list[dict[str, str]] = []
 
@@ -104,6 +113,10 @@ def build() -> int:
             "view_mutation_actual": route.get("view_mutation_actual", ""),
             "view_mutation_result": route.get("view_mutation_result", ""),
             "view_mutation_evidence": route.get("view_mutation_evidence", ""),
+            "missing_permission_expected": "",
+            "missing_permission_actual": "",
+            "missing_permission_result": "NOT_EXECUTED",
+            "missing_permission_evidence": "PERSISTED_USER_HTTP",
             "other_actor_matrix": "NOT_EXECUTED"
         })
         combined.append(row)
@@ -176,6 +189,11 @@ def build() -> int:
         if row.get("row_type") != "LIVE_ENDPOINT":
             continue
         key = (row.get("method", ""), normalize_route(row.get("route", "")))
+        no_permission = missing_permission_by_route.get(key)
+        if no_permission is not None:
+            row["missing_permission_expected"] = no_permission.get("expected_status", "")
+            row["missing_permission_actual"] = no_permission.get("actual_status", "")
+            row["missing_permission_result"] = no_permission.get("result", "")
         row["other_actor_matrix"] = ";".join(actor_coverage.get(key, [])) or "NOT_EXECUTED"
 
     ROUTE_REPORT.parent.mkdir(parents=True, exist_ok=True)
@@ -195,6 +213,9 @@ def build() -> int:
     view_pass = sum(row.get("view_mutation_result") == "PASS" for row in route_rows)
     view_fail = sum(row.get("view_mutation_result") == "FAIL" for row in route_rows)
     view_unexecuted = sum(row.get("view_mutation_result") == "NOT_EXECUTED" for row in route_rows)
+    missing_permission_pass = sum(row.get("result") == "PASS" for row in missing_permission_rows)
+    missing_permission_fail = sum(row.get("result") == "FAIL" for row in missing_permission_rows)
+    missing_permission_unexecuted = sum(row.get("result") == "NOT_EXECUTED" for row in missing_permission_rows)
     summary: dict[str, Any] = {
         "database": "resolved by current CI matrix job",
         "liveEndpointRows": live_count,
@@ -205,6 +226,9 @@ def build() -> int:
         "viewMutationRouteRowsPassed": view_pass,
         "viewMutationRouteRowsFailed": view_fail,
         "viewMutationRouteRowsNotExecuted": view_unexecuted,
+        "missingPermissionHttpChecksPassed": missing_permission_pass,
+        "missingPermissionHttpChecksFailed": missing_permission_fail,
+        "missingPermissionHttpChecksNotExecuted": missing_permission_unexecuted,
         "actorScenariosDeclared": len(matrix.get("runtimeScenarios", [])),
         "notApplicableResourceRows": len(matrix.get("notApplicableResources", [])),
         "actorScenariosPassed": scenario_pass,
@@ -218,7 +242,7 @@ def build() -> int:
     }
     SUMMARY_REPORT.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print("P0-06_RUNTIME_REPORT|" + json.dumps(summary, sort_keys=True))
-    return 1 if anonymous_fail or view_fail or view_unexecuted or scenario_fail or scenario_unexecuted else 0
+    return 1 if anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or scenario_fail or scenario_unexecuted else 0
 
 
 if __name__ == "__main__":

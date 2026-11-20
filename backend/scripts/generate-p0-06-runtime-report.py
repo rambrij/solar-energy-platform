@@ -160,6 +160,11 @@ def build() -> int:
         writer.writerows(combined)
 
     live_count = len(route_rows)
+    route_rows_with_actor_scenario = sum(
+        row.get("row_type") == "LIVE_ENDPOINT" and row.get("other_actor_matrix") != "NOT_EXECUTED"
+        for row in combined
+    )
+    route_rows_without_actor_scenario = live_count - route_rows_with_actor_scenario
     anonymous_pass = sum(row.get("anonymous_result") == "PASS" for row in route_rows)
     anonymous_fail = sum(row.get("anonymous_result") == "FAIL" for row in route_rows)
     view_pass = sum(row.get("view_mutation_result") == "PASS" for row in route_rows)
@@ -168,6 +173,8 @@ def build() -> int:
     summary: dict[str, Any] = {
         "database": "resolved by current CI matrix job",
         "liveEndpointRows": live_count,
+        "liveEndpointRowsWithExplicitActorScenario": route_rows_with_actor_scenario,
+        "liveEndpointRowsWithoutExplicitActorScenario": route_rows_without_actor_scenario,
         "anonymousRouteChecksPassed": anonymous_pass,
         "anonymousRouteChecksFailed": anonymous_fail,
         "viewMutationRouteRowsPassed": view_pass,

@@ -152,6 +152,25 @@ def build() -> int:
         })
         combined.append(row)
 
+    for item in matrix.get("notApplicableResources", []):
+        row = {column: "" for column in columns}
+        row.update({
+            "row_type": "NOT_APPLICABLE_RESOURCE",
+            "method": "",
+            "route": str(item.get("resource", "")),
+            "controller": "",
+            "operation": "",
+            "effective_permission": "",
+            "scope": str(item.get("reason", "")),
+            "actor": str(item.get("actor", "")),
+            "expected_status": "NOT APPLICABLE",
+            "actual_status": "NOT APPLICABLE",
+            "result": "NOT APPLICABLE",
+            "test_reference": "NO_CUSTOMER_REFUND_HISTORY_ENDPOINT_MAPPED",
+            "other_actor_matrix": "NOT APPLICABLE"
+        })
+        combined.append(row)
+
     for row in combined:
         if row.get("row_type") != "LIVE_ENDPOINT":
             continue
@@ -186,6 +205,7 @@ def build() -> int:
         "viewMutationRouteRowsFailed": view_fail,
         "viewMutationRouteRowsNotExecuted": view_unexecuted,
         "actorScenariosDeclared": len(matrix.get("runtimeScenarios", [])),
+        "notApplicableResourceRows": len(matrix.get("notApplicableResources", [])),
         "actorScenariosPassed": scenario_pass,
         "actorScenariosFailed": scenario_fail,
         "actorScenariosNotExecuted": scenario_unexecuted,

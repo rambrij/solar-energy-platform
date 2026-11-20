@@ -17,11 +17,11 @@
   },
   "actorProfiles": {
     "PLATFORM_SUPER_ADMIN": "Persisted users row plus all PLATFORM_* grants in platform_user_permissions; no tenant membership.",
-    "PLATFORM_SUPPORT": "Persisted platform identity with PLATFORM_SUPPORT_ACCESS only; no tenant membership.",
-    "VENDOR_ADMIN": "Persisted employee membership plus active tenant-owned vendor role assigned through employee_role_assignments; effective permissions come from vendor_role_permissions.",
+    "PLATFORM_SUPPORT": "Persisted global user with PLATFORM_SUPPORT_ACCESS only in platform_user_permissions; no tenant membership; may grant/revoke bounded audited support access but cannot administer tenants or vendor data.",
+    "VENDOR_ADMIN": "Persisted vendor employee with tenant-owned Vendor Admin role assigned through employee_role_assignments; effective permissions are the active role-permission union and all data queries remain tenant-scoped.",
     "CUSTOM_VENDOR_ROLE": "Persisted employee membership with a tenant-owned custom role containing only PRODUCT_VIEW; no hardcoded role-name authorization.",
     "POS_CASHIER": "Persisted employee role with POS operation grants and employee_register_assignments for the exact tenant branch/register.",
-    "ACCOUNTANT": "Persisted employee role with report/refund/finance read and export permissions.",
+    "ACCOUNTANT": "Persisted vendor employee with tenant-owned Accountant role grants and explicit active register assignment for branch-scoped reports; cannot receive stock, operate cashier sales or cross into customer APIs.",
     "CUSTOMER": "Persisted global user and customer_profiles row; no vendor membership.",
     "VIEW_ONLY": "Persisted vendor role containing only *_VIEW grants; must not authorize a mutation.",
     "NO_PERMISSION": "Persisted active vendor employee membership with no active employee_role_assignments.",
@@ -31,46 +31,289 @@
     "ANONYMOUS": "No bearer token."
   },
   "controllerPolicies": {
-    "CashierSalesController": {"actor": "VENDOR", "scope": "TENANT_BRANCH", "assignment": "REGISTER_AND_CASHIER_SCOPE"},
-    "CheckoutController": {"actor": "MIXED", "scope": "CUSTOMER_OWNED_OR_VENDOR_TENANT", "assignment": "POS_REGISTER_AND_OPEN_SESSION_FOR_POS"},
-    "CustomerAssociationController": {"actor": "MIXED", "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT", "assignment": "POS_SALE_OWNER_FOR_VENDOR_ACTION"},
-    "DraftRecoveryController": {"actor": "MIXED", "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT", "assignment": "POS_REGISTER_AND_SESSION_FOR_POS"},
-    "OnlineReceiptController": {"actor": "CUSTOMER", "scope": "CUSTOMER_OWNED_ORDER", "assignment": "NONE"},
-    "OrderHistoryController": {"actor": "MIXED", "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT", "assignment": "REGISTER_SCOPE_FOR_POS"},
-    "PaymentCheckoutController": {"actor": "MIXED", "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT", "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION"},
-    "SalesReportController": {"actor": "VENDOR", "scope": "TENANT_BRANCH", "assignment": "POS_REPORT_SCOPE"},
-    "ReceiptDocumentController": {"actor": "VENDOR", "scope": "TENANT_OWNED_RECEIPT", "assignment": "REGISTER_ASSIGNMENT_AND_RECEIPT_REPRINT"},
-    "SaleReceiptController": {"actor": "VENDOR", "scope": "TENANT_OWNED_RECEIPT", "assignment": "REGISTER_ASSIGNMENT"},
-    "AuthenticationController": {"actor": "AUTHENTICATION", "scope": "GLOBAL_IDENTITY_SELF", "assignment": "SESSION_FAMILY_AND_ENABLED_USER"},
-    "IdentityInvitationController": {"actor": "INVITATION_TOKEN", "scope": "ONE_TIME_INVITATION", "assignment": "TOKEN_HASH_AND_EXPIRY"},
-    "PlatformIdentityController": {"actor": "PLATFORM", "scope": "PLATFORM_GLOBAL", "assignment": "PLATFORM_IDENTITY_PERMISSION"},
-    "PlatformMfaController": {"actor": "MIXED", "scope": "PLATFORM_IDENTITY_OR_ENROLLMENT_TOKEN", "assignment": "MFA_TOKEN_OR_PLATFORM_AUDIT_PERMISSION"},
-    "CatalogSearchController": {"actor": "PUBLIC", "scope": "PUBLISHED_VENDOR_CATALOGUE", "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY"},
-    "CategoryAdminController": {"actor": "VENDOR", "scope": "TENANT_OWNED_CATALOGUE", "assignment": "ACTIVE_VENDOR_MEMBERSHIP"},
-    "DiscountPolicyController": {"actor": "VENDOR", "scope": "TENANT_BRANCH", "assignment": "POS_BRANCH_SCOPE"},
-    "MarketplaceController": {"actor": "MIXED", "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF", "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY"},
-    "ProductAdminController": {"actor": "VENDOR", "scope": "TENANT_OWNED_CATALOGUE", "assignment": "ACTIVE_VENDOR_MEMBERSHIP"},
-    "ProductDetailController": {"actor": "PUBLIC", "scope": "PUBLISHED_VENDOR_PRODUCT", "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY"},
-    "PromotionController": {"actor": "VENDOR", "scope": "TENANT_OWNED_PRODUCT", "assignment": "POS_BRANCH_SCOPE"},
-    "PromotionHistoryController": {"actor": "VENDOR", "scope": "TENANT_OWNED_PRODUCT", "assignment": "POS_BRANCH_SCOPE"},
-    "StockReceivingController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_STOCK_LOCATION", "assignment": "DESIGNATED_POS_DEFAULT_LOCATION"},
-    "VendorDirectoryController": {"actor": "PUBLIC", "scope": "ACTIVE_VENDOR_DIRECTORY", "assignment": "NONE"},
-    "VendorRoleController": {"actor": "VENDOR", "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE", "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION"},
-    "PlatformAdminController": {"actor": "PLATFORM", "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET", "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE"},
-    "PlatformHealthController": {"actor": "PLATFORM", "scope": "PLATFORM_GLOBAL", "assignment": "PLATFORM_ANALYTICS_PERMISSION"},
-    "PlatformSubscriptionController": {"actor": "PLATFORM", "scope": "PLATFORM_SUBSCRIPTION_PLANS", "assignment": "PLATFORM_PLAN_PERMISSION"},
-    "PlatformTenantSubscriptionController": {"actor": "PLATFORM", "scope": "PLATFORM_SUBSCRIPTION_AND_TENANT", "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION"},
-    "ReportExportController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_REPORT", "assignment": "POS_REPORT_AND_EXPORT_PERMISSION"},
-    "BranchSettingsController": {"actor": "VENDOR", "scope": "TENANT_BRANCH", "assignment": "POS_SETTINGS_PERMISSION"},
-    "PosCatalogController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_CATALOGUE_AND_STOCK", "assignment": "REGISTER_ASSIGNMENT_AND_OPEN_SESSION_WHERE_REQUIRED"},
-    "PosController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_REGISTER_SESSION", "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE"},
-    "RegisterDirectoryController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_REGISTER", "assignment": "ACTIVE_REGISTER_ASSIGNMENT"},
-    "ShiftHistoryController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_REGISTER_HISTORY", "assignment": "CASHIER_OR_SUPERVISOR_REGISTER_ASSIGNMENT"},
-    "CashRefundController": {"actor": "VENDOR", "scope": "TENANT_RETURN_REFUND_AND_DRAWER", "assignment": "REGISTER_AND_OPEN_SESSION_FOR_CASH_MUTATION"},
-    "RefundHistoryController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_REFUND_HISTORY", "assignment": "REFUND_VIEW_PERMISSION"},
-    "RefundReportController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_REFUND_REPORT", "assignment": "POS_REPORT_AND_REFUND_VIEW_PERMISSION"},
-    "ReturnAuditController": {"actor": "VENDOR", "scope": "TENANT_OWNED_RETURN", "assignment": "RETURN_AUDIT_PERMISSION_AND_POS_SCOPE"},
-    "ReturnController": {"actor": "VENDOR", "scope": "TENANT_OWNED_RETURN_AND_ORDER", "assignment": "REGISTER_AND_SESSION_FOR_POS_MUTATION"},
-    "ReturnQueueController": {"actor": "VENDOR", "scope": "TENANT_BRANCH_RETURN_QUEUE", "assignment": "RETURN_VIEW_PERMISSION_AND_POS_SCOPE"}
-  }
+    "CashierSalesController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "REGISTER_AND_CASHIER_SCOPE"
+    },
+    "CheckoutController": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_OWNED_OR_VENDOR_TENANT",
+      "assignment": "POS_REGISTER_AND_OPEN_SESSION_FOR_POS"
+    },
+    "CustomerAssociationController": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_SALE_OWNER_FOR_VENDOR_ACTION"
+    },
+    "DraftRecoveryController": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_REGISTER_AND_SESSION_FOR_POS"
+    },
+    "OnlineReceiptController": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_ORDER",
+      "assignment": "NONE"
+    },
+    "OrderHistoryController": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "REGISTER_SCOPE_FOR_POS"
+    },
+    "PaymentCheckoutController": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION"
+    },
+    "SalesReportController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_REPORT_SCOPE"
+    },
+    "ReceiptDocumentController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RECEIPT",
+      "assignment": "REGISTER_ASSIGNMENT_AND_RECEIPT_REPRINT"
+    },
+    "SaleReceiptController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RECEIPT",
+      "assignment": "REGISTER_ASSIGNMENT"
+    },
+    "AuthenticationController": {
+      "actor": "AUTHENTICATION",
+      "scope": "GLOBAL_IDENTITY_SELF",
+      "assignment": "SESSION_FAMILY_AND_ENABLED_USER"
+    },
+    "IdentityInvitationController": {
+      "actor": "INVITATION_TOKEN",
+      "scope": "ONE_TIME_INVITATION",
+      "assignment": "TOKEN_HASH_AND_EXPIRY"
+    },
+    "PlatformIdentityController": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL",
+      "assignment": "PLATFORM_IDENTITY_PERMISSION"
+    },
+    "PlatformMfaController": {
+      "actor": "MIXED",
+      "scope": "PLATFORM_IDENTITY_OR_ENROLLMENT_TOKEN",
+      "assignment": "MFA_TOKEN_OR_PLATFORM_AUDIT_PERMISSION"
+    },
+    "CatalogSearchController": {
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_VENDOR_CATALOGUE",
+      "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY"
+    },
+    "CategoryAdminController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_CATALOGUE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP"
+    },
+    "DiscountPolicyController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_BRANCH_SCOPE"
+    },
+    "MarketplaceController": {
+      "actor": "MIXED",
+      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY"
+    },
+    "ProductAdminController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_CATALOGUE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP"
+    },
+    "ProductDetailController": {
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_VENDOR_PRODUCT",
+      "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY"
+    },
+    "PromotionController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_PRODUCT",
+      "assignment": "POS_BRANCH_SCOPE"
+    },
+    "PromotionHistoryController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_PRODUCT",
+      "assignment": "POS_BRANCH_SCOPE"
+    },
+    "StockReceivingController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_STOCK_LOCATION",
+      "assignment": "DESIGNATED_POS_DEFAULT_LOCATION"
+    },
+    "VendorDirectoryController": {
+      "actor": "PUBLIC",
+      "scope": "ACTIVE_VENDOR_DIRECTORY",
+      "assignment": "NONE"
+    },
+    "VendorRoleController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION"
+    },
+    "PlatformAdminController": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE"
+    },
+    "PlatformHealthController": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL",
+      "assignment": "PLATFORM_ANALYTICS_PERMISSION"
+    },
+    "PlatformSubscriptionController": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_PLANS",
+      "assignment": "PLATFORM_PLAN_PERMISSION"
+    },
+    "PlatformTenantSubscriptionController": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_AND_TENANT",
+      "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION"
+    },
+    "ReportExportController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REPORT",
+      "assignment": "POS_REPORT_AND_EXPORT_PERMISSION"
+    },
+    "BranchSettingsController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_SETTINGS_PERMISSION"
+    },
+    "PosCatalogController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_CATALOGUE_AND_STOCK",
+      "assignment": "REGISTER_ASSIGNMENT_AND_OPEN_SESSION_WHERE_REQUIRED"
+    },
+    "PosController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE"
+    },
+    "RegisterDirectoryController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER",
+      "assignment": "ACTIVE_REGISTER_ASSIGNMENT"
+    },
+    "ShiftHistoryController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_HISTORY",
+      "assignment": "CASHIER_OR_SUPERVISOR_REGISTER_ASSIGNMENT"
+    },
+    "CashRefundController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_RETURN_REFUND_AND_DRAWER",
+      "assignment": "REGISTER_AND_OPEN_SESSION_FOR_CASH_MUTATION"
+    },
+    "RefundHistoryController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REFUND_HISTORY",
+      "assignment": "REFUND_VIEW_PERMISSION"
+    },
+    "RefundReportController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REFUND_REPORT",
+      "assignment": "POS_REPORT_AND_REFUND_VIEW_PERMISSION"
+    },
+    "ReturnAuditController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN",
+      "assignment": "RETURN_AUDIT_PERMISSION_AND_POS_SCOPE"
+    },
+    "ReturnController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN_AND_ORDER",
+      "assignment": "REGISTER_AND_SESSION_FOR_POS_MUTATION"
+    },
+    "ReturnQueueController": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_RETURN_QUEUE",
+      "assignment": "RETURN_VIEW_PERMISSION_AND_POS_SCOPE"
+    }
+  },
+  "runtimeScenarios": [
+    {
+      "id": "P006-PLATFORM-SUPER-ADMIN",
+      "actor": "PLATFORM_SUPER_ADMIN",
+      "endpoint": "GET /api/v1/platform/dashboard",
+      "permission": "PLATFORM_ANALYTICS_VIEW",
+      "scope": "PLATFORM_GLOBAL",
+      "expected": 200,
+      "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority"
+    },
+    {
+      "id": "P006-PLATFORM-CANNOT-SELL",
+      "actor": "PLATFORM_SUPER_ADMIN",
+      "endpoint": "POST /api/v1/vendor/products",
+      "permission": "PRODUCT_CREATE",
+      "scope": "NO_VENDOR_MEMBERSHIP",
+      "expected": 403,
+      "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority",
+      "sideEffect": "product row count unchanged"
+    },
+    {
+      "id": "P006-SUPPORT-READ",
+      "actor": "PLATFORM_SUPPORT",
+      "endpoint": "GET /api/v1/platform/support-access",
+      "permission": "PLATFORM_SUPPORT_ACCESS",
+      "scope": "PLATFORM_GLOBAL",
+      "expected": 200,
+      "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority"
+    },
+    {
+      "id": "P006-SUPPORT-CANNOT-ADMIN",
+      "actor": "PLATFORM_SUPPORT",
+      "endpoint": "POST /api/v1/platform/tenants",
+      "permission": "PLATFORM_TENANT_CREATE",
+      "scope": "PLATFORM_GLOBAL",
+      "expected": 403,
+      "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority",
+      "sideEffect": "tenant row count unchanged"
+    },
+    {
+      "id": "P006-SUPPORT-GRANT",
+      "actor": "PLATFORM_SUPPORT",
+      "endpoint": "POST /api/v1/platform/support-access",
+      "permission": "PLATFORM_SUPPORT_ACCESS",
+      "scope": "EXPLICIT_TENANT_SUPPORT_GRANT",
+      "expected": 201,
+      "test": "PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority",
+      "sideEffect": "one bounded support grant persisted"
+    },
+    {
+      "id": "P006-ACCOUNTANT-REPORT",
+      "actor": "ACCOUNTANT",
+      "endpoint": "GET /api/v1/vendor/pos/reports/sales",
+      "permission": "POS_VIEW+POS_REPORT_VIEW",
+      "scope": "TENANT_BRANCH_REGISTER_ASSIGNMENT",
+      "expected": 200,
+      "test": "PosTest#p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory"
+    },
+    {
+      "id": "P006-ACCOUNTANT-INVENTORY-DENY",
+      "actor": "ACCOUNTANT",
+      "endpoint": "POST /api/v1/vendor/inventory/receipts",
+      "permission": "INVENTORY_RECEIVE",
+      "scope": "TENANT_BRANCH",
+      "expected": 403,
+      "test": "PosTest#p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory",
+      "sideEffect": "receipt, ledger, quantity and reserved unchanged"
+    },
+    {
+      "id": "P006-VENDOR-ADMIN-FORGED-TENANT",
+      "actor": "VENDOR_ADMIN",
+      "endpoint": "GET /api/v1/vendor/products?tenantId=foreign",
+      "permission": "PRODUCT_VIEW",
+      "scope": "AUTHENTICATED_TENANT_ONLY",
+      "expected": 200,
+      "test": "PosTest#p006VendorAdminCannotForgeTenantScopeThroughQueryParameters",
+      "sideEffect": "foreign product IDs/names absent"
+    }
+  ]
 }

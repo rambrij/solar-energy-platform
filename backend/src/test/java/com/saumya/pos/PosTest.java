@@ -2631,6 +2631,7 @@ class PosTest {
   var matcher=java.util.regex.Pattern.compile("has(Any)?Authority\\(([^)]*)\\)").matcher(expression);
   while(matcher.find()){
    Set<String> alternatives=new LinkedHashSet<>();
+   if(matcher.group(2).contains("#request."))continue; // Resolve request-derived authorities from the probe DTO below.
    var values=java.util.regex.Pattern.compile("['\"]([A-Z][A-Z0-9_]*)['\"]").matcher(matcher.group(2));
    while(values.find())alternatives.add(values.group(1));
    if(!alternatives.isEmpty())groups.add(alternatives);

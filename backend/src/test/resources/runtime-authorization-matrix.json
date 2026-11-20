@@ -616,6 +616,16 @@
       "expected": 409,
       "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped",
       "sideEffect": "stale update leaves product version unchanged"
+    },
+    {
+      "id": "P006-CASHIER-WRONG-ASSIGNED-REGISTER",
+      "actor": "WRONG_ASSIGNMENT",
+      "endpoint": "POST /api/v1/vendor/pos/sessions",
+      "permission": "POS_SESSION_OPEN",
+      "scope": "SAME_TENANT_BRANCH_DIFFERENT_REGISTER_ASSIGNMENT",
+      "expected": 404,
+      "test": "PosTest#p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession",
+      "sideEffect": "no session is created on the unassigned register"
     }
   ],
   "notApplicableResources": [

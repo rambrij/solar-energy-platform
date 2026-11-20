@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
 import com.saumya.pos.membership.VendorPermissionRegistry;
+import com.saumya.pos.checkout.MockVendorPaymentAdapter;
 import com.saumya.pos.identity.AuthenticationService;
 import com.saumya.pos.identity.JwtService;
 import org.springframework.context.ApplicationContext;

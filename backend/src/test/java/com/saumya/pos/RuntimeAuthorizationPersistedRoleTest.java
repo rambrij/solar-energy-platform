@@ -68,6 +68,7 @@ class RuntimeAuthorizationPersistedRoleTest {
     @Autowired @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping requestMappings;
     @Autowired AuthenticationService identities;
     @Autowired JwtService jwt;
+    @org.springframework.boot.test.mock.mockito.SpyBean MockVendorPaymentAdapter mockPaymentAdapter;
 
     @BeforeEach
     void seedPersistedViewOnlyActor() {
@@ -330,6 +331,8 @@ class RuntimeAuthorizationPersistedRoleTest {
             Long after = db.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
             assertThat(after).as("denied mutation side effects in %s", table).isEqualTo(before.get(table));
         }
+        org.mockito.Mockito.verifyNoInteractions(mockPaymentAdapter);
+        System.out.println("RUNTIME_AUTHORIZATION_EXTERNAL_SIDE_EFFECT|MockVendorPaymentAdapter|calls=0|PASS");
         System.out.println("RUNTIME_AUTHORIZATION_VIEW_MUTATION_SUMMARY|operations="
             + executed.size() + "|denied=" + denied + "|sideEffects=UNCHANGED|PASS");
 

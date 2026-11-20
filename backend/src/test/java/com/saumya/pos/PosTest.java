@@ -2562,6 +2562,8 @@ class PosTest {
     .andExpect(status().isNotFound());
   mvc.perform(get("/api/v1/customer/orders/"+draft.id()+"/receipt").header("Authorization","Bearer "+tokenB))
     .andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/vendor/pos/refunds/history").header("Authorization","Bearer "+tokenB))
+    .andExpect(status().isForbidden());
  }
 
  @Test void p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession() throws Exception {

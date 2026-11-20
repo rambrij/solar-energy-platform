@@ -90,16 +90,6 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml -Dtest=P004TenantIsolationTest test
-      - name: Upload P0-06 runtime authorization evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: p0-06-runtime-authorization-${{ matrix.database }}
-          path: |
-            backend/target/surefire-reports/
-            backend/target/p0-06-runtime-authorization-report.csv
-          if-no-files-found: warn
-          retention-days: 30
       - name: H2 suite
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml test
@@ -110,6 +100,19 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml test
+      - name: Generate complete P0-06 endpoint and actor report
+        if: always()
+        run: python backend/scripts/generate-p0-06-runtime-report.py
+      - name: Upload P0-06 runtime authorization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-06-runtime-authorization-${{ matrix.database }}
+          path: |
+            backend/target/surefire-reports/
+            backend/target/p0-06-runtime-authorization-report.csv
+          if-no-files-found: warn
+          retention-days: 30
   frontend:
     runs-on: ubuntu-latest
     defaults:

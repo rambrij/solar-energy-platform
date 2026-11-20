@@ -2876,6 +2876,9 @@ class PosTest {
   }
   // Platform Support is a persisted one-grant identity; the Vendor Admin,
   // Cashier, Accountant and Customer tokens above are all resolved from DB state.
+  assertThat(grants.get("PLATFORM_SUPER_ADMIN"))
+      .as("persisted Platform Super Admin must receive the canonical platform permission registry")
+      .containsAll(com.saumya.pos.platform.PlatformPermissionRegistry.all());
   List<String> csv=new ArrayList<>();
   csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");
   int protectedRows=0,passedRows=0;

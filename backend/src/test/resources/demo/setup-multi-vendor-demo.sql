@@ -365,6 +365,7 @@ INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLAT
 INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_AUDIT_VIEW' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
 INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_SUPPORT_ACCESS' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
+INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_CONFIG_MANAGE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
 INSERT INTO catalog_discount_policy(tenant_id,maximum_percent) SELECT d.id,10.00 FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM catalog_discount_policy p WHERE p.tenant_id=d.id);
 

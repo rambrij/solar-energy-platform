@@ -123,7 +123,7 @@ public class PosService {
         // Lock the register before checking occupancy, including on MySQL.
         one("SELECT id FROM registers WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",s.tenant,s.branch,request.registerId);
         if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",s.tenant,s.branch,s.cashier,request.registerId).isEmpty())
-            throw new ResponseStatusException(FORBIDDEN,"Cashier is not assigned to this register");
+            throw new ResponseStatusException(NOT_FOUND,"Register unavailable");
         if (!db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=? AND register_id=? AND state IN ('OPEN','CLOSING')",s.tenant,request.registerId).isEmpty()) fail("Register already occupied");
         String id=UUID.randomUUID().toString();
         db.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float) VALUES(?,?,?,?,?,'OPEN',?)",id,s.tenant,s.branch,s.cashier,request.registerId,request.openingFloat);
@@ -158,7 +158,7 @@ public class PosService {
     private void requireAssignedRegister(Scope s,long registerId) {
         if(db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND branch_id=? AND username=? AND register_id=? AND active=TRUE",
             s.tenant,s.branch,s.cashier,registerId).isEmpty())
-            throw new ResponseStatusException(FORBIDDEN,"Cashier is no longer assigned to this register");
+            throw new ResponseStatusException(NOT_FOUND,"Register unavailable");
     }
     private void session(Scope s,String id) {
         var row=one("SELECT p.register_id,p.state FROM pos_sessions p JOIN employee_register_assignments a ON a.tenant_id=p.tenant_id AND a.branch_id=p.branch_id AND a.username=p.cashier AND a.register_id=p.register_id AND a.active=TRUE WHERE p.tenant_id=? AND p.branch_id=? AND p.cashier=? AND p.id=? FOR UPDATE",s.tenant,s.branch,s.cashier,id);

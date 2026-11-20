@@ -111,6 +111,7 @@ jobs:
           path: |
             backend/target/surefire-reports/
             backend/target/p0-06-runtime-authorization-report.csv
+            backend/target/p0-06-runtime-no-permission-http.csv
           if-no-files-found: warn
           retention-days: 30
   frontend:

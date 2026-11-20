@@ -310,6 +310,7 @@ public class PosService {
             case "RECEIPT_REPRINT"->"POS_RECEIPT_REPRINT";
             case "BUYER_SNAPSHOT_VIEW"->"POS_RECEIPT_VIEW";
             case "REGISTER_CREATE"->"POS_SETTINGS_MANAGE";
+            case "DISCOUNT_POLICY_UPDATE"->"POS_DISCOUNT_OVERRIDE";
             case "TERMINAL_TENDER_UNKNOWN"->"POS_TENDER_EXTERNAL_RECORD";
             case "TERMINAL_TENDER_CONFIRM","TERMINAL_TENDER_FAIL"->"POS_TENDER_MANUAL_VERIFY";
             default->throw new ResponseStatusException(FORBIDDEN,"Unsupported POS audit action");

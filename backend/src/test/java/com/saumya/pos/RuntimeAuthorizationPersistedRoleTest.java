@@ -29,6 +29,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestMethod;
 import java.lang.reflect.*;
+import jakarta.servlet.http.Cookie;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import java.security.Principal;
 import java.math.BigDecimal;
 import java.time.*;
@@ -459,7 +461,7 @@ class RuntimeAuthorizationPersistedRoleTest {
                     } else if (componentType == String.class && name.contains("method")) {
                         values[i] = "CASH";
                     } else {
-                        values[i] = defaultArgument(componentType);
+                        values[i] = defaultRecordComponent(components[i]);
                     }
                 }
                 Constructor<?> constructor = type.getDeclaredConstructor(parameterTypes);
@@ -470,6 +472,146 @@ class RuntimeAuthorizationPersistedRoleTest {
             }
         }
         return null;
+    }
+
+    @Test
+    void persistedActiveNoPermissionActorGetsRuntimeDenialForEveryProtectedHttpEndpoint() throws Exception {
+        db.update("DELETE FROM vendor_role_permissions WHERE role_id IN (SELECT id FROM vendor_roles WHERE role_key='runtime-matrix-viewer')");
+        String token = bearerToken();
+
+        List<String> report = new ArrayList<>();
+        report.add("method,route,controller,operation,expected_status,actual_status,result,actor");
+        int denied = 0;
+        int identitySelf = 0;
+        int publicNotApplicable = 0;
+
+        for (var entry : requestMappings.getHandlerMethods().entrySet()) {
+            HandlerMethod handler = entry.getValue();
+            Class<?> controllerType = handler.getBeanType();
+            if (!controllerType.getName().startsWith("com.saumya.pos.")
+                || !AnnotatedElementUtils.hasAnnotation(controllerType, RestController.class)) continue;
+
+            var methodPolicy = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(),
+                org.springframework.security.access.prepost.PreAuthorize.class);
+            var classPolicy = AnnotatedElementUtils.findMergedAnnotation(controllerType,
+                org.springframework.security.access.prepost.PreAuthorize.class);
+            var policy = methodPolicy != null ? methodPolicy : classPolicy;
+            assertThat(policy).as("method security policy for %s#%s",
+                controllerType.getSimpleName(), handler.getMethod().getName()).isNotNull();
+
+            String expression = policy.value();
+            String operation = controllerType.getSimpleName() + "#" + handler.getMethod().getName();
+            boolean publicEndpoint = expression.contains("permitAll()");
+            boolean authenticatedIdentityOnly = expression.trim().equals("isAuthenticated()");
+            Set<RequestMethod> mappingMethods = entry.getKey().getMethodsCondition().getMethods();
+            List<RequestMethod> methods = mappingMethods.isEmpty()
+                ? List.of(RequestMethod.GET)
+                : mappingMethods.stream().sorted().toList();
+
+            for (String route : entry.getKey().getPatternValues()) {
+                String concretePath = route.replaceAll("\\{[^/]+\\}", "1");
+                for (RequestMethod method : methods) {
+                    if (publicEndpoint) {
+                        report.add(String.join(",", method.name(), "\"" + route.replace("\"", "\"\"") + "\"",
+                            controllerType.getSimpleName(), handler.getMethod().getName(),
+                            "NOT_APPLICABLE", "NOT_APPLICABLE", "NOT_APPLICABLE", "NO_PERMISSION"));
+                        publicNotApplicable++;
+                        continue;
+                    }
+
+                    MockHttpServletRequestBuilder request =
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request(
+                            org.springframework.http.HttpMethod.valueOf(method.name()),
+                            java.net.URI.create("http://localhost" + concretePath))
+                        .header("Authorization", "Bearer " + token)
+                        .with(csrf());
+
+                    for (Parameter parameter : handler.getMethod().getParameters()) {
+                        var requestBody = parameter.getAnnotation(org.springframework.web.bind.annotation.RequestBody.class);
+                        if (requestBody != null) {
+                            Object payload = defaultArgument(parameter.getType(), parameter.getName(), parameter.getParameterizedType());
+                            request.contentType(APPLICATION_JSON).content(json.writeValueAsString(payload));
+                        }
+                        var requestParam = parameter.getAnnotation(org.springframework.web.bind.annotation.RequestParam.class);
+                        if (requestParam != null && requestParam.required()
+                            && org.springframework.web.bind.annotation.ValueConstants.DEFAULT_NONE.equals(requestParam.defaultValue())) {
+                            String name = !requestParam.name().isBlank() ? requestParam.name() : requestParam.value();
+                            request.param(name, String.valueOf(defaultArgument(parameter.getType(), name, parameter.getParameterizedType())));
+                        }
+                        var requestHeader = parameter.getAnnotation(org.springframework.web.bind.annotation.RequestHeader.class);
+                        if (requestHeader != null && requestHeader.required()
+                            && org.springframework.web.bind.annotation.ValueConstants.DEFAULT_NONE.equals(requestHeader.defaultValue())) {
+                            String name = !requestHeader.name().isBlank() ? requestHeader.name() : requestHeader.value();
+                            request.header(name, String.valueOf(defaultArgument(parameter.getType(), name, parameter.getParameterizedType())));
+                        }
+                        var cookieValue = parameter.getAnnotation(org.springframework.web.bind.annotation.CookieValue.class);
+                        if (cookieValue != null && cookieValue.required()) {
+                            String name = !cookieValue.name().isBlank() ? cookieValue.name() : cookieValue.value();
+                            request.cookie(new Cookie(name, "A".repeat(43)));
+                        }
+                    }
+
+                    int expected = authenticatedIdentityOnly ? 200 : 403;
+                    int actual = mvc.perform(request).andReturn().getResponse().getStatus();
+                    assertThat(actual).as("persisted no-effective-permission actor %s on %s %s (%s)",
+                        USER, method.name(), route, expression).isEqualTo(expected);
+                    String result = "PASS";
+                    if (expected == 403) denied++; else identitySelf++;
+                    report.add(String.join(",", method.name(), "\"" + route.replace("\"", "\"\"") + "\"",
+                        controllerType.getSimpleName(), handler.getMethod().getName(),
+                        Integer.toString(expected), Integer.toString(actual), result, "NO_PERMISSION"));
+                    System.out.println("RUNTIME_AUTHORIZATION_NO_PERMISSION_HTTP|"
+                        + method.name() + "|" + route + "|" + operation + "|"
+                        + expected + "|" + actual + "|PASS");
+                }
+            }
+        }
+
+        assertThat(denied).as("every permission-protected mapped endpoint denies the persisted no-permission actor")
+            .isGreaterThan(100);
+        Path reportPath = Path.of("target", "p0-06-runtime-no-permission-http.csv");
+        try {
+            Files.createDirectories(reportPath.getParent());
+            Files.write(reportPath, report, StandardCharsets.UTF_8);
+        } catch (java.io.IOException failure) {
+            throw new AssertionError("Could not write no-permission HTTP report", failure);
+        }
+        System.out.println("RUNTIME_AUTHORIZATION_NO_PERMISSION_SUMMARY|denied403=" + denied
+            + "|identitySelf200=" + identitySelf + "|publicNotApplicable=" + publicNotApplicable + "|PASS");
+    }
+
+    private Object defaultArgument(Class<?> type, String fieldName, Type genericType) {
+        String name = fieldName == null ? "" : fieldName.toLowerCase(Locale.ROOT);
+        if (type == String.class) {
+            if (name.contains("email") || name.contains("username") || name.contains("actor")
+                || name.contains("cashier")) return "runtime.matrix.viewer@example.test";
+            if (name.contains("reason") || name.contains("purpose") || name.contains("ticket")) return "Runtime authorization matrix";
+            if (name.contains("currency")) return "INR";
+            if (name.contains("rolekey")) return "runtime-role";
+            if (name.contains("slug")) return "runtime-slug";
+            if (name.contains("sku")) return "RUNTIME-SKU";
+            if (name.contains("barcode")) return "RUNTIME-BARCODE";
+            if (name.contains("phone")) return "9876543210";
+            if (name.contains("method") || name.contains("channel") || name.contains("tender")) return "CASH";
+            return "runtime-matrix-key-0001";
+        }
+        if (Collection.class.isAssignableFrom(type)) {
+            Class<?> elementType = String.class;
+            if (genericType instanceof ParameterizedType parameterized
+                && parameterized.getActualTypeArguments().length > 0
+                && parameterized.getActualTypeArguments()[0] instanceof Class<?> rawElement) {
+                elementType = rawElement;
+            }
+            Object item = defaultArgument(elementType);
+            if (Set.class.isAssignableFrom(type)) return Set.of(item);
+            return List.of(item);
+        }
+        if (Map.class.isAssignableFrom(type)) return Map.of();
+        return defaultArgument(type);
+    }
+
+    private Object defaultRecordComponent(RecordComponent component) {
+        return defaultArgument(component.getType(), component.getName(), component.getGenericType());
     }
 
 }

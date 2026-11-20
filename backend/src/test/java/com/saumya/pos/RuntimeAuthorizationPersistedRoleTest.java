@@ -342,7 +342,7 @@ class RuntimeAuthorizationPersistedRoleTest {
         // the actual Spring-proxy invocation above. Other actor combinations are
         // explicitly marked NOT EXECUTED rather than inferred from annotations.
         List<String> report = new ArrayList<>();
-        report.add("method,route,controller,operation,effective_permission,scope,anonymous_expected,anonymous_actual,anonymous_result,view_mutation_expected,view_mutation_actual,view_mutation_result,other_actor_matrix");
+        report.add("method,route,controller,operation,effective_permission,scope,anonymous_expected,anonymous_actual,anonymous_result,view_mutation_expected,view_mutation_actual,view_mutation_result,view_mutation_evidence,other_actor_matrix");
         JsonNode controllerPolicies;
         try (var matrixStream = getClass().getResourceAsStream("/runtime-authorization-matrix.json")) {
             assertThat(matrixStream).isNotNull();
@@ -395,7 +395,9 @@ class RuntimeAuthorizationPersistedRoleTest {
                         controllerType.getSimpleName(), handler.getMethod().getName(),
                         "\"" + escapedPermission + "\"", "\"" + escapedScope + "\"",
                         anonymousExpected, anonymousActual, anonymousResult,
-                        viewExpected, viewActual, viewResult, "NOT_EXECUTED"
+                        viewExpected, viewActual, viewResult,
+                        "403".equals(viewActual) ? "SPRING_PROXY_METHOD_SECURITY" : "NOT_APPLICABLE",
+                        "NOT_EXECUTED"
                     )));
                 }
             }

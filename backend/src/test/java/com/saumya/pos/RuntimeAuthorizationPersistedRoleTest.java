@@ -32,6 +32,9 @@ import java.security.Principal;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -267,6 +270,7 @@ class RuntimeAuthorizationPersistedRoleTest {
         }
 
         Set<String> executed = new TreeSet<>();
+        Set<String> viewDeniedOperations = new TreeSet<>();
         int denied = 0;
         try {
             for (var entry : requestMappings.getHandlerMethods().entrySet()) {
@@ -312,6 +316,7 @@ class RuntimeAuthorizationPersistedRoleTest {
                     .as("VIEW-only persisted actor must be denied on %s (%s)", endpoint, policy.value())
                     .isTrue();
                 denied++;
+                viewDeniedOperations.add(endpoint);
                 System.out.println("RUNTIME_AUTHORIZATION_VIEW_MUTATION|"
                     + String.join(",", mutating.stream().map(Enum::name).toList())
                     + "|" + endpoint + "|" + policy.value().replace("|", "/") + "|403|PASS");
@@ -327,6 +332,71 @@ class RuntimeAuthorizationPersistedRoleTest {
         }
         System.out.println("RUNTIME_AUTHORIZATION_VIEW_MUTATION_SUMMARY|operations="
             + executed.size() + "|denied=" + denied + "|sideEffects=UNCHANGED|PASS");
+
+        // Emit one endpoint-level CSV row per live HTTP method/route. Anonymous
+        // results are observed through MockMvc; VIEW mutation results reference
+        // the actual Spring-proxy invocation above. Other actor combinations are
+        // explicitly marked NOT EXECUTED rather than inferred from annotations.
+        List<String> report = new ArrayList<>();
+        report.add("method,route,controller,operation,effective_permission,scope,anonymous_expected,anonymous_actual,anonymous_result,view_mutation_expected,view_mutation_actual,view_mutation_result,other_actor_matrix");
+        for (var entry : requestMappings.getHandlerMethods().entrySet()) {
+            HandlerMethod handler = entry.getValue();
+            Class<?> controllerType = handler.getBeanType();
+            if (!controllerType.getName().startsWith("com.saumya.pos.")
+                || !AnnotatedElementUtils.hasAnnotation(controllerType, RestController.class)) continue;
+            var methodPolicy = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(),
+                org.springframework.security.access.prepost.PreAuthorize.class);
+            var classPolicy = AnnotatedElementUtils.findMergedAnnotation(controllerType,
+                org.springframework.security.access.prepost.PreAuthorize.class);
+            var policy = methodPolicy != null ? methodPolicy : classPolicy;
+            if (policy == null) continue;
+            String operation = controllerType.getSimpleName() + "#" + handler.getMethod().getName();
+            boolean mutating = entry.getKey().getMethodsCondition().getMethods().stream()
+                .anyMatch(m -> m == RequestMethod.POST || m == RequestMethod.PUT
+                    || m == RequestMethod.PATCH || m == RequestMethod.DELETE);
+            List<RequestMethod> methods = entry.getKey().getMethodsCondition().getMethods().isEmpty()
+                ? List.of(RequestMethod.GET)
+                : entry.getKey().getMethodsCondition().getMethods().stream().sorted().toList();
+            for (String route : entry.getKey().getPatternValues()) {
+                String concretePath = route.replaceAll("\\{[^/]+\\}", "1");
+                for (RequestMethod httpMethod : methods) {
+                    String anonymousExpected = policy.value().contains("permitAll()") ? "PUBLIC" : "401";
+                    String anonymousActual;
+                    try {
+                        anonymousActual = Integer.toString(mvc.perform(request(
+                            org.springframework.http.HttpMethod.valueOf(httpMethod.name()), concretePath).with(csrf()))
+                            .andReturn().getResponse().getStatus());
+                    } catch (Exception failure) {
+                        anonymousActual = "EXECUTION_ERROR";
+                    }
+                    String anonymousResult = anonymousExpected.equals("PUBLIC")
+                        ? "NOT_APPLICABLE" : ("401".equals(anonymousActual) ? "PASS" : "FAIL");
+                    String viewExpected = mutating ? "403" : "NOT_APPLICABLE";
+                    String viewActual = mutating && viewDeniedOperations.contains(operation) ? "403" : "NOT_APPLICABLE";
+                    String viewResult = !mutating ? "NOT_APPLICABLE"
+                        : (viewDeniedOperations.contains(operation) ? "PASS" : "NOT_EXECUTED");
+                    String escapedRoute = route.replace("\"", "\"\"");
+                    String escapedPermission = policy.value().replace("\"", "\"\"");
+                    report.add(String.join(",", List.of(
+                        httpMethod.name(), "\"" + escapedRoute + "\"",
+                        controllerType.getSimpleName(), handler.getMethod().getName(),
+                        "\"" + escapedPermission + "\"", "\"" + controllerType.getSimpleName() + "\"",
+                        anonymousExpected, anonymousActual, anonymousResult,
+                        viewExpected, viewActual, viewResult, "NOT_EXECUTED"
+                    )));
+                }
+            }
+        }
+        try {
+            Path reportPath = Path.of("target", "p0-06-runtime-authorization-report.csv");
+            Files.createDirectories(reportPath.getParent());
+            Files.write(reportPath, report, StandardCharsets.UTF_8);
+            System.out.println("RUNTIME_AUTHORIZATION_REPORT|path=" + reportPath
+                + "|endpointRows=" + (report.size() - 1) + "|viewDeniedOperations="
+                + viewDeniedOperations.size() + "|otherActorMatrix=PARTIAL");
+        } catch (java.io.IOException failure) {
+            throw new AssertionError("Could not write runtime authorization report", failure);
+        }
     }
 
     private boolean isAuthorizationDenial(Throwable error) {

@@ -536,17 +536,23 @@ class RuntimeAuthorizationPersistedRoleTest {
                         if (requestParam != null && requestParam.required()
                             && org.springframework.web.bind.annotation.ValueConstants.DEFAULT_NONE.equals(requestParam.defaultValue())) {
                             String name = !requestParam.name().isBlank() ? requestParam.name() : requestParam.value();
+                            if (name.isBlank()) name = parameter.getName();
+                            if (name.isBlank()) name = "runtimeParam" + parameter.getParameterIndex();
                             request.param(name, String.valueOf(defaultArgument(parameter.getType(), name, parameter.getParameterizedType())));
                         }
                         var requestHeader = parameter.getAnnotation(org.springframework.web.bind.annotation.RequestHeader.class);
                         if (requestHeader != null && requestHeader.required()
                             && org.springframework.web.bind.annotation.ValueConstants.DEFAULT_NONE.equals(requestHeader.defaultValue())) {
                             String name = !requestHeader.name().isBlank() ? requestHeader.name() : requestHeader.value();
+                            if (name.isBlank()) name = parameter.getName();
+                            if (name.isBlank()) name = "X-Runtime-Header-" + parameter.getParameterIndex();
                             request.header(name, String.valueOf(defaultArgument(parameter.getType(), name, parameter.getParameterizedType())));
                         }
                         var cookieValue = parameter.getAnnotation(org.springframework.web.bind.annotation.CookieValue.class);
                         if (cookieValue != null && cookieValue.required()) {
                             String name = !cookieValue.name().isBlank() ? cookieValue.name() : cookieValue.value();
+                            if (name.isBlank()) name = parameter.getName();
+                            if (name.isBlank()) name = "runtimeCookie" + parameter.getParameterIndex();
                             request.cookie(new Cookie(name, "A".repeat(43)));
                         }
                     }

@@ -2549,10 +2549,13 @@ class PosTest {
   mvc.perform(put("/api/v1/vendor/products/"+versionedProduct).header("Authorization","Bearer "+adminToken).with(csrf())
       .contentType("application/json").content(updateProduct))
     .andExpect(status().isOk());
+  Long savedVersion=db.queryForObject("SELECT version FROM products WHERE tenant_id=910001 AND id=?",Long.class,versionedProduct);
+  assertThat(savedVersion).isGreaterThan(0L);
   mvc.perform(put("/api/v1/vendor/products/"+versionedProduct).header("Authorization","Bearer "+adminToken).with(csrf())
       .contentType("application/json").content(updateProduct))
     .andExpect(status().isConflict());
-  assertThat(db.queryForObject("SELECT version FROM products WHERE tenant_id=910001 AND id=?",Long.class,versionedProduct)).isEqualTo(1L);
+  assertThat(db.queryForObject("SELECT version FROM products WHERE tenant_id=910001 AND id=?",Long.class,versionedProduct))
+    .as("stale optimistic-lock retry must not change the saved product version").isEqualTo(savedVersion);
 
   String customerA="asha@customer.demo.test",customerB="rahul@customer.demo.test";
   String tokenA=demoToken(customerA,"AshaBuyer2026!"),tokenB=demoToken(customerB,"RahulBuyer2026!");

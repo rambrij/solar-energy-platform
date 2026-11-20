@@ -2635,6 +2635,9 @@ class PosTest {
    while(values.find())alternatives.add(values.group(1));
    if(!alternatives.isEmpty())groups.add(alternatives);
   }
+  // PosController.cashMovement resolves its required authority from the request enum.
+  // The matrix DTO probe selects the first MovementType, CASH_IN.
+  if(expression.contains("'POS_' + #request.type().name()"))groups.add(Set.of("POS_CASH_IN"));
   return groups;
  }
 

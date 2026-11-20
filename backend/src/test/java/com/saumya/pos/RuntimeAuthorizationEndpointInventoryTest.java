@@ -142,6 +142,10 @@ class RuntimeAuthorizationEndpointInventoryTest {
                 for (RequestMethod method : exercised) {
                     mvc.perform(request(HttpMethod.valueOf(method.name()), concretePath).with(csrf()))
                         .andExpect(status().isUnauthorized());
+                    System.out.println("RUNTIME_AUTHORIZATION_CASE|"
+                        + method.name() + "|" + route + "|" + controllerType.getSimpleName()
+                        + "#" + handler.getMethod().getName() + "|"
+                        + policy.value().replace("|", "/") + "|401|PASS");
                     protectedAnonymousChecks++;
                 }
             }
@@ -158,7 +162,8 @@ class RuntimeAuthorizationEndpointInventoryTest {
                 + endpoint.controller() + "#" + endpoint.operation()));
         report.sort(Comparator.naturalOrder());
         System.out.println("RUNTIME_AUTHORIZATION_ENDPOINT_INVENTORY count="
-            + report.size() + " controllers=" + liveControllers.size());
+            + report.size() + " controllers=" + liveControllers.size()
+            + " protectedAnonymousCases=" + protectedAnonymousChecks);
         report.forEach(System.out::println);
     }
 }

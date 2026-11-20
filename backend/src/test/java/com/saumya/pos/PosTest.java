@@ -2616,4 +2616,334 @@ class PosTest {
     .andExpect(status().isOk());
  }
 
+
+ private static String matrixCsv(String value){
+  return "\"" + (value==null?"":value.replace("\"","\"\"")) + "\"";
+ }
+
+ private static List<Set<String>> matrixAuthorityGroups(String expression){
+  List<Set<String>> groups=new ArrayList<>();
+  var matcher=java.util.regex.Pattern.compile("has(Any)?Authority\\(([^)]*)\\)").matcher(expression);
+  while(matcher.find()){
+   Set<String> alternatives=new LinkedHashSet<>();
+   var values=java.util.regex.Pattern.compile("['\"]([A-Z][A-Z0-9_]*)['\"]").matcher(matcher.group(2));
+   while(values.find())alternatives.add(values.group(1));
+   if(!alternatives.isEmpty())groups.add(alternatives);
+  }
+  return groups;
+ }
+
+ private static boolean matrixActorSatisfies(Set<String> permissions,String expression){
+  for(Set<String> group:matrixAuthorityGroups(expression)){
+   boolean any=group.stream().anyMatch(permissions::contains);
+   if(!any)return false;
+  }
+  return true;
+ }
+
+ private String matrixPatternValue(String regex,String field){
+  if(regex.contains("{64}")||regex.contains("64}"))return "0".repeat(64);
+  if(regex.contains("{43}")||regex.contains("43}"))return "A".repeat(43);
+  if(regex.contains("UPI")&&regex.contains("CARD"))return "UPI";
+  if(regex.contains("[A-Z]")&&regex.contains("{3}"))return "INR";
+  if(regex.contains("A-Za-z")&&regex.contains("{3}"))return "INR";
+  if(regex.contains("a-fA-F")&&regex.contains("36"))return "550e8400-e29b-41d4-a716-446655440000";
+  if(regex.contains("https?://"))return "https://example.test";
+  if(regex.contains("0-9")&&!regex.contains("A-Za-z"))return "123456";
+  return matrixStringValue(field);
+ }
+
+ private String matrixStringValue(String field){
+  String name=field==null?"":field.toLowerCase(Locale.ROOT);
+  if(name.contains("email"))return "matrix.probe@example.test";
+  if(name.contains("username")||name.contains("actor")||name.contains("cashier"))return "admin@saumya.demo.test";
+  if(name.contains("token"))return "A".repeat(43);
+  if(name.contains("requestid")||name.contains("uuid"))return "550e8400-e29b-41d4-a716-446655440000";
+  if(name.contains("ticket"))return "P006-MATRIX-TICKET";
+  if(name.contains("otp")||name.equals("code"))return "123456";
+  if(name.contains("currency"))return "INR";
+  if(name.contains("billinginterval"))return "MONTHLY";
+  if(name.contains("planKey".toLowerCase(Locale.ROOT)))return "p006-matrix-plan";
+  if(name.contains("slug"))return "p006-matrix";
+  if(name.contains("sku"))return "P006-MATRIX-SKU";
+  if(name.contains("barcode"))return "P006MATRIX0001";
+  if(name.contains("phone"))return "9876543210";
+  if(name.contains("reason")||name.contains("purpose"))return "P0-06 runtime actor matrix";
+  if(name.contains("description"))return "P0-06 authorization matrix probe";
+  if(name.contains("entitlements"))return "{\"features\":{\"POS\":true}}";
+  if(name.contains("taxmetadata"))return "{}";
+  if(name.contains("method")||name.contains("channel")||name.contains("tender"))return "UPI";
+  if(name.contains("name"))return "P0-06 Matrix Probe";
+  if(name.contains("reference"))return "P006-MATRIX-REF";
+  return "P006-VALID-REF";
+ }
+
+ private <A extends java.lang.annotation.Annotation> A matrixRecordAnnotation(
+     java.lang.reflect.RecordComponent component,Class<A> annotationType){
+  A found=component.getAnnotation(annotationType);
+  if(found!=null)return found;
+  try{
+   found=component.getDeclaringRecord().getDeclaredField(component.getName()).getAnnotation(annotationType);
+   if(found!=null)return found;
+   found=component.getAccessor().getAnnotation(annotationType);
+   if(found!=null)return found;
+   var parts=component.getDeclaringRecord().getRecordComponents();
+   Class<?>[] types=Arrays.stream(parts).map(java.lang.reflect.RecordComponent::getType).toArray(Class<?>[]::new);
+   var ctor=component.getDeclaringRecord().getDeclaredConstructor(types);
+   for(int i=0;i<parts.length;i++)if(parts[i].getName().equals(component.getName()))
+    return ctor.getParameters()[i].getAnnotation(annotationType);
+  }catch(ReflectiveOperationException ignored){}
+  return null;
+ }
+
+ private Object matrixProbeValue(Class<?> type,String field,java.lang.reflect.Type generic){
+  String name=field==null?"":field;
+  if(type==String.class)return matrixStringValue(name);
+  if(type==Long.class||type==long.class){
+   String n=name.toLowerCase(Locale.ROOT);
+   if(n.contains("tenant"))return 910001L;
+   if(n.contains("branch"))return 910001L;
+   if(n.contains("register"))return 910011L;
+   if(n.contains("customer"))return 949001L;
+   if(n.contains("product"))return 910301L;
+   if(n.contains("quantity"))return 1L;
+   return 1L;
+  }
+  if(type==Integer.class||type==int.class){
+   String n=name.toLowerCase(Locale.ROOT);
+   if(n.contains("expectedversion"))return 0;
+   if(n.contains("days"))return 30;
+   if(n.contains("max"))return 1;
+   return 1;
+  }
+  if(type==Short.class||type==short.class)return (short)1;
+  if(type==Boolean.class||type==boolean.class)return true;
+  if(type==BigDecimal.class)return BigDecimal.ONE;
+  if(type==java.time.LocalDate.class)return java.time.LocalDate.of(2026,11,20);
+  if(type==java.time.Instant.class)return java.time.Instant.parse("2026-11-20T00:00:00Z");
+  if(type==java.util.UUID.class)return java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+  if(type==java.security.Principal.class)return (java.security.Principal)()->"admin@saumya.demo.test";
+  if(type.isEnum())return type.getEnumConstants().length==0?null:type.getEnumConstants()[0];
+  if(type.isRecord()){
+   try{
+    var components=type.getRecordComponents();
+    Class<?>[] types=Arrays.stream(components).map(java.lang.reflect.RecordComponent::getType).toArray(Class<?>[]::new);
+    Object[] values=new Object[components.length];
+    for(int i=0;i<components.length;i++){
+     var part=components[i];Class<?> partType=part.getType();String partName=part.getName();
+     var pattern=matrixRecordAnnotation(part,jakarta.validation.constraints.Pattern.class);
+     var email=matrixRecordAnnotation(part,jakarta.validation.constraints.Email.class);
+     var assertTrue=matrixRecordAnnotation(part,jakarta.validation.constraints.AssertTrue.class);
+     if(partType==String.class&&pattern!=null)values[i]=matrixPatternValue(pattern.regexp(),partName);
+     else if(partType==String.class&&email!=null)values[i]="matrix.probe@example.test";
+     else if((partType==boolean.class||partType==Boolean.class)&&assertTrue!=null)values[i]=true;
+     else if(partType==String.class&&partName.toLowerCase(Locale.ROOT).contains("entitlements"))values[i]="{\"features\":{\"POS\":true}}";
+     else if(partType==String.class&&partName.toLowerCase(Locale.ROOT).contains("taxmetadata"))values[i]="{}";
+     else values[i]=matrixProbeValue(partType,partName,part.getGenericType());
+     var size=matrixRecordAnnotation(part,jakarta.validation.constraints.Size.class);
+     if(partType==String.class&&size!=null&&values[i] instanceof String text&&size.min()>text.length())
+      values[i]=text+"X".repeat(size.min()-text.length());
+    }
+    var ctor=type.getDeclaredConstructor(types);ctor.setAccessible(true);return ctor.newInstance(values);
+   }catch(ReflectiveOperationException error){throw new AssertionError("Cannot construct matrix DTO "+type.getName(),error);}
+  }
+  if(java.util.Collection.class.isAssignableFrom(type)){
+   Class<?> item=String.class;
+   if(generic instanceof java.lang.reflect.ParameterizedType parameterized
+      &&parameterized.getActualTypeArguments().length>0
+      &&parameterized.getActualTypeArguments()[0] instanceof Class<?> cls)item=cls;
+   Object value=matrixProbeValue(item,"item",item);
+   return Set.class.isAssignableFrom(type)?Set.of(value):List.of(value);
+  }
+  if(Map.class.isAssignableFrom(type))return Map.of();
+  if(type.isArray())return java.lang.reflect.Array.newInstance(type.getComponentType(),0);
+  return null;
+ }
+
+ private String matrixPathValue(java.lang.reflect.Parameter parameter,String controller){
+  String key=parameter.getName();
+  var annotation=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
+  if(annotation!=null){if(!annotation.name().isBlank())key=annotation.name();else if(!annotation.value().isBlank())key=annotation.value();}
+  Class<?> type=parameter.getType();
+  if(type==java.util.UUID.class)return "550e8400-e29b-41d4-a716-446655440000";
+  if(type==String.class){
+   String n=key.toLowerCase(Locale.ROOT);
+   if(n.contains("order")||n.contains("draft"))return "P006-NO-SUCH-ORDER";
+   if(n.contains("session"))return "P006-NO-SUCH-SESSION";
+   if(n.contains("token"))return "A".repeat(43);
+   return "1";
+  }
+  String n=key.toLowerCase(Locale.ROOT);
+  if(n.contains("tenant"))return "910001";
+  if(n.contains("branch"))return "910001";
+  if(n.contains("register"))return "910011";
+  if(n.contains("customer"))return "949001";
+  if(n.contains("product"))return "910301";
+  if(n.contains("role"))return db.queryForObject("SELECT COALESCE(MAX(id),1) FROM vendor_roles WHERE tenant_id=910001",Long.class).toString();
+  if(controller.contains("Platform"))return "1";
+  return "1";
+ }
+
+ private String matrixActorForEndpoint(String controller,String expression,
+     Map<String,String> tokens,Map<String,Set<String>> permissions){
+  String preferred;
+  if(controller.startsWith("Platform")){
+   preferred=expression.contains("PLATFORM_SUPPORT_ACCESS")?"PLATFORM_SUPPORT":"PLATFORM_SUPER_ADMIN";
+  }else if(expression.contains("'CUSTOMER'")&&!expression.contains("PLATFORM_"))preferred="CUSTOMER";
+  else if(controller.contains("Report")||expression.contains("POS_REPORT_VIEW"))preferred="ACCOUNTANT";
+  else if(controller.contains("Pos")||controller.contains("Register")||controller.contains("Shift")
+      ||controller.contains("Return")||controller.contains("Refund")||controller.contains("Cash")
+      ||controller.contains("BranchSettings"))preferred="POS_CASHIER";
+  else if(controller.contains("Stock")||controller.contains("Inventory"))preferred="INVENTORY_MANAGER";
+  else preferred="VENDOR_ADMIN";
+  Set<String> required=new LinkedHashSet<>();
+  for(Set<String> group:matrixAuthorityGroups(expression))required.addAll(group);
+  String selected=preferred;
+  if(!matrixActorSatisfies(permissions.getOrDefault(selected,Set.of()),expression)){
+   for(String candidate:List.of("VENDOR_ADMIN","POS_CASHIER","ACCOUNTANT","INVENTORY_MANAGER","SALES_MANAGER",
+       "PLATFORM_SUPER_ADMIN","PLATFORM_SUPPORT","CUSTOMER")){
+    if(matrixActorSatisfies(permissions.getOrDefault(candidate,Set.of()),expression)){selected=candidate;break;}
+   }
+  }
+  assertThat(tokens).as("persisted actor token for %s",selected).containsKey(selected);
+  assertThat(matrixActorSatisfies(permissions.getOrDefault(selected,Set.of()),expression))
+      .as("persisted actor %s must satisfy mapped policy %s for %s",selected,expression,controller).isTrue();
+  return selected;
+ }
+
+ @Test
+ @org.springframework.transaction.annotation.Transactional
+ void p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor() throws Exception {
+  multiVendorDemo();
+  String supportUsername="p006.matrix.support@platform.demo.test";
+  long supportId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",supportId,
+      supportUsername,encoder.encode("MatrixSupportPassword2026!"));
+  update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,'PLATFORM_SUPPORT_ACCESS')",supportUsername);
+
+  String adminName="admin@saumya.demo.test";
+  Long adminRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
+  assignRegister(adminName,910001,910001,adminRegister);
+  String cashierName="cashier@saumya.demo.test";
+  Long cashierRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
+  String accountantName="finance@saumya.demo.test";
+  assignRegister(accountantName,910001,910001,adminRegister);
+
+  PosService.Scope adminScope=new PosService.Scope(910001,910001,adminName);
+  if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier_username=? AND status='OPEN'",
+      Integer.class,adminName)==0)as(adminName,()->service.open(adminScope,new PosService.OpenSession(adminRegister,BigDecimal.ZERO)));
+  PosService.Scope cashierScope=new PosService.Scope(910001,910001,cashierName);
+  if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier_username=? AND status='OPEN'",
+      Integer.class,cashierName)==0)as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
+
+  Map<String,String> tokens=new LinkedHashMap<>();
+  Map<String,Set<String>> grants=new LinkedHashMap<>();
+  String[][] accounts={
+    {"VENDOR_ADMIN",adminName,"SaumyaAdmin2026!"},
+    {"SALES_MANAGER","sales@saumya.demo.test","SaumyaSales2026!"},
+    {"INVENTORY_MANAGER","inventory@saumya.demo.test","SaumyaStock2026!"},
+    {"POS_CASHIER",cashierName,"SaumyaTill2026!"},
+    {"ACCOUNTANT",accountantName,"SaumyaFinance2026!"},
+    {"PLATFORM_SUPER_ADMIN","superadmin@platform.demo.test","PlatformDemo2026!"},
+    {"PLATFORM_SUPPORT",supportUsername,"MatrixSupportPassword2026!"},
+    {"CUSTOMER","asha@customer.demo.test","AshaBuyer2026!"}
+  };
+  for(String[] account:accounts){
+   var session=authentication.login(account[1],account[2]);
+   tokens.put(account[0],session.accessToken());
+   grants.put(account[0],Set.copyOf(session.account().permissions()));
+  }
+  // Platform Support is a persisted one-grant identity; the Vendor Admin,
+  // Cashier, Accountant and Customer tokens above are all resolved from DB state.
+  List<String> csv=new ArrayList<>();
+  csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");
+  int protectedRows=0,passedRows=0;
+  for(var entry:requestMappings.getHandlerMethods().entrySet()){
+   HandlerMethod handler=entry.getValue();Class<?> controllerType=handler.getBeanType();
+   if(!controllerType.getName().startsWith("com.saumya.pos.")
+       ||!org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(controllerType,org.springframework.web.bind.annotation.RestController.class))continue;
+   var methodPolicy=org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(),
+       org.springframework.security.access.prepost.PreAuthorize.class);
+   var classPolicy=org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(controllerType,
+       org.springframework.security.access.prepost.PreAuthorize.class);
+   var policy=methodPolicy!=null?methodPolicy:classPolicy;
+   assertThat(policy).as("security policy for %s#%s",controllerType.getSimpleName(),handler.getMethod().getName()).isNotNull();
+   if(policy.value().contains("permitAll()"))continue;
+   String actor=matrixActorForEndpoint(controllerType.getSimpleName(),policy.value(),tokens,grants);
+   String token=tokens.get(actor);
+   Set<RequestMethod> mappingMethods=entry.getKey().getMethodsCondition().getMethods();
+   List<RequestMethod> methods=mappingMethods.isEmpty()?List.of(RequestMethod.GET):mappingMethods.stream().sorted().toList();
+   for(String route:entry.getKey().getPatternValues()){
+    for(RequestMethod httpMethod:methods){
+     String concrete=route;
+     for(Parameter parameter:handler.getMethod().getParameters()){
+      var path=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
+      if(path!=null){
+       String key=!path.name().isBlank()?path.name():(!path.value().isBlank()?path.value():parameter.getName());
+       concrete=concrete.replace("{"+key+"}",matrixPathValue(parameter,controllerType.getSimpleName()));
+      }
+     }
+     concrete=concrete.replaceAll("\\\\{[^/]+\\\\}","1");
+     var request=org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request(
+         HttpMethod.valueOf(httpMethod.name()),java.net.URI.create("http://localhost"+concrete))
+       .header("Authorization","Bearer "+token);
+     if(httpMethod==RequestMethod.POST||httpMethod==RequestMethod.PUT||httpMethod==RequestMethod.PATCH||httpMethod==RequestMethod.DELETE)
+      request.with(csrf());
+     for(Parameter parameter:handler.getMethod().getParameters()){
+      var body=parameter.getAnnotation(org.springframework.web.bind.annotation.RequestBody.class);
+      if(body!=null){
+       Object value=matrixProbeValue(parameter.getType(),parameter.getName(),parameter.getParameterizedType());
+       request.contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value));
+      }
+      var query=parameter.getAnnotation(org.springframework.web.bind.annotation.RequestParam.class);
+      if(query!=null&&query.required()
+          &&org.springframework.web.bind.annotation.ValueConstants.DEFAULT_NONE.equals(query.defaultValue())){
+       String key=!query.name().isBlank()?query.name():(!query.value().isBlank()?query.value():parameter.getName());
+       request.param(key,String.valueOf(matrixProbeValue(parameter.getType(),key,parameter.getParameterizedType())));
+      }
+      var header=parameter.getAnnotation(org.springframework.web.bind.annotation.RequestHeader.class);
+      if(header!=null&&header.required()
+          &&org.springframework.web.bind.annotation.ValueConstants.DEFAULT_NONE.equals(header.defaultValue())){
+       String key=!header.name().isBlank()?header.name():(!header.value().isBlank()?header.value():parameter.getName());
+       request.header(key,String.valueOf(matrixProbeValue(parameter.getType(),key,parameter.getParameterizedType())));
+      }
+      var cookie=parameter.getAnnotation(org.springframework.web.bind.annotation.CookieValue.class);
+      if(cookie!=null&&cookie.required()){
+       String key=!cookie.name().isBlank()?cookie.name():(!cookie.value().isBlank()?cookie.value():parameter.getName());
+       request.cookie(new jakarta.servlet.http.Cookie(key,"A".repeat(43)));
+      }
+     }
+     var response=mvc.perform(request).andReturn();
+     int actual=response.getResponse().getStatus();
+     Throwable resolved=response.getResolvedException();
+     String exception=resolved==null?"":resolved.getClass().getSimpleName();
+     boolean bindingFailure=resolved instanceof org.springframework.web.bind.MethodArgumentNotValidException
+       ||resolved instanceof org.springframework.http.converter.HttpMessageNotReadableException
+       ||resolved instanceof org.springframework.web.bind.MissingServletRequestParameterException
+       ||resolved instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+       ||resolved instanceof org.springframework.web.bind.MissingRequestHeaderException;
+     boolean pass=actual!=401&&actual!=403&&actual<500&&!bindingFailure;
+     String result=pass?"PASS":"FAIL";
+     String routeKey=route;
+     String permission=policy.value().replace("\"","\"\"");
+     String scope=""; // Controller policy scope is joined by report generation from canonical metadata.
+     csv.add(String.join(",",httpMethod.name(),matrixCsv(routeKey),controllerType.getSimpleName(),
+       handler.getMethod().getName(),actor,matrixCsv(permission),scope,"AUTHORIZED",Integer.toString(actual),
+       result,exception,"PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"));
+     System.out.println("P006_ENDPOINT_ACTOR|"+httpMethod.name()+"|"+route+"|"+actor+"|"+actual+"|"+result);
+     protectedRows++;if(pass)passedRows++;
+     assertThat(pass).as("persisted %s actor must pass endpoint authorization %s %s (%s); actual=%s exception=%s body=%s",
+       actor,httpMethod.name(),route,policy.value(),actual,exception,
+       response.getResponse().getContentAsString()).isTrue();
+    }
+   }
+  }
+  assertThat(protectedRows).as("all protected live method/route mappings executed with a persisted actor").isGreaterThan(100);
+  assertThat(passedRows).isEqualTo(protectedRows);
+  Path path=Path.of("target","p0-06-runtime-actor-endpoint-http.csv");
+  try{Files.createDirectories(path.getParent());Files.write(path,csv,StandardCharsets.UTF_8);}
+  catch(java.io.IOException error){throw new AssertionError("Cannot write endpoint actor matrix",error);}
+  System.out.println("P006_ENDPOINT_ACTOR_SUMMARY|protectedRoutes="+protectedRows+"|passed="+passedRows+"|failed=0|PASS");
+ }
+
 }

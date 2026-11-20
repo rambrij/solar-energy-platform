@@ -33,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PosTest {
  @Autowired com.saumya.pos.checkout.CheckoutReceiptService receiptReader;
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
+ @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
  @org.springframework.beans.factory.annotation.Autowired org.springframework.context.ApplicationContext applicationContext;
  @Autowired @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping requestMappings;
  @Autowired CartService marketplace;
@@ -2898,7 +2899,7 @@ class PosTest {
       var body=parameter.getAnnotation(org.springframework.web.bind.annotation.RequestBody.class);
       if(body!=null){
        Object value=matrixProbeValue(parameter.getType(),parameter.getName(),parameter.getParameterizedType());
-       request.contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value));
+       request.contentType("application/json").content(json.writeValueAsString(value));
       }
       var query=parameter.getAnnotation(org.springframework.web.bind.annotation.RequestParam.class);
       if(query!=null&&query.required()

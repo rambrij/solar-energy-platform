@@ -8,6 +8,13 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.HttpMethod;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
@@ -38,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.datasource.username=${TEST_DB_USER:sa}",
     "spring.datasource.password=${TEST_DB_PASSWORD:}"
 })
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RuntimeAuthorizationEndpointInventoryTest {
     @Autowired
@@ -46,6 +54,9 @@ class RuntimeAuthorizationEndpointInventoryTest {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    MockMvc mvc;
 
     record Endpoint(String method, String route, String controller, String operation)
         implements Comparable<Endpoint> {
@@ -104,6 +115,41 @@ class RuntimeAuthorizationEndpointInventoryTest {
         policies.fieldNames().forEachRemaining(policyControllers::add);
         assertThat(liveControllers).as("all controller policy metadata is referenced by a live endpoint")
             .containsAll(policyControllers);
+
+        // Execute every mapped protected route anonymously through the real
+        // Spring Security filter chain. Method arguments are deliberately absent:
+        // authentication must reject the request before controller binding or mutation.
+        int protectedAnonymousChecks = 0;
+        for (var entry : requestMappings.getHandlerMethods().entrySet()) {
+            HandlerMethod handler = entry.getValue();
+            Class<?> controllerType = handler.getBeanType();
+            if (!controllerType.getName().startsWith("com.saumya.pos.")
+                || !AnnotatedElementUtils.hasAnnotation(controllerType, RestController.class)) continue;
+            var methodPolicy = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(),
+                org.springframework.security.access.prepost.PreAuthorize.class);
+            var classPolicy = AnnotatedElementUtils.findMergedAnnotation(controllerType,
+                org.springframework.security.access.prepost.PreAuthorize.class);
+            var policy = methodPolicy != null ? methodPolicy : classPolicy;
+            assertThat(policy).as("runtime security policy for %s#%s",
+                controllerType.getSimpleName(), handler.getMethod().getName()).isNotNull();
+            if (policy.value().contains("permitAll()")) continue;
+
+            Set<RequestMethod> methods = entry.getKey().getMethodsCondition().getMethods();
+            List<RequestMethod> exercised = methods.isEmpty()
+                ? List.of(RequestMethod.GET)
+                : methods.stream().sorted().toList();
+            for (String route : entry.getKey().getPatternValues()) {
+                String concretePath = route.replaceAll("\\{[^/]+\\}", "1");
+                for (RequestMethod method : exercised) {
+                    mvc.perform(request(HttpMethod.valueOf(method.name()), concretePath).with(csrf()))
+                        .andExpect(status().isUnauthorized());
+                    protectedAnonymousChecks++;
+                }
+            }
+        }
+        assertThat(protectedAnonymousChecks)
+            .as("every mapped protected method/route rejects anonymous requests")
+            .isGreaterThan(50);
 
         // Stable report payload makes the exact live route inventory available
         // in CI failure output without maintaining a second handwritten route list.

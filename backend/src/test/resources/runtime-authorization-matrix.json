@@ -314,6 +314,63 @@
       "expected": 200,
       "test": "PosTest#p006VendorAdminCannotForgeTenantScopeThroughQueryParameters",
       "sideEffect": "foreign product IDs/names absent"
+    },
+    {
+      "id": "P006-CUSTOM-VENDOR-ROLE",
+      "actor": "CUSTOM_VENDOR_ROLE",
+      "endpoint": "GET /api/v1/vendor/products",
+      "permission": "PRODUCT_VIEW",
+      "scope": "PERSISTED_TENANT_ROLE_ASSIGNMENT",
+      "expected": 200,
+      "test": "RuntimeAuthorizationPersistedRoleTest#persistedProductViewPermissionAllowsReadButNeverProductCreate"
+    },
+    {
+      "id": "P006-CUSTOM-ROLE-VIEW-CREATE-DENY",
+      "actor": "CUSTOM_VENDOR_ROLE",
+      "endpoint": "POST /api/v1/vendor/products",
+      "permission": "PRODUCT_CREATE",
+      "scope": "PERSISTED_TENANT_ROLE_ASSIGNMENT",
+      "expected": 403,
+      "test": "RuntimeAuthorizationPersistedRoleTest#persistedProductViewPermissionAllowsReadButNeverProductCreate",
+      "sideEffect": "product row count unchanged"
+    },
+    {
+      "id": "P006-CUSTOMER-FOREIGN-ORDER",
+      "actor": "WRONG_CUSTOMER",
+      "endpoint": "GET /api/v1/customer/orders/{foreignOrderId}",
+      "permission": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_OWNERSHIP",
+      "expected": 404,
+      "test": "PosTest#demoGlobalCustomerPurchasesFromTwoVendorsWithoutMixingCartsOrdersOrStock"
+    },
+    {
+      "id": "P006-CASHIER-WRONG-REGISTER",
+      "actor": "POS_CASHIER",
+      "endpoint": "POST /api/v1/vendor/pos/sessions",
+      "permission": "POS_SESSION_OPEN",
+      "scope": "TENANT_BRANCH_REGISTER_ASSIGNMENT",
+      "expected": 404,
+      "test": "PosTest#demoCashierCanBillOwnStoreWithPolicyDiscountButCannotUseAnotherStoresRegisterOrProduct"
+    },
+    {
+      "id": "P006-CASHIER-WRONG-PRODUCT",
+      "actor": "POS_CASHIER",
+      "endpoint": "POST /api/v1/vendor/pos/drafts",
+      "permission": "POS_SALE_CREATE",
+      "scope": "TENANT_PRODUCT_AND_REGISTER_ASSIGNMENT",
+      "expected": 404,
+      "test": "PosTest#demoCashierCanBillOwnStoreWithPolicyDiscountButCannotUseAnotherStoresRegisterOrProduct",
+      "sideEffect": "foreign inventory unchanged"
+    },
+    {
+      "id": "P006-WRONG-TENANT-HEADER",
+      "actor": "WRONG_TENANT",
+      "endpoint": "GET /api/v1/vendor/roles",
+      "permission": "ROLE_VIEW",
+      "scope": "AUTHENTICATED_MEMBERSHIP_TENANT",
+      "expected": 200,
+      "test": "RuntimeAuthorizationPersistedRoleTest#forgedTenantHeaderCannotChangePersistedVendorMembershipScope",
+      "sideEffect": "foreign role absent"
     }
   ]
 }

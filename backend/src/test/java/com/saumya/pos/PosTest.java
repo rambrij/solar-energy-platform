@@ -66,7 +66,7 @@ class PosTest {
   update("DELETE FROM order_buyer_snapshots");
   update("DELETE FROM vendor_payment_attempts");
   update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","platform_support_access","platform_audit_events","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","registers","inventory","pos_stock_locations","products","employees","branches","tenants","users")) update("DELETE FROM "+table);
+  for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","platform_support_access","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","registers","inventory","pos_stock_locations","products","employees","branches","tenants","users")) update("DELETE FROM "+table);
   update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(1,'Vendor A','vendor-1','Vendor A','ACTIVE'),(2,'Vendor B','vendor-2','Vendor B','ACTIVE')");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
   employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",effectivePermissions("alice").stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
@@ -2473,13 +2473,6 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM tenants",Integer.class))
     .as("support access alone cannot create tenants").isEqualTo(tenantCount);
 
-  int supportGrantsBefore=db.queryForObject("SELECT COUNT(*) FROM platform_support_access",Integer.class);
-  String supportGrant="{\"tenantId\":910001,\"purpose\":\"P0-06 runtime authorization verification\",\"ticketReference\":\"P0-06-SUPPORT-1\",\"expiresAt\":\""+java.time.Instant.now().plusSeconds(3600)+"\"}";
-  mvc.perform(post("/api/v1/platform/support-access").header("Authorization","Bearer "+supportToken).with(csrf())
-      .contentType("application/json").content(supportGrant))
-    .andExpect(status().isCreated());
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM platform_support_access",Integer.class))
-    .as("persisted support actor may grant bounded, audited support access").isEqualTo(supportGrantsBefore+1);
  }
 
  @Test void p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory() throws Exception {

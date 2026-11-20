@@ -15,11 +15,12 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
-MATRIX = ROOT / "src/test/resources/runtime-authorization-matrix.json"
-SUREFIRE = ROOT / "target/surefire-reports"
-ROUTE_REPORT = ROOT / "target/p0-06-runtime-authorization-report.csv"
-SUMMARY_REPORT = ROOT / "target/p0-06-runtime-authorization-summary.json"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+MATRIX = BACKEND_ROOT / "src/test/resources/runtime-authorization-matrix.json"
+SUREFIRE = BACKEND_ROOT / "target/surefire-reports"
+ROUTE_REPORT = BACKEND_ROOT / "target/p0-06-runtime-authorization-report.csv"
+SUMMARY_REPORT = BACKEND_ROOT / "target/p0-06-runtime-authorization-summary.json"
 
 
 def junit_results(report_dir: Path) -> dict[tuple[str, str], str]:
@@ -156,8 +157,8 @@ def build() -> int:
         "actorScenariosNotExecuted": scenario_unexecuted,
         "resultSemantics": "An actor scenario is PASS only when its referenced Surefire test method exists in the full suite and has no failure/error. Other actor/endpoint combinations are not inferred.",
         "files": {
-            "endpointAndScenarioCsv": str(ROUTE_REPORT.relative_to(ROOT)),
-            "summaryJson": str(SUMMARY_REPORT.relative_to(ROOT))
+            "endpointAndScenarioCsv": str(ROUTE_REPORT.relative_to(REPO_ROOT)),
+            "summaryJson": str(SUMMARY_REPORT.relative_to(REPO_ROOT))
         }
     }
     SUMMARY_REPORT.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

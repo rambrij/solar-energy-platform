@@ -229,10 +229,14 @@ def build() -> int:
 
     live_count = len(route_rows)
     route_rows_with_actor_scenario = sum(
-        row.get("row_type") == "LIVE_ENDPOINT" and row.get("other_actor_matrix") != "NOT_EXECUTED"
+        row.get("row_type") == "LIVE_ENDPOINT" and row.get("runtime_actor_result") == "PASS"
         for row in combined
     )
     route_rows_without_actor_scenario = live_count - route_rows_with_actor_scenario
+    public_route_rows_not_applicable = sum(
+        row.get("row_type") == "LIVE_ENDPOINT" and row.get("anonymous_expected") == "PUBLIC"
+        for row in combined
+    )
     anonymous_pass = sum(row.get("anonymous_result") == "PASS" for row in route_rows)
     anonymous_fail = sum(row.get("anonymous_result") == "FAIL" for row in route_rows)
     view_pass = sum(row.get("view_mutation_result") == "PASS" for row in route_rows)
@@ -259,6 +263,7 @@ def build() -> int:
         "liveEndpointRows": live_count,
         "liveEndpointRowsWithExplicitActorScenario": route_rows_with_actor_scenario,
         "liveEndpointRowsWithoutExplicitActorScenario": route_rows_without_actor_scenario,
+        "publicEndpointRowsNotApplicableToProtectedActorMatrix": public_route_rows_not_applicable,
         "anonymousRouteChecksPassed": anonymous_pass,
         "anonymousRouteChecksFailed": anonymous_fail,
         "viewMutationRouteRowsPassed": view_pass,

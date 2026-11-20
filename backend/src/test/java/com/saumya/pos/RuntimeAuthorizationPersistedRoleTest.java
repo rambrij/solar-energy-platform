@@ -592,6 +592,7 @@ class RuntimeAuthorizationPersistedRoleTest {
             if (name.contains("email") || name.contains("username") || name.contains("actor")
                 || name.contains("cashier")) return "runtime.matrix.viewer@example.test";
             if (name.contains("ticket")) return "P006-TICKET-REF";
+            if (name.contains("token")) return "A".repeat(43);
             if (name.contains("code") || name.contains("otp")) return "123456";
             if (name.contains("reason") || name.contains("purpose")) return "Runtime authorization matrix";
             if (name.contains("currency")) return "INR";
@@ -603,6 +604,9 @@ class RuntimeAuthorizationPersistedRoleTest {
             if (name.contains("method") || name.contains("channel") || name.contains("tender")) return "CASH";
             return "runtime-matrix-key-0001";
         }
+        if ((type == boolean.class || type == Boolean.class)
+            && (name.contains("requested") || name.contains("consent") || name.contains("accepted")
+                || name.contains("confirmed") || name.contains("enabled") || name.contains("active"))) return true;
         if (Collection.class.isAssignableFrom(type)) {
             Class<?> elementType = String.class;
             if (genericType instanceof ParameterizedType parameterized

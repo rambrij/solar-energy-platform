@@ -2826,7 +2826,8 @@ class PosTest {
   update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,'PLATFORM_SUPPORT_ACCESS')",supportUsername);
 
   String adminName="admin@saumya.demo.test";
-  Long adminRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
+  Long adminRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+100 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
+  update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",adminRegister);
   assignRegister(adminName,910001,910001,adminRegister);
   String cashierName="cashier@saumya.demo.test";
   Long cashierRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);

@@ -161,13 +161,17 @@ def build() -> int:
 
     live_count = len(route_rows)
     anonymous_pass = sum(row.get("anonymous_result") == "PASS" for row in route_rows)
+    anonymous_fail = sum(row.get("anonymous_result") == "FAIL" for row in route_rows)
     view_pass = sum(row.get("view_mutation_result") == "PASS" for row in route_rows)
+    view_fail = sum(row.get("view_mutation_result") == "FAIL" for row in route_rows)
     view_unexecuted = sum(row.get("view_mutation_result") == "NOT_EXECUTED" for row in route_rows)
     summary: dict[str, Any] = {
         "database": "resolved by current CI matrix job",
         "liveEndpointRows": live_count,
         "anonymousRouteChecksPassed": anonymous_pass,
+        "anonymousRouteChecksFailed": anonymous_fail,
         "viewMutationRouteRowsPassed": view_pass,
+        "viewMutationRouteRowsFailed": view_fail,
         "viewMutationRouteRowsNotExecuted": view_unexecuted,
         "actorScenariosDeclared": len(matrix.get("runtimeScenarios", [])),
         "actorScenariosPassed": scenario_pass,
@@ -181,7 +185,7 @@ def build() -> int:
     }
     SUMMARY_REPORT.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print("P0-06_RUNTIME_REPORT|" + json.dumps(summary, sort_keys=True))
-    return 1 if scenario_fail or scenario_unexecuted else 0
+    return 1 if anonymous_fail or view_fail or view_unexecuted or scenario_fail or scenario_unexecuted else 0
 
 
 if __name__ == "__main__":

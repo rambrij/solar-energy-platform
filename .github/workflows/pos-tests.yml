@@ -50,10 +50,13 @@ jobs:
       - name: P0-06 Platform Support grant/revoke acceptance (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test
+      - name: Create isolated MySQL schema for immutable Platform Support audit acceptance
+        if: matrix.database == 'mysql'
+        run: mysql -h 127.0.0.1 -uroot -pdisposable-test-password -e 'CREATE DATABASE IF NOT EXISTS solar_support_acceptance'
       - name: P0-06 Platform Support grant/revoke acceptance (MySQL 8.4)
         if: matrix.database == 'mysql'
         env:
-          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
+          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_support_acceptance
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test

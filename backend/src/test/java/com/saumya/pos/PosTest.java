@@ -2540,6 +2540,20 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_role_permissions WHERE tenant_id=910001 AND role_id=? AND permission='PRODUCT_VIEW'",Integer.class,customRole)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_role_permissions WHERE tenant_id=910001 AND role_id=? AND permission<>'PRODUCT_VIEW'",Integer.class,customRole)).isZero();
 
+  String adminProduct="{\"sku\":\"P006-STALE-VERSION\",\"name\":\"P0-06 versioned item\",\"price\":100.00,\"taxRate\":18.00,\"published\":true,\"expectedVersion\":0,\"reason\":\"P0-06 HTTP conflict semantics\"}";
+  mvc.perform(post("/api/v1/vendor/products").header("Authorization","Bearer "+adminToken).with(csrf())
+      .contentType("application/json").content(adminProduct))
+    .andExpect(status().isOk());
+  Long versionedProduct=db.queryForObject("SELECT id FROM products WHERE tenant_id=910001 AND sku='P006-STALE-VERSION'",Long.class);
+  String updateProduct=adminProduct.replace("P0-06 versioned item","P0-06 updated item");
+  mvc.perform(put("/api/v1/vendor/products/"+versionedProduct).header("Authorization","Bearer "+adminToken).with(csrf())
+      .contentType("application/json").content(updateProduct))
+    .andExpect(status().isOk());
+  mvc.perform(put("/api/v1/vendor/products/"+versionedProduct).header("Authorization","Bearer "+adminToken).with(csrf())
+      .contentType("application/json").content(updateProduct))
+    .andExpect(status().isConflict());
+  assertThat(db.queryForObject("SELECT version FROM products WHERE tenant_id=910001 AND id=?",Long.class,versionedProduct)).isEqualTo(1L);
+
   String customerA="asha@customer.demo.test",customerB="rahul@customer.demo.test";
   String tokenA=demoToken(customerA,"AshaBuyer2026!"),tokenB=demoToken(customerB,"RahulBuyer2026!");
   asCustomer(customerA,()->marketplace.put(949001,new CartService.Item("saumya-rooftops",910301,1)));

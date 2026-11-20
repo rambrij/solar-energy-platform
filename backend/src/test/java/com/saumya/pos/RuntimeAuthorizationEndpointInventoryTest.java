@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.test.context.ActiveProfiles;
@@ -40,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 class RuntimeAuthorizationEndpointInventoryTest {
     @Autowired
+    @Qualifier("requestMappingHandlerMapping")
     RequestMappingHandlerMapping requestMappings;
 
     @Autowired

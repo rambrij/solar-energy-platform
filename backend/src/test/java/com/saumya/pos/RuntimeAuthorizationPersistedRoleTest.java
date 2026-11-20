@@ -13,6 +13,25 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
+import com.saumya.pos.membership.VendorPermissionRegistry;
+import com.saumya.pos.identity.AuthenticationService;
+import com.saumya.pos.identity.JwtService;
+import org.springframework.context.ApplicationContext;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.RequestMethod;
+import java.lang.reflect.*;
+import java.security.Principal;
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -42,6 +61,10 @@ class RuntimeAuthorizationPersistedRoleTest {
     @Autowired JdbcTemplate db;
     @Autowired PasswordEncoder passwords;
     @Autowired ObjectMapper json;
+    @Autowired ApplicationContext applicationContext;
+    @Autowired RequestMappingHandlerMapping requestMappings;
+    @Autowired AuthenticationService identities;
+    @Autowired JwtService jwt;
 
     @BeforeEach
     void seedPersistedViewOnlyActor() {
@@ -67,8 +90,12 @@ class RuntimeAuthorizationPersistedRoleTest {
         db.update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,91001,91001,TRUE)", USER);
         db.update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(91001,'runtime-matrix-viewer','Runtime Matrix VIEW only',TRUE,?,?)", USER, USER);
         Long roleId = db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=91001 AND role_key='runtime-matrix-viewer'", Long.class);
-        db.update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(91001,?,'ROLE_VIEW',?)", roleId, USER);
-        db.update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(91001,?,'PRODUCT_VIEW',?)", roleId, USER);
+        for (String permission : VendorPermissionRegistry.all()) {
+            if (permission.endsWith("_VIEW")) {
+                db.update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(91001,?,?,?)",
+                    roleId, permission, USER);
+            }
+        }
         db.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(91001,91001,?,?,TRUE,?)", USER, roleId, USER);
     }
 
@@ -203,4 +230,161 @@ class RuntimeAuthorizationPersistedRoleTest {
         mvc.perform(get("/api/v1/vendor/roles"))
             .andExpect(status().isUnauthorized());
     }
+    /**
+     * Exercise every mapped mutating controller method through its live Spring
+     * AOP proxy using a JWT-derived principal whose effective grants are read
+     * from a persisted tenant role containing VIEW permissions only.
+     *
+     * This is intentionally method-level rather than mockMvc payload-level:
+     * Spring method authorization runs before the controller body and avoids
+     * fabricating unrelated business payloads for 100+ mutation endpoints.
+     * The test verifies the denial type and whole-database side-effect counts.
+     */
+    @Test
+    void everyMappedMutationRejectsPersistedViewOnlyActorBeforeAnySideEffect() throws Exception {
+        String token = bearerToken();
+        Authentication principal = identities.authenticate(jwt.decoder().decode(token));
+        assertThat(principal.getAuthorities()).isNotEmpty();
+        assertThat(principal.getAuthorities()).allMatch(grant -> grant.getAuthority().endsWith("_VIEW"));
+        var security = SecurityContextHolder.createEmptyContext();
+        security.setAuthentication(principal);
+        SecurityContextHolder.setContext(security);
+
+        List<String> sideEffectTables = List.of(
+            "products", "orders", "order_items", "inventory", "inventory_ledger",
+            "inventory_receipts", "stock_reservations", "pos_sessions", "pos_drawer_tenders",
+            "pos_cash_movements", "pos_cash_refunds", "pos_returns", "pos_return_events",
+            "pos_audit", "pos_shift_reviews", "carts", "cart_items", "vendor_roles",
+            "vendor_role_permissions", "employee_role_assignments", "employee_register_assignments",
+            "platform_support_access", "platform_configuration", "platform_audit_events",
+            "report_export_audit", "vendor_payment_attempts", "tenant_subscriptions",
+            "subscription_invoices", "subscription_payments", "subscription_events",
+            "catalog_promotions", "catalog_change_events", "receipt_document_audit"
+        );
+        Map<String, Long> before = new LinkedHashMap<>();
+        for (String table : sideEffectTables) {
+            before.put(table, db.queryForObject("SELECT COUNT(*) FROM " + table, Long.class));
+        }
+
+        Set<String> executed = new TreeSet<>();
+        int denied = 0;
+        try {
+            for (var entry : requestMappings.getHandlerMethods().entrySet()) {
+                HandlerMethod handler = entry.getValue();
+                Class<?> controllerType = handler.getBeanType();
+                if (!controllerType.getName().startsWith("com.saumya.pos.")
+                    || !AnnotatedElementUtils.hasAnnotation(controllerType, RestController.class)) {
+                    continue;
+                }
+                Set<RequestMethod> methods = entry.getKey().getMethodsCondition().getMethods();
+                List<RequestMethod> mutating = methods.isEmpty()
+                    ? List.of(RequestMethod.POST, RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.DELETE)
+                    : methods.stream().filter(m -> m == RequestMethod.POST || m == RequestMethod.PUT
+                        || m == RequestMethod.PATCH || m == RequestMethod.DELETE).toList();
+                if (mutating.isEmpty()) continue;
+
+                var methodPolicy = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(),
+                    org.springframework.security.access.prepost.PreAuthorize.class);
+                var classPolicy = AnnotatedElementUtils.findMergedAnnotation(controllerType,
+                    org.springframework.security.access.prepost.PreAuthorize.class);
+                var policy = methodPolicy != null ? methodPolicy : classPolicy;
+                assertThat(policy).as("mapped mutation has a policy: %s#%s",
+                    controllerType.getSimpleName(), handler.getMethod().getName()).isNotNull();
+                if (policy.value().contains("permitAll()")) continue;
+
+                String endpoint = controllerType.getSimpleName() + "#" + handler.getMethod().getName();
+                if (!executed.add(endpoint)) continue;
+
+                Object bean = applicationContext.getBean(controllerType);
+                Object[] args = Arrays.stream(handler.getMethod().getParameterTypes())
+                    .map(this::defaultArgument).toArray();
+                Throwable failure = null;
+                try {
+                    handler.getMethod().setAccessible(true);
+                    handler.getMethod().invoke(bean, args);
+                } catch (InvocationTargetException invocation) {
+                    failure = invocation.getCause();
+                } catch (Throwable invocation) {
+                    failure = invocation;
+                }
+
+                assertThat(isAuthorizationDenial(failure))
+                    .as("VIEW-only persisted actor must be denied on %s (%s)", endpoint, policy.value())
+                    .isTrue();
+                denied++;
+                System.out.println("RUNTIME_AUTHORIZATION_VIEW_MUTATION|"
+                    + String.join(",", mutating.stream().map(Enum::name).toList())
+                    + "|" + endpoint + "|" + policy.value().replace("|", "/") + "|403|PASS");
+            }
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(denied).as("all protected mapped mutation operations executed").isGreaterThan(20);
+        for (String table : sideEffectTables) {
+            Long after = db.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
+            assertThat(after).as("denied mutation side effects in %s", table).isEqualTo(before.get(table));
+        }
+        System.out.println("RUNTIME_AUTHORIZATION_VIEW_MUTATION_SUMMARY|operations="
+            + executed.size() + "|denied=" + denied + "|sideEffects=UNCHANGED|PASS");
+    }
+
+    private boolean isAuthorizationDenial(Throwable error) {
+        if (error == null) return false;
+        Throwable current = error;
+        while (current.getCause() != null && (current instanceof InvocationTargetException
+            || current instanceof UndeclaredThrowableException)) current = current.getCause();
+        if (current instanceof AccessDeniedException) return true;
+        return current instanceof ResponseStatusException response
+            && response.getStatusCode().value() == HttpStatus.FORBIDDEN.value();
+    }
+
+    private Object defaultArgument(Class<?> type) {
+        if (type == String.class) return "runtime-matrix-key-0001";
+        if (type == Principal.class) return (Principal) () -> USER;
+        if (Authentication.class.isAssignableFrom(type)) return SecurityContextHolder.getContext().getAuthentication();
+        if (type == Long.class || type == long.class) return 1L;
+        if (type == Integer.class || type == int.class) return 1;
+        if (type == Short.class || type == short.class) return (short) 1;
+        if (type == Boolean.class || type == boolean.class) return false;
+        if (type == BigDecimal.class) return BigDecimal.ONE;
+        if (type == LocalDate.class) return LocalDate.of(2026, 11, 20);
+        if (type == Instant.class) return Instant.parse("2026-11-20T00:00:00Z");
+        if (type == UUID.class) return UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        if (type.isEnum()) return type.getEnumConstants().length == 0 ? null : type.getEnumConstants()[0];
+        if (Map.class.isAssignableFrom(type)) return Map.of();
+        if (Set.class.isAssignableFrom(type)) return Set.of();
+        if (Collection.class.isAssignableFrom(type)) return List.of();
+        if (Optional.class.isAssignableFrom(type)) return Optional.empty();
+        if (type.isArray()) return Array.newInstance(type.getComponentType(), 0);
+        if (type.isRecord()) {
+            try {
+                RecordComponent[] components = type.getRecordComponents();
+                Class<?>[] parameterTypes = Arrays.stream(components)
+                    .map(RecordComponent::getType).toArray(Class<?>[]::new);
+                Object[] values = new Object[components.length];
+                for (int i = 0; i < components.length; i++) {
+                    String name = components[i].getName().toLowerCase(Locale.ROOT);
+                    Class<?> componentType = components[i].getType();
+                    if (componentType == String.class && (name.contains("username") || name.contains("email")
+                        || name.equals("actor") || name.equals("cashier"))) {
+                        values[i] = USER;
+                    } else if (componentType == String.class && name.contains("reason")) {
+                        values[i] = "Runtime matrix authorization test";
+                    } else if (componentType == String.class && name.contains("method")) {
+                        values[i] = "CASH";
+                    } else {
+                        values[i] = defaultArgument(componentType);
+                    }
+                }
+                Constructor<?> constructor = type.getDeclaredConstructor(parameterTypes);
+                constructor.setAccessible(true);
+                return constructor.newInstance(values);
+            } catch (ReflectiveOperationException | RuntimeException failure) {
+                throw new AssertionError("Cannot construct runtime authorization probe for " + type.getName(), failure);
+            }
+        }
+        return null;
+    }
+
 }

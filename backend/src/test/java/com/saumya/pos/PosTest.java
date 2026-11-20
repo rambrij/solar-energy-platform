@@ -2432,4 +2432,101 @@ class PosTest {
   return null;
  }
 
+
+
+ @Test void p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority() throws Exception {
+  multiVendorDemo();
+  String superAdmin=demoToken("superadmin@platform.demo.test","PlatformDemo2026!");
+  mvc.perform(get("/api/v1/platform/dashboard").header("Authorization","Bearer "+superAdmin))
+    .andExpect(status().isOk());
+  mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+superAdmin))
+    .andExpect(status().isForbidden());
+
+  int productsBefore=db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=910001",Integer.class);
+  String forgedVendorCreate="{\"sku\":\"P006-PLATFORM-MUST-DENY\",\"name\":\"Platform cannot sell\",\"price\":100.00,\"taxRate\":0.00,\"published\":true,\"expectedVersion\":0,\"reason\":\"Actor boundary regression\"}";
+  mvc.perform(post("/api/v1/vendor/products").header("Authorization","Bearer "+superAdmin).with(csrf())
+      .contentType("application/json").content(forgedVendorCreate))
+    .andExpect(status().isForbidden());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=910001",Integer.class))
+    .as("platform identity cannot create vendor catalogue data").isEqualTo(productsBefore);
+
+  String supportUser="support@platform.demo.test";
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(950001,?,?,TRUE)",
+    supportUser,encoder.encode("PlatformSupport2026!"));
+  update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,'PLATFORM_SUPPORT_ACCESS')",supportUser);
+  String supportToken=demoToken(supportUser,"PlatformSupport2026!");
+
+  mvc.perform(get("/api/v1/platform/support-access").header("Authorization","Bearer "+supportToken))
+    .andExpect(status().isOk());
+  mvc.perform(get("/api/v1/platform/dashboard").header("Authorization","Bearer "+supportToken))
+    .andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/platform/tenants").header("Authorization","Bearer "+supportToken))
+    .andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+supportToken))
+    .andExpect(status().isForbidden());
+
+  int tenantCount=db.queryForObject("SELECT COUNT(*) FROM tenants",Integer.class);
+  String forbiddenTenant="{\"slug\":\"p006-support-must-not-create\",\"name\":\"Forbidden Support Tenant\",\"legalName\":\"Forbidden Support Tenant\",\"contactEmail\":\"owner@forbidden.example.test\",\"initialVendorAdminUsername\":\"owner@forbidden.example.test\"}";
+  mvc.perform(post("/api/v1/platform/tenants").header("Authorization","Bearer "+supportToken).with(csrf())
+      .contentType("application/json").content(forbiddenTenant))
+    .andExpect(status().isForbidden());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM tenants",Integer.class))
+    .as("support access alone cannot create tenants").isEqualTo(tenantCount);
+
+  int supportGrantsBefore=db.queryForObject("SELECT COUNT(*) FROM platform_support_access",Integer.class);
+  String supportGrant="{\"tenantId\":910001,\"purpose\":\"P0-06 runtime authorization verification\",\"ticketReference\":\"P0-06-SUPPORT-1\",\"expiresAt\":\""+java.time.Instant.now().plusSeconds(3600)+"\"}";
+  mvc.perform(post("/api/v1/platform/support-access").header("Authorization","Bearer "+supportToken).with(csrf())
+      .contentType("application/json").content(supportGrant))
+    .andExpect(status().isCreated());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM platform_support_access",Integer.class))
+    .as("persisted support actor may grant bounded, audited support access").isEqualTo(supportGrantsBefore+1);
+ }
+
+ @Test void p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory() throws Exception {
+  multiVendorDemo();
+  String accountant="finance@saumya.demo.test";
+  // Report authorization is branch-scoped. This persisted assignment is
+  // deliberately explicit; the accountant does not inherit a cashier role.
+  update("INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by) VALUES(910001,910001,?,910011,TRUE,?)",
+    accountant,accountant);
+  String token=demoToken(accountant,"SaumyaFinance2026!");
+
+  mvc.perform(get("/api/v1/vendor/pos/reports/sales").header("Authorization","Bearer "+token)
+      .param("from","2026-11-01").param("to","2026-11-20").param("channel","ALL"))
+    .andExpect(status().isOk());
+
+  int receiptsBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_receipts WHERE tenant_id=910001",Integer.class);
+  int ledgerBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=910001",Integer.class);
+  int quantityBefore=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=910001 AND branch_id=910001 AND product_id=910301",Integer.class);
+  int reservedBefore=db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=910001 AND branch_id=910001 AND product_id=910301",Integer.class);
+  mvc.perform(post("/api/v1/vendor/inventory/receipts").header("Authorization","Bearer "+token)
+      .header("Idempotency-Key","p006-accountant-inventory-denial").with(csrf())
+      .contentType("application/json")
+      .content("{\"productId\":910301,\"quantity\":1,\"reason\":\"Accountant cannot receive inventory\"}"))
+    .andExpect(status().isForbidden());
+
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts WHERE tenant_id=910001",Integer.class))
+    .isEqualTo(receiptsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=910001",Integer.class))
+    .isEqualTo(ledgerBefore);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=910001 AND branch_id=910001 AND product_id=910301",Integer.class))
+    .isEqualTo(quantityBefore);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=910001 AND branch_id=910001 AND product_id=910301",Integer.class))
+    .isEqualTo(reservedBefore);
+  mvc.perform(get("/api/v1/customer/orders").header("Authorization","Bearer "+token))
+    .andExpect(status().isForbidden());
+ }
+
+ @Test void p006VendorAdminCannotForgeTenantScopeThroughQueryParameters() throws Exception {
+  multiVendorDemo();
+  String token=demoToken("admin@saumya.demo.test","SaumyaAdmin2026!");
+  String own=mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+token))
+    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+  String forged=mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+token)
+      .param("tenantId","920001"))
+    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+  assertThat(own).contains("910301").doesNotContain("920301");
+  assertThat(forged).contains("910301").doesNotContain("920301");
+ }
+
 }

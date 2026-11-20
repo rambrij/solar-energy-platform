@@ -63,6 +63,7 @@ class RuntimeAuthorizationPersistedRoleTest {
         db.update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(91001,'runtime-matrix-viewer','Runtime Matrix VIEW only',TRUE,?,?)", USER, USER);
         Long roleId = db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=91001 AND role_key='runtime-matrix-viewer'", Long.class);
         db.update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(91001,?,'ROLE_VIEW',?)", roleId, USER);
+        db.update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(91001,?,'PRODUCT_VIEW',?)", roleId, USER);
         db.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(91001,91001,?,?,TRUE,?)", USER, roleId, USER);
     }
 
@@ -103,6 +104,58 @@ class RuntimeAuthorizationPersistedRoleTest {
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM vendor_roles WHERE tenant_id=91001 AND role_key='should-not-exist'",
             Integer.class)).isZero();
+    }
+
+    @Test
+    void persistedProductViewPermissionAllowsReadButNeverProductCreate() throws Exception {
+        String token = bearerToken();
+
+        mvc.perform(get("/api/v1/vendor/products").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk());
+
+        int before = db.queryForObject(
+            "SELECT COUNT(*) FROM products WHERE tenant_id=91001", Integer.class);
+        String product = json.writeValueAsString(Map.of(
+            "sku", "VIEW-CANNOT-CREATE-001",
+            "name", "Must not be created",
+            "price", 1000.00,
+            "taxRate", 18.00,
+            "published", false,
+            "expectedVersion", 0,
+            "reason", "Runtime VIEW-only mutation denial"
+        ));
+        mvc.perform(post("/api/v1/vendor/products").with(csrf())
+                .header("Authorization", "Bearer " + token)
+                .contentType(APPLICATION_JSON).content(product))
+            .andExpect(status().isForbidden());
+
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM products WHERE tenant_id=91001", Integer.class))
+            .as("VIEW-only product create must not persist a product").isEqualTo(before);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM products WHERE tenant_id=91001 AND sku='VIEW-CANNOT-CREATE-001'",
+            Integer.class)).isZero();
+    }
+
+    @Test
+    void removingPersistedRoleAssignmentImmediatelyRemovesEffectivePermission() throws Exception {
+        String token = bearerToken();
+        mvc.perform(get("/api/v1/vendor/roles").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk());
+
+        db.update("DELETE FROM employee_role_assignments WHERE username=?", USER);
+
+        mvc.perform(get("/api/v1/vendor/roles").header("Authorization", "Bearer " + token))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void disabledPersistedIdentityCannotAuthenticate() throws Exception {
+        db.update("UPDATE users SET enabled=FALSE WHERE username=?", USER);
+        String body = json.writeValueAsString(Map.of("username", USER, "password", PASSWORD));
+        mvc.perform(post("/api/v1/auth/login").with(csrf())
+                .contentType(APPLICATION_JSON).content(body))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

@@ -595,6 +595,23 @@
       "scope": "PLATFORM_IDENTITY_WITHOUT_VENDOR_MEMBERSHIP",
       "expected": 403,
       "test": "PosTest#demoTokensEnforcePlatformAndVendorAndCustomerBoundaries"
+    },
+    {
+      "id": "P006-CUSTOMER-TO-VENDOR-REFUND-BOUNDARY",
+      "actor": "CUSTOMER",
+      "endpoint": "GET /api/v1/vendor/pos/refunds/history",
+      "permission": "POS_VIEW+POS_REFUND_VIEW",
+      "scope": "VENDOR_TENANT_BRANCH_REFUND_HISTORY",
+      "expected": 403,
+      "test": "RefundHistoryControllerAuthorizationTest#historyReturns403WithUnrelatedAuthority",
+      "note": "No customer-owned refund-history endpoint is implemented; refund history is a vendor POS resource."
+    }
+  ],
+  "notApplicableResources": [
+    {
+      "actor": "CUSTOMER",
+      "resource": "Vendor-managed cash refund records",
+      "reason": "Refund and payout APIs are scoped to vendor tenant/branch permissions; no customer-owned cash refund endpoint is currently mapped. Customer order and receipt ownership is covered separately."
     }
   ]
 }

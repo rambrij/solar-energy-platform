@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -53,6 +54,11 @@ def load_route_rows(path: Path) -> list[dict[str, str]]:
     if not rows:
         raise RuntimeError("Runtime route CSV contains no endpoint rows")
     return rows
+
+
+def normalize_route(value: str) -> str:
+    path = value.split("?", 1)[0].rstrip("/") or "/"
+    return re.sub(r"\\{[^/]+\\}", "{}", path)
 
 
 def scenario_reference(reference: str) -> tuple[str, str]:
@@ -99,6 +105,7 @@ def build() -> int:
     scenario_pass = 0
     scenario_fail = 0
     scenario_unexecuted = 0
+    actor_coverage: dict[tuple[str, str], list[str]] = {}
     for scenario in matrix.get("runtimeScenarios", []):
         reference = scenario.get("test", "")
         try:
@@ -117,6 +124,11 @@ def build() -> int:
 
         endpoint = scenario.get("endpoint", "")
         method, _, route = endpoint.partition(" ")
+        if method and route.startswith("/"):
+            key = (method, normalize_route(route))
+            actor_coverage.setdefault(key, []).append(
+                f"{scenario.get('actor', 'UNKNOWN')}:{result}[{actual}]"
+            )
         row = {column: "" for column in columns}
         row.update({
             "row_type": "ACTOR_SCENARIO",
@@ -134,6 +146,12 @@ def build() -> int:
             "other_actor_matrix": "Only this explicit actor/endpoint scenario is represented"
         })
         combined.append(row)
+
+    for row in combined:
+        if row.get("row_type") != "LIVE_ENDPOINT":
+            continue
+        key = (row.get("method", ""), normalize_route(row.get("route", "")))
+        row["other_actor_matrix"] = ";".join(actor_coverage.get(key, [])) or "NOT_EXECUTED"
 
     ROUTE_REPORT.parent.mkdir(parents=True, exist_ok=True)
     with ROUTE_REPORT.open("w", encoding="utf-8", newline="") as handle:

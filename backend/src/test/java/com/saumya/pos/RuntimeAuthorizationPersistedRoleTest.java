@@ -381,9 +381,10 @@ class RuntimeAuthorizationPersistedRoleTest {
                     }
                     String anonymousResult = anonymousExpected.equals("PUBLIC")
                         ? "NOT_APPLICABLE" : ("401".equals(anonymousActual) ? "PASS" : "FAIL");
-                    String viewExpected = mutating ? "403" : "NOT_APPLICABLE";
-                    String viewActual = mutating && viewDeniedOperations.contains(operation) ? "403" : "NOT_APPLICABLE";
-                    String viewResult = !mutating ? "NOT_APPLICABLE"
+                    boolean publicEndpoint = policy.value().contains("permitAll()");
+                    String viewExpected = mutating && !publicEndpoint ? "403" : "NOT_APPLICABLE";
+                    String viewActual = mutating && !publicEndpoint && viewDeniedOperations.contains(operation) ? "403" : "NOT_APPLICABLE";
+                    String viewResult = !mutating || publicEndpoint ? "NOT_APPLICABLE"
                         : (viewDeniedOperations.contains(operation) ? "PASS" : "NOT_EXECUTED");
                     String escapedRoute = route.replace("\"", "\"\"");
                     String escapedPermission = policy.value().replace("\"", "\"\"");

@@ -62,7 +62,7 @@ class RuntimeAuthorizationPersistedRoleTest {
     @Autowired PasswordEncoder passwords;
     @Autowired ObjectMapper json;
     @Autowired ApplicationContext applicationContext;
-    @Autowired RequestMappingHandlerMapping requestMappings;
+    @Autowired @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping requestMappings;
     @Autowired AuthenticationService identities;
     @Autowired JwtService jwt;
 

@@ -2888,7 +2888,7 @@ class PosTest {
        concrete=concrete.replace("{"+key+"}",matrixPathValue(parameter,controllerType.getSimpleName()));
       }
      }
-     concrete=concrete.replaceAll("\\\\{[^/]+\\\\}","1");
+     concrete=concrete.replaceAll("\\{[^/]+\\}","1");
      var request=org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request(
          HttpMethod.valueOf(httpMethod.name()),java.net.URI.create("http://localhost"+concrete))
        .header("Authorization","Bearer "+token);

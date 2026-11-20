@@ -308,4 +308,5 @@ The existing implementation has useful authorization controls and must be preser
 
 - **P0-06 follow-up (2026-11-21):** The all-route persisted NO_PERMISSION actor sweep still fails before authorization on payment/refund DTO validation in the prior test run. The test-only payload generator now reads record-component constraints from the record component, backing field, accessor, and canonical constructor parameter to handle Java annotation propagation. This fix is in `94c98c3c6144b8279c09391be4e049d7e721b7d9` and requires a fresh H2/MySQL CI run. No authorization assertion was weakened.
 - Added an explicit valid three-letter currency sample (`INR`) for the subscription-plan request's `[A-Za-z]{3}` constraint. The prior no-permission sweep failed on that malformed test DTO (400) before authorization; the next H2/MySQL run must verify the probe reaches 403.
+- Added uppercase `[A-Z]{3}` currency handling to the synthetic request generator after the POS settings endpoint returned 400 before method security. The expected 403 remains unchanged. Fresh H2/MySQL route-sweep validation is required.
 

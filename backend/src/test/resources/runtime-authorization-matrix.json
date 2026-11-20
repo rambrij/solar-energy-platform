@@ -28,7 +28,8 @@
     "DISABLED": "Persisted disabled user and disabled employee membership; authentication must fail.",
     "WRONG_TENANT": "Persisted active employee and complete role in another tenant.",
     "WRONG_CUSTOMER": "Persisted global customer identity unrelated to the target customer resource.",
-    "ANONYMOUS": "No bearer token."
+    "ANONYMOUS": "No bearer token.",
+    "WRONG_ASSIGNMENT": "Persisted active vendor employee with required operation permissions, assigned to a different register in the same branch; forged target register/session identifiers must not grant access."
   },
   "controllerPolicies": {
     "CashierSalesController": {

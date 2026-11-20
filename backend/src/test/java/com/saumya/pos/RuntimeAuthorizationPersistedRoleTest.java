@@ -138,6 +138,29 @@ class RuntimeAuthorizationPersistedRoleTest {
     }
 
     @Test
+    void forgedTenantHeaderCannotChangePersistedVendorMembershipScope() throws Exception {
+        db.update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(91002,'Foreign Runtime Tenant','foreign-runtime-tenant','Foreign Runtime Tenant','ACTIVE')");
+        db.update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(91002,'foreign-runtime-secret-role','Foreign Tenant Secret Role',TRUE,?,?)", USER, USER);
+
+        String token = bearerToken();
+        String ownTenantResponse = mvc.perform(get("/api/v1/vendor/roles")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertThat(ownTenantResponse).contains("runtime-matrix-viewer");
+        assertThat(ownTenantResponse).doesNotContain("foreign-runtime-secret-role");
+
+        String forgedTenantResponse = mvc.perform(get("/api/v1/vendor/roles")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Tenant-ID", "91002")
+                .header("X-Tenant-Id", "91002"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertThat(forgedTenantResponse).contains("runtime-matrix-viewer");
+        assertThat(forgedTenantResponse).doesNotContain("foreign-runtime-secret-role");
+    }
+
+    @Test
     void removingPersistedRoleAssignmentImmediatelyRemovesEffectivePermission() throws Exception {
         String token = bearerToken();
         mvc.perform(get("/api/v1/vendor/roles").header("Authorization", "Bearer " + token))

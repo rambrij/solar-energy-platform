@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import csv
 import json
-import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -58,7 +57,13 @@ def load_route_rows(path: Path) -> list[dict[str, str]]:
 
 def normalize_route(value: str) -> str:
     path = value.split("?", 1)[0].rstrip("/") or "/"
-    return re.sub(r"\\{[^/]+\\}", "{}", path)
+    parts = []
+    for segment in path.split("/"):
+        if len(segment) > 1 and segment.startswith("{") and segment.endswith("}"):
+            parts.append("{}")
+        else:
+            parts.append(segment)
+    return "/".join(parts)
 
 
 def scenario_reference(reference: str) -> tuple[str, str]:

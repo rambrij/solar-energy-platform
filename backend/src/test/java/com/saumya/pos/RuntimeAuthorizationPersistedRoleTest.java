@@ -616,6 +616,7 @@ class RuntimeAuthorizationPersistedRoleTest {
                 || name.contains("cashier")) return "runtime.matrix.viewer@example.test";
             if (name.contains("ticket")) return "P006-TICKET-REF";
             if (name.contains("token")) return "A".repeat(43);
+            if (name.contains("requestid") || name.contains("uuid")) return "550e8400-e29b-41d4-a716-446655440000";
             if (name.contains("code") || name.contains("otp")) return "123456";
             if (name.contains("reason") || name.contains("purpose")) return "Runtime authorization matrix";
             if (name.contains("currency")) return "INR";

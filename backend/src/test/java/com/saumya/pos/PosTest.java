@@ -2556,6 +2556,8 @@ class PosTest {
   asCustomer(customerA,()->payments.confirm(customerA,draft.id(),attempt.attemptId()));
   mvc.perform(get("/api/v1/customer/orders/"+draft.id()).header("Authorization","Bearer "+tokenA))
     .andExpect(status().isOk());
+  mvc.perform(get("/api/v1/customer/orders/"+draft.id()+"/receipt").header("Authorization","Bearer "+tokenA))
+    .andExpect(status().isOk());
   mvc.perform(get("/api/v1/customer/orders/"+draft.id()).header("Authorization","Bearer "+tokenB))
     .andExpect(status().isNotFound());
   mvc.perform(get("/api/v1/customer/orders/"+draft.id()+"/receipt").header("Authorization","Bearer "+tokenB))

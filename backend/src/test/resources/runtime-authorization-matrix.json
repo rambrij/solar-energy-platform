@@ -605,6 +605,16 @@
       "expected": 403,
       "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped",
       "note": "No customer-owned refund-history endpoint is implemented; refund history is a vendor POS resource."
+    },
+    {
+      "id": "P006-VENDOR-ADMIN-STALE-PRODUCT-VERSION",
+      "actor": "VENDOR_ADMIN",
+      "endpoint": "PUT /api/v1/vendor/products/{id}",
+      "permission": "PRODUCT_UPDATE",
+      "scope": "AUTHENTICATED_TENANT_PRODUCT_AND_OPTIMISTIC_VERSION",
+      "expected": 409,
+      "test": "PosTest#p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped",
+      "sideEffect": "stale update leaves product version unchanged"
     }
   ],
   "notApplicableResources": [

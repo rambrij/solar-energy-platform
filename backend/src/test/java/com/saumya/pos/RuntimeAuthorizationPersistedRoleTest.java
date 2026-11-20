@@ -41,6 +41,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -339,6 +340,11 @@ class RuntimeAuthorizationPersistedRoleTest {
         // explicitly marked NOT EXECUTED rather than inferred from annotations.
         List<String> report = new ArrayList<>();
         report.add("method,route,controller,operation,effective_permission,scope,anonymous_expected,anonymous_actual,anonymous_result,view_mutation_expected,view_mutation_actual,view_mutation_result,other_actor_matrix");
+        JsonNode controllerPolicies;
+        try (var matrixStream = getClass().getResourceAsStream("/runtime-authorization-matrix.json")) {
+            assertThat(matrixStream).isNotNull();
+            controllerPolicies = json.readTree(matrixStream).path("controllerPolicies");
+        }
         for (var entry : requestMappings.getHandlerMethods().entrySet()) {
             HandlerMethod handler = entry.getValue();
             Class<?> controllerType = handler.getBeanType();
@@ -377,10 +383,12 @@ class RuntimeAuthorizationPersistedRoleTest {
                         : (viewDeniedOperations.contains(operation) ? "PASS" : "NOT_EXECUTED");
                     String escapedRoute = route.replace("\"", "\"\"");
                     String escapedPermission = policy.value().replace("\"", "\"\"");
+                    String scope = controllerPolicies.path(controllerType.getSimpleName()).path("scope").asText("UNSPECIFIED");
+                    String escapedScope = scope.replace("\"", "\"\"");
                     report.add(String.join(",", List.of(
                         httpMethod.name(), "\"" + escapedRoute + "\"",
                         controllerType.getSimpleName(), handler.getMethod().getName(),
-                        "\"" + escapedPermission + "\"", "\"" + controllerType.getSimpleName() + "\"",
+                        "\"" + escapedPermission + "\"", "\"" + escapedScope + "\"",
                         anonymousExpected, anonymousActual, anonymousResult,
                         viewExpected, viewActual, viewResult, "NOT_EXECUTED"
                     )));

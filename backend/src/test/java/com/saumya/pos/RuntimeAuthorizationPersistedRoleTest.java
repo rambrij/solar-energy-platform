@@ -372,7 +372,8 @@ class RuntimeAuthorizationPersistedRoleTest {
                     String anonymousActual;
                     try {
                         anonymousActual = Integer.toString(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request(
-                            httpMethod.name(), concretePath).with(csrf()))
+                            org.springframework.http.HttpMethod.valueOf(httpMethod.name()),
+                            java.net.URI.create("http://localhost" + concretePath)).with(csrf()))
                             .andReturn().getResponse().getStatus());
                     } catch (Exception failure) {
                         anonymousActual = "EXECUTION_ERROR";

@@ -190,6 +190,8 @@ def build() -> int:
             continue
         key = (row.get("method", ""), normalize_route(row.get("route", "")))
         no_permission = missing_permission_by_route.get(key)
+        if no_permission is None and key[0] == "ANY":
+            no_permission = missing_permission_by_route.get(("GET", key[1]))
         if no_permission is not None:
             row["missing_permission_expected"] = no_permission.get("expected_status", "")
             row["missing_permission_actual"] = no_permission.get("actual_status", "")
@@ -216,6 +218,10 @@ def build() -> int:
     missing_permission_pass = sum(row.get("result") == "PASS" for row in missing_permission_rows)
     missing_permission_fail = sum(row.get("result") == "FAIL" for row in missing_permission_rows)
     missing_permission_unexecuted = sum(row.get("result") == "NOT_EXECUTED" for row in missing_permission_rows)
+    missing_permission_route_unexecuted = sum(
+        row.get("row_type") == "LIVE_ENDPOINT" and row.get("missing_permission_result") == "NOT_EXECUTED"
+        for row in combined
+    )
     summary: dict[str, Any] = {
         "database": "resolved by current CI matrix job",
         "liveEndpointRows": live_count,
@@ -229,6 +235,7 @@ def build() -> int:
         "missingPermissionHttpChecksPassed": missing_permission_pass,
         "missingPermissionHttpChecksFailed": missing_permission_fail,
         "missingPermissionHttpChecksNotExecuted": missing_permission_unexecuted,
+        "missingPermissionRouteRowsNotExecuted": missing_permission_route_unexecuted,
         "actorScenariosDeclared": len(matrix.get("runtimeScenarios", [])),
         "notApplicableResourceRows": len(matrix.get("notApplicableResources", [])),
         "actorScenariosPassed": scenario_pass,
@@ -242,7 +249,7 @@ def build() -> int:
     }
     SUMMARY_REPORT.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print("P0-06_RUNTIME_REPORT|" + json.dumps(summary, sort_keys=True))
-    return 1 if anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or scenario_fail or scenario_unexecuted else 0
+    return 1 if anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or missing_permission_route_unexecuted or scenario_fail or scenario_unexecuted else 0
 
 
 if __name__ == "__main__":

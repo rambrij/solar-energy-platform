@@ -521,6 +521,26 @@
       "scope": "TENANT_BRANCH_RETURN_OWNERSHIP",
       "expected": 404,
       "test": "PosTest#returnHttpPermissionsCsrfOriginalOwnershipAndForgedFieldsFailClosed"
+    },
+    {
+      "id": "P006-VIEW-ONLY-ALL-MAPPED-MUTATIONS",
+      "actor": "VIEW_ONLY",
+      "endpoint": "ALL mapped POST/PUT/PATCH/DELETE controller operations",
+      "permission": "PERSISTED_EFFECTIVE_VIEW_GRANTS_ONLY",
+      "scope": "PERSISTED_VENDOR_ROLE",
+      "expected": 403,
+      "test": "RuntimeAuthorizationPersistedRoleTest#everyMappedMutationRejectsPersistedViewOnlyActorBeforeAnySideEffect",
+      "sideEffect": "66 controller operations denied and protected-table row counts unchanged"
+    },
+    {
+      "id": "P006-VIEW-ONLY-PAYMENT-ADAPTER-NOT-INVOKED",
+      "actor": "VIEW_ONLY",
+      "endpoint": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm",
+      "permission": "CUSTOMER",
+      "scope": "CUSTOMER_PAYMENT_CONFIRM",
+      "expected": 403,
+      "test": "RuntimeAuthorizationPersistedRoleTest#everyMappedMutationRejectsPersistedViewOnlyActorBeforeAnySideEffect",
+      "sideEffect": "MockVendorPaymentAdapter has zero interactions"
     }
   ]
 }

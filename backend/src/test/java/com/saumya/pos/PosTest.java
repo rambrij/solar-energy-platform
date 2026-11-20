@@ -2834,10 +2834,10 @@ class PosTest {
   assignRegister(accountantName,910001,910001,adminRegister);
 
   PosService.Scope adminScope=new PosService.Scope(910001,910001,adminName);
-  if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier_username=? AND status='OPEN'",
+  if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",
       Integer.class,adminName)==0)as(adminName,()->service.open(adminScope,new PosService.OpenSession(adminRegister,BigDecimal.ZERO)));
   PosService.Scope cashierScope=new PosService.Scope(910001,910001,cashierName);
-  if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier_username=? AND status='OPEN'",
+  if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",
       Integer.class,cashierName)==0)as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
 
   Map<String,String> tokens=new LinkedHashMap<>();

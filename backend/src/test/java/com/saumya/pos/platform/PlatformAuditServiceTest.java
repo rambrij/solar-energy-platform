@@ -55,7 +55,10 @@ class PlatformAuditServiceTest {
             java.util.List.of(new SimpleGrantedAuthority("PLATFORM_SUBSCRIPTION_ADJUST"))));
         for(String action:java.util.List.of("TENANT_SUBSCRIPTION_CREATED","TENANT_SUBSCRIPTION_STATUS_CHANGED"))
             service.record("platform@example.test",action,"TENANT_SUBSCRIPTION","1",910001L,"Subscription administration","trace-subscription");
-        verify(repository,times(6)).saveAndFlush(any());
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_IDENTITY_MANAGE"))));
+        service.record("platform@example.test","PLATFORM_MFA_ENROLLMENT_ISSUED","PLATFORM_IDENTITY","target@example.test",null,"MFA reset","trace-mfa");
+        verify(repository,times(7)).saveAndFlush(any());
     }
 
     @Test void subscriptionAuditActionsRejectActorsWithoutTheirSpecificPlatformGrant(){

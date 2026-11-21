@@ -2947,7 +2947,8 @@ class PosTest {
 
   List<String> csv=new ArrayList<>();
   csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");
-  int protectedRows=0,passedRows=0;
+  int protectedRows=0,passedRows=0,failedRows=0;
+  List<String> endpointFailures=new ArrayList<>();
   for(var entry:requestMappings.getHandlerMethods().entrySet()){
    HandlerMethod handler=entry.getValue();Class<?> controllerType=handler.getBeanType();
    if(!controllerType.getName().startsWith("com.saumya.pos.")
@@ -3032,19 +3033,23 @@ class PosTest {
        handler.getMethod().getName(),actor,matrixCsv(permission),scope,"AUTHORIZED",Integer.toString(actual),
        result,exception,"PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"));
      System.out.println("P006_ENDPOINT_ACTOR|"+httpMethod.name()+"|"+route+"|"+actor+"|"+actual+"|"+result);
-     protectedRows++;if(pass)passedRows++;
-     assertThat(pass).as("persisted %s actor must pass endpoint authorization %s %s (%s); actual=%s exception=%s body=%s",
-       actor,httpMethod.name(),route,policy.value(),actual,exception,
-       response.getResponse().getContentAsString()).isTrue();
+     protectedRows++;
+     if(pass)passedRows++;
+     else {
+      failedRows++;
+      endpointFailures.add(actor+" "+httpMethod.name()+" "+route+" policy="+policy.value()
+          +" actual="+actual+" exception="+exception+" body="+response.getResponse().getContentAsString());
+     }
     }
    }
   }
   assertThat(protectedRows).as("all protected live method/route mappings executed with a persisted actor").isGreaterThan(100);
-  assertThat(passedRows).isEqualTo(protectedRows);
   Path path=Path.of("target","p0-06-runtime-actor-endpoint-http.csv");
   try{Files.createDirectories(path.getParent());Files.write(path,csv,StandardCharsets.UTF_8);}
   catch(java.io.IOException error){throw new AssertionError("Cannot write endpoint actor matrix",error);}
-  System.out.println("P006_ENDPOINT_ACTOR_SUMMARY|protectedRoutes="+protectedRows+"|passed="+passedRows+"|failed=0|PASS");
+  System.out.println("P006_ENDPOINT_ACTOR_SUMMARY|protectedRoutes="+protectedRows+"|passed="+passedRows+"|failed="+failedRows);
+  endpointFailures.forEach(failure->System.out.println("P006_ENDPOINT_ACTOR_FAILURE|"+failure));
+  assertThat(failedRows).as("all protected live method/route mappings must execute successfully with persisted matching actors").isZero();
  }
 
 }

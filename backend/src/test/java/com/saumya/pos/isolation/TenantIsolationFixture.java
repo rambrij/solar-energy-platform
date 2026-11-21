@@ -97,7 +97,6 @@ public final class TenantIsolationFixture {
             {VENDOR_B_TENANT, roleB, "ROLE_ASSIGN", VENDOR_B},
             {VENDOR_B_TENANT, roleB, "USER_UPDATE", VENDOR_B},
             {VENDOR_B_TENANT, roleB, "USER_DISABLE", VENDOR_B},
-            {VENDOR_B_TENANT, roleB, "INVENTORY_VIEW", VENDOR_B},
             {VENDOR_B_TENANT, roleB, "INVENTORY_VIEW", VENDOR_B}
         }) {
             db.update(

@@ -94,9 +94,13 @@ public class VendorRoleService {
             .findFirst().orElseThrow(() -> new ResponseStatusException(BAD_REQUEST,"Unknown standard template"));
         if (definition.deferredReason() != null || version != definition.version())
             throw new ResponseStatusException(CONFLICT,"Template unavailable or version changed");
-        boolean standard = definition.roleKey().equals(key);
-        key = standard ? key : key.strip().toLowerCase(Locale.ROOT);
-        name = name.strip();
+        String requestedKey = key == null ? "" : key.strip();
+        // Accept the stable v1 form used by existing clients, but persist the
+        // version-specific key for every later catalogue revision.
+        boolean standard = requestedKey.equals("standard:" + definition.key()) ||
+            requestedKey.equals(definition.roleKey());
+        key = standard ? definition.roleKey() : requestedKey.toLowerCase(Locale.ROOT);
+        name = name == null ? "" : name.strip();
         if ((!standard && !key.matches("[a-z][a-z0-9_-]{1,79}")) || name.isBlank() || name.length()>120)
             throw new ResponseStatusException(BAD_REQUEST,"Invalid role key or display name");
         var grants = permissions(requested);

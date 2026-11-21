@@ -11,7 +11,7 @@ const balance={orderId:'sale-1',orderStatus:'DRAFT',total:110,confirmed:0,remain
 it('records partial cash with change and keeps sale unpaid',async()=>{
  const complete=vi.fn();vi.mocked(api).mockImplementation(async(_path,body)=>body?{...balance,confirmed:40,remaining:70,tenders:[{attemptId:'cash-1',method:'CASH',state:'CONFIRMED',amount:40}]}:balance);
  render(<SplitTenderCheckout orderId="sale-1" onComplete={complete} onBusyChange={vi.fn()}/>);fireEvent.click(screen.getByText('Load tender balance'));await screen.findByText('DRAFT · Paid 0.00 · Remaining 110.00');
- fireEvent.change(screen.getByLabelText('Amount applied'),{target:{value:'40'}});fireEvent.change(screen.getByLabelText('Tender cash received'),{target:{value:'50'}});fireEvent.click(screen.getByText('Record received cash'));
+ fireEvent.change(screen.getByLabelText('Amount applied'),{target:{value:'40'}});fireEvent.change(screen.getByLabelText('Tender cash received'),{target:{value:'50'}});fireEvent.click(screen.getByText('Prepare vendor terminal tender'));
  await screen.findByText('DRAFT · Paid 40.00 · Remaining 70.00');expect(complete).not.toHaveBeenCalled();expect(api).toHaveBeenLastCalledWith('/sales/sale-1/tenders',{method:'CASH',appliedAmount:'40',cashReceived:'50'},expect.any(String));
 });
 it('blocks another charge while external tender outcome is unknown',async()=>{

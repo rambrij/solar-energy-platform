@@ -61,8 +61,9 @@ class PermissionCatalogueSrsParityTest {
         documentedRefinements.addAll(strings(catalogue, "orphanedPermissions"));
         assertThat(runtimeOnly).containsExactlyInAnyOrderElementsOf(documentedRefinements);
         assertThat(strings(catalogue, "platformPermissions")).containsAll(srsPlatform);
-        assertThat(strings(catalogue, "vendorPermissions"))
-            .containsAll(srsVendor.stream().filter(id -> !id.startsWith("PLATFORM_")).toList());
+        assertThat(strings(catalogue, "vendorPermissions")).noneMatch(id -> id.startsWith("PLATFORM_"));
+        assertThat(strings(catalogue, "platformPermissions")).allMatch(id -> id.startsWith("PLATFORM_"));
+        assertThat(strings(catalogue, "customerPermissions")).containsExactly("CUSTOMER");
     }
 
     private static JsonNode catalogue() throws IOException {

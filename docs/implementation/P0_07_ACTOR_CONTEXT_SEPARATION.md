@@ -124,17 +124,19 @@ P0-07 regression coverage is split across two existing test classes:
 
 The `POS tests` workflow selects `AuthenticationActorContextTest`, `AuthorizationContextTest`, `AuthenticationServiceTest`, `IdentityProvisioningServiceTest` and the three persisted P0-07 HTTP scenarios in focused H2 and MySQL 8.4 steps, followed by the complete backend suite. The obsolete Customer-identity rejection test was corrected to RC-01, and the focused selectors now reference existing test classes. Execution remains pending.
 
-## 7. Verification status and remaining acceptance
+## 7. Verified acceptance status
 
-The earlier validation document records a prior baseline of 297 backend tests and 266 frontend tests. Those counts predate the P0-07 changes in this increment and must not be treated as evidence that the new tests pass.
+GitHub Actions run [44891619695](https://github.com/rambrij/solar-energy-platform/actions/runs/44891619695) completed successfully. All three workflow jobs passed: frontend, backend H2 and backend MySQL 8.4.
 
-For this update, the source and test changes were committed to the branch through the repository integration. No local Maven execution was available through that editing path, and the latest commit returned no CI status/check result during this update. Therefore:
+Both backend full-suite runs report 630 tests, zero failures, zero errors and zero skipped. The generated runtime authorization summary in each backend job reports:
+- P0-07 actor-context acceptance: 18 declared, 18 passed, 0 failed, 0 not executed.
+- P0-06 actor scenarios: 41 passed, 0 failed, 0 not executed.
+- VIEW-only mutation checks: 66 passed, 0 failed, 0 not executed; one route explicitly delegated to P0-07 and backed by the dedicated acceptance tests.
+- Missing-permission HTTP checks: 129 passed, 0 failed, 0 not executed.
+- Persisted actor endpoint checks: 86 passed, 0 failed, 0 not executed.
+- Protected live routes without persisted actor authorization evidence: 0.
+- Missing evidence files: 0.
 
-- P0-07 implementation changes: committed.
-- New P0-07 backend regressions: added, execution pending.
-- H2 backend suite after these changes: pending.
-- MySQL 8.4 backend suite after these changes: pending.
-- Frontend tests/build: unchanged by this backend-only increment; no new frontend validation claim.
-- Full P0-07 release acceptance: pending successful automated verification and review.
+The 18 P0-07 scenarios are resolved against the full-suite Surefire XML. A scenario is counted as passed only when its referenced test method exists and has no failure/error. The report generator retains hard failures for failed or unexecuted P0-07 scenarios.
 
-Do not mark P0-07 complete or release-ready until the new tests and complete backend suite pass on both H2 and MySQL 8.4, and the release acceptance evidence is recorded.
+**Automated P0-07 acceptance: PASS on run 44891619695.** This validates the documented automated acceptance criteria. It does not claim unperformed manual browser/device, external identity-provider, production deployment or penetration testing.

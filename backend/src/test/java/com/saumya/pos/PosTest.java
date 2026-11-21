@@ -2688,6 +2688,7 @@ class PosTest {
   if(name.contains("vendorslug"))return "saumya-rooftops";
   if(name.contains("currency"))return "INR";
   if(name.contains("billinginterval"))return "MONTHLY";
+  if(name.equals("requestId"))return "00000000-0000-4000-8000-000000000006";
   if(name.equals("status"))return "CANCELLED";
   if(name.contains("planKey".toLowerCase(Locale.ROOT)))return "p006-matrix-plan";
   if(name.contains("slug"))return "p006-matrix";
@@ -2835,6 +2836,14 @@ class PosTest {
    return product==null?"1":product.toString();
   }
   if(route.contains("/sessions/{id}")){
+   if(actor.equals("VENDOR_ADMIN_SUPERVISOR")&&route.endsWith("/approve-variance")){
+    String session=db.queryForObject("SELECT id FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='CLOSING' ORDER BY register_id ASC LIMIT 1",String.class);
+    return session==null?"P006-NO-SUCH-SESSION":session;
+   }
+   if(actor.equals("VENDOR_ADMIN_SUPERVISOR")&&route.endsWith("/return-for-correction")){
+    String session=db.queryForObject("SELECT id FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='CLOSING' ORDER BY register_id DESC LIMIT 1",String.class);
+    return session==null?"P006-NO-SUCH-SESSION":session;
+   }
    String cashier=actor.equals("POS_CASHIER")?"cashier@saumya.demo.test":
        (actor.equals("ACCOUNTANT")?"finance@saumya.demo.test":"admin@saumya.demo.test");
    String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",String.class,cashier);
@@ -3019,6 +3028,18 @@ class PosTest {
   closeOpenMatrixSessions(cashierScope,cashierName);
   as(adminName,()->service.open(adminScope,new PosService.OpenSession(adminRegister,BigDecimal.ZERO)));
   as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
+  // Two independent CLOSING shifts exercise supervisor approval and return without
+  // relying on a deliberately denied self-review or a synthetic session identifier.
+  Long varianceApproveRegister=adminRegister+1,varianceReturnRegister=adminRegister+2;
+  for(Long register:List.of(varianceApproveRegister,varianceReturnRegister)){
+   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",register);
+   assignRegister(adminName,910001,910001,register);
+   assignRegister(supervisorName,910001,910001,register);
+   String varianceSession=as(adminName,()->service.open(adminScope,new PosService.OpenSession(register,BigDecimal.ZERO))).id();
+   BigDecimal expected=as(adminName,()->service.reconciliation(adminScope,varianceSession)).expectedCash();
+   as(adminName,()->service.close(adminScope,varianceSession,expected.add(BigDecimal.ONE),
+       "P0-06 persisted supervisor review fixture","00000000-0000-4000-8000-000000000006"));
+  }
   // A spare assigned till is used only if a close probe leaves the primary in CLOSING.
   Long cashierRecoveryRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+1 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",cashierRecoveryRegister);
@@ -3156,6 +3177,13 @@ class PosTest {
          """,Long.class,cashierName);
        long registerToOpen=availableRegister==null?cashierRecoveryRegister:availableRegister;
        as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(registerToOpen,BigDecimal.ZERO)));
+      }
+     }
+     if(actor.equals("VENDOR_ADMIN_SUPERVISOR")&&route.endsWith("/return-for-correction")){
+      String reopened=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND register_id=? AND state='OPEN'",String.class,varianceReturnRegister);
+      if(reopened!=null){
+       BigDecimal expected=as(adminName,()->service.reconciliation(adminScope,reopened)).expectedCash();
+       as(adminName,()->service.close(adminScope,reopened,expected));
       }
      }
      int actual=response.getResponse().getStatus();

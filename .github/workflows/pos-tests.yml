@@ -29,7 +29,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: P1-02 tenant role template runtime (H2)
         if: matrix.database == 'h2'
-        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes,P101VendorRoleLifecycleTest#templateRetriesPreserveTenantSnapshotsAndRejectEscalation,StandardRoleTemplatesTest,V54TenantRoleTemplateOriginMigrationTest' test
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes,P101VendorRoleLifecycleTest#templateRetriesPreserveTenantSnapshotsAndRejectEscalation,StandardRoleTemplatesTest,V50LocalDemoRoleAssignmentsTest,V54TenantRoleTemplateOriginMigrationTest' test
       - name: P1-02 tenant role template runtime (MySQL 8.4)
         if: matrix.database == 'mysql'
         env:

@@ -17,6 +17,7 @@
 | Actor / journey | Browser route or API | Required permission / scope | Expected result | Playwright test |
 |---|---|---|---|---|
 | Vendor Admin catalogue | `/vendor/pos/products` | `PRODUCT_VIEW`, active Vendor membership | Route and catalogue page allowed | Vendor Admin route/history/mobile test |
+| Vendor A foreign product IDOR | `PUT /api/v1/vendor/products/{vendorBProductId}` | `PRODUCT_UPDATE`; tenant from Vendor A authenticated membership | Non-disclosing 404; Vendor B product snapshot/version remains unchanged | Vendor Admin cross-tenant resistance test |
 | Vendor Admin tenant filter | `GET /api/v1/vendor/products?tenantId=920001` | `PRODUCT_VIEW`; tenant from authenticated membership | Forged tenant query is ignored; response matches own-tenant query | Vendor Admin tenant-filter resistance |
 | Custom Sales role | `/vendor/pos/products` | Persisted custom role grants `PRODUCT_VIEW` only | Direct route and product list allowed | Custom Sales role test |
 | Custom Sales product mutation | `POST /api/v1/vendor/products` | Requires `PRODUCT_CREATE`, not granted | HTTP 403; product IDs unchanged | Custom Sales role test |

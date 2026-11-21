@@ -1,16 +1,6 @@
--- Local profile only. Replaces the legacy public demo logins with fresh, role-scoped accounts.
+-- Local profile only. Creates current demo identities and explicit tenant-owned role assignments.
 -- Runs after the core RBAC schema and only from classpath:db/local-migration.
 -- Never activate the local profile in production or expose these documented fixture passwords.
-UPDATE users SET enabled=FALSE
-WHERE username LIKE '%@%.demo.test' OR username IN ('local-supervisor','demo-customer','local-cashier');
-UPDATE employees SET enabled=FALSE
-WHERE username LIKE '%@%.demo.test' OR username IN ('local-supervisor','demo-customer','local-cashier');
-UPDATE employee_role_assignments
-SET active=FALSE,revoked_by=username,revoked_at=CURRENT_TIMESTAMP
-WHERE active=TRUE AND (username LIKE '%@%.demo.test' OR username IN ('local-supervisor','demo-customer','local-cashier'));
-UPDATE employee_register_assignments
-SET active=FALSE,revoked_by=username,revoked_at=CURRENT_TIMESTAMP
-WHERE active=TRUE AND (username LIKE '%@%.demo.test' OR username IN ('local-supervisor','demo-customer','local-cashier'));
 
 CREATE TEMPORARY TABLE demo_v51_accounts (
  id BIGINT PRIMARY KEY, username VARCHAR(100) NOT NULL, password_hash VARCHAR(200) NOT NULL,

@@ -419,11 +419,11 @@ class PosTest {
       .andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(customerRefresh)
       .header("Authorization","Bearer "+customerToken).contentType("application/json")
-      .content("{\\"actorType\\":\\"PLATFORM\\"}"))
+      .content("{\"actorType\":\"PLATFORM\"}"))
       .andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(customerRefresh)
       .header("Authorization","Bearer "+customerToken).contentType("application/json")
-      .content("{\\"actorType\\":\\"VENDOR\\",\\"tenantId\\":2}"))
+      .content("{\"actorType\":\"VENDOR\",\"tenantId\":2}"))
       .andExpect(status().isUnauthorized());
   // A rejected context selection must not consume or broaden the existing Customer session.
   mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+customerToken))
@@ -482,7 +482,7 @@ class PosTest {
   long userId=db.queryForObject("SELECT id FROM users WHERE username='dual.switchback@example.test'",Long.class);
   update("INSERT INTO customer_profiles VALUES(?,?)",userId,userId);
 
-  String loginBody="{\\"username\\":\\"dual.switchback@example.test\\",\\"password\\":\\"StaffPasswordForTests\\",\\"actorType\\":\\"VENDOR\\",\\"tenantId\\":1}";
+  String loginBody="{\"username\":\"dual.switchback@example.test\",\"password\":\"StaffPasswordForTests\",\"actorType\":\"VENDOR\",\"tenantId\":1}";
   var login=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(loginBody))
       .andExpect(status().isOk()).andReturn();
   String vendorToken=json.readTree(login.getResponse().getContentAsString()).path("accessToken").asText();
@@ -492,7 +492,7 @@ class PosTest {
 
   var switched=mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(vendorRefresh)
       .header("Authorization","Bearer "+vendorToken).contentType("application/json")
-      .content("{\\"actorType\\":\\"CUSTOMER\\"}"))
+      .content("{\"actorType\":\"CUSTOMER\"}"))
       .andExpect(status().isOk()).andReturn();
   String customerToken=json.readTree(switched.getResponse().getContentAsString()).path("accessToken").asText();
   var customerRefresh=switched.getResponse().getCookie("solar-refresh");
@@ -523,7 +523,7 @@ class PosTest {
   multiVendorDemo();
   var platformSession=authentication.login("superadmin@platform.demo.test","PlatformDemo2026!");
   var refreshCookie=new jakarta.servlet.http.Cookie("solar-refresh",platformSession.refreshToken());
-  for(String target:List.of("{\\"actorType\\":\\"CUSTOMER\\"}","{\\"actorType\\":\\"VENDOR\\",\\"tenantId\\":910001}")) {
+  for(String target:List.of("{\"actorType\":\"CUSTOMER\"}","{\"actorType\":\"VENDOR\",\"tenantId\":910001}")) {
     mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(refreshCookie)
         .header("Authorization","Bearer "+platformSession.accessToken()).contentType("application/json").content(target))
         .andExpect(status().isForbidden());

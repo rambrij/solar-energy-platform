@@ -20,6 +20,8 @@ public class PlatformAuditServiceImpl implements PlatformAuditService {
         if(action.endsWith("_TO_ACTIVE"))return "PLATFORM_TENANT_REACTIVATE";
         if(action.startsWith("SUPPORT_ACCESS_"))return "PLATFORM_SUPPORT_ACCESS";
         if("PLATFORM_CONFIGURATION_UPDATED".equals(action))return "PLATFORM_CONFIG_MANAGE";
+        if(action.startsWith("SUBSCRIPTION_PLAN_"))return "PLATFORM_PLAN_MANAGE";
+        if(action.startsWith("TENANT_SUBSCRIPTION_"))return "PLATFORM_SUBSCRIPTION_ADJUST";
         throw new ResponseStatusException(FORBIDDEN,"Unsupported platform audit action");
     }
     @Override public void record(String actor,String action,String type,String resourceId,Long tenantId,String reason,String correlationId){

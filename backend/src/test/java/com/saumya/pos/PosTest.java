@@ -131,7 +131,8 @@ class PosTest {
   update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(?,?,?,TRUE,?,?)",tenant,roleKey,"Test "+username,username,username);
   Long roleId=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenant,roleKey);
   for(String permission:permissions)update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",tenant,roleId,permission,username);
-  update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",tenant,branch,username,roleId,username);
+  int reactivated=update("UPDATE employee_role_assignments SET branch_id=?,active=TRUE,assigned_by=?,assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL WHERE tenant_id=? AND username=? AND role_id=?",branch,username,tenant,username,roleId);
+  if(reactivated==0)update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",tenant,branch,username,roleId,username);
    Long firstRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=? AND branch_id=?",Long.class,tenant,branch);
    if(firstRegister!=null)assignRegister(username,tenant,branch,firstRegister);
  }

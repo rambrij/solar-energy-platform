@@ -69,7 +69,17 @@ public class TenantEntitlementPolicy {
         boolean readable=writable||Set.of("ACTIVE","CANCEL_AT_PERIOD_END","SUSPENDED","EXPIRED","CANCELLED","PAST_DUE","GRACE_PERIOD").contains(status);
         if(!readable)return List.of();
         JsonNode entitlements;
-        try{entitlements=json.readTree(String.valueOf(row.get("entitlements")));}catch(Exception e){return List.of();}
+        Object rawEntitlements=row.get("entitlements");
+        try{
+            if(rawEntitlements instanceof byte[] jsonBytes)entitlements=json.readTree(jsonBytes);
+            else if(rawEntitlements instanceof java.sql.Blob blob){
+                try(var stream=blob.getBinaryStream()){entitlements=json.readTree(stream);}
+            }else if(rawEntitlements instanceof java.sql.Clob clob){
+                try(var reader=clob.getCharacterStream()){entitlements=json.readTree(reader);}
+            }else if(rawEntitlements instanceof String jsonText)entitlements=json.readTree(jsonText);
+            else if(rawEntitlements!=null)entitlements=json.readTree(rawEntitlements.toString());
+            else return List.of();
+        }catch(Exception e){return List.of();}
         JsonNode features=entitlements.path("features");
         List<String> result=new ArrayList<>();
         for(String permission:grants){

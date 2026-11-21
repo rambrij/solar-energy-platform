@@ -17,7 +17,7 @@ class TenantEntitlementPolicyTest {
     private TenantEntitlementPolicy policy(JdbcTemplate db){
         return new TenantEntitlementPolicy(db,new ObjectMapper(),CLOCK);
     }
-    private Map<String,Object> subscription(String state,LocalDate end,Instant grace,String entitlements){
+    private Map<String,Object> subscription(String state,LocalDate end,Instant grace,Object entitlements){
         Map<String,Object> row=new HashMap<>();row.put("status",state);row.put("billing_period_end",Date.valueOf(end));
         row.put("grace_until",grace==null?null:Timestamp.from(grace));row.put("entitlements",entitlements);return row;
     }
@@ -28,6 +28,16 @@ class TenantEntitlementPolicyTest {
         JdbcTemplate db=mock(JdbcTemplate.class);when(db.queryForList(anyString(),eq(10L))).thenReturn(List.of());
         assertThat(policy(db).permissions(10,List.of("POS_VIEW","POS_SALE_CREATE"))).isEmpty();
     }
+    @Test void h2NativeJsonByteArrayEntitlementsAreParsedAndApplied(){
+        JdbcTemplate db=mock(JdbcTemplate.class);
+        byte[] entitlements="{\\"features\\":{\\"POS\\":true,\\"ADMINISTRATION\\":true}}"
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        rows(db,subscription("ACTIVE",LocalDate.parse("2026-12-01"),null,entitlements));
+
+        assertThat(policy(db).permissions(10,List.of("ROLE_CREATE","ROLE_VIEW","POS_VIEW","POS_SALE_CREATE")))
+            .containsExactly("ROLE_CREATE","ROLE_VIEW","POS_VIEW","POS_SALE_CREATE");
+    }
+
     @Test void activeSubscriptionRequiresExplicitFeatureEntitlement(){
         JdbcTemplate db=mock(JdbcTemplate.class);
         rows(db,subscription("ACTIVE",LocalDate.parse("2026-12-01"),null,"{\"features\":{\"POS\":true,\"CATALOG\":false}}"));

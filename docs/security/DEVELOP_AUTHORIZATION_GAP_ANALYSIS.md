@@ -423,3 +423,9 @@ The existing implementation has useful authorization controls and must be preser
 - The shared authenticated fetch now refreshes the actor snapshot after HTTP 403 without replaying the denied request. Session expiry clears the local actor while persisted pending commands remain available for reconciliation.
 - Added component and session tests for these permission boundaries, revocation, 403 non-replay and expiry/pending-command retention.
 - Static route metadata parity remains aligned with the canonical registry. The full pos-tests.yml workflow includes frontend test/build and backend H2/MySQL 8.4 suites, but GitHub reported no check runs/statuses for the latest branch commit. Repository cloning also failed because this environment cannot resolve GitHub. Therefore test/build and database suites remain **unverified**, and P1-04 must not be marked complete until CI is green.
+
+## P2-01 — Browser E2E coverage (2026-11-22)
+
+**Status: IN PROGRESS — CI VALIDATION PENDING.** Playwright browser tests and a gated CI job have been added on `feature/develop-authorization-gap-analysis`. The suite exercises real browser login/session flows and persisted local demo actors. It does not replace the backend P0-06 Role × Endpoint matrix or the exhaustive P1-04 page/action audit.
+
+See `docs/security/P2-01_BROWSER_E2E_COVERAGE.md` for the route/action/permission/result/test matrix and execution contract. P0-04 evidence remains applicable to its implemented resource scope; P0-06 and P1-04 remain independently open until their own acceptance gates pass on the final branch head.

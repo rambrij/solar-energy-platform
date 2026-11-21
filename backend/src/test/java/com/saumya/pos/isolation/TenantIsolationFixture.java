@@ -152,21 +152,34 @@ public final class TenantIsolationFixture {
             """);
         Long planId=db.queryForObject("SELECT id FROM subscription_plans WHERE plan_key=?",
             Long.class,"p004-p101-test-plan");
-        db.update("""
+        String jsonCast=jsonCastExpression();
+        String entitlementsJson="{\\"features\\":{\\"POS\\":true,\\"CATALOG\\":true,\\"INVENTORY\\":true,\\"ADMINISTRATION\\":true,\\"CRM\\":true,\\"LEADS\\":true,\\"QUOTATIONS\\":true,\\"ORDERS\\":true,\\"RETURNS\\":true,\\"FINANCE\\":true,\\"SHIPMENTS\\":true,\\"SERVICE\\":true,\\"REPORTING\\":true}}";
+        String versionSql="""
             INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,
                 max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,
                 tax_metadata,invoice_description,created_by)
             SELECT ?,1,0,'INR','MONTHLY',1000,100000,100,100,
-                '{"features":{"POS":true,"CATALOG":true,"INVENTORY":true,"ADMINISTRATION":true,"CRM":true,"LEADS":true,"QUOTATIONS":true,"ORDERS":true,"RETURNS":true,"FINANCE":true,"SHIPMENTS":true,"SERVICE":true,"REPORTING":true}}',
-                30,'{}','P004/P1-01 test subscription',?
+                %s,30,%s,'P004/P1-01 test subscription',?
             WHERE NOT EXISTS(SELECT 1 FROM subscription_plan_versions WHERE plan_id=? AND version=1)
-            """,planId,actorUsername,planId);
-        db.update("""
+            """.formatted(jsonCast,jsonCast);
+        db.update(versionSql,planId,entitlementsJson,"{}",actorUsername,planId);
+        String subscriptionSql="""
             INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,
                 billing_period_start,billing_period_end,terms_snapshot)
-            SELECT ?,?,1,'ACTIVE',DATE '2026-01-01',DATE '2099-12-31','{"test":true}'
+            SELECT ?,?,1,'ACTIVE',DATE '2026-01-01',DATE '2099-12-31',%s
             WHERE NOT EXISTS(SELECT 1 FROM tenant_subscriptions WHERE tenant_id=?)
-            """,tenantId,planId,tenantId);
+            """.formatted(jsonCast);
+        db.update(subscriptionSql,tenantId,planId,"{\\"test\\":true}",tenantId);
+    }
+
+    private String jsonCastExpression(){
+        try(var connection=db.getDataSource().getConnection()){
+            if("H2".equalsIgnoreCase(connection.getMetaData().getDatabaseProductName()))
+                return "CAST(? FORMAT JSON AS JSON)";
+            return "CAST(? AS JSON)";
+        }catch(java.sql.SQLException error){
+            throw new IllegalStateException("Unable to resolve database JSON binding syntax",error);
+        }
     }
 
     public record Seed(long vendorARoleId, long vendorBRoleId) {}

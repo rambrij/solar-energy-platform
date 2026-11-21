@@ -44,4 +44,14 @@ describe('PlatformApp',()=>{
   expect(await screen.findByText('v2 · INR 999 · MONTHLY')).toBeTruthy();
   expect(screen.getByText('v1 · INR 799 · MONTHLY')).toBeTruthy();
  });
+ it('hides tenant creation and plan mutation forms from view-only platform roles',async()=>{
+  vi.mocked(useSession).mockReturnValue({ready:true,account:{...account,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_SUBSCRIPTION_VIEW']}} as ReturnType<typeof useSession>);
+  render(<PlatformApp/>);
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith(expect.stringContaining('/tenants?')));
+  expect(screen.queryByText('Create vendor tenant')).toBeNull();
+  fireEvent.click(screen.getAllByRole('button',{name:/subscription plans/i})[0]);
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/subscription-plans'));
+  expect(screen.queryByText('Save plan version')).toBeNull();
+ });
+
 });

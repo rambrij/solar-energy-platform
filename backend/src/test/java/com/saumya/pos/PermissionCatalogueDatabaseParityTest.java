@@ -59,14 +59,15 @@ class PermissionCatalogueDatabaseParityTest {
         } catch (java.sql.SQLException e) {
             throw new IllegalStateException("Unable to identify database schema for permission FK parity", e);
         }
-        Integer count = jdbc.queryForObject("""
+        String sql = """
             SELECT COUNT(*)
             FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
             WHERE UPPER(CONSTRAINT_NAME)=?
-              AND UPPER(CONSTRAINT_SCHEMA)=UPPER("""+currentSchemaExpression+""")
+              AND UPPER(CONSTRAINT_SCHEMA)=UPPER(%s)
               AND UPPER(TABLE_NAME)=?
               AND CONSTRAINT_TYPE='FOREIGN KEY'
-            """, Integer.class, name, table);
+            """.formatted(currentSchemaExpression);
+        Integer count = jdbc.queryForObject(sql, Integer.class, name, table);
         assertThat(count).as("database foreign key %s on %s in current schema", name, table).isEqualTo(1);
     }
 }

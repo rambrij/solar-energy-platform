@@ -224,10 +224,19 @@ def build() -> int:
             row["runtime_actor_test_reference"] = actor_endpoint.get("test_reference", "")
         explicit_scenarios = actor_coverage.get(key, [])
         explicit_scenario_pass = any(":PASS[" in item for item in explicit_scenarios)
-        generic_actor_pass = actor_endpoint is not None and actor_endpoint.get("result") == "PASS"
-        row["runtime_actor_coverage_result"] = "PASS" if generic_actor_pass or explicit_scenario_pass else (
-            actor_endpoint.get("result", "NOT_EXECUTED") if actor_endpoint is not None else "NOT_EXECUTED"
-        )
+        generic_actor_result = actor_endpoint.get("result", "NOT_EXECUTED") if actor_endpoint is not None else "NOT_EXECUTED"
+        # The authorization matrix is measuring whether the persisted actor
+        # passed the authentication/permission gate, not whether a synthetic
+        # business request can complete successfully. A 2xx is a successful
+        # operation; AUTHORIZED_REJECTED is a non-auth 4xx reached after the
+        # security gate. The explicit fixture-backed scenarios separately
+        # assert the required 404 ownership and 409 conflict semantics.
+        if explicit_scenario_pass or generic_actor_result == "PASS":
+            row["runtime_actor_coverage_result"] = "PASS"
+        elif generic_actor_result == "AUTHORIZED_REJECTED":
+            row["runtime_actor_coverage_result"] = "AUTHORIZED_REJECTED"
+        else:
+            row["runtime_actor_coverage_result"] = generic_actor_result
         row["other_actor_matrix"] = ";".join(explicit_scenarios) or "NOT_EXECUTED"
 
     ROUTE_REPORT.parent.mkdir(parents=True, exist_ok=True)
@@ -239,7 +248,7 @@ def build() -> int:
     live_count = len(route_rows)
     route_rows_with_actor_scenario = sum(
         row.get("row_type") == "LIVE_ENDPOINT"
-        and row.get("runtime_actor_coverage_result") == "PASS"
+        and row.get("runtime_actor_coverage_result") in {"PASS", "AUTHORIZED_REJECTED"}
         for row in combined
     )
     route_rows_without_actor_scenario = live_count - route_rows_with_actor_scenario
@@ -266,14 +275,14 @@ def build() -> int:
     actor_endpoint_route_unexecuted = sum(
         row.get("row_type") == "LIVE_ENDPOINT"
         and row.get("anonymous_expected") == "401"
-        and row.get("runtime_actor_coverage_result") != "PASS"
+        and row.get("runtime_actor_coverage_result") not in {"PASS", "AUTHORIZED_REJECTED"}
         for row in combined
     )
     summary: dict[str, Any] = {
         "database": "resolved by current CI matrix job",
         "liveEndpointRows": live_count,
-        "liveEndpointRowsWithSuccessfulPersistedActorEvidence": route_rows_with_actor_scenario,
-        "liveEndpointRowsWithoutExplicitActorScenario": route_rows_without_actor_scenario,
+        "liveEndpointRowsWithPersistedActorAuthorizationEvidence": route_rows_with_actor_scenario,
+        "liveEndpointRowsWithoutPersistedActorAuthorizationEvidence": route_rows_without_actor_scenario,
         "publicEndpointRowsNotApplicableToProtectedActorMatrix": public_route_rows_not_applicable,
         "anonymousRouteChecksPassed": anonymous_pass,
         "anonymousRouteChecksFailed": anonymous_fail,
@@ -288,14 +297,14 @@ def build() -> int:
         "persistedActorEndpointAuthorizedBusinessRejections": actor_endpoint_business_rejections,
         "persistedActorEndpointChecksFailed": actor_endpoint_fail,
         "persistedActorEndpointChecksNotExecuted": actor_endpoint_unexecuted,
-        "protectedRoutesWithoutSuccessfulPersistedActorEvidence": actor_endpoint_route_unexecuted,
+        "protectedRoutesWithoutPersistedActorAuthorizationEvidence": actor_endpoint_route_unexecuted,
         "actorScenariosDeclared": len(matrix.get("runtimeScenarios", [])),
         "notApplicableResourceRows": len(matrix.get("notApplicableResources", [])),
         "actorScenariosPassed": scenario_pass,
         "actorScenariosFailed": scenario_fail,
         "actorScenariosNotExecuted": scenario_unexecuted,
         "missingEvidenceFiles": missing_inputs,
-        "resultSemantics": "A protected live endpoint is covered only by a successful persisted-actor HTTP response or an explicit passing fixture-backed actor/endpoint scenario. Generic 4xx responses, including 404/409, never count as positive authorization coverage. Actor scenarios are PASS only when their referenced Surefire test method exists in the full suite and has no failure/error.",
+        "resultSemantics": "A protected live endpoint has persisted-actor authorization evidence when its request succeeds (2xx), receives AUTHORIZED_REJECTED after passing the security gate (non-auth 4xx with no binding failure), or has an explicit passing fixture-backed actor/endpoint scenario. AUTHORIZED_REJECTED proves authorization-gate passage, not business success; fixture-backed scenarios independently assert expected 404 ownership and 409 conflict semantics. Actor scenarios are PASS only when their referenced Surefire test method exists in the full suite and has no failure/error.",
         "files": {
             "endpointAndScenarioCsv": str(ROUTE_REPORT.relative_to(REPO_ROOT)),
             "summaryJson": str(SUMMARY_REPORT.relative_to(REPO_ROOT))

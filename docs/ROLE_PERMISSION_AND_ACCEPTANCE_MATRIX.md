@@ -51,7 +51,7 @@ Deny by default. A visible menu is not authorization. Cross-tenant IDs must not 
 | Vendor catalogue/product/stock/order as platform owner | — | — |
 | Vendor customer purchase funds/payouts | — | — |
 
-A Platform Super Admin does not become Vendor Admin by virtue of platform role. If the same person operates a vendor, a separate vendor membership and explicit tenant role are required. Support access is not a standing data permission.
+A Platform Super Admin does not become Vendor Admin by virtue of platform role. If the same person operates a vendor, a separate vendor membership and explicit tenant role are required. Support access is not a standing data permission. A global Customer profile may coexist with a Vendor employee membership, but the user must explicitly select one actor context per session; the permissions are never combined. Platform remains a separate identity with no commercial context switch. See [P0-07 — Explicit actor-context separation](implementation/P0_07_ACTOR_CONTEXT_SEPARATION.md).
 
 ## 4. Vendor role-to-feature matrix
 

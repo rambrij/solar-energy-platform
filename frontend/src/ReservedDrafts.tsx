@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSession } from './session';
 import { api, ApiError } from './api';
 import { marketplaceApi, MarketplaceError } from './marketplaceApi';
 import type {Draft} from './draftTypes';
@@ -17,6 +18,10 @@ import {countDrafts,filterDrafts,formatTimeLeft,heldTabs,type HeldTab} from './h
 type Attempt = { action: 'create' | 'cancel' | 'cash'; id?: string; body: unknown; key?: string };
 type Props = { mode: 'online' | 'pos'; session?: string; cartId?: string | null; items?: { productId: number; quantity: number }[]; invoiceRequested?: boolean; buyer?:BuyerDetails; discounts?:SaleDiscounts; disabled?: boolean; createDisabled?: boolean; onBlocked?: (value: boolean) => void; onReceipt?: (value: Receipt, finalized: boolean) => void; onStockChange?: () => void; onPaymentComplete?: () => void };
 export default function ReservedDrafts({ mode, session, cartId, items = [], invoiceRequested = false, buyer, discounts, disabled = false, createDisabled = false, onBlocked, onReceipt, onStockChange, onPaymentComplete }: Props) {
+  const {account}=useSession();
+  const canCreate=mode!=='pos'||!!account?.permissions.includes('POS_SALE_CREATE');
+  const canCancel=mode!=='pos'||!!account?.permissions.includes('POS_SALE_CANCEL');
+  const canCashTender=mode!=='pos'||!!account?.permissions.includes('POS_TENDER_CASH_RECORD');
   const storageKey = mode === 'pos' ? `pos-reserved-attempt-v1:${session}` : 'online-reserved-attempt-v1';
   const [pending, setPending] = useState<Attempt | undefined>(() => { try { return JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') ?? undefined; } catch { return undefined; } });
   const [drafts, setDrafts] = useState<Draft[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState(''),[statusFailed,setStatusFailed]=useState(false);
@@ -45,6 +50,9 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], invo
   }
   useEffect(() => { if (mode === 'pos') void reload(); return () => { generation.current += 1; }; }, [mode, session]);
   async function run(attempt: Attempt) {
+    if(attempt.action==='create'&&!canCreate){setError('POS_SALE_CREATE permission is required to reserve a walk-in sale.');return;}
+    if(attempt.action==='cancel'&&!canCancel){setError('POS_SALE_CANCEL permission is required to cancel a walk-in draft.');return;}
+    if(attempt.action==='cash'&&!canCashTender){setError('POS_TENDER_CASH_RECORD permission is required to complete a reserved cash sale.');return;}
     try { sessionStorage.setItem(storageKey, JSON.stringify(attempt)); } catch { setError('Cannot save retry details. No request was submitted.'); return; }
     const wasPending = !!pending;
     generation.current += 1; setPending(attempt); onBlocked?.(true); setBusy(true); setError('');
@@ -69,10 +77,10 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], invo
     <h2>{mode === 'pos' ? 'Reserve and complete a walk-in sale' : 'Reserve your vendor cart'}</h2>
     <p>Stock is held until the displayed expiry. A draft is unpaid. Check the reserved order payment status/options before taking funds. Online simulation is separate from independently verified vendor terminal tenders.</p>
     {error && <p role="alert">{error}</p>}
-    <button disabled={busy || disabled || statusFailed || createDisabled || !!pending || held || (mode === 'pos' ? !items.length : !cartId)} onClick={create}>Reserve {mode === 'pos' ? 'walk-in sale' : 'cart'} without payment</button>
+    {(mode!=='pos'||canCreate)&&<button disabled={busy || disabled || statusFailed || createDisabled || !!pending || held || (mode === 'pos' ? !items.length : !cartId)} onClick={create}>Reserve {mode === 'pos' ? 'walk-in sale' : 'cart'} without payment</button>}
     <button disabled={busy||paymentBusy} onClick={() => { setError(''); void reload(); }}>Reload reserved drafts</button>
     <DraftReferenceRecovery mode={mode} requiredId={pending?.id} disabled={busy} onRecovered={value=>{generation.current++;setRecovered(value);setStatusFailed(false);setError('');setNow(Date.now());}}/>
-    {pending && <button disabled={busy} onClick={() => void run(pending)}>Retry same draft operation</button>}
+    {pending && (pending.action==='create'?canCreate:pending.action==='cancel'?canCancel:canCashTender) && <button disabled={busy} onClick={() => void run(pending)}>Retry same draft operation</button>}
     {resolvedPending && <div><p>Server status is {resolvedPending.status}. Reconcile any cash already received before starting another sale. Paid sales require the return/refund workflow.</p><button disabled={busy} onClick={() => { sessionStorage.removeItem(storageKey); setPending(undefined); setError(''); }}>Acknowledge resolved draft status</button></div>}
     {mode==='pos'&&visibleDrafts.length>0&&<div className="held-tabs" role="tablist" aria-label="Held and completed bills" onKeyDown={event=>{const index=heldTabs.findIndex(item=>item.id===tab);if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();const next=heldTabs[(index+(event.key==='ArrowRight'?1:heldTabs.length-1))%heldTabs.length];setTab(next.id);document.getElementById(`held-tab-${next.id}`)?.focus();}}}>{heldTabs.map(item=><button type="button" role="tab" key={item.id} id={`held-tab-${item.id}`} aria-selected={tab===item.id} aria-controls="held-tab-panel" tabIndex={tab===item.id?0:-1} className={tab===item.id?'held-tab held-tab-active':'held-tab'} onClick={()=>setTab(item.id)}>{item.label} <span className="badge">{counts[item.id]}</span></button>)}</div>}
     {mode==='pos'&&visibleDrafts.length>0&&shownDrafts.length===0&&<p role="status">{tab==='held'?'No bills are on hold. Reserve a sale to hold it with its stock.':'No completed bills yet.'}</p>}
@@ -84,10 +92,10 @@ export default function ReservedDrafts({ mode, session, cartId, items = [], invo
       {mode==='pos'&&draft.status==='DRAFT'&&draft.sessionId!==session&&<p>Reserved under another cashier session. It cannot be paid from the current session; cancel it if appropriate.</p>}
       {mode==='pos'&&draft.status==='DRAFT'&&<WalkInCustomer orderId={draft.id} disabled={busy||disabled||paymentBusy||draft.expired}/>}
       {draft.status === 'DRAFT' && <fieldset disabled={paymentBusy}>
-        <label>Cancellation reason <input maxLength={250} disabled={busy||disabled||!!pending} value={reasonByDraft[draft.id]??''} onChange={event=>setReasonByDraft(values=>({...values,[draft.id]:event.target.value}))}/></label>
-        {mode==='pos'&&<CashTender amountDue={draft.total} cash={cashByDraft[draft.id]??''} onCash={value=>setCashByDraft(values=>({...values,[draft.id]:value}))} eligible={canTenderReservation(draft,session,now)} locked={busy||disabled||statusFailed||!!pending||!canTenderReservation(draft,session,now)} label="Cash received for reserved sale"/>}
-        <button disabled={busy || disabled || statusFailed || !!pending || !(reasonByDraft[draft.id]??'').trim()} onClick={() => void run({ action: 'cancel', id: draft.id, body: { reason: (reasonByDraft[draft.id]??'').trim() } })}>Cancel draft {draft.id}</button>
-        {mode === 'pos' && <button disabled={busy || disabled || statusFailed || !!pending || !canTenderReservation(draft,session,now)||assessCash(cashByDraft[draft.id]??'',draft.total).status!=='ready'} onClick={() => void run({ action: 'cash', id: draft.id, body: { cashReceived: cashByDraft[draft.id]??'' } })}>Complete reserved cash sale</button>}
+        {(mode!=='pos'||canCancel)&&<label>Cancellation reason <input maxLength={250} disabled={busy||disabled||!!pending} value={reasonByDraft[draft.id]??''} onChange={event=>setReasonByDraft(values=>({...values,[draft.id]:event.target.value}))}/></label>}
+        {mode==='pos'&&canCashTender&&<CashTender amountDue={draft.total} cash={cashByDraft[draft.id]??''} onCash={value=>setCashByDraft(values=>({...values,[draft.id]:value}))} eligible={canTenderReservation(draft,session,now)} locked={busy||disabled||statusFailed||!!pending||!canTenderReservation(draft,session,now)} label="Cash received for reserved sale"/>}
+        {(mode!=='pos'||canCancel)&&<button disabled={busy || disabled || statusFailed || !!pending || !(reasonByDraft[draft.id]??'').trim()} onClick={() => void run({ action: 'cancel', id: draft.id, body: { reason: (reasonByDraft[draft.id]??'').trim() } })}>Cancel draft {draft.id}</button>}
+        {mode === 'pos' && canCashTender && <button disabled={busy || disabled || statusFailed || !!pending || !canTenderReservation(draft,session,now)||assessCash(cashByDraft[draft.id]??'',draft.total).status!=='ready'} onClick={() => void run({ action: 'cash', id: draft.id, body: { cashReceived: cashByDraft[draft.id]??'' } })}>Complete reserved cash sale</button>}
         {mode==='pos'?<SplitTenderCheckout orderId={draft.id} reservationExpired={draft.expired||Date.parse(draft.expiresAt)<=now} disabled={busy||disabled||statusFailed||!!pending||!Number.isFinite(Date.parse(draft.expiresAt))||draft.sessionId!==session} onBusyChange={setPaymentBusy} onComplete={()=>{void (async()=>{onStockChange?.();onPaymentComplete?.();await reload();if(mode==='pos'){try{onReceipt?.(await api(`/receipts/${draft.id}`),true);}catch{setError('Payment confirmed. Recover the receipt; do not take another payment.');}}})();}}/>:<PaymentCheckout orderId={draft.id} disabled={busy||disabled||statusFailed||!!pending||draft.expired||Date.parse(draft.expiresAt)<=now} onBusyChange={setPaymentBusy} onComplete={()=>{onStockChange?.();onPaymentComplete?.();void reload();}}/>}
       </fieldset>}
       {mode === 'pos' && draft.status === 'PAID' && <button disabled={busy||disabled} onClick={async () => { try { onReceipt?.(await api(`/receipts/${draft.id}`),false); } catch { setError('Receipt unavailable. Check receipt-view permission and retry.'); } }}>Recover sale receipt</button>}

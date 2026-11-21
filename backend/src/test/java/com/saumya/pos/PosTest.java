@@ -2413,7 +2413,10 @@ class PosTest {
   if(type==BigDecimal.class)return BigDecimal.ONE;
   if(type==java.time.LocalDate.class)return java.time.LocalDate.of(2026,11,17);
   if(type==java.time.Instant.class)return java.time.Instant.parse("2026-11-17T00:00:00Z");
-  if(type.isEnum())return type.getEnumConstants().length==0?null:type.getEnumConstants()[0];
+  if(type.isEnum()){
+   if(type.getSimpleName().equals("TenantStatus"))return Enum.valueOf((Class<Enum>)type,"SUSPENDED");
+   return type.getEnumConstants().length==0?null:type.getEnumConstants()[0];
+  }
   if(List.class.isAssignableFrom(type))return List.of();
   if(Set.class.isAssignableFrom(type))return Set.of();
   if(Map.class.isAssignableFrom(type))return Map.of();
@@ -2664,6 +2667,8 @@ class PosTest {
 
  private String matrixStringValue(String field){
   String name=field==null?"":field.toLowerCase(Locale.ROOT);
+  if(name.contains("initialvendoradmin"))return "p006.tenant.owner@example.test";
+  if(name.equals("username"))return "p006.matrix.employee@saumya.demo.test";
   if(name.contains("email"))return "matrix.probe@example.test";
   if(name.contains("username")||name.contains("actor")||name.contains("cashier"))return "admin@saumya.demo.test";
   if(name.contains("token"))return "A".repeat(43);
@@ -2671,6 +2676,8 @@ class PosTest {
   if(name.contains("requestid")||name.contains("uuid"))return "550e8400-e29b-41d4-a716-446655440000";
   if(name.contains("ticket"))return "P006-MATRIX-TICKET";
   if(name.contains("otp")||name.equals("code"))return "123456";
+  if(name.contains("permission"))return "PRODUCT_VIEW";
+  if(name.contains("vendorslug"))return "saumya-rooftops";
   if(name.contains("currency"))return "INR";
   if(name.contains("billinginterval"))return "MONTHLY";
   if(name.equals("status"))return "CANCELLED";
@@ -2718,6 +2725,8 @@ class PosTest {
    if(n.contains("customer"))return 949001L;
    if(n.contains("product"))return 910301L;
    if(n.contains("quantity"))return 1L;
+   if(n.contains("role")){Long role=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=910001",Long.class);return role==null?1L:role;}
+   if(n.contains("category")){Long category=db.queryForObject("SELECT MIN(id) FROM catalog_categories WHERE tenant_id=910001",Long.class);return category==null?1L:category;}
    if(n.contains("plan")){Long plan=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);return plan==null?1L:plan;}
    return 1L;
   }
@@ -2729,7 +2738,7 @@ class PosTest {
    return 1;
   }
   if(type==Short.class||type==short.class)return (short)1;
-  if(type==Boolean.class||type==boolean.class)return true;
+  if(type==Boolean.class||type==boolean.class)return !name.equalsIgnoreCase("sensitive");
   if(type==BigDecimal.class)return BigDecimal.ONE;
   if(type==java.time.LocalDate.class)return name.toLowerCase(Locale.ROOT).contains("end")?java.time.LocalDate.now().plusMonths(1):java.time.LocalDate.now();
   if(type==java.time.Instant.class)return java.time.Instant.now().plus(java.time.Duration.ofHours(2));
@@ -2772,17 +2781,51 @@ class PosTest {
   return null;
  }
 
- private String matrixPathValue(java.lang.reflect.Parameter parameter,String controller,String route){
+ private String matrixPathValue(java.lang.reflect.Parameter parameter,String controller,String route,String actor){
   String key=parameter.getName();
   var annotation=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
   if(annotation!=null){if(!annotation.name().isBlank())key=annotation.name();else if(!annotation.value().isBlank())key=annotation.value();}
   Class<?> type=parameter.getType();
+  if(route.contains("/vendor/categories/{id}")){
+   Long category=db.queryForObject("SELECT MIN(id) FROM catalog_categories WHERE tenant_id=910001",Long.class);
+   return category==null?"1":category.toString();
+  }
+  if(route.contains("/vendor/roles/{id}")){
+   Long role=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=910001",Long.class);
+   return role==null?"1":role.toString();
+  }
+  if(route.contains("/vendor/pos/orders/{id}")){
+   String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND sales_channel='IN_STORE'",String.class);
+   return order==null?"1":order;
+  }
+  if(route.contains("/customer/orders/{id}")){
+   String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE customer_id=949001 AND sales_channel='ONLINE'",String.class);
+   return order==null?"1":order;
+  }
+  if(route.contains("/customer/checkout/drafts/{id}")){
+   String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE customer_id=949001 AND sales_channel='ONLINE' AND status='DRAFT'",String.class);
+   return order==null?"1":order;
+  }
+  if(route.contains("/vendor/pos/drafts/{id}")){
+   String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND sales_channel='IN_STORE' AND status='DRAFT'",String.class);
+   return order==null?"1":order;
+  }
+  if(route.contains("/vendor/pos/sales/{id}")){
+   String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND sales_channel='IN_STORE'",String.class);
+   return order==null?"1":order;
+  }
+  if(route.contains("/vendor/pos/receipts/{id}")){
+   Long receipt=db.queryForObject("SELECT MIN(receipt_number) FROM orders WHERE tenant_id=910001 AND sales_channel='IN_STORE' AND status='PAID'",Long.class);
+   return receipt==null?"1":receipt.toString();
+  }
   if(route.contains("/vendor/products/{id}")){
    Long product=db.queryForObject("SELECT MIN(id) FROM products WHERE tenant_id=910001",Long.class);
    return product==null?"1":product.toString();
   }
-  if(route.contains("/sessions/{id}/close-status")){
-   String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='cashier@saumya.demo.test' AND state='OPEN'",String.class);
+  if(route.contains("/sessions/{id}")){
+   String cashier=actor.equals("POS_CASHIER")?"cashier@saumya.demo.test":
+       (actor.equals("ACCOUNTANT")?"finance@saumya.demo.test":"admin@saumya.demo.test");
+   String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier=?",String.class,cashier);
    return session==null?"1":session;
   }
   if(route.contains("/subscription-plans/{id}")){
@@ -2790,10 +2833,12 @@ class PosTest {
    return plan==null?"1":plan.toString();
   }
   if(route.contains("/tenants/{tenantId}/subscription"))return "930001";
+  if(route.contains("/identities/{username}"))return "superadmin@platform.demo.test";
   if(type==java.util.UUID.class)return "550e8400-e29b-41d4-a716-446655440000";
   if(type==String.class){
    String n=key.toLowerCase(Locale.ROOT);
    if(controller.contains("Platform")&&n.contains("username"))return "superadmin@platform.demo.test";
+   if(n.contains("username"))return "admin@saumya.demo.test";
    if(n.contains("order")||n.contains("draft")||route.contains("/sales/{")){
     String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND branch_id=910001 AND cashier='admin@saumya.demo.test' AND sales_channel='IN_STORE' AND status='PAID'",String.class);
     return order==null?"1":order;
@@ -2828,13 +2873,14 @@ class PosTest {
   return "1";
  }
 
- private String matrixActorForEndpoint(String controller,String expression,
+ private String matrixActorForEndpoint(String controller,String expression,String route,
      Map<String,String> tokens,Map<String,Set<String>> permissions){
   String preferred;
   if(controller.startsWith("Platform")){
-   preferred=expression.contains("PLATFORM_SUPPORT_ACCESS")?"PLATFORM_SUPPORT":"PLATFORM_SUPER_ADMIN";
+   preferred=expression.contains("PLATFORM_IDENTITY_MANAGE")?"PLATFORM_SUPER_ADMIN_SECOND":
+       (expression.contains("PLATFORM_SUPPORT_ACCESS")?"PLATFORM_SUPPORT":"PLATFORM_SUPER_ADMIN");
   }else if(expression.contains("'CUSTOMER'")&&!expression.contains("PLATFORM_"))preferred="CUSTOMER";
-  else if(controller.contains("Report")||expression.contains("POS_REPORT_VIEW"))preferred="ACCOUNTANT";
+  else if(controller.contains("Report")||(expression.contains("POS_REPORT_VIEW")&&!expression.contains("POS_VIEW")))preferred="ACCOUNTANT";
   else if(controller.contains("Pos")||controller.contains("Register")||controller.contains("Shift")
       ||controller.contains("Return")||controller.contains("Refund")||controller.contains("Cash")
       ||controller.contains("BranchSettings"))preferred="POS_CASHIER";
@@ -2877,6 +2923,12 @@ class PosTest {
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",supportId,
       supportUsername,encoder.encode("MatrixSupportPassword2026!"));
   update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,'PLATFORM_SUPPORT_ACCESS')",supportUsername);
+  String secondPlatformAdmin="p006.matrix.platform2@platform.demo.test";
+  long secondPlatformId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",secondPlatformId,
+      secondPlatformAdmin,encoder.encode("MatrixPlatform2Password2026!"));
+  for(String permission:com.saumya.pos.platform.PlatformPermissionRegistry.all())
+   update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,?)",secondPlatformAdmin,permission);
 
   String adminName="admin@saumya.demo.test";
   Long adminRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+100 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
@@ -2922,6 +2974,7 @@ class PosTest {
     {"POS_CASHIER",cashierName,"SaumyaTill2026!"},
     {"ACCOUNTANT",accountantName,"SaumyaFinance2026!"},
     {"PLATFORM_SUPER_ADMIN","superadmin@platform.demo.test","PlatformDemo2026!"},
+    {"PLATFORM_SUPER_ADMIN_SECOND",secondPlatformAdmin,"MatrixPlatform2Password2026!"},
     {"PLATFORM_SUPPORT",supportUsername,"MatrixSupportPassword2026!"},
     {"CUSTOMER","asha@customer.demo.test","AshaBuyer2026!"}
   };
@@ -2960,7 +3013,7 @@ class PosTest {
    var policy=methodPolicy!=null?methodPolicy:classPolicy;
    assertThat(policy).as("security policy for %s#%s",controllerType.getSimpleName(),handler.getMethod().getName()).isNotNull();
    if(policy.value().contains("permitAll()"))continue;
-   String actor=matrixActorForEndpoint(controllerType.getSimpleName(),policy.value(),tokens,grants);
+   String actor=matrixActorForEndpoint(controllerType.getSimpleName(),policy.value(),route,tokens,grants);
    String token=tokens.get(actor);
    Set<RequestMethod> mappingMethods=entry.getKey().getMethodsCondition().getMethods();
    List<RequestMethod> methods=mappingMethods.isEmpty()?List.of(RequestMethod.GET):mappingMethods.stream().sorted().toList();

@@ -2778,9 +2778,9 @@ class PosTest {
   if(type==String.class){
    String n=key.toLowerCase(Locale.ROOT);
    if(controller.contains("Platform")&&n.contains("username"))return "superadmin@platform.demo.test";
-   if(n.contains("order")||n.contains("draft")){
-    Long order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001",Long.class);
-    return order==null?"1":order.toString();
+   if(n.contains("order")||n.contains("draft")||route.contains("/sales/{")){
+    String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND branch_id=910001 AND cashier='admin@saumya.demo.test' AND channel='IN_STORE' AND status='PAID'",String.class);
+    return order==null?"1":order;
    }
    if(n.contains("session")){
     Long session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",Long.class);
@@ -2791,8 +2791,12 @@ class PosTest {
   }
   String n=key.toLowerCase(Locale.ROOT);
   if(n.contains("order")||n.contains("draft")){
-   Long order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001",Long.class);
-   return order==null? "1":order.toString();
+   String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001",String.class);
+   return order==null? "1":order;
+  }
+  if(route.contains("/subscriptions/{")){
+   Long subscription=db.queryForObject("SELECT MIN(id) FROM tenant_subscriptions",Long.class);
+   return subscription==null?1:subscription;
   }
   if(n.contains("session")||route.contains("/sessions/{")){
    Long session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",Long.class);
@@ -2882,6 +2886,16 @@ class PosTest {
   PosService.Scope cashierScope=new PosService.Scope(910001,910001,cashierName);
   if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",
       Integer.class,cashierName)==0)as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
+
+  // Finalize is a read of an already-paid sale in this sweep. Seed that sale
+  // through the real checkout flow so the probe proves endpoint authorization
+  // and branch/session ownership without invoking an unconfigured payment.
+  String adminSession=db.queryForObject("SELECT id FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN' ORDER BY id LIMIT 1",String.class,adminName);
+  if(db.queryForObject("SELECT COUNT(*) FROM orders WHERE tenant_id=910001 AND branch_id=910001 AND cashier=? AND channel='IN_STORE' AND status='PAID'",Integer.class,adminName)==0){
+   as(adminName,()->checkout.cashSale(adminName,"p006-matrix-paid-sale",
+       new CheckoutService.CashSale(adminSession,List.of(new CheckoutService.Item(910301,1)),
+           new BigDecimal("100000"),false,null,null)));
+  }
 
   Map<String,String> tokens=new LinkedHashMap<>();
   Map<String,Set<String>> grants=new LinkedHashMap<>();

@@ -27,6 +27,9 @@
 | Platform Super Admin | `/platform` | Persisted platform grants; no vendor membership | Platform workspace allowed | Platform boundary test |
 | Platform-to-vendor boundary | `/vendor/pos` | Vendor actor context required | Workspace access denied | Platform boundary test |
 | Customer purchase history | `/marketplace/purchases` | `CUSTOMER` actor; self-owned resources | Customer purchase page allowed | Customer test |
+
+| Cashier completed sale | `/vendor/pos` → assigned register → current bill → receipt | `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SALE_CREATE`, `POS_TENDER_CASH_RECORD`, `POS_RECEIPT_VIEW`; persisted register assignment | Cash sale is finalized and original receipt is displayed | Cashier POS cash-sale test |
+| Permission revocation | Existing Sales token → `GET /api/v1/vendor/products` → reload protected product route | `PRODUCT_VIEW` removed from active persisted role assignment | Existing bearer request returns 403; refreshed session no longer renders protected page | Revoked custom Sales role test |
 | Expired refresh session | Reload protected `/vendor/pos` with refresh rejected | Valid refresh family required | Local actor cleared; sign-in boundary shown | Session expiry test |
 | Responsive navigation | `/vendor/pos/products`, 390×844 viewport | Route's normal permission | Mobile menu opens and only allowed links are shown | Vendor Admin + Cashier tests |
 | Browser history / refresh | Catalogue → Sales History → Back → Reload | Existing route permissions | Deep link and browser history restore expected page | Vendor Admin route/history test |

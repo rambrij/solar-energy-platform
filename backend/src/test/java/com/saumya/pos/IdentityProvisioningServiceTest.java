@@ -60,7 +60,9 @@ class IdentityProvisioningServiceTest {
         var existingCustomer=new GlobalUser(9,"customer@vendor.test","$2a$10$active",true);
         when(users.findByUsername("customer@vendor.test")).thenReturn(Optional.of(existingCustomer));
         var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,new BCryptPasswordEncoder(4),Clock.systemUTC());
-        authorize(service,vendorActor());
+        // Initial tenant onboarding is Platform-authorized; the existing Customer
+        // profile must not be rejected once the Platform actor passes this boundary.
+        authorize(service,platformActor());
 
         service.ensureVendorEligible("customer@vendor.test");
         var invitation=service.issueInvitation("customer@vendor.test");

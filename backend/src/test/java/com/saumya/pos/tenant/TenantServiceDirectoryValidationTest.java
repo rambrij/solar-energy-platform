@@ -16,10 +16,10 @@ class TenantServiceDirectoryValidationTest {
 
     @Test void directTenantCreationRequiresPlatformGrantBeforeSequenceOrRepositoryAccess(){
         var repository=mock(TenantRepository.class);
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor-operator","n/a",java.util.List.of(new SimpleGrantedAuthority("POS_VIEW"))));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor-operator","n/a",java.util.List.of(new SimpleGrantedAuthority("POS_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))));
         var service=new TenantService(repository,null,Clock.systemUTC());
         assertThatThrownBy(()->service.create(null)).isInstanceOf(ResponseStatusException.class)
-            .hasMessageContaining("Platform identity required");
+            .hasMessageContaining("Explicit Platform actor context required");
         verifyNoInteractions(repository);
     }
 

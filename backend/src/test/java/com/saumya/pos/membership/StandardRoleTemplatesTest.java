@@ -35,6 +35,16 @@ class StandardRoleTemplatesTest {
     }
 
     @Test
+    void vendorAdminSnapshotCoversEveryImplementedAssignableVendorPermission() {
+        var vendorAdmin = StandardRoleTemplates.ALL.stream()
+            .filter(template -> template.key().equals("VENDOR_ADMIN"))
+            .findFirst().orElseThrow();
+        assertThat(vendorAdmin.supported()).isTrue();
+        assertThat(vendorAdmin.permissions())
+            .containsExactlyInAnyOrderElementsOf(VendorPermissionRegistry.all());
+    }
+
+    @Test
     void deferredTemplatesHaveExplicitReasonsAndAreNotMaterializedDefinitions() {
         var deferred = StandardRoleTemplates.ALL.stream()
             .filter(template -> !template.supported())

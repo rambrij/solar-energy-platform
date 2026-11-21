@@ -18,7 +18,7 @@ class V50LocalDemoRoleAssignmentsTest {
   try(var in=new ClassPathResource("db/local-migration/V51__refresh_local_demo_credentials.sql").getInputStream()){
    sql=StreamUtils.copyToString(in,StandardCharsets.UTF_8);
   }
-  assertThat(sql).contains("standard:", "employee_role_assignments", "demo_v51_standard_permissions");
+  assertThat(sql).contains("standard:", "employee_role_assignments", "demo_v51_standard_permissions", "vendor_access_audit_events");
   assertThat(sql).doesNotContain("demo_v51_role_grants","employee_permissions","legacy-");
   String v51Permissions=sql.substring(sql.indexOf("INSERT INTO demo_v51_standard_permissions VALUES"),
       sql.indexOf(";",sql.indexOf("INSERT INTO demo_v51_standard_permissions VALUES")));
@@ -40,4 +40,15 @@ class V50LocalDemoRoleAssignmentsTest {
   }
   assertThat(sql).contains("template_key=SUBSTRING(role_key,10)","template_version=1","role_key LIKE 'standard:%'");
  }
+ @Test void v39SeedsTenantBusinessFixturesWithoutObsoleteEmployeeOrGrantRows() throws Exception {
+  String sql;
+  try(var in=new ClassPathResource("db/local-migration/V39__local_multi_vendor_demo_seed.sql").getInputStream()){
+   sql=StreamUtils.copyToString(in,StandardCharsets.UTF_8);
+  }
+  assertThat(sql).contains("demo_vendors","demo_products","demo_registers");
+  assertThat(sql).doesNotContain("demo_accounts","demo_new_accounts","employee_permissions",
+      "local_demo_role_permission_seed","INSERT INTO users","INSERT INTO employees",
+      "INSERT INTO vendor_role_permissions","INSERT INTO employee_role_assignments");
+ }
+
 }

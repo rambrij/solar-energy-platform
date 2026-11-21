@@ -67,16 +67,19 @@ class P101VendorRoleLifecycleTest {
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM tenant_subscriptions WHERE tenant_id=? AND status='ACTIVE'",
             Integer.class,VENDOR_A_TENANT)).as("P1-01 tenant has a persisted active subscription").isEqualTo(1);
-        String jdbcEntitlements=db.queryForObject("""
-            SELECT CAST(v.entitlements AS CHAR)
+        Object rawEntitlements=db.queryForObject("""
+            SELECT v.entitlements
             FROM tenant_subscriptions s
             JOIN subscription_plan_versions v ON v.plan_id=s.plan_id AND v.version=s.plan_version
             WHERE s.tenant_id=?
-            """,String.class,VENDOR_A_TENANT);
+            """,Object.class,VENDOR_A_TENANT);
+        String jdbcEntitlements=rawEntitlements instanceof byte[] jsonBytes
+            ? new String(jsonBytes,java.nio.charset.StandardCharsets.UTF_8)
+            : String.valueOf(rawEntitlements);
         assertThat(jdbcEntitlements)
             .as("P1-01 JDBC entitlement JSON text: %s",jdbcEntitlements)
             .startsWith("{")
-            .contains("\"ADMINISTRATION\":true","\"POS\":true");
+            .contains("\\"ADMINISTRATION\\":true","\\"POS\\":true");
         assertThat(db.queryForList("""
             SELECT rp.permission
             FROM employee_role_assignments a

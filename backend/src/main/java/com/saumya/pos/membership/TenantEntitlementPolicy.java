@@ -51,7 +51,7 @@ public class TenantEntitlementPolicy {
     public List<String> permissions(long tenant,List<String> grants){
         var rows=db.queryForList("""
             SELECT s.status,s.billing_period_end,s.grace_until,
-                   CAST(v.entitlements AS CHAR) AS entitlements
+                   v.entitlements AS entitlements
             FROM tenant_subscriptions s
             JOIN subscription_plan_versions v ON v.plan_id=s.plan_id AND v.version=s.plan_version
             WHERE s.tenant_id=?

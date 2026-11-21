@@ -9,7 +9,10 @@ import org.flywaydb.core.api.migration.Context;
 public class V49__remove_legacy_employee_permissions extends BaseJavaMigration {
  @Override public void migrate(Context context) throws Exception {
   Connection connection=context.getConnection();
-  if(tableExists(connection,"employee_permissions"))try(var s=connection.createStatement()){s.executeUpdate("DROP TABLE employee_permissions");}
+  dropLegacyTable(connection);
+ }
+ static void dropLegacyTable(Connection c)throws SQLException{
+  if(tableExists(c,"employee_permissions"))try(var s=c.createStatement()){s.executeUpdate("DROP TABLE employee_permissions");}
  }
  private static boolean tableExists(Connection c,String table)throws SQLException{
   DatabaseMetaData m=c.getMetaData();

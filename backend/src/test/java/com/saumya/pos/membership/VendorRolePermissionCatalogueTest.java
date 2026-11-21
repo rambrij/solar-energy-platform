@@ -38,6 +38,27 @@ class VendorRolePermissionCatalogueTest {
     }
 
     @Test
+    void customRoleCreationRejectsReservedConflictingPlatformAndUnknownPermissionsBeforePersistence() {
+        var db = mock(JdbcTemplate.class);
+        var auth = mock(AuthorizationContext.class);
+        var memberships = mock(MembershipService.class);
+        when(auth.current()).thenReturn(new AuthorizationContext.Context(
+            "admin@vendor.test", 7L, 12L, "7:admin@vendor.test",
+            Set.of("ROLE_CREATE"), false, false, true));
+        var service = new VendorRoleService(db, auth, mock(IdentityInvitationPort.class), memberships);
+
+        for (String permission : List.of("INVENTORY_ADJUST", "POS_TENDER_EXTERNAL_CONFIRM",
+                "PLATFORM_TENANT_CREATE", "NOT_A_PERMISSION")) {
+            assertThatThrownBy(() -> service.create("restricted", "Restricted role",
+                    List.of(permission), "Reject non-canonical permission"))
+                .as("custom roles cannot contain %s", permission)
+                .isInstanceOfSatisfying(ResponseStatusException.class, error ->
+                    assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        }
+        verifyNoInteractions(db, memberships);
+    }
+
+    @Test
     void actorWithoutRoleAdministrationCannotReadDelegablePermissionCatalogue() {
         var db = mock(JdbcTemplate.class);
         var auth = mock(AuthorizationContext.class);

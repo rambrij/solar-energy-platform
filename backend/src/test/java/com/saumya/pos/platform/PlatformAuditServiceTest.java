@@ -23,7 +23,7 @@ class PlatformAuditServiceTest {
         Instant now=Instant.parse("2026-11-16T00:00:00Z");
         when(repository.saveAndFlush(any())).thenAnswer(inv->inv.getArgument(0));
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_SUSPEND"))));
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_SUSPEND"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         var service=new PlatformAuditServiceImpl(repository,Clock.fixed(now,ZoneOffset.UTC));
         service.record("platform@example.test","TENANT_SUSPENDED","TENANT","12",12L,"Risk review","trace-12");
         var captor=ArgumentCaptor.forClass(PlatformAuditEvent.class);
@@ -37,7 +37,7 @@ class PlatformAuditServiceTest {
     @Test void directAuditWriteRequiresMatchingPlatformActorAndActionPermission(){
         var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))));
         assertThatThrownBy(()->service.record("vendor","TENANT_CREATED","TENANT","1",1L,"reason","trace"))
             .isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(repository);
@@ -47,16 +47,16 @@ class PlatformAuditServiceTest {
         var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
         when(repository.saveAndFlush(any())).thenAnswer(inv->inv.getArgument(0));
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_PLAN_MANAGE"))));
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_PLAN_MANAGE"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         for(String action:java.util.List.of("SUBSCRIPTION_PLAN_CREATED","SUBSCRIPTION_PLAN_VERSION_CREATED",
                 "SUBSCRIPTION_PLAN_ENABLED","SUBSCRIPTION_PLAN_DISABLED"))
             service.record("platform@example.test",action,"SUBSCRIPTION_PLAN","1",null,"Plan administration","trace-plan");
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_SUBSCRIPTION_ADJUST"))));
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_SUBSCRIPTION_ADJUST"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         for(String action:java.util.List.of("TENANT_SUBSCRIPTION_CREATED","TENANT_SUBSCRIPTION_STATUS_CHANGED"))
             service.record("platform@example.test",action,"TENANT_SUBSCRIPTION","1",910001L,"Subscription administration","trace-subscription");
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_IDENTITY_MANAGE"))));
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_IDENTITY_MANAGE"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         service.record("platform@example.test","PLATFORM_MFA_ENROLLMENT_ISSUED","PLATFORM_IDENTITY","target@example.test",null,"MFA reset","trace-mfa");
         verify(repository,times(7)).saveAndFlush(any());
     }
@@ -64,7 +64,7 @@ class PlatformAuditServiceTest {
     @Test void subscriptionAuditActionsRejectActorsWithoutTheirSpecificPlatformGrant(){
         var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_SUBSCRIPTION_VIEW"))));
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_SUBSCRIPTION_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         assertThatThrownBy(()->service.record("platform@example.test","SUBSCRIPTION_PLAN_CREATED","SUBSCRIPTION_PLAN","1",null,"reason","trace"))
             .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(()->service.record("platform@example.test","TENANT_SUBSCRIPTION_CREATED","TENANT_SUBSCRIPTION","1",910001L,"reason","trace"))
@@ -74,7 +74,7 @@ class PlatformAuditServiceTest {
 
     @Test void auditSearchRequiresPlatformAuditPermission(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))));
         var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
         assertThatThrownBy(()->service.search(0,20,null)).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(repository);

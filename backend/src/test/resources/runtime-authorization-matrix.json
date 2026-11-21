@@ -29,7 +29,9 @@
     "WRONG_TENANT": "Persisted active employee and complete role in another tenant.",
     "WRONG_CUSTOMER": "Persisted global customer identity unrelated to the target customer resource.",
     "ANONYMOUS": "No bearer token.",
-    "WRONG_ASSIGNMENT": "Persisted active vendor employee with required operation permissions, assigned to a different register in the same branch; forged target register/session identifiers must not grant access."
+    "WRONG_ASSIGNMENT": "Persisted active vendor employee with required operation permissions, assigned to a different register in the same branch; forged target register/session identifiers must not grant access.",
+    "CUSTOMER_VENDOR_DUAL_IDENTITY": "One persisted global user with both customer_profiles and an active employee membership. Ambiguous login must return 409; a selected Customer context has CUSTOMER only and no tenant; a selected Vendor context has only persisted vendor-role grants and a server-resolved tenant plus composite membership key.",
+    "PLATFORM_VENDOR_OVERLAP": "Rejected identity configuration: a platform_user_permissions identity must not have a customer profile or employee membership. Vendor commercial work must use a separate global authentication identity; no Platform/Vendor context switch."
   },
   "controllerPolicies": {
     "CashierSalesController": {
@@ -633,6 +635,144 @@
       "actor": "CUSTOMER",
       "resource": "Vendor-managed cash refund records",
       "reason": "Refund and payout APIs are scoped to vendor tenant/branch permissions; no customer-owned cash refund endpoint is currently mapped. Customer order and receipt ownership is covered separately."
+    }
+  ],
+  "actorContextAcceptance": [
+    {
+      "id": "P007-DUAL-LOGIN-REQUIRES-SELECTION",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "POST /api/v1/auth/login",
+      "expected": 409,
+      "test": "PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack",
+      "assertion": "No token issued when actorType is omitted"
+    },
+    {
+      "id": "P007-DUAL-CUSTOMER-CONTEXT",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "POST /api/v1/auth/login",
+      "expected": 200,
+      "test": "PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack",
+      "assertion": "actor_type=CUSTOMER; permissions exactly CUSTOMER; tenant_id and membership_id absent"
+    },
+    {
+      "id": "P007-DUAL-VENDOR-CONTEXT",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "POST /api/v1/auth/login",
+      "expected": 200,
+      "test": "AuthenticationServiceTest#dualCustomerVendorIdentityRequiresExplicitSelectionAndNeverCombinesPermissions",
+      "assertion": "actor_type=VENDOR; only persisted vendor role permissions; tenant and server-derived membership_id bound"
+    },
+    {
+      "id": "P007-CUSTOMER-TO-VENDOR-SWITCH",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "POST /api/v1/auth/context",
+      "expected": 200,
+      "test": "PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack",
+      "assertion": "New Vendor context and new refresh family; old family revoked; Customer grants absent"
+    },
+    {
+      "id": "P007-CUSTOMER-REFRESH-PRESERVES-CUSTOMER",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "POST /api/v1/auth/refresh",
+      "expected": 200,
+      "test": "AuthenticationActorContextTest#customerRefreshRetainsCustomerContextEvenWhenVendorMembershipAlsoExists",
+      "assertion": "Customer context remains Customer-only even though vendor membership exists"
+    },
+    {
+      "id": "P007-VENDOR-REVOKED-REFRESH-DENY",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "POST /api/v1/auth/refresh",
+      "expected": 401,
+      "test": "PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack",
+      "assertion": "Vendor refresh fails closed; it never downgrades to Customer"
+    },
+    {
+      "id": "P007-PLATFORM-CUSTOMER-SEPARATE",
+      "actor": "PLATFORM_VENDOR_OVERLAP",
+      "endpoint": "POST /api/v1/auth/login",
+      "expected": 401,
+      "test": "AuthenticationActorContextTest#platformIdentityCannotAlsoBeACustomerIdentity",
+      "assertion": "Platform login is rejected when the same global identity has a Customer profile"
+    },
+    {
+      "id": "P007-PLATFORM-VENDOR-SEPARATE",
+      "actor": "PLATFORM_VENDOR_OVERLAP",
+      "endpoint": "POST /api/v1/auth/login",
+      "expected": 401,
+      "test": "AuthenticationActorContextTest#platformIdentityCannotAlsoBeAVendorEmployeeIdentity",
+      "assertion": "Platform login is rejected when the same global identity has a vendor employee membership"
+    },
+    {
+      "id": "P007-PLATFORM-SWITCH-DENY",
+      "actor": "PLATFORM_VENDOR_OVERLAP",
+      "endpoint": "POST /api/v1/auth/context",
+      "expected": 403,
+      "test": "AuthenticationActorContextTest#platformCannotBeEnteredThroughCommercialContextSwitch",
+      "assertion": "No Platform↔Vendor/Customer context switch"
+    },
+    {
+      "id": "P007-MISSING-ACTOR-MARKER-DENY",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "authenticated request without actor marker",
+      "expected": 403,
+      "test": "AuthorizationContextTest#rejectsAuthenticationWithoutAnExplicitActorContext",
+      "assertion": "Fail closed"
+    },
+    {
+      "id": "P007-MULTIPLE-ACTOR-MARKERS-DENY",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "authenticated request with Customer and Vendor markers",
+      "expected": 403,
+      "test": "AuthorizationContextTest#rejectsAnAuthenticationWithMultipleActorContexts",
+      "assertion": "Fail closed"
+    },
+    {
+      "id": "P007-FORGED-CUSTOMER-GRANT-DENY",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "authenticated Customer request with PRODUCT_VIEW",
+      "expected": 403,
+      "test": "AuthorizationContextTest#rejectsVendorPermissionsInsideCustomerContext",
+      "assertion": "Customer and Vendor permissions cannot be merged"
+    },
+    {
+      "id": "P007-FORGED-PLATFORM-GRANT-DENY",
+      "actor": "PLATFORM_VENDOR_OVERLAP",
+      "endpoint": "authenticated Vendor request with PLATFORM_AUDIT_VIEW",
+      "expected": 403,
+      "test": "AuthorizationContextTest#rejectsPlatformPermissionsInsideVendorContext",
+      "assertion": "Platform and Vendor permissions cannot be merged"
+    },
+    {
+      "id": "P007-REVOKED-MEMBERSHIP-AUTHORIZATION-DENY",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "authenticated Vendor request after membership revocation",
+      "expected": 403,
+      "test": "AuthorizationContextTest#revokedVendorMembershipFailsClosed",
+      "assertion": "Active vendor membership required"
+    },
+    {
+      "id": "P007-ME-RETURNS-ACTIVE-ACTOR-ONLY",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "GET /api/v1/auth/me",
+      "expected": 200,
+      "test": "AuthenticationServiceTest#authMeReturnsServerResolvedEffectiveVendorPermissions",
+      "assertion": "/me returns exactly the active Vendor context and server-resolved permissions; it never returns a combined Customer+Vendor account grant set"
+    },
+    {
+      "id": "P007-ACCESS-TOKEN-MUST-MATCH-PERSISTED-SESSION",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "Authenticated request with actor/tenant/membership claims that differ from the active refresh row",
+      "expected": 401,
+      "test": "AuthenticationActorContextTest#accessTokenActorTenantAndMembershipMustMatchPersistedRefreshFamily",
+      "assertion": "JWT actor_type, tenant, membership_id and subject must agree with the active persisted refresh-token family before authorities are issued"
+    },
+    {
+      "id": "P007-FOREIGN-REFRESH-COOKIE-ISOLATION",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "POST /api/v1/auth/context with a refresh cookie issued to another username",
+      "expected": 401,
+      "test": "AuthenticationActorContextTest#foreignRefreshCookieCannotRevokeAnotherIdentityRefreshFamily",
+      "assertion": "The attempted context switch fails without revoking the unrelated account's refresh family"
     }
   ]
 }

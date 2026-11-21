@@ -27,7 +27,7 @@ class PlatformSupportServiceTest {
         when(tenants.get(10L)).thenReturn(new TenantLifecycleService.TenantSummary(10,"solar","Solar","Solar Ltd",null,null,null,null,"ACTIVE",null,"admin@solar.test",now,now,0));
         when(repository.saveAndFlush(any(PlatformSupportGrant.class))).thenAnswer(inv->{var row=(PlatformSupportGrant)inv.getArgument(0);ReflectionTestUtils.setField(row,"id",1L);return row;});
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@solar.test","n/a",
-            List.of(new SimpleGrantedAuthority("PLATFORM_SUPPORT_ACCESS"))));
+            List.of(new SimpleGrantedAuthority("PLATFORM_SUPPORT_ACCESS"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         var service=new PlatformSupportServiceImpl(repository,tenants,audit,Clock.fixed(now,ZoneOffset.UTC));
         var result=service.grant(10,"platform@solar.test","Investigate reported login issue","SUP-42",now.plus(Duration.ofHours(2)),"corr-42");
         assertThat(result.tenantId()).isEqualTo(10);assertThat(result.actor()).isEqualTo("platform@solar.test");assertThat(result.active()).isTrue();
@@ -38,7 +38,7 @@ class PlatformSupportServiceTest {
 
     @Test void supportGrantRevokeAndReadRequirePlatformAuthorityBeforePersistenceOrTenantLookup(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
-            List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+            List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))));
         var service=new PlatformSupportServiceImpl(repository,tenants,audit,Clock.systemUTC());
 
         assertThatThrownBy(()->service.grant(10,"vendor","Investigation","SUP-99",

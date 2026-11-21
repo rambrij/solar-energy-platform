@@ -7,5 +7,11 @@ import java.util.Optional;
 public interface VendorMembershipResolver {
     Optional<Membership> resolve(String username);
 
-    record Membership(long tenant, long branch, String username, List<String> permissions) {}
+    /**
+     * The current employee schema identifies a membership by its composite natural key.
+     * This canonical identifier is derived only from the server-resolved row.
+     */
+    record Membership(long tenant,long branch,String username,List<String> permissions) {
+        public String id(){return tenant+":"+username;}
+    }
 }

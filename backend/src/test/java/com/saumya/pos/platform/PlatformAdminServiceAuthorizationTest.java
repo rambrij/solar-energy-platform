@@ -19,7 +19,7 @@ import static org.mockito.Mockito.*;
 class PlatformAdminServiceAuthorizationTest {
     @AfterEach void clearSecurityContext(){SecurityContextHolder.clearContext();}
     private void authenticate(String username,String... permissions){
-        var authorities=java.util.Arrays.stream(permissions).map(SimpleGrantedAuthority::new).toList();
+        var authorities=java.util.stream.Stream.concat(java.util.Arrays.stream(permissions).map(SimpleGrantedAuthority::new),java.util.stream.Stream.of(new SimpleGrantedAuthority(permissions.length>0&&permissions[0].startsWith("PLATFORM_")?com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM:com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))).toList();
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(username,"n/a",authorities));
     }
     private PlatformAdminService service(TenantLifecycleService tenants){

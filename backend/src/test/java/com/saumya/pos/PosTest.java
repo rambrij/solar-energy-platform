@@ -74,7 +74,7 @@ class PosTest {
   for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","platform_support_access","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","registers","inventory","pos_stock_locations","products","employees","branches","tenants","users")) update("DELETE FROM "+table);
   update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(1,'Vendor A','vendor-1','Vendor A','ACTIVE'),(2,'Vendor B','vendor-2','Vendor B','ACTIVE')");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
-  employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",effectivePermissions("alice").stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
+  employee("alice",1,1);employee("bob",2,2);var testContext=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();testContext.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("alice","test",java.util.stream.Stream.concat(effectivePermissions("alice").stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new),java.util.stream.Stream.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))).toList()));org.springframework.security.core.context.SecurityContextHolder.setContext(testContext);update("UPDATE identity_sequence SET next_id=10000 WHERE id=1");update("UPDATE retail_sequences SET next_id=10000 WHERE name='REGISTER'");update("UPDATE catalog_sequences SET next_id=10000");
   update("INSERT INTO registers VALUES(1,1,1),(2,2,2)");
   update("INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by) VALUES(1,1,'alice',1,TRUE,'alice'),(2,2,'bob',2,TRUE,'bob')");
   update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(1,1,'P1','123','Panel',100,10,TRUE),(2,2,'P2',NULL,'Private',100,0,TRUE)");
@@ -97,6 +97,26 @@ class PosTest {
   }
   return result;
  }
+ private static final class ScopedUserPostProcessor implements org.springframework.test.web.servlet.request.RequestPostProcessor {
+  private final String username;
+  private List<org.springframework.security.core.GrantedAuthority> authorities=List.of();
+  ScopedUserPostProcessor(String username){this.username=username;}
+  ScopedUserPostProcessor authorities(org.springframework.security.core.GrantedAuthority... values){this.authorities=List.of(values);return this;}
+  ScopedUserPostProcessor authorities(java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> values){this.authorities=List.copyOf(values);return this;}
+  @Override public org.springframework.mock.web.MockHttpServletRequest postProcessRequest(org.springframework.mock.web.MockHttpServletRequest request){
+   var resolved=new ArrayList<org.springframework.security.core.GrantedAuthority>(authorities);
+   Set<String> names=resolved.stream().map(org.springframework.security.core.GrantedAuthority::getAuthority).collect(java.util.stream.Collectors.toSet());
+   boolean hasMarker=names.stream().anyMatch(n->n.startsWith("ACTOR_CONTEXT_"));
+   if(!hasMarker){
+    String marker=names.contains("CUSTOMER")?"ACTOR_CONTEXT_CUSTOMER":
+      names.stream().anyMatch(n->n.startsWith("PLATFORM_"))?"ACTOR_CONTEXT_PLATFORM":"ACTOR_CONTEXT_VENDOR";
+    resolved.add(new org.springframework.security.core.authority.SimpleGrantedAuthority(marker));
+   }
+   return org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(username)
+     .authorities(resolved).postProcessRequest(request);
+  }
+ }
+ private static ScopedUserPostProcessor user(String username){return new ScopedUserPostProcessor(username);}
  @AfterEach void clearPrincipal(){org.springframework.security.core.context.SecurityContextHolder.clearContext();}
  void employee(String username,long tenant,long branch){
   long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
@@ -148,7 +168,7 @@ class PosTest {
  <T> T as(String username, java.util.function.Supplier<T> action) {
   var previous = org.springframework.security.core.context.SecurityContextHolder.getContext();
   var current = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
-  current.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username, "test", effectivePermissions(username).stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList()));
+  current.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username,"test",java.util.stream.Stream.concat(effectivePermissions(username).stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new),java.util.stream.Stream.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))).toList()));
   org.springframework.security.core.context.SecurityContextHolder.setContext(current);
   try { return action.get(); }
   finally { org.springframework.security.core.context.SecurityContextHolder.setContext(previous); }
@@ -345,6 +365,75 @@ class PosTest {
   var result=mvc.perform(post("/api/v1/auth/register").with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.refreshToken").doesNotExist()).andExpect(jsonPath("$.account.permissions[0]").value("CUSTOMER")).andReturn();
   assertThat(result.getResponse().getHeader("Set-Cookie")).contains("HttpOnly","SameSite=Strict","Path=/api/v1/auth");
   assertThat(db.queryForObject("SELECT password_hash FROM users WHERE username='new-buyer@example.com'",String.class)).doesNotContain("CustomerPasswordForTests");
+ }
+ @Test void p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack() throws Exception {
+  employee("dual.worker@example.test",1,1);
+  long userId=db.queryForObject("SELECT id FROM users WHERE username='dual.worker@example.test'",Long.class);
+  update("INSERT INTO customer_profiles VALUES(?,?)",userId,userId);
+
+  String credentials="{\"username\":\"dual.worker@example.test\",\"password\":\"StaffPasswordForTests\"}";
+  mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(credentials))
+      .andExpect(status().isConflict());
+
+  String customerCredentials="{\"username\":\"dual.worker@example.test\",\"password\":\"StaffPasswordForTests\",\"actorType\":\"CUSTOMER\"}";
+  var customerLogin=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(customerCredentials))
+      .andExpect(status().isOk()).andReturn();
+  String customerToken=json.readTree(customerLogin.getResponse().getContentAsString()).path("accessToken").asText();
+  var customerRefresh=customerLogin.getResponse().getCookie("solar-refresh");
+  assertThat(customerRefresh).isNotNull();
+  var customerJwt=jwt.decoder().decode(customerToken);
+  assertThat(customerJwt.getClaimAsString("actor_type")).isEqualTo("CUSTOMER");
+  assertThat(customerJwt.getClaim("tenant")).isNull();
+  assertThat(customerJwt.getClaimAsString("membership_id")).isNull();
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+customerToken))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.actorType").value("CUSTOMER"))
+      .andExpect(jsonPath("$.permissions").isArray()).andExpect(jsonPath("$.permissions[0]").value("CUSTOMER"));
+  mvc.perform(get("/api/v1/customer/cart").header("Authorization","Bearer "+customerToken))
+      .andExpect(status().isOk());
+  mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+customerToken))
+      .andExpect(status().isForbidden());
+
+  String switchBody="{\"actorType\":\"VENDOR\",\"tenantId\":1}";
+  var switched=mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(customerRefresh)
+      .header("Authorization","Bearer "+customerToken).contentType("application/json").content(switchBody))
+      .andExpect(status().isOk()).andReturn();
+  String vendorToken=json.readTree(switched.getResponse().getContentAsString()).path("accessToken").asText();
+  var vendorRefresh=switched.getResponse().getCookie("solar-refresh");
+  assertThat(vendorRefresh).isNotNull();
+  assertThat(vendorRefresh.getValue()).isNotEqualTo(customerRefresh.getValue());
+  var vendorJwt=jwt.decoder().decode(vendorToken);
+  assertThat(vendorJwt.getClaimAsString("actor_type")).isEqualTo("VENDOR");
+  assertThat(((Number)vendorJwt.getClaim("tenant")).longValue()).isEqualTo(1L);
+  assertThat(vendorJwt.getClaimAsString("membership_id")).isEqualTo("1:dual.worker@example.test");
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+vendorToken))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.actorType").value("VENDOR"))
+      .andExpect(jsonPath("$.permissions").isArray());
+  mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+vendorToken))
+      .andExpect(status().isOk());
+  mvc.perform(get("/api/v1/customer/cart").header("Authorization","Bearer "+vendorToken))
+      .andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+customerToken))
+      .andExpect(status().isUnauthorized());
+
+  var refreshed=mvc.perform(post("/api/v1/auth/refresh").with(csrf()).cookie(vendorRefresh))
+      .andExpect(status().isOk()).andReturn();
+  String refreshedVendorToken=json.readTree(refreshed.getResponse().getContentAsString()).path("accessToken").asText();
+  var refreshedJwt=jwt.decoder().decode(refreshedVendorToken);
+  assertThat(refreshedJwt.getClaimAsString("actor_type")).isEqualTo("VENDOR");
+  assertThat(((Number)refreshedJwt.getClaim("tenant")).longValue()).isEqualTo(1L);
+  assertThat(refreshedJwt.getClaimAsString("membership_id")).isEqualTo("1:dual.worker@example.test");
+
+  var latestRefresh=refreshed.getResponse().getCookie("solar-refresh");
+  update("UPDATE employees SET enabled=FALSE WHERE username='dual.worker@example.test'");
+  mvc.perform(post("/api/v1/auth/refresh").with(csrf()).cookie(latestRefresh))
+      .andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+refreshedVendorToken))
+      .andExpect(status().isUnauthorized());
+
+  update("INSERT INTO platform_user_permissions(username,permission) VALUES('dual.worker@example.test','PLATFORM_SUPPORT_ACCESS')");
+  assertThatThrownBy(()->authentication.login("dual.worker@example.test","StaffPasswordForTests"))
+      .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+      .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.UNAUTHORIZED);
  }
  @Test void vendorMembershipIsRevalidatedForEveryJwtRequest() throws Exception {
   setEmployeeRolePermissions("alice",List.of("POS_VIEW"));var login=authentication.login("alice","StaffPasswordForTests");
@@ -1096,7 +1185,7 @@ class PosTest {
  <T> T asCustomer(String username,java.util.function.Supplier<T> action){
   var previous=org.springframework.security.core.context.SecurityContextHolder.getContext();
   var context=org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
-  context.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username,"test",List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMER"))));
+  context.setAuthentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(username,"test",List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMER"),new org.springframework.security.core.authority.SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_CUSTOMER))));
   org.springframework.security.core.context.SecurityContextHolder.setContext(context);
   try{return action.get();}finally{org.springframework.security.core.context.SecurityContextHolder.setContext(previous);}
  }
@@ -3106,7 +3195,7 @@ class PosTest {
 
   List<String> csv=new ArrayList<>();
   csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");
-  int protectedRows=0,passedRows=0,failedRows=0;
+  int protectedRows=0,passedRows=0,failedRows=0,contextSwitchCoverage=0;
   List<String> endpointFailures=new ArrayList<>();
   for(var entry:requestMappings.getHandlerMethods().entrySet()){
    HandlerMethod handler=entry.getValue();Class<?> controllerType=handler.getBeanType();
@@ -3122,6 +3211,19 @@ class PosTest {
    Set<RequestMethod> mappingMethods=entry.getKey().getMethodsCondition().getMethods();
    List<RequestMethod> methods=mappingMethods.isEmpty()?List.of(RequestMethod.GET):mappingMethods.stream().sorted().toList();
    for(String route:entry.getKey().getPatternValues()){
+    if(route.equals("/api/v1/auth/context")){
+     assertThat(controllerType.getSimpleName()).isEqualTo("AuthenticationController");
+     assertThat(handler.getMethod().getName()).isEqualTo("switchContext");
+     assertThat(methods).containsExactly(RequestMethod.POST);
+     // This endpoint requires a matching refresh-family cookie and a dual identity.
+     // Its end-to-end login/switch/refresh/revocation flow is exercised by the P0-07 HTTP case.
+     csv.add(String.join(",","POST",matrixCsv(route),controllerType.getSimpleName(),handler.getMethod().getName(),
+       "CUSTOMER_VENDOR_DUAL_IDENTITY","isAuthenticated()","actor+refresh-family","AUTHORIZED","200",
+       "PASS","","PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack"));
+     System.out.println("P006_ENDPOINT_ACTOR_DELEGATED|POST|"+route+"|CUSTOMER_VENDOR_DUAL_IDENTITY|PASS_P007_HTTP_INTEGRATION");
+     contextSwitchCoverage++;protectedRows++;passedRows++;
+     continue;
+    }
     String actor=matrixActorForEndpoint(controllerType.getSimpleName(),policy.value(),route,tokens,grants);
     String token=tokens.get(actor);
     for(RequestMethod httpMethod:methods){
@@ -3213,7 +3315,8 @@ class PosTest {
   }
   assertThat(db.queryForObject("SELECT lifecycle_status FROM tenants WHERE id=910001",String.class))
       .as("runtime matrix must restore the demo tenant after the lifecycle endpoint probe").isEqualTo("ACTIVE");
-  assertThat(protectedRows).as("all protected live method/route mappings executed with a persisted actor").isGreaterThan(100);
+  assertThat(protectedRows).as("all generic protected live method/route mappings executed with a persisted actor").isGreaterThan(100);
+  assertThat(contextSwitchCoverage).as("the stateful context-switch endpoint is delegated to the dedicated P0-07 persisted dual-identity HTTP scenario").isEqualTo(1);
   Path path=Path.of("target","p0-06-runtime-actor-endpoint-http.csv");
   try{Files.createDirectories(path.getParent());Files.write(path,csv,StandardCharsets.UTF_8);}
   catch(java.io.IOException error){throw new AssertionError("Cannot write endpoint actor matrix",error);}

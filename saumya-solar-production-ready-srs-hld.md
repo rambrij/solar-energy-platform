@@ -96,7 +96,7 @@ The MVP includes one basic POS-enabled outlet/branch and one designated stock lo
 | Payment provider | Vendor merchant context or platform subscription context | External payment execution and verified status events |
 | Messaging provider | Tenant/template context | Delivery of approved messages |
 
-The platform is a service provider, not a vendor. Platform administrators must not inherit vendor permissions. A platform administrator who is also a vendor user must use a separate vendor tenant membership and commercial context.
+The platform is a service provider, not a vendor. Platform administrators must not inherit vendor permissions. A person who performs both platform administration and vendor commercial work must use separate global authentication identities (separate usernames/credentials) for Platform and Vendor. A Platform identity is not attached to an employee membership, and no Platform↔Vendor actor-context switch is permitted.
 
 ## 5. Architecture principles
 
@@ -1910,3 +1910,14 @@ Human-readable identifiers are not authorization tokens. Internal IDs must be pr
 | F11 — duplicated POS API matrix | Duplicate POS operation rows removed and replaced by canonical draft, tender, verification, finalization, customer association, receipt, cash and return rows. |
 
 This is a documentation synchronization approval only. It does not certify that application code, database migrations, automated tests, CI, provider integrations, tax/legal configuration or production operations have been implemented or passed. Those remain implementation and release gates.
+
+
+## 23. Approved actor-context product decision (RC-01, 2026-11-21)
+
+One global user identity may have both a global Customer profile and a Vendor employee membership. The application must never merge their permissions. A request is authenticated as exactly one actor context: `PLATFORM`, `VENDOR`, or `CUSTOMER`.
+
+For a dual Customer/Vendor user, login without an explicit context must fail with a non-authorizing conflict response after credential verification. The user must explicitly select Customer or Vendor. The selected context is resolved from persisted server-side identity records, and the issued JWT and refresh-token row persist the actor type and scope. Vendor scope includes the server-validated tenant and membership identifier; Customer scope contains no tenant/membership. Context switching rotates the token family, and refresh revalidates and preserves the exact selected context. Revoked membership, disabled employee identity, or inactive/suspended tenant fails closed. `/auth/me` returns only the active actor's grants.
+
+Customer context permits only that global customer's own marketplace resources and cross-vendor transaction history. Vendor context permits only active membership role grants within its authenticated tenant/branch and applicable resource assignments. Platform and Vendor are separate global identities; no Platform↔Vendor context switching or shared grants are allowed.
+
+Implementation note: the current employees table is keyed by username and currently models one vendor membership per employee identity. Vendor token `membership_id` is therefore a server-derived composite key of `tenant_id:username`. Supporting an employee with multiple concurrent vendor memberships requires a separate persisted membership model and is not part of RC-01.

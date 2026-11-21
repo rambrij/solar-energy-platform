@@ -19,7 +19,7 @@ class PlatformAdminAuthorizationTest {
     private AuthorizationContext context(String... permissions){
         var membership=mock(MembershipService.class);when(membership.access(anyString())).thenReturn(Optional.empty());
         var auth=UsernamePasswordAuthenticationToken.authenticated("admin@platform.test",null,
-            java.util.Arrays.stream(permissions).map(SimpleGrantedAuthority::new).toList());
+            java.util.stream.Stream.concat(java.util.Arrays.stream(permissions).map(SimpleGrantedAuthority::new),java.util.stream.Stream.of(new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))).toList());
         SecurityContextHolder.getContext().setAuthentication(auth);
         return new AuthorizationContext(membership);
     }

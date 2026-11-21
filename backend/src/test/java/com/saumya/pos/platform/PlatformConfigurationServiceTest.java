@@ -21,7 +21,7 @@ class PlatformConfigurationServiceTest {
     @AfterEach void clearSecurityContext(){SecurityContextHolder.clearContext();}
     private PlatformConfigurationServiceImpl service(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("admin","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_CONFIG_MANAGE"))));
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_CONFIG_MANAGE"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         return new PlatformConfigurationServiceImpl(repository,audit,Clock.fixed(Instant.parse("2026-11-16T00:00:00Z"),ZoneOffset.UTC));
     }
     @Test void rejectsRawCredentialsAndNeverReturnsSecretReferences(){
@@ -38,7 +38,7 @@ class PlatformConfigurationServiceTest {
     }
     @Test void configurationReadsRequirePlatformConfigurationPermission(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))));
         var service=new PlatformConfigurationServiceImpl(repository,audit,Clock.systemUTC());
         assertThatThrownBy(service::list).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(repository);
@@ -46,7 +46,7 @@ class PlatformConfigurationServiceTest {
 
     @Test void configurationWritesRequirePlatformGrantBeforeRepositoryOrAuditAccess(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
-            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));
+            java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))));
         var service=new PlatformConfigurationServiceImpl(repository,audit,Clock.systemUTC());
         var update=new PlatformConfigurationService.Update("PUBLIC_SITE_NAME","GENERAL","Vendor Name",false,null);
 

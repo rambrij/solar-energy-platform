@@ -96,7 +96,7 @@ class MembershipServiceTest {
             return null;
         });
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-            "platform-admin","n/a",List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_CREATE"))));
+            "platform-admin","n/a",List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_CREATE"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         var db=mock(JdbcTemplate.class);
         when(db.queryForObject(startsWith("SELECT COUNT(*)>0 FROM vendor_roles"),eq(Boolean.class),eq(7L),eq("vendor-admin-initial"))).thenReturn(false);
         when(db.queryForObject(startsWith("SELECT id FROM vendor_roles"),eq(Long.class),eq(7L),eq("vendor-admin-initial"))).thenReturn(99L);

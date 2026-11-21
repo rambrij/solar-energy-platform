@@ -1,7 +1,38 @@
-import {afterEach,expect,it,vi} from 'vitest';
-afterEach(()=>{vi.unstubAllGlobals();vi.resetModules();});
-const account={username:'buyer',tenantId:null,branchId:null,permissions:['CUSTOMER']};
-it('keeps access material in memory and refreshes a failed bearer request once',async()=>{
- const fetcher=vi.fn().mockResolvedValueOnce({ok:true,json:async()=>({token:'csrf'})}).mockResolvedValueOnce({ok:true,json:async()=>({accessToken:'first',account})}).mockResolvedValueOnce({status:401}).mockResolvedValueOnce({ok:true,json:async()=>({token:'csrf'})}).mockResolvedValueOnce({ok:true,json:async()=>({accessToken:'second',account})}).mockResolvedValueOnce({ok:true,status:200});vi.stubGlobal('fetch',fetcher);const storage=vi.spyOn(Storage.prototype,'setItem');const session=await import('./session');await session.signIn('buyer','password');const response=await session.authenticatedFetch('/api/v1/customer/cart');expect(response.status).toBe(200);expect(fetcher.mock.calls[2][1].headers.Authorization).toBe('Bearer first');expect(fetcher.mock.calls[5][1].headers.Authorization).toBe('Bearer second');expect(storage).not.toHaveBeenCalled();storage.mockRestore();
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+import {signIn,switchActorContext} from './session';
+
+function response(body:unknown,status=200){
+ return {ok:status>=200&&status<300,status,json:vi.fn().mockResolvedValue(body)} as unknown as Response;
+}
+
+describe('actor context session switching',()=>{
+ beforeEach(()=>{vi.stubGlobal('fetch',vi.fn());});
+ afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
+
+ it('sends the active bearer token and same-origin refresh cookie with the context switch',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  fetchMock
+   .mockResolvedValueOnce(response({token:'csrf-login'}))
+   .mockResolvedValueOnce(response({accessToken:'customer-access-token',expiresIn:300,account:{
+    username:'dual@example.test',tenantId:null,branchId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER',
+    availableActorTypes:['CUSTOMER','VENDOR']
+   }}))
+   .mockResolvedValueOnce(response({token:'csrf-switch'}))
+   .mockResolvedValueOnce(response({accessToken:'vendor-access-token',expiresIn:300,account:{
+    username:'dual@example.test',tenantId:8,branchId:80,permissions:['PRODUCT_VIEW'],actorType:'VENDOR',
+    availableActorTypes:['CUSTOMER','VENDOR']
+   }}));
+
+  await signIn('dual@example.test','safe-test-password',false,undefined,'CUSTOMER');
+  await switchActorContext('VENDOR');
+
+  expect(fetchMock).toHaveBeenCalledTimes(4);
+  const [switchUrl,switchOptions]=fetchMock.mock.calls[3];
+  expect(switchUrl).toBe('/api/v1/auth/context');
+  const headers=new Headers((switchOptions as RequestInit).headers);
+  expect(headers.get('Authorization')).toBe('Bearer customer-access-token');
+  expect(headers.get('X-XSRF-TOKEN')).toBe('csrf-switch');
+  expect((switchOptions as RequestInit).credentials).toBe('same-origin');
+  expect(JSON.parse(String((switchOptions as RequestInit).body))).toEqual({actorType:'VENDOR'});
+ });
 });
-it('logout clears bearer state after the server confirms revocation',async()=>{const fetcher=vi.fn().mockImplementation(async(path:string)=>path.endsWith('/csrf')?{ok:true,json:async()=>({token:'csrf'})}:path.endsWith('/login')?{ok:true,json:async()=>({accessToken:'access',account})}:{ok:true,json:async()=>({loggedOut:true}),status:200});vi.stubGlobal('fetch',fetcher);const session=await import('./session');await session.signIn('buyer','password');await session.signOut();await session.authenticatedFetch('/api/v1/marketplace/vendors');expect(fetcher.mock.calls.at(-1)?.[1].headers.Authorization).toBeUndefined();});

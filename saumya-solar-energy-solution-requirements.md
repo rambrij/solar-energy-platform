@@ -386,3 +386,17 @@ The Product Owner must approve provider capabilities, tax/invoice rules, subscri
 | F11 — duplicated POS API matrix | Duplicate POS operation rows removed and replaced by canonical draft, tender, verification, finalization, customer association, receipt, cash and return rows. |
 
 This is a documentation synchronization approval only. It does not certify that application code, database migrations, automated tests, CI, provider integrations, tax/legal configuration or production operations have been implemented or passed. Those remain implementation and release gates.
+
+
+## Approved product clarification — explicit actor contexts (RC-01, 2026-11-21)
+
+A single global user identity may have both a global customer profile and a vendor employee membership. These are separate actor contexts, not additive grants:
+
+- Authentication issues one active actor context per access token and refresh-token family. A Customer context contains only the `CUSTOMER` authority and no vendor tenant or membership scope.
+- A Vendor context is issued only after the server resolves the user's enabled employee membership, confirms the tenant is active, and calculates the effective permissions from that membership's active role assignments. Its token is bound to the server-resolved tenant and membership identifier. Client-supplied actor, role, permission, tenant, branch, or membership values are never authorization evidence.
+- When a successfully authenticated global identity has both a customer profile and an active vendor membership, an unspecified login context is ambiguous and must not issue a token. The client must explicitly select Customer or Vendor; the server validates the selected context before issuing the session.
+- Customer-to-Vendor and Vendor-to-Customer switching is an authenticated, server-validated operation. It rotates the refresh-token family and access token; refresh preserves the selected actor and scope. A revoked/disabled membership or inactive/suspended tenant invalidates Vendor refresh and requests rather than falling back to Customer.
+- `/api/v1/auth/me` returns only the active context's permissions and scope. A Customer can still view that customer's own cross-vendor orders, but customer identity never grants vendor employee APIs or access to vendor-private customer relationships.
+- Platform identities remain separate from commercial identities. A person who also performs vendor work must use a separate Platform identity and Vendor identity; no Platform-to-Vendor or Vendor-to-Platform context switch is allowed. Platform permissions are never included in Vendor or Customer tokens.
+
+The current `employees` table is keyed by username and represents one vendor membership per username. The current implementation therefore binds Vendor tokens to a server-derived composite membership key (`tenant_id:username`); multi-vendor memberships for one employee require a separate schema and product implementation and are not implied by this decision.

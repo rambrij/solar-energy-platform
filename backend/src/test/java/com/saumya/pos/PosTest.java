@@ -157,7 +157,8 @@ class PosTest {
    update("DELETE FROM vendor_role_permissions WHERE tenant_id=? AND role_id=?",tenant,roleId);
   }
   for(String permission:permissions)update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",tenant,roleId,permission,username);
-  update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",tenant,branch,username,roleId,username);
+  int reactivated=update("UPDATE employee_role_assignments SET branch_id=?,active=TRUE,assigned_by=?,assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL WHERE tenant_id=? AND username=? AND role_id=?",branch,username,tenant,username,roleId);
+  if(reactivated==0)update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",tenant,branch,username,roleId,username);
  }
  void removeAssignedRolePermission(String username,String permission){
   update("DELETE FROM vendor_role_permissions WHERE permission=? AND tenant_id=(SELECT tenant_id FROM employees WHERE username=?) AND role_id IN (SELECT role_id FROM employee_role_assignments WHERE username=? AND active=TRUE AND tenant_id=(SELECT tenant_id FROM employees WHERE username=?))",permission,username,username,username);

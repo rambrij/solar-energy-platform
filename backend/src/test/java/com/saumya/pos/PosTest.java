@@ -3333,7 +3333,7 @@ class PosTest {
   String matrixSubscriptionStatus=db.queryForObject(
       "SELECT status FROM tenant_subscriptions WHERE id=?",String.class,matrixSubscriptionId);
   update("INSERT INTO subscription_events(tenant_id,subscription_id,old_status,new_status,actor_username,reason,occurred_at) VALUES(910001,?,?,?,'superadmin@platform.demo.test','P0-06 fixture',CURRENT_TIMESTAMP)",
-      matrixSubscriptionStatus,matrixSubscriptionStatus,matrixSubscriptionId);
+      matrixSubscriptionId,matrixSubscriptionStatus,matrixSubscriptionStatus);
 
   List<String> csv=new ArrayList<>();
   csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");

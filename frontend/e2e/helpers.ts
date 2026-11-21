@@ -2,6 +2,7 @@ import { expect, type Page } from '@playwright/test';
 
 export const demo = {
   vendorAdmin: { username: 'saumya.admin@somya.local', password: 'Somya-Saumya-ADM-2026!' },
+  vendorBAdmin: { username: 'helio.admin@somya.local', password: 'Somya-Helio-ADM-2026!' },
   salesExecutive: { username: 'saumya.sales.executive@somya.local', password: 'Somya-Saumya-SE-2026!' },
   cashier: { username: 'saumya.pos.cashier@somya.local', password: 'Somya-Saumya-POS-2026!' },
   accountant: { username: 'saumya.accountant@somya.local', password: 'Somya-Saumya-ACC-2026!' },

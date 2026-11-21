@@ -98,6 +98,21 @@ JOIN employees admin ON admin.tenant_id=a.tenant_id AND admin.username LIKE '%.a
 WHERE a.tenant_id IS NOT NULL
   AND a.role_name IN ('VENDOR_ADMIN','POS_CASHIER','SALES_MANAGER','INVENTORY_MANAGER','ACCOUNTANT');
 
+INSERT INTO vendor_access_audit_events(tenant_id,actor_username,resource_type,resource_id,action,reason)
+SELECT r.tenant_id,r.created_by,'ROLE',CAST(r.id AS CHAR),'ROLE_TEMPLATE_APPLIED',
+       'Initial local demo standard-role template materialization'
+FROM vendor_roles r
+WHERE r.role_key LIKE 'standard:%';
+
+INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username,resource_type,resource_id,action,reason)
+SELECT a.tenant_id,a.assigned_by,a.username,'ROLE_ASSIGNMENT',CAST(a.role_id AS CHAR),'ROLE_ASSIGNED',
+       'Initial local demo employee role assignment'
+FROM employee_role_assignments a
+JOIN demo_v51_accounts d ON d.username=a.username AND d.tenant_id=a.tenant_id
+WHERE a.active=TRUE AND a.role_id IN (
+ SELECT r.id FROM vendor_roles r WHERE r.tenant_id=a.tenant_id AND r.role_key LIKE 'standard:%'
+);
+
 -- Till/register assignment: POS cashier gets the sales till, accountant the finance till,
 -- and Vendor Admin the manager till. Register IDs were seeded by V39 for each tenant.
 INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)
@@ -116,6 +131,13 @@ WHERE a.tenant_id IS NOT NULL
                                   WHEN 'ACCOUNTANT' THEN a.tenant_id+11
                                   WHEN 'VENDOR_ADMIN' THEN a.tenant_id+12 END
   );
+
+INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username,resource_type,resource_id,action,reason)
+SELECT a.tenant_id,a.assigned_by,a.username,'REGISTER_ASSIGNMENT',CAST(a.register_id AS CHAR),'REGISTER_ASSIGNED',
+       'Initial local demo register assignment'
+FROM employee_register_assignments a
+JOIN demo_v51_accounts d ON d.username=a.username AND d.tenant_id=a.tenant_id
+WHERE a.active=TRUE;
 
 INSERT INTO platform_user_permissions(username,permission)
 SELECT a.username,p.permission

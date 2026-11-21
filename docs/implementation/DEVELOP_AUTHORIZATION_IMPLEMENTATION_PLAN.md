@@ -413,3 +413,15 @@ See the companion gap analysis section **REQUIRES CLARIFICATION register** for t
 - **P0-07 / P0-06 route inventory adjustment (2026-11-21):** The new protected `POST /api/v1/auth/context` mapping increases the live endpoint inventory from the previously reported 144 to an expected 145 mappings (the controller count remains 41). It is excluded from the generic persisted-token probe because a dummy refresh cookie cannot satisfy the stateful family binding; the generated P0-06 actor CSV records it as PASS only by reference to `PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack`, which exercises the complete flow using real persisted sessions. The exact 145 mapping count and delegated row must be confirmed by the final CI run.
 
 - **Refresh-family isolation regression (2026-11-21):** `AuthenticationActorContextTest#foreignRefreshCookieCannotRevokeAnotherIdentityRefreshFamily` proves a mismatched refresh cookie cannot revoke another username's refresh family. The case is included in the P0-07 runtime acceptance JSON.
+
+
+### P1-03 validation and reconciliation follow-up (2026-11-21)
+
+- Restored `PRODUCT_ARCHIVE`, `PRICE_VIEW` and `PRICE_UPDATE` to IMPLEMENTED after tracing their real ProductAdminService/CategoryAdminService paths, separate data-redaction/update rules, ProductManager/CategoryManager controls and PosTest assertions. They are included in the canonical catalogue and VENDOR_ADMIN snapshot.
+- Kept `INVENTORY_ADJUST` RESERVED / DEFERRED: no current protected inventory-adjustment operation was verified. Removed it from isolation fixtures and test grants.
+- Updated `backend/src/test/resources/demo/setup-multi-vendor-demo.sql` to seed only the five supported P1-02 templates, with exact role grants. Added a parity test to `V50LocalDemoRoleAssignmentsTest`.
+- Added `docs/security/PERMISSION_TRACEABILITY.md` as the reviewable Permission → Status → Actor → Endpoint → Service → Scope → UI → Test matrix. The same rows remain in the canonical JSON.
+- Added frontend page metadata and runtime UI gating for platform pages, tenant create/view/lifecycle actions, subscription plan mutation, subscription adjustment, and the direct subscriptions route. Added restricted-actor frontend tests.
+- **Status remains IMPLEMENTATION IN BRANCH — VALIDATION PENDING.** Recent CI has confirmed focused P1-01, P1-02, P0-03 and P0-06 registry/matrix tests on earlier commits, and 298 frontend unit tests pass on a commit before page-policy parity was connected. Those are not a same-final-head full verification. Current full H2/MySQL and frontend runs must pass before completion.
+- RC-06 remains OPEN for the SRS external tender confirmation semantic distinction. P0-06 remains IN PROGRESS until all protected endpoint actor evidence is complete.
+

@@ -2777,12 +2777,20 @@ class PosTest {
   if(type==java.util.UUID.class)return "550e8400-e29b-41d4-a716-446655440000";
   if(type==String.class){
    String n=key.toLowerCase(Locale.ROOT);
-   if(n.contains("order")||n.contains("draft"))return "P006-NO-SUCH-ORDER";
+   if(controller.contains("Platform")&&n.contains("username"))return "superadmin@platform.demo.test";
+   if(n.contains("order")||n.contains("draft")){
+    Long order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001",Long.class);
+    return order==null?"1":order.toString();
+   }
    if(n.contains("session"))return "P006-NO-SUCH-SESSION";
    if(n.contains("token"))return "A".repeat(43);
    return "1";
   }
   String n=key.toLowerCase(Locale.ROOT);
+  if(n.contains("order")||n.contains("draft")){
+   Long order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001",Long.class);
+   return order==null? "1":order.toString();
+  }
   if(n.contains("tenant"))return "910001";
   if(n.contains("branch"))return "910001";
   if(n.contains("register"))return "910011";
@@ -2851,6 +2859,15 @@ class PosTest {
   Long cashierRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
   String accountantName="finance@saumya.demo.test";
   assignRegister(accountantName,910001,910001,adminRegister);
+
+  // Give customer-owned GET routes a real, persisted order instead of probing
+  // a made-up identifier and mistaking the resulting ownership 404 for coverage.
+  String matrixCustomer="asha@customer.demo.test";
+  asCustomer(matrixCustomer,()->marketplace.put(949001,
+      new CartService.Item("saumya-rooftops",910301,1)));
+  var matrixCart=asCustomer(matrixCustomer,()->marketplace.cart(949001));
+  asCustomer(matrixCustomer,()->checkout.online(matrixCustomer,"p006-matrix-actor-order",
+      new CheckoutService.OnlineDraft(matrixCart.id())));
 
   PosService.Scope adminScope=new PosService.Scope(910001,910001,adminName);
   if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",

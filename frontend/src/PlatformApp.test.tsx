@@ -46,7 +46,7 @@ describe('PlatformApp',()=>{
  });
  it('hides tenant creation and plan mutation forms from view-only platform roles',async()=>{
   vi.mocked(useSession).mockReturnValue({ready:true,account:{...account,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_SUBSCRIPTION_VIEW']}} as ReturnType<typeof useSession>);
-  vi.mocked(platformApi).mockImplementation(async(path)=>path.startsWith('/tenants?')?{items:[],totalElements:0,totalPages:0,page:0}:path==='/subscription-plans'?[]:{tenantStatuses:[]});
+  vi.mocked(platformApi).mockImplementation(async(path)=>path.includes('/tenants?')?{items:[],totalElements:0,totalPages:0,page:0}:path.endsWith('/subscription-plans')?[]:{tenantStatuses:[]});
   render(<PlatformApp/>);
   await waitFor(()=>expect(platformApi).toHaveBeenCalledWith(expect.stringContaining('/tenants?')));
   expect(screen.queryByText('Create vendor tenant')).toBeNull();

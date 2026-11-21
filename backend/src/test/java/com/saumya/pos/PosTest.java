@@ -2797,7 +2797,7 @@ class PosTest {
   }
   if(route.contains("/subscriptions/{")){
    Long subscription=db.queryForObject("SELECT MIN(id) FROM tenant_subscriptions",Long.class);
-   return subscription==null?1:subscription;
+   return subscription==null?"1":subscription.toString();
   }
   if(n.contains("session")||route.contains("/sessions/{")){
    Long session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",Long.class);

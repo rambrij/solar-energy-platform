@@ -86,59 +86,19 @@ Enter your `DB_PASSWORD` at the password prompt.
 
 The local profile automatically provisions the demo identities documented in [docs/demo/README.md](docs/demo/README.md). Vendor permissions are resolved only through active `employee_role_assignments` joined to tenant-owned `vendor_roles` and `vendor_role_permissions`; tenant entitlements and branch/register/session assignments remain mandatory. There is no direct employee-permission table or fallback. For non-demo environments, provision roles and assignments through the authorized application workflows. Never store plaintext passwords in `employees.password_hash`.
 
-#### Add more solar demo products
+#### POS demo workflow
 
-After the original local store exists and Flyway V10 has run, open [add-solar-demo-products.sql](docs/demo/add-solar-demo-products.sql) in MySQL Workbench, select the `solar` schema, and execute the **entire script**. It adds **18 products** across solar panels, mounting structures, solar lights, inverters, batteries and accessories, with unique SKUs/barcodes and initial stock in demo branch `900001`. All are published for the POS and [demo storefront](http://localhost:8080/vendors/vendor-900001).
+Use one of the POS_CASHIER identities in [docs/demo/README.md](docs/demo/README.md). The local Flyway seed automatically creates the three demo tenants, branches, registers, catalogue/inventory fixtures, users and supported tenant-owned standard roles. Each cashier receives an explicit role assignment and a branch/register assignment; sign in with the cashier's listed credentials and open only the assigned register.
 
-The script preserves existing prices, category assignments, promotions, sales and stock/reserved quantities on reruns; it never replenishes an existing inventory row. It creates no users or permissions. Prices and zero tax are illustrative demo data. Refresh the browser after loading. Scan/enter `900101` for the 550W panel, `900104` for the rooftop structure, `900107` for the street light, `900110` for the inverter or `900113` for the battery. Online reservations still require the separately configured online stock branch.
+#### Cash movements and shift review
 
-If nothing is inserted, verify active tenant `900001` and its branch `900001` already exist. The final result set shows matching demo items. Conflicting product IDs, SKUs or barcodes are skipped rather than overwritten. Run the script in one Workbench connection; after an error, roll back and reconnect before retrying so session-owned staging tables are cleared.
+Cash-in, cash-out, safe-drop and shift-variance approval require their own explicit permissions. They are not implied by POS_VIEW, POS_SESSION_OPEN or cashier status. The VENDOR_ADMIN template includes the implemented supervisor permissions, but the user must also have an active assignment to the exact register and branch being reviewed. Tenant ownership, active session, entitlement and resource-state checks remain enforced by the backend.
 
-#### Optional local demo setup
+#### Resume an existing POS session
 
-After the backend has created the tables, connect Workbench to the local database, select **File → Open SQL Script**, and open [docs/demo/pos-local-demo-setup.sql](docs/demo/pos-local-demo-setup.sql). Execute the entire script **once** using the lightning bolt. It creates a demo tenant/outlet, cashier permissions, register and 10 units of a demo product. It stores a BCrypt password hash and runs data inserts in a transaction; errors roll the inserts back. It does not overwrite existing records or run automatically on startup.
+If opening an assigned register returns **409 Conflict**, it already has an open session. Do not delete its database row or add the opening float again. Use the workspace's open-session/resume action as the same authenticated employee. Only the owning employee with the matching tenant, branch and register assignment can resume it; another employee cannot take over the session. Closed sessions are not reopened by the resume action.
 
-Open a new private/incognito browser window at [http://localhost:8080](http://localhost:8080) and enter:
-
-| Field | Demo value |
-|---|---|
-| Application username | `local-cashier` |
-| Application password | `LocalCashier2026!` |
-| Assigned register | `900001` |
-| Opening float | `0.00` for an empty drawer, otherwise the actual starting cash |
-
-Click **Open session**, add **Demo Solar Panel**, and enter `100.00` cash received for one unit. Complete the cash sale to generate a receipt. The sample price and zero tax rate are demonstration data, not approved tax configuration. These public demo credentials are for local testing only; MySQL credentials remain those in `.env`.
-
-If the script reports an error, stop and inspect it rather than deleting existing data. After a failed call the helper procedure may remain; remove only `setup_pos_local_demo_900001` before retrying a corrected script. If the demo data already exists, use its existing account/register instead of running the setup again.
-
-#### Cash drawer management
-
-Pull the updated feature branch and rebuild with `docker compose up --build -d`. Flyway applies the new cash movement table without resetting existing data. Fresh demo setup grants all three movement permissions. If you already created `local-cashier`, run [docs/demo/enable-cash-drawer.sql](docs/demo/enable-cash-drawer.sql) in local Workbench once (safe to repeat), then sign in using a new private browser window to reload permissions. Do not rerun the original seed script.
-
-Inside an open session, the **Cash drawer** section shows server-calculated totals and movement history. Select **Cash-in**, **Cash-out** or **Safe drop**, enter a positive amount and a reason, and record the movement. For example, opening float `500.00`, cash-in `100.00`, cash-out `25.00` and safe drop `100.00` leave expected drawer cash `475.00` before any sales. A sale receiving `120.00` with `10.00` change then increases it to `585.00`. Cash removals cannot exceed the expected balance. Movements are not sales or customer payments.
-
-When a response is uncertain, use **Retry same cash movement**; do not move cash again. Its request/key survives a page reload, and sale completion/session close is blocked while it remains unresolved. Close the session with the actual counted cash; an exact match closes it, while a discrepancy with a reason enters CLOSING for a separate supervisor review. Enabled cash refunds now reduce the paying session drawer; see the cash-refund steps below.
-
-#### Close a shift with a cash variance
-
-After rebuilding (`docker compose up --build -d`), Flyway V5 adds variance review records, backfills existing closed sessions and reserves registers throughout OPEN/CLOSING. Existing data is retained. Every discrepancy requires a reason and separate supervisor review; there is no automatic variance allowance.
-
-1. As `local-cashier`, count the physical drawer, enter **Counted drawer cash**, and provide **Variance reason** if it differs from expected cash. Submit **Reconcile and close session**. An exact count closes directly; a discrepancy becomes **CLOSING** and freezes new sales/movements while retaining the register.
-2. For a local demonstration, run [docs/demo/setup-local-supervisor.sql](docs/demo/setup-local-supervisor.sql) in Workbench after the demo store exists. It creates `local-supervisor` with password `LocalSupervisor2026!` (BCrypt hash) and only `POS_VIEW`/`POS_SHIFT_VARIANCE_APPROVE`. This public local-demo account is not created automatically. It does not grant approval to `local-cashier`.
-3. Sign in as `local-supervisor` in a separate browser/private window, expand **Supervisor shift review**, and click **Load pending shift reviews**. Review the expected amount, count, variance and cashier reason. Enter a supervisor reason and choose **Approve variance** or **Return … for correction**. Self-review and cross-tenant/branch review are rejected.
-4. Back in the cashier window, click **Refresh close status**. Approval closes the shift; choose another session when finished. A returned count shows the supervisor reason and requires a new count. Return-for-correction applies to CLOSING only; it cannot reopen a CLOSED shift.
-
-Do not switch browser identity while a close/review outcome is uncertain. Use **Retry same close request** or **Retry same review decision** after restoring connectivity/access. The original request identity and reason survive reloads. Duplicate decisions cannot close a shift twice or approve a later corrected count. Close/review permissions for real employees must be provisioned by an authorized administrator.
-
-#### Resume an existing cashier session (including Edge)
-
-If opening register `900001` returns **409 Conflict**, the register already has an open session. Do not delete its database row or add the float again. After updating/rebuilding the application, use **Your open sessions → Resume register 900001**. This works in Microsoft Edge and other browsers without editing browser storage or running SQL. The list includes only OPEN/CLOSING sessions owned by the signed-in cashier in their assigned tenant and branch. Resume retains the original opening float, sales and cash movements and records an audit event; it cannot reopen a closed session or take over another cashier's till.
-
-If you lose the response while opening a session, the list refreshes so you can resume the session the server may already have created. Use **Refresh open sessions** if needed. A session held by a different cashier is not listed for you; its owner must reconcile and close it before the register is available. Closed-session reopening and cross-cashier takeover tooling remain outstanding.
-
-On reload, the app verifies a saved session with the server before showing sale controls. A closed/unavailable saved session with no unresolved financial attempt returns to session selection. If verification fails, use **Retry session check** after restoring login/connectivity. Saved sale/movement retry details are retained; closed-session retries can retrieve previously committed records without creating a new transaction. Resolve them before selecting another session. Resume in a new browser restores the server session; unsent cart inputs and another tab's local retry data are not synchronized.
-
-The browser uses Spring Security HTTP Basic authentication and a CSRF cookie/header; deploy only behind HTTPS. JWT identity/onboarding remains a foundation integration task; this slice does not claim the SRS IAM release gate.
+If an operation's response is uncertain, use the matching retry action rather than repeating the financial operation. The server persists idempotency and audit state; resolve outstanding attempts before selecting another session. Deploy the application behind HTTPS. The browser uses Spring Security HTTP Basic authentication and a CSRF cookie/header; JWT identity/onboarding remains a separate release gate.
 
 ### 6. Stop and restart
 

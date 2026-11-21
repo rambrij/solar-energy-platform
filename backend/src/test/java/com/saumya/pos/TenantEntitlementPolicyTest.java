@@ -40,7 +40,7 @@ class TenantEntitlementPolicyTest {
 
     @Test void jsonStringWrappedByJdbcDriverIsUnwrappedBeforeEntitlementEvaluation(){
         JdbcTemplate db=mock(JdbcTemplate.class);
-        String encodedJson="\\"{\\\\"features\\\\":{\\\\"POS\\\\":true,\\\\"ADMINISTRATION\\\\":true}}\\"";
+        String encodedJson="\"{\\\"features\\\":{\\\"POS\\\":true,\\\"ADMINISTRATION\\\":true}}\"";
         rows(db,subscription("ACTIVE",LocalDate.parse("2026-12-01"),null,encodedJson));
 
         assertThat(policy(db).permissions(10,List.of("ROLE_CREATE","ROLE_VIEW","POS_VIEW","POS_SALE_CREATE")))

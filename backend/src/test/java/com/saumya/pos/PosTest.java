@@ -2861,10 +2861,8 @@ class PosTest {
    if(route.contains("/sessions/{id}")){
     String cashier=actor.equals("POS_CASHIER")?"cashier@saumya.demo.test":
         (actor.equals("ACCOUNTANT")?"finance@saumya.demo.test":"admin@saumya.demo.test");
-    int offset=route.endsWith("/resume")?1:(route.endsWith("/cash-movements")?2:
-        (route.endsWith("/reconciliation")?3:0));
-    List<String> sessions=db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=910001 AND cashier=? ORDER BY register_id,id",String.class,cashier);
-    return sessions.isEmpty()?"P006-NO-SUCH-SESSION":sessions.get(Math.min(offset,sessions.size()-1));
+    String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",String.class,cashier);
+    return session==null?"P006-NO-SUCH-SESSION":session;
    }
    if(n.contains("order")||n.contains("draft")||route.contains("/sales/{")){
     String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND branch_id=910001 AND cashier='admin@saumya.demo.test' AND sales_channel='IN_STORE' AND status='PAID'",String.class);
@@ -2902,7 +2900,7 @@ class PosTest {
   if(controller.startsWith("Platform")){
    preferred=expression.contains("PLATFORM_IDENTITY_MANAGE")?"PLATFORM_SUPER_ADMIN_SECOND":
        (expression.contains("PLATFORM_SUPPORT_ACCESS")?"PLATFORM_SUPPORT":"PLATFORM_SUPER_ADMIN");
-  }else if(expression.contains("POS_SHIFT_VARIANCE_APPROVE"))preferred="SALES_MANAGER";
+  }else if(expression.contains("POS_SHIFT_VARIANCE_APPROVE"))preferred="VENDOR_ADMIN_SUPERVISOR";
   else if(expression.contains("'CUSTOMER'")&&!expression.contains("PLATFORM_"))preferred="CUSTOMER";
   else if(controller.contains("Report")||(expression.contains("POS_REPORT_VIEW")&&!expression.contains("POS_VIEW")))preferred="ACCOUNTANT";
   else if(controller.contains("Pos")||controller.contains("Register")||controller.contains("Shift")
@@ -2971,6 +2969,15 @@ class PosTest {
   Long adminRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+100 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",adminRegister);
   assignRegister(adminName,910001,910001,adminRegister);
+  String supervisorName="p006.matrix.supervisor@saumya.demo.test";
+  long supervisorId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",supervisorId,
+      supervisorName,encoder.encode("MatrixSupervisorPassword2026!"));
+  update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,910001,910001,TRUE)",supervisorName);
+  Long supervisorRole=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=910001",Long.class);
+  update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(910001,910001,?,?,TRUE,?)",
+      supervisorName,supervisorRole,adminName);
+  assignRegister(supervisorName,910001,910001,adminRegister);
   String cashierName="cashier@saumya.demo.test";
   Long cashierRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
   String accountantName="finance@saumya.demo.test";
@@ -2991,14 +2998,11 @@ class PosTest {
   PosService.Scope cashierScope=new PosService.Scope(910001,910001,cashierName);
   if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",
       Integer.class,cashierName)==0)as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
-  // Keep independent assigned open tills available so one close/resume probe
-  // cannot invalidate unrelated POS endpoint authorization probes.
-  for(int i=0;i<3;i++){
-   Long extraRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+1 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
-   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",extraRegister);
-   assignRegister(cashierName,910001,910001,extraRegister);
-   as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(extraRegister,BigDecimal.ZERO)));
-  }
+  // Keep one spare assigned till available to reopen the cashier's single
+  // active session after a close probe. POS reads intentionally require exactly one OPEN session.
+  Long cashierRecoveryRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+1 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
+  update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",cashierRecoveryRegister);
+  assignRegister(cashierName,910001,910001,cashierRecoveryRegister);
 
   // Finalize is a read of an already-paid sale in this sweep. Seed that sale
   // through the real checkout flow so the probe proves endpoint authorization
@@ -3014,6 +3018,7 @@ class PosTest {
   Map<String,Set<String>> grants=new LinkedHashMap<>();
   String[][] accounts={
     {"VENDOR_ADMIN",adminName,"SaumyaAdmin2026!"},
+    {"VENDOR_ADMIN_SUPERVISOR",supervisorName,"MatrixSupervisorPassword2026!"},
     {"SALES_MANAGER","sales@saumya.demo.test","SaumyaSales2026!"},
     {"INVENTORY_MANAGER","inventory@saumya.demo.test","SaumyaStock2026!"},
     {"POS_CASHIER",cashierName,"SaumyaTill2026!"},
@@ -3118,6 +3123,14 @@ class PosTest {
      // cannot leave stale versioned entities in the next request's context.
      em.flush();
      em.clear();
+     // Restore exactly one cashier OPEN session after a close/variance probe.
+     // The endpoint operation remains recorded inside this rollback-only test transaction.
+     if(actor.equals("POS_CASHIER")){
+      Integer openCount=db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",Integer.class,cashierName);
+      if(openCount==null||openCount==0){
+       as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRecoveryRegister,BigDecimal.ZERO)));
+      }
+     }
      int actual=response.getResponse().getStatus();
      Throwable resolved=response.getResolvedException();
      String exception=resolved==null?"":resolved.getClass().getSimpleName();

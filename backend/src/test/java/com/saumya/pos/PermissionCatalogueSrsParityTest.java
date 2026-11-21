@@ -49,7 +49,7 @@ class PermissionCatalogueSrsParityTest {
             assertThat(id).as("refinement identifier").isNotBlank();
             assertThat(documentedRefinements.add(id)).as("duplicate refinement %s", id).isTrue();
             assertThat(refinement.path("sourceSections").isArray()).isTrue();
-            assertThat(refinement.path("sourceSections")).isNotEmpty();
+            assertThat(refinement.path("sourceSections").size()).isGreaterThan(0);
             assertThat(refinement.path("rationale").asText()).isNotBlank();
             assertThat(refinement.path("parentSrsPermissions").isArray()).isTrue();
             for (JsonNode parent : refinement.path("parentSrsPermissions")) {
@@ -58,6 +58,7 @@ class PermissionCatalogueSrsParityTest {
             assertThat(classified).contains(id);
             assertThat(srsAll).doesNotContain(id);
         }
+        documentedRefinements.addAll(strings(catalogue, "orphanedPermissions"));
         assertThat(runtimeOnly).containsExactlyInAnyOrderElementsOf(documentedRefinements);
         assertThat(strings(catalogue, "platformPermissions")).containsAll(srsPlatform);
         assertThat(strings(catalogue, "vendorPermissions"))

@@ -153,7 +153,7 @@ public final class TenantIsolationFixture {
         Long planId=db.queryForObject("SELECT id FROM subscription_plans WHERE plan_key=?",
             Long.class,"p004-p101-test-plan");
         String jsonCast=jsonCastExpression();
-        String entitlementsJson="{\\"features\\":{\\"POS\\":true,\\"CATALOG\\":true,\\"INVENTORY\\":true,\\"ADMINISTRATION\\":true,\\"CRM\\":true,\\"LEADS\\":true,\\"QUOTATIONS\\":true,\\"ORDERS\\":true,\\"RETURNS\\":true,\\"FINANCE\\":true,\\"SHIPMENTS\\":true,\\"SERVICE\\":true,\\"REPORTING\\":true}}";
+        String entitlementsJson="{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ADMINISTRATION\":true,\"CRM\":true,\"LEADS\":true,\"QUOTATIONS\":true,\"ORDERS\":true,\"RETURNS\":true,\"FINANCE\":true,\"SHIPMENTS\":true,\"SERVICE\":true,\"REPORTING\":true}}";
         String versionSql="""
             INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,
                 max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,
@@ -170,7 +170,7 @@ public final class TenantIsolationFixture {
             WHERE NOT EXISTS(SELECT 1 FROM tenant_subscriptions WHERE tenant_id=?)
             """.formatted(jsonCast);
         db.update(subscriptionSql,tenantId,planId,"{\\"test\\":true}",tenantId);
-    }
+        db.update(subscriptionSql,tenantId,planId,"{\"test\":true}",tenantId);
 
     private String jsonCastExpression(){
         try(var connection=db.getDataSource().getConnection()){

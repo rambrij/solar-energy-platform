@@ -2269,12 +2269,12 @@ class PosTest {
     finally{statement.execute("DROP PROCEDURE IF EXISTS setup_multi_vendor_demo");}
    }else{
     String core=script.substring(script.indexOf("-- BEGIN DEMO DATA")+18,script.indexOf("-- END DEMO DATA"));
-    String demoEntitlements="{\\"features\\":{\\"POS\\":true,\\"CATALOG\\":true,\\"INVENTORY\\":true,\\"ADMINISTRATION\\":true,\\"CRM\\":true,\\"LEADS\\":true,\\"QUOTATIONS\\":true,\\"ORDERS\\":true,\\"RETURNS\\":true,\\"FINANCE\\":true,\\"SHIPMENTS\\":true,\\"SERVICE\\":true,\\"REPORTING\\":true}}";
+    String demoEntitlements="{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ADMINISTRATION\":true,\"CRM\":true,\"LEADS\":true,\"QUOTATIONS\":true,\"ORDERS\":true,\"RETURNS\":true,\"FINANCE\":true,\"SHIPMENTS\":true,\"SERVICE\":true,\"REPORTING\":true}}";
     core=core.replace("'" + demoEntitlements + "'","CAST('" + demoEntitlements + "' FORMAT JSON AS JSON)");
     core=core.replace("30,'{}','Local demo subscription'",
         "30,CAST('{}' FORMAT JSON AS JSON),'Local demo subscription'");
-    core=core.replace("DATE '2099-12-31','{\\"demo\\":true}'",
-        "DATE '2099-12-31',CAST('{\\"demo\\":true}' FORMAT JSON AS JSON)");
+    core=core.replace("DATE '2099-12-31','{\"demo\":true}'",
+        "DATE '2099-12-31',CAST('{\"demo\":true}' FORMAT JSON AS JSON)");
     connection.setAutoCommit(false);
     try{for(String sql:core.split(";"))if(!sql.isBlank())statement.execute(sql.replace("DROP TEMPORARY TABLE","DROP TABLE"));connection.commit();}
     catch(Exception e){connection.rollback();throw e;}

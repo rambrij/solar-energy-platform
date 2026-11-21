@@ -76,7 +76,7 @@ class P101VendorRoleLifecycleTest {
         assertThat(jdbcEntitlements)
             .as("P1-01 JDBC entitlement JSON text: %s",jdbcEntitlements)
             .startsWith("{")
-            .contains("\\"ADMINISTRATION\\":true","\\"POS\\":true");
+            .contains("\"ADMINISTRATION\":true","\"POS\":true");
         assertThat(db.queryForList("""
             SELECT rp.permission
             FROM employee_role_assignments a

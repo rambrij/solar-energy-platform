@@ -90,4 +90,13 @@ if(JSON.stringify(names)!==JSON.stringify(registered)){
 for(const [name,policy] of Object.entries(registry.controllerPolicies)){
   if(typeof policy!=='string'||policy.trim().length===0)throw new Error(`Missing endpoint policy description for ${name}`);
 }
+
+const platformUiSources=['PlatformApp.tsx','PlatformSubscriptions.tsx','PlatformBoundary.tsx']
+  .map(file=>[file,fs.readFileSync(path.join(frontend,'src',file),'utf8')]);
+for(const [file,source] of platformUiSources){
+  const used=[...source.matchAll(/['"](PLATFORM_[A-Z0-9_]+)['"]/g)].map(match=>match[1]);
+  const unknown=[...new Set(used.filter(permission=>!registry.platformPermissions.includes(permission)))];
+  if(unknown.length)throw new Error(`Unknown platform permission reference in ${file}: ${unknown.join(', ')}`);
+}
+
 console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${permissions.size} permission identifiers.`);

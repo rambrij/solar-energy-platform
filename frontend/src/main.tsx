@@ -15,7 +15,7 @@ const marketplace=path==='/'||path==='/marketplace'||path==='/vendors'||path.sta
 const content=platform?<PlatformBoundary/>:path==='/vendor/invitation'
  ?<VendorInvitationAcceptance/>:path==='/customer/associate'
  ?<AuthenticationBoundary permission="CUSTOMER" mode="online"><CustomerAssociation/></AuthenticationBoundary>
- :marketplace?<Marketplace/>:<AuthenticationBoundary permission="POS_VIEW" mode="pos"><App/></AuthenticationBoundary>;
+ :marketplace?<Marketplace/>:<AuthenticationBoundary mode="pos"><App/></AuthenticationBoundary>;
 
 createRoot(document.getElementById('root')!).render(
  <StrictMode><SessionBootstrap><WorkspaceErrorBoundary>{content}</WorkspaceErrorBoundary></SessionBootstrap></StrictMode>

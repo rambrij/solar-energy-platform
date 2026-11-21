@@ -146,8 +146,9 @@
       ]
     },
     "store-settings": {
-      "allOf": [
-        "POS_VIEW"
+      "anyOf": [
+        "POS_DISCOUNT_OVERRIDE",
+        "POS_SETTINGS_MANAGE"
       ]
     },
     "promotion-history": {

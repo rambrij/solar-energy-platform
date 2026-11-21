@@ -1,6 +1,6 @@
 -- Authorization hardening: MFA, tenant roles and POS resource assignments.
--- Additive only. Existing permissions are copied into per-employee legacy roles
--- before the runtime begins resolving role assignments.
+-- Clean-install RBAC schema. Vendor access is granted only through explicit
+-- tenant-owned roles and assignments; no employee grants are copied or migrated.
 
 ALTER TABLE users ADD COLUMN platform_mfa_secret_enc VARCHAR(512) NULL;
 ALTER TABLE users ADD COLUMN platform_mfa_enrolled_at TIMESTAMP NULL;

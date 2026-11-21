@@ -46,7 +46,7 @@ class MembershipServiceTest {
             .thenReturn(List.of("POS_VIEW","PRODUCT_VIEW","INVENTORY_RECEIVE"));
         var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,passThroughEntitlements());
         assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
-            .isEqualTo(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
+            .isEqualTo(List.of("POS_VIEW","PRODUCT_VIEW","INVENTORY_RECEIVE"));
         verify(db).queryForList(argThat(sql->sql.contains("a.active=TRUE")&&sql.contains("r.active=TRUE")
             &&sql.contains("SELECT DISTINCT")),eq(String.class),eq(7L),eq("cashier"));
     }
@@ -54,16 +54,16 @@ class MembershipServiceTest {
     @Test void persistedRoleUnionIsFilteredThroughTheMandatoryTenantEntitlementPolicy(){
         var db=mock(JdbcTemplate.class);
         when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier")))
-            .thenReturn(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
+            .thenReturn(List.of("POS_VIEW","PRODUCT_VIEW","INVENTORY_RECEIVE"));
         var entitlements=mock(TenantEntitlementPolicy.class);
-        when(entitlements.permissions(7L,List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW")))
+        when(entitlements.permissions(7L,List.of("POS_VIEW","PRODUCT_VIEW","INVENTORY_RECEIVE")))
             .thenReturn(List.of("POS_VIEW"));
         var service=new MembershipService(
             memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,entitlements);
 
         assertThat(service.access("cashier")).get()
             .extracting(MembershipService.Access::permissions).isEqualTo(List.of("POS_VIEW"));
-        verify(entitlements).permissions(7L,List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
+        verify(entitlements).permissions(7L,List.of("POS_VIEW","PRODUCT_VIEW","INVENTORY_RECEIVE"));
     }
 
     @Test void noRoleAssignmentFailsClosedWithoutReadingAnyOtherPermissionSource(){

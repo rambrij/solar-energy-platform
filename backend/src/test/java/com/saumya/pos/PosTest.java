@@ -3043,7 +3043,7 @@ class PosTest {
       var path=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
       if(path!=null){
        String key=!path.name().isBlank()?path.name():(!path.value().isBlank()?path.value():parameter.getName());
-       concrete=concrete.replace("{"+key+"}",matrixPathValue(parameter,controllerType.getSimpleName(),route));
+       concrete=concrete.replace("{"+key+"}",matrixPathValue(parameter,controllerType.getSimpleName(),route,actor));
       }
      }
      concrete=concrete.replaceAll("\\{[^/]+\\}","1");

@@ -1003,5 +1003,222 @@
         "PLATFORM_SUBSCRIPTION_VIEW"
       ]
     }
-  }
+  },
+  "approvedPermissionRefinements": [
+    {
+      "id": "CATALOG_PROMOTION_MANAGE",
+      "parentSrsPermissions": [
+        "PRODUCT_UPDATE",
+        "PRICE_UPDATE"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.1",
+        "SRS/HLD §12.5"
+      ],
+      "rationale": "Dedicated authority for tenant-owned product promotion updates; it does not grant general product or price updates."
+    },
+    {
+      "id": "PLATFORM_CONFIG_MANAGE",
+      "parentSrsPermissions": [],
+      "sourceSections": [
+        "Product Requirements §2.1",
+        "SRS/HLD §11.1",
+        "SRS/HLD §20.1"
+      ],
+      "rationale": "Fine-grained platform-only authority for global technical configuration; this operation is expressly in platform feature scope but has no enumerated ID in SRS/HLD §11.2."
+    },
+    {
+      "id": "PLATFORM_IDENTITY_MANAGE",
+      "parentSrsPermissions": [],
+      "sourceSections": [
+        "SRS/HLD §11.1",
+        "SRS/HLD §20.1"
+      ],
+      "rationale": "Fine-grained platform-only authority for platform identity administration and audited MFA lifecycle; no dedicated ID is enumerated in SRS/HLD §11.2."
+    },
+    {
+      "id": "PLATFORM_TENANT_REACTIVATE",
+      "parentSrsPermissions": [
+        "PLATFORM_TENANT_UPDATE"
+      ],
+      "sourceSections": [
+        "Product Requirements §4.1",
+        "SRS/HLD §12.2"
+      ],
+      "rationale": "Separate permission for the SRS-approved tenant reactivation lifecycle transition; it is not a generic update grant."
+    },
+    {
+      "id": "PLATFORM_TENANT_VIEW",
+      "parentSrsPermissions": [
+        "PLATFORM_ANALYTICS_VIEW"
+      ],
+      "sourceSections": [
+        "Product Requirements §2.1",
+        "Product Requirements §4.1",
+        "SRS/HLD §11.1"
+      ],
+      "rationale": "Read-only tenant directory permission required to inspect tenant lifecycle state without granting lifecycle mutation."
+    },
+    {
+      "id": "POS_CASHIER_REPORT_VIEW",
+      "parentSrsPermissions": [
+        "REPORT_VIEW"
+      ],
+      "sourceSections": [
+        "SRS/HLD §11.1",
+        "SRS/HLD §11.2",
+        "SRS/HLD §12.15"
+      ],
+      "rationale": "Branch/register/cashier scoped report view for cashier sales; narrower than general vendor REPORT_VIEW."
+    },
+    {
+      "id": "POS_DISCOUNT_APPROVE",
+      "parentSrsPermissions": [
+        "POS_DISCOUNT_APPLY",
+        "POS_DISCOUNT_OVERRIDE"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2",
+        "SRS/HLD §20.3"
+      ],
+      "rationale": "Separate approval authority for promotion/discount approval; not implied by applying a discount."
+    },
+    {
+      "id": "POS_REFUND_CASH_RECORD",
+      "parentSrsPermissions": [
+        "POS_REFUND_APPROVE"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2",
+        "SRS/HLD §12.15"
+      ],
+      "rationale": "Narrow authority to record the cash leg of an approved POS refund; does not grant refund approval."
+    },
+    {
+      "id": "POS_REFUND_PRINT",
+      "parentSrsPermissions": [
+        "POS_RECEIPT_REPRINT",
+        "POS_REFUND_APPROVE"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2",
+        "SRS/HLD §12.15"
+      ],
+      "rationale": "Separate document-copy action for an existing POS refund."
+    },
+    {
+      "id": "POS_REFUND_VIEW",
+      "parentSrsPermissions": [
+        "POS_REFUND_APPROVE"
+      ],
+      "sourceSections": [
+        "SRS/HLD §11.1",
+        "SRS/HLD §11.2"
+      ],
+      "rationale": "Read-only POS refund queue/history permission distinct from refund approval and cash recording."
+    },
+    {
+      "id": "POS_REPORT_EXPORT",
+      "parentSrsPermissions": [
+        "REPORT_EXPORT",
+        "POS_REPORT_VIEW"
+      ],
+      "sourceSections": [
+        "SRS/HLD §11.1",
+        "SRS/HLD §11.2",
+        "SRS/HLD §12.15"
+      ],
+      "rationale": "POS-scoped export authority; distinct from viewing POS reports and from generic report exports."
+    },
+    {
+      "id": "POS_RETURN_APPROVE",
+      "parentSrsPermissions": [
+        "RETURN_APPROVE",
+        "POS_RETURN_CREATE"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2",
+        "SRS/HLD §12.15"
+      ],
+      "rationale": "Supervisor approval for POS-originated returns; distinct from creating a return request."
+    },
+    {
+      "id": "POS_RETURN_AUDIT_VIEW",
+      "parentSrsPermissions": [
+        "VENDOR_AUDIT_VIEW",
+        "RETURN_VIEW"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2",
+        "SRS/HLD §20.3"
+      ],
+      "rationale": "Read-only audit history for an individual POS return; scoped to that tenant-owned return."
+    },
+    {
+      "id": "POS_RETURN_INSPECT",
+      "parentSrsPermissions": [
+        "RETURN_RECEIVE",
+        "RETURN_VIEW"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2",
+        "SRS/HLD §12.15"
+      ],
+      "rationale": "Inspects returned POS items and validates their state before receipt/approval."
+    },
+    {
+      "id": "POS_RETURN_VIEW",
+      "parentSrsPermissions": [
+        "RETURN_VIEW",
+        "POS_RETURN_CREATE"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2"
+      ],
+      "rationale": "Read-only queue/detail permission for POS-originated returns, separate from generic online-order returns."
+    },
+    {
+      "id": "POS_SETTINGS_MANAGE",
+      "parentSrsPermissions": [
+        "TENANT_PROFILE_UPDATE"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §12.15",
+        "SRS/HLD §20.3"
+      ],
+      "rationale": "Branch/register POS configuration permission; it does not grant general tenant profile management."
+    },
+    {
+      "id": "POS_TENDER_EXTERNAL_RECORD",
+      "parentSrsPermissions": [
+        "POS_TENDER_EXTERNAL_CONFIRM"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2",
+        "SRS/HLD §12.15"
+      ],
+      "rationale": "Records a provider/terminal tender attempt and reference only; recording is not proof of payment confirmation."
+    },
+    {
+      "id": "POS_TENDER_MANUAL_VERIFY",
+      "parentSrsPermissions": [
+        "POS_TENDER_EXTERNAL_CONFIRM"
+      ],
+      "sourceSections": [
+        "Product Requirements §9.2",
+        "SRS/HLD §11.2",
+        "SRS/HLD §20.3"
+      ],
+      "rationale": "Separate supervisor review of external tender evidence; it cannot be conflated with cashier tender-attempt recording."
+    }
+  ]
 }

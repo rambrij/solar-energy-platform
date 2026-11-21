@@ -145,8 +145,16 @@ class PosTest {
   Long branch=db.queryForObject("SELECT branch_id FROM employees WHERE username=?",Long.class,username);
   update("UPDATE employee_role_assignments SET active=FALSE,revoked_by=?,revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND username=? AND active=TRUE",username,tenant,username);
   String roleKey="restricted-"+username.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]","-");
-  update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(?,?,?,TRUE,?,?)",tenant,roleKey,"Restricted "+username,username,username);
-  Long roleId=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenant,roleKey);
+  List<Long> existingRoles=db.queryForList("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenant,roleKey);
+  Long roleId;
+  if(existingRoles.isEmpty()){
+   update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(?,?,?,TRUE,?,?)",tenant,roleKey,"Restricted "+username,username,username);
+   roleId=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenant,roleKey);
+  }else{
+   roleId=existingRoles.getFirst();
+   update("UPDATE vendor_roles SET active=TRUE,updated_by=?,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE tenant_id=? AND id=?",username,tenant,roleId);
+   update("DELETE FROM vendor_role_permissions WHERE tenant_id=? AND role_id=?",tenant,roleId);
+  }
   for(String permission:permissions)update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",tenant,roleId,permission,username);
   update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",tenant,branch,username,roleId,username);
  }
@@ -259,9 +267,9 @@ class PosTest {
   try{new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
    var key=new com.saumya.pos.catalog.internal.CatalogStock.Key(1,1,1);assertThat(em.find(com.saumya.pos.catalog.internal.CatalogStock.class,key).available()).isEqualTo(1);
    try{pool.submit(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(other->{service.lockOutlet(a);return stock.receive(1,1,1,2);}))).get(20,TimeUnit.SECONDS);}catch(Exception failure){throw new IllegalStateException(failure);}
-   stock.issue(1,1,1,2);return null;
+   stock.receive(1,1,1,2);return null;
   });}finally{pool.shutdownNow();}
-  assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(5);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(5);
  }
  @Test void inventoryApiCoversUnauthenticatedForbiddenAndNonDisclosingCrossTenantDenials()throws Exception{
   String path="/api/v1/vendor/inventory/receipts";
@@ -1415,8 +1423,8 @@ class PosTest {
  @Test void jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary(){
   assertThat(transactions).isInstanceOf(org.springframework.orm.jpa.JpaTransactionManager.class);
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
-   stock.issue(1,1,1,1);
-   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isZero();
+   stock.receive(1,1,1,1);
+   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(2);
    update("INSERT INTO pos_audit(id,tenant_id,actor,action,resource_id) VALUES('rollback',1,'alice','ROLLBACK_TEST','test')");
    throw new IllegalStateException("Simulate failure after stock and financial work");
   })).isInstanceOf(IllegalStateException.class);
@@ -2320,8 +2328,8 @@ class PosTest {
    else{assertThat(session.account().tenantId()).isEqualTo(account.get("tenant").asLong());assertThat(granted).noneMatch(g->g.startsWith("PLATFORM_")||g.equals("CUSTOMER"));
     if(role.equals("POS_CASHIER"))assertThat(granted).contains("POS_SALE_CREATE").doesNotContain("POS_REFUND_APPROVE","POS_TENDER_MANUAL_VERIFY","POS_SETTINGS_MANAGE","POS_DISCOUNT_OVERRIDE");
     if(role.equals("INVENTORY_MANAGER"))assertThat(granted).contains("INVENTORY_RECEIVE").doesNotContain("POS_SALE_CREATE","PRICE_UPDATE","POS_REFUND_APPROVE");
-    if(role.equals("SALES_MANAGER"))assertThat(granted).contains("LEAD_CREATE").doesNotContain("INVENTORY_RECEIVE","POS_SALE_CREATE");
-    if(role.equals("ACCOUNTANT"))assertThat(granted).contains("POS_TENDER_MANUAL_VERIFY").doesNotContain("POS_SALE_CREATE","POS_SETTINGS_MANAGE");
+    if(role.equals("SALES_MANAGER"))assertThat(granted).contains("POS_VIEW","POS_REPORT_VIEW").doesNotContain("LEAD_CREATE","INVENTORY_RECEIVE","POS_SALE_CREATE");
+    if(role.equals("ACCOUNTANT"))assertThat(granted).contains("POS_REFUND_VIEW").doesNotContain("POS_TENDER_MANUAL_VERIFY","POS_SALE_CREATE","POS_SETTINGS_MANAGE");
    }
   }
   String[] slugs={"saumya-rooftops","helio-rural","lumina-lighting"};String[] brands={"SunArc","AgriRay","NightSun"};

@@ -5,6 +5,7 @@ import { api } from './api';
 import { marketplaceApi } from './marketplaceApi';
 vi.mock('./api', async original => ({ ...await original<typeof import('./api')>(), api: vi.fn() }));
 vi.mock('./marketplaceApi', async original => ({ ...await original<typeof import('./marketplaceApi')>(), marketplaceApi: vi.fn() }));
+vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_VIEW','POS_SALE_CREATE','POS_SALE_CANCEL','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD','POS_RECEIPT_VIEW']}})}));
 const draft = { id: 'd1', vendorName: 'Vendor A', channel: 'IN_STORE', sessionId:'s1', status: 'DRAFT', total: 110, expiresAt: '2030-01-01T00:00:00Z', message: 'Unpaid reservation', items: [{ productId: 1, name: 'Panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }] };
 afterEach(() => { cleanup(); vi.resetAllMocks(); sessionStorage.clear(); });
 it('does not prompt anonymous marketplace visitors until they reserve or load drafts', async () => {

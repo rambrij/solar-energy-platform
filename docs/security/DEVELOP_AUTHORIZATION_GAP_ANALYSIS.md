@@ -413,3 +413,13 @@ The existing implementation has useful authorization controls and must be preser
 - Updated the canonical JSON and frontend route metadata together. Added a direct deep-link test for a vendor actor with `PRODUCT_VIEW` but without `POS_VIEW`, and Store Settings route-policy tests.
 - Remaining acceptance work: exhaustive page/tab/action audit across all vendor, customer and platform UI; explicit tests for every operation control and nested tab; permission revocation/session-expiry behavior; 403 handling and pending-command recovery; and a green full frontend/H2/MySQL 8.4 workflow on the final branch head.
 - No backend authorization policy or database migration was changed in this P1-04 pass. UI guards remain supplementary; backend 401/403/404 behavior is authoritative.
+
+
+## P1-04 continued audit — 2026-11-22
+
+- Status remains **IN PROGRESS — CI VALIDATION NOT VERIFIED**.
+- Reviewed canonical route/page metadata and the UI components for POS checkout, sessions/registers, drawer movements, reserved drafts, split tender, returns, refunds, receipts, inventory, catalogue, reports, vendor role/employee administration, platform tenant/plan/configuration/identity/subscription pages, and customer marketplace routing against the registry's 62 permission traceability entries.
+- Corrected operation-level UI gates for POS reserved-draft actions, split tender methods/finalization/retry, refund recovery/acknowledgement, order-history return/receipt actions, Store Settings reads and platform tenant/plan mutations. Prevented POS from rendering the customer online payment simulation when no POS tender permission exists.
+- The shared authenticated fetch now refreshes the actor snapshot after HTTP 403 without replaying the denied request. Session expiry clears the local actor while persisted pending commands remain available for reconciliation.
+- Added component and session tests for these permission boundaries, revocation, 403 non-replay and expiry/pending-command retention.
+- Static route metadata parity remains aligned with the canonical registry. The full pos-tests.yml workflow includes frontend test/build and backend H2/MySQL 8.4 suites, but GitHub reported no check runs/statuses for the latest branch commit. Repository cloning also failed because this environment cannot resolve GitHub. Therefore test/build and database suites remain **unverified**, and P1-04 must not be marked complete until CI is green.

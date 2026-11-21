@@ -41,7 +41,7 @@ const platformEnd=platformStart<0?-1:permissionSource.indexOf('};',platformStart
 if(platformStart<0||platformEnd<0)throw new Error('PLATFORM_PAGE_PERMISSIONS block was not found');
 const platformBlock=permissionSource.slice(platformStart,platformEnd+2);
 const platformActual={};
-const platformEntryPattern=/'([^']+)':\\s*\\{\\s*(anyOf|allOf):\\s*\\[([^\\]]*)\\]\\s*\\}/g;
+const platformEntryPattern=/'([^']+)':\s*\{\s*(anyOf|allOf):\s*\[([^\]]*)\]\s*\}/g;
 for(const match of platformBlock.matchAll(platformEntryPattern)){
   const [,id,kind,raw]=match;
   platformActual[id]={[kind]:[...raw.matchAll(/'([^']+)'/g)].map(x=>x[1]).sort()};

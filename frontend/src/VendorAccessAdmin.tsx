@@ -120,8 +120,8 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   {mode==='roles'&&<>
    {templates.length>0&&<section><h3>Standard role templates</h3>
     <p>Branch, register, session and resource assignments still apply.</p>
-    {templates.map(t=><article key={t.key}><strong>{t.key} � v{t.version}</strong>
-     <p>{t.deferredReason?'Deferred � '+t.deferredReason:t.permissions.join(', ')}</p>
+    {templates.map(t=><article key={t.key}><strong>{t.key} · v{t.version}</strong>
+     <p>{t.deferredReason?'Deferred · '+t.deferredReason:t.permissions.join(', ')}</p>
      {canRoleCreate&&!t.deferredReason&&<>
       <button type="button" onClick={()=>{setSource(t);setRoleKey('');setDisplayName('');setSelectedPermissions(t.permissions.filter(p=>permissionOptions.includes(p)));}}>Customize {t.key}</button>
       <button type="button" disabled={busy||!t.permissions.every(p=>permissionOptions.includes(p))} onClick={()=>void run(()=>vendorApi('/roles','POST',{roleKey:'standard:'+t.key,displayName:t.key,templateKey:t.key,templateVersion:t.version,permissions:t.permissions,reason:'Initialize standard tenant role '+t.key}),'Tenant role initialized.')}>Initialize {t.key}</button>
@@ -139,14 +139,14 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     <button disabled={busy||!selectedPermissions.length}>Create role</button>
    </form>}
    {canRoleView&&<div className="vendor-access-list"><h3>Tenant roles</h3>{roles.map(role=><article key={role.id}>
-    <div><strong>{role.displayName}</strong><small>{role.key} · {role.active?'Active':'Inactive'} · v{role.version}</small><p>{role.permissions.join(', ')}</p></div>
+     <div><strong>{role.displayName}</strong><small>{role.templateKey?('Standard template '+role.templateKey+' · template v'+role.templateVersion):'Tenant custom role'} · {role.key} · {role.active?'Active':'Inactive'} · role v{role.version}</small><p>{role.permissions.join(', ')}</p></div>
     <div className="vendor-access-actions">
      {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>startEdit(role)}>Edit role {role.displayName}</button>}
      {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>void run(()=>vendorApi('/roles/'+role.id+'/deactivate','POST',{reason}),'Role deactivated.')}>Deactivate role {role.displayName}</button>}
     </div>
    </article>)}</div>}
    {editingRole&&<form data-testid="edit-role-form" onSubmit={e=>void updateRole(e)} className="vendor-access-form">
-    <h3>Edit tenant role: {editingRole.displayName} · v{editingRole.version}</h3>
+    <h3>Edit tenant role: {editingRole.displayName} Â· v{editingRole.version}</h3>
     <label>Updated role name<input required maxLength={120} value={editDisplayName} onChange={e=>setEditDisplayName(e.target.value)}/></label>
     <fieldset><legend>Replacement permissions</legend>
      {permissionOptions.map(permission=><label key={permission}><input type="checkbox" aria-label={permission} checked={editPermissions.includes(permission)} onChange={()=>togglePermission(permission,editPermissions,setEditPermissions)}/>{permission}</label>)}
@@ -167,7 +167,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     {invitation&&<p role="status">Invitation for {invitation.username}: {invitation.invitationToken??'This identity already has an active account; no invitation token issued.'}</p>}
    </form>}
    {canUserView&&<div className="vendor-access-list"><h3>Employees</h3>{employees.map(e=><article key={e.username}>
-    <div><strong>{e.username}</strong><small>Branch {e.branchId} · {e.enabled?'Enabled':'Disabled'}</small><p>Roles: {e.roleIds.join(', ')||'None'} · Registers: {e.registerIds.join(', ')||'None'}</p></div>
+    <div><strong>{e.username}</strong><small>Branch {e.branchId} Â· {e.enabled?'Enabled':'Disabled'}</small><p>Roles: {e.roleIds.join(', ')||'None'} Â· Registers: {e.registerIds.join(', ')||'None'}</p></div>
     <div className="vendor-access-actions"><button type="button" className="secondary" onClick={()=>chooseEmployee(e.username)}>Manage</button>{canUserDisable&&e.enabled&&<button type="button" className="secondary" disabled={busy} onClick={()=>void disableEmployee(e.username)}>Disable</button>}</div>
    </article>)}</div>}
    {subject&&<div className="vendor-access-form">

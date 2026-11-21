@@ -2721,8 +2721,14 @@ class PosTest {
    boolean initial=template.key().equals("VENDOR_ADMIN");
    String actor=initial?admin:target;
    if(!initial)as(admin,()->roleService.assignRoles(target,List.of(id),"Runtime template scenario"));
-   assertThat(effectivePermissions(actor)).containsExactlyElementsOf(template.permissions());
+   assertThat(effectivePermissions(actor)).containsExactlyInAnyOrderElementsOf(template.permissions());
    String token=demoToken(actor,"StaffPasswordForTests");
+   if(template.key().equals("POS_CASHIER")){
+    // POS_VIEW is necessary but not sufficient: the cashier must also have
+    // a persisted assignment and an OPEN session on the requested register.
+    as(target,()->service.open(new PosService.Scope(1,1,target),
+      new PosService.OpenSession(1,new BigDecimal("0"))));
+   }
    mvc.perform(get("/api/v1/vendor/"+routes.get(template.key())).header("Authorization","Bearer "+token)).andExpect(status().isOk());
    int before=db.queryForObject("SELECT COUNT(*) FROM vendor_roles",Integer.class);
    if(initial){

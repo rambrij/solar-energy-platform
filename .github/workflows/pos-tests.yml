@@ -123,6 +123,7 @@ jobs:
             backend/target/p0-06-runtime-authorization-report.csv
             backend/target/p0-06-runtime-no-permission-http.csv
             backend/target/p0-06-runtime-actor-endpoint-http.csv
+            backend/target/p0-06-runtime-authorization-summary.json
           if-no-files-found: warn
           retention-days: 30
   frontend:

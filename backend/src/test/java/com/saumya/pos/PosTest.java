@@ -2784,8 +2784,8 @@ class PosTest {
     return order==null?"1":order;
    }
    if(n.contains("session")){
-    Long session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",Long.class);
-    return session==null?"P006-NO-SUCH-SESSION":session.toString();
+    String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",String.class);
+    return session==null?"P006-NO-SUCH-SESSION":session;
    }
    if(n.contains("token"))return "A".repeat(43);
    return "1";
@@ -2800,8 +2800,8 @@ class PosTest {
    return subscription==null?"1":subscription.toString();
   }
   if(n.contains("session")||route.contains("/sessions/{")){
-   Long session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",Long.class);
-   return session==null?"1":session.toString();
+   String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",String.class);
+   return session==null?"1":session;
   }
   if(n.contains("tenant"))return "910001";
   if(n.contains("branch"))return "910001";

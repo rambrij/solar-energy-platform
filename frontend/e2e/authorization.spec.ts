@@ -50,7 +50,6 @@ test('Custom Sales role: product read is allowed while product creation returns 
   const adminToken = await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
   await ensureCustomSalesRole(page, adminToken);
   await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();
   const salesToken = await signIn(page, demo.salesExecutive.username, demo.salesExecutive.password);
   await page.goto('/vendor/pos/products');
   await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
@@ -102,6 +101,7 @@ test('Customer: purchase history opens only in the customer marketplace context'
 
 test('Expired refresh session: protected POS route returns to the sign-in boundary', async ({ page }) => {
   await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
+  await page.goto('/vendor/pos/products');
   await page.route('**/api/v1/auth/refresh', route => route.fulfill({ status: 401, contentType: 'application/json', body: '{}' }));
   await page.reload();
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();

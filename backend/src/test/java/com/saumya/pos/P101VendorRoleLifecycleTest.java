@@ -128,6 +128,24 @@ class P101VendorRoleLifecycleTest {
     }
 
     @Test
+    void templateRetriesPreserveTenantSnapshotsAndRejectEscalation() {
+        var clone = asVendorA(() -> roles.applyTemplate("POS_CASHIER", 1, "cash-reader",
+            "Counter reader", List.of("POS_VIEW"), "Restricted cashier"));
+        int audits = tenantAuditCount(VENDOR_A_TENANT);
+        assertThat(asVendorA(() -> roles.applyTemplate("POS_CASHIER", 1, "cash-reader",
+            "Counter reader", List.of("POS_VIEW"), "Retry"))).isEqualTo(clone);
+        forbidden(() -> asVendor(VENDOR_A, VENDOR_A_TENANT, VENDOR_A_BRANCH, List.of("ROLE_CREATE"),
+            () -> roles.applyTemplate("POS_CASHIER", 1, "denied", "Denied", List.of("POS_VIEW"), "Denied")));
+        badRequest(() -> asVendorA(() -> roles.applyTemplate("POS_CASHIER", 1, "bad-template",
+            "Escalation", List.of("PRODUCT_VIEW"), "Outside template")));
+        assertThat(tenantAuditCount(VENDOR_A_TENANT)).isEqualTo(audits);
+        assertThatThrownBy(() -> asVendorA(() -> roles.applyTemplate("POS_CASHIER", 2, "cash-reader",
+            "Counter reader", List.of("POS_VIEW"), "Changed catalogue")))
+            .isInstanceOf(ResponseStatusException.class).hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
+        assertThat(asVendorA(() -> roles.role(clone.id()))).isEqualTo(clone);
+    }
+
+    @Test
     @DisplayName("Create, read, replace permissions, increment version and deactivate immediately")
     void roleCrudPermissionReplacementAndDeactivationAreImmediatelyEffective() {
         VendorRoleService.Role created = asVendorA(() ->

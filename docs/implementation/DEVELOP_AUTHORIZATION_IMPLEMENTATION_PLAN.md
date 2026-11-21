@@ -150,15 +150,26 @@
 
 ### P1-02 — Resolve standard role templates
 
-- **Requirement:** SRS §11.1 standard roles are provisioned or their illustrative status is confirmed.
-- **Current gap:** Initial Vendor Admin and custom roles are evidenced; complete standard role template seed set is not.
-- **Proposed implementation:** Resolve RC-03. If required, add tenant-scoped least-privilege role templates from the approved matrix; templates are not global privilege bypasses.
-- **Backend changes:** Add seed/template service and safe clone-on-first-use behavior only if approved.
-- **Frontend changes:** Offer approved templates as starting points; display exact permission grants.
-- **Database/schema changes:** Optional template/version metadata, with tenant-scoped role assignment.
-- **Tests required:** Template grants match role matrix; custom clone cannot escalate; templates update safely without mutating existing tenant roles.
-- **Dependencies:** P1-01, RC-03.
-- **Acceptance criteria:** Every advertised standard role maps to explicit permission grants and tests; no role is silently assigned extra authority.
+**Status — IN PROGRESS, verification pending.** RC-03 requires tenant-owned standard role snapshots. Version 1 covers implemented operations from SRS §11.1 and the live endpoint and service policies. Sales reporting, financial reporting and stock receiving are the implemented portions of their respective responsibilities.
+
+| Standard template | Version 1 permissions |
+|---|---|
+| VENDOR_ADMIN | CATALOG_PROMOTION_MANAGE, INVENTORY_RECEIVE, INVENTORY_VIEW, POS_CASHIER_REPORT_VIEW, POS_CASH_IN, POS_CASH_OUT, POS_DISCOUNT_APPLY, POS_DISCOUNT_APPROVE, POS_DISCOUNT_OVERRIDE, POS_RECEIPT_REPRINT, POS_RECEIPT_VIEW, POS_REFUND_APPROVE, POS_REFUND_CASH_RECORD, POS_REFUND_PRINT, POS_REFUND_VIEW, POS_REPORT_EXPORT, POS_REPORT_VIEW, POS_RETURN_APPROVE, POS_RETURN_AUDIT_VIEW, POS_RETURN_CREATE, POS_RETURN_INSPECT, POS_RETURN_VIEW, POS_SAFE_DROP, POS_SALE_CANCEL, POS_SALE_CREATE, POS_SESSION_CLOSE, POS_SESSION_OPEN, POS_SESSION_REOPEN, POS_SETTINGS_MANAGE, POS_SHIFT_VARIANCE_APPROVE, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_TENDER_MANUAL_VERIFY, POS_VIEW, PRICE_UPDATE, PRICE_VIEW, PRODUCT_ARCHIVE, PRODUCT_CREATE, PRODUCT_UPDATE, PRODUCT_VIEW, ROLE_ASSIGN, ROLE_CREATE, ROLE_UPDATE, ROLE_VIEW, USER_CREATE, USER_DISABLE, USER_UPDATE, USER_VIEW |
+| POS_CASHIER | POS_RECEIPT_VIEW, POS_SALE_CREATE, POS_SESSION_CLOSE, POS_SESSION_OPEN, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_VIEW |
+| SALES_MANAGER | POS_REPORT_VIEW, POS_VIEW |
+| INVENTORY_MANAGER | INVENTORY_RECEIVE, INVENTORY_VIEW, PRODUCT_VIEW |
+| ACCOUNTANT | POS_REFUND_VIEW, POS_REPORT_VIEW, POS_VIEW |
+| SALES_EXECUTIVE | Deferred. No grants. Assigned leads, relationships, quotations and vendor orders have no assignment-scoped API. |
+| OPERATIONS_MANAGER | Deferred. No grants. Shipment and installation fulfilment APIs are unavailable. |
+| SERVICE_MANAGER | Deferred. No grants. Service request and engineer assignment APIs are unavailable. |
+| SERVICE_ENGINEER | Deferred. No grants. Assigned service work APIs are unavailable. |
+| CONTENT_MANAGER | Deferred. No grants. Vendor storefront editorial APIs are unavailable. |
+
+Provisioning creates one explicit role per supported definition and assigns only the initial administrator. The unique tenant/role key and tenant lock serialize materialization. An existing tenant administrator with the required delegable grants can initialize individual missing roles through role management. Creating employees and replacing assignments use explicit tenant role IDs. The runtime resolver applies active membership, role grants and tenant entitlements. Register and resource checks still apply.
+
+The role stores its source key and version. Changing the catalogue never synchronizes grants on existing roles. An administrator may create a new snapshot or explicitly edit a tenant role using its expected role version and audit reason. Retrying the same template clone reuses the original row. A conflicting retry fails without changing grants.
+
+**Evidence:** Focused template runtime scenario in \`PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes\`, clone tests in \`P101VendorRoleLifecycleTest\`, and the existing P0-06 runtime matrix. Record passing results from both database lanes before completion.
 
 ### P1-03 — Align permission catalogue with approved feature scope
 

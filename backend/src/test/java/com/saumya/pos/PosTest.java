@@ -2697,6 +2697,57 @@ class PosTest {
 
  }
 
+ @Test void p102ProvisionedTemplatesEnforceRuntimeScopes() throws Exception {
+  String admin="p102-admin@example.test";
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(10050,?,?,TRUE)",admin,encoder.encode("StaffPasswordForTests"));
+  var platform=org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("platform","test",
+    List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("PLATFORM_TENANT_CREATE"),
+            new org.springframework.security.core.authority.SimpleGrantedAuthority("ACTOR_CONTEXT_PLATFORM")));
+  asAuthentication(platform,()->memberships.provisionInitialVendorAdmin(1,1,admin));
+  asAuthentication(platform,()->memberships.provisionInitialVendorAdmin(1,1,admin));
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=1 AND action='ROLE_TEMPLATE_APPLIED'",Integer.class)).isEqualTo(5);
+  var roleService=applicationContext.getBean(com.saumya.pos.membership.VendorRoleService.class);
+  String target="p102-worker@example.test";
+  employee(target,1,1);
+  Map<String,String> routes=Map.of("VENDOR_ADMIN","roles","POS_CASHIER","pos/products",
+      "INVENTORY_MANAGER","products","SALES_MANAGER","pos/reports/sales","ACCOUNTANT","pos/reports/cash-refunds");
+  for (var template : com.saumya.pos.membership.StandardRoleTemplates.ALL) {
+   if(template.deferredReason()!=null){
+    assertThat(template.permissions()).isEmpty();
+    assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_roles WHERE template_key=?",Integer.class,template.key())).isZero();
+    continue;
+   }
+   long id=db.queryForObject("SELECT id FROM vendor_roles WHERE template_key=? AND template_version=1 AND tenant_id=1",Long.class,template.key());
+   boolean initial=template.key().equals("VENDOR_ADMIN");
+   String actor=initial?admin:target;
+   if(!initial)as(admin,()->roleService.assignRoles(target,List.of(id),"Runtime template scenario"));
+   assertThat(effectivePermissions(actor)).containsExactlyElementsOf(template.permissions());
+   String token=demoToken(actor,"StaffPasswordForTests");
+   mvc.perform(get("/api/v1/vendor/"+routes.get(template.key())).header("Authorization","Bearer "+token)).andExpect(status().isOk());
+   int before=db.queryForObject("SELECT COUNT(*) FROM vendor_roles",Integer.class);
+   if(initial){
+    long foreign=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=2",Long.class);
+    mvc.perform(post("/api/v1/vendor/roles/"+foreign+"/deactivate").header("Authorization","Bearer "+token)
+        .with(csrf()).contentType("application/json").content("{\"reason\":\"foreign\"}")).andExpect(status().isNotFound());
+    assertThat(db.queryForObject("SELECT active FROM vendor_roles WHERE id=?",Boolean.class,foreign)).isTrue();
+   }else{
+    mvc.perform(post("/api/v1/vendor/roles").header("Authorization","Bearer "+token).with(csrf()).contentType("application/json")
+      .content("{\"roleKey\":\"forbidden\",\"displayName\":\"Denied\",\"permissions\":[\"POS_VIEW\"],\"reason\":\"probe\"}")).andExpect(status().isForbidden());
+   }
+   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_roles",Integer.class)).isEqualTo(before);
+  }
+  var clone=as(admin,()->roleService.applyTemplate("POS_CASHIER",1,"counter-reader","Counter reader",List.of("POS_VIEW"),"Reduced role"));
+  assertThat(as(admin,()->roleService.applyTemplate("POS_CASHIER",1,"counter-reader","Counter reader",List.of("POS_VIEW"),"Retry")).id()).isEqualTo(clone.id());
+  as(admin,()->roleService.assignRoles(target,List.of(clone.id()),"View only"));
+  assertThat(effectivePermissions(target)).containsExactly("POS_VIEW");
+  int sessionsBefore=db.queryForObject("SELECT COUNT(*) FROM pos_sessions",Integer.class);
+  mvc.perform(post("/api/v1/vendor/pos/sessions").header("Authorization","Bearer "+demoToken(target,"StaffPasswordForTests"))
+      .with(csrf()).contentType("application/json").content("{\"registerId\":1,\"openingFloat\":0}")).andExpect(status().isForbidden());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions",Integer.class)).isEqualTo(sessionsBefore);
+  as(admin,()->roleService.assignRoles(target,List.of(),"Remove all assignments"));
+  assertThat(effectivePermissions(target)).isEmpty();
+ }
+
  @Test void p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory() throws Exception {
   multiVendorDemo();
   String accountant="finance@saumya.demo.test";

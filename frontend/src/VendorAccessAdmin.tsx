@@ -2,7 +2,8 @@ import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {vendorApi,ApiError} from './api';
 import {useSession} from './session';
 
-type Role={id:number;key:string;displayName:string;active:boolean;version:number;permissions:string[]};
+type Template={key:string;version:number;permissions:string[];deferredReason:string|null};
+type Role={templateKey?:string;templateVersion?:number;id:number;key:string;displayName:string;active:boolean;version:number;permissions:string[]};
 type Employee={username:string;branchId:number;enabled:boolean;roleIds:number[];registerIds:number[]};
 type Invitation={username:string;invitationToken:string|null;expiresAt:string|null;accountAlreadyActive:boolean};
 
@@ -19,6 +20,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const {account}=useSession();
  const rights=new Set(account?.permissions??[]);
  const [roles,setRoles]=useState<Role[]>([]),[employees,setEmployees]=useState<Employee[]>([]);
+ const [templates,setTemplates]=useState<Template[]>([]),[source,setSource]=useState<Template|null>(null);
  const [delegablePermissions,setDelegablePermissions]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [roleKey,setRoleKey]=useState(''),[displayName,setDisplayName]=useState(''),[selectedPermissions,setSelectedPermissions]=useState<string[]>([]);
@@ -39,7 +41,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
    else setRoles([]);
    if(canRoleView||canRoleCreate||canRoleUpdate){
     const value=await vendorApi('/roles/permissions');
-    setDelegablePermissions(value.permissions??[]);
+    setDelegablePermissions(value.permissions??[]);setTemplates(value.templates??[]);
    }else setDelegablePermissions([]);
    if(canUserView)setEmployees(await vendorApi('/employees'));
    else setEmployees([]);
@@ -63,8 +65,8 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  }
  async function createRole(e:FormEvent){
   e.preventDefault();
-  const value=await run(()=>vendorApi('/roles','POST',{roleKey,displayName,permissions:selectedPermissions,reason}),'Role created and audited.');
-  if(value){setRoleKey('');setDisplayName('');setSelectedPermissions([]);}
+  const value=await run(()=>vendorApi('/roles','POST',{roleKey,displayName,permissions:selectedPermissions,reason,...(source?{templateKey:source.key,templateVersion:source.version}:{})}),'Role created and audited.');
+  if(value){setSource(null);setRoleKey('');setDisplayName('');setSelectedPermissions([]);}
  }
  function startEdit(role:Role){
   setEditingRole(role);setEditDisplayName(role.displayName);
@@ -116,12 +118,21 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
   <div className="vendor-access-toolbar"><span>Tenant #{account?.tenantId??'unavailable'}</span><button type="button" className="secondary" disabled={busy} onClick={()=>void load()}>Refresh</button></div>
   {mode==='roles'&&<>
+   {templates.length>0&&<section><h3>Standard role templates</h3>
+    <p>Branch, register, session and resource assignments still apply.</p>
+    {templates.map(t=><article key={t.key}><strong>{t.key} · v{t.version}</strong>
+     <p>{t.deferredReason?'Deferred · '+t.deferredReason:t.permissions.join(', ')}</p>
+     {canRoleCreate&&!t.deferredReason&&<>
+      <button type="button" onClick={()=>{setSource(t);setRoleKey('');setDisplayName('');setSelectedPermissions(t.permissions.filter(p=>permissionOptions.includes(p)));}}>Customize {t.key}</button>
+      <button type="button" disabled={busy||!t.permissions.every(p=>permissionOptions.includes(p))} onClick={()=>void run(()=>vendorApi('/roles','POST',{roleKey:'standard:'+t.key,displayName:t.key,templateKey:t.key,templateVersion:t.version,permissions:t.permissions,reason:'Initialize standard tenant role '+t.key}),'Tenant role initialized.')}>Initialize {t.key}</button>
+     </>}</article>)}</section>}
    {canRoleCreate&&<form data-testid="create-role-form" onSubmit={e=>void createRole(e)} className="vendor-access-form">
-    <h3>Create tenant role</h3>
+    <h3>{source?'Customize '+source.key:'Create tenant role'}</h3>
+    {source&&<button type="button" onClick={()=>{setSource(null);setSelectedPermissions([]);}}>Clear template</button>}
     <label>Role key<input required pattern="[a-z][a-z0-9_-]{1,79}" value={roleKey} onChange={e=>setRoleKey(e.target.value)}/></label>
     <label>Display name<input required maxLength={120} value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label>
     <fieldset><legend>Permissions you can delegate</legend>
-     {permissionOptions.map(permission=><label key={permission}><input type="checkbox" aria-label={permission} checked={selectedPermissions.includes(permission)} onChange={()=>togglePermission(permission,selectedPermissions,setSelectedPermissions)}/>{permission}</label>)}
+     {permissionOptions.filter(p=>!source||source.permissions.includes(p)).map(permission=><label key={permission}><input type="checkbox" aria-label={permission} checked={selectedPermissions.includes(permission)} onChange={()=>togglePermission(permission,selectedPermissions,setSelectedPermissions)}/>{permission}</label>)}
      {!permissionOptions.length&&<p>No currently delegable vendor permissions are available.</p>}
     </fieldset>
     <label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>

@@ -12,7 +12,7 @@ public class VendorRoleController {
     private final VendorRoleService service;
     public VendorRoleController(VendorRoleService service){this.service=service;}
     public record RoleCreate(@NotBlank @Size(min=2,max=80) String roleKey,@NotBlank @Size(max=120) String displayName,
-        @NotEmpty @Size(max=100) List<@NotBlank String> permissions,@NotBlank @Size(max=500) String reason){}
+        @NotEmpty @Size(max=100) List<@NotBlank String> permissions,@NotBlank @Size(max=500) String reason, String templateKey, Integer templateVersion){}
     public record RoleUpdate(@PositiveOrZero long expectedVersion,@NotBlank @Size(max=120) String displayName,
         @NotEmpty @Size(max=100) List<@NotBlank String> permissions,@NotBlank @Size(max=500) String reason){}
     public record EmployeeCreate(@NotBlank @Email @Size(max=100) String username,@Positive long branchId,@Positive long roleId,
@@ -25,9 +25,9 @@ public class VendorRoleController {
     @GetMapping("/roles") @PreAuthorize("hasAuthority('ROLE_VIEW')") public Object roles(){return service.roles();}
     @GetMapping("/roles/permissions")
     @PreAuthorize("hasAnyAuthority('ROLE_VIEW','ROLE_CREATE','ROLE_UPDATE')")
-    public Object delegablePermissions(){return java.util.Map.of("permissions",service.delegablePermissions());}
+    public Object delegablePermissions(){return java.util.Map.of("permissions",service.delegablePermissions(),"templates",StandardRoleTemplates.ALL);}
     @GetMapping("/roles/{id}") @PreAuthorize("hasAuthority('ROLE_VIEW')") public Object role(@PathVariable long id){return service.role(id);}
-    @PostMapping("/roles") @PreAuthorize("hasAuthority('ROLE_CREATE')") public Object create(@Valid @RequestBody RoleCreate request){return org.springframework.http.ResponseEntity.status(HttpStatus.CREATED).body(service.create(request.roleKey(),request.displayName(),request.permissions(),request.reason()));}
+    @PostMapping("/roles") @PreAuthorize("hasAuthority('ROLE_CREATE')") public Object create(@Valid @RequestBody RoleCreate request){return org.springframework.http.ResponseEntity.status(HttpStatus.CREATED).body(request.templateKey()!=null ? service.applyTemplate(request.templateKey(),request.templateVersion()==null?0:request.templateVersion(),request.roleKey(),request.displayName(),request.permissions(),request.reason()) : service.create(request.roleKey(),request.displayName(),request.permissions(),request.reason()));}
     @PutMapping("/roles/{id}") @PreAuthorize("hasAuthority('ROLE_UPDATE')") public Object update(@PathVariable long id,@Valid @RequestBody RoleUpdate request){return service.update(id,request.expectedVersion(),request.displayName(),request.permissions(),request.reason());}
     @PostMapping("/roles/{id}/deactivate") @PreAuthorize("hasAuthority('ROLE_UPDATE')") public Object deactivate(@PathVariable long id,@Valid @RequestBody Reason request){service.deactivate(id,request.reason());return java.util.Map.of("deactivated",true);}
     @GetMapping("/employees") @PreAuthorize("hasAuthority('USER_VIEW')") public Object employees(){return service.employees();}

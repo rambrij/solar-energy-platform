@@ -59,7 +59,7 @@ class VendorRoleControllerAuthorizationTest {
     @Test @WithMockUser(authorities={"ROLE_CREATE"})
     void roleCreatePermissionCreatesOnlyRole() throws Exception {
         when(service.create(eq("cashier"),eq("Cashier"),eq(List.of("POS_VIEW")),eq("New cashier role")))
-            .thenReturn(new VendorRoleService.Role(10,"cashier","Cashier",true,0,List.of("POS_VIEW")));
+            .thenReturn(new VendorRoleService.Role(10,"cashier","Cashier",true,0,List.of("POS_VIEW"),null,null));
         mvc.perform(post("/api/v1/vendor/roles").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"roleKey\":\"cashier\",\"displayName\":\"Cashier\",\"permissions\":[\"POS_VIEW\"],\"reason\":\"New cashier role\"}"))

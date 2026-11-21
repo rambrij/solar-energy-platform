@@ -14,14 +14,15 @@ import static org.springframework.http.HttpStatus.*;
 public class VendorRoleService {
     private final JdbcTemplate db;private final AuthorizationContext auth;private final IdentityInvitationPort invitations;private final MembershipService memberships;
     public VendorRoleService(JdbcTemplate db,AuthorizationContext auth,IdentityInvitationPort invitations,MembershipService memberships){this.db=db;this.auth=auth;this.invitations=invitations;this.memberships=memberships;}
-    public record Role(long id,String key,String displayName,boolean active,long version,List<String> permissions){}
+    public record Role(long id,String key,String displayName,boolean active,long version,List<String> permissions,String templateKey,Integer templateVersion){}
     public record Employee(String username,long branchId,boolean enabled,List<Long> roleIds,List<Long> registerIds){}
     public record EmployeeInvitation(String username,String invitationToken,String expiresAt,boolean accountAlreadyActive){}
     private AuthorizationContext.Context require(String permission){var c=auth.current();c.requireVendorMembership();c.requirePermission(permission);return c;}
     private String reason(String value){if(value==null||value.isBlank()||value.strip().length()>500)throw new ResponseStatusException(BAD_REQUEST,"A reason (1-500 characters) is required");return value.strip();}
     private List<String> permissions(List<String> input){
         if(input==null||input.isEmpty()||input.size()>100)throw new ResponseStatusException(BAD_REQUEST,"A role requires 1-100 permissions");
-        TreeSet<String> result=new TreeSet<>();for(String p:input)if(!result.add(VendorPermissionRegistry.requireVendorPermission(p)))throw new ResponseStatusException(BAD_REQUEST,"Duplicate role permission");return List.copyOf(result);
+        TreeSet<String> result=new TreeSet<>();for(String p:input)if(!result.add(VendorPermissionRegistry.requireVendorPermission(p)))throw new ResponseStatusException(BAD_REQUEST,"Duplicate role permission");if (!StandardRoleTemplates.implemented().containsAll(result)) throw new ResponseStatusException(BAD_REQUEST,"Permission has no implemented vendor operation");
+        return List.copyOf(result);
     }
     private void requireDelegable(AuthorizationContext.Context actor,List<String> requested){
         for(String permission:requested)if(!actor.hasPermission(permission))
@@ -32,7 +33,7 @@ public class VendorRoleService {
         requireDelegable(actor,granted);
     }
     private Map<String,Object> roleRow(AuthorizationContext.Context c,long id){
-        return db.queryForList("SELECT id,role_key,display_name,active,version FROM vendor_roles WHERE tenant_id=? AND id=?",c.tenantId(),id)
+        return db.queryForList("SELECT id,role_key,display_name,active,version,template_key,template_version FROM vendor_roles WHERE tenant_id=? AND id=?",c.tenantId(),id)
             .stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Role unavailable"));
     }
     private Role view(AuthorizationContext.Context c,Map<String,Object> r){
@@ -40,13 +41,13 @@ public class VendorRoleService {
         List<String> ps=db.queryForList("SELECT permission FROM vendor_role_permissions WHERE tenant_id=? AND role_id=? ORDER BY permission",String.class,c.tenantId(),id)
             .stream()
             .filter(permission -> !permission.startsWith("PLATFORM_"))
-            .filter(VendorPermissionRegistry.all()::contains)
+            .filter(StandardRoleTemplates.implemented()::contains)
             .toList();
-        return new Role(id,(String)r.get("role_key"),(String)r.get("display_name"),Boolean.TRUE.equals(r.get("active")),((Number)r.get("version")).longValue(),ps);
+        return new Role(id,(String)r.get("role_key"),(String)r.get("display_name"),Boolean.TRUE.equals(r.get("active")),((Number)r.get("version")).longValue(),ps,(String)r.get("template_key"),(Integer)r.get("template_version"));
     }
     public List<Role> roles(){
         var c=require("ROLE_VIEW");
-        return db.queryForList("SELECT id,role_key,display_name,active,version FROM vendor_roles WHERE tenant_id=? ORDER BY role_key",c.tenantId())
+        return db.queryForList("SELECT id,role_key,display_name,active,version,template_key,template_version FROM vendor_roles WHERE tenant_id=? ORDER BY role_key",c.tenantId())
             .stream().map(r->view(c,r)).toList();
     }
     /**
@@ -66,7 +67,7 @@ public class VendorRoleService {
         return access.permissions().stream()
             .filter(c.permissions()::contains)
             .filter(permission -> !permission.startsWith("PLATFORM_"))
-            .filter(VendorPermissionRegistry.all()::contains)
+            .filter(StandardRoleTemplates.implemented()::contains)
             .distinct().sorted().toList();
     }
     public Role role(long id){var c=require("ROLE_VIEW");return view(c,roleRow(c,id));}
@@ -84,6 +85,35 @@ public class VendorRoleService {
         for(String p:ps)db.update("INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by) VALUES(?,?,?,?)",c.tenantId(),id,p,c.username());
         audit(c,null,"ROLE",Long.toString(id),"ROLE_CREATED",why);
         return view(c,roleRow(c,id));
+    }
+    public Role applyTemplate(String templateKey, int version, String key, String name,
+                              List<String> requested, String requestedReason) {
+        var actor = require("ROLE_CREATE");
+        String why = reason(requestedReason);
+        var definition = StandardRoleTemplates.ALL.stream().filter(t -> t.key().equals(templateKey))
+            .findFirst().orElseThrow(() -> new ResponseStatusException(BAD_REQUEST,"Unknown standard template"));
+        if (definition.deferredReason() != null || version != definition.version())
+            throw new ResponseStatusException(CONFLICT,"Template unavailable or version changed");
+        boolean standard = definition.roleKey().equals(key);
+        key = standard ? key : key.strip().toLowerCase(Locale.ROOT);
+        name = name.strip();
+        if ((!standard && !key.matches("[a-z][a-z0-9_-]{1,79}")) || name.isBlank() || name.length()>120)
+            throw new ResponseStatusException(BAD_REQUEST,"Invalid role key or display name");
+        var grants = permissions(requested);
+        if (!definition.permissions().containsAll(grants) || (standard && !grants.equals(definition.permissions())))
+            throw new ResponseStatusException(BAD_REQUEST,"Permissions outside the selected template");
+        requireDelegable(actor,grants);
+        StandardRoleTemplates.lockTenant(db,actor.tenantId());
+        var existing = db.queryForList("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=? FOR UPDATE",
+            Long.class,actor.tenantId(),key);
+        if (!existing.isEmpty()) {
+            var role = view(actor,roleRow(actor,existing.getFirst()));
+            if (templateKey.equals(role.templateKey()) && role.templateVersion()==version &&
+                    role.permissions().equals(grants) && role.displayName().equals(name) && role.active()) return role;
+            throw new ResponseStatusException(CONFLICT,"Existing tenant role differs from requested template snapshot");
+        }
+        long id = StandardRoleTemplates.insert(db,actor.tenantId(),actor.username(),definition,key,name,grants,why);
+        return view(actor,roleRow(actor,id));
     }
     public Role update(long id,long expectedVersion,String displayName,List<String> requested,String requestedReason){
         var c=require("ROLE_UPDATE");String why=reason(requestedReason);var old=roleRow(c,id);
@@ -143,6 +173,7 @@ public class VendorRoleService {
         if(selected.size()>50)throw new ResponseStatusException(BAD_REQUEST,"At most 50 roles may be assigned");
         for(long id:selected){var role=roleRow(c,id);if(!Boolean.TRUE.equals(role.get("active")))throw new ResponseStatusException(CONFLICT,"Inactive role cannot be assigned");requireRoleDelegable(c,id);}
         var previousRoles=db.queryForList("SELECT role_id FROM employee_role_assignments WHERE tenant_id=? AND username=? AND active=TRUE",Long.class,c.tenantId(),subject);
+        if(new HashSet<>(previousRoles).equals(new HashSet<>(selected)))return employee(c,subject,branch,Boolean.TRUE.equals(emp.get("enabled")));
         db.update("UPDATE employee_role_assignments SET active=FALSE,revoked_by=?,revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND username=? AND active=TRUE",
             c.username(),c.tenantId(),subject);
         for(Long id:previousRoles)if(!selected.contains(id))audit(c,subject,"ROLE_ASSIGNMENT",Long.toString(id),"ROLE_REVOKED",why);

@@ -118,15 +118,14 @@ class MembershipServiceTest {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
             "platform-admin","n/a",List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_CREATE"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
         var db=mock(JdbcTemplate.class);
-        when(db.queryForObject(startsWith("SELECT COUNT(*)>0 FROM vendor_roles"),eq(Boolean.class),eq(7L),eq("vendor-admin-initial"))).thenReturn(false);
-        when(db.queryForObject(startsWith("SELECT id FROM vendor_roles"),eq(Long.class),eq(7L),eq("vendor-admin-initial"))).thenReturn(99L);
+        when(db.queryForObject(startsWith("SELECT id FROM vendor_roles"),eq(Long.class),eq(7L),anyString())).thenReturn(99L);
         when(db.queryForObject(startsWith("SELECT COUNT(*) FROM employee_role_assignments"),eq(Integer.class),eq(7L),eq("admin@example.com"))).thenReturn(0);
         when(db.queryForObject(startsWith("SELECT COUNT(*) FROM vendor_role_permissions"),eq(Integer.class),eq(7L),eq(99L))).thenReturn(77);
         var service=new MembershipService(membershipRepo,activeTenant(),db,passThroughEntitlements());
         var result=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         assertThat(result.created()).isTrue();
         assertThat(result.permissionCount()).isEqualTo(77);
-        verify(db).batchUpdate(contains("INSERT INTO vendor_role_permissions"),anyList());
+        verify(db,times(5)).batchUpdate(contains("INSERT INTO vendor_role_permissions"),anyList());
         verify(db).update(contains("INSERT INTO employee_role_assignments"),eq(7L),eq(12L),eq("admin@example.com"),eq(99L),eq("admin@example.com"));
     }
 }

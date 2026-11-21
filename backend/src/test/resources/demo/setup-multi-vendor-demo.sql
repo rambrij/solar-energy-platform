@@ -1,7 +1,7 @@
 -- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V50+ first so POS stock-location ownership is enforced. Never run on production.
--- Select the local database in Workbench first; no database name is hardcoded here.
+-- Select the local database in Workbench first. no database name is hardcoded here.
 -- Public demo credentials and exact permission presets: docs/demo/multi-vendor-testing.md.
--- Run while the application is stopped; this script does not reset operational data.
+-- Run while the application is stopped. this script does not reset operational data.
 DELIMITER $$
 DROP PROCEDURE IF EXISTS setup_multi_vendor_demo$$
 CREATE PROCEDURE setup_multi_vendor_demo()
@@ -157,7 +157,7 @@ UPDATE tenants SET online_branch_id=id WHERE id IN (SELECT id FROM demo_vendors)
 INSERT INTO users(id,username,password_hash,enabled) SELECT id,username,password_hash,TRUE FROM demo_new_accounts;
 
 INSERT INTO employees(username,tenant_id,branch_id,enabled) SELECT username,tenant_id,tenant_id,TRUE FROM demo_new_accounts WHERE tenant_id IS NOT NULL;
--- Local demo tenants use a persisted subscription; local/test profiles never bypass entitlements.
+-- Local demo tenants use a persisted subscription. Local and test profiles never bypass entitlements.
 INSERT INTO subscription_plans(plan_key,display_name,active,current_version)
 SELECT 'local-demo-unlimited','Local Demo Unlimited',TRUE,1
 WHERE NOT EXISTS(SELECT 1 FROM subscription_plans WHERE plan_key='local-demo-unlimited');

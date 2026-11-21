@@ -182,25 +182,6 @@ class PosTest {
   finally { org.springframework.security.core.context.SecurityContextHolder.setContext(previous); }
  }
 
- org.springframework.test.web.servlet.request.RequestPostProcessor vendorActorContext(){
-  return request->{
-   var key=org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY;
-   Object stored=request.getAttribute(key);
-   if(!(stored instanceof org.springframework.security.core.context.SecurityContext context))
-    throw new IllegalStateException("A synthetic authenticated principal is required before adding Vendor actor context");
-   var current=context.getAuthentication();
-   var authorities=new java.util.ArrayList<org.springframework.security.core.GrantedAuthority>(current.getAuthorities());
-   authorities.removeIf(a->a.getAuthority().startsWith("ACTOR_CONTEXT_"));
-   authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR));
-   var replacement=org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(
-       current.getPrincipal(),current.getCredentials(),authorities);
-   replacement.setDetails(current.getDetails());
-   context.setAuthentication(replacement);
-   request.setAttribute(key,context);
-   return request;
-  };
- }
-
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null,null);}
  com.saumya.pos.checkout.PaymentCheckoutService.View terminal(String username,String id,String method){var amount=as(username, () -> payments.tenderStatus(username,id)).remaining();var result=as(username, () -> payments.tender(username,id,"terminal-"+method,new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest(method,amount,null)));return result.tenders().getLast();}
@@ -769,7 +750,7 @@ class PosTest {
   enableTerminal();var draft=as("alice", () -> checkout.pos("alice","terminal-review-api",posDraft()));var attempt=terminal("alice",draft.id(),"CARD");String path="/api/v1/vendor/pos/payments/review/"+draft.id();String body="{\"attemptId\":\""+attempt.attemptId()+"\",\"decision\":\"CONFIRM\",\"reference\":\"terminal-123\",\"evidence\":\"proof-123\",\"reason\":\"Verified original vendor account and full amount\"}";
   mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());mvc.perform(post(path).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body.replace("terminal-123","4111111111111111"))).andExpect(status().isBadRequest());
-  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).with(vendorActorContext()).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CONFIRMED"));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_CONFIRM'",Integer.class)).isEqualTo(1);
+  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CONFIRMED"));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_CONFIRM'",Integer.class)).isEqualTo(1);
  }
  @Test void posCardPaymentIssuesReceiptWithoutIncreasingCashDrawer(){
   enableTerminal();
@@ -820,7 +801,7 @@ class PosTest {
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isForbidden());
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isForbidden());
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"amount\":1}")).andExpect(status().isBadRequest());
-  mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).with(vendorActorContext()).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isOk()).andExpect(jsonPath("$.tenders[0].merchantAccount").value("vendor-upi-account")).andExpect(jsonPath("$.tenders[0].mockEnabled").value(false));
+  mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isOk()).andExpect(jsonPath("$.tenders[0].merchantAccount").value("vendor-upi-account")).andExpect(jsonPath("$.tenders[0].mockEnabled").value(false));
  }
  @Test void guestCashIsAtomicAndIdempotent(){
   var r=as("alice", () -> checkout.cashSale(a.cashier(),"checkout-1",sale(1,"120")));
@@ -1008,7 +989,7 @@ class PosTest {
   mvc.perform(get("/api/v1/vendor/pos/products").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/vendor/pos/products").with(user("alice"))).andExpect(status().isForbidden());
   mvc.perform(post("/api/v1/vendor/pos/sales").with(user("alice").authorities(()->"POS_SALE_CREATE"))).andExpect(status().isForbidden());
-  mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW")).with(vendorActorContext())
+  mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
    .header("Idempotency-Key","forged-01").contentType("application/json").content("{\"tenantId\":2,\"branchId\":2,\"warehouseId\":99,\"stockLocationId\":99,\"registerId\":99,\"cashierUserId\":\"bob\",\"sessionId\":\"x\",\"items\":[{\"productId\":1,\"quantity\":1}],\"cashReceived\":110}"))
    .andExpect(status().isBadRequest());
  }
@@ -1016,7 +997,9 @@ class PosTest {
   String payload="{\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}],\"cashReceived\":120,\"invoiceRequested\":true}";
   mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
    .header("Idempotency-Key","http-sale1").contentType("application/json").content(payload))
-   .andExpect(status().isOk()).andExpect(jsonPath("$.customer_id").doesNotExist()).andExpect(jsonPath("$.total").value(110)).andExpect(jsonPath("$.invoices[0].seller_name").value("Vendor A"));
+   .andExpect(result -> {
+    if(result.getResponse().getStatus()!=200) throw new AssertionError("Cash sale HTTP "+result.getResponse().getStatus()+" response: "+result.getResponse().getContentAsString());
+   }).andExpect(jsonPath("$.customer_id").doesNotExist()).andExpect(jsonPath("$.total").value(110)).andExpect(jsonPath("$.invoices[0].seller_name").value("Vendor A"));
  }
  @Test void databaseRejectsMixedTenantReferences(){
   assertThatThrownBy(()->update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(1,1,2,10)"))
@@ -1298,7 +1281,7 @@ class PosTest {
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content("{\"countedCash\":0}"))
    .andExpect(status().isBadRequest());
   String body="{\"countedCash\":0,\"reason\":\"Shortage\",\"requestId\":\""+key+"\"}";
-  for(int i=0;i<2;i++)mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).with(vendorActorContext()).contentType("application/json").content(body))
+  for(int i=0;i<2;i++)mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content(body))
    .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CLOSING")).andExpect(jsonPath("$.requestId").value(key)).andExpect(jsonPath("$.variance").value(-50));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SHIFT_VARIANCE_SUBMIT'",Integer.class)).isEqualTo(1);
  }
@@ -2304,8 +2287,8 @@ class PosTest {
    assertThat(granted.stream().filter(permission->!permission.startsWith("ACTOR_CONTEXT_")).toList()).containsExactlyInAnyOrderElementsOf(session.account().permissions());
     assertThat(granted.stream().filter(permission->permission.startsWith("ACTOR_CONTEXT_")).toList()).containsExactly(
       switch(session.account().actorType()){case PLATFORM->com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM;case VENDOR->com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR;case CUSTOMER->com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_CUSTOMER;});
-   if(role.equals("PLATFORM_SUPER_ADMIN")){assertThat(session.account().tenantId()).isNull();assertThat(granted).containsExactlyInAnyOrderElementsOf(com.saumya.pos.platform.PlatformPermissionRegistry.all()).allMatch(g->g.startsWith("PLATFORM_"));}
-   else if(role.equals("CUSTOMER")){assertThat(session.account().tenantId()).isNull();assertThat(granted).containsExactly("CUSTOMER");}
+   if(role.equals("PLATFORM_SUPER_ADMIN")){assertThat(session.account().tenantId()).isNull();assertThat(granted.stream().filter(permission->!permission.startsWith("ACTOR_CONTEXT_")).toList()).containsExactlyInAnyOrderElementsOf(com.saumya.pos.platform.PlatformPermissionRegistry.all()).allMatch(g->g.startsWith("PLATFORM_"));}
+   else if(role.equals("CUSTOMER")){assertThat(session.account().tenantId()).isNull();assertThat(granted.stream().filter(permission->!permission.startsWith("ACTOR_CONTEXT_")).toList()).containsExactly("CUSTOMER");}
    else{assertThat(session.account().tenantId()).isEqualTo(account.get("tenant").asLong());assertThat(granted).noneMatch(g->g.startsWith("PLATFORM_")||g.equals("CUSTOMER"));
     if(role.equals("POS_CASHIER"))assertThat(granted).contains("POS_SALE_CREATE").doesNotContain("POS_REFUND_APPROVE","POS_TENDER_MANUAL_VERIFY","POS_SETTINGS_MANAGE","POS_DISCOUNT_OVERRIDE");
     if(role.equals("INVENTORY_MANAGER"))assertThat(granted).contains("INVENTORY_RECEIVE").doesNotContain("POS_SALE_CREATE","PRICE_UPDATE","POS_REFUND_APPROVE");

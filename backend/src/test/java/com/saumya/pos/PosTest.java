@@ -3091,7 +3091,8 @@ class PosTest {
    return session==null?"P006-NO-SUCH-SESSION":session;
   }
   if(route.contains("/subscription-plans/{id}")){
-   Long plan=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);
+   Long plan=db.queryForObject(
+       "SELECT id FROM subscription_plans WHERE plan_key='p006-matrix-fixture-plan'",Long.class);
    return plan==null?"1":plan.toString();
   }
   if(route.contains("/tenants/{tenantId}/subscription"))return "930001";
@@ -3137,7 +3138,7 @@ class PosTest {
    return order==null? "1":order;
   }
   if(route.contains("/subscriptions/{")){
-   Long subscription=db.queryForObject("SELECT MIN(id) FROM tenant_subscriptions",Long.class);
+   Long subscription=db.queryForObject("SELECT MIN(id) FROM tenant_subscriptions WHERE tenant_id=910001",Long.class);
    return subscription==null?"1":subscription.toString();
   }
   if(n.contains("session")||route.contains("/sessions/{")){
@@ -3322,11 +3323,17 @@ class PosTest {
   // Seed a real plan/subscription for read and transition endpoint probes.
   // Writes are fixture setup only; runtime endpoint calls below still use persisted JWT actors.
   update("INSERT INTO subscription_plans(plan_key,display_name,active,current_version,created_at,updated_at) VALUES('p006-matrix-fixture-plan','P0-06 Matrix Plan',TRUE,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-  Long matrixPlanId=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);
+  Long matrixPlanId=db.queryForObject("SELECT id FROM subscription_plans WHERE plan_key='p006-matrix-fixture-plan'",Long.class);
   update("INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by,created_at) VALUES(?,1,10.00,'INR','MONTHLY',10,1024,2,1,'{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ORDERS\":true}}',7,'{}','P0-06 fixture','superadmin@platform.demo.test',CURRENT_TIMESTAMP)",matrixPlanId);
-  update("INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot,created_at,updated_at) VALUES(910001,?,1,'PENDING',?,?,'{}',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",matrixPlanId,java.time.LocalDate.now(),java.time.LocalDate.now().plusMonths(1));
-  Long matrixSubscriptionId=db.queryForObject("SELECT MIN(id) FROM tenant_subscriptions",Long.class);
-  update("INSERT INTO subscription_events(tenant_id,subscription_id,old_status,new_status,actor_username,reason,occurred_at) VALUES(910001,?,NULL,'PENDING','superadmin@platform.demo.test','P0-06 fixture',CURRENT_TIMESTAMP)",matrixSubscriptionId);
+  // Reuse the persisted active demo subscription; a tenant may have only one
+  // effective subscription and its entitlements keep the vendor actor valid
+  // throughout the endpoint authorization matrix.
+  Long matrixSubscriptionId=db.queryForObject(
+      "SELECT id FROM tenant_subscriptions WHERE tenant_id=910001",Long.class);
+  String matrixSubscriptionStatus=db.queryForObject(
+      "SELECT status FROM tenant_subscriptions WHERE id=?",String.class,matrixSubscriptionId);
+  update("INSERT INTO subscription_events(tenant_id,subscription_id,old_status,new_status,actor_username,reason,occurred_at) VALUES(910001,?,?,?,'superadmin@platform.demo.test','P0-06 fixture',CURRENT_TIMESTAMP)",
+      matrixSubscriptionStatus,matrixSubscriptionStatus,matrixSubscriptionId);
 
   List<String> csv=new ArrayList<>();
   csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");

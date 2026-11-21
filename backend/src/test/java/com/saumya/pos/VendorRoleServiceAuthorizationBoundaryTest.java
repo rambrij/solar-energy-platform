@@ -26,6 +26,8 @@ class VendorRoleServiceAuthorizationBoundaryTest {
         denied(() -> service.delegablePermissions());
         denied(() -> service.role(1L));
         denied(() -> service.create("new-role", "New role", List.of("POS_VIEW"), "test"));
+        denied(() -> service.applyTemplate("POS_CASHIER", 1, "cashier", "Cashier",
+            List.of("POS_VIEW"), "test"));
         denied(() -> service.update(1L, 0L, "Changed role", List.of("POS_VIEW"), "test"));
         denied(() -> service.deactivate(1L, "test"));
         denied(() -> service.employees());
@@ -37,7 +39,7 @@ class VendorRoleServiceAuthorizationBoundaryTest {
         denied(() -> service.effectivePermissions("employee@vendor.test"));
 
         verifyNoInteractions(db, invitations, memberships);
-        verify(auth, times(13)).current();
+        verify(auth, times(14)).current();
     }
 
     private static void denied(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {

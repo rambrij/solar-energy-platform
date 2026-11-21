@@ -2947,14 +2947,12 @@ class PosTest {
  void p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor() throws Exception {
   multiVendorDemo();
   try {
-   new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
-    status.setRollbackOnly();
-    try { p006ExecutePersistedEndpointActorMatrix(); }
-    catch(Exception failure) { throw new IllegalStateException("Endpoint actor matrix failed",failure); }
-   });
-  } catch(IllegalStateException failure) {
-   if(failure.getCause() instanceof Exception cause) throw cause;
-   throw failure;
+   // Fixture setup commits before HTTP probes. Each request then gets its own
+   // service transaction, so an expected 4xx cannot poison later actor sessions.
+   p006ExecutePersistedEndpointActorMatrix();
+  } finally {
+   // Restore the canonical demo seed after the independently committed probes.
+   multiVendorDemo();
   }
  }
 
@@ -3162,8 +3160,8 @@ class PosTest {
      // Each mapped endpoint is an independent HTTP operation. Flush its
      // writes and clear the shared test EntityManager so a previous endpoint
      // cannot leave stale versioned entities in the next request's context.
-     em.flush();
-     em.clear();
+     // Each MockMvc request now owns its transaction; no shared persistence
+     // context is carried into the next mapped endpoint.
      // Restore exactly one cashier OPEN session after a close/variance probe.
      // The endpoint operation remains recorded inside this rollback-only test transaction.
      if(actor.equals("POS_CASHIER")){

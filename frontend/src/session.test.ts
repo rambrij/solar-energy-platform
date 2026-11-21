@@ -1,4 +1,4 @@
-import {renderHook} from '@testing-library/react';
+import {renderHook,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {authenticatedFetch,signIn,switchActorContext,useSession} from './session';
 
@@ -51,7 +51,7 @@ describe('actor context session switching',()=>{
   const denied=await authenticatedFetch('/api/v1/vendor/pos/sales',{method:'POST',body:'{}'});
   expect(denied.status).toBe(403);
   expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/vendor/pos/sales')).toHaveLength(1);
-  expect(result.current.account?.permissions).toEqual(['POS_VIEW']);
+  await waitFor(()=>expect(result.current.account?.permissions).toEqual(['POS_VIEW']));
   expect(fetchMock).toHaveBeenCalledTimes(5);
  });
 
@@ -64,7 +64,7 @@ describe('actor context session switching',()=>{
   sessionStorage.setItem('pos-attempt-v1',JSON.stringify({key:'saved-command',body:{sessionId:'s1'}}));
   const denied=await authenticatedFetch('/api/v1/vendor/pos/sales',{method:'POST',body:'{}'});
   expect(denied.status).toBe(401);
-  expect(result.current.account).toBeNull();
+  await waitFor(()=>expect(result.current.account).toBeNull());
   expect(sessionStorage.getItem('pos-attempt-v1')).toContain('saved-command');
   expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/vendor/pos/sales')).toHaveLength(1);
  });

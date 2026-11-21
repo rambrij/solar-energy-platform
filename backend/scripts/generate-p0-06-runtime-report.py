@@ -47,14 +47,15 @@ def junit_results(report_dir: Path) -> dict[tuple[str, str], str]:
     return results
 
 
-def load_route_rows(path: Path) -> list[dict[str, str]]:
+def load_route_rows(path: Path, missing_inputs: list[str]) -> list[dict[str, str]]:
+    # Keep producing a truthful partial report after an earlier test failure.
+    # Missing evidence is recorded explicitly and remains a release blocker;
+    # it is never converted into PASS or silently treated as zero failures.
     if not path.is_file():
-        raise FileNotFoundError(f"Runtime route CSV not found: {path}")
+        missing_inputs.append(str(path.relative_to(REPO_ROOT)))
+        return []
     with path.open("r", encoding="utf-8", newline="") as handle:
-        rows = list(csv.DictReader(handle))
-    if not rows:
-        raise RuntimeError("Runtime route CSV contains no endpoint rows")
-    return rows
+        return list(csv.DictReader(handle))
 
 
 def normalize_route(value: str) -> str:
@@ -78,9 +79,10 @@ def scenario_reference(reference: str) -> tuple[str, str]:
 def build() -> int:
     matrix = json.loads(MATRIX.read_text(encoding="utf-8"))
     tests = junit_results(SUREFIRE)
-    route_rows = load_route_rows(ROUTE_REPORT)
-    missing_permission_rows = load_route_rows(NO_PERMISSION_REPORT)
-    actor_endpoint_rows = load_route_rows(ACTOR_ENDPOINT_REPORT)
+    missing_inputs: list[str] = []
+    route_rows = load_route_rows(ROUTE_REPORT, missing_inputs)
+    missing_permission_rows = load_route_rows(NO_PERMISSION_REPORT, missing_inputs)
+    actor_endpoint_rows = load_route_rows(ACTOR_ENDPOINT_REPORT, missing_inputs)
     actor_endpoint_by_route = {
         (row.get("method", ""), normalize_route(row.get("route", ""))): row
         for row in actor_endpoint_rows
@@ -282,6 +284,7 @@ def build() -> int:
         "actorScenariosPassed": scenario_pass,
         "actorScenariosFailed": scenario_fail,
         "actorScenariosNotExecuted": scenario_unexecuted,
+        "missingEvidenceFiles": missing_inputs,
         "resultSemantics": "An actor scenario is PASS only when its referenced Surefire test method exists in the full suite and has no failure/error. Other actor/endpoint combinations are not inferred.",
         "files": {
             "endpointAndScenarioCsv": str(ROUTE_REPORT.relative_to(REPO_ROOT)),
@@ -290,7 +293,7 @@ def build() -> int:
     }
     SUMMARY_REPORT.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print("P0-06_RUNTIME_REPORT|" + json.dumps(summary, sort_keys=True))
-    return 1 if anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or missing_permission_route_unexecuted or actor_endpoint_fail or actor_endpoint_unexecuted or actor_endpoint_route_unexecuted or scenario_fail or scenario_unexecuted else 0
+    return 1 if missing_inputs or anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or missing_permission_route_unexecuted or actor_endpoint_fail or actor_endpoint_unexecuted or actor_endpoint_route_unexecuted or scenario_fail or scenario_unexecuted else 0
 
 
 if __name__ == "__main__":

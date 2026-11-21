@@ -2306,8 +2306,8 @@ class PosTest {
    else{assertThat(session.account().tenantId()).isEqualTo(account.get("tenant").asLong());assertThat(granted).noneMatch(g->g.startsWith("PLATFORM_")||g.equals("CUSTOMER"));
     if(role.equals("POS_CASHIER"))assertThat(granted).contains("POS_SALE_CREATE").doesNotContain("POS_REFUND_APPROVE","POS_TENDER_MANUAL_VERIFY","POS_SETTINGS_MANAGE","POS_DISCOUNT_OVERRIDE");
     if(role.equals("INVENTORY_MANAGER"))assertThat(granted).contains("INVENTORY_RECEIVE").doesNotContain("POS_SALE_CREATE","PRICE_UPDATE","POS_REFUND_APPROVE");
-    if(role.equals("SALES_MANAGER"))assertThat(granted).contains("LEAD_CREATE").doesNotContain("INVENTORY_RECEIVE","POS_SALE_CREATE");
-    if(role.equals("ACCOUNTANT"))assertThat(granted).contains("POS_TENDER_MANUAL_VERIFY").doesNotContain("POS_SALE_CREATE","POS_SETTINGS_MANAGE");
+    if(role.equals("SALES_MANAGER"))assertThat(granted).contains("POS_REPORT_VIEW").doesNotContain("LEAD_CREATE","INVENTORY_RECEIVE","POS_SALE_CREATE");
+    if(role.equals("ACCOUNTANT"))assertThat(granted).contains("POS_REFUND_VIEW").doesNotContain("POS_TENDER_MANUAL_VERIFY","POS_SALE_CREATE","POS_SETTINGS_MANAGE");
    }
   }
   String[] slugs={"saumya-rooftops","helio-rural","lumina-lighting"};String[] brands={"SunArc","AgriRay","NightSun"};

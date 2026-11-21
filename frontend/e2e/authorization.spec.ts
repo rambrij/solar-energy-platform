@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { apiAs, demo, ensureCustomSalesRole, signIn } from './helpers';
 
-test('Vendor Admin: route refresh, browser history, mobile navigation and tenant-filter resistance', async ({ page }) => {
+test('Vendor Admin: route refresh, browser history, mobile navigation and cross-tenant resistance', async ({ page, browser }) => {
   const token = await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
   await page.goto('/vendor/pos/products');
   await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
@@ -10,6 +10,29 @@ test('Vendor Admin: route refresh, browser history, mobile navigation and tenant
   expect(own.status).toBe(200);
   expect(forged.status).toBe(200);
   expect(forged.body.items.map((item: { id: number }) => item.id)).toEqual(own.body.items.map((item: { id: number }) => item.id));
+  const vendorBContext = await browser.newContext();
+  try {
+    const vendorBPage = await vendorBContext.newPage();
+    const vendorBToken = await signIn(vendorBPage, demo.vendorBAdmin.username, demo.vendorBAdmin.password);
+    const vendorBProducts = await apiAs(vendorBPage, vendorBToken, '/api/v1/vendor/products?page=0&size=100');
+    expect(vendorBProducts.status).toBe(200);
+    const foreignProduct = vendorBProducts.body.items[0];
+    expect(foreignProduct, 'the second local vendor has a seeded catalogue').toBeTruthy();
+    const foreignUpdate = await apiAs(page, token, '/api/v1/vendor/products/' + foreignProduct.id, 'PUT', {
+      sku: foreignProduct.sku, barcode: foreignProduct.barcode, name: foreignProduct.name,
+      price: foreignProduct.price, taxRate: foreignProduct.taxRate, published: foreignProduct.published,
+      categoryId: foreignProduct.categoryId, expectedVersion: foreignProduct.version,
+      reason: 'P2-01 Vendor A must not update Vendor B product',
+    });
+    expect(foreignUpdate.status).toBe(404);
+    const unchanged = await apiAs(vendorBPage, vendorBToken, '/api/v1/vendor/products?page=0&size=100');
+    expect(unchanged.status).toBe(200);
+    expect(unchanged.body.items.find((item: { id: number }) => item.id === foreignProduct.id)).toMatchObject({
+      id: foreignProduct.id, sku: foreignProduct.sku, name: foreignProduct.name, version: foreignProduct.version,
+    });
+  } finally {
+    await vendorBContext.close();
+  }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Open workspace menu' }).click();
   const navigation = page.getByRole('navigation', { name: 'Workspace sections' });

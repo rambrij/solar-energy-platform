@@ -231,7 +231,8 @@ def build() -> int:
 
     live_count = len(route_rows)
     route_rows_with_actor_scenario = sum(
-        row.get("row_type") == "LIVE_ENDPOINT" and row.get("runtime_actor_result") == "PASS"
+        row.get("row_type") == "LIVE_ENDPOINT"
+        and row.get("runtime_actor_result") in {"PASS", "AUTHORIZED_REJECTED"}
         for row in combined
     )
     route_rows_without_actor_scenario = live_count - route_rows_with_actor_scenario
@@ -252,6 +253,7 @@ def build() -> int:
         for row in combined
     )
     actor_endpoint_pass = sum(row.get("result") == "PASS" for row in actor_endpoint_rows)
+    actor_endpoint_business_rejections = sum(row.get("result") == "AUTHORIZED_REJECTED" for row in actor_endpoint_rows)
     actor_endpoint_fail = sum(row.get("result") == "FAIL" for row in actor_endpoint_rows)
     actor_endpoint_unexecuted = sum(row.get("result") == "NOT_EXECUTED" for row in actor_endpoint_rows)
     actor_endpoint_route_unexecuted = sum(
@@ -276,6 +278,7 @@ def build() -> int:
         "missingPermissionHttpChecksNotExecuted": missing_permission_unexecuted,
         "missingPermissionRouteRowsNotExecuted": missing_permission_route_unexecuted,
         "persistedActorEndpointChecksPassed": actor_endpoint_pass,
+        "persistedActorEndpointAuthorizedBusinessRejections": actor_endpoint_business_rejections,
         "persistedActorEndpointChecksFailed": actor_endpoint_fail,
         "persistedActorEndpointChecksNotExecuted": actor_endpoint_unexecuted,
         "protectedRoutesWithoutPersistedMatchingActor": actor_endpoint_route_unexecuted,

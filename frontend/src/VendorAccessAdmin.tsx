@@ -161,6 +161,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
    </article>)}</div>}
    {subject&&<div className="vendor-access-form">
     <h3>Manage {subject}</h3>
+    {(canRoleAssign||canUserUpdate||canUserDisable)&&<label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
     {canRoleAssign&&<><label>Role assignments<select multiple value={selectedRoles.map(String)} onChange={e=>setSelectedRoles(Array.from(e.target.selectedOptions).map(x=>Number(x.value)))}>{roles.filter(r=>r.active).map(r=><option key={r.id} value={r.id}>{r.displayName}</option>)}</select></label><button type="button" disabled={busy} onClick={()=>void assignRoles()}>Save role assignments</button></>}
     {canRoleAssign&&<><label>Assigned register IDs (comma separated)<input value={registerIds} onChange={e=>setRegisterIds(e.target.value)}/></label><button type="button" disabled={busy} onClick={()=>void assignRegisters()}>Save register assignments</button></>}
     {canUserUpdate&&<><label>New branch ID<input type="number" min="1" value={employeeBranch} onChange={e=>setEmployeeBranch(e.target.value)}/></label><button type="button" className="secondary" disabled={busy} onClick={()=>void changeBranch()}>Change branch</button></>}

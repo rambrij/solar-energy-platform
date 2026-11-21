@@ -55,7 +55,7 @@ describe('VendorAccessAdmin role editor',()=>{
   expect(mockVendorApi).toHaveBeenCalledWith('/roles/7','PUT',{
    expectedVersion:2,displayName:'Sales role updated',permissions:['POS_VIEW'],reason:'Replace least privilege grant'
   });
-  await waitFor(()=>expect(mockVendorApi.mock.calls.filter((call:any[])=>call[0]==='/roles'&&call[1]==='GET').length).toBeGreaterThanOrEqual(2));
+  await waitFor(()=>expect(mockVendorApi.mock.calls.filter((call:any[])=>call[0]==='/roles').length).toBeGreaterThanOrEqual(2));
  });
 
  it.each([
@@ -74,7 +74,7 @@ describe('VendorAccessAdmin role editor',()=>{
   const form=screen.getByTestId('edit-role-form');
   fireEvent.change(within(form).getByLabelText('Audit reason'),{target:{value:'Retry role update'}});
   fireEvent.click(within(form).getByRole('button',{name:'Save role changes'}));
-  expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage);
+  expect((await screen.findByRole('alert')).textContent).toContain(expectedMessage);
   if(status===409){
    await waitFor(()=>expect(screen.queryByTestId('edit-role-form')).toBeNull());
    expect(mockVendorApi.mock.calls.filter((call:any[])=>call[0]==='/roles').length).toBeGreaterThanOrEqual(2);

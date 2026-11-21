@@ -11,6 +11,7 @@ export const demo = {
 };
 
 export async function signIn(page: Page, username: string, password: string): Promise<string> {
+  if (page.url() === 'about:blank') await page.goto('/');
   const form = page.getByRole('form', { name: 'Sign in' });
   if (!(await form.isVisible().catch(() => false))) await page.getByRole('button', { name: 'Sign in / Register' }).click();
   await expect(form).toBeVisible();

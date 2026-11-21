@@ -14,13 +14,7 @@ public class V28__global_employee_identity extends BaseJavaMigration {
   }
   run(c,"ALTER TABLE employees DROP COLUMN password_hash");
   run(c,"ALTER TABLE employees ADD CONSTRAINT fk_employee_global_identity FOREIGN KEY(username) REFERENCES users(username)");
-  run(c,"ALTER TABLE employee_permissions ADD tenant_id BIGINT NULL");
-  run(c,"UPDATE employee_permissions SET tenant_id=(SELECT tenant_id FROM employees e WHERE e.username=employee_permissions.username)");
-  boolean mysql=c.getMetaData().getDatabaseProductName().equals("MySQL");
-  run(c,"ALTER TABLE employee_permissions "+(mysql?"MODIFY COLUMN tenant_id BIGINT NOT NULL":"ALTER COLUMN tenant_id SET NOT NULL"));
   run(c,"ALTER TABLE employees ADD CONSTRAINT uk_employee_tenant_username UNIQUE(tenant_id,username)");
-  run(c,"ALTER TABLE employee_permissions ADD CONSTRAINT fk_permission_membership FOREIGN KEY(tenant_id,username) REFERENCES employees(tenant_id,username)");
-  run(c,"ALTER TABLE employee_permissions ADD CONSTRAINT chk_vendor_permission CHECK(permission NOT LIKE 'PLATFORM_%')");
   run(c,"CREATE TABLE identity_sequence (id INT PRIMARY KEY,next_id BIGINT NOT NULL)");
   run(c,"INSERT INTO identity_sequence VALUES(1,"+next+")");
   run(c,"CREATE TABLE identity_refresh_tokens (token_hash VARCHAR(64) PRIMARY KEY,username VARCHAR(100) NOT NULL,family VARCHAR(36) NOT NULL,expires_at TIMESTAMP NOT NULL,used_at TIMESTAMP NULL,revoked BOOLEAN NOT NULL DEFAULT FALSE,FOREIGN KEY(username) REFERENCES users(username))");

@@ -4,6 +4,7 @@ import com.saumya.pos.customer.internal.VendorCustomerRepository;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.identity.AuthenticationService;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.security.ActorSessionDetails;
 import com.saumya.pos.inventory.InventoryService;
 import com.saumya.pos.isolation.TenantIsolationFixture;
 import com.saumya.pos.isolation.TenantIsolationFixture.Seed;
@@ -260,8 +261,8 @@ class P004TenantIsolationTest {
         var authentication = UsernamePasswordAuthenticationToken.authenticated(
             username, "P004", authorities);
         String membershipId = tenantId == null ? null : tenantId + ":" + username;
-        authentication.setDetails(new AuthenticationService.ActorSessionDetails(
-            actorType, tenantId, membershipId, "p004-test-family"));
+        authentication.setDetails(new ActorSessionDetails(
+            actorType.name(), tenantId, membershipId, "p004-test-family"));
         current.setAuthentication(authentication);
         SecurityContextHolder.setContext(current);
         try {

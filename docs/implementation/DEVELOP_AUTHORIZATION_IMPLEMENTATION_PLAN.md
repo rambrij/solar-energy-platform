@@ -173,7 +173,7 @@ The role stores its source key and version. Changing the catalogue never synchro
 
 ### P1-03 — Align permission catalogue with approved feature scope
 
-- **Status — IMPLEMENTATION IN BRANCH; VALIDATION PENDING. Do not mark COMPLETE until the exact branch head passes H2, MySQL 8.4, P0-06/P1-01/P1-02 regression suites and frontend tests/build.**
+- **Status — COMPLETE (2026-11-21).** Final branch-head workflow #44931160016 passed P1-02, P1-01, P0-03, P0-06, P0-07, full H2/MySQL 8.4 suites, and frontend tests/build. Evidence is recorded in the P1-03 final validation section below.
 - Added catalogue version 2 in `backend/src/main/resources/authorization-policy-registry.json`. The file separates assignable vendor, platform and customer actor grants from reserved/deferred, orphaned and conflicting identifiers and carries permission → status → actor → endpoint → service → scope → UI → test traceability for every assignable vendor/platform permission.
 - Backend `PermissionCatalogue` loads the canonical resource; `VendorPermissionRegistry` and `PlatformPermissionRegistry` no longer maintain separate hard-coded permission lists. Standard role templates use the canonical implemented vendor set as their supported-operation boundary and continue to grant only their explicit versioned snapshots.
 - Active vendor permissions are restricted to currently implemented product/category, employee/role, POS, returns/refunds, reports, promotion and inventory-receiving operations. CRM/lead/quotation/order/tenant-profile/finance/invoice/shipment/installation/service/advanced-inventory and editorial families remain RESERVED / DEFERRED and are not assignable or included in active templates.
@@ -422,8 +422,9 @@ See the companion gap analysis section **REQUIRES CLARIFICATION register** for t
 - Updated `backend/src/test/resources/demo/setup-multi-vendor-demo.sql` to seed only the five supported P1-02 templates, with exact role grants. Added a parity test to `V50LocalDemoRoleAssignmentsTest`.
 - Added `docs/security/PERMISSION_TRACEABILITY.md` as the reviewable Permission → Status → Actor → Endpoint → Service → Scope → UI → Test matrix. The same rows remain in the canonical JSON.
 - Added frontend page metadata and runtime UI gating for platform pages, tenant create/view/lifecycle actions, subscription plan mutation, subscription adjustment, and the direct subscriptions route. Added restricted-actor frontend tests.
-- **Status remains IMPLEMENTATION IN BRANCH — VALIDATION PENDING.** Recent CI has confirmed focused P1-01, P1-02, P0-03 and P0-06 registry/matrix tests on earlier commits, and 298 frontend unit tests pass on a commit before page-policy parity was connected. Those are not a same-final-head full verification. Current full H2/MySQL and frontend runs must pass before completion.
-- RC-06 remains OPEN for the SRS external tender confirmation semantic distinction. P0-06 remains IN PROGRESS until all protected endpoint actor evidence is complete.
+- **Status: COMPLETE — VERIFIED on final branch head d550c392de4267718dc6c387378de83bf64471c7.** GitHub Actions run [#44931160016](https://github.com/rambrij/solar-energy-platform/actions/runs/44931160016) passed the complete acceptance matrix. H2: 662 tests, 0 failures, 0 errors, 1 skipped; MySQL 8.4: 662 tests, 0 failures, 0 errors, 0 skipped. V55 canonical permission catalogue/FK migration, local demo migration/seed validation, focused P1-02/P1-01/P0-03/P0-06/P0-07, and full backend suites passed on both database lanes. Frontend: 62 test files, 303 tests passed; registry checker verified 27 routes, 41 backend controllers and 63 permission identifiers; Vite production build passed.
+- P0-06 runtime evidence on both database lanes: 146 live endpoint rows; 41/41 actor scenarios PASS; 18/18 P0-07 actor-context cases PASS; 130 missing-permission HTTP checks and 131 anonymous route checks passed; 66/66 mapped mutation operations denied for VIEW-only authority; zero protected routes without persisted matching-actor evidence; no failed or unexecuted actor scenarios.
+- RC-06 remains OPEN only for the external-tender-confirmation versus external-record/manual-verification semantic distinction. It is classified CONFLICTING and non-assignable; it does not leave an unresolved active permission. P0-06 remains tracked separately under its wider Role x Endpoint review gate; the completed P0-06 regression suite and route evidence were executed as required for P1-03.
 
 
 
@@ -434,3 +435,12 @@ See the companion gap analysis section **REQUIRES CLARIFICATION register** for t
 - The external tender confirmation semantic split remains RC-06 because cashier tender-attempt recording and supervisor evidence verification are not equivalent to a single confirmation action.
 - Added the P1-03 contract, SRS parity and DB catalogue/FK parity tests to the H2 and MySQL 8.4 P0-06 registry-matrix step so catalogue/migration parity is executed early, not only discovered at the tail of the full suite.
 
+
+
+### P1-03 final validation evidence (2026-11-21)
+
+- Tested commit: d550c392de4267718dc6c387378de83bf64471c7; workflow: [#44931160016](https://github.com/rambrij/solar-energy-platform/actions/runs/44931160016), all three jobs SUCCESS.
+- H2 and MySQL 8.4 each passed the V55 migration, catalogue/SRS/DB parity, P1-02 template runtime, P1-01 custom-role lifecycle, P0-03 role-only/entitlement regression, P0-06 runtime matrix, P0-07 actor context, and full backend suite. Full-suite totals: H2 662 tests (0 failures/errors, 1 skipped); MySQL 8.4 662 tests (0 failures/errors/skips).
+- Frontend passed 62 test files / 303 tests, canonical registry parity (27 routes, 41 controllers, 63 permission identifiers), and production Vite build.
+- The P0-06 report on both databases recorded 41/41 actor scenarios, 18/18 P0-07 actor-context cases, 146 live endpoint rows, 0 protected routes lacking persisted matching-actor evidence, 130/130 missing-permission checks, 131 anonymous checks, and 66/66 VIEW-only mutation denials. The report leaves non-protected/public rows appropriately outside protected actor evidence.
+- Acceptance: P1-03 COMPLETE. RC-06 remains explicitly OPEN for the tender confirmation semantic conflict; no conflicting permission is assignable. No P0-06 global completion claim is made here.

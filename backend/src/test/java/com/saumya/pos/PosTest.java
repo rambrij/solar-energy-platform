@@ -2673,6 +2673,7 @@ class PosTest {
   if(name.contains("otp")||name.equals("code"))return "123456";
   if(name.contains("currency"))return "INR";
   if(name.contains("billinginterval"))return "MONTHLY";
+  if(name.equals("status"))return "CANCELLED";
   if(name.contains("planKey".toLowerCase(Locale.ROOT)))return "p006-matrix-plan";
   if(name.contains("slug"))return "p006-matrix";
   if(name.contains("sku"))return "P006-MATRIX-SKU";
@@ -2717,6 +2718,7 @@ class PosTest {
    if(n.contains("customer"))return 949001L;
    if(n.contains("product"))return 910301L;
    if(n.contains("quantity"))return 1L;
+   if(n.contains("plan")){Long plan=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);return plan==null?1L:plan;}
    return 1L;
   }
   if(type==Integer.class||type==int.class){
@@ -2729,7 +2731,7 @@ class PosTest {
   if(type==Short.class||type==short.class)return (short)1;
   if(type==Boolean.class||type==boolean.class)return true;
   if(type==BigDecimal.class)return BigDecimal.ONE;
-  if(type==java.time.LocalDate.class)return java.time.LocalDate.of(2026,11,20);
+  if(type==java.time.LocalDate.class)return name.toLowerCase(Locale.ROOT).contains("end")?java.time.LocalDate.now().plusMonths(1):java.time.LocalDate.now();
   if(type==java.time.Instant.class)return java.time.Instant.now().plus(java.time.Duration.ofHours(2));
   if(type==java.util.UUID.class)return java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
   if(type==java.security.Principal.class)return (java.security.Principal)()->"admin@saumya.demo.test";
@@ -2775,6 +2777,11 @@ class PosTest {
   var annotation=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
   if(annotation!=null){if(!annotation.name().isBlank())key=annotation.name();else if(!annotation.value().isBlank())key=annotation.value();}
   Class<?> type=parameter.getType();
+  if(route.contains("/subscription-plans/{id}")){
+   Long plan=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);
+   return plan==null?"1":plan.toString();
+  }
+  if(route.contains("/tenants/{tenantId}/subscription"))return "930001";
   if(type==java.util.UUID.class)return "550e8400-e29b-41d4-a716-446655440000";
   if(type==String.class){
    String n=key.toLowerCase(Locale.ROOT);

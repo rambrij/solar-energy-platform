@@ -10,16 +10,15 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class V51LocalDemoCredentialsTest {
-    @Test void refreshesLegacyDemoUsersIntoSrsAlignedSomyaLocalCredentials() {
+    @Test void provisionsFreshDemoIdentitiesWithExplicitTenantOwnedRoleAssignments() {
         var source = new DriverManagerDataSource(
             "jdbc:h2:mem:v51-" + java.util.UUID.randomUUID() + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
             "sa", "");
         var db = new JdbcTemplate(source);
         createSchema(db);
-        seedLegacyRows(db);
 
         new ResourceDatabasePopulator(
-            new ClassPathResource("db/local-migration/V51__refresh_local_demo_credentials.sql")
+            new ClassPathResource("db/local-migration/V51__local_demo_rbac_provisioning.sql")
         ).execute(source);
 
         assertThat(db.queryForObject(
@@ -29,58 +28,54 @@ class V51LocalDemoCredentialsTest {
             "SELECT COUNT(*) FROM employees WHERE username LIKE '%@somya.local' AND enabled=TRUE", Integer.class
         )).isEqualTo(30);
         assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'local-v51-%' AND active=TRUE", Integer.class
-        )).isEqualTo(30);
-        assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM employee_role_assignments a JOIN employees e ON e.username=a.username " +
-            "WHERE e.username LIKE '%@somya.local' AND a.active=TRUE", Integer.class
-        )).isEqualTo(30);
+            "SELECT COUNT(*) FROM customer_profiles", Integer.class
+        )).isEqualTo(2);
 
         assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'standard:%' AND active=TRUE", Integer.class
+        )).isEqualTo(15);
+        assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM vendor_role_permissions p JOIN vendor_roles r " +
-            "ON r.tenant_id=p.tenant_id AND r.id=p.role_id " +
-            "WHERE r.role_key LIKE 'local-v51-%' AND p.permission LIKE 'PLATFORM_%'", Integer.class
+            "ON r.tenant_id=p.tenant_id AND r.id=p.role_id WHERE r.role_key LIKE 'standard:%' " +
+            "AND p.permission LIKE 'PLATFORM_%'", Integer.class
         )).isZero();
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM employee_role_assignments a JOIN vendor_roles r " +
+            "ON r.tenant_id=a.tenant_id AND r.id=a.role_id WHERE a.active=TRUE " +
+            "AND r.role_key LIKE 'standard:%'", Integer.class
+        )).isEqualTo(15);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM employee_role_assignments a JOIN employees e ON e.username=a.username " +
+            "WHERE e.username LIKE '%@somya.local' AND a.active=TRUE " +
+            "AND e.username NOT LIKE '%.admin@somya.local' " +
+            "AND NOT EXISTS (SELECT 1 FROM vendor_roles r WHERE r.tenant_id=a.tenant_id AND r.id=a.role_id " +
+            "AND r.role_key LIKE 'standard:%')", Integer.class
+        )).isZero();
+
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM employee_role_assignments a JOIN employees e ON e.username=a.username " +
+            "WHERE e.username LIKE '%.sales.executive@somya.local' OR " +
+            "e.username LIKE '%.operations.manager@somya.local' OR " +
+            "e.username LIKE '%.service.manager@somya.local' OR " +
+            "e.username LIKE '%.service.engineer@somya.local' OR " +
+            "e.username LIKE '%.content.manager@somya.local'", Integer.class
+        )).isZero();
+
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM platform_user_permissions WHERE username='platform.superadmin@somya.local'", Integer.class
         )).isEqualTo(10);
         assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM employees WHERE username='admin@saumya.demo.test' AND enabled=FALSE", Integer.class
-        )).isEqualTo(1);
-        assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM employee_role_assignments WHERE username='admin@saumya.demo.test' AND active=FALSE", Integer.class
-        )).isEqualTo(1);
-        assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM users WHERE username='local-cashier' AND enabled=FALSE", Integer.class
-        )).isEqualTo(1);
-        assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM employee_role_assignments WHERE username='local-cashier' AND active=FALSE AND revoked_by=username", Integer.class
-        )).isEqualTo(1);
-        assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM employee_register_assignments WHERE username='local-cashier' AND active=FALSE AND revoked_by=username", Integer.class
-        )).isEqualTo(1);
-
-        assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM vendor_role_permissions p JOIN vendor_roles r " +
-            "ON r.tenant_id=p.tenant_id AND r.id=p.role_id " +
-            "WHERE r.role_key='local-v51-911105' AND p.permission IN ('POS_TENDER_MANUAL_VERIFY','POS_REFUND_APPROVE','POS_TENDER_EXTERNAL_CONFIRM')",
-            Integer.class
-        )).isZero();
-        assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM vendor_role_permissions p JOIN vendor_roles r " +
-            "ON r.tenant_id=p.tenant_id AND r.id=p.role_id " +
-            "WHERE r.role_key='local-v51-911106' AND p.permission IN ('POS_TENDER_MANUAL_VERIFY','POS_REFUND_APPROVE')",
-            Integer.class
-        )).isEqualTo(2);
-
-        assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM employee_register_assignments WHERE username LIKE '%@somya.local' AND active=TRUE",
-            Integer.class
+            "SELECT COUNT(*) FROM employee_register_assignments WHERE active=TRUE", Integer.class
         )).isEqualTo(9);
-        assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles", Integer.class)).isEqualTo(2);
         assertThat(db.queryForObject(
-            "SELECT COUNT(*) FROM tenant_customers WHERE id LIKE 'local-v51-%'", Integer.class
-        )).isEqualTo(4);
+            "SELECT COUNT(*) FROM vendor_access_audit_events WHERE action='ROLE_TEMPLATE_APPLIED'", Integer.class
+        )).isEqualTo(15);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM vendor_access_audit_events WHERE action='ROLE_ASSIGNED'", Integer.class
+        )).isEqualTo(15);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM vendor_access_audit_events WHERE action='REGISTER_ASSIGNED'", Integer.class
+        )).isEqualTo(9);
 
         var encoder = new BCryptPasswordEncoder();
         assertThat(encoder.matches("Somya-Platform-2026!",
@@ -94,35 +89,14 @@ class V51LocalDemoCredentialsTest {
     private void createSchema(JdbcTemplate db) {
         db.execute("CREATE TABLE users(id BIGINT PRIMARY KEY,username VARCHAR(100) UNIQUE,password_hash VARCHAR(200),enabled BOOLEAN)");
         db.execute("CREATE TABLE employees(username VARCHAR(100) PRIMARY KEY,tenant_id BIGINT,branch_id BIGINT,enabled BOOLEAN,UNIQUE(tenant_id,username))");
-        db.execute("CREATE TABLE employee_role_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),role_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,role_id),CONSTRAINT fk_employee_role_revoked_by FOREIGN KEY(tenant_id,revoked_by) REFERENCES employees(tenant_id,username))");
-        db.execute("CREATE TABLE employee_register_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),register_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,register_id),CONSTRAINT fk_employee_register_revoked_by FOREIGN KEY(tenant_id,revoked_by) REFERENCES employees(tenant_id,username))");
+        db.execute("CREATE TABLE employee_role_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),role_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,role_id))");
+        db.execute("CREATE TABLE employee_register_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),register_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,register_id))");
         db.execute("CREATE TABLE vendor_roles(tenant_id BIGINT,id BIGINT AUTO_INCREMENT,role_key VARCHAR(120),display_name VARCHAR(120),active BOOLEAN,version BIGINT DEFAULT 0,created_by VARCHAR(100),updated_by VARCHAR(100),PRIMARY KEY(tenant_id,id),UNIQUE(tenant_id,role_key))");
         db.execute("CREATE TABLE vendor_role_permissions(tenant_id BIGINT,role_id BIGINT,permission VARCHAR(80),created_by VARCHAR(100),UNIQUE(tenant_id,role_id,permission))");
+        db.execute("CREATE TABLE vendor_access_audit_events(id BIGINT AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT,actor_username VARCHAR(100),subject_username VARCHAR(100),resource_type VARCHAR(40),resource_id VARCHAR(120),action VARCHAR(60),reason VARCHAR(500))");
         db.execute("CREATE TABLE platform_user_permissions(username VARCHAR(100),permission VARCHAR(80),PRIMARY KEY(username,permission))");
         db.execute("CREATE TABLE customer_profiles(id BIGINT PRIMARY KEY,user_id BIGINT UNIQUE)");
         db.execute("CREATE TABLE registers(id BIGINT PRIMARY KEY,tenant_id BIGINT,branch_id BIGINT)");
         db.execute("CREATE TABLE tenant_customers(id VARCHAR(64) PRIMARY KEY,tenant_id BIGINT,customer_id BIGINT,consent_at TIMESTAMP,provenance VARCHAR(80),UNIQUE(tenant_id,customer_id))");
-    }
-
-    private void seedLegacyRows(JdbcTemplate db) {
-        db.update("INSERT INTO users VALUES(910101,'admin@saumya.demo.test','legacy-hash',TRUE)");
-        db.update("INSERT INTO employees VALUES('admin@saumya.demo.test',910001,910001,TRUE)");
-        db.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(910001,910001,'admin@saumya.demo.test',1,TRUE,'admin@saumya.demo.test')");
-        db.update("INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by) VALUES(910001,910001,'admin@saumya.demo.test',910011,TRUE,'admin@saumya.demo.test')");
-        db.update("INSERT INTO users VALUES(940001,'superadmin@platform.demo.test','legacy-hash',TRUE)");
-        db.update("INSERT INTO users VALUES(949001,'asha@customer.demo.test','legacy-hash',TRUE)");
-        db.update("INSERT INTO users VALUES(949002,'rahul@customer.demo.test','legacy-hash',TRUE)");
-        db.update("INSERT INTO users VALUES(900003,'local-supervisor','legacy-hash',TRUE)");
-        db.update("INSERT INTO users VALUES(900001,'demo-customer','legacy-hash',TRUE)");
-        db.update("INSERT INTO users VALUES(900002,'local-cashier','legacy-hash',TRUE)");
-        db.update("INSERT INTO employees VALUES('local-cashier',900001,900001,TRUE)");
-        db.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(900001,900001,'local-cashier',2,TRUE,'local-cashier')");
-        db.update("INSERT INTO registers VALUES(900001,900001,900001)");
-        db.update("INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by) VALUES(900001,900001,'local-cashier',900001,TRUE,'local-cashier')");
-        for (long tenant : new long[] {910001,920001,930001}) {
-            db.update("INSERT INTO registers VALUES(?,?,?)", tenant+10,tenant,tenant);
-            db.update("INSERT INTO registers VALUES(?,?,?)", tenant+11,tenant,tenant);
-            db.update("INSERT INTO registers VALUES(?,?,?)", tenant+12,tenant,tenant);
-        }
     }
 }

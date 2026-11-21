@@ -66,7 +66,7 @@ jobs:
         run: mvn -B -f backend/pom.xml '-Dtest=MembershipServiceTest,TenantEntitlementPolicyTest,VendorRoleServiceProvisioningTest,VendorRoleServiceAuthorizationBoundaryTest' test
       - name: P0-06 runtime authorization matrix (H2)
         if: matrix.database == 'h2'
-        run: mvn -B -f backend/pom.xml '-Dtest=RuntimeAuthorizationEndpointInventoryTest,RuntimeAuthorizationPersistedRoleTest,AuthorizationPolicyMatrixTest,AuthorizationPolicyRegistryTest' test
+        run: mvn -B -f backend/pom.xml '-Dtest=RuntimeAuthorizationEndpointInventoryTest,RuntimeAuthorizationPersistedRoleTest,AuthorizationPolicyMatrixTest,AuthorizationPolicyRegistryTest,PermissionCatalogueContractTest,PermissionCatalogueSrsParityTest,PermissionCatalogueDatabaseParityTest' test
       - name: P0-06 runtime authorization matrix (MySQL 8.4)
         if: matrix.database == 'mysql'
         env:

@@ -150,7 +150,7 @@
 
 ### P1-02 — Resolve standard role templates
 
-**Status — IN PROGRESS, verification pending.** RC-03 requires tenant-owned standard role snapshots. Version 1 covers implemented operations from SRS §11.1 and the live endpoint and service policies. Sales reporting, financial reporting and stock receiving are the implemented portions of their respective responsibilities.
+**Status — IMPLEMENTED ON FEATURE BRANCH; FINAL VERIFICATION IN PROGRESS.** RC-03 is resolved: standard roles are mandatory, versioned tenant-scoped templates, never global runtime authorities. Version 1 contains only implemented vendor operations evidenced by the approved permission catalogue and current endpoint/service policies. Sales reporting, financial reporting and stock receiving are the implemented portions of their broader SRS §11.1 responsibilities; unimplemented CRM, fulfilment, service and editorial work remains deferred with no grants.
 
 | Standard template | Version 1 permissions |
 |---|---|
@@ -169,7 +169,7 @@ Provisioning creates one explicit role per supported definition and assigns only
 
 The role stores its source key and version. Changing the catalogue never synchronizes grants on existing roles. An administrator may create a new snapshot or explicitly edit a tenant role using its expected role version and audit reason. Retrying the same template clone reuses the original row. A conflicting retry fails without changing grants.
 
-**Evidence:** Focused template runtime scenario in \`PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes\`, clone tests in \`P101VendorRoleLifecycleTest\`, and the existing P0-06 runtime matrix. Record passing results from both database lanes before completion.
+**Implementation and regression coverage (2026-11-21):** `StandardRoleTemplates` validates every grant against both the vendor registry and the implemented-operation allow-list, rejects duplicates/unknown/platform grants, and defines all ten requested roles. `StandardRoleTemplatesTest` asserts the complete catalogue, supported/deferred split, permission safety and versioned keys. `PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes` materializes and retries the five supported templates, verifies every permission set and an allowed runtime endpoint for each, checks cross-tenant role denial and no-escalation behavior, proves a VIEW-only clone cannot open a POS session, and verifies removing all assignments returns no effective permissions. `P101VendorRoleLifecycleTest#templateRetriesPreserveTenantSnapshotsAndRejectEscalation` verifies idempotent clone retry, customization/reduction, escalation denial and immutable prior snapshots. The frontend `VendorAccessAdmin` shows exact template permissions, deferred reasons, branch/register/session caveats, and labels roles as template-derived or tenant-custom; a component test covers that distinction. The focused workflow includes the catalogue, P1-02 runtime and P1-01 clone tests on H2 and MySQL 8.4.
 
 ### P1-03 — Align permission catalogue with approved feature scope
 

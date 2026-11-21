@@ -57,4 +57,4 @@ The earlier command results in the table above are a historical baseline and do 
 | Git diff / whitespace check | Not run in this connector session |
 | P0-07 release acceptance | **Pending** |
 
-The branch's latest source commit returned no GitHub status checks, and the available commit-workflow lookup returned no associated pull-request workflow runs. This is not evidence of a pass. Do not use the historical 297 backend / 266 frontend counts as sign-off for P0-07. Run the backend suite on H2 and MySQL 8.4 and record the actual results before marking this increment accepted.
+The branch commits checked during this update returned no GitHub status checks, and the available commit-workflow lookup returned no associated pull-request workflow runs. The P0-07 workflow has been updated to select all three actor-context regressions in focused H2 and MySQL 8.4 steps, followed by the complete backend suite; execution results are still pending. This is not evidence of a pass. Do not use the historical 297 backend / 266 frontend counts as sign-off for P0-07. Record actual H2 and MySQL 8.4 results before marking this increment accepted.

@@ -4,6 +4,8 @@ This branch implements the solar marketplace, single-vendor carts, shared invent
 
 The authorization-gap work now includes the RC-01 P0-07 actor-context separation increment: a global Customer may also hold a Vendor membership, but each session uses only one explicitly selected context; Platform identity remains separate. See [P0-07 actor-context implementation and verification status](docs/implementation/P0_07_ACTOR_CONTEXT_SEPARATION.md). The newly added backend regressions still require H2 and MySQL 8.4 CI verification.
 
+For upgrading an existing development database without resetting its MySQL volume, follow [Existing Development Database Upgrade](docs/implementation/EXISTING_DEV_DATABASE_UPGRADE.md). This documents the additive V54 schema change, the intentionally retired legacy permission data, and the safe MySQL container recreation required to apply the checked-in local trigger configuration.
+
 ## Multi-vendor test data
 
 With `SPRING_PROFILES_ACTIVE=local` (already set in `.env.example`), Flyway V39 automatically loads the three-vendor demo data after the schema migrations when the backend starts. No reset script or manual SQL step is required. The seed is local-only; do not activate the `local` profile in production.

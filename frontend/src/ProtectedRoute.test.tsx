@@ -9,7 +9,7 @@ afterEach(()=>{cleanup();vi.clearAllMocks();});
 describe('ProtectedRoute',()=>{
   it('denies an empty permission policy instead of treating it as public',()=>{
     vi.mocked(usePermissions).mockReturnValue({
-      permissions:{username:'staff@example.test',tenantId:1,branchId:1,permissions:['POS_VIEW']},
+      permissions:{username:'staff@example.test',tenantId:1,branchId:1,permissions:['POS_VIEW'],actorType:'VENDOR'},
       loading:false,error:null,hasPermission:()=>true,hasAnyPermission:()=>true,hasAllPermissions:()=>true,
       isPlatformUser:false,isCustomer:false,isVendorEmployee:true
     });

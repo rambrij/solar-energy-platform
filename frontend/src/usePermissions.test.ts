@@ -1,15 +1,15 @@
 import {renderHook,waitFor} from '@testing-library/react';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-import {usePermissions,hasNavigationPermission,NAVIGATION_PERMISSIONS} from './usePermissions';
+import {usePermissions,hasNavigationPermission,NAVIGATION_PERMISSIONS,type UserPermissions} from './usePermissions';
 import {navigationItems} from './navigation';
 
 const {mockAuthApi,mockUseSession}=vi.hoisted(()=>({mockAuthApi:vi.fn(),mockUseSession:vi.fn()}));
 vi.mock('./api',()=>({authApi:mockAuthApi}));
 vi.mock('./session',()=>({useSession:mockUseSession}));
 
-const vendorAccount={username:'cashier@vendor.com',tenantId:1,branchId:10,permissions:['POS_VIEW','POS_SALE_CREATE'],actorType:'VENDOR'};
-const customerAccount={username:'customer@example.com',tenantId:null,branchId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER'};
-const platformAccount={username:'admin@platform.com',tenantId:null,branchId:null,permissions:['PLATFORM_SUPER_ADMIN'],actorType:'PLATFORM'};
+const vendorAccount:UserPermissions={username:'cashier@vendor.com',tenantId:1,branchId:10,permissions:['POS_VIEW','POS_SALE_CREATE'],actorType:'VENDOR'};
+const customerAccount:UserPermissions={username:'customer@example.com',tenantId:null,branchId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER'};
+const platformAccount:UserPermissions={username:'admin@platform.com',tenantId:null,branchId:null,permissions:['PLATFORM_SUPER_ADMIN'],actorType:'PLATFORM'};
 
 describe('usePermissions',()=>{
  beforeEach(()=>{vi.clearAllMocks();mockUseSession.mockReturnValue({ready:true,account:vendorAccount});});

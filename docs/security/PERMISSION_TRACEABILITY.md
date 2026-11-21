@@ -4,7 +4,7 @@
 |---|---|
 | Canonical source | `backend/src/main/resources/authorization-policy-registry.json` |
 | Catalogue version | 2 |
-| Status | IMPLEMENTATION IN BRANCH — VALIDATION PENDING |
+| Status | COMPLETE — VERIFIED 2026-11-21 on d550c392de4267718dc6c387378de83bf64471c7 (workflow #44931160016) |
 | Rule | Only vendor/platform permissions in the canonical assignable lists can be granted. Customer is an actor marker, not a vendor role permission. |
 
 ## Assignable permissions
@@ -100,7 +100,7 @@ Permission grants do not replace scope checks. Tenant membership, branch assignm
 
 ## Verification state
 
-The traceability rows identify current endpoints, services, UI operations and test references. Runtime proof is accepted only from the corresponding test's execution on the final commit. P1-01/P1-02 and P0-06 regression suites, both database suites and frontend build must pass on the same final branch head before P1-03 can be marked COMPLETE.
+The traceability rows identify current endpoints, services, UI operations and test references. Runtime proof was executed on the final branch head. Workflow #44931160016 passed P1-01/P1-02, P0-06 and P0-07 focused regressions, full H2 (662 tests; 0 failures/errors; 1 skipped) and MySQL 8.4 (662 tests; 0 failures/errors/skips), plus frontend (62 files / 303 tests), registry parity and production build. V55 permission catalogue and FK migration ran successfully on both databases.
 
 ## SRS-to-runtime permission refinements
 
@@ -128,3 +128,12 @@ The following implementation-level permissions are additional, narrower authorit
 | `POS_TENDER_MANUAL_VERIFY` | `POS_TENDER_EXTERNAL_CONFIRM` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §20.3 | Separate supervisor review of external tender evidence; it cannot be conflated with cashier tender-attempt recording. |
 
 `POS_TENDER_VIEW` remains ORPHANED; `POS_TENDER_EXTERNAL_CONFIRM` remains CONFLICTING with the two-stage external tender record/manual verification implementation and is tracked under RC-06.
+
+
+## Final runtime evidence — 2026-11-21
+
+- Branch head: d550c392de4267718dc6c387378de83bf64471c7; [GitHub Actions #44931160016](https://github.com/rambrij/solar-energy-platform/actions/runs/44931160016). H2, MySQL 8.4 and frontend jobs all SUCCESS.
+- The P0-06 report produced on each database records 146 live endpoint rows, 41/41 actor scenarios PASS, 18/18 P0-07 actor-context cases PASS, zero protected routes without persisted matching-actor evidence, 130 missing-permission HTTP checks PASS, 131 anonymous checks PASS, and 66/66 VIEW-only mutation denials. Public routes and the delegated actor-context endpoint remain explicitly distinguished in the report.
+- Frontend permission registry parity: 27 routes, 41 backend controllers, 63 permission identifiers; 62 test files / 303 tests and production build passed.
+- V55 creates the vendor/platform permission catalogue constraints from this canonical JSON. H2 and MySQL 8.4 migration and DB parity tests passed; MySQL clean local-demo migration step passed.
+- **P1-03: COMPLETE.** RC-06 remains OPEN only for the non-assignable POS_TENDER_EXTERNAL_CONFIRM semantic conflict; no unknown, orphaned or conflicting permission remains active/assignable. CRM/Operations functions without implemented operations remain RESERVED / DEFERRED.

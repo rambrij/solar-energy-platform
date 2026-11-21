@@ -71,6 +71,8 @@ test('Cashier: POS session entry is allowed, administration routes stay hidden o
   await expect(page.getByRole('link', { name: 'Manage Products' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Open workspace menu' }).click();
   await expect(page.getByRole('navigation', { name: 'Workspace sections' }).getByRole('link', { name: 'Cashier Session' })).toBeVisible();
+  await page.goto('/vendor/pos/products');
+  await expect(page.getByRole('alert')).toContainText('Access denied');
 });
 
 test('Accountant: reporting is available but inventory receipt access is denied', async ({ page }) => {

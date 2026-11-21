@@ -86,6 +86,20 @@ class P101VendorRoleLifecycleTest {
             List.of("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW")))
             .as("P1-01 subscription policy retains entitled feature permissions")
             .contains("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW");
+        List<String> effectiveRoleRows=db.queryForList("""
+            SELECT DISTINCT rp.permission
+            FROM employee_role_assignments a
+            JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
+            JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id
+            WHERE a.tenant_id=? AND a.username=? AND a.active=TRUE AND r.active=TRUE
+            ORDER BY rp.permission
+            """,String.class,VENDOR_A_TENANT,VENDOR_A);
+        assertThat(effectiveRoleRows)
+            .as("P1-01 exact MembershipService persisted-role SQL")
+            .contains("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW");
+        assertThat(com.saumya.pos.membership.VendorPermissionRegistry.all())
+            .as("P1-01 persisted role grants are in the vendor allow-list")
+            .contains("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW");
         assertThat(memberships.access(VENDOR_A).orElseThrow().permissions())
             .as("P1-01 actor permissions include persisted role grants after subscription filtering")
             .contains("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW");

@@ -3154,8 +3154,8 @@ class PosTest {
            AND NOT EXISTS (SELECT 1 FROM pos_sessions p WHERE p.tenant_id=a.tenant_id
              AND p.register_id=a.register_id AND p.state IN ('OPEN','CLOSING'))
          """,Long.class,cashierName);
-       if(availableRegister==null)availableRegister=cashierRecoveryRegister;
-       as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(availableRegister,BigDecimal.ZERO)));
+       long registerToOpen=availableRegister==null?cashierRecoveryRegister:availableRegister;
+       as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(registerToOpen,BigDecimal.ZERO)));
       }
      }
      int actual=response.getResponse().getStatus();

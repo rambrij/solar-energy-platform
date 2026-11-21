@@ -383,3 +383,12 @@ The existing implementation has useful authorization controls and must be preser
 - **P1-03 status: IMPLEMENTATION IN BRANCH — VALIDATION PENDING.** Previous CI runs passed P1-01/P1-02/P0-03 and P0-06 policy inventory/matrix focused tests and the MySQL clean demo migration count. They were blocked in P0-07 by stale demo role SQL, now corrected; final H2/MySQL P0-07, runtime actor, full-suite and frontend checker/build evidence is still required.
 - RC-06 remains OPEN for `POS_TENDER_EXTERNAL_CONFIRM` versus implemented external tender record and separate manual verification permissions. No missing operation was invented.
 
+
+
+### SRS-to-runtime permission parity follow-up (2026-11-21)
+
+- Canonical JSON now records 18 explicit SRS-linked implementation refinements, with SRS parent identifiers, source references and rationale. All SRS §11.2 identifiers are classified; extra runtime IDs cannot exist without a documented refinement, orphaned or conflicting classification.
+- `PermissionCatalogueSrsParityTest` validates the expanded SRS shorthand IDs against the canonical classification sets and requires runtime-only IDs to be justified. Unknown identifiers remain empty.
+- CI now includes canonical contract, SRS parity and DB catalogue/foreign-key parity tests in both H2 and MySQL P0-06 registry-matrix jobs.
+- RC-06 remains OPEN only for the tender confirmation/record/manual-verify semantic conflict; P1-03 cannot be accepted until the SRS parity and DB tests pass on the final branch head.
+

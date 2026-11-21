@@ -118,6 +118,12 @@ describe('hasNavigationPermission',()=>{
   expect(hasNavigationPermission('product-management',['PRODUCT_VIEW'])).toBe(true);
   expect(hasNavigationPermission('category-management',['PRODUCT_CREATE'])).toBe(true);
  });
+ it('allows Store Settings only with a settings operation grant',()=>{
+  expect(hasNavigationPermission('store-settings',['POS_VIEW'])).toBe(false);
+  expect(hasNavigationPermission('store-settings',['POS_SETTINGS_MANAGE'])).toBe(true);
+  expect(hasNavigationPermission('store-settings',['POS_DISCOUNT_OVERRIDE'])).toBe(true);
+  expect(hasNavigationPermission('store-settings',['POS_SALE_CREATE'])).toBe(false);
+ });
  it('allows cashier-owned shift history with POS_VIEW',()=>{
   expect(hasNavigationPermission('shift-history',['POS_VIEW'])).toBe(true);
   expect(hasNavigationPermission('shift-history',['POS_REPORT_VIEW'])).toBe(false);

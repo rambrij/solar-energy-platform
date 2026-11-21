@@ -2,6 +2,8 @@
 
 This branch implements the solar marketplace, single-vendor carts, shared inventory reservations, guest walk-in POS, cash checkout, receipts, returns and shift reconciliation. Explicitly enabled pre-production online payment simulation and independently verified vendor-terminal POS tenders use durable vendor-scoped attempts. POS never uses the online simulation adapter. Live payment integration and the full Commercial MVP release gates remain outstanding. See [vendor payment checkout](docs/implementation/VENDOR_PAYMENT_CHECKOUT.md) for configuration, APIs, recovery and remaining requirements.
 
+The authorization-gap work now includes the RC-01 P0-07 actor-context separation increment: a global Customer may also hold a Vendor membership, but each session uses only one explicitly selected context; Platform identity remains separate. See [P0-07 actor-context implementation and verification status](docs/implementation/P0_07_ACTOR_CONTEXT_SEPARATION.md). The newly added backend regressions still require H2 and MySQL 8.4 CI verification.
+
 ## Multi-vendor test data
 
 With `SPRING_PROFILES_ACTIVE=local` (already set in `.env.example`), Flyway V39 automatically loads the three-vendor demo data after the schema migrations when the backend starts. No reset script or manual SQL step is required. The seed is local-only; do not activate the `local` profile in production.
@@ -278,7 +280,7 @@ Frontend: `cd frontend`, `npm ci`, `npm test`, `npm run build`. Component tests 
 
 ## Remaining Version 2.0 release gates
 
-See [POS implementation status](docs/implementation/POS_STATUS.md). This is a draft foundation PR until those gates pass, including provider adapters, external tender reservations/reconciliation, split tender, verified customer association, refund/exchange/credit notes, full JWT/refresh identity, statutory invoice configuration and Playwright end-to-end tests. The platform cannot take purchase payments or own vendor inventory.
+See [POS implementation status](docs/implementation/POS_STATUS.md). This is a draft foundation PR until those gates pass, including provider adapters, external tender reservations/reconciliation, split tender, verified customer association, refund/exchange/credit notes, P0-07 actor-context CI acceptance (see the linked implementation status), statutory invoice configuration and Playwright end-to-end tests. The platform cannot take purchase payments or own vendor inventory.
 
 ### Inspected-return cash refund demo (V12)
 

@@ -158,6 +158,8 @@ class P101VendorRoleLifecycleTest {
         assertThat(memberships.access(TARGET)).get()
             .extracting(MembershipService.Access::permissions).asList().isEmpty();
         assertThat(activeAssignments(TARGET)).isZero();
+        assertThat(auditCount(VENDOR_A_TENANT, "ROLE_ASSIGNED", Long.toString(productRole.id()))).isEqualTo(1);
+        assertThat(auditCount(VENDOR_A_TENANT, "ROLE_ASSIGNED", Long.toString(posRole.id()))).isEqualTo(2);
         assertThat(auditCount(VENDOR_A_TENANT, "ROLE_REVOKED", Long.toString(productRole.id()))).isEqualTo(1);
         assertThat(auditCount(VENDOR_A_TENANT, "ROLE_REVOKED", Long.toString(posRole.id()))).isEqualTo(1);
         assertThat(auditCount(VENDOR_A_TENANT, "ROLE_ASSIGNMENTS_REPLACED", TARGET)).isEqualTo(3);

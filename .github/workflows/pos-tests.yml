@@ -29,14 +29,14 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: P1-02 tenant role template runtime (H2)
         if: matrix.database == 'h2'
-        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes,P101VendorRoleLifecycleTest#templateRetriesPreserveTenantSnapshotsAndRejectEscalation' test
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes,P101VendorRoleLifecycleTest#templateRetriesPreserveTenantSnapshotsAndRejectEscalation,StandardRoleTemplatesTest' test
       - name: P1-02 tenant role template runtime (MySQL 8.4)
         if: matrix.database == 'mysql'
         env:
           TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
-        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes,P101VendorRoleLifecycleTest#templateRetriesPreserveTenantSnapshotsAndRejectEscalation' test
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p102ProvisionedTemplatesEnforceRuntimeScopes,P101VendorRoleLifecycleTest#templateRetriesPreserveTenantSnapshotsAndRejectEscalation,StandardRoleTemplatesTest' test
       - name: P1-01 custom role lifecycle and delegation (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=P101VendorRoleLifecycleTest,VendorRolePermissionCatalogueTest,VendorRoleControllerAuthorizationTest,VendorRoleServiceAuthorizationBoundaryTest' test

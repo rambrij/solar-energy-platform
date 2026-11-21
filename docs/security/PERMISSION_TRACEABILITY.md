@@ -101,3 +101,30 @@ Permission grants do not replace scope checks. Tenant membership, branch assignm
 ## Verification state
 
 The traceability rows identify current endpoints, services, UI operations and test references. Runtime proof is accepted only from the corresponding test's execution on the final commit. P1-01/P1-02 and P0-06 regression suites, both database suites and frontend build must pass on the same final branch head before P1-03 can be marked COMPLETE.
+
+## SRS-to-runtime permission refinements
+
+The following implementation-level permissions are additional, narrower authorities over operations already present in approved product/SRS scope. The authoritative SRS permissions remain classified by the section above; these refinements are separately justified in the canonical JSON `approvedPermissionRefinements` list.
+
+| Runtime permission | SRS parent permission(s) | Source sections | Rationale |
+|---|---|---|---|
+| `CATALOG_PROMOTION_MANAGE` | `PRODUCT_UPDATE`, `PRICE_UPDATE` | Product Requirements §9.1, SRS/HLD §12.5 | Dedicated authority for tenant-owned product promotion updates; it does not grant general product or price updates. |
+| `PLATFORM_CONFIG_MANAGE` | No single §11.2 parent; feature-level approval | Product Requirements §2.1, SRS/HLD §11.1, SRS/HLD §20.1 | Fine-grained platform-only authority for global technical configuration; this operation is expressly in platform feature scope but has no enumerated ID in SRS/HLD §11.2. |
+| `PLATFORM_IDENTITY_MANAGE` | No single §11.2 parent; feature-level approval | SRS/HLD §11.1, SRS/HLD §20.1 | Fine-grained platform-only authority for platform identity administration and audited MFA lifecycle; no dedicated ID is enumerated in SRS/HLD §11.2. |
+| `PLATFORM_TENANT_REACTIVATE` | `PLATFORM_TENANT_UPDATE` | Product Requirements §4.1, SRS/HLD §12.2 | Separate permission for the SRS-approved tenant reactivation lifecycle transition; it is not a generic update grant. |
+| `PLATFORM_TENANT_VIEW` | `PLATFORM_ANALYTICS_VIEW` | Product Requirements §2.1, Product Requirements §4.1, SRS/HLD §11.1 | Read-only tenant directory permission required to inspect tenant lifecycle state without granting lifecycle mutation. |
+| `POS_CASHIER_REPORT_VIEW` | `REPORT_VIEW` | SRS/HLD §11.1, SRS/HLD §11.2, SRS/HLD §12.15 | Branch/register/cashier scoped report view for cashier sales; narrower than general vendor REPORT_VIEW. |
+| `POS_DISCOUNT_APPROVE` | `POS_DISCOUNT_APPLY`, `POS_DISCOUNT_OVERRIDE` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §20.3 | Separate approval authority for promotion/discount approval; not implied by applying a discount. |
+| `POS_REFUND_CASH_RECORD` | `POS_REFUND_APPROVE` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §12.15 | Narrow authority to record the cash leg of an approved POS refund; does not grant refund approval. |
+| `POS_REFUND_PRINT` | `POS_RECEIPT_REPRINT`, `POS_REFUND_APPROVE` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §12.15 | Separate document-copy action for an existing POS refund. |
+| `POS_REFUND_VIEW` | `POS_REFUND_APPROVE` | SRS/HLD §11.1, SRS/HLD §11.2 | Read-only POS refund queue/history permission distinct from refund approval and cash recording. |
+| `POS_REPORT_EXPORT` | `REPORT_EXPORT`, `POS_REPORT_VIEW` | SRS/HLD §11.1, SRS/HLD §11.2, SRS/HLD §12.15 | POS-scoped export authority; distinct from viewing POS reports and from generic report exports. |
+| `POS_RETURN_APPROVE` | `RETURN_APPROVE`, `POS_RETURN_CREATE` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §12.15 | Supervisor approval for POS-originated returns; distinct from creating a return request. |
+| `POS_RETURN_AUDIT_VIEW` | `VENDOR_AUDIT_VIEW`, `RETURN_VIEW` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §20.3 | Read-only audit history for an individual POS return; scoped to that tenant-owned return. |
+| `POS_RETURN_INSPECT` | `RETURN_RECEIVE`, `RETURN_VIEW` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §12.15 | Inspects returned POS items and validates their state before receipt/approval. |
+| `POS_RETURN_VIEW` | `RETURN_VIEW`, `POS_RETURN_CREATE` | Product Requirements §9.2, SRS/HLD §11.2 | Read-only queue/detail permission for POS-originated returns, separate from generic online-order returns. |
+| `POS_SETTINGS_MANAGE` | `TENANT_PROFILE_UPDATE` | Product Requirements §9.2, SRS/HLD §12.15, SRS/HLD §20.3 | Branch/register POS configuration permission; it does not grant general tenant profile management. |
+| `POS_TENDER_EXTERNAL_RECORD` | `POS_TENDER_EXTERNAL_CONFIRM` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §12.15 | Records a provider/terminal tender attempt and reference only; recording is not proof of payment confirmation. |
+| `POS_TENDER_MANUAL_VERIFY` | `POS_TENDER_EXTERNAL_CONFIRM` | Product Requirements §9.2, SRS/HLD §11.2, SRS/HLD §20.3 | Separate supervisor review of external tender evidence; it cannot be conflated with cashier tender-attempt recording. |
+
+`POS_TENDER_VIEW` remains ORPHANED; `POS_TENDER_EXTERNAL_CONFIRM` remains CONFLICTING with the two-stage external tender record/manual verification implementation and is tracked under RC-06.

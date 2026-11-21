@@ -188,3 +188,65 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+
+  browser-e2e:
+    name: Browser E2E (Playwright / MySQL 8.4)
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DB_PASSWORD: solar-e2e-app-password
+      MYSQL_ROOT_PASSWORD: solar-e2e-root-password
+      SPRING_PROFILES_ACTIVE: local
+      PAYMENTS_MOCK_ENABLED: "true"
+      AUTH_JWT_SECRET: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Install pinned Playwright runner
+        working-directory: frontend
+        run: npm install --no-save --package-lock=false @playwright/test@1.52.0
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Start clean local-profile MySQL 8.4 stack
+        run: docker compose -p solar-e2e up -d --build
+      - name: Wait for seeded application readiness
+        shell: bash
+        run: |
+          for attempt in {1..120}; do
+            if curl --fail --silent http://127.0.0.1:8080/api/v1/auth/csrf >/dev/null; then
+              echo "Application is ready"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose -p solar-e2e logs --no-color
+          exit 1
+      - name: Run browser authorization journeys
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Capture application logs
+        if: always()
+        run: docker compose -p solar-e2e logs --no-color
+      - name: Upload Playwright report and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-01-playwright-browser-e2e
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop and remove disposable E2E stack
+        if: always()
+        run: docker compose -p solar-e2e down -v
+

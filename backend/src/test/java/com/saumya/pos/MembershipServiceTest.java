@@ -43,7 +43,7 @@ class MembershipServiceTest {
     @Test void activeRoleAssignmentsAreTheOnlySourceAndUnionDistinctVendorPermissions(){
         var db=mock(JdbcTemplate.class);
         when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier")))
-            .thenReturn(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
+            .thenReturn(List.of("POS_VIEW","PRODUCT_VIEW","INVENTORY_RECEIVE"));
         var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,passThroughEntitlements());
         assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
             .isEqualTo(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));

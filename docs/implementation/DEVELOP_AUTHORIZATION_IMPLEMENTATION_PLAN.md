@@ -425,3 +425,12 @@ See the companion gap analysis section **REQUIRES CLARIFICATION register** for t
 - **Status remains IMPLEMENTATION IN BRANCH — VALIDATION PENDING.** Recent CI has confirmed focused P1-01, P1-02, P0-03 and P0-06 registry/matrix tests on earlier commits, and 298 frontend unit tests pass on a commit before page-policy parity was connected. Those are not a same-final-head full verification. Current full H2/MySQL and frontend runs must pass before completion.
 - RC-06 remains OPEN for the SRS external tender confirmation semantic distinction. P0-06 remains IN PROGRESS until all protected endpoint actor evidence is complete.
 
+
+
+### SRS permission semantic reconciliation (2026-11-21)
+
+- Added `approvedPermissionRefinements` to the canonical registry for the 18 additional fine-grained runtime authorities that are not separately enumerated by SRS/HLD §11.2 but implement narrower actions within explicitly approved platform, vendor catalogue, reporting, POS, return/refund and security features. Each has parent SRS permission references where applicable, source sections and a rationale.
+- Added `PermissionCatalogueSrsParityTest`: every permission named by SRS/HLD §11.2 must exist in exactly one canonical classification; every runtime-only permission must have an approved refinement record or be explicitly orphaned/conflicting. No SRS ID is silently dropped.
+- The external tender confirmation semantic split remains RC-06 because cashier tender-attempt recording and supervisor evidence verification are not equivalent to a single confirmation action.
+- Added the P1-03 contract, SRS parity and DB catalogue/FK parity tests to the H2 and MySQL 8.4 P0-06 registry-matrix step so catalogue/migration parity is executed early, not only discovered at the tail of the full suite.
+

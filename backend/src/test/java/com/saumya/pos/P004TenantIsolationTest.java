@@ -2,6 +2,8 @@ package com.saumya.pos;
 
 import com.saumya.pos.customer.internal.VendorCustomerRepository;
 import com.saumya.pos.identity.CustomerAccess;
+import com.saumya.pos.identity.AuthenticationService;
+import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.inventory.InventoryService;
 import com.saumya.pos.isolation.TenantIsolationFixture;
 import com.saumya.pos.isolation.TenantIsolationFixture.Seed;

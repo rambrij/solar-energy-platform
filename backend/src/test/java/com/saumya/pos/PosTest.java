@@ -2725,6 +2725,7 @@ class PosTest {
    if(n.contains("customer"))return 949001L;
    if(n.contains("product"))return 910301L;
    if(n.contains("quantity"))return 1L;
+   if(n.contains("expectedversion"))return 0L;
    if(n.contains("role")){Long role=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=910001",Long.class);return role==null?1L:role;}
    if(n.contains("category")){Long category=db.queryForObject("SELECT MIN(id) FROM catalog_categories WHERE tenant_id=910001",Long.class);return category==null?1L:category;}
    if(n.contains("plan")){Long plan=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);return plan==null?1L:plan;}
@@ -3056,9 +3057,13 @@ class PosTest {
       if(body!=null){
        Object value=matrixProbeValue(parameter.getType(),parameter.getName(),parameter.getParameterizedType());
        String bodyJson=json.writeValueAsString(value);
-       if(route.contains("/subscription-plans/{id}/versions")){
+       if(route.contains("/subscription-plans/{id}/versions")||route.equals("/api/v1/platform/configuration")){
         var bodyNode=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(bodyJson);
-        bodyNode.put("planKey","p006-matrix-fixture-plan");
+        if(route.contains("/subscription-plans/{id}/versions"))bodyNode.put("planKey","p006-matrix-fixture-plan");
+        if(route.equals("/api/v1/platform/configuration")){
+         bodyNode.put("sensitive",false);
+         bodyNode.putNull("secretReference");
+        }
         bodyJson=json.writeValueAsString(bodyNode);
        }
        request.contentType("application/json").content(bodyJson);

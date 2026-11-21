@@ -18,7 +18,7 @@ class V51LocalDemoCredentialsTest {
         createSchema(db);
 
         new ResourceDatabasePopulator(
-            new ClassPathResource("db/local-migration/V51__local_demo_rbac_provisioning.sql")
+            new ClassPathResource("db/local-migration/V51__refresh_local_demo_credentials.sql")
         ).execute(source);
 
         assertThat(db.queryForObject(
@@ -91,7 +91,7 @@ class V51LocalDemoCredentialsTest {
         db.execute("CREATE TABLE employees(username VARCHAR(100) PRIMARY KEY,tenant_id BIGINT,branch_id BIGINT,enabled BOOLEAN,UNIQUE(tenant_id,username))");
         db.execute("CREATE TABLE employee_role_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),role_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,role_id))");
         db.execute("CREATE TABLE employee_register_assignments(tenant_id BIGINT,branch_id BIGINT,username VARCHAR(100),register_id BIGINT,active BOOLEAN,assigned_by VARCHAR(100),revoked_by VARCHAR(100),revoked_at TIMESTAMP,PRIMARY KEY(tenant_id,username,register_id))");
-        db.execute("CREATE TABLE vendor_roles(tenant_id BIGINT,id BIGINT AUTO_INCREMENT,role_key VARCHAR(120),display_name VARCHAR(120),active BOOLEAN,version BIGINT DEFAULT 0,created_by VARCHAR(100),updated_by VARCHAR(100),PRIMARY KEY(tenant_id,id),UNIQUE(tenant_id,role_key))");
+        db.execute("CREATE TABLE vendor_roles(tenant_id BIGINT,id BIGINT AUTO_INCREMENT,role_key VARCHAR(120),display_name VARCHAR(120),active BOOLEAN,version BIGINT DEFAULT 0,created_by VARCHAR(100),updated_by VARCHAR(100),template_key VARCHAR(80),template_version INT,PRIMARY KEY(tenant_id,id),UNIQUE(tenant_id,role_key))");
         db.execute("CREATE TABLE vendor_role_permissions(tenant_id BIGINT,role_id BIGINT,permission VARCHAR(80),created_by VARCHAR(100),UNIQUE(tenant_id,role_id,permission))");
         db.execute("CREATE TABLE vendor_access_audit_events(id BIGINT AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT,actor_username VARCHAR(100),subject_username VARCHAR(100),resource_type VARCHAR(40),resource_id VARCHAR(120),action VARCHAR(60),reason VARCHAR(500))");
         db.execute("CREATE TABLE platform_user_permissions(username VARCHAR(100),permission VARCHAR(80),PRIMARY KEY(username,permission))");

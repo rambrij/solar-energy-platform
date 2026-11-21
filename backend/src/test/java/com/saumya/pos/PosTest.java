@@ -2088,7 +2088,7 @@ class PosTest {
    assertThat(hash).startsWith("$2a$10$");assertThat(encoder.matches(password,hash)).as(username).isTrue();
    var session=authentication.login(username,password);var granted=authentication.authenticate(jwt.decoder().decode(session.accessToken())).getAuthorities().stream().map(org.springframework.security.core.GrantedAuthority::getAuthority).toList();
    assertThat(granted).containsExactlyInAnyOrderElementsOf(session.account().permissions());
-   if(role.equals("PLATFORM_SUPER_ADMIN")){assertThat(session.account().tenantId()).isNull();assertThat(granted).hasSize(13).allMatch(g->g.startsWith("PLATFORM_"));}
+   if(role.equals("PLATFORM_SUPER_ADMIN")){assertThat(session.account().tenantId()).isNull();assertThat(granted).containsExactlyInAnyOrderElementsOf(com.saumya.pos.platform.PlatformPermissionRegistry.all()).allMatch(g->g.startsWith("PLATFORM_"));}
    else if(role.equals("CUSTOMER")){assertThat(session.account().tenantId()).isNull();assertThat(granted).containsExactly("CUSTOMER");}
    else{assertThat(session.account().tenantId()).isEqualTo(account.get("tenant").asLong());assertThat(granted).noneMatch(g->g.startsWith("PLATFORM_")||g.equals("CUSTOMER"));
     if(role.equals("POS_CASHIER"))assertThat(granted).contains("POS_SALE_CREATE").doesNotContain("POS_REFUND_APPROVE","POS_TENDER_MANUAL_VERIFY","POS_SETTINGS_MANAGE","POS_DISCOUNT_OVERRIDE");
@@ -2155,7 +2155,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=910001 AND product_id=910301",Integer.class)).isEqualTo(37);
   assertThat(db.queryForObject("SELECT price FROM products WHERE id=910301",BigDecimal.class)).isEqualByComparingTo("12345");
   assertThat(authentication.login("cashier@saumya.demo.test","ChangedDemoPassword2026!").account().permissions()).doesNotContain("POS_SALE_CREATE");
-  assertThat(authentication.login("superadmin@platform.demo.test","PlatformDemo2026!").account().permissions()).hasSize(12);
+  assertThat(authentication.login("superadmin@platform.demo.test","PlatformDemo2026!").account().permissions())\n    .containsExactlyInAnyOrderElementsOf(com.saumya.pos.platform.PlatformPermissionRegistry.all().stream()\n        .filter(permission->!permission.equals("PLATFORM_SUPPORT_ACCESS")).toList());
   assertThat(db.queryForObject("SELECT split_tender_enabled FROM branches WHERE id=910001",Boolean.class)).isFalse();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id IN (910001,920001,930001)",Integer.class)).isEqualTo(18);
   assertThat(db.queryForObject("SELECT next_id FROM identity_sequence WHERE id=1",Long.class)).isGreaterThanOrEqualTo(950000L);

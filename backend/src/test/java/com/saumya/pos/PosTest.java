@@ -2829,8 +2829,8 @@ class PosTest {
   if(route.contains("/sessions/{id}")){
    String cashier=actor.equals("POS_CASHIER")?"cashier@saumya.demo.test":
        (actor.equals("ACCOUNTANT")?"finance@saumya.demo.test":"admin@saumya.demo.test");
-   String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier=?",String.class,cashier);
-   return session==null?"1":session;
+   String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",String.class,cashier);
+   return session==null?"P006-NO-SUCH-SESSION":session;
   }
   if(route.contains("/subscription-plans/{id}")){
    Long plan=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);

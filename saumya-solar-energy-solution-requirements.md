@@ -400,3 +400,5 @@ A single global user identity may have both a global customer profile and a vend
 - Platform identities remain separate from commercial identities. A person who also performs vendor work must use a separate Platform identity and Vendor identity; no Platform-to-Vendor or Vendor-to-Platform context switch is allowed. Platform permissions are never included in Vendor or Customer tokens.
 
 The current `employees` table is keyed by username and represents one vendor membership per username. The current implementation therefore binds Vendor tokens to a server-derived composite membership key (`tenant_id:username`); multi-vendor memberships for one employee require a separate schema and product implementation and are not implied by this decision.
+
+Implementation tracking for this approved decision is maintained in [P0-07 — Explicit actor-context separation](docs/implementation/P0_07_ACTOR_CONTEXT_SEPARATION.md).

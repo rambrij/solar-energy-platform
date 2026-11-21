@@ -2948,7 +2948,12 @@ class PosTest {
        ||resolved instanceof org.springframework.web.bind.MissingServletRequestParameterException
        ||resolved instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
        ||resolved instanceof org.springframework.web.bind.MissingRequestHeaderException;
-     boolean pass=actual!=401&&actual!=403&&actual<500&&!bindingFailure;
+     // A 404/409 only proves that the probe reached a later failure; it does
+     // not prove that the persisted actor can successfully execute the mapped
+     // operation. Require a successful HTTP response for this positive sweep.
+     // Resource-ownership 404s and business-state 409s belong in the explicit,
+     // fixture-backed runtimeScenarios below, not in this generic probe.
+     boolean pass=actual>=200&&actual<300&&!bindingFailure;
      String result=pass?"PASS":"FAIL";
      String routeKey=route;
      String permission=policy.value().replace("\"","\"\"");

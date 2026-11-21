@@ -1,3 +1,4 @@
+import {useSession} from './session';
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { marketplaceApi } from './marketplaceApi';
@@ -12,6 +13,9 @@ const initial: Filters = { status: 'ALL', reference: '', from: '', to: '' };
 const money = (value: number) => Number(value).toFixed(2);
 const date = (value: string | null) => value ? new Date(value).toLocaleString() : 'Not recorded';
 export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos' | 'online'; onReceipt?: (value: Receipt) => void; onReturn?: (id: string) => void }) {
+  const {account}=useSession();
+  const canStartReturn=mode==='online'||!!account?.permissions.includes('POS_RETURN_CREATE');
+  const canOpenPosReceipt=mode==='online'||!!account?.permissions.includes('POS_RECEIPT_VIEW');
   const [onlineReceipt,setOnlineReceipt]=useState<string>();
   const [filters, setFilters] = useState<Filters>(initial), [applied, setApplied] = useState<Filters>(initial);
   const [page, setPage] = useState<Page>(), [detail, setDetail] = useState<Detail>(), [busy, setBusy] = useState(false), [error, setError] = useState('');

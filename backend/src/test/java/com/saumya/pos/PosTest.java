@@ -2933,7 +2933,7 @@ class PosTest {
   update("INSERT INTO subscription_plans(plan_key,display_name,active,current_version,created_at,updated_at) VALUES('p006-matrix-fixture-plan','P0-06 Matrix Plan',TRUE,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
   Long matrixPlanId=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);
   update("INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by,created_at) VALUES(?,1,10.00,'INR','MONTHLY',10,1024,2,1,'{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ORDERS\":true}}',7,'{}','P0-06 fixture','superadmin@platform.demo.test',CURRENT_TIMESTAMP)",matrixPlanId);
-  update("INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot,created_at,updated_at) VALUES(910001,?,1,'PENDING',CURRENT_DATE,DATE_ADD(CURRENT_DATE,INTERVAL 1 MONTH),'{}',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",matrixPlanId);
+  update("INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot,created_at,updated_at) VALUES(910001,?,1,'PENDING',?,?,'{}',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",matrixPlanId,java.time.LocalDate.now(),java.time.LocalDate.now().plusMonths(1));
   Long matrixSubscriptionId=db.queryForObject("SELECT MIN(id) FROM tenant_subscriptions",Long.class);
   update("INSERT INTO subscription_events(tenant_id,subscription_id,old_status,new_status,actor_username,reason,occurred_at) VALUES(910001,?,NULL,'PENDING','superadmin@platform.demo.test','P0-06 fixture',CURRENT_TIMESTAMP)",matrixSubscriptionId);
 

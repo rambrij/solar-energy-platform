@@ -36,7 +36,7 @@ class PermissionCatalogueSrsParityTest {
         addUnique(classified, strings(catalogue, "orphanedPermissions"), "orphanedPermissions");
         addUnique(classified, conflicting(catalogue), "conflictingPermissions");
 
-        assertThat(catalogue.path("unknownPermissions")).isEmpty();
+        assertThat(strings(catalogue, "unknownPermissions")).isEmpty();
         assertThat(classified).containsAll(srsAll);
 
         Set<String> runtimeOnly = new TreeSet<>(classified);

@@ -113,8 +113,9 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   await page.getByRole('button', { name: 'Load assigned registers' }).click();
   await expect(page.getByText(/configured registers/)).toBeVisible();
   const register = page.getByLabel('Assigned register');
-  await expect(register.locator('option').filter({ hasText: 'Available' }).first()).toBeAttached();
-  const registerValue = await register.locator('option').filter({ hasText: 'Available' }).first().getAttribute('value');
+  const availableOption = register.locator('option:not([value=""])').first();
+  await expect(availableOption).toContainText('Available');
+  const registerValue = await availableOption.getAttribute('value');
   expect(registerValue).toBeTruthy();
   await register.selectOption(registerValue!);
   await page.getByLabel('Opening float').fill('0');

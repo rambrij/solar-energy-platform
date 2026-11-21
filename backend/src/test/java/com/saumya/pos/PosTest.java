@@ -2270,6 +2270,8 @@ class PosTest {
     finally{statement.execute("DROP PROCEDURE IF EXISTS setup_multi_vendor_demo");}
    }else{
     String core=script.substring(script.indexOf("-- BEGIN DEMO DATA")+18,script.indexOf("-- END DEMO DATA"));
+    // Strip full-line SQL comments before splitting statements; comments may contain semicolons.
+    core=core.replaceAll("(?m)^\\s*--[^\\r\\n]*(?:\\r?\\n|$)", "");
     String demoEntitlements="{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ADMINISTRATION\":true,\"CRM\":true,\"LEADS\":true,\"QUOTATIONS\":true,\"ORDERS\":true,\"RETURNS\":true,\"FINANCE\":true,\"SHIPMENTS\":true,\"SERVICE\":true,\"REPORTING\":true}}";
     core=core.replace("'" + demoEntitlements + "'","'" + demoEntitlements + "' FORMAT JSON");
     core=core.replace("30,'{}','Local demo subscription'",

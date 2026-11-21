@@ -79,5 +79,10 @@ export async function authenticatedFetch(path:string,options:RequestInit={}){
   if(await restoreSession()&&current===generation)
    response=await fetch(path,{...options,headers:authorizedHeaders(options.headers)});
  }
+ if(response.status===403&&token&&current===generation){
+  // Refresh the actor snapshot after a denial so revoked grants disappear from the UI.
+  // Never replay the denied request: the original response remains authoritative.
+  await restoreSession();
+ }
  return response;
 }

@@ -44,13 +44,13 @@ export default function SplitTenderCheckout({orderId,disabled=false,reservationE
    {canRecordExternal&&balance.tenders.filter(t=>t.state==='PENDING_VERIFICATION').map(t=><button key={t.attemptId} disabled={busy||!!pending} onClick={()=>void resolve(`/tenders/${encodeURIComponent(t.attemptId)}/unknown`)}>Mark {t.method} outcome unknown</button>)}
    {canCreateSale&&balance.orderStatus==='DRAFT'&&Number(balance.remaining)===0&&!unresolved&&<button disabled={busy||!!pending} onClick={()=>void resolve('/finalize')}>Retry saved sale finalization</button>}
    {reservationExpired&&Number(balance.confirmed)>0&&<p role="status">The unpaid hold time elapsed, but confirmed funds retain this bill and stock. Collect only the saved remaining balance after checking the tender status.</p>}
-   <fieldset disabled={busy||disabled||(reservationExpired&&Number(balance.confirmed)<=0)||!!pending||unresolved||balance.orderStatus!=='DRAFT'}>
+   {(canRecordCash||canRecordExternal)&&<fieldset disabled={busy||disabled||(reservationExpired&&Number(balance.confirmed)<=0)||!!pending||unresolved||balance.orderStatus!=='DRAFT'}>
     <label>Tender method<select value={method} onChange={e=>setMethod(e.target.value)}>{canRecordCash&&<option value="CASH">Cash</option>}{canRecordExternal&&<><option value="UPI">Vendor UPI</option><option value="CARD">Vendor card terminal</option></>}</select></label>
     <label>Amount applied<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)}/></label>
     {method==='CASH'&&canRecordCash&&<><label>Tender cash received<input inputMode="decimal" value={cash} onChange={e=>setCash(e.target.value)}/></label><p>Change {validAmount&&validCash?(Number(cash)-Number(amount)).toFixed(2):'—'}</p></>}
     {!balance.splitEnabled&&<p>This outlet requires one tender for the full remaining amount.</p>}
     <button disabled={!canRecordMethod(method)||!validAmount||!validCash||(!balance.splitEnabled&&Number(amount)!==Number(balance.remaining))} onClick={()=>void post({key:crypto.randomUUID(),body:{method,appliedAmount:amount,...(method==='CASH'?{cashReceived:cash}:{})}})}>{method==='CASH'?'Record received cash':'Prepare vendor terminal tender'}</button>
-   </fieldset>
+   </fieldset>}
   </>}
  </section>;
 }

@@ -6,6 +6,7 @@ import PlatformApp from './PlatformApp';
 import PlatformHealthWidget from './PlatformHealthWidget';
 import PlatformSubscriptions from './PlatformSubscriptions';
 import PlatformMfaEnrollment from './PlatformMfaEnrollment';
+import {hasPlatformPagePermission} from './usePermissions';
 
 export default function PlatformBoundary(){
  const session=useSession();
@@ -14,5 +15,8 @@ export default function PlatformBoundary(){
  if(!session.account.permissions.some(p=>p.startsWith('PLATFORM_'))||session.account.permissions.includes('CUSTOMER')||session.account.tenantId!==null){
   return <main className="platform-login"><section role="alert"><h1>Platform access denied</h1><p>This workspace is separate from vendor and customer accounts. Sign in with an authorized Platform Super Admin identity.</p></section></main>;
  }
- return <div className="platform-workspace"><nav className="platform-global-nav" aria-label="Platform section shortcuts"><a href="/platform">Platform overview</a><a href="/platform/subscriptions">Tenant subscriptions</a><PlatformHealthWidget/></nav>{window.location.pathname.startsWith('/platform/subscriptions')?<PlatformSubscriptions/>:<PlatformApp/>}</div>;
+ const canViewSubscriptions=hasPlatformPagePermission('platform-subscriptions',session.account.permissions);
+ const isSubscriptions=window.location.pathname.startsWith('/platform/subscriptions');
+ if(isSubscriptions&&!canViewSubscriptions)return <main className="platform-login"><section role="alert"><h1>Platform access denied</h1><p>Your platform identity does not have permission to view tenant subscriptions.</p></section></main>;
+ return <div className="platform-workspace"><nav className="platform-global-nav" aria-label="Platform section shortcuts"><a href="/platform">Platform overview</a>{canViewSubscriptions&&<a href="/platform/subscriptions">Tenant subscriptions</a>}<PlatformHealthWidget/></nav>{isSubscriptions?<PlatformSubscriptions/>:<PlatformApp/>}</div>;
 }

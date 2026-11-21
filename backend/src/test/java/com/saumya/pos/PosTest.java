@@ -3030,7 +3030,7 @@ class PosTest {
   as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
   // Two independent CLOSING shifts exercise supervisor approval and return without
   // relying on a deliberately denied self-review or a synthetic session identifier.
-  Long varianceApproveRegister=adminRegister+1,varianceReturnRegister=adminRegister+2;
+  Long varianceApproveRegister=cashierRegister+1,varianceReturnRegister=cashierRegister+2;
   for(Long register:List.of(varianceApproveRegister,varianceReturnRegister)){
    update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",register);
    assignRegister(adminName,910001,910001,register);

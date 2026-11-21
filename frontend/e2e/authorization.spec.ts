@@ -37,6 +37,7 @@ test('Vendor Admin: route refresh, browser history, mobile navigation and cross-
   await page.getByRole('button', { name: 'Open workspace menu' }).click();
   const navigation = page.getByRole('navigation', { name: 'Workspace sections' });
   await expect(navigation.getByRole('link', { name: 'Manage Products' })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
   await page.getByRole('link', { name: 'Sales History' }).click();

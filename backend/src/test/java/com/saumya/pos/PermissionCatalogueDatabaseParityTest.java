@@ -47,10 +47,17 @@ class PermissionCatalogueDatabaseParityTest {
     }
 
     private void assertForeignKey(String name) {
+        String table = switch (name) {
+            case "FK_VRP_PERMISSION_CATALOG" -> "VENDOR_ROLE_PERMISSIONS";
+            case "FK_PUP_PERMISSION_CATALOG" -> "PLATFORM_USER_PERMISSIONS";
+            default -> throw new IllegalArgumentException("Unexpected permission catalogue FK: " + name);
+        };
         Integer count = jdbc.queryForObject("""
             SELECT COUNT(*) FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS
             WHERE UPPER(CONSTRAINT_NAME)=?
-            """, Integer.class, name);
-        assertThat(count).as("database foreign key %s", name).isEqualTo(1);
+              AND UPPER(CONSTRAINT_SCHEMA)=UPPER(CURRENT_SCHEMA())
+              AND UPPER(TABLE_NAME)=?
+            """, Integer.class, name, table);
+        assertThat(count).as("database foreign key %s on %s in current schema", name, table).isEqualTo(1);
     }
 }

@@ -1,127 +1,120 @@
-# Local demo accounts, roles and permissions
+# Local demo accounts, tenant roles and permissions
 
-> **Local/test only.** These fixture passwords are intentionally documented for development. Never use them in production, expose a local environment publicly, or reuse them for real accounts. All login identities use the requested `@somya.local` domain.
+> **Local/test only.** Fixture credentials are public development credentials. Never use them in production or expose the local environment publicly.
 
-## Automatic setup
+## Provisioning model
 
-The local profile loads `classpath:db/local-migration`. V51 refreshes the old demo identities after historical V39/V50 setup: every previous `@*.demo.test`, `local-supervisor`, `demo-customer` and `local-cashier` login is disabled and its employee role/register assignments are revoked. V51 then creates the active accounts below with BCrypt password hashes and explicit tenant-owned role grants. Existing V39/V50 migration files are left immutable.
+The local Spring profile loads local-only Flyway migrations. V39 creates the three tenant, branch, register, catalogue and inventory fixtures. V51 creates current demo identities, materializes the five supported version-1 standard role definitions once per tenant, and explicitly assigns employees to those persisted roles. V54 stamps each standard role with template_key and template_version.
 
-For a fresh disposable local database:
+Authorization resolves active employee_role_assignments joined to active tenant-owned vendor_roles and vendor_role_permissions, then applies tenant entitlements and branch/register/session restrictions. Platform permissions remain in the separate global platform-authority store and are never inserted into vendor roles.
 
-```bash
-cp .env.example .env
-docker compose up --build -d
-docker compose logs -f backend
-```
+Only these standard roles currently have implemented permission sets and receive assignments:
 
-Confirm that V51 completed:
+- VENDOR_ADMIN
+- POS_CASHIER
+- SALES_MANAGER
+- INVENTORY_MANAGER
+- ACCOUNTANT
 
-```sql
-SELECT version, description, success
-FROM flyway_schema_history
-WHERE version IN ('39','45','49','50','51')
-ORDER BY installed_rank;
+The following employee identities are deny-by-default fixtures. Their templates are deferred because the corresponding assignment-scoped feature APIs are not implemented. They receive no role assignment and no effective vendor permissions:
 
-SELECT username, enabled
-FROM users
-WHERE username LIKE '%@somya.local'
-ORDER BY username;
-```
+- SALES_EXECUTIVE
+- OPERATIONS_MANAGER
+- SERVICE_MANAGER
+- SERVICE_ENGINEER
+- CONTENT_MANAGER
 
-V51 runs only when the Spring `local` profile is active. Do not enable that profile in production. The `.local` domain is a local fixture identity domain, not a deliverable email address.
+## Fresh local setup
+
+Follow [Clean Development Database Setup](../implementation/CLEAN_DEVELOPMENT_DATABASE.md). The procedure resets the disposable Compose MySQL volume before the clean Flyway install. V39, V51, V53 and V54 then run automatically with SPRING_PROFILES_ACTIVE=local.
 
 ## Platform account
 
 | Scope | Role | Login | Password |
 |---|---|---|---|
-| Global; no tenant, employee or register membership | `PLATFORM_SUPER_ADMIN` | `platform.superadmin@somya.local` | `Somya-Platform-2026!` |
+| Global; no tenant or vendor role | PLATFORM_SUPER_ADMIN | platform.superadmin@somya.local | Somya-Platform-2026! |
 
-The Platform Super Admin receives only these platform permissions: `PLATFORM_TENANT_CREATE`, `PLATFORM_TENANT_UPDATE`, `PLATFORM_TENANT_SUSPEND`, `PLATFORM_TENANT_CLOSE`, `PLATFORM_PLAN_MANAGE`, `PLATFORM_SUBSCRIPTION_VIEW`, `PLATFORM_SUBSCRIPTION_ADJUST`, `PLATFORM_ANALYTICS_VIEW`, `PLATFORM_AUDIT_VIEW`, `PLATFORM_SUPPORT_ACCESS`. It has no vendor role and no commercial catalogue, POS, inventory, customer-order or vendor-service membership.
-
-No standing `PLATFORM_SUPPORT` login is seeded. The SRS requires support access to be purpose-bound, approved, time-limited and audited; a permanent support credential would violate that boundary.
+The platform identity receives platform permissions only through platform_user_permissions. It has no vendor employee membership, vendor role, commercial catalogue, POS, inventory or customer-order access. No permanent Platform Support login is seeded.
 
 ## Vendor employee credentials
 
-Each of the three synthetic local vendors receives the ten standard tenant roles from SRS/HLD §11.1. Every vendor user is an employee of exactly one tenant and is assigned to that tenant's primary branch.
-
 | Vendor | Role | Login | Password |
 |---|---|---|---|
-| Saumya Solar Rooftops | `VENDOR_ADMIN` | `saumya.admin@somya.local` | `Somya-Saumya-ADM-2026!` |
-| Saumya Solar Rooftops | `SALES_MANAGER` | `saumya.sales.manager@somya.local` | `Somya-Saumya-SM-2026!` |
-| Saumya Solar Rooftops | `SALES_EXECUTIVE` | `saumya.sales.executive@somya.local` | `Somya-Saumya-SE-2026!` |
-| Saumya Solar Rooftops | `INVENTORY_MANAGER` | `saumya.inventory.manager@somya.local` | `Somya-Saumya-IM-2026!` |
-| Saumya Solar Rooftops | `POS_CASHIER` | `saumya.pos.cashier@somya.local` | `Somya-Saumya-POS-2026!` |
-| Saumya Solar Rooftops | `ACCOUNTANT` | `saumya.accountant@somya.local` | `Somya-Saumya-ACC-2026!` |
-| Saumya Solar Rooftops | `OPERATIONS_MANAGER` | `saumya.operations.manager@somya.local` | `Somya-Saumya-OPS-2026!` |
-| Saumya Solar Rooftops | `SERVICE_MANAGER` | `saumya.service.manager@somya.local` | `Somya-Saumya-SVCM-2026!` |
-| Saumya Solar Rooftops | `SERVICE_ENGINEER` | `saumya.service.engineer@somya.local` | `Somya-Saumya-SVCE-2026!` |
-| Saumya Solar Rooftops | `CONTENT_MANAGER` | `saumya.content.manager@somya.local` | `Somya-Saumya-CONTENT-2026!` |
-| Helio Rural Energy | `VENDOR_ADMIN` | `helio.admin@somya.local` | `Somya-Helio-ADM-2026!` |
-| Helio Rural Energy | `SALES_MANAGER` | `helio.sales.manager@somya.local` | `Somya-Helio-SM-2026!` |
-| Helio Rural Energy | `SALES_EXECUTIVE` | `helio.sales.executive@somya.local` | `Somya-Helio-SE-2026!` |
-| Helio Rural Energy | `INVENTORY_MANAGER` | `helio.inventory.manager@somya.local` | `Somya-Helio-IM-2026!` |
-| Helio Rural Energy | `POS_CASHIER` | `helio.pos.cashier@somya.local` | `Somya-Helio-POS-2026!` |
-| Helio Rural Energy | `ACCOUNTANT` | `helio.accountant@somya.local` | `Somya-Helio-ACC-2026!` |
-| Helio Rural Energy | `OPERATIONS_MANAGER` | `helio.operations.manager@somya.local` | `Somya-Helio-OPS-2026!` |
-| Helio Rural Energy | `SERVICE_MANAGER` | `helio.service.manager@somya.local` | `Somya-Helio-SVCM-2026!` |
-| Helio Rural Energy | `SERVICE_ENGINEER` | `helio.service.engineer@somya.local` | `Somya-Helio-SVCE-2026!` |
-| Helio Rural Energy | `CONTENT_MANAGER` | `helio.content.manager@somya.local` | `Somya-Helio-CONTENT-2026!` |
-| Lumina Solar Lighting | `VENDOR_ADMIN` | `lumina.admin@somya.local` | `Somya-Lumina-ADM-2026!` |
-| Lumina Solar Lighting | `SALES_MANAGER` | `lumina.sales.manager@somya.local` | `Somya-Lumina-SM-2026!` |
-| Lumina Solar Lighting | `SALES_EXECUTIVE` | `lumina.sales.executive@somya.local` | `Somya-Lumina-SE-2026!` |
-| Lumina Solar Lighting | `INVENTORY_MANAGER` | `lumina.inventory.manager@somya.local` | `Somya-Lumina-IM-2026!` |
-| Lumina Solar Lighting | `POS_CASHIER` | `lumina.pos.cashier@somya.local` | `Somya-Lumina-POS-2026!` |
-| Lumina Solar Lighting | `ACCOUNTANT` | `lumina.accountant@somya.local` | `Somya-Lumina-ACC-2026!` |
-| Lumina Solar Lighting | `OPERATIONS_MANAGER` | `lumina.operations.manager@somya.local` | `Somya-Lumina-OPS-2026!` |
-| Lumina Solar Lighting | `SERVICE_MANAGER` | `lumina.service.manager@somya.local` | `Somya-Lumina-SVCM-2026!` |
-| Lumina Solar Lighting | `SERVICE_ENGINEER` | `lumina.service.engineer@somya.local` | `Somya-Lumina-SVCE-2026!` |
-| Lumina Solar Lighting | `CONTENT_MANAGER` | `lumina.content.manager@somya.local` | `Somya-Lumina-CONTENT-2026!` |
+| Saumya Solar Rooftops | VENDOR_ADMIN | saumya.admin@somya.local | Somya-Saumya-ADM-2026! |
+| Saumya Solar Rooftops | SALES_MANAGER | saumya.sales.manager@somya.local | Somya-Saumya-SM-2026! |
+| Saumya Solar Rooftops | SALES_EXECUTIVE (deferred; no role assignment) | saumya.sales.executive@somya.local | Somya-Saumya-SE-2026! |
+| Saumya Solar Rooftops | INVENTORY_MANAGER | saumya.inventory.manager@somya.local | Somya-Saumya-IM-2026! |
+| Saumya Solar Rooftops | POS_CASHIER | saumya.pos.cashier@somya.local | Somya-Saumya-POS-2026! |
+| Saumya Solar Rooftops | ACCOUNTANT | saumya.accountant@somya.local | Somya-Saumya-ACC-2026! |
+| Saumya Solar Rooftops | OPERATIONS_MANAGER (deferred; no role assignment) | saumya.operations.manager@somya.local | Somya-Saumya-OPS-2026! |
+| Saumya Solar Rooftops | SERVICE_MANAGER (deferred; no role assignment) | saumya.service.manager@somya.local | Somya-Saumya-SVCM-2026! |
+| Saumya Solar Rooftops | SERVICE_ENGINEER (deferred; no role assignment) | saumya.service.engineer@somya.local | Somya-Saumya-SVCE-2026! |
+| Saumya Solar Rooftops | CONTENT_MANAGER (deferred; no role assignment) | saumya.content.manager@somya.local | Somya-Saumya-CONTENT-2026! |
+| Helio Rural Energy | VENDOR_ADMIN | helio.admin@somya.local | Somya-Helio-ADM-2026! |
+| Helio Rural Energy | SALES_MANAGER | helio.sales.manager@somya.local | Somya-Helio-SM-2026! |
+| Helio Rural Energy | SALES_EXECUTIVE (deferred; no role assignment) | helio.sales.executive@somya.local | Somya-Helio-SE-2026! |
+| Helio Rural Energy | INVENTORY_MANAGER | helio.inventory.manager@somya.local | Somya-Helio-IM-2026! |
+| Helio Rural Energy | POS_CASHIER | helio.pos.cashier@somya.local | Somya-Helio-POS-2026! |
+| Helio Rural Energy | ACCOUNTANT | helio.accountant@somya.local | Somya-Helio-ACC-2026! |
+| Helio Rural Energy | OPERATIONS_MANAGER (deferred; no role assignment) | helio.operations.manager@somya.local | Somya-Helio-OPS-2026! |
+| Helio Rural Energy | SERVICE_MANAGER (deferred; no role assignment) | helio.service.manager@somya.local | Somya-Helio-SVCM-2026! |
+| Helio Rural Energy | SERVICE_ENGINEER (deferred; no role assignment) | helio.service.engineer@somya.local | Somya-Helio-SVCE-2026! |
+| Helio Rural Energy | CONTENT_MANAGER (deferred; no role assignment) | helio.content.manager@somya.local | Somya-Helio-CONTENT-2026! |
+| Lumina Solar Lighting | VENDOR_ADMIN | lumina.admin@somya.local | Somya-Lumina-ADM-2026! |
+| Lumina Solar Lighting | SALES_MANAGER | lumina.sales.manager@somya.local | Somya-Lumina-SM-2026! |
+| Lumina Solar Lighting | SALES_EXECUTIVE (deferred; no role assignment) | lumina.sales.executive@somya.local | Somya-Lumina-SE-2026! |
+| Lumina Solar Lighting | INVENTORY_MANAGER | lumina.inventory.manager@somya.local | Somya-Lumina-IM-2026! |
+| Lumina Solar Lighting | POS_CASHIER | lumina.pos.cashier@somya.local | Somya-Lumina-POS-2026! |
+| Lumina Solar Lighting | ACCOUNTANT | lumina.accountant@somya.local | Somya-Lumina-ACC-2026! |
+| Lumina Solar Lighting | OPERATIONS_MANAGER (deferred; no role assignment) | lumina.operations.manager@somya.local | Somya-Lumina-OPS-2026! |
+| Lumina Solar Lighting | SERVICE_MANAGER (deferred; no role assignment) | lumina.service.manager@somya.local | Somya-Lumina-SVCM-2026! |
+| Lumina Solar Lighting | SERVICE_ENGINEER (deferred; no role assignment) | lumina.service.engineer@somya.local | Somya-Lumina-SVCE-2026! |
+| Lumina Solar Lighting | CONTENT_MANAGER (deferred; no role assignment) | lumina.content.manager@somya.local | Somya-Lumina-CONTENT-2026! |
 
-Tenant fixture identities:
-
-| Vendor | Tenant ID | Storefront slug | Primary branch |
-|---|---:|---|---|
-| Saumya Solar Rooftops | 910001 | `saumya-rooftops` | Jaipur Rooftop Store |
-| Helio Rural Energy | 920001 | `helio-rural` | Nashik Farm Energy Store |
-| Lumina Solar Lighting | 930001 | `lumina-lighting` | Pune Lighting Store |
-
-Saumya Solar is modelled as an ordinary vendor tenant. The Platform Super Admin is a separate global platform operator, not a vendor. Helio and Lumina are synthetic tenants used for cross-tenant isolation tests.
-
-## Global customer accounts
+## Global customer credentials
 
 | Role | Login | Password | Relationship fixture |
 |---|---|---|---|
-| `CUSTOMER` | `customer.asha@somya.local` | `Somya-Asha-Buyer-2026!` | Explicit-consent demo relationship with all three vendors |
-| `CUSTOMER` | `customer.rahul@somya.local` | `Somya-Rahul-Buyer-2026!` | Explicit-consent demo relationship with Helio Rural Energy only |
+| CUSTOMER | customer.asha@somya.local | Somya-Asha-Buyer-2026! | Explicit-consent relationship with all three vendors |
+| CUSTOMER | customer.rahul@somya.local | Somya-Rahul-Buyer-2026! | Explicit-consent relationship with Helio Rural Energy only |
 
-Customers have global identity and self-only access. They have no employee, platform or vendor-role grants. Vendor users cannot view another tenant's private CRM relationships or notes.
+Customers have one global identity and self-only transaction access. They have no employee, platform or vendor-role grants.
 
-## Role permission presets
+## Supported standard-role permission snapshots
 
-These are the explicit grants written into tenant-owned `vendor_roles` and `vendor_role_permissions`. Each employee receives only the role matching their login. Existing branch, resource, cashier, warehouse and active-session constraints remain additional authorization requirements.
+The backend StandardRoleTemplates catalogue is the source for provisioning. Tests validate every grant against the implemented vendor permission allow-list and reject unknown, unimplemented or platform permissions.
 
-| SRS role | Granted permission set |
+| Template | Permissions |
 |---|---|
-| `VENDOR_ADMIN` | Tenant administration and all delegated vendor catalogue, customer/CRM, lead/quotation/order, inventory, invoice/payment, shipment/return, installation/service, reporting/audit and POS operations. No PLATFORM_* grants. |
-| `SALES_MANAGER` | CUSTOMER_RELATION_VIEW/CREATE/UPDATE; CRM_NOTE_VIEW/CREATE/UPDATE; PRODUCT_VIEW; PRICE_VIEW; LEAD_VIEW/CREATE/UPDATE/ASSIGN; QUOTATION_VIEW/CREATE/UPDATE/SEND/APPROVE/CONVERT; ORDER_VIEW/CREATE/UPDATE/CANCEL; REPORT_VIEW. |
-| `SALES_EXECUTIVE` | CUSTOMER_RELATION_VIEW/CREATE; CRM_NOTE_VIEW/CREATE; PRODUCT_VIEW; PRICE_VIEW; LEAD_VIEW/CREATE/UPDATE; QUOTATION_VIEW/CREATE/UPDATE/SEND/CONVERT; ORDER_VIEW/CREATE/UPDATE. Assignment controls still apply. |
-| `INVENTORY_MANAGER` | PRODUCT_VIEW/CREATE/UPDATE/ARCHIVE; PRICE_VIEW; INVENTORY_VIEW/RECEIVE/RESERVE/TRANSFER/ADJUST; RETURN_VIEW/RECEIVE; REPORT_VIEW. |
-| `POS_CASHIER` | POS_VIEW; POS_SESSION_OPEN/CLOSE; POS_SALE_CREATE/CANCEL; POS_DISCOUNT_APPLY; POS_TENDER_CASH_RECORD; POS_TENDER_EXTERNAL_RECORD; POS_RECEIPT_VIEW/REPRINT; POS_RETURN_CREATE/VIEW; POS_CASH_IN/OUT; POS_SAFE_DROP. No manual tender verification or refund approval. |
-| `ACCOUNTANT` | PRICE_VIEW; ORDER_VIEW; INVOICE_VIEW/CREATE/SEND/VOID; VENDOR_PAYMENT_VIEW/RECONCILE/REFUND; REPORT_VIEW/EXPORT; POS_VIEW; POS_SESSION_OPEN/CLOSE; POS_RECEIPT_VIEW/REPRINT; POS_TENDER_VIEW/MANUAL_VERIFY; POS_RETURN_VIEW/APPROVE/INSPECT/AUDIT_VIEW; POS_REFUND_APPROVE/CASH_RECORD/VIEW/PRINT; POS_REPORT_VIEW/EXPORT; POS_CASHIER_REPORT_VIEW; POS_SHIFT_VARIANCE_APPROVE. |
-| `OPERATIONS_MANAGER` | ORDER_VIEW/UPDATE; PRODUCT_VIEW; INVENTORY_VIEW/RESERVE/TRANSFER; RETURN_VIEW/RECEIVE; SHIPMENT_VIEW/UPDATE; INSTALLATION_VIEW/ASSIGN/UPDATE/COMMISSION; REPORT_VIEW. |
-| `SERVICE_MANAGER` | CUSTOMER_RELATION_VIEW; CRM_NOTE_VIEW; ORDER_VIEW; SHIPMENT_VIEW; INSTALLATION_VIEW/ASSIGN/UPDATE/COMMISSION; SERVICE_VIEW/CREATE/ASSIGN/UPDATE/RESOLVE; REPORT_VIEW. |
-| `SERVICE_ENGINEER` | SERVICE_VIEW/UPDATE; INSTALLATION_VIEW/UPDATE. Assigned-resource and tenant restrictions remain mandatory. |
-| `CONTENT_MANAGER` | PRODUCT_VIEW/UPDATE for vendor-owned product/storefront content; no price, stock, finance, user or platform grants. |
+| VENDOR_ADMIN | CATALOG_PROMOTION_MANAGE; INVENTORY_RECEIVE, INVENTORY_VIEW; POS_CASHIER_REPORT_VIEW, POS_CASH_IN, POS_CASH_OUT, POS_DISCOUNT_APPLY, POS_DISCOUNT_APPROVE, POS_DISCOUNT_OVERRIDE, POS_RECEIPT_REPRINT, POS_RECEIPT_VIEW, POS_REFUND_APPROVE, POS_REFUND_CASH_RECORD, POS_REFUND_PRINT, POS_REFUND_VIEW, POS_REPORT_EXPORT, POS_REPORT_VIEW, POS_RETURN_AUDIT_VIEW, POS_RETURN_APPROVE, POS_RETURN_CREATE, POS_RETURN_INSPECT, POS_RETURN_VIEW, POS_SAFE_DROP, POS_SALE_CANCEL, POS_SALE_CREATE, POS_SESSION_CLOSE, POS_SESSION_OPEN, POS_SESSION_REOPEN, POS_SETTINGS_MANAGE, POS_SHIFT_VARIANCE_APPROVE, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_TENDER_MANUAL_VERIFY, POS_VIEW; PRICE_UPDATE, PRICE_VIEW; PRODUCT_ARCHIVE, PRODUCT_CREATE, PRODUCT_UPDATE, PRODUCT_VIEW; ROLE_ASSIGN, ROLE_CREATE, ROLE_UPDATE, ROLE_VIEW; USER_CREATE, USER_DISABLE, USER_UPDATE, USER_VIEW |
+| POS_CASHIER | POS_VIEW, POS_SESSION_OPEN, POS_SESSION_CLOSE, POS_SALE_CREATE, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_RECEIPT_VIEW |
+| SALES_MANAGER | POS_VIEW, POS_REPORT_VIEW |
+| INVENTORY_MANAGER | PRODUCT_VIEW, INVENTORY_VIEW, INVENTORY_RECEIVE |
+| ACCOUNTANT | POS_VIEW, POS_REPORT_VIEW, POS_REFUND_VIEW |
 
-The Vendor Admin preset contains the complete vendor-side permission allow-list, including the SRS vendor and POS permission families. It never contains `PLATFORM_*` permissions. Platform permissions are stored separately in `platform_user_permissions`. Customers receive no employee permissions.
+Future CRM, quotations, order, shipment, installation and service permissions are not granted until the corresponding APIs and assignment-scoped enforcement are implemented. Deferred templates remain visible as catalogue definitions with explicit reasons, but cannot be materialized or assigned.
 
-**POS separation of duty:** a POS Cashier cannot manually verify their own external tender, confirm a tender from a typed reference, or approve a refund. The Accountant is assigned a separate finance register and receives manual-verification and refund-approval grants. Any manual verification still requires retained evidence, a reason and a separate authorized approver.
+## Verify persisted RBAC
 
-**Register assignment:** for each tenant, the Vendor Admin is assigned the manager register (`tenant_id + 12`), the POS Cashier the sales till (`tenant_id + 10`), and the Accountant the finance register (`tenant_id + 11`). A register assignment does not bypass branch or open-session checks.
+Connect to the solar database and run:
 
-## Notes on implementation boundaries
+```sql
+SELECT tenant_id, role_key, template_key, template_version, active
+FROM vendor_roles
+ORDER BY tenant_id, role_key;
 
-- V51 is a fixture migration, not a production identity-provisioning mechanism.
-- Vendor grants are accepted only from the vendor permission registry. V51 also registers the SRS `INVOICE_VOID`, `INSTALLATION_*` and `SERVICE_*` permission codes so those standard roles can be represented without admitting any `PLATFORM_*` grant into tenant roles.
-- Role grants do not assert that every related business workflow is already implemented. Endpoint availability and authorization tests remain the release evidence for each module.
-- The mock online payment adapter must be explicitly enabled in local/test only. POS cash does not require a mock gateway. No real payment, merchant, terminal or email credentials are included.
+SELECT a.tenant_id, a.username, r.role_key, a.active
+FROM employee_role_assignments a
+JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
+ORDER BY a.tenant_id, a.username;
+
+SELECT COUNT(*) AS direct_employee_permission_table
+FROM information_schema.tables
+WHERE table_schema=DATABASE() AND table_name='employee_permissions';
+
+SELECT COUNT(*) AS vendor_platform_grants
+FROM vendor_role_permissions
+WHERE permission LIKE 'PLATFORM_%';
+```
+
+Expected: standard role rows have a non-null template key and version 1; only the five supported role names have active assignments; the direct permission table count is zero; vendor platform grant count is zero. Platform authorities are stored separately.

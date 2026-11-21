@@ -2965,7 +2965,7 @@ class PosTest {
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",employeeProbeId,
       employeeProbe,encoder.encode("MatrixEmployeePassword2026!"));
   update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,910001,910001,TRUE)",employeeProbe);
-  Long employeeRole=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=910001 AND role_key='vendor-admin-initial'",Long.class);
+  Long employeeRole=db.queryForObject("SELECT role_id FROM employee_role_assignments WHERE tenant_id=910001 AND username='admin@saumya.demo.test' AND active=TRUE ORDER BY role_id LIMIT 1",Long.class);
   update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(910001,910001,?,?,TRUE,?)",
       employeeProbe,employeeRole,adminName);
   String employeeDisableProbe="p006.matrix.employee.disable@saumya.demo.test";
@@ -2983,7 +2983,7 @@ class PosTest {
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",supervisorId,
       supervisorName,encoder.encode("MatrixSupervisorPassword2026!"));
   update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,910001,910001,TRUE)",supervisorName);
-  Long supervisorRole=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=910001 AND role_key='vendor-admin-initial'",Long.class);
+  Long supervisorRole=db.queryForObject("SELECT role_id FROM employee_role_assignments WHERE tenant_id=910001 AND username='admin@saumya.demo.test' AND active=TRUE ORDER BY role_id LIMIT 1",Long.class);
   update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(910001,910001,?,?,TRUE,?)",
       supervisorName,supervisorRole,adminName);
   assignRegister(supervisorName,910001,910001,adminRegister);

@@ -30,7 +30,7 @@ class TenantEntitlementPolicyTest {
     }
     @Test void h2NativeJsonByteArrayEntitlementsAreParsedAndApplied(){
         JdbcTemplate db=mock(JdbcTemplate.class);
-        byte[] entitlements="{\\"features\\":{\\"POS\\":true,\\"ADMINISTRATION\\":true}}"
+        byte[] entitlements="{\"features\":{\"POS\":true,\"ADMINISTRATION\":true}}"
             .getBytes(java.nio.charset.StandardCharsets.UTF_8);
         rows(db,subscription("ACTIVE",LocalDate.parse("2026-12-01"),null,entitlements));
 

@@ -31,7 +31,7 @@ import VendorAccessAdmin from './VendorAccessAdmin';
 import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
 import {useSession} from './session';
 import RouteOutlet from './RouteOutlet';
-import { navigationItems, navigateWorkspace } from './navigation';
+import { navigateWorkspace } from './navigation';
 
 
 export default function App() {
@@ -43,13 +43,6 @@ export default function App() {
   const canApplyDiscount=has('POS_DISCOUNT_APPLY');
   const canViewPromotionHistory=has('POS_VIEW')&&has('CATALOG_PROMOTION_MANAGE')&&has('POS_DISCOUNT_APPROVE');
   const canReprintReceipt=has('POS_RECEIPT_REPRINT');
-  const availableIds=navigationItems('pos').filter(item=>{
-    if(item.id==='category-management'||item.id==='product-management')return !!account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission));
-    if(item.id==='stock-receiving')return !!account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission));
-    if(item.id==='role-management')return !!account?.permissions.some(permission=>['ROLE_VIEW','ROLE_CREATE','ROLE_UPDATE','ROLE_ASSIGN'].includes(permission));
-    if(item.id==='employee-management')return !!account?.permissions.some(permission=>['USER_VIEW','USER_CREATE','USER_UPDATE','USER_DISABLE'].includes(permission));
-    return true;
-  }).map(item=>item.id);
   const [refundPending,setRefundPending]=useState(()=>!!sessionStorage.getItem(refundStorageKey));
   const [refundReceipt,setRefundReceipt]=useState<CashRefundView>();
   const [promotionProduct,setPromotionProduct]=useState<number>();
@@ -138,7 +131,7 @@ export default function App() {
       } else setError((e as Error).message+' Retry uses the same sale key. Do not collect cash again.');
     }finally{setBusy(false);}
   }
-  return <Shell mode="pos" availableIds={availableIds}><div className="workspace-session-strip"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>{session ? 'Live pricing & shared inventory' : 'Walk-in billing · No customer account required'}</span></div>
+  return <Shell mode="pos"><div className="workspace-session-strip"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>{session ? 'Live pricing & shared inventory' : 'Walk-in billing · No customer account required'}</span></div>
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
       <div className="checkout-grid"><RouteOutlet id="checkout" mode="pos"><PosCatalogue key={session} locked={saleLocked} canCreateSale={canCreateSale} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onPromotionHistory={canViewPromotionHistory?id=>{setPromotionProduct(id);navigateWorkspace('pos','promotion-history');}:undefined} onAdd={addProduct} onBusyChange={setBusy}/></RouteOutlet>

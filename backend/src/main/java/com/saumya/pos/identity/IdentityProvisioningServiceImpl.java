@@ -44,8 +44,10 @@ public class IdentityProvisioningServiceImpl implements IdentityProvisioningServ
     }
     private void validateVendorEligible(String requested){
         String username=normalize(requested);
+        // RC-01: a global Customer may also hold a Vendor membership. The two actors
+        // remain isolated by the actor context selected at login and persisted per session.
+        // Platform identities are different: they must never receive commercial membership.
         if(!platform.permissions(username).isEmpty())throw new ResponseStatusException(CONFLICT,"Platform identities cannot receive vendor membership; use a separate vendor identity");
-        if(customers.profileCount(username)>0)throw new ResponseStatusException(CONFLICT,"Customer identities cannot receive vendor membership; use a separate vendor employee identity");
     }
     @Override public Invitation issueInvitation(String requested){
         var context=actor();if(context.isPlatformUser())context.requirePermission("PLATFORM_TENANT_CREATE");else{context.requireVendorMembership();context.requirePermission("USER_CREATE");}

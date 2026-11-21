@@ -37,7 +37,7 @@ export default function SplitTenderCheckout({orderId,disabled=false,reservationE
  return <section className="split-tender-checkout" aria-label={`Tenders for ${orderId}`} aria-busy={busy}>
   <h3>Payments and split tender</h3><p>Cash and terminal payments belong directly to this vendor. Only confirmed applied amounts count toward the bill.</p>
   {error&&<p role="alert">{error}</p>}<button className="secondary" disabled={busy} onClick={()=>void load()}>Load tender balance</button>
-  {pending&&<div><p>A saved tender is awaiting acknowledgement. Do not take funds again.</p><button disabled={busy} onClick={()=>void post(pending)}>Retry same tender</button></div>}
+  {pending&&<div><p>A saved tender is awaiting acknowledgement. Do not take funds again.</p>{canRecordMethod(pending.body.method)&&<button disabled={busy} onClick={()=>void post(pending)}>Retry same tender</button>}</div>}
   {balance&&<><p role="status">{balance.orderStatus} · Paid {Number(balance.confirmed).toFixed(2)} · Remaining {Number(balance.remaining).toFixed(2)}</p>
    <ul>{balance.tenders.map(t=><li key={t.attemptId}>{t.method} · {t.state} · {Number(t.amount).toFixed(2)} · Reference {t.attemptId}</li>)}</ul>
    {unresolved&&<p role="alert">External payment is awaiting independent verification. Do not charge again or collect cash. Ask an authorized supervisor to reconcile this tender.</p>}

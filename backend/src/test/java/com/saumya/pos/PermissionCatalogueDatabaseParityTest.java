@@ -53,10 +53,15 @@ class PermissionCatalogueDatabaseParityTest {
             default -> throw new IllegalArgumentException("Unexpected permission catalogue FK: " + name);
         };
         Integer count = jdbc.queryForObject("""
-            SELECT COUNT(*) FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS
-            WHERE UPPER(CONSTRAINT_NAME)=?
-              AND UPPER(CONSTRAINT_SCHEMA)=UPPER(CURRENT_SCHEMA())
-              AND UPPER(TABLE_NAME)=?
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+            JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+              ON tc.CONSTRAINT_SCHEMA=rc.CONSTRAINT_SCHEMA
+             AND tc.CONSTRAINT_NAME=rc.CONSTRAINT_NAME
+            WHERE UPPER(rc.CONSTRAINT_NAME)=?
+              AND UPPER(rc.CONSTRAINT_SCHEMA)=UPPER(CURRENT_SCHEMA())
+              AND UPPER(tc.TABLE_NAME)=?
+              AND tc.CONSTRAINT_TYPE='FOREIGN KEY'
             """, Integer.class, name, table);
         assertThat(count).as("database foreign key %s on %s in current schema", name, table).isEqualTo(1);
     }

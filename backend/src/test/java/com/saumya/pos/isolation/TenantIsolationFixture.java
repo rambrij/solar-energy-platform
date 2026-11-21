@@ -176,7 +176,7 @@ public final class TenantIsolationFixture {
     private String jsonCastExpression(){
         try(var connection=db.getDataSource().getConnection()){
             if("H2".equalsIgnoreCase(connection.getMetaData().getDatabaseProductName()))
-                return "CAST(? FORMAT JSON AS JSON)";
+                return "? FORMAT JSON";
             return "CAST(? AS JSON)";
         }catch(java.sql.SQLException error){
             throw new IllegalStateException("Unable to resolve database JSON binding syntax",error);

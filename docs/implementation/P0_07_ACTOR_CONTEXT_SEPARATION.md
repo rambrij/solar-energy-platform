@@ -117,6 +117,8 @@ New P0-07 regression methods in `backend/src/test/java/com/saumya/pos/PosTest.ja
 - `p007VendorCanSwitchBackToCustomerAndDropsVendorScope`: Vendor-to-Customer rotation, removal of tenant/membership scope, old-token invalidation and Customer refresh preservation.
 - `p007PlatformIdentityCannotSwitchIntoCommercialContext`: Platform-to-Customer and Platform-to-Vendor denial, and continued denial of commercial APIs.
 
+The `POS tests` workflow explicitly selects all three methods in separate H2 and MySQL 8.4 focused P0-07 steps, and then runs the complete backend suite. The workflow change is committed; test execution remains pending.
+
 ## 7. Verification status and remaining acceptance
 
 The earlier validation document records a prior baseline of 297 backend tests and 266 frontend tests. Those counts predate the P0-07 changes in this increment and must not be treated as evidence that the new tests pass.

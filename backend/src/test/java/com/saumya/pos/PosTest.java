@@ -2625,6 +2625,14 @@ class PosTest {
  }
 
 
+ private void closeOpenMatrixSessions(PosService.Scope scope,String cashier){
+  List<String> open=db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN' ORDER BY register_id,id",String.class,cashier);
+  for(String id:open){
+   BigDecimal expected=as(cashier,()->service.reconciliation(scope,id)).expectedCash();
+   as(cashier,()->service.close(scope,id,expected));
+  }
+ }
+
  private static String matrixCsv(String value){
   return "\"" + (value==null?"":value.replace("\"","\"\"")) + "\"";
  }
@@ -2988,7 +2996,9 @@ class PosTest {
       supervisorName,supervisorRole,adminName);
   assignRegister(supervisorName,910001,910001,adminRegister);
   String cashierName="cashier@saumya.demo.test";
-  Long cashierRegister=db.queryForObject("SELECT MIN(id) FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
+  Long cashierRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+1 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
+  update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",cashierRegister);
+  assignRegister(cashierName,910001,910001,cashierRegister);
   String accountantName="finance@saumya.demo.test";
   assignRegister(accountantName,910001,910001,adminRegister);
 
@@ -3002,13 +3012,14 @@ class PosTest {
       new CheckoutService.OnlineDraft(matrixCart.id())));
 
   PosService.Scope adminScope=new PosService.Scope(910001,910001,adminName);
-  if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",
-      Integer.class,adminName)==0)as(adminName,()->service.open(adminScope,new PosService.OpenSession(adminRegister,BigDecimal.ZERO)));
   PosService.Scope cashierScope=new PosService.Scope(910001,910001,cashierName);
-  if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",
-      Integer.class,cashierName)==0)as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
-  // Keep one spare assigned till available to reopen the cashier's single
-  // active session after a close probe. POS reads intentionally require exactly one OPEN session.
+  // Start the endpoint sweep from exactly one OPEN shift per actor. Close
+  // pre-existing demo shifts through the service so drawers reconcile cleanly.
+  closeOpenMatrixSessions(adminScope,adminName);
+  closeOpenMatrixSessions(cashierScope,cashierName);
+  as(adminName,()->service.open(adminScope,new PosService.OpenSession(adminRegister,BigDecimal.ZERO)));
+  as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
+  // A spare assigned till is used only if a close probe leaves the primary in CLOSING.
   Long cashierRecoveryRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+1 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",cashierRecoveryRegister);
   assignRegister(cashierName,910001,910001,cashierRecoveryRegister);
@@ -3137,7 +3148,14 @@ class PosTest {
      if(actor.equals("POS_CASHIER")){
       Integer openCount=db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",Integer.class,cashierName);
       if(openCount==null||openCount==0){
-       as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRecoveryRegister,BigDecimal.ZERO)));
+       Long availableRegister=db.queryForObject("""
+         SELECT MIN(a.register_id) FROM employee_register_assignments a
+         WHERE a.tenant_id=910001 AND a.branch_id=910001 AND a.username=? AND a.active=TRUE
+           AND NOT EXISTS (SELECT 1 FROM pos_sessions p WHERE p.tenant_id=a.tenant_id
+             AND p.register_id=a.register_id AND p.state IN ('OPEN','CLOSING'))
+         """,Long.class,cashierName);
+       if(availableRegister==null)availableRegister=cashierRecoveryRegister;
+       as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(availableRegister,BigDecimal.ZERO)));
       }
      }
      int actual=response.getResponse().getStatus();

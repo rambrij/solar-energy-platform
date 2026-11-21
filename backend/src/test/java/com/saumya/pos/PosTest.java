@@ -2625,6 +2625,23 @@ class PosTest {
  }
 
 
+ private org.springframework.test.web.servlet.MvcResult performInRollbackTransaction(
+     org.springframework.test.web.servlet.RequestBuilder request) throws Exception {
+  java.util.concurrent.atomic.AtomicReference<org.springframework.test.web.servlet.MvcResult> result=
+      new java.util.concurrent.atomic.AtomicReference<>();
+  try {
+   new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status->{
+    try { result.set(mvc.perform(request).andReturn()); }
+    catch(Exception failure) { throw new IllegalStateException("Runtime authorization HTTP probe failed",failure); }
+    status.setRollbackOnly();
+   });
+  } catch(IllegalStateException failure) {
+   if(failure.getCause() instanceof Exception cause)throw cause;
+   throw failure;
+  }
+  return result.get();
+ }
+
  private void closeOpenMatrixSessions(PosService.Scope scope,String cashier){
   List<String> open=db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN' ORDER BY register_id,id",String.class,cashier);
   for(String id:open){
@@ -3156,44 +3173,8 @@ class PosTest {
        request.cookie(new jakarta.servlet.http.Cookie(key,"A".repeat(43)));
       }
      }
-     var response=mvc.perform(request).andReturn();
-     // Each mapped endpoint is an independent HTTP operation. Flush its
-     // writes and clear the shared test EntityManager so a previous endpoint
-     // cannot leave stale versioned entities in the next request's context.
-     // Each MockMvc request now owns its transaction; no shared persistence
-     // context is carried into the next mapped endpoint.
-     // Restore exactly one cashier OPEN session after a close/variance probe.
-     // The endpoint operation remains recorded inside this rollback-only test transaction.
-     if(actor.equals("POS_CASHIER")){
-      Integer openCount=db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",Integer.class,cashierName);
-      if(openCount==null||openCount==0){
-       Long availableRegister=db.queryForObject("""
-         SELECT MIN(a.register_id) FROM employee_register_assignments a
-         WHERE a.tenant_id=910001 AND a.branch_id=910001 AND a.username=? AND a.active=TRUE
-           AND NOT EXISTS (SELECT 1 FROM pos_sessions p WHERE p.tenant_id=a.tenant_id
-             AND p.register_id=a.register_id AND p.state IN ('OPEN','CLOSING'))
-         """,Long.class,cashierName);
-       long registerToOpen=availableRegister==null?cashierRecoveryRegister:availableRegister;
-       as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(registerToOpen,BigDecimal.ZERO)));
-      }
-     }
-     if(actor.equals("VENDOR_ADMIN_SUPERVISOR")&&route.endsWith("/return-for-correction")){
-      String reopened=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND register_id=? AND state='OPEN'",String.class,varianceReturnRegister);
-      if(reopened!=null){
-       BigDecimal expected=as(adminName,()->service.reconciliation(adminScope,reopened)).expectedCash();
-       as(adminName,()->service.close(adminScope,reopened,expected));
-      }
-     }
+     var response=performInRollbackTransaction(request);
      int actual=response.getResponse().getStatus();
-     // Lifecycle is intentionally exercised as a real suspension, then restored
-     // through the same platform HTTP boundary so later persisted vendor actors
-     // remain valid for the rest of the endpoint matrix.
-     if(route.endsWith("/lifecycle")&&httpMethod==RequestMethod.POST&&actual>=200&&actual<300){
-      String restoreBody=json.writeValueAsString(Map.of("status","ACTIVE","reason","P0-06 endpoint matrix fixture restoration"));
-      mvc.perform(post("/api/v1/platform/tenants/910001/lifecycle")
-          .header("Authorization","Bearer "+tokens.get("PLATFORM_SUPER_ADMIN")).with(csrf())
-          .contentType("application/json").content(restoreBody)).andExpect(status().is2xxSuccessful());
-     }
      Throwable resolved=response.getResolvedException();
      String exception=resolved==null?"":resolved.getClass().getSimpleName();
      boolean bindingFailure=resolved instanceof org.springframework.web.bind.MethodArgumentNotValidException

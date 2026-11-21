@@ -43,6 +43,32 @@ class PlatformAuditServiceTest {
         verifyNoInteractions(repository);
     }
 
+    @Test void subscriptionAdministrationAuditActionsRequireTheirMatchingPlatformGrants(){
+        var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
+        when(repository.saveAndFlush(any())).thenAnswer(inv->inv.getArgument(0));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_PLAN_MANAGE"))));
+        for(String action:java.util.List.of("SUBSCRIPTION_PLAN_CREATED","SUBSCRIPTION_PLAN_VERSION_CREATED",
+                "SUBSCRIPTION_PLAN_ENABLED","SUBSCRIPTION_PLAN_DISABLED"))
+            service.record("platform@example.test",action,"SUBSCRIPTION_PLAN","1",null,"Plan administration","trace-plan");
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_SUBSCRIPTION_ADJUST"))));
+        for(String action:java.util.List.of("TENANT_SUBSCRIPTION_CREATED","TENANT_SUBSCRIPTION_STATUS_CHANGED"))
+            service.record("platform@example.test",action,"TENANT_SUBSCRIPTION","1",910001L,"Subscription administration","trace-subscription");
+        verify(repository,times(6)).saveAndFlush(any());
+    }
+
+    @Test void subscriptionAuditActionsRejectActorsWithoutTheirSpecificPlatformGrant(){
+        var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_SUBSCRIPTION_VIEW"))));
+        assertThatThrownBy(()->service.record("platform@example.test","SUBSCRIPTION_PLAN_CREATED","SUBSCRIPTION_PLAN","1",null,"reason","trace"))
+            .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.record("platform@example.test","TENANT_SUBSCRIPTION_CREATED","TENANT_SUBSCRIPTION","1",910001L,"reason","trace"))
+            .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(repository);
+    }
+
     @Test void auditSearchRequiresPlatformAuditPermission(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
             java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"))));

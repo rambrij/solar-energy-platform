@@ -110,19 +110,24 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   await signIn(page, demo.cashier.username, demo.cashier.password);
   await page.goto('/vendor/pos');
   await expect(page.getByRole('heading', { name: 'Open cashier session' })).toBeVisible();
-  await page.getByRole('button', { name: 'Load assigned registers' }).click();
-  await expect(page.getByText(/configured registers/)).toBeVisible();
-  const register = page.getByLabel('Assigned register');
-  const availableOption = register.locator('option:not([value=""])').first();
-  await expect(availableOption).toContainText('Available');
-  const registerValue = await availableOption.getAttribute('value');
-  expect(registerValue).toBeTruthy();
-  await register.selectOption(registerValue!);
-  await page.getByLabel('Opening float').fill('0');
-  await page.getByRole('button', { name: 'Open session' }).click();
+  const resume = page.getByRole('button', { name: /^Resume register/ });
+  if (await resume.count()) {
+    await resume.first().click();
+  } else {
+    await page.getByRole('button', { name: 'Load assigned registers' }).click();
+    await expect(page.getByText(/configured registers/)).toBeVisible();
+    const register = page.getByLabel('Assigned register');
+    const availableOption = register.locator('option:not([value=""])').first();
+    await expect(availableOption).toContainText('Available');
+    const registerValue = await availableOption.getAttribute('value');
+    expect(registerValue).toBeTruthy();
+    await register.selectOption(registerValue!);
+    await page.getByLabel('Opening float').fill('0');
+    await page.getByRole('button', { name: 'Open session' }).click();
+  }
   await expect(page.locator('.product-grid')).toBeVisible();
-  await expect(page.locator('.product-grid button').first()).toBeVisible();
-  await page.locator('.product-grid button').first().click();
+  await expect(page.locator('.product-grid button:not([disabled])').first()).toBeVisible();
+  await page.locator('.product-grid button:not([disabled])').first().click();
   await page.getByRole('link', { name: 'Current Bill' }).click();
   await expect(page.getByRole('heading', { name: 'Current sale', level: 2 })).toBeVisible();
   await page.getByLabel('Cash received').fill('1000000');

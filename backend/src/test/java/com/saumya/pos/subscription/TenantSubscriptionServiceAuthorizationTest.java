@@ -23,8 +23,7 @@ class TenantSubscriptionServiceAuthorizationTest {
         var payments=mock(SubscriptionPaymentRepository.class);
         var tenants=mock(TenantLifecycleService.class);
         var authorization=mock(AuthorizationContext.class);
-        when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-            "vendor",7L,12L,java.util.Set.of("POS_VIEW"),false,false,true));
+        when(authorization.current()).thenReturn(new AuthorizationContext.Context("vendor", 7L, 12L, String.valueOf(7L) + ":" + ("vendor"), java.util.Set.of("POS_VIEW"), false, false, true));
         var service=new TenantSubscriptionServiceImpl(subscriptions,plans,versions,events,invoices,
             payments,tenants,new ObjectMapper(),Clock.systemUTC());
         ReflectionTestUtils.setField(service,"authorization",authorization);

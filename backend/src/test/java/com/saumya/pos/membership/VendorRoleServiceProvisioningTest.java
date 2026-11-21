@@ -17,8 +17,7 @@ class VendorRoleServiceProvisioningTest {
         var db=mock(JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);
         var invitations=mock(IdentityInvitationPort.class);
-        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,
-            java.util.Set.of("USER_CREATE","ROLE_ASSIGN","POS_VIEW"),false,false,true);
+        var actor=new AuthorizationContext.Context("admin@vendor.test", 7L, 12L, String.valueOf(7L) + ":" + ("admin@vendor.test"), java.util.Set.of("USER_CREATE","ROLE_ASSIGN","POS_VIEW"), false, false, true);
         when(auth.current()).thenReturn(actor);
         when(db.queryForList(startsWith("SELECT id,role_key,display_name,active,version"),eq(7L),eq(41L)))
             .thenReturn(List.of(Map.of("id",41L,"role_key","cashier","display_name","Cashier","active",true,"version",0L)));
@@ -44,8 +43,7 @@ class VendorRoleServiceProvisioningTest {
     @Test void vendorCreatedEmployeeCannotBeProvisionedWithoutAValidRole(){
         var db=mock(JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);
-        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,
-            java.util.Set.of("USER_CREATE","ROLE_ASSIGN","POS_VIEW"),false,false,true);
+        var actor=new AuthorizationContext.Context("admin@vendor.test", 7L, 12L, String.valueOf(7L) + ":" + ("admin@vendor.test"), java.util.Set.of("USER_CREATE","ROLE_ASSIGN","POS_VIEW"), false, false, true);
         when(auth.current()).thenReturn(actor);
         when(db.queryForList(startsWith("SELECT id,role_key,display_name,active,version"),eq(7L),eq(41L)))
             .thenReturn(List.of(Map.of("id",41L,"role_key","disabled","display_name","Disabled","active",false,"version",0L)));
@@ -60,8 +58,7 @@ class VendorRoleServiceProvisioningTest {
     @Test void crossTenantRoleIdCannotBeAssignedToAnEmployee(){
         var db=mock(JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);
-        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,
-            java.util.Set.of("ROLE_ASSIGN"),false,false,true);
+        var actor=new AuthorizationContext.Context("admin@vendor.test", 7L, 12L, String.valueOf(7L) + ":" + ("admin@vendor.test"), java.util.Set.of("ROLE_ASSIGN"), false, false, true);
         when(auth.current()).thenReturn(actor);
         when(db.queryForList(startsWith("SELECT username,branch_id,enabled"),eq(7L),eq("employee@vendor.test")))
             .thenReturn(List.of(Map.of("username","employee@vendor.test","branch_id",12L,"enabled",true)));

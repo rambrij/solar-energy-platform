@@ -41,7 +41,7 @@ class ProductAdminControllerAuthorizationTest {
     @WithMockUser(authorities = {"PRODUCT_VIEW"})
     void listProductsSucceedsWithProductView() throws Exception {
         // Given: AuthorizationContext returns valid vendor context
-        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
+        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, String.valueOf(1L) + ":" + ("admin@vendor.com"), Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
                 when(authContext.current()).thenReturn(mockContext);
 // Given: ProductAdminService returns empty list
@@ -66,7 +66,7 @@ class ProductAdminControllerAuthorizationTest {
     @WithMockUser(authorities = {"PRODUCT_CREATE"})
     void createProductSucceedsWithProductCreate() throws Exception {
         // Given: AuthorizationContext returns valid vendor context
-        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
+        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, String.valueOf(1L) + ":" + ("admin@vendor.com"), Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
                 when(authContext.current()).thenReturn(mockContext);
@@ -116,7 +116,7 @@ class ProductAdminControllerAuthorizationTest {
     @WithMockUser(authorities = {"PRODUCT_UPDATE"})
     void updateProductSucceedsWithProductUpdate() throws Exception {
         // Given: AuthorizationContext returns valid vendor context
-        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
+        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, String.valueOf(1L) + ":" + ("admin@vendor.com"), Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
                 when(authContext.current()).thenReturn(mockContext);
@@ -225,7 +225,7 @@ class ProductAdminControllerAuthorizationTest {
     @WithMockUser(authorities = {"PRODUCT_VIEW"})
     void productViewDoesNotGrantCreateOrUpdate() throws Exception {
         // Given: AuthorizationContext returns valid vendor context for read operations
-        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
+        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, String.valueOf(1L) + ":" + ("admin@vendor.com"), Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
                 when(authContext.current()).thenReturn(mockContext);
 var emptyPage = new ProductAdminService.Page(List.of(), 0, 20, 0, 0);
@@ -282,7 +282,7 @@ var emptyPage = new ProductAdminService.Page(List.of(), 0, 20, 0, 0);
     @WithMockUser(authorities = {"PRODUCT_CREATE"}) // Has CREATE but not UPDATE
     void productCreateDoesNotGrantUpdate() throws Exception {
         // Given: AuthorizationContext returns valid vendor context
-        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
+        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, String.valueOf(1L) + ":" + ("admin@vendor.com"), Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
 
                 when(authContext.current()).thenReturn(mockContext);
@@ -340,7 +340,7 @@ var createdProduct = new ProductAdminService.View(
     @WithMockUser(username = "adminA@vendorA.com", authorities = {"PRODUCT_VIEW"})
     void tenantIsolationEnforcedInServiceLayer() throws Exception {
         // Given: AuthorizationContext returns tenant 1
-        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
+        var mockContext = new AuthorizationContext.Context("admin@vendor.com", 1L, 10L, String.valueOf(1L) + ":" + ("admin@vendor.com"), Set.of("PRODUCT_VIEW", "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_ARCHIVE", "PRICE_UPDATE"), false, false, true);
 
                 when(authContext.current()).thenReturn(mockContext);
 // Given: Service returns data for tenant 1 only

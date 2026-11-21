@@ -28,7 +28,7 @@ class SubscriptionPlanServiceTest {
         when(versions.saveAndFlush(any())).thenAnswer(inv->{var v=(SubscriptionPlanVersion)inv.getArgument(0);saved.add(v);return v;});
         when(versions.findByPlanIdOrderByVersionDesc(1L)).thenAnswer(inv->{var all=new ArrayList<SubscriptionPlanVersion>();all.addAll(saved);all.add(old);return all;});
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.fixed(now,ZoneOffset.UTC),new ObjectMapper());
-        var auth=mock(AuthorizationContext.class);when(auth.current()).thenReturn(new AuthorizationContext.Context("platform-admin",null,null,Set.of("PLATFORM_PLAN_MANAGE","PLATFORM_SUBSCRIPTION_VIEW"),true,false,false));
+        var auth=mock(AuthorizationContext.class);when(auth.current()).thenReturn(new AuthorizationContext.Context("platform-admin", null, null, null, Set.of("PLATFORM_PLAN_MANAGE","PLATFORM_SUBSCRIPTION_VIEW"), true, false, false));
         ReflectionTestUtils.setField(service,"authorization",auth);
         var result=service.revise(1,input("999"),"platform-admin","corr");
         assertThat(saved).hasSize(1);assertThat(saved.getFirst().version()).isEqualTo(2);assertThat(saved.getFirst().price()).isEqualByComparingTo("999");
@@ -48,7 +48,7 @@ class SubscriptionPlanServiceTest {
         when(plans.saveAndFlush(any())).thenReturn(plan);
         when(plan.id()).thenReturn(1L);
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
-        var auth=mock(AuthorizationContext.class);when(auth.current()).thenReturn(new AuthorizationContext.Context("admin",null,null,Set.of("PLATFORM_PLAN_MANAGE"),true,false,false));
+        var auth=mock(AuthorizationContext.class);when(auth.current()).thenReturn(new AuthorizationContext.Context("admin", null, null, null, Set.of("PLATFORM_PLAN_MANAGE"), true, false, false));
         ReflectionTestUtils.setField(service,"authorization",auth);
         var invalid=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"[]",7,"{}","plan");
         assertThatThrownBy(()->service.create(invalid,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
@@ -58,8 +58,7 @@ class SubscriptionPlanServiceTest {
     @Test void planCreateReviseActivateAndListDenyBeforeRepositoryAccessForVendorActor(){
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
         var auth=mock(AuthorizationContext.class);
-        when(auth.current()).thenReturn(new AuthorizationContext.Context(
-            "vendor",7L,12L,Set.of("POS_VIEW"),false,false,true));
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("vendor", 7L, 12L, String.valueOf(7L) + ":" + ("vendor"), Set.of("POS_VIEW"), false, false, true));
         ReflectionTestUtils.setField(service,"authorization",auth);
 
         assertThatThrownBy(()->service.create(input("799"),"vendor",null))

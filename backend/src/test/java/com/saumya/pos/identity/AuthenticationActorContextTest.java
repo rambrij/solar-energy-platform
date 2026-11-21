@@ -65,7 +65,9 @@ class AuthenticationActorContextTest {
   var users=repository(GlobalUserRepository.class,(p,m,a)->Optional.of(user));
   var customers=repository(CustomerRepository.class,(p,m,a)->customerProfile?Optional.of(8L):Optional.empty());
   var sessions=repository(RefreshSessionRepository.class,(p,m,a)->a[0]);
-  var membership=new MembershipService(null,null,null){
+  var membership=new MembershipService(mock(com.saumya.pos.membership.internal.EmployeeMembershipRepository.class),
+      mock(com.saumya.pos.tenant.TenantLifecycleService.class),mock(org.springframework.jdbc.core.JdbcTemplate.class),
+      mock(com.saumya.pos.membership.TenantEntitlementPolicy.class)){
    @Override public Optional<Access> access(String name){
     return employeeMembership?Optional.of(new Access(77,770,name,List.of("PRODUCT_VIEW"))):Optional.empty();
    }

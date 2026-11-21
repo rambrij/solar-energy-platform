@@ -52,7 +52,7 @@ class P101VendorRoleLifecycleTest {
     private TenantIsolationFixture.Seed seed;
 
     @BeforeEach
-    void seedTenantActorsAndRolePermissions() {
+    void seedTenantActorsAndRolePermissions() throws Exception {
         seed = new TenantIsolationFixture(db, passwords).seed();
         assertThat(db.queryForObject("""
             SELECT COUNT(*) FROM information_schema.tables

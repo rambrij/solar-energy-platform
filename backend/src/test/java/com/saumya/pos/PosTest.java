@@ -2789,6 +2789,7 @@ class PosTest {
   var annotation=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
   if(annotation!=null){if(!annotation.name().isBlank())key=annotation.name();else if(!annotation.value().isBlank())key=annotation.value();}
   Class<?> type=parameter.getType();
+  if(controller.startsWith("Platform")&&route.contains("/tenants/{id}"))return "910001";
   if(route.contains("/vendor/categories/{id}")){
    Long category=db.queryForObject("SELECT MIN(id) FROM catalog_categories WHERE tenant_id=910001",Long.class);
    return category==null?"1":category.toString();

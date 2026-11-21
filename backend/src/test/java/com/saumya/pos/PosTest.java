@@ -2842,6 +2842,7 @@ class PosTest {
   if(type==String.class){
    String n=key.toLowerCase(Locale.ROOT);
    if(controller.contains("Platform")&&n.contains("username"))return "superadmin@platform.demo.test";
+   if(route.endsWith("/disable"))return "p006.matrix.employee.disable@saumya.demo.test";
    if(n.contains("username"))return "p006.matrix.employee@saumya.demo.test";
    if(route.contains("/customer/orders/{id}")){
     String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE customer_id=949001 AND sales_channel='ONLINE'",String.class);
@@ -2964,9 +2965,16 @@ class PosTest {
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",employeeProbeId,
       employeeProbe,encoder.encode("MatrixEmployeePassword2026!"));
   update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,910001,910001,TRUE)",employeeProbe);
-  Long employeeRole=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=910001",Long.class);
+  Long employeeRole=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=910001 AND role_key='vendor-admin-initial'",Long.class);
   update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(910001,910001,?,?,TRUE,?)",
       employeeProbe,employeeRole,adminName);
+  String employeeDisableProbe="p006.matrix.employee.disable@saumya.demo.test";
+  long employeeDisableId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",employeeDisableId,
+      employeeDisableProbe,encoder.encode("MatrixDisablePassword2026!"));
+  update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,910001,910001,TRUE)",employeeDisableProbe);
+  update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(910001,910001,?,?,TRUE,?)",
+      employeeDisableProbe,employeeRole,adminName);
   Long adminRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+100 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",adminRegister);
   assignRegister(adminName,910001,910001,adminRegister);
@@ -2975,7 +2983,7 @@ class PosTest {
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",supervisorId,
       supervisorName,encoder.encode("MatrixSupervisorPassword2026!"));
   update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,910001,910001,TRUE)",supervisorName);
-  Long supervisorRole=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=910001",Long.class);
+  Long supervisorRole=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=910001 AND role_key='vendor-admin-initial'",Long.class);
   update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(910001,910001,?,?,TRUE,?)",
       supervisorName,supervisorRole,adminName);
   assignRegister(supervisorName,910001,910001,adminRegister);

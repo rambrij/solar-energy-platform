@@ -55,4 +55,18 @@ describe('actor context session switching',()=>{
   expect(fetchMock).toHaveBeenCalledTimes(5);
  });
 
+ it('clears an expired actor snapshot without replaying a denied command and keeps its saved retry',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  const account={username:'vendor@example.test',tenantId:8,branchId:80,permissions:['POS_VIEW'],actorType:'VENDOR'};
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-login'})).mockResolvedValueOnce(response({accessToken:'vendor-token',account})).mockResolvedValueOnce(response({detail:'Expired'},401)).mockResolvedValueOnce(response({token:'csrf-refresh'})).mockResolvedValueOnce(response({detail:'Refresh expired'},401));
+  await signIn('vendor@example.test','safe-test-password');
+  const {result}=renderHook(()=>useSession());
+  sessionStorage.setItem('pos-attempt-v1',JSON.stringify({key:'saved-command',body:{sessionId:'s1'}}));
+  const denied=await authenticatedFetch('/api/v1/vendor/pos/sales',{method:'POST',body:'{}'});
+  expect(denied.status).toBe(401);
+  expect(result.current.account).toBeNull();
+  expect(sessionStorage.getItem('pos-attempt-v1')).toContain('saved-command');
+  expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/vendor/pos/sales')).toHaveLength(1);
+ });
+
 });

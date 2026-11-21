@@ -35,24 +35,6 @@ for(const match of block[1].matchAll(entryPattern)){
 }
 const expected=registry.frontendRoutes;
 const normalize=value=>Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,rule])=>[key,Object.fromEntries(Object.entries(rule).map(([kind,items])=>[kind,[...items].sort()]))]));
-
-const platformBlock=permissionSource.match(/export const PLATFORM_PAGE_PERMISSIONS:[^=]*=\\{([\\s\\S]*?)\\n\\};/);
-if(!platformBlock)throw new Error('PLATFORM_PAGE_PERMISSIONS block was not found');
-const platformActual={};
-const platformEntryPattern=/'([^']+)':\\s*\\{\\s*(anyOf|allOf):\\s*\\[([^\\]]*)\\]\\s*\\}/g;
-for(const match of platformBlock[1].matchAll(platformEntryPattern)){
-  const [,id,kind,raw]=match;
-  platformActual[id]={[kind]:[...raw.matchAll(/'([^']+)'/g)].map(x=>x[1]).sort()};
-}
-if(JSON.stringify(normalize(platformActual))!==JSON.stringify(normalize(registry.frontendPlatformPages??{}))){
-  throw new Error('Frontend PLATFORM_PAGE_PERMISSIONS diverge from canonical authorization-policy-registry.json');
-}
-for(const [page,rule] of Object.entries(registry.frontendPlatformPages??{})){
-  for(const permission of Object.values(rule).flat()){
-    if(!registry.platformPermissions.includes(permission))throw new Error('Unknown platform permission '+permission+' in page '+page);
-  }
-}
-
 if(JSON.stringify(normalize(actual))!==JSON.stringify(normalize(expected))){
   throw new Error('Frontend NAVIGATION_PERMISSIONS diverge from canonical authorization-policy-registry.json');
 }

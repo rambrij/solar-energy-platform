@@ -68,25 +68,6 @@ export function usePermissions():{
 }
 
 export interface PermissionRequirement {anyOf?:string[];allOf?:string[];}
-
-export const PLATFORM_PAGE_PERMISSIONS:Record<string,PermissionRequirement>={
- 'dashboard':{allOf:['PLATFORM_ANALYTICS_VIEW']},
- 'tenants':{anyOf:['PLATFORM_TENANT_VIEW','PLATFORM_TENANT_CREATE','PLATFORM_TENANT_UPDATE','PLATFORM_TENANT_SUSPEND','PLATFORM_TENANT_CLOSE','PLATFORM_TENANT_REACTIVATE']},
- 'plans':{anyOf:['PLATFORM_PLAN_MANAGE','PLATFORM_SUBSCRIPTION_VIEW']},
- 'audit':{allOf:['PLATFORM_AUDIT_VIEW']},
- 'support':{allOf:['PLATFORM_SUPPORT_ACCESS']},
- 'configuration':{allOf:['PLATFORM_CONFIG_MANAGE']},
- 'identities':{allOf:['PLATFORM_IDENTITY_MANAGE']},
- 'platform-subscriptions':{allOf:['PLATFORM_SUBSCRIPTION_VIEW']},
-};
-export function hasPlatformPagePermission(pageId:string,userPermissions:string[]):boolean{
- const requirement=PLATFORM_PAGE_PERMISSIONS[pageId];
- if(!requirement)return false;
- const hasAny=requirement.anyOf?requirement.anyOf.some(permission=>userPermissions.includes(permission)):true;
- const hasAll=requirement.allOf?requirement.allOf.every(permission=>userPermissions.includes(permission)):true;
- return hasAny&&hasAll&&Boolean(requirement.anyOf||requirement.allOf);
-}
-
 export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'checkout':{allOf:['POS_VIEW']},
  'current-sale':{allOf:['POS_VIEW']},

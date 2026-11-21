@@ -925,53 +925,5 @@
       "ui": "Vendor workspace > Access administration > employee lifecycle",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
     }
-  ],
-  "frontendPlatformPages": {
-    "dashboard": {
-      "allOf": [
-        "PLATFORM_ANALYTICS_VIEW"
-      ]
-    },
-    "tenants": {
-      "anyOf": [
-        "PLATFORM_TENANT_VIEW",
-        "PLATFORM_TENANT_CREATE",
-        "PLATFORM_TENANT_UPDATE",
-        "PLATFORM_TENANT_SUSPEND",
-        "PLATFORM_TENANT_CLOSE",
-        "PLATFORM_TENANT_REACTIVATE"
-      ]
-    },
-    "plans": {
-      "anyOf": [
-        "PLATFORM_PLAN_MANAGE",
-        "PLATFORM_SUBSCRIPTION_VIEW"
-      ]
-    },
-    "audit": {
-      "allOf": [
-        "PLATFORM_AUDIT_VIEW"
-      ]
-    },
-    "support": {
-      "allOf": [
-        "PLATFORM_SUPPORT_ACCESS"
-      ]
-    },
-    "configuration": {
-      "allOf": [
-        "PLATFORM_CONFIG_MANAGE"
-      ]
-    },
-    "identities": {
-      "allOf": [
-        "PLATFORM_IDENTITY_MANAGE"
-      ]
-    },
-    "platform-subscriptions": {
-      "allOf": [
-        "PLATFORM_SUBSCRIPTION_VIEW"
-      ]
-    }
-  }
+  ]
 }

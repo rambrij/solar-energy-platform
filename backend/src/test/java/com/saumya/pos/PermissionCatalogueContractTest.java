@@ -76,7 +76,7 @@ class PermissionCatalogueContractTest {
             PermissionCatalogue.orphanedPermissions(), PermissionCatalogue.conflictingPermissions());
         for (Set<String> group : groups) for (String permission : group) assertThat(all.add(permission)).isTrue();
         Set<String> templateGrants = new HashSet<>();
-        StandardRoleTemplates.ALL.stream().filter(StandardRoleTemplates.Definition::supported)
+        StandardRoleTemplates.ALL.stream().filter(StandardRoleTemplates.Definition::supported())
             .forEach(template -> templateGrants.addAll(template.permissions()));
         assertThat(PermissionCatalogue.vendorPermissions()).containsAll(templateGrants);
         assertThat(templateGrants).doesNotContainAnyElementsOf(PermissionCatalogue.reservedVendorPermissions());

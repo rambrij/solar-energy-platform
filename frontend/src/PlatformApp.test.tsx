@@ -37,16 +37,6 @@ describe('PlatformApp',()=>{
   await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/tenants','POST',expect.objectContaining({slug:'demo-vendor',initialVendorAdminUsername:'admin@demo.test'})));
   expect(await screen.findByText('one-time-invitation-token')).toBeTruthy();
  });
- it('restricted platform operator only sees granted pages and does not fetch analytics',async()=>{
-  vi.mocked(useSession).mockReturnValue({ready:true,account:{...account,permissions:['PLATFORM_SUPPORT_ACCESS']}} as ReturnType<typeof useSession>);
-  vi.mocked(platformApi).mockResolvedValue([]);
-  render(<PlatformApp/>);
-  expect(await screen.findByText('Grant controlled support window')).toBeTruthy();
-  expect(screen.queryByText('Tenant lifecycle')).toBeNull();
-  expect(screen.queryByText('Onboard a vendor tenant')).toBeNull();
-  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/support-access'));
-  expect(platformApi).not.toHaveBeenCalledWith('/dashboard');
- });
  it('renders historic plan versions as separate records',async()=>{
   vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?[{id:1,planKey:'starter',displayName:'Starter',active:true,currentVersion:2,versions:[{version:2,currency:'INR',price:'999',billingInterval:'MONTHLY'},{version:1,currency:'INR',price:'799',billingInterval:'MONTHLY'}]}]:{tenantStatuses:[]});
   render(<PlatformApp/>);

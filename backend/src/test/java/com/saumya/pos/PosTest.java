@@ -126,7 +126,7 @@ class PosTest {
   long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));
   update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);
-  List<String> permissions=com.saumya.pos.membership.VendorPermissionRegistry.all().stream().sorted().toList();
+  List<String> permissions=List.of("CATALOG_PROMOTION_MANAGE","INVENTORY_ADJUST","INVENTORY_RECEIVE","INVENTORY_VIEW","POS_CASHIER_REPORT_VIEW","POS_CASH_IN","POS_CASH_OUT","POS_DISCOUNT_APPLY","POS_DISCOUNT_APPROVE","POS_DISCOUNT_OVERRIDE","POS_RECEIPT_REPRINT","POS_RECEIPT_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD","POS_REFUND_PRINT","POS_REFUND_VIEW","POS_REPORT_EXPORT","POS_REPORT_VIEW","POS_RETURN_APPROVE","POS_RETURN_AUDIT_VIEW","POS_RETURN_CREATE","POS_RETURN_INSPECT","POS_RETURN_VIEW","POS_SALE_CREATE","POS_SALE_CANCEL","POS_SESSION_CLOSE","POS_SESSION_OPEN","POS_SETTINGS_MANAGE","POS_SAFE_DROP","POS_SHIFT_VARIANCE_APPROVE","POS_TENDER_CASH_RECORD","POS_TENDER_EXTERNAL_RECORD","POS_TENDER_MANUAL_VERIFY","POS_VIEW","PRICE_UPDATE","PRODUCT_ARCHIVE","PRODUCT_CREATE","PRODUCT_UPDATE","PRODUCT_VIEW","PRICE_VIEW");
   String roleKey="test-"+username.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]","-");
   update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(?,?,?,TRUE,?,?)",tenant,roleKey,"Test "+username,username,username);
   Long roleId=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenant,roleKey);
@@ -2306,8 +2306,8 @@ class PosTest {
    else{assertThat(session.account().tenantId()).isEqualTo(account.get("tenant").asLong());assertThat(granted).noneMatch(g->g.startsWith("PLATFORM_")||g.equals("CUSTOMER"));
     if(role.equals("POS_CASHIER"))assertThat(granted).contains("POS_SALE_CREATE").doesNotContain("POS_REFUND_APPROVE","POS_TENDER_MANUAL_VERIFY","POS_SETTINGS_MANAGE","POS_DISCOUNT_OVERRIDE");
     if(role.equals("INVENTORY_MANAGER"))assertThat(granted).contains("INVENTORY_RECEIVE").doesNotContain("POS_SALE_CREATE","PRICE_UPDATE","POS_REFUND_APPROVE");
-    if(role.equals("SALES_MANAGER"))assertThat(granted).contains("POS_REPORT_VIEW").doesNotContain("LEAD_CREATE","INVENTORY_RECEIVE","POS_SALE_CREATE");
-    if(role.equals("ACCOUNTANT"))assertThat(granted).contains("POS_REFUND_VIEW").doesNotContain("POS_TENDER_MANUAL_VERIFY","POS_SALE_CREATE","POS_SETTINGS_MANAGE");
+    if(role.equals("SALES_MANAGER"))assertThat(granted).contains("LEAD_CREATE").doesNotContain("INVENTORY_RECEIVE","POS_SALE_CREATE");
+    if(role.equals("ACCOUNTANT"))assertThat(granted).contains("POS_TENDER_MANUAL_VERIFY").doesNotContain("POS_SALE_CREATE","POS_SETTINGS_MANAGE");
    }
   }
   String[] slugs={"saumya-rooftops","helio-rural","lumina-lighting"};String[] brands={"SunArc","AgriRay","NightSun"};

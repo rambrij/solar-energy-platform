@@ -18,5 +18,5 @@ export default function PlatformBoundary(){
  const canViewSubscriptions=hasPlatformPagePermission('platform-subscriptions',session.account.permissions);
  const isSubscriptions=window.location.pathname.startsWith('/platform/subscriptions');
  if(isSubscriptions&&!canViewSubscriptions)return <main className="platform-login"><section role="alert"><h1>Platform access denied</h1><p>Your platform identity does not have permission to view tenant subscriptions.</p></section></main>;
- return <div className="platform-workspace"><nav className="platform-global-nav" aria-label="Platform section shortcuts"><a href="/platform">Platform overview</a>{canViewSubscriptions&&<a href="/platform/subscriptions">Tenant subscriptions</a>}<PlatformHealthWidget/></nav>{isSubscriptions?<PlatformSubscriptions/>:<PlatformApp/>}</div>;
+ return <div className="platform-workspace"><nav className="platform-global-nav" aria-label="Platform section shortcuts"><a href="/platform">Platform overview</a>{canViewSubscriptions&&<a href="/platform/subscriptions">Tenant subscriptions</a>}{hasPlatformPagePermission('dashboard',session.account.permissions)&&<PlatformHealthWidget/>}</nav>{isSubscriptions?<PlatformSubscriptions/>:<PlatformApp/>}</div>;
 }

@@ -3032,11 +3032,11 @@ class PosTest {
    var policy=methodPolicy!=null?methodPolicy:classPolicy;
    assertThat(policy).as("security policy for %s#%s",controllerType.getSimpleName(),handler.getMethod().getName()).isNotNull();
    if(policy.value().contains("permitAll()"))continue;
-   String actor=matrixActorForEndpoint(controllerType.getSimpleName(),policy.value(),route,tokens,grants);
-   String token=tokens.get(actor);
    Set<RequestMethod> mappingMethods=entry.getKey().getMethodsCondition().getMethods();
    List<RequestMethod> methods=mappingMethods.isEmpty()?List.of(RequestMethod.GET):mappingMethods.stream().sorted().toList();
    for(String route:entry.getKey().getPatternValues()){
+    String actor=matrixActorForEndpoint(controllerType.getSimpleName(),policy.value(),route,tokens,grants);
+    String token=tokens.get(actor);
     for(RequestMethod httpMethod:methods){
      String concrete=route;
      for(Parameter parameter:handler.getMethod().getParameters()){

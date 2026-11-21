@@ -8,6 +8,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.*;
@@ -63,6 +65,23 @@ class VendorRoleControllerAuthorizationTest {
             .content("{\"roleKey\":\"cashier\",\"displayName\":\"Cashier\",\"permissions\":[\"POS_VIEW\"],\"reason\":\"New cashier role\"}"))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(10));
         verify(service).create("cashier","Cashier",List.of("POS_VIEW"),"New cashier role");
+    }
+
+    @Test @WithMockUser(authorities={"ROLE_UPDATE"})
+    void staleRoleVersionUsesTheExistingRfc9457ConflictResponse() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Role version is stale"))
+            .when(service).update(eq(42L), eq(2L), eq("Updated role"),
+                eq(List.of("POS_VIEW")), eq("Concurrency regression"));
+        mvc.perform(put("/api/v1/vendor/roles/42")
+            .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"expectedVersion\":2,\"displayName\":\"Updated role\",\"permissions\":[\"POS_VIEW\"],\"reason\":\"Concurrency regression\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.detail").value("Role version is stale"))
+            .andExpect(jsonPath("$.code").value("REQUEST_REJECTED"));
+        verify(service).update(42L, 2L, "Updated role", List.of("POS_VIEW"), "Concurrency regression");
     }
 
     @Test @WithMockUser(authorities={"USER_CREATE"})

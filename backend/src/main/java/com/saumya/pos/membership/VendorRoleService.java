@@ -61,6 +61,7 @@ public class VendorRoleService {
             .orElseThrow(()->new ResponseStatusException(FORBIDDEN,"Active vendor membership required"));
         return access.permissions().stream()
             .filter(c.permissions()::contains)
+            .filter(permission -> !permission.startsWith("PLATFORM_"))
             .filter(VendorPermissionRegistry.all()::contains)
             .distinct().sorted().toList();
     }

@@ -404,3 +404,12 @@ The existing implementation has useful authorization controls and must be preser
 - P0-06 report on both database lanes: 41/41 actor scenarios passed, 18/18 P0-07 actor-context cases passed, 146 live endpoint rows, zero protected routes without persisted matching-actor evidence, 130 missing-permission HTTP checks passed, 131 anonymous checks passed, and 66/66 VIEW-only mutation operations denied. Report artifacts are available in the workflow run.
 - PRODUCT_ARCHIVE, PRICE_VIEW and PRICE_UPDATE remain IMPLEMENTED with traceable operation/service/UI/runtime evidence. CRM/Operations capabilities without live operations remain RESERVED / DEFERRED and non-assignable. POS_TENDER_VIEW remains ORPHANED. POS_TENDER_EXTERNAL_CONFIRM remains CONFLICTING and non-assignable.
 - **RC-06 remains OPEN** only for product/security clarification of external tender confirmation versus external tender attempt recording and manual verification. It is not an active permission or an acceptance blocker for the aligned implemented catalogue. P0-06 remains separately tracked under its broader Role x Endpoint review; this record claims its regression evidence, not global P0-06 closure.
+
+
+## P1-04 frontend permission mapping follow-up — 2026-11-22
+
+- Status: **IN PROGRESS — VALIDATION PENDING**. P1-03 remains verified separately; P1-04 is not being marked complete.
+- The P1-04 pass corrected the POS entry boundary to validate actor context first and let canonical page policies evaluate narrow grants, removed duplicated POS navigation filtering, aligned Store Settings route policy with its settings/discount operation grants, and gated POS draft cancellation, cash/external tender, receipt recovery and cash-refund recovery controls with their corresponding permissions.
+- Updated the canonical JSON and frontend route metadata together. Added a direct deep-link test for a vendor actor with `PRODUCT_VIEW` but without `POS_VIEW`, and Store Settings route-policy tests.
+- Remaining acceptance work: exhaustive page/tab/action audit across all vendor, customer and platform UI; explicit tests for every operation control and nested tab; permission revocation/session-expiry behavior; 403 handling and pending-command recovery; and a green full frontend/H2/MySQL 8.4 workflow on the final branch head.
+- No backend authorization policy or database migration was changed in this P1-04 pass. UI guards remain supplementary; backend 401/403/404 behavior is authoritative.

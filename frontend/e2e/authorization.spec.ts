@@ -4,7 +4,7 @@ import { apiAs, demo, ensureCustomSalesRole, signIn } from './helpers';
 test('Vendor Admin: route refresh, browser history, mobile navigation and cross-tenant resistance', async ({ page, browser }) => {
   const token = await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
   await page.goto('/vendor/pos/products');
-  await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
   const own = await apiAs(page, token, '/api/v1/vendor/products?page=0&size=100');
   const forged = await apiAs(page, token, '/api/v1/vendor/products?page=0&size=100&tenantId=920001');
   expect(own.status).toBe(200);
@@ -39,11 +39,11 @@ test('Vendor Admin: route refresh, browser history, mobile navigation and cross-
   await expect(navigation.getByRole('link', { name: 'Manage Products' })).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
   await page.getByRole('link', { name: 'Sales History' }).click();
   await expect(page).toHaveURL(/sales-history/);
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
 });
 
 test('Custom Sales role: product read is allowed while product creation returns 403', async ({ page }) => {
@@ -52,7 +52,7 @@ test('Custom Sales role: product read is allowed while product creation returns 
   await page.getByRole('button', { name: 'Sign out' }).click();
   const salesToken = await signIn(page, demo.salesExecutive.username, demo.salesExecutive.password);
   await page.goto('/vendor/pos/products');
-  await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
   const before = await apiAs(page, salesToken, '/api/v1/vendor/products?page=0&size=100');
   expect(before.status).toBe(200);
   const denied = await apiAs(page, salesToken, '/api/v1/vendor/products', 'POST', { sku: 'P2-01-DENIED-SALES-CREATE', name: 'Must Not Be Created', price: 1, taxRate: 0, published: false, expectedVersion: 0, reason: 'Verify custom Sales role cannot create products' });
@@ -78,7 +78,7 @@ test('Cashier: POS session entry is allowed, administration routes stay hidden o
 test('Accountant: reporting is available but inventory receipt access is denied', async ({ page }) => {
   const token = await signIn(page, demo.accountant.username, demo.accountant.password);
   await page.goto('/vendor/pos/sales-insights');
-  await expect(page.getByRole('heading', { name: 'Sales Insights' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sales Insights', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Receive Stock' })).toHaveCount(0);
   const denied = await apiAs(page, token, '/api/v1/vendor/inventory/receipts');
   expect(denied.status).toBe(403);
@@ -123,7 +123,7 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   await expect(page.locator('.product-grid button').first()).toBeVisible();
   await page.locator('.product-grid button').first().click();
   await page.getByRole('link', { name: 'Current Bill' }).click();
-  await expect(page.getByRole('heading', { name: 'Current sale' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Current sale', level: 2 })).toBeVisible();
   await page.getByLabel('Cash received').fill('1000000');
   await page.getByRole('button', { name: 'Complete cash sale' }).click();
   await expect(page.getByText('Vendor sale receipt')).toBeVisible({ timeout: 30_000 });
@@ -136,7 +136,7 @@ test('Revoked custom Sales role loses existing bearer access and protected route
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();
   const salesToken = await signIn(page, demo.salesExecutive.username, demo.salesExecutive.password);
   await page.goto('/vendor/pos/products');
-  await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
   const revoked = await apiAs(page, adminToken, '/api/v1/vendor/employees/' + encodeURIComponent(demo.salesExecutive.username) + '/roles', 'PUT', { roleIds: [], reason: 'Verify P2-01 permission revocation' });
   expect(revoked.status).toBe(200);
   const staleTokenRequest = await apiAs(page, salesToken, '/api/v1/vendor/products?page=0&size=20');

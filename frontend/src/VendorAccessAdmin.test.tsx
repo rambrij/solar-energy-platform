@@ -33,6 +33,22 @@ describe('VendorAccessAdmin role editor',()=>{
   expect(within(form).queryByLabelText(/Permissions \(comma/)).toBeNull();
  });
 
+ it('distinguishes materialized standard template snapshots from tenant custom roles',async()=>{
+  mockVendorApi.mockImplementation(async(path:string,method='GET')=>{
+   if(path==='/roles')return [
+    {...role,templateKey:'POS_CASHIER',templateVersion:1,key:'standard:POS_CASHIER',displayName:'POS Cashier'},
+    role
+   ];
+   if(path==='/roles/permissions')return {permissions:['PRODUCT_VIEW','POS_VIEW'],templates:[
+    {key:'POS_CASHIER',version:1,permissions:['POS_VIEW'],deferredReason:null}
+   ]};
+   return [];
+  });
+  render(<VendorAccessAdmin mode="roles"/>);
+  expect(await screen.findByText(/Standard template POS_CASHIER · template v1/)).toBeTruthy();
+  expect(screen.getByText(/Tenant custom role · sales/)).toBeTruthy();
+  expect(screen.getByText('POS_VIEW')).toBeTruthy();
+ });
  it('replaces permissions using the loaded optimistic version and refreshes the role list',async()=>{
   let saved={...role};
   mockVendorApi.mockImplementation(async(path:string,method='GET',body?:any)=>{

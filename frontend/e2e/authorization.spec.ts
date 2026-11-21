@@ -80,3 +80,41 @@ test('Expired refresh session: protected POS route returns to the sign-in bounda
   await page.reload();
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();
 });
+test('Cashier: open assigned register, complete a cash sale and receive its receipt', async ({ page }) => {
+  await signIn(page, demo.cashier.username, demo.cashier.password);
+  await page.goto('/vendor/pos');
+  await expect(page.getByRole('heading', { name: 'Open cashier session' })).toBeVisible();
+  await page.getByRole('button', { name: 'Load assigned registers' }).click();
+  await expect(page.getByText(/configured registers/)).toBeVisible();
+  const register = page.getByLabel('Assigned register');
+  await expect(register.locator('option').filter({ hasText: 'Available' }).first()).toBeAttached();
+  const registerValue = await register.locator('option').filter({ hasText: 'Available' }).first().getAttribute('value');
+  expect(registerValue).toBeTruthy();
+  await register.selectOption(registerValue!);
+  await page.getByLabel('Opening float').fill('0');
+  await page.getByRole('button', { name: 'Open session' }).click();
+  await expect(page.locator('.product-grid')).toBeVisible();
+  await expect(page.locator('.product-grid button').first()).toBeVisible();
+  await page.locator('.product-grid button').first().click();
+  await page.getByRole('link', { name: 'Current Bill' }).click();
+  await expect(page.getByRole('heading', { name: 'Current sale' })).toBeVisible();
+  await page.getByLabel('Cash received').fill('1000000');
+  await page.getByRole('button', { name: 'Complete cash sale' }).click();
+  await expect(page.getByText('Vendor sale receipt')).toBeVisible({ timeout: 30_000 });
+});
+
+test('Revoked custom Sales role loses existing bearer access and protected route after refresh', async ({ page }) => {
+  const adminToken = await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
+  await ensureCustomSalesRole(page, adminToken);
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();
+  const salesToken = await signIn(page, demo.salesExecutive.username, demo.salesExecutive.password);
+  await page.goto('/vendor/pos/products');
+  await expect(page.getByRole('heading', { name: 'Manage Products' })).toBeVisible();
+  const revoked = await apiAs(page, adminToken, '/api/v1/vendor/employees/' + encodeURIComponent(demo.salesExecutive.username) + '/roles', 'PUT', { roleIds: [], reason: 'Verify P2-01 permission revocation' });
+  expect(revoked.status).toBe(200);
+  const staleTokenRequest = await apiAs(page, salesToken, '/api/v1/vendor/products?page=0&size=20');
+  expect(staleTokenRequest.status).toBe(403);
+  await page.reload();
+  await expect(page.getByRole('alert')).toContainText('Access denied');
+});

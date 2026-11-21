@@ -52,11 +52,18 @@ class PermissionCatalogueDatabaseParityTest {
             case "FK_PUP_PERMISSION_CATALOG" -> "PLATFORM_USER_PERMISSIONS";
             default -> throw new IllegalArgumentException("Unexpected permission catalogue FK: " + name);
         };
+        String currentSchemaExpression;
+        try (var connection = jdbc.getDataSource().getConnection()) {
+            currentSchemaExpression = connection.getMetaData().getDatabaseProductName()
+                .toLowerCase(java.util.Locale.ROOT).contains("mysql") ? "DATABASE()" : "CURRENT_SCHEMA()";
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException("Unable to identify database schema for permission FK parity", e);
+        }
         Integer count = jdbc.queryForObject("""
             SELECT COUNT(*)
             FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
             WHERE UPPER(CONSTRAINT_NAME)=?
-              AND UPPER(CONSTRAINT_SCHEMA)=UPPER(CURRENT_SCHEMA())
+              AND UPPER(CONSTRAINT_SCHEMA)=UPPER("""+currentSchemaExpression+""")
               AND UPPER(TABLE_NAME)=?
               AND CONSTRAINT_TYPE='FOREIGN KEY'
             """, Integer.class, name, table);

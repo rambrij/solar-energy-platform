@@ -79,7 +79,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
         </a>
         <nav className="primary-navigation" aria-label="Main navigation">
           <a href="/vendors" aria-current={mode === 'online' ? 'page' : undefined}>Marketplace</a>
-          <a href="/vendor/pos" aria-current={mode === 'pos' ? 'page' : undefined}>Store POS</a>
+          {mode === 'pos' && <a href="/vendor/pos" aria-current="page">Store POS</a>}
         </nav>
         <div className="header-tools">
           <div className="quick-jump" ref={jumpRoot} onKeyDown={event => {

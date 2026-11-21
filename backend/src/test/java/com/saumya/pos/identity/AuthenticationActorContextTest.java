@@ -3,6 +3,7 @@ package com.saumya.pos.identity;
 import com.saumya.pos.identity.internal.*;
 import com.saumya.pos.membership.MembershipService;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.security.ActorSessionDetails;
 import java.lang.reflect.Proxy;
 import java.time.Clock;
 import java.time.Instant;
@@ -74,8 +75,8 @@ class AuthenticationActorContextTest {
   var authorities=List.of(new SimpleGrantedAuthority("CUSTOMER"),
       new SimpleGrantedAuthority(AuthorizationContext.ACTOR_CONTEXT_CUSTOMER));
   var authentication=UsernamePasswordAuthenticationToken.authenticated(USER,null,authorities);
-  authentication.setDetails(new AuthenticationService.ActorSessionDetails(
-      AuthenticationService.ActorType.CUSTOMER,null,null,family));
+  authentication.setDetails(new ActorSessionDetails(
+      "CUSTOMER",null,null,family));
   SecurityContextHolder.getContext().setAuthentication(authentication);
  }
 
@@ -84,8 +85,8 @@ class AuthenticationActorContextTest {
       new SimpleGrantedAuthority("ORDER_VIEW"),
       new SimpleGrantedAuthority(AuthorizationContext.ACTOR_CONTEXT_VENDOR));
   var authentication=UsernamePasswordAuthenticationToken.authenticated(USER,null,authorities);
-  authentication.setDetails(new AuthenticationService.ActorSessionDetails(
-      AuthenticationService.ActorType.VENDOR,77L,"77:"+USER,family));
+  authentication.setDetails(new ActorSessionDetails(
+      "VENDOR",77L,"77:"+USER,family));
   SecurityContextHolder.getContext().setAuthentication(authentication);
  }
 

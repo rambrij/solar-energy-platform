@@ -218,27 +218,49 @@ class P004TenantIsolationTest {
             Integer.class, VENDOR_A_TENANT, VENDOR_B_TENANT)).isZero();
     }
 
+    private static final List<String> VENDOR_A_GRANTS = List.of(
+        "ROLE_VIEW", "ROLE_UPDATE", "USER_VIEW", "ROLE_ASSIGN", "USER_UPDATE",
+        "USER_DISABLE", "INVENTORY_VIEW", "INVENTORY_ADJUST");
+    private static final List<String> VENDOR_B_GRANTS = VENDOR_A_GRANTS;
+
     private <T> T asVendorA(Supplier<T> operation) {
-        return as(VENDOR_A, List.of(), operation);
+        return as(VENDOR_A, AuthenticationService.ActorType.VENDOR,
+            VENDOR_A_TENANT, VENDOR_A_BRANCH, VENDOR_A_GRANTS, operation);
     }
 
     private <T> T asVendorB(Supplier<T> operation) {
-        return as(VENDOR_B, List.of(), operation);
+        return as(VENDOR_B, AuthenticationService.ActorType.VENDOR,
+            VENDOR_B_TENANT, VENDOR_B_BRANCH, VENDOR_B_GRANTS, operation);
     }
 
     private <T> T asCustomerA(Supplier<T> operation) {
-        return as(CUSTOMER_A, List.of("CUSTOMER"), operation);
+        return as(CUSTOMER_A, AuthenticationService.ActorType.CUSTOMER,
+            null, null, List.of("CUSTOMER"), operation);
     }
 
     private <T> T asCustomerB(Supplier<T> operation) {
-        return as(CUSTOMER_B, List.of("CUSTOMER"), operation);
+        return as(CUSTOMER_B, AuthenticationService.ActorType.CUSTOMER,
+            null, null, List.of("CUSTOMER"), operation);
     }
 
-    private <T> T as(String username, List<String> grants, Supplier<T> operation) {
+    private <T> T as(String username, AuthenticationService.ActorType actorType,
+            Long tenantId, Long branchId, List<String> permissions, Supplier<T> operation) {
         var previous = SecurityContextHolder.getContext();
         var current = SecurityContextHolder.createEmptyContext();
-        current.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
-            username, "P004", grants.stream().map(SimpleGrantedAuthority::new).toList()));
+        String marker = switch (actorType) {
+            case PLATFORM -> AuthorizationContext.ACTOR_CONTEXT_PLATFORM;
+            case VENDOR -> AuthorizationContext.ACTOR_CONTEXT_VENDOR;
+            case CUSTOMER -> AuthorizationContext.ACTOR_CONTEXT_CUSTOMER;
+        };
+        var authorities = java.util.stream.Stream.concat(
+            permissions.stream(), java.util.stream.Stream.of(marker))
+            .map(SimpleGrantedAuthority::new).toList();
+        var authentication = UsernamePasswordAuthenticationToken.authenticated(
+            username, "P004", authorities);
+        String membershipId = tenantId == null ? null : tenantId + ":" + username;
+        authentication.setDetails(new AuthenticationService.ActorSessionDetails(
+            actorType, tenantId, membershipId, "p004-test-family"));
+        current.setAuthentication(authentication);
         SecurityContextHolder.setContext(current);
         try {
             return operation.get();

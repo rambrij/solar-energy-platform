@@ -163,14 +163,15 @@ public final class TenantIsolationFixture {
             WHERE NOT EXISTS(SELECT 1 FROM subscription_plan_versions WHERE plan_id=? AND version=1)
             """.formatted(jsonCast,jsonCast);
         db.update(versionSql,planId,entitlementsJson,"{}",actorUsername,planId);
+
         String subscriptionSql="""
             INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,
                 billing_period_start,billing_period_end,terms_snapshot)
             SELECT ?,?,1,'ACTIVE',DATE '2026-01-01',DATE '2099-12-31',%s
             WHERE NOT EXISTS(SELECT 1 FROM tenant_subscriptions WHERE tenant_id=?)
             """.formatted(jsonCast);
-        db.update(subscriptionSql,tenantId,planId,"{\\"test\\":true}",tenantId);
         db.update(subscriptionSql,tenantId,planId,"{\"test\":true}",tenantId);
+    }
 
     private String jsonCastExpression(){
         try(var connection=db.getDataSource().getConnection()){

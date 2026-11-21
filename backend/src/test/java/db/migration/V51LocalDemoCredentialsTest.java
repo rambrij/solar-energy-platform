@@ -98,5 +98,6 @@ class V51LocalDemoCredentialsTest {
         db.execute("CREATE TABLE customer_profiles(id BIGINT PRIMARY KEY,user_id BIGINT UNIQUE)");
         db.execute("CREATE TABLE registers(id BIGINT PRIMARY KEY,tenant_id BIGINT,branch_id BIGINT)");
         db.execute("CREATE TABLE tenant_customers(id VARCHAR(64) PRIMARY KEY,tenant_id BIGINT,customer_id BIGINT,consent_at TIMESTAMP,provenance VARCHAR(80),UNIQUE(tenant_id,customer_id))");
+        db.update("INSERT INTO registers(id,tenant_id,branch_id) VALUES (910011,910001,910001),(910012,910001,910001),(910013,910001,910001),(920011,920001,920001),(920012,920001,920001),(920013,920001,920001),(930011,930001,930001),(930012,930001,930001),(930013,930001,930001)");
     }
 }

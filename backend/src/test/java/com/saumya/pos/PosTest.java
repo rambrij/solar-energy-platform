@@ -944,7 +944,7 @@ class PosTest {
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_REOPEN"))
       .contentType("application/json").content(body))
     .andExpect(status().isBadRequest());
-  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_REOPEN"))
+  mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_VIEW"))
       .contentType("application/json").content("{\"openingFloat\":20,\"reason\":\"Supervisor reviewed drawer\"}"))
     .andExpect(status().isForbidden());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=1 AND register_id=1 AND state='OPEN'",Integer.class)).isZero();
@@ -960,6 +960,7 @@ class PosTest {
  @Test void sessionReopenRequiresExplicitPermissionAndCreatesANewImmutableShift(){
   var cashier=new PosService.Scope(1,1,"charlie");
   employee("charlie",1,1);
+  db.update("DELETE FROM vendor_role_permissions WHERE tenant_id=1 AND role_id=(SELECT id FROM vendor_roles WHERE tenant_id=1 AND role_key='test-charlie') AND permission='POS_SESSION_REOPEN'");
   asScope(a,()->service.close(a,session,new BigDecimal("50")));
   assertThatThrownBy(()->asScope(cashier,()->service.reopen(cashier,session,new PosService.ReopenSession(BigDecimal.TEN,"Supervisor approved reopen"))))
     .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);

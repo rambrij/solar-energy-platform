@@ -126,7 +126,7 @@ class PosTest {
   long id=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",id,username,encoder.encode("StaffPasswordForTests"));
   update("INSERT INTO employees VALUES(?,?,?,TRUE)",username,tenant,branch);
-  List<String> permissions=List.of("CATALOG_PROMOTION_MANAGE","INVENTORY_ADJUST","INVENTORY_RECEIVE","INVENTORY_VIEW","POS_CASHIER_REPORT_VIEW","POS_CASH_IN","POS_CASH_OUT","POS_DISCOUNT_APPLY","POS_DISCOUNT_APPROVE","POS_DISCOUNT_OVERRIDE","POS_RECEIPT_REPRINT","POS_RECEIPT_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD","POS_REFUND_PRINT","POS_REFUND_VIEW","POS_REPORT_EXPORT","POS_REPORT_VIEW","POS_RETURN_APPROVE","POS_RETURN_AUDIT_VIEW","POS_RETURN_CREATE","POS_RETURN_INSPECT","POS_RETURN_VIEW","POS_SALE_CREATE","POS_SALE_CANCEL","POS_SESSION_CLOSE","POS_SESSION_OPEN","POS_SETTINGS_MANAGE","POS_SAFE_DROP","POS_SHIFT_VARIANCE_APPROVE","POS_TENDER_CASH_RECORD","POS_TENDER_EXTERNAL_RECORD","POS_TENDER_MANUAL_VERIFY","POS_VIEW","PRICE_UPDATE","PRODUCT_ARCHIVE","PRODUCT_CREATE","PRODUCT_UPDATE","PRODUCT_VIEW","PRICE_VIEW");
+  List<String> permissions=com.saumya.pos.membership.VendorPermissionRegistry.all().stream().sorted().toList();
   String roleKey="test-"+username.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]","-");
   update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(?,?,?,TRUE,?,?)",tenant,roleKey,"Test "+username,username,username);
   Long roleId=db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=? AND role_key=?",Long.class,tenant,roleKey);
@@ -336,6 +336,21 @@ class PosTest {
   mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(productBody("P1","123",version,true,"120",null))).andExpect(status().isOk());
   assertThat(db.queryForObject("SELECT COUNT(*) FROM product_categories WHERE product_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT version FROM products WHERE id=1",Long.class)).isGreaterThan(version);
   mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(productBody("P1","123",version,true,"120",10L))).andExpect(status().isConflict());
+ }
+ @Test void productPriceViewRequiresSeparatePermission() throws Exception {
+  setEmployeeRolePermissions("alice",List.of("PRODUCT_VIEW"));
+  var hidden=mvc.perform(get("/api/v1/vendor/products").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isOk()).andReturn();
+  var hiddenJson=json.readTree(hidden.getResponse().getContentAsString());
+  assertThat(hiddenJson.path("items").get(0).path("price").isNull()).isTrue();
+  assertThat(hiddenJson.path("items").get(0).path("taxRate").isNull()).isTrue();
+
+  setEmployeeRolePermissions("alice",List.of("PRODUCT_VIEW","PRICE_VIEW"));
+  var visible=mvc.perform(get("/api/v1/vendor/products").with(user("alice").authorities(()->"PRODUCT_VIEW",()->"PRICE_VIEW")))
+   .andExpect(status().isOk()).andReturn();
+  var visibleJson=json.readTree(visible.getResponse().getContentAsString());
+  assertThat(visibleJson.path("items").get(0).path("price").decimalValue()).isEqualByComparingTo("100.00");
+  assertThat(visibleJson.path("items").get(0).path("taxRate").decimalValue()).isEqualByComparingTo("10.00");
  }
  @Test void categoryManagementEnforcesPermissionsTenantOwnershipVersionAndArchive() throws Exception {
   String body="{\"name\":\"Panels\",\"slug\":\"panels\",\"expectedVersion\":0,\"active\":true,\"reason\":\"Approved catalogue setup\"}";

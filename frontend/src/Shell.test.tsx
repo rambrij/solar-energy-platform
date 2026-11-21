@@ -22,6 +22,7 @@ function grantPermissions(permissions: string[]) {
     tenantId: permissions.includes('CUSTOMER') ? null : 1,
     branchId: permissions.includes('CUSTOMER') ? null : 10,
     permissions,
+    actorType: permissions.includes('CUSTOMER') ? 'CUSTOMER' : permissions.some(p=>p.startsWith('PLATFORM_')) ? 'PLATFORM' : 'VENDOR',
   });
 }
 

@@ -2,6 +2,7 @@ package com.saumya.pos.identity;
 
 import com.saumya.pos.identity.internal.*;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.security.ActorSessionDetails;
 import com.saumya.pos.security.VendorMembershipAccess;
 import com.saumya.pos.security.VendorMembershipResolver;
 import java.time.*;
@@ -37,7 +38,6 @@ public class AuthenticationService {
  public enum ActorType { PLATFORM, VENDOR, CUSTOMER }
  public record Account(String username,Long tenantId,Long branchId,List<String> permissions,ActorType actorType,String membershipId,List<ActorType> availableActorTypes) {}
  public record Session(String accessToken,int expiresIn,Account account,String refreshToken) {}
- public record ActorSessionDetails(ActorType actorType,Long tenantId,String membershipId,String family) {}
 
  @Autowired
  public AuthenticationService(GlobalUserRepository users,CustomerRepository customers,IdentitySequenceRepository sequence,
@@ -179,7 +179,7 @@ public class AuthenticationService {
   var auth=SecurityContextHolder.getContext().getAuthentication();
   if(auth==null||!auth.isAuthenticated()||!Objects.equals(username,auth.getName()))throw denied();
   if(!(auth.getDetails() instanceof ActorSessionDetails active))throw denied();
-  if(active.actorType()==ActorType.PLATFORM||target==null||target==ActorType.PLATFORM)
+  if(ActorType.valueOf(active.actorType())==ActorType.PLATFORM||target==null||target==ActorType.PLATFORM)
    throw new ResponseStatusException(FORBIDDEN,"Platform identity cannot switch into or out of commercial actor context");
   if(active.actorType()==target&&Objects.equals(active.tenantId(),targetTenantId))
    throw new ResponseStatusException(CONFLICT,"Requested actor context is already active");
@@ -191,7 +191,7 @@ public class AuthenticationService {
   }
   if(!Objects.equals(current.username(),username)
     ||!Objects.equals(current.family(),active.family())
-    ||!Objects.equals(current.actorType(),active.actorType().name())
+    ||!Objects.equals(current.actorType(),active.actorType())
     ||!Objects.equals(current.tenantId(),active.tenantId())
     ||!Objects.equals(current.membershipId(),active.membershipId()))
    throw denied();
@@ -245,7 +245,7 @@ public class AuthenticationService {
   });
   var authentication=UsernamePasswordAuthenticationToken.authenticated(username,null,
     authorities.stream().map(SimpleGrantedAuthority::new).toList());
-  authentication.setDetails(new ActorSessionDetails(actorType,tenantId,membershipId,family));
+  authentication.setDetails(new ActorSessionDetails(actorType.name(),tenantId,membershipId,family));
   return authentication;
  }
 
@@ -258,7 +258,7 @@ public class AuthenticationService {
    throw new ResponseStatusException(FORBIDDEN,"Account identity must match authenticated principal");
   if(!(actor.getDetails() instanceof ActorSessionDetails details))
    throw new ResponseStatusException(FORBIDDEN,"Explicit actor context required");
-  Account current=account(username,true,details.actorType(),details.tenantId());
+  Account current=account(username,true,ActorType.valueOf(details.actorType()),details.tenantId());
   if(!Objects.equals(current.membershipId(),details.membershipId()))
    throw new ResponseStatusException(FORBIDDEN,"Actor membership context changed");
   return current;

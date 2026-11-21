@@ -2921,28 +2921,14 @@ class PosTest {
       .as("persisted Platform Super Admin must receive the canonical platform permission registry")
       .containsAll(com.saumya.pos.platform.PlatformPermissionRegistry.all());
 
-  // Create persisted subscription fixtures through authenticated platform APIs.
-  String platformToken=tokens.get("PLATFORM_SUPER_ADMIN");
-  Map<String,Object> planPayload=new LinkedHashMap<>();
-  planPayload.put("planKey","p006-matrix-plan");planPayload.put("displayName","P0-06 Matrix Plan");
-  planPayload.put("price",new BigDecimal("10.00"));planPayload.put("currency","INR");
-  planPayload.put("billingInterval","MONTHLY");planPayload.put("maxUsers",10);
-  planPayload.put("maxStorageMb",1024);planPayload.put("maxBranches",2);planPayload.put("maxWarehouses",1);
-  planPayload.put("entitlements","{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ORDERS\":true}}");
-  planPayload.put("graceDays",7);planPayload.put("taxMetadata","{}");
-  planPayload.put("invoiceDescription","P0-06 authorization fixture");
-  String planBody=json.writeValueAsString(planPayload);
-  var planResponse=mvc.perform(post("/api/v1/platform/subscription-plans")
-      .header("Authorization","Bearer "+platformToken).with(csrf())
-      .contentType("application/json").content(planBody)).andExpect(status().isCreated()).andReturn();
-  long matrixPlanId=json.readTree(planResponse.getResponse().getContentAsString()).get("id").asLong();
-  String subscriptionBody=json.writeValueAsString(Map.of(
-      "planId",matrixPlanId,"periodStart",java.time.LocalDate.now().toString(),
-      "periodEnd",java.time.LocalDate.now().plusMonths(1).toString(),
-      "reason","P0-06 persisted endpoint actor fixture"));
-  mvc.perform(post("/api/v1/platform/tenants/910001/subscription")
-      .header("Authorization","Bearer "+platformToken).with(csrf())
-      .contentType("application/json").content(subscriptionBody)).andExpect(status().isOk());
+  // Seed a real plan/subscription for read and transition endpoint probes.
+  // Writes are fixture setup only; runtime endpoint calls below still use persisted JWT actors.
+  update("INSERT INTO subscription_plans(plan_key,display_name,active,current_version,created_at,updated_at) VALUES('p006-matrix-fixture-plan','P0-06 Matrix Plan',TRUE,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+  Long matrixPlanId=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);
+  update("INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by,created_at) VALUES(?,1,10.00,'INR','MONTHLY',10,1024,2,1,'{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ORDERS\":true}}',7,'{}','P0-06 fixture','superadmin@platform.demo.test',CURRENT_TIMESTAMP)",matrixPlanId);
+  update("INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot,created_at,updated_at) VALUES(910001,?,1,'PENDING',CURRENT_DATE,DATE_ADD(CURRENT_DATE,INTERVAL 1 MONTH),'{}',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",matrixPlanId);
+  Long matrixSubscriptionId=db.queryForObject("SELECT MIN(id) FROM tenant_subscriptions",Long.class);
+  update("INSERT INTO subscription_events(tenant_id,subscription_id,old_status,new_status,actor_username,reason,occurred_at) VALUES(910001,?,NULL,'PENDING','superadmin@platform.demo.test','P0-06 fixture',CURRENT_TIMESTAMP)",matrixSubscriptionId);
 
   List<String> csv=new ArrayList<>();
   csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");
@@ -2982,7 +2968,13 @@ class PosTest {
       var body=parameter.getAnnotation(org.springframework.web.bind.annotation.RequestBody.class);
       if(body!=null){
        Object value=matrixProbeValue(parameter.getType(),parameter.getName(),parameter.getParameterizedType());
-       request.contentType("application/json").content(json.writeValueAsString(value));
+       String bodyJson=json.writeValueAsString(value);
+       if(route.contains("/subscription-plans/{id}/versions")){
+        var bodyNode=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(bodyJson);
+        bodyNode.put("planKey","p006-matrix-fixture-plan");
+        bodyJson=json.writeValueAsString(bodyNode);
+       }
+       request.contentType("application/json").content(bodyJson);
       }
       var query=parameter.getAnnotation(org.springframework.web.bind.annotation.RequestParam.class);
       if(query!=null&&query.required()

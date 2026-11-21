@@ -2277,7 +2277,7 @@ class PosTest {
     core=core.replace("30,'{}','Local demo subscription'",
         "30,'{}' FORMAT JSON,'Local demo subscription'");
     core=core.replace("DATE '2099-12-31','{\"demo\":true}'",
-        "DATE '2099-12-31',CAST('{\"demo\":true}' FORMAT JSON AS JSON)");
+        "DATE '2099-12-31','{\"demo\":true}' FORMAT JSON");
     connection.setAutoCommit(false);
     try{for(String sql:core.split(";"))if(!sql.isBlank())statement.execute(sql.replace("DROP TEMPORARY TABLE","DROP TABLE"));connection.commit();}
     catch(Exception e){connection.rollback();throw e;}

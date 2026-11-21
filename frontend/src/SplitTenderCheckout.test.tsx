@@ -33,6 +33,7 @@ it('keeps an expired unpaid bill disabled after checking the saved balance',asyn
 it('does not expose tender methods or retry without the matching operation permission',async()=>{
  vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_SALE_CREATE']}} as ReturnType<typeof useSession>);
  sessionStorage.setItem('pos-tender-command-v1:sale-1',JSON.stringify({key:'saved',body:{method:'CASH',appliedAmount:'110',cashReceived:'110'}}));
+ vi.mocked(api).mockResolvedValue(balance);
  render(<SplitTenderCheckout orderId="sale-1" onComplete={vi.fn()} onBusyChange={vi.fn()}/>);
  expect(screen.queryByText('Retry same tender')).toBeNull();
  fireEvent.click(screen.getByText('Load tender balance'));

@@ -80,6 +80,15 @@ class RuntimeAuthorizationPersistedRoleTest {
         db.update("DELETE FROM employee_role_assignments WHERE username=?", USER);
         db.update("DELETE FROM vendor_role_permissions WHERE role_id IN (SELECT id FROM vendor_roles WHERE role_key='runtime-matrix-viewer')");
         db.update("DELETE FROM vendor_roles WHERE role_key='runtime-matrix-viewer'");
+        // The persisted subscription plan version records its creator. Remove
+        // the tenant subscription and only this fixture-owned plan version
+        // before deleting the test actor that created it.
+        db.update("DELETE FROM tenant_subscriptions WHERE tenant_id=91001");
+        db.update("""
+            DELETE FROM subscription_plan_versions
+            WHERE plan_id IN (SELECT id FROM subscription_plans WHERE plan_key='p004-p101-test-plan')
+              AND created_by=?
+            """,USER);
         db.update("DELETE FROM employees WHERE username=?", USER);
         db.update("DELETE FROM users WHERE username=?", USER);
 

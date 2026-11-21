@@ -360,7 +360,7 @@ The existing implementation has useful authorization controls and must be preser
 
 ## P1-03 — Canonical permission catalogue alignment (2026-11-21)
 
-**Status: IMPLEMENTATION IN BRANCH — VALIDATION PENDING. P1-03 is not COMPLETE until the exact branch head passes all required test suites.**
+**Status: COMPLETE — VERIFIED on current branch head `e20ea97c9693aacc641f55c87abfb0924fd2858a`.** Workflow [#44933142896](https://github.com/rambrij/solar-energy-platform/actions/runs/44933142896) completed successfully for frontend, H2 backend and MySQL 8.4 backend. This supersedes the earlier validation-pending wording.
 
 - Canonical source: `backend/src/main/resources/authorization-policy-registry.json` version 2.
 - Assignable namespaces remain separate: vendor, platform, and the customer actor marker. Vendor roles cannot contain `PLATFORM_*` or `CUSTOMER`.
@@ -380,7 +380,7 @@ The existing implementation has useful authorization controls and must be preser
 - Updated test/demo actor seeds and the checked-in multi-vendor demo SQL to use only the implemented standard-role template grants. The demo SQL now has a parity test against the five supported role snapshots.
 - Added platform-page permission metadata in `usePermissions.ts`, route/shortcut checks in `PlatformBoundary.tsx`, and per-page / per-action filters in `PlatformApp.tsx`; subscription read is separate from subscription mutation.
 - Added `docs/security/PERMISSION_TRACEABILITY.md`, generated from the canonical trace rows, for reviewers to inspect operation/service/scope/UI/test evidence.
-- **P1-03 status: IMPLEMENTATION IN BRANCH — VALIDATION PENDING.** Previous CI runs passed P1-01/P1-02/P0-03 and P0-06 policy inventory/matrix focused tests and the MySQL clean demo migration count. They were blocked in P0-07 by stale demo role SQL, now corrected; final H2/MySQL P0-07, runtime actor, full-suite and frontend checker/build evidence is still required.
+- **P1-03 status: COMPLETE — VERIFIED.** The latest branch-head workflow [#44933142896](https://github.com/rambrij/solar-energy-platform/actions/runs/44933142896) passed all three jobs (frontend, H2, MySQL 8.4). The detailed catalogue, runtime, migration and test evidence is retained in the final validation record below.
 - RC-06 remains OPEN for `POS_TENDER_EXTERNAL_CONFIRM` versus implemented external tender record and separate manual verification permissions. No missing operation was invented.
 
 
@@ -390,13 +390,15 @@ The existing implementation has useful authorization controls and must be preser
 - Canonical JSON now records 18 explicit SRS-linked implementation refinements, with SRS parent identifiers, source references and rationale. All SRS §11.2 identifiers are classified; extra runtime IDs cannot exist without a documented refinement, orphaned or conflicting classification.
 - `PermissionCatalogueSrsParityTest` validates the expanded SRS shorthand IDs against the canonical classification sets and requires runtime-only IDs to be justified. Unknown identifiers remain empty.
 - CI now includes canonical contract, SRS parity and DB catalogue/foreign-key parity tests in both H2 and MySQL P0-06 registry-matrix jobs.
-- RC-06 remains OPEN only for the tender confirmation/record/manual-verify semantic conflict; P1-03 cannot be accepted until the SRS parity and DB tests pass on the final branch head.
+- RC-06 remains OPEN only for the tender confirmation/record/manual-verify semantic conflict. It is classified CONFLICTING and non-assignable; it does not block P1-03 because no conflicting permission is active or assignable. SRS parity and DB tests have passed.
 
 
 
 ### P1-03 final validation (2026-11-21)
 
-- **Status: COMPLETE — VERIFIED** on d550c392de4267718dc6c387378de83bf64471c7, workflow [#44931160016](https://github.com/rambrij/solar-energy-platform/actions/runs/44931160016). H2 and MySQL 8.4 jobs and frontend job all concluded SUCCESS.
+- **Latest branch-head confirmation:** `e20ea97c9693aacc641f55c87abfb0924fd2858a`; workflow [#44933142896](https://github.com/rambrij/solar-energy-platform/actions/runs/44933142896) completed successfully for frontend, H2 backend and MySQL 8.4 backend. This supersedes the earlier pending-validation statements in this section.
+
+- **Status: COMPLETE — VERIFIED on current branch head `e20ea97c9693aacc641f55c87abfb0924fd2858a`.** Latest workflow [#44933142896](https://github.com/rambrij/solar-energy-platform/actions/runs/44933142896) reports frontend, backend (H2) and backend (MySQL 8.4) all SUCCESS. Earlier detailed P1-03 test counts and runtime evidence are recorded in the plan and traceability document.
 - H2 full backend suite: 662 tests, 0 failures, 0 errors, 1 skipped. MySQL 8.4: 662 tests, 0 failures, 0 errors, 0 skipped. V55 ran successfully on both databases; clean local-demo migration checks passed on MySQL. P1-01, P1-02, P0-03, P0-06 and P0-07 focused regression steps passed in both backend lanes.
 - Frontend: 62 test files / 303 tests passed; registry parity checker reported 27 frontend routes, 41 backend controllers and 63 permission identifiers; production build passed.
 - P0-06 report on both database lanes: 41/41 actor scenarios passed, 18/18 P0-07 actor-context cases passed, 146 live endpoint rows, zero protected routes without persisted matching-actor evidence, 130 missing-permission HTTP checks passed, 131 anonymous checks passed, and 66/66 VIEW-only mutation operations denied. Report artifacts are available in the workflow run.

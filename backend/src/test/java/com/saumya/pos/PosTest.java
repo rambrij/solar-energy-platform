@@ -2777,6 +2777,14 @@ class PosTest {
   var annotation=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
   if(annotation!=null){if(!annotation.name().isBlank())key=annotation.name();else if(!annotation.value().isBlank())key=annotation.value();}
   Class<?> type=parameter.getType();
+  if(route.contains("/vendor/products/{id}")){
+   Long product=db.queryForObject("SELECT MIN(id) FROM products WHERE tenant_id=910001",Long.class);
+   return product==null?"1":product.toString();
+  }
+  if(route.contains("/sessions/{id}/close-status")){
+   String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='cashier@saumya.demo.test' AND state='OPEN'",String.class);
+   return session==null?"1":session;
+  }
   if(route.contains("/subscription-plans/{id}")){
    Long plan=db.queryForObject("SELECT MIN(id) FROM subscription_plans",Long.class);
    return plan==null?"1":plan.toString();

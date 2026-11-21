@@ -23,7 +23,7 @@ class DiscountPolicyServiceTest {
   VendorMembershipResolver membership=username->Optional.of(new VendorMembershipResolver.Membership(1,2,username,List.of("POS_VIEW","POS_DISCOUNT_OVERRIDE")));
   var auth=new AuthorizationContext(membership);
   SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated("cashier",null,
-   List.of(new SimpleGrantedAuthority("POS_VIEW"),new SimpleGrantedAuthority("POS_DISCOUNT_OVERRIDE"))));
+   List.of(new SimpleGrantedAuthority("POS_VIEW"),new SimpleGrantedAuthority("POS_DISCOUNT_OVERRIDE"),new SimpleGrantedAuthority(AuthorizationContext.ACTOR_CONTEXT_VENDOR))));
   var service=new DiscountPolicyService(repository,new BillPricing(),auth);
   assertThat(service.maximum(1)).isZero();
   assertThatThrownBy(()->service.configure(1,new BigDecimal("101"))).isInstanceOf(IllegalArgumentException.class);

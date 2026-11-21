@@ -2668,7 +2668,7 @@ class PosTest {
  private String matrixStringValue(String field){
   String name=field==null?"":field.toLowerCase(Locale.ROOT);
   if(name.contains("initialvendoradmin"))return "p006.tenant.owner@example.test";
-  if(name.equals("username"))return "p006.matrix.employee@saumya.demo.test";
+  if(name.equals("username"))return "p006.matrix.employee.created@saumya.demo.test";
   if(name.contains("email"))return "matrix.probe@example.test";
   if(name.contains("username")||name.contains("actor")||name.contains("cashier"))return "admin@saumya.demo.test";
   if(name.contains("token"))return "A".repeat(43);
@@ -2841,7 +2841,7 @@ class PosTest {
   if(type==String.class){
    String n=key.toLowerCase(Locale.ROOT);
    if(controller.contains("Platform")&&n.contains("username"))return "superadmin@platform.demo.test";
-   if(n.contains("username"))return "admin@saumya.demo.test";
+   if(n.contains("username"))return "p006.matrix.employee@saumya.demo.test";
    if(route.contains("/customer/orders/{id}")){
     String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE customer_id=949001 AND sales_channel='ONLINE'",String.class);
     return order==null?"1":order;
@@ -2960,6 +2960,14 @@ class PosTest {
   update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,'PLATFORM_IDENTITY_MANAGE')",mfaTarget);
 
   String adminName="admin@saumya.demo.test";
+  String employeeProbe="p006.matrix.employee@saumya.demo.test";
+  long employeeProbeId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",employeeProbeId,
+      employeeProbe,encoder.encode("MatrixEmployeePassword2026!"));
+  update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,910001,910001,TRUE)",employeeProbe);
+  Long employeeRole=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=910001",Long.class);
+  update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(910001,910001,?,?,TRUE,?)",
+      employeeProbe,employeeRole,adminName);
   Long adminRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+100 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",adminRegister);
   assignRegister(adminName,910001,910001,adminRegister);

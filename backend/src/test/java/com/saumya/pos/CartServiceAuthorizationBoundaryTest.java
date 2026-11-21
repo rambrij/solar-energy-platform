@@ -28,8 +28,7 @@ class CartServiceAuthorizationBoundaryTest {
         var stock=mock(InventoryService.class);
         var pricing=mock(Pricing.class);
         var authorization=mock(AuthorizationContext.class);
-        when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-            "vendor",7L,12L,Set.of("POS_VIEW"),false,false,true));
+        when(authorization.current()).thenReturn(new AuthorizationContext.Context("vendor", 7L, 12L, String.valueOf(7L) + ":" + ("vendor"), Set.of("POS_VIEW"), false, false, true));
         var service=new CartService(carts,items,customers,catalogue,stock,pricing);
         ReflectionTestUtils.setField(service,"authorization",authorization);
 

@@ -14,8 +14,7 @@ class BranchProvisioningServiceTest {
         var branches=mock(BranchConfigurationRepository.class);
         var sequences=mock(RetailSequenceRepository.class);
         var authorization=mock(AuthorizationContext.class);
-        when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-            "vendor-admin",7L,12L,java.util.Set.of("POS_VIEW"),false,false,true));
+        when(authorization.current()).thenReturn(new AuthorizationContext.Context("vendor-admin", 7L, 12L, String.valueOf(7L) + ":" + ("vendor-admin"), java.util.Set.of("POS_VIEW"), false, false, true));
         var service=new BranchProvisioningServiceImpl(branches,sequences,authorization);
         assertThatThrownBy(()->service.createInitialBranch(7,"Main Branch"))
             .isInstanceOf(ResponseStatusException.class);

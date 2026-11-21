@@ -63,7 +63,7 @@ class CheckoutServiceAuthorizationBoundaryTest {
     }
 
     private static AuthorizationContext.Context vendor(Set<String> permissions) {
-        return new AuthorizationContext.Context("cashier", 7L, 12L, permissions, false, false, true);
+        return new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), permissions, false, false, true);
     }
 
     private static CheckoutService.PosDraft draft() {
@@ -111,9 +111,7 @@ class CheckoutServiceAuthorizationBoundaryTest {
 
     @Test
     void platformAndCustomerActorsCannotEnterVendorCheckoutBoundaries() {
-        var customer = fixture(new AuthorizationContext.Context(
-            "buyer", null, null, Set.of("CUSTOMER"), false, true, false
-        ));
+        var customer = fixture(new AuthorizationContext.Context("buyer", null, null, null, Set.of("CUSTOMER"), false, true, false));
         forbidden(() -> customer.service().pos("buyer", "customer-pos-key-01", draft()));
         forbidden(() -> customer.service().cashSale("buyer", "customer-cash-key-01", cashSale()));
         forbidden(() -> customer.service().posList("buyer", "session-1"));
@@ -122,9 +120,7 @@ class CheckoutServiceAuthorizationBoundaryTest {
             customer.catalogue(), customer.stock(), customer.pricing(), customer.events()
         );
 
-        var platform = fixture(new AuthorizationContext.Context(
-            "platform-admin", null, null, Set.of("PLATFORM_TENANT_VIEW"), true, false, false
-        ));
+        var platform = fixture(new AuthorizationContext.Context("platform-admin", null, null, null, Set.of("PLATFORM_TENANT_VIEW"), true, false, false));
         forbidden(() -> platform.service().pos("platform-admin", "platform-pos-key-01", draft()));
         forbidden(() -> platform.service().cashSale("platform-admin", "platform-cash-key-01", cashSale()));
         forbidden(() -> platform.service().posList("platform-admin", "session-1"));

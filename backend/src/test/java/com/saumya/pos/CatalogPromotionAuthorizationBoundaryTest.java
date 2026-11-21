@@ -25,8 +25,7 @@ class CatalogPromotionAuthorizationBoundaryTest {
 
     private static AuthorizationContext vendorWithout(Set<String> permissions) {
         var auth=mock(AuthorizationContext.class);
-        when(auth.current()).thenReturn(new AuthorizationContext.Context(
-            "cashier",7L,12L,permissions,false,false,true));
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), permissions, false, false, true));
         return auth;
     }
 

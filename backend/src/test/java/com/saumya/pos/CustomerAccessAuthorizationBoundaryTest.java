@@ -28,16 +28,12 @@ class CustomerAccessAuthorizationBoundaryTest {
 
     @Test
     void vendorAndPlatformActorsCannotUseCustomerIdentityResolver() {
-        var vendor = fixture(new AuthorizationContext.Context(
-            "cashier", 7L, 12L, Set.of("POS_VIEW"), false, false, true
-        ));
+        var vendor = fixture(new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), Set.of("POS_VIEW"), false, false, true));
         forbidden(() -> vendor.service().resolve("buyer"));
         forbidden(() -> vendor.service().lock(100L));
         verifyNoInteractions(vendor.customers());
 
-        var platform = fixture(new AuthorizationContext.Context(
-            "platform-admin", null, null, Set.of("PLATFORM_TENANT_VIEW"), true, false, false
-        ));
+        var platform = fixture(new AuthorizationContext.Context("platform-admin", null, null, null, Set.of("PLATFORM_TENANT_VIEW"), true, false, false));
         forbidden(() -> platform.service().resolve("buyer"));
         forbidden(() -> platform.service().lock(100L));
         verifyNoInteractions(platform.customers());
@@ -46,10 +42,7 @@ class CustomerAccessAuthorizationBoundaryTest {
 
     @Test
     void dualCustomerAndVendorContextCannotCrossActorBoundary() {
-        var f = fixture(new AuthorizationContext.Context(
-            "dual-actor", 7L, 12L, Set.of("CUSTOMER", "POS_VIEW"),
-            false, true, true
-        ));
+        var f = fixture(new AuthorizationContext.Context("dual-actor", 7L, 12L, String.valueOf(7L) + ":" + ("dual-actor"), Set.of("CUSTOMER", "POS_VIEW"), false, true, true));
 
         forbidden(() -> f.service().resolve("dual-actor"));
         forbidden(() -> f.service().lock(100L));
@@ -58,9 +51,7 @@ class CustomerAccessAuthorizationBoundaryTest {
 
     @Test
     void customerCannotResolveAnotherUsername() {
-        var f = fixture(new AuthorizationContext.Context(
-            "buyer-a", null, null, Set.of("CUSTOMER"), false, true, false
-        ));
+        var f = fixture(new AuthorizationContext.Context("buyer-a", null, null, null, Set.of("CUSTOMER"), false, true, false));
 
         forbidden(() -> f.service().resolve("buyer-b"));
         verifyNoInteractions(f.customers());
@@ -68,9 +59,7 @@ class CustomerAccessAuthorizationBoundaryTest {
 
     @Test
     void customerCannotLockAnotherCustomersProfile() {
-        var f = fixture(new AuthorizationContext.Context(
-            "buyer-b", null, null, Set.of("CUSTOMER"), false, true, false
-        ));
+        var f = fixture(new AuthorizationContext.Context("buyer-b", null, null, null, Set.of("CUSTOMER"), false, true, false));
         when(f.customers().resolve("buyer-b")).thenReturn(Optional.of(200L));
 
         assertThatThrownBy(() -> f.service().lock(100L))
@@ -83,9 +72,7 @@ class CustomerAccessAuthorizationBoundaryTest {
 
     @Test
     void customerCanResolveAndLockOnlyTheirOwnProfile() {
-        var f = fixture(new AuthorizationContext.Context(
-            "buyer-a", null, null, Set.of("CUSTOMER"), false, true, false
-        ));
+        var f = fixture(new AuthorizationContext.Context("buyer-a", null, null, null, Set.of("CUSTOMER"), false, true, false));
         when(f.customers().resolve("buyer-a")).thenReturn(Optional.of(100L));
         when(f.customers().lock(100L)).thenReturn(Optional.of(new CustomerProfile(100L, 77L)));
 

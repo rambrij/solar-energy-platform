@@ -20,8 +20,7 @@ class CustomerAssociationServiceTest {
 
  @Test void vendorActorsCannotInvokeCustomerChallengeBoundariesBeforeAnyRepository(){
   var authorization=mock(AuthorizationContext.class);
-  when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-      "cashier",7L,12L,Set.of("POS_VIEW"),false,false,true));
+  when(authorization.current()).thenReturn(new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), Set.of("POS_VIEW"), false, false, true));
   var challenges=mock(CustomerChallengeRepository.class);
   var orders=mock(DraftRepository.class);
   var customers=mock(CustomerAccess.class);

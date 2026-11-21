@@ -15,8 +15,7 @@ class CatalogServicePaymentReviewAuthorizationTest {
     void paymentReviewProductLockRequiresManualVerifyBeforeRepositoryLookup() {
         var products = mock(ProductRepository.class);
         var auth = mock(AuthorizationContext.class);
-        when(auth.current()).thenReturn(new AuthorizationContext.Context(
-            "cashier", 7L, 12L, java.util.Set.of("POS_VIEW"), false, false, true));
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), java.util.Set.of("POS_VIEW"), false, false, true));
         var service = new CatalogService(null, products, null);
         ReflectionTestUtils.setField(service, "authorization", auth);
 

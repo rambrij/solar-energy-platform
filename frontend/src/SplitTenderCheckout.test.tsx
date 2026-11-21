@@ -1,9 +1,11 @@
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
-import {afterEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import {useSession} from './session';
 import SplitTenderCheckout from './SplitTenderCheckout';
 import {api} from './api';
 vi.mock('./api',()=>({api:vi.fn(),ApiError:class extends Error{constructor(public status:number){super('Rejected');}}}));
-vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_SALE_CREATE','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD']}})}));
+vi.mock('./session',()=>({useSession:vi.fn()}));
+beforeEach(()=>{vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_SALE_CREATE','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD']}} as ReturnType<typeof useSession>);});
 afterEach(()=>{cleanup();sessionStorage.clear();vi.resetAllMocks();});
 const balance={orderId:'sale-1',orderStatus:'DRAFT',total:110,confirmed:0,remaining:110,splitEnabled:true,tenders:[]};
 it('records partial cash with change and keeps sale unpaid',async()=>{
@@ -25,4 +27,17 @@ it('allows only the remaining collection on an expired bill with confirmed funds
 });
 it('keeps an expired unpaid bill disabled after checking the saved balance',async()=>{
  vi.mocked(api).mockResolvedValue(balance);render(<SplitTenderCheckout orderId="sale-1" reservationExpired onComplete={vi.fn()} onBusyChange={vi.fn()}/>);fireEvent.click(screen.getByText('Load tender balance'));await screen.findByLabelText('Tender method');expect(screen.getByLabelText('Tender method').matches(':disabled')).toBe(true);
+});
+
+
+it('does not expose tender methods or retry without the matching operation permission',async()=>{
+ vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_SALE_CREATE']}} as ReturnType<typeof useSession>);
+ sessionStorage.setItem('pos-tender-command-v1:sale-1',JSON.stringify({key:'saved',body:{method:'CASH',appliedAmount:'110',cashReceived:'110'}}));
+ render(<SplitTenderCheckout orderId="sale-1" onComplete={vi.fn()} onBusyChange={vi.fn()}/>);
+ expect(screen.queryByText('Retry same tender')).toBeNull();
+ fireEvent.click(screen.getByText('Load tender balance'));
+ await screen.findByText('DRAFT · Paid 0.00 · Remaining 110.00');
+ expect((screen.getByLabelText('Tender method') as HTMLSelectElement).options).toHaveLength(0);
+ expect((screen.getByText('Record received cash') as HTMLButtonElement).disabled).toBe(true);
+ expect(api).toHaveBeenCalledTimes(1);
 });

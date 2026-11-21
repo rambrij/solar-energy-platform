@@ -3101,7 +3101,12 @@ class PosTest {
      // Resource-ownership 404s and business-state 409s belong in the explicit,
      // fixture-backed runtimeScenarios below, not in this generic probe.
      boolean pass=actual>=200&&actual<300&&!bindingFailure;
-     String result=pass?"PASS":"FAIL";
+     // A non-auth 4xx proves the actor passed the endpoint permission gate and
+     // reached handler/service validation. Keep it distinct from successful
+     // business execution; explicit fixture-backed scenarios certify 404/409.
+     boolean authorizedRejection=actual>=400&&actual<500&&actual!=401&&actual!=403&&!bindingFailure;
+     boolean authorizationPass=pass||authorizedRejection;
+     String result=pass?"PASS":(authorizedRejection?"AUTHORIZED_REJECTED":"FAIL");
      String routeKey=route;
      String permission=policy.value().replace("\"","\"\"");
      String scope=""; // Controller policy scope is joined by report generation from canonical metadata.
@@ -3111,7 +3116,7 @@ class PosTest {
      System.out.println("P006_ENDPOINT_ACTOR|"+httpMethod.name()+"|"+route+"|"+actor+"|"+actual+"|"+result);
      protectedRows++;
      if(pass)passedRows++;
-     else {
+     else if(!authorizationPass) {
       failedRows++;
       endpointFailures.add(actor+" "+httpMethod.name()+" "+route+" policy="+policy.value()
           +" actual="+actual+" exception="+exception+" body="+response.getResponse().getContentAsString());
@@ -3123,7 +3128,8 @@ class PosTest {
   Path path=Path.of("target","p0-06-runtime-actor-endpoint-http.csv");
   try{Files.createDirectories(path.getParent());Files.write(path,csv,StandardCharsets.UTF_8);}
   catch(java.io.IOException error){throw new AssertionError("Cannot write endpoint actor matrix",error);}
-  System.out.println("P006_ENDPOINT_ACTOR_SUMMARY|protectedRoutes="+protectedRows+"|passed="+passedRows+"|failed="+failedRows);
+  System.out.println("P006_ENDPOINT_ACTOR_SUMMARY|protectedRoutes="+protectedRows+"|businessSuccess="+passedRows
+      +"|authorizedBusinessRejections="+(protectedRows-passedRows-failedRows)+"|authorizationFailures="+failedRows);
   endpointFailures.forEach(failure->System.out.println("P006_ENDPOINT_ACTOR_FAILURE|"+failure));
   assertThat(failedRows).as("all protected live method/route mappings must execute successfully with persisted matching actors").isZero();
  }

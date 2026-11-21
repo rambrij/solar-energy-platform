@@ -173,6 +173,14 @@ class PosTest {
   try { return action.get(); }
   finally { org.springframework.security.core.context.SecurityContextHolder.setContext(previous); }
  }
+ <T> T asAuthentication(org.springframework.security.core.Authentication authentication, java.util.function.Supplier<T> action) {
+  var previous = org.springframework.security.core.context.SecurityContextHolder.getContext();
+  var current = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+  current.setAuthentication(authentication);
+  org.springframework.security.core.context.SecurityContextHolder.setContext(current);
+  try { return action.get(); }
+  finally { org.springframework.security.core.context.SecurityContextHolder.setContext(previous); }
+ }
 
  org.springframework.test.web.servlet.request.RequestPostProcessor bearer(String username,String password)throws Exception{var response=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username,"password",password)))).andExpect(status().isOk()).andReturn();String token=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString()).get("accessToken").asText();return request->{request.addHeader("Authorization","Bearer "+token);return request;};}
  CheckoutService.CashSale sale(long product,String cash){return new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(product,1)),new BigDecimal(cash),false,null,null);}
@@ -371,6 +379,23 @@ class PosTest {
   long userId=db.queryForObject("SELECT id FROM users WHERE username='dual.worker@example.test'",Long.class);
   update("INSERT INTO customer_profiles VALUES(?,?)",userId,userId);
 
+  // RC-01 permits an existing global Customer identity to be used for Vendor onboarding.
+  String onboardingPlatform="onboarding.admin@platform.example.test";
+  long onboardingPlatformId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",
+      onboardingPlatformId,onboardingPlatform,encoder.encode("PlatformOnboardPassword"));
+  update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,'PLATFORM_TENANT_CREATE')",onboardingPlatform);
+  var onboardingSession=authentication.login(onboardingPlatform,"PlatformOnboardPassword");
+  var onboardingActor=authentication.authenticate(jwt.decoder().decode(onboardingSession.accessToken()));
+  var identityProvisioning=applicationContext.getBean(com.saumya.pos.identity.IdentityProvisioningService.class);
+  asAuthentication(onboardingActor,()->{
+    identityProvisioning.ensureVendorEligible("dual.worker@example.test");
+    var invitation=identityProvisioning.issueInvitation("dual.worker@example.test");
+    assertThat(invitation.accountAlreadyActive()).isTrue();
+    assertThat(invitation.token()).isNull();
+    return null;
+  });
+
   String credentials="{\"username\":\"dual.worker@example.test\",\"password\":\"StaffPasswordForTests\"}";
   mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(credentials))
       .andExpect(status().isConflict());
@@ -392,6 +417,17 @@ class PosTest {
       .andExpect(status().isOk());
   mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+customerToken))
       .andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(customerRefresh)
+      .header("Authorization","Bearer "+customerToken).contentType("application/json")
+      .content("{\\"actorType\\":\\"PLATFORM\\"}"))
+      .andExpect(status().isForbidden());
+  mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(customerRefresh)
+      .header("Authorization","Bearer "+customerToken).contentType("application/json")
+      .content("{\\"actorType\\":\\"VENDOR\\",\\"tenantId\\":2}"))
+      .andExpect(status().isUnauthorized());
+  // A rejected context selection must not consume or broaden the existing Customer session.
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+customerToken))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.actorType").value("CUSTOMER"));
 
   String switchBody="{\"actorType\":\"VENDOR\",\"tenantId\":1}";
   var switched=mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(customerRefresh)
@@ -431,9 +467,73 @@ class PosTest {
       .andExpect(status().isUnauthorized());
 
   update("INSERT INTO platform_user_permissions(username,permission) VALUES('dual.worker@example.test','PLATFORM_SUPPORT_ACCESS')");
+  asAuthentication(onboardingActor,()->{
+    assertThatThrownBy(()->identityProvisioning.ensureVendorEligible("dual.worker@example.test"))
+        .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+        .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.CONFLICT);
+    return null;
+  });
   assertThatThrownBy(()->authentication.login("dual.worker@example.test","StaffPasswordForTests"))
       .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
       .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.UNAUTHORIZED);
+ }
+ @Test void p007VendorCanSwitchBackToCustomerAndDropsVendorScope() throws Exception {
+  employee("dual.switchback@example.test",1,1);
+  long userId=db.queryForObject("SELECT id FROM users WHERE username='dual.switchback@example.test'",Long.class);
+  update("INSERT INTO customer_profiles VALUES(?,?)",userId,userId);
+
+  String loginBody="{\\"username\\":\\"dual.switchback@example.test\\",\\"password\\":\\"StaffPasswordForTests\\",\\"actorType\\":\\"VENDOR\\",\\"tenantId\\":1}";
+  var login=mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(loginBody))
+      .andExpect(status().isOk()).andReturn();
+  String vendorToken=json.readTree(login.getResponse().getContentAsString()).path("accessToken").asText();
+  var vendorRefresh=login.getResponse().getCookie("solar-refresh");
+  assertThat(vendorRefresh).isNotNull();
+  assertThat(jwt.decoder().decode(vendorToken).getClaimAsString("actor_type")).isEqualTo("VENDOR");
+
+  var switched=mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(vendorRefresh)
+      .header("Authorization","Bearer "+vendorToken).contentType("application/json")
+      .content("{\\"actorType\\":\\"CUSTOMER\\"}"))
+      .andExpect(status().isOk()).andReturn();
+  String customerToken=json.readTree(switched.getResponse().getContentAsString()).path("accessToken").asText();
+  var customerRefresh=switched.getResponse().getCookie("solar-refresh");
+  assertThat(customerRefresh).isNotNull();
+  assertThat(customerRefresh.getValue()).isNotEqualTo(vendorRefresh.getValue());
+  var customerJwt=jwt.decoder().decode(customerToken);
+  assertThat(customerJwt.getClaimAsString("actor_type")).isEqualTo("CUSTOMER");
+  assertThat(customerJwt.getClaims().containsKey("tenant")).isFalse();
+  assertThat(customerJwt.getClaimAsString("membership_id")).isNull();
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+customerToken))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.actorType").value("CUSTOMER"))
+      .andExpect(jsonPath("$.permissions[0]").value("CUSTOMER"));
+  mvc.perform(get("/api/v1/customer/cart").header("Authorization","Bearer "+customerToken))
+      .andExpect(status().isOk());
+  mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+customerToken))
+      .andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+vendorToken))
+      .andExpect(status().isUnauthorized());
+
+  var refreshed=mvc.perform(post("/api/v1/auth/refresh").with(csrf()).cookie(customerRefresh))
+      .andExpect(status().isOk()).andReturn();
+  String refreshedToken=json.readTree(refreshed.getResponse().getContentAsString()).path("accessToken").asText();
+  var refreshedJwt=jwt.decoder().decode(refreshedToken);
+  assertThat(refreshedJwt.getClaimAsString("actor_type")).isEqualTo("CUSTOMER");
+  assertThat(refreshedJwt.getClaims().containsKey("tenant")).isFalse();
+ }
+ @Test void p007PlatformIdentityCannotSwitchIntoCommercialContext() throws Exception {
+  multiVendorDemo();
+  var platformSession=authentication.login("superadmin@platform.demo.test","PlatformDemo2026!");
+  var refreshCookie=new jakarta.servlet.http.Cookie("solar-refresh",platformSession.refreshToken());
+  for(String target:List.of("{\\"actorType\\":\\"CUSTOMER\\"}","{\\"actorType\\":\\"VENDOR\\",\\"tenantId\\":910001}")) {
+    mvc.perform(post("/api/v1/auth/context").with(csrf()).cookie(refreshCookie)
+        .header("Authorization","Bearer "+platformSession.accessToken()).contentType("application/json").content(target))
+        .andExpect(status().isForbidden());
+  }
+  mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+platformSession.accessToken()))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.actorType").value("PLATFORM"));
+  mvc.perform(get("/api/v1/vendor/products").header("Authorization","Bearer "+platformSession.accessToken()))
+      .andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/customer/cart").header("Authorization","Bearer "+platformSession.accessToken()))
+      .andExpect(status().isForbidden());
  }
  @Test void vendorMembershipIsRevalidatedForEveryJwtRequest() throws Exception {
   setEmployeeRolePermissions("alice",List.of("POS_VIEW"));var login=authentication.login("alice","StaffPasswordForTests");

@@ -223,7 +223,7 @@ class P004TenantIsolationTest {
 
     private static final List<String> VENDOR_A_GRANTS = List.of(
         "ROLE_VIEW", "ROLE_UPDATE", "USER_VIEW", "ROLE_ASSIGN", "USER_UPDATE",
-        "USER_DISABLE", "INVENTORY_VIEW", "INVENTORY_ADJUST");
+        "USER_DISABLE", "INVENTORY_VIEW");
     private static final List<String> VENDOR_B_GRANTS = VENDOR_A_GRANTS;
 
     private <T> T asVendorA(Supplier<T> operation) {

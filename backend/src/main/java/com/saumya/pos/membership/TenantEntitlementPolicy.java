@@ -81,6 +81,14 @@ public class TenantEntitlementPolicy {
             else if(rawEntitlements!=null)entitlements=json.readTree(rawEntitlements.toString());
             else return List.of();
         }catch(Exception e){return List.of();}
+        // H2's JSON JDBC representation can be returned as a JSON string
+        // containing the actual JSON document. Unwrap that representation
+        // once; ordinary JSON objects from MySQL pass through unchanged.
+        if(entitlements.isTextual()){
+            try{entitlements=json.readTree(entitlements.asText());}
+            catch(Exception e){return List.of();}
+        }
+        if(!entitlements.isObject())return List.of();
         JsonNode features=entitlements.path("features");
         List<String> result=new ArrayList<>();
         for(String permission:grants){

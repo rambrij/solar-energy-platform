@@ -1,10 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import {useSession} from './session';
 import OrderHistory from './OrderHistory';
 import { api } from './api';
 import { marketplaceApi } from './marketplaceApi';
 vi.mock('./api', () => ({ api: vi.fn() }));
 vi.mock('./marketplaceApi', () => ({ marketplaceApi: vi.fn() }));
+vi.mock('./session',()=>({useSession:vi.fn()}));
+beforeEach(()=>{vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_VIEW','POS_RECEIPT_VIEW','POS_RETURN_CREATE']}} as ReturnType<typeof useSession>);});
 const order = { id: '12345678-abcd-4321-abcd-123456789000', vendorName: 'Solar Partner', channel: 'IN_STORE', status: 'PAID', createdAt: '2026-11-13T09:00:00Z', expiresAt: null, total: 110, receiptNumber: 4, taxInvoice: true };
 const page = { items: [order], page: 0, size: 10, totalElements: 11, totalPages: 2 };
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
@@ -63,4 +66,16 @@ it('reports receipt permission failures without discarding history', async () =>
   vi.mocked(api).mockResolvedValueOnce(page).mockRejectedValueOnce(new Error('Forbidden'));
   render(<OrderHistory mode="pos" onReceipt={vi.fn()}/>); fireEvent.click(screen.getByText('Load order history')); fireEvent.click(await screen.findByText('Open receipt 4'));
   await screen.findByText(/Receipt-view permission is required/); expect(screen.getByText('Solar Partner')).toBeTruthy();
+});
+
+
+it('hides return and receipt actions without their exact POS grants',async()=>{
+ vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_VIEW']}} as ReturnType<typeof useSession>);
+ vi.mocked(api).mockResolvedValue(page);
+ render(<OrderHistory mode="pos" onReceipt={vi.fn()} onReturn={vi.fn()}/>);
+ fireEvent.click(screen.getByText('Load order history'));
+ await screen.findByText('Solar Partner');
+ expect(screen.queryByText('Start return 4')).toBeNull();
+ expect(screen.queryByText('Open receipt 4')).toBeNull();
+ expect(screen.getByText('View order '+order.id)).toBeTruthy();
 });

@@ -1,11 +1,14 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import {useSession} from './session';
 import ReservedDrafts from './ReservedDrafts';
 import { api } from './api';
 import { marketplaceApi } from './marketplaceApi';
 vi.mock('./api', async original => ({ ...await original<typeof import('./api')>(), api: vi.fn() }));
 vi.mock('./marketplaceApi', async original => ({ ...await original<typeof import('./marketplaceApi')>(), marketplaceApi: vi.fn() }));
-vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_VIEW','POS_SALE_CREATE','POS_SALE_CANCEL','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD','POS_RECEIPT_VIEW']}})}));
+vi.mock('./session',()=>({useSession:vi.fn()}));
+const vendorSession={ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_VIEW','POS_SALE_CREATE','POS_SALE_CANCEL','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD','POS_RECEIPT_VIEW']}};
+beforeEach(()=>{vi.mocked(useSession).mockReturnValue(vendorSession as ReturnType<typeof useSession>);});
 const draft = { id: 'd1', vendorName: 'Vendor A', channel: 'IN_STORE', sessionId:'s1', status: 'DRAFT', total: 110, expiresAt: '2030-01-01T00:00:00Z', message: 'Unpaid reservation', items: [{ productId: 1, name: 'Panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }] };
 afterEach(() => { cleanup(); vi.resetAllMocks(); sessionStorage.clear(); });
 it('does not prompt anonymous marketplace visitors until they reserve or load drafts', async () => {
@@ -106,4 +109,18 @@ it('explains an empty Held bills tab and offers no tabs for online drafts', asyn
   view.unmount(); vi.mocked(marketplaceApi).mockImplementation(async () => [{ ...draft, channel: 'ONLINE' }]);
   render(<ReservedDrafts mode="online" cartId="c" />); fireEvent.click(screen.getByText('Reload reserved drafts')); await screen.findByText('Vendor A · DRAFT');
   expect(screen.queryByRole('tablist')).toBeNull();
+});
+
+
+it('hides POS draft mutations and online payment fallback without tender grants',async()=>{
+ vi.mocked(useSession).mockReturnValue({ready:true,account:{...vendorSession.account,permissions:['POS_VIEW']}} as ReturnType<typeof useSession>);
+ vi.mocked(api).mockResolvedValue([draft]);
+ render(<ReservedDrafts mode="pos" session="s1" items={[{productId:1,quantity:1}]}/>);
+ await screen.findByText('Vendor A · DRAFT');
+ expect(screen.queryByText('Reserve walk-in sale without payment')).toBeNull();
+ expect(screen.queryByText('Cancel draft d1')).toBeNull();
+ expect(screen.queryByText('Complete reserved cash sale')).toBeNull();
+ expect(screen.queryByLabelText('Cash received for reserved sale')).toBeNull();
+ expect(screen.queryByText('Tender method')).toBeNull();
+ expect(screen.queryByText('Continue to payment')).toBeNull();
 });

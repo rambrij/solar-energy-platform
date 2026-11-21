@@ -4,13 +4,13 @@ This branch implements the solar marketplace, single-vendor carts, shared invent
 
 The authorization-gap work now includes the RC-01 P0-07 actor-context separation increment: a global Customer may also hold a Vendor membership, but each session uses only one explicitly selected context; Platform identity remains separate. See [P0-07 actor-context implementation and verification status](docs/implementation/P0_07_ACTOR_CONTEXT_SEPARATION.md). The newly added backend regressions still require H2 and MySQL 8.4 CI verification.
 
-For upgrading an existing development database without resetting its MySQL volume, follow [Existing Development Database Upgrade](docs/implementation/EXISTING_DEV_DATABASE_UPGRADE.md). This documents the additive V54 schema change, the intentionally retired legacy permission data, and the safe MySQL container recreation required to apply the checked-in local trigger configuration.
+Development databases are disposable. Before using this authorization baseline, follow [Clean Development Database Setup](docs/implementation/CLEAN_DEVELOPMENT_DATABASE.md) to remove the old MySQL volume and rebuild from the clean Flyway chain. Do not attempt an in-place legacy authorization upgrade.
 
 ## Multi-vendor test data
 
-With `SPRING_PROFILES_ACTIVE=local` (already set in `.env.example`), Flyway V39 automatically loads the three-vendor demo data after the schema migrations when the backend starts. No reset script or manual SQL step is required. The seed is local-only; do not activate the `local` profile in production.
+With `SPRING_PROFILES_ACTIVE=local` (already set in `.env.example`), Flyway loads local vendor/product fixtures and provisions current demo identities with explicit tenant-owned standard-role snapshots. Only the five currently supported standard templates receive permissions; deferred roles remain unassigned and fail closed. This seed is local-only; never activate the `local` profile in production.
 
-See the [three-vendor setup and credentials guide](docs/demo/multi-vendor-testing.md) for the separate admin, sales, inventory, cashier and finance identities per store, two global customers and a platform-only administrator. Existing single-store SQL fixtures remain independent optional data.
+See the [local demo accounts and roles guide](docs/demo/README.md) for vendor, platform and customer credentials, supported role permissions, deferred-role behavior and tenant fixtures.
 
 ## Run locally with Docker Desktop (recommended)
 
@@ -21,11 +21,11 @@ Install Git and Docker Desktop, start Docker Desktop with Linux containers enabl
 In PowerShell:
 
 ```powershell
-git clone -b feature/v2-physical-store-pos https://github.com/rambrij/solar-energy-platform.git
+git clone -b feature/develop-authorization-gap-analysis https://github.com/rambrij/solar-energy-platform.git
 cd solar-energy-platform
 ```
 
-If you already have a checkout, fetch and switch to `feature/v2-physical-store-pos` instead of cloning again. Run the following Compose commands from the repository root.
+If you already have a checkout, fetch and switch to `feature/develop-authorization-gap-analysis` instead of cloning again. Run the following Compose commands from the repository root.
 
 ### 2. Create your local environment file
 
@@ -43,9 +43,12 @@ MYSQL_ROOT_PASSWORD=replace-with-your-local-root-password
 
 `.env` is ignored by Git; `.env.example` is the tracked template. The prepared local workspace already has a `.env` with generated passwords. A fresh Git clone requires the copy/edit steps above. Do not use the template placeholders as real passwords. No fixed MySQL password is shipped.
 
-### 3. Start the application
+### 3. Reset the disposable development database and start
+
+If this checkout has ever run against an older development database, reset its local Compose volume first. **This permanently deletes all data in the Compose MySQL volume. Never run it against production or a database containing data you need.**
 
 ```powershell
+docker compose down -v
 docker compose up --build -d
 docker compose ps
 docker compose logs -f backend
@@ -81,9 +84,7 @@ Enter your `DB_PASSWORD` at the password prompt.
 
 ### 5. Application login and initial data
 
-There is **no automatically created application account or store data**. For a local demonstration, run the optional manual setup below. For other environments, provision an active tenant, branch, employee with a BCrypt password hash, register, product and inventory through a trusted administrator/database process. The application username is `employees.username`; its password is the one used to generate that employee's BCrypt hash, not the database password. Never insert a plaintext password into `employees.password_hash`.
-
-Assign the employee to one tenant and branch, create a tenant-owned row in `vendor_roles`, add only the required vendor permissions to `vendor_role_permissions`, and create an active `employee_role_assignments` row linking that employee to the role. For a cashier demonstration, the role may contain `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SESSION_CLOSE`, `POS_SALE_CREATE`, `POS_TENDER_CASH_RECORD`, `POS_RECEIPT_VIEW`, and `POS_RECEIPT_REPRINT`; drawer actions additionally require `POS_CASH_IN`, `POS_CASH_OUT`, and `POS_SAFE_DROP`. The `created_by` and `assigned_by` values must be an existing employee in the same tenant. Do not create or populate `employee_permissions`; vendor authorization is role-only. After provisioning, use the employee credentials at the browser's HTTP Basic sign-in prompt, open the assigned register with an opening float, and choose stocked products for a cash sale. General onboarding tooling is still outstanding. No production mock payments are shipped.
+The local profile automatically provisions the demo identities documented in [docs/demo/README.md](docs/demo/README.md). Vendor permissions are resolved only through active `employee_role_assignments` joined to tenant-owned `vendor_roles` and `vendor_role_permissions`; tenant entitlements and branch/register/session assignments remain mandatory. There is no direct employee-permission table or fallback. For non-demo environments, provision roles and assignments through the authorized application workflows. Never store plaintext passwords in `employees.password_hash`.
 
 #### Add more solar demo products
 

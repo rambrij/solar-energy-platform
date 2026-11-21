@@ -372,3 +372,14 @@ The existing implementation has useful authorization controls and must be preser
 - Added backend contract and database parity tests. CI verification is pending; no H2/MySQL/frontend pass is claimed.
 - **RC-06 OPEN:** confirm whether external tender confirmation is a distinct actor permission from external tender recording/manual verification, and approve the exact operation boundary before future activation.
 - P0-06 remains IN PROGRESS per its own Role × Endpoint completion gate. P1-03 depends on passing runtime verification, not permission-name equality alone.
+
+
+### P1-03 implementation follow-up (2026-11-21)
+
+- The canonical catalogue treats `PRODUCT_ARCHIVE`, `PRICE_VIEW` and `PRICE_UPDATE` as IMPLEMENTED based on actual controller/service, frontend and runtime-test evidence. `INVENTORY_ADJUST` and other unimplemented CRM/Operations IDs remain RESERVED / DEFERRED and are not assignable.
+- Updated test/demo actor seeds and the checked-in multi-vendor demo SQL to use only the implemented standard-role template grants. The demo SQL now has a parity test against the five supported role snapshots.
+- Added platform-page permission metadata in `usePermissions.ts`, route/shortcut checks in `PlatformBoundary.tsx`, and per-page / per-action filters in `PlatformApp.tsx`; subscription read is separate from subscription mutation.
+- Added `docs/security/PERMISSION_TRACEABILITY.md`, generated from the canonical trace rows, for reviewers to inspect operation/service/scope/UI/test evidence.
+- **P1-03 status: IMPLEMENTATION IN BRANCH — VALIDATION PENDING.** Previous CI runs passed P1-01/P1-02/P0-03 and P0-06 policy inventory/matrix focused tests and the MySQL clean demo migration count. They were blocked in P0-07 by stale demo role SQL, now corrected; final H2/MySQL P0-07, runtime actor, full-suite and frontend checker/build evidence is still required.
+- RC-06 remains OPEN for `POS_TENDER_EXTERNAL_CONFIRM` versus implemented external tender record and separate manual verification permissions. No missing operation was invented.
+

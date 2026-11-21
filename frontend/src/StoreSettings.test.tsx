@@ -17,6 +17,7 @@ it('loads only discount policy for a discount-only operator',async()=>{
  vi.mocked(api).mockResolvedValue({maximumPercent:15});
  render(<StoreSettings/>);
  fireEvent.click(screen.getByText('Load authorized settings'));
+ fireEvent.click(screen.getByText('Discount authority and till setup'));
  await screen.findByLabelText('Approved combined discount limit %');
  expect(api).toHaveBeenCalledWith('/discount-policy');
  expect(api).not.toHaveBeenCalledWith('/settings');

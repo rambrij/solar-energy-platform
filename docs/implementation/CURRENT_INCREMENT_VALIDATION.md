@@ -57,4 +57,11 @@ The earlier command results in the table above are a historical baseline and do 
 | Git diff / whitespace check | Not run in this connector session |
 | P0-07 release acceptance | **Pending** |
 
-The P0-07 focused workflow step initially referenced a non-existent `AuthenticationServiceTest` class. That selector was removed; the H2 and MySQL 8.4 steps now invoke the checked-in `AuthenticationActorContextTest`, `AuthorizationContextTest` and the three persisted P0-07 `PosTest` HTTP scenarios, followed by the complete backend suite. The workflow must still execute before results can be recorded. No successful current CI result has yet been retrieved; this is not evidence of a pass. Do not use the historical 297 backend / 266 frontend counts as sign-off for P0-07. Record actual H2 and MySQL 8.4 results before marking this increment accepted.
+The P0-07 focused workflow selectors now invoke the checked-in `AuthenticationActorContextTest`, `AuthorizationContextTest`, `AuthenticationServiceTest`, `IdentityProvisioningServiceTest` and three persisted P0-07 `PosTest` HTTP scenarios in both H2 and MySQL 8.4 jobs, followed by the complete backend suite. The contradictory legacy Customer-reuse denial assertion was updated to RC-01. The latest commits still have no retrievable CI status checks or associated PR workflow runs, and no local Maven run was available through the repository integration. This is not evidence of a pass. Do not use the historical 297 backend / 266 frontend counts as sign-off for P0-07. Record actual H2 and MySQL 8.4 results before marking this increment accepted.
+
+
+### Follow-up gate corrections — 2026-11-21
+
+- Corrected the pre-existing IdentityProvisioningServiceTest case that still rejected Customer identities during Vendor onboarding. It now verifies that an active Customer identity can be selected for Vendor onboarding and receives no redundant invitation token.
+- Expanded both focused P0-07 database steps to run AuthenticationServiceTest and IdentityProvisioningServiceTest in addition to the actor-context, authorization-context and persisted HTTP regressions.
+- Confirmed that the current branch still has no retrievable CI status checks or associated pull-request workflow runs for the updated commits. The repository integration did not provide a local Maven execution environment, so H2, MySQL 8.4 and full-suite results remain unverified.

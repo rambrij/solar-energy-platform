@@ -183,6 +183,55 @@ def build() -> int:
         })
         combined.append(row)
 
+    # P0-07 actor-context endpoints have dedicated persisted-actor acceptance
+    # scenarios. They are deliberately omitted from the generic VIEW-only
+    # mutation probe because that probe cannot safely express token-family
+    # rotation or actor switching. Validate every declared P0-07 scenario
+    # against the full-suite Surefire XML and use that evidence for delegation.
+    actor_context_route_results: dict[tuple[str, str], list[str]] = {}
+    p007_acceptance_pass = 0
+    p007_acceptance_fail = 0
+    p007_acceptance_unexecuted = 0
+    actor_context_acceptance = matrix.get("actorContextAcceptance", [])
+    for scenario in actor_context_acceptance:
+        reference = scenario.get("test", "")
+        try:
+            test_key = scenario_reference(reference)
+        except ValueError:
+            test_key = ("", "")
+        test_status = tests.get(test_key, "NOT_EXECUTED")
+        expected = str(scenario.get("expected", "NOT APPLICABLE"))
+        actual = expected if test_status == "PASS" else (
+            "ASSERTION_FAILED" if test_status == "FAIL" else "NOT_EXECUTED"
+        )
+        p007_acceptance_pass += test_status == "PASS"
+        p007_acceptance_fail += test_status == "FAIL"
+        p007_acceptance_unexecuted += test_status == "NOT_EXECUTED"
+
+        endpoint = scenario.get("endpoint", "")
+        method, _, route = endpoint.partition(" ")
+        if method and route.startswith("/"):
+            key = (method, normalize_route(route))
+            actor_context_route_results.setdefault(key, []).append(test_status)
+
+        row = {column: "" for column in columns}
+        row.update({
+            "row_type": "P007_ACTOR_CONTEXT_ACCEPTANCE",
+            "method": method,
+            "route": route or endpoint,
+            "controller": "",
+            "operation": str(scenario.get("id", "")),
+            "effective_permission": "",
+            "scope": "",
+            "actor": str(scenario.get("actor", "")),
+            "expected_status": expected,
+            "actual_status": actual,
+            "result": test_status,
+            "test_reference": reference,
+            "other_actor_matrix": str(scenario.get("assertion", ""))
+        })
+        combined.append(row)
+
     for item in matrix.get("notApplicableResources", []):
         row = {column: "" for column in columns}
         row.update({
@@ -215,6 +264,14 @@ def build() -> int:
             row["missing_permission_expected"] = no_permission.get("expected_status", "")
             row["missing_permission_actual"] = no_permission.get("actual_status", "")
             row["missing_permission_result"] = no_permission.get("result", "")
+        if row.get("missing_permission_result") == "DELEGATED_TO_P0_07":
+            p007_results = actor_context_route_results.get(key, [])
+            if p007_results and all(result == "PASS" for result in p007_results):
+                row["view_mutation_result"] = "DELEGATED_TO_P0_07"
+                row["view_mutation_evidence"] = "P0_07_ACTOR_CONTEXT_ACCEPTANCE"
+            elif any(result == "FAIL" for result in p007_results):
+                row["view_mutation_result"] = "FAIL"
+                row["view_mutation_evidence"] = "P0_07_ACTOR_CONTEXT_ACCEPTANCE_FAILED"
         if actor_endpoint is not None:
             row["runtime_actor"] = actor_endpoint.get("actor", "")
             row["runtime_actor_expected"] = actor_endpoint.get("expected", "")
@@ -260,6 +317,7 @@ def build() -> int:
     anonymous_fail = sum(row.get("anonymous_result") == "FAIL" for row in route_rows)
     view_pass = sum(row.get("view_mutation_result") == "PASS" for row in route_rows)
     view_fail = sum(row.get("view_mutation_result") == "FAIL" for row in route_rows)
+    view_delegated = sum(row.get("view_mutation_result") == "DELEGATED_TO_P0_07" for row in combined)
     view_unexecuted = sum(row.get("view_mutation_result") == "NOT_EXECUTED" for row in route_rows)
     missing_permission_pass = sum(row.get("result") == "PASS" for row in missing_permission_rows)
     missing_permission_fail = sum(row.get("result") == "FAIL" for row in missing_permission_rows)
@@ -289,6 +347,11 @@ def build() -> int:
         "viewMutationRouteRowsPassed": view_pass,
         "viewMutationRouteRowsFailed": view_fail,
         "viewMutationRouteRowsNotExecuted": view_unexecuted,
+        "viewMutationRouteRowsDelegatedToP007": view_delegated,
+        "p007ActorContextAcceptanceDeclared": len(actor_context_acceptance),
+        "p007ActorContextAcceptancePassed": p007_acceptance_pass,
+        "p007ActorContextAcceptanceFailed": p007_acceptance_fail,
+        "p007ActorContextAcceptanceNotExecuted": p007_acceptance_unexecuted,
         "missingPermissionHttpChecksPassed": missing_permission_pass,
         "missingPermissionHttpChecksFailed": missing_permission_fail,
         "missingPermissionHttpChecksNotExecuted": missing_permission_unexecuted,
@@ -312,7 +375,7 @@ def build() -> int:
     }
     SUMMARY_REPORT.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print("P0-06_RUNTIME_REPORT|" + json.dumps(summary, sort_keys=True))
-    return 1 if missing_inputs or anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or missing_permission_route_unexecuted or actor_endpoint_fail or actor_endpoint_unexecuted or actor_endpoint_route_unexecuted or scenario_fail or scenario_unexecuted else 0
+    return 1 if missing_inputs or anonymous_fail or view_fail or view_unexecuted or missing_permission_fail or missing_permission_unexecuted or missing_permission_route_unexecuted or actor_endpoint_fail or actor_endpoint_unexecuted or actor_endpoint_route_unexecuted or scenario_fail or scenario_unexecuted or p007_acceptance_fail or p007_acceptance_unexecuted else 0
 
 
 if __name__ == "__main__":

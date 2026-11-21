@@ -136,12 +136,9 @@ class PosTest {
    if(firstRegister!=null)assignRegister(username,tenant,branch,firstRegister);
  }
  List<String> effectivePermissions(String username){
-  return db.queryForList("""
-   SELECT DISTINCT rp.permission FROM employee_role_assignments a
-   JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
-   JOIN vendor_role_permissions rp ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id
-   WHERE a.username=? AND a.active=TRUE AND r.active=TRUE ORDER BY rp.permission
-   """,String.class,username);
+  return memberships.access(username)
+   .orElseThrow(()->new IllegalStateException("No active, entitled vendor membership for "+username))
+   .permissions();
  }
  void setEmployeeRolePermissions(String username,List<String> permissions){
   Long tenant=db.queryForObject("SELECT tenant_id FROM employees WHERE username=?",Long.class,username);

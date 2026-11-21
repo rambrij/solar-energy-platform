@@ -7,7 +7,7 @@ import {platformApi} from './api';
 vi.mock('./api',()=>({platformApi:vi.fn()}));
 vi.mock('./session',()=>({useSession:vi.fn(),signOut:vi.fn()}));
 
-const account={username:'admin@platform.test',tenantId:null,branchId:null,permissions:['PLATFORM_TENANT_CREATE','PLATFORM_TENANT_UPDATE','PLATFORM_TENANT_SUSPEND','PLATFORM_TENANT_CLOSE','PLATFORM_PLAN_MANAGE','PLATFORM_SUBSCRIPTION_VIEW','PLATFORM_SUBSCRIPTION_ADJUST','PLATFORM_ANALYTICS_VIEW','PLATFORM_AUDIT_VIEW','PLATFORM_SUPPORT_ACCESS','PLATFORM_CONFIG_MANAGE']};
+const account={username:'admin@platform.test',tenantId:null,branchId:null,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_TENANT_CREATE','PLATFORM_TENANT_UPDATE','PLATFORM_TENANT_SUSPEND','PLATFORM_TENANT_CLOSE','PLATFORM_PLAN_MANAGE','PLATFORM_SUBSCRIPTION_VIEW','PLATFORM_SUBSCRIPTION_ADJUST','PLATFORM_ANALYTICS_VIEW','PLATFORM_AUDIT_VIEW','PLATFORM_SUPPORT_ACCESS','PLATFORM_CONFIG_MANAGE']};
 beforeEach(()=>{
  vi.clearAllMocks();
  vi.mocked(useSession).mockReturnValue({ready:true,account} as ReturnType<typeof useSession>);

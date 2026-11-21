@@ -375,11 +375,13 @@ class PosTest {
   assertThat(db.queryForObject("SELECT password_hash FROM users WHERE username='new-buyer@example.com'",String.class)).doesNotContain("CustomerPasswordForTests");
  }
  @Test void p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack() throws Exception {
-  employee("dual.worker@example.test",1,1);
-  long userId=db.queryForObject("SELECT id FROM users WHERE username='dual.worker@example.test'",Long.class);
+  // Start with a Customer identity that has no Vendor employee membership yet.
+  long userId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",
+      userId,"dual.worker@example.test",encoder.encode("StaffPasswordForTests"));
   update("INSERT INTO customer_profiles VALUES(?,?)",userId,userId);
 
-  // RC-01 permits an existing global Customer identity to be used for Vendor onboarding.
+  // RC-01 permits this already-active Customer identity to be onboarded as a Vendor employee.
   String onboardingPlatform="onboarding.admin@platform.example.test";
   long onboardingPlatformId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",
@@ -393,8 +395,12 @@ class PosTest {
     var invitation=identityProvisioning.issueInvitation("dual.worker@example.test");
     assertThat(invitation.accountAlreadyActive()).isTrue();
     assertThat(invitation.token()).isNull();
+    var provisioned=memberships.provisionInitialVendorAdmin(1,1,"dual.worker@example.test");
+    assertThat(provisioned.created()).isTrue();
+    assertThat(provisioned.username()).isEqualTo("dual.worker@example.test");
     return null;
   });
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM employees WHERE username='dual.worker@example.test' AND tenant_id=1 AND enabled=TRUE",Integer.class)).isEqualTo(1);
 
   String credentials="{\"username\":\"dual.worker@example.test\",\"password\":\"StaffPasswordForTests\"}";
   mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(credentials))

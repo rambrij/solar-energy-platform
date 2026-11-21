@@ -101,7 +101,7 @@ def build() -> int:
         "missing_permission_expected", "missing_permission_actual",
         "missing_permission_result", "missing_permission_evidence",
         "runtime_actor", "runtime_actor_expected", "runtime_actor_actual",
-        "runtime_actor_result", "runtime_actor_evidence", "runtime_actor_test_reference",
+        "runtime_actor_result", "runtime_actor_coverage_result", "runtime_actor_evidence", "runtime_actor_test_reference",
         "other_actor_matrix"
     ]
     combined: list[dict[str, str]] = []
@@ -131,6 +131,7 @@ def build() -> int:
             "runtime_actor_expected": "",
             "runtime_actor_actual": "",
             "runtime_actor_result": "NOT_EXECUTED",
+            "runtime_actor_coverage_result": "NOT_EXECUTED",
             "runtime_actor_evidence": "PERSISTED_ACTOR_HTTP",
             "runtime_actor_test_reference": "PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor",
             "other_actor_matrix": "NOT_EXECUTED"
@@ -221,7 +222,13 @@ def build() -> int:
             row["runtime_actor_result"] = actor_endpoint.get("result", "")
             row["runtime_actor_evidence"] = "PERSISTED_ACTOR_HTTP"
             row["runtime_actor_test_reference"] = actor_endpoint.get("test_reference", "")
-        row["other_actor_matrix"] = ";".join(actor_coverage.get(key, [])) or "NOT_EXECUTED"
+        explicit_scenarios = actor_coverage.get(key, [])
+        explicit_scenario_pass = any(item.startswith(" ") is False and ":PASS[" in item for item in explicit_scenarios)
+        generic_actor_pass = actor_endpoint is not None and actor_endpoint.get("result") == "PASS"
+        row["runtime_actor_coverage_result"] = "PASS" if generic_actor_pass or explicit_scenario_pass else (
+            actor_endpoint.get("result", "NOT_EXECUTED") if actor_endpoint is not None else "NOT_EXECUTED"
+        )
+        row["other_actor_matrix"] = ";".join(explicit_scenarios) or "NOT_EXECUTED"
 
     ROUTE_REPORT.parent.mkdir(parents=True, exist_ok=True)
     with ROUTE_REPORT.open("w", encoding="utf-8", newline="") as handle:
@@ -232,7 +239,7 @@ def build() -> int:
     live_count = len(route_rows)
     route_rows_with_actor_scenario = sum(
         row.get("row_type") == "LIVE_ENDPOINT"
-        and row.get("runtime_actor_result") in {"PASS", "AUTHORIZED_REJECTED"}
+        and row.get("runtime_actor_coverage_result") == "PASS"
         for row in combined
     )
     route_rows_without_actor_scenario = live_count - route_rows_with_actor_scenario
@@ -259,13 +266,13 @@ def build() -> int:
     actor_endpoint_route_unexecuted = sum(
         row.get("row_type") == "LIVE_ENDPOINT"
         and row.get("anonymous_expected") == "401"
-        and row.get("runtime_actor_result") == "NOT_EXECUTED"
+        and row.get("runtime_actor_coverage_result") != "PASS"
         for row in combined
     )
     summary: dict[str, Any] = {
         "database": "resolved by current CI matrix job",
         "liveEndpointRows": live_count,
-        "liveEndpointRowsWithExplicitActorScenario": route_rows_with_actor_scenario,
+        "liveEndpointRowsWithSuccessfulPersistedActorEvidence": route_rows_with_actor_scenario,
         "liveEndpointRowsWithoutExplicitActorScenario": route_rows_without_actor_scenario,
         "publicEndpointRowsNotApplicableToProtectedActorMatrix": public_route_rows_not_applicable,
         "anonymousRouteChecksPassed": anonymous_pass,
@@ -281,14 +288,14 @@ def build() -> int:
         "persistedActorEndpointAuthorizedBusinessRejections": actor_endpoint_business_rejections,
         "persistedActorEndpointChecksFailed": actor_endpoint_fail,
         "persistedActorEndpointChecksNotExecuted": actor_endpoint_unexecuted,
-        "protectedRoutesWithoutPersistedMatchingActor": actor_endpoint_route_unexecuted,
+        "protectedRoutesWithoutSuccessfulPersistedActorEvidence": actor_endpoint_route_unexecuted,
         "actorScenariosDeclared": len(matrix.get("runtimeScenarios", [])),
         "notApplicableResourceRows": len(matrix.get("notApplicableResources", [])),
         "actorScenariosPassed": scenario_pass,
         "actorScenariosFailed": scenario_fail,
         "actorScenariosNotExecuted": scenario_unexecuted,
         "missingEvidenceFiles": missing_inputs,
-        "resultSemantics": "An actor scenario is PASS only when its referenced Surefire test method exists in the full suite and has no failure/error. Other actor/endpoint combinations are not inferred.",
+        "resultSemantics": "A protected live endpoint is covered only by a successful persisted-actor HTTP response or an explicit passing fixture-backed actor/endpoint scenario. Generic 4xx responses, including 404/409, never count as positive authorization coverage. Actor scenarios are PASS only when their referenced Surefire test method exists in the full suite and has no failure/error.",
         "files": {
             "endpointAndScenarioCsv": str(ROUTE_REPORT.relative_to(REPO_ROOT)),
             "summaryJson": str(SUMMARY_REPORT.relative_to(REPO_ROOT))

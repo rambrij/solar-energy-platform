@@ -95,7 +95,7 @@ class RuntimeAuthorizationPersistedRoleTest {
         db.update("INSERT INTO users(id,username,password_hash,enabled) VALUES(91001,?,?,TRUE)",
             USER, passwords.encode(PASSWORD));
         db.update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,91001,91001,TRUE)", USER);
-        new TenantIsolationFixture(db,passwords).seedEntitlements(91001,USER);
+        new com.saumya.pos.isolation.TenantIsolationFixture(db,passwords).seedEntitlements(91001,USER);
         db.update("INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by) VALUES(91001,'runtime-matrix-viewer','Runtime Matrix VIEW only',TRUE,?,?)", USER, USER);
         Long roleId = db.queryForObject("SELECT id FROM vendor_roles WHERE tenant_id=91001 AND role_key='runtime-matrix-viewer'", Long.class);
         for (String permission : VendorPermissionRegistry.all()) {

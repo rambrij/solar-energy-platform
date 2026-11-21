@@ -104,6 +104,9 @@ test('Expired refresh session: protected POS route returns to the sign-in bounda
   await page.goto('/vendor/pos/products');
   await page.route('**/api/v1/auth/refresh', route => route.fulfill({ status: 401, contentType: 'application/json', body: '{}' }));
   await page.reload();
+  const signInButton = page.getByRole('button', { name: 'Sign in / Register' });
+  await expect(signInButton).toBeVisible();
+  await signInButton.click();
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();
 });
 test('Cashier: open assigned register, complete a cash sale and receive its receipt', async ({ page }) => {

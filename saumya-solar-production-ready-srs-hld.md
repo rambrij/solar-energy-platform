@@ -1921,3 +1921,5 @@ For a dual Customer/Vendor user, login without an explicit context must fail wit
 Customer context permits only that global customer's own marketplace resources and cross-vendor transaction history. Vendor context permits only active membership role grants within its authenticated tenant/branch and applicable resource assignments. Platform and Vendor are separate global identities; no Platform↔Vendor context switching or shared grants are allowed.
 
 Implementation note: the current employees table is keyed by username and currently models one vendor membership per employee identity. Vendor token `membership_id` is therefore a server-derived composite key of `tenant_id:username`. Supporting an employee with multiple concurrent vendor memberships requires a separate persisted membership model and is not part of RC-01.
+
+Implementation tracking and the verification boundary for P0-07 are recorded in [P0-07 — Explicit actor-context separation](docs/implementation/P0_07_ACTOR_CONTEXT_SEPARATION.md).

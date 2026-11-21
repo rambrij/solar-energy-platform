@@ -60,7 +60,8 @@ it('updates the URL and selected workspace using sidebar navigation', async () =
   expect(window.location.pathname).toBe('/marketplace/cart');
   expect(screen.getByRole('link', { name: 'My Single-Vendor Cart' }).getAttribute('aria-current')).toBe('page');
 });
-\n
+
+
 it('allows a vendor employee with a narrow page grant to enter without POS_VIEW', async () => {
   window.history.replaceState({}, '', '/vendor/pos/products');
   grantPermissions(['PRODUCT_VIEW']);

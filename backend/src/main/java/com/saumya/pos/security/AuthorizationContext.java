@@ -19,12 +19,6 @@ public class AuthorizationContext {
 
     public record Context(String username,Long tenantId,Long branchId,String membershipId,Set<String> permissions,
         boolean isPlatformUser,boolean isCustomer,boolean isVendorEmployee) {
-        /** Compatibility constructor for isolated legacy test fixtures. Production requests use the full server-resolved context. */
-        public Context(String username,Long tenantId,Long branchId,Set<String> permissions,
-            boolean isPlatformUser,boolean isCustomer,boolean isVendorEmployee) {
-            this(username,tenantId,branchId,tenantId==null?null:tenantId+":"+username,
-                permissions,isPlatformUser,isCustomer,isVendorEmployee);
-        }
         public void requirePermission(String permission){if(!permissions.contains(permission))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Missing required permission: "+permission);}
         public void requirePermissions(String... required){for(String p:required)requirePermission(p);}
         public void requireVendorMembership(){if(tenantId==null||membershipId==null||!isVendorEmployee||isCustomer||isPlatformUser)throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Active vendor membership required");}

@@ -8,22 +8,22 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
-import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /** Resolves tenant lifecycle/subscription/feature entitlement on every membership revalidation. */
 @Component
 public class TenantEntitlementPolicy {
-    private final JdbcTemplate db;private final ObjectMapper json;private final Clock clock;private final boolean enforced;
+    private final JdbcTemplate db;private final ObjectMapper json;private final Clock clock;
     private static final Set<String> READ_ONLY=Set.of("POS_VIEW","POS_RECEIPT_VIEW","PRODUCT_VIEW","PRICE_VIEW","INVENTORY_VIEW",
         "ORDER_VIEW","INVOICE_VIEW","VENDOR_PAYMENT_VIEW","REPORT_VIEW","REPORT_EXPORT","VENDOR_AUDIT_VIEW",
         "ROLE_VIEW","USER_VIEW","TENANT_PROFILE_VIEW","CUSTOMER_RELATION_VIEW","CRM_NOTE_VIEW",
         "LEAD_VIEW","QUOTATION_VIEW","RETURN_VIEW","SHIPMENT_VIEW","SERVICE_VIEW","INSTALLATION_VIEW",
         "CART_SUPPORT_VIEW","POS_REPORT_VIEW","POS_CASHIER_REPORT_VIEW","POS_REFUND_VIEW","POS_RETURN_VIEW","POS_TENDER_VIEW");
-    public TenantEntitlementPolicy(JdbcTemplate db,ObjectMapper json,Clock clock,Environment env){
-        this.db=db;this.json=json;this.clock=clock;var profiles=Set.of(env.getActiveProfiles());
-        this.enforced=Collections.disjoint(profiles,Set.of("local","test"));
+    public TenantEntitlementPolicy(JdbcTemplate db,ObjectMapper json,Clock clock){
+        this.db=Objects.requireNonNull(db);
+        this.json=Objects.requireNonNull(json);
+        this.clock=Objects.requireNonNull(clock);
     }
     /** Enforces a public commerce feature using the same authoritative subscription resolver as RBAC. */
     public void requireFeature(long tenant,String feature,boolean write){
@@ -49,7 +49,6 @@ public class TenantEntitlementPolicy {
                 "Tenant subscription does not entitle "+(write?"write":"read")+" access to "+feature);
     }
     public List<String> permissions(long tenant,List<String> grants){
-        if(!enforced)return grants;
         var rows=db.queryForList("""
             SELECT s.status,s.billing_period_end,s.grace_until,v.entitlements
             FROM tenant_subscriptions s

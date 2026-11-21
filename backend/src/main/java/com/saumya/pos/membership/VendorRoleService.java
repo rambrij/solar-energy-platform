@@ -37,7 +37,11 @@ public class VendorRoleService {
     }
     private Role view(AuthorizationContext.Context c,Map<String,Object> r){
         long id=((Number)r.get("id")).longValue();
-        List<String> ps=db.queryForList("SELECT permission FROM vendor_role_permissions WHERE tenant_id=? AND role_id=? ORDER BY permission",String.class,c.tenantId(),id);
+        List<String> ps=db.queryForList("SELECT permission FROM vendor_role_permissions WHERE tenant_id=? AND role_id=? ORDER BY permission",String.class,c.tenantId(),id)
+            .stream()
+            .filter(permission -> !permission.startsWith("PLATFORM_"))
+            .filter(VendorPermissionRegistry.all()::contains)
+            .toList();
         return new Role(id,(String)r.get("role_key"),(String)r.get("display_name"),Boolean.TRUE.equals(r.get("active")),((Number)r.get("version")).longValue(),ps);
     }
     public List<Role> roles(){

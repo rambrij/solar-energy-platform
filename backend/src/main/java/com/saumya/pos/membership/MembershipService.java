@@ -7,7 +7,6 @@ import com.saumya.pos.security.VendorMembershipAccess;
 import com.saumya.pos.security.VendorMembershipResolver;
 import com.saumya.pos.security.PlatformAuthorization;
 import java.util.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,13 +41,12 @@ public class MembershipService implements VendorMembershipAccess {
     private final TenantLifecycleService tenants;
     private final JdbcTemplate jdbc;
     private final TenantEntitlementPolicy entitlements;
-    public MembershipService(EmployeeMembershipRepository memberships,TenantLifecycleService tenants,JdbcTemplate jdbc){
-        this(memberships,tenants,jdbc,null);
-    }
-    @Autowired
     public MembershipService(EmployeeMembershipRepository memberships,TenantLifecycleService tenants,JdbcTemplate jdbc,
         TenantEntitlementPolicy entitlements){
-        this.memberships=memberships;this.tenants=tenants;this.jdbc=jdbc;this.entitlements=entitlements;
+        this.memberships=Objects.requireNonNull(memberships);
+        this.tenants=Objects.requireNonNull(tenants);
+        this.jdbc=Objects.requireNonNull(jdbc);
+        this.entitlements=Objects.requireNonNull(entitlements);
     }
     public record Access(long tenant,long branch,String username,List<String> permissions){}
     public record Provisioning(String username,long tenantId,long branchId,boolean created,int permissionCount){}
@@ -61,7 +59,7 @@ public class MembershipService implements VendorMembershipAccess {
             .filter(m->tenants.isActive(m.tenant()))
             .map(m->{
                 List<String> effective=effectiveVendorPermissions(m.username(),m.tenant());
-                if(entitlements!=null)effective=entitlements.permissions(m.tenant(),effective);
+                effective=entitlements.permissions(m.tenant(),effective);
                 return new Access(m.tenant(),m.branch(),m.username(),effective);
             });
     }

@@ -173,6 +173,20 @@ The role stores its source key and version. Changing the catalogue never synchro
 
 ### P1-03 — Align permission catalogue with approved feature scope
 
+- **Status — IMPLEMENTATION IN BRANCH; VALIDATION PENDING. Do not mark COMPLETE until the exact branch head passes H2, MySQL 8.4, P0-06/P1-01/P1-02 regression suites and frontend tests/build.**
+- Added catalogue version 2 in `backend/src/main/resources/authorization-policy-registry.json`. The file separates assignable vendor, platform and customer actor grants from reserved/deferred, orphaned and conflicting identifiers and carries permission → status → actor → endpoint → service → scope → UI → test traceability for every assignable vendor/platform permission.
+- Backend `PermissionCatalogue` loads the canonical resource; `VendorPermissionRegistry` and `PlatformPermissionRegistry` no longer maintain separate hard-coded permission lists. Standard role templates use the canonical implemented vendor set as their supported-operation boundary and continue to grant only their explicit versioned snapshots.
+- Active vendor permissions are restricted to currently implemented product/category, employee/role, POS, returns/refunds, reports, promotion and inventory-receiving operations. CRM/lead/quotation/order/tenant-profile/finance/invoice/shipment/installation/service/advanced-inventory and editorial families remain RESERVED / DEFERRED and are not assignable or included in active templates.
+- `POS_TENDER_VIEW` is ORPHANED because no live operation or UI action consumes it. `POS_TENDER_EXTERNAL_CONFIRM` is CONFLICTING: the SRS name and implemented external-tender-record/manual-verification flow do not have interchangeable semantics. It is non-assignable and tracked under RC-06; no endpoint was invented to make the name appear implemented.
+- `POS_PRICE_OVERRIDE` is RESERVED / DEFERRED until an independently authorized price-override operation exists. It is not inferred from discount override.
+- V55 creates vendor/platform permission catalogue tables from the same JSON resource, removes persisted grants outside the approved assignable set, and adds foreign keys so unknown or deferred grants cannot be inserted. The existing vendor no-PLATFORM check remains defense in depth.
+- Frontend registry validation rejects classification overlap, unknown identifiers, non-assignable permissions in active catalogues, missing trace rows, and incomplete permission traceability. Existing route/action policies remain backed by the canonical assignable set.
+- Added contract tests for classification disjointness, runtime registry parity, standard-template safety, unknown/platform/deferred/conflicting grant rejection, permission traceability and DB catalogue/FK parity. Existing P0-06 runtime and P1-01/P1-02 tests remain required.
+- **RC-06:** external-tender confirmation naming/semantics remains OPEN. Other unimplemented SRS CRM/Operations permission semantics are explicitly reserved rather than invented.
+- **Remaining verification:** execute focused tests and full H2/MySQL 8.4 suites plus frontend tests/build on the exact branch head. Validate the P0-06 route report and delegated P0-07 actor-context evidence. Until then P1-03 is not COMPLETE.
+
+### P1-03 — Align permission catalogue with approved feature scope (original acceptance record)
+
 - **Requirement:** SRS/Product Requirements permission IDs, backend allow-lists, database checks, frontend routes and endpoint policies remain consistent.
 - **Current gap:** Registry validation exists, but complete SRS-to-runtime parity and later CRM/Operations permission families are not established.
 - **Proposed implementation:** Create a generated comparison report and trace every permission to endpoint, service, UI action and test. Do not add permissions for unimplemented features.

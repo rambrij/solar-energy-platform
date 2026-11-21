@@ -7,7 +7,21 @@ const frontend=path.resolve(here,'..');
 const repo=path.resolve(frontend,'..');
 const registryPath=path.join(repo,'backend/src/main/resources/authorization-policy-registry.json');
 const registry=JSON.parse(fs.readFileSync(registryPath,'utf8'));
-const permissions=new Set([...registry.vendorPermissions,...registry.platformPermissions,'CUSTOMER']);
+const permissions=new Set([...registry.vendorPermissions,...registry.platformPermissions,...(registry.customerPermissions??[])]);
+const classified=[...registry.vendorPermissions,...registry.reservedVendorPermissions,...registry.orphanedPermissions,...registry.conflictingPermissions.map(p=>p.id)];
+if(new Set(classified).size!==classified.length)throw new Error('A permission appears in more than one canonical classification');
+if(registry.unknownPermissions?.length)throw new Error('Unknown permission identifiers must be resolved before activation: '+registry.unknownPermissions.join(', '));
+if(!Array.isArray(registry.permissionTraceability))throw new Error('Canonical permissionTraceability is required');
+const traceIds=registry.permissionTraceability.map(item=>item.permission);
+const expectedTrace=[...registry.vendorPermissions,...registry.platformPermissions].sort();
+if(JSON.stringify([...traceIds].sort())!==JSON.stringify(expectedTrace))throw new Error('Every implemented vendor/platform permission must have exactly one traceability record');
+for(const item of registry.permissionTraceability){
+  for(const field of ['status','actor','endpoint','service','scope','ui','test'])if(typeof item[field]!=='string'||!item[field].trim())throw new Error('Incomplete permission traceability for '+item.permission+': '+field);
+  if(item.status!=='IMPLEMENTED')throw new Error('Only IMPLEMENTED permissions may appear in assignable registries: '+item.permission);
+}
+for(const permission of [...registry.reservedVendorPermissions,...registry.orphanedPermissions,...registry.conflictingPermissions.map(p=>p.id)]){
+  if(permissions.has(permission))throw new Error('Non-assignable permission appears in an active frontend/backend catalogue: '+permission);
+}
 const permissionSource=fs.readFileSync(path.join(frontend,'src/usePermissions.ts'),'utf8');
 const navigationSource=fs.readFileSync(path.join(frontend,'src/navigation.ts'),'utf8');
 const block=permissionSource.match(/export const NAVIGATION_PERMISSIONS:[^=]+=[\s\S]*?\{([\s\S]*?)\n\};/);

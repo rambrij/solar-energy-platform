@@ -1,36 +1,24 @@
 package com.saumya.pos.membership;
 
-import java.util.*;
-/** Single allow-list for permissions that tenant-owned vendor roles can contain. */
+import com.saumya.pos.security.PermissionCatalogue;
+import java.util.Locale;
+import java.util.Set;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+/** Only implemented vendor operations from the canonical catalogue are assignable. */
 public final class VendorPermissionRegistry {
-    private static final Set<String> KNOWN=Set.of(
-        "TENANT_PROFILE_VIEW","TENANT_PROFILE_UPDATE","USER_VIEW","USER_CREATE","USER_UPDATE","USER_DISABLE",
-        "ROLE_VIEW","ROLE_CREATE","ROLE_UPDATE","ROLE_ASSIGN","CUSTOMER_RELATION_VIEW","CUSTOMER_RELATION_CREATE",
-        "CUSTOMER_RELATION_UPDATE","CRM_NOTE_VIEW","CRM_NOTE_CREATE","CRM_NOTE_UPDATE",
-        "PRODUCT_VIEW","PRODUCT_CREATE","PRODUCT_UPDATE","PRODUCT_ARCHIVE","PRICE_VIEW","PRICE_UPDATE",
-        "LEAD_VIEW","LEAD_CREATE","LEAD_UPDATE","LEAD_ASSIGN","QUOTATION_VIEW","QUOTATION_CREATE",
-        "QUOTATION_UPDATE","QUOTATION_SEND","QUOTATION_APPROVE","QUOTATION_CONVERT",
-        "ORDER_VIEW","ORDER_CREATE","ORDER_UPDATE","ORDER_CANCEL","INVENTORY_VIEW","INVENTORY_RECEIVE",
-        "INVENTORY_RESERVE","INVENTORY_TRANSFER","INVENTORY_ADJUST","INVOICE_VIEW","INVOICE_CREATE",
-        "INVOICE_SEND","VENDOR_PAYMENT_VIEW","VENDOR_PAYMENT_RECONCILE","VENDOR_PAYMENT_REFUND",
-        "SHIPMENT_VIEW","SHIPMENT_UPDATE","RETURN_VIEW","RETURN_APPROVE","RETURN_RECEIVE",
-        "REPORT_VIEW","REPORT_EXPORT","VENDOR_AUDIT_VIEW","INVOICE_VOID",
-        "INSTALLATION_VIEW","INSTALLATION_ASSIGN","INSTALLATION_UPDATE","INSTALLATION_COMMISSION",
-        "SERVICE_VIEW","SERVICE_CREATE","SERVICE_ASSIGN","SERVICE_UPDATE","SERVICE_RESOLVE",
-        "POS_VIEW","POS_SESSION_OPEN","POS_SESSION_CLOSE","POS_SALE_CREATE","POS_SALE_CANCEL",
-        "POS_DISCOUNT_APPLY","POS_DISCOUNT_OVERRIDE","POS_DISCOUNT_APPROVE","CATALOG_PROMOTION_MANAGE","POS_PRICE_OVERRIDE","POS_TENDER_CASH_RECORD",
-        "POS_TENDER_EXTERNAL_CONFIRM","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT","POS_RETURN_CREATE",
-        "POS_REFUND_APPROVE","POS_CASH_IN","POS_CASH_OUT","POS_SAFE_DROP","POS_SESSION_REOPEN",
-        "POS_SHIFT_VARIANCE_APPROVE","POS_REPORT_VIEW","POS_TENDER_MANUAL_VERIFY","POS_CASHIER_REPORT_VIEW",
-        "POS_RETURN_VIEW","POS_RETURN_APPROVE","POS_REFUND_VIEW","POS_REPORT_EXPORT","POS_SETTINGS_MANAGE","POS_TENDER_EXTERNAL_RECORD",
-        "POS_REFUND_CASH_RECORD","POS_REFUND_PRINT","POS_RETURN_INSPECT","POS_RETURN_AUDIT_VIEW","POS_TENDER_VIEW"
-    );
-    private VendorPermissionRegistry(){}
-    public static Set<String> all(){return KNOWN;}
-    public static String requireVendorPermission(String value){
-        String p=value==null?"":value.strip().toUpperCase(Locale.ROOT);
-        if(p.startsWith("PLATFORM_")||!KNOWN.contains(p))
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Unknown or non-vendor permission: "+p);
-        return p;
+    private static final Set<String> KNOWN = PermissionCatalogue.vendorPermissions();
+    private VendorPermissionRegistry() { }
+
+    public static Set<String> all() { return KNOWN; }
+
+    public static String requireVendorPermission(String value) {
+        String permission = value == null ? "" : value.strip().toUpperCase(Locale.ROOT);
+        if (permission.startsWith("PLATFORM_") || !KNOWN.contains(permission)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Unknown, reserved, conflicting or non-vendor permission: " + permission);
+        }
+        return permission;
     }
 }

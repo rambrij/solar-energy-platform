@@ -272,7 +272,7 @@ public class PosService {
     public record ReceiptAllocation(long number,boolean invoiceRequired,String outlet) {}
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public ReceiptAllocation allocateReceipt(Scope s){
-        authorizeInternalScope(s,"POS_SALE_CREATE","POS_TENDER_EXTERNAL_CONFIRM","POS_TENDER_MANUAL_VERIFY");
+        authorizeInternalScope(s,"POS_SALE_CREATE","POS_TENDER_MANUAL_VERIFY");
         return allocateReceiptInternal(s);
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)

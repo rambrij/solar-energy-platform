@@ -2667,6 +2667,7 @@ class PosTest {
   if(name.contains("email"))return "matrix.probe@example.test";
   if(name.contains("username")||name.contains("actor")||name.contains("cashier"))return "admin@saumya.demo.test";
   if(name.contains("token"))return "A".repeat(43);
+  if(name.contains("idempotency")||name.equals("key"))return "p006-matrix-key";
   if(name.contains("requestid")||name.contains("uuid"))return "550e8400-e29b-41d4-a716-446655440000";
   if(name.contains("ticket"))return "P006-MATRIX-TICKET";
   if(name.contains("otp")||name.equals("code"))return "123456";
@@ -2919,6 +2920,27 @@ class PosTest {
   assertThat(grants.get("PLATFORM_SUPER_ADMIN"))
       .as("persisted Platform Super Admin must receive the canonical platform permission registry")
       .containsAll(com.saumya.pos.platform.PlatformPermissionRegistry.all());
+
+  // Create persisted subscription fixtures through authenticated platform APIs.
+  String platformToken=tokens.get("PLATFORM_SUPER_ADMIN");
+  String planBody=json.writeValueAsString(Map.of(
+      "planKey","p006-matrix-plan","displayName","P0-06 Matrix Plan","price",new BigDecimal("10.00"),
+      "currency","INR","billingInterval","MONTHLY","maxUsers",10,"maxStorageMb",1024,
+      "maxBranches",2,"maxWarehouses",1,
+      "entitlements","{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ORDERS\":true}}",
+      "graceDays",7,"taxMetadata","{}","invoiceDescription","P0-06 authorization fixture"));
+  var planResponse=mvc.perform(post("/api/v1/platform/subscription-plans")
+      .header("Authorization","Bearer "+platformToken).with(csrf())
+      .contentType("application/json").content(planBody)).andExpect(status().isCreated()).andReturn();
+  long matrixPlanId=json.readTree(planResponse.getResponse().getContentAsString()).get("id").asLong();
+  String subscriptionBody=json.writeValueAsString(Map.of(
+      "planId",matrixPlanId,"periodStart",java.time.LocalDate.now().toString(),
+      "periodEnd",java.time.LocalDate.now().plusMonths(1).toString(),
+      "reason","P0-06 persisted endpoint actor fixture"));
+  mvc.perform(post("/api/v1/platform/tenants/910001/subscription")
+      .header("Authorization","Bearer "+platformToken).with(csrf())
+      .contentType("application/json").content(subscriptionBody)).andExpect(status().isOk());
+
   List<String> csv=new ArrayList<>();
   csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");
   int protectedRows=0,passedRows=0;

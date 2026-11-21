@@ -750,7 +750,7 @@ class PosTest {
   enableTerminal();var draft=as("alice", () -> checkout.pos("alice","terminal-review-api",posDraft()));var attempt=terminal("alice",draft.id(),"CARD");String path="/api/v1/vendor/pos/payments/review/"+draft.id();String body="{\"attemptId\":\""+attempt.attemptId()+"\",\"decision\":\"CONFIRM\",\"reference\":\"terminal-123\",\"evidence\":\"proof-123\",\"reason\":\"Verified original vendor account and full amount\"}";
   mvc.perform(get(path).with(user("manager").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());mvc.perform(post(path).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isForbidden());mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body.replace("terminal-123","4111111111111111"))).andExpect(status().isBadRequest());
-  mvc.perform(post(path).with(csrf()).with(user("manager").authorities(()->"POS_TENDER_MANUAL_VERIFY")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CONFIRMED"));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_CONFIRM'",Integer.class)).isEqualTo(1);
+  mvc.perform(post(path).with(csrf()).with(bearer("manager","StaffPasswordForTests")).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CONFIRMED"));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='TERMINAL_TENDER_CONFIRM'",Integer.class)).isEqualTo(1);
  }
  @Test void posCardPaymentIssuesReceiptWithoutIncreasingCashDrawer(){
   enableTerminal();
@@ -801,7 +801,7 @@ class PosTest {
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isForbidden());
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isForbidden());
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"amount\":1}")).andExpect(status().isBadRequest());
-  mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isOk()).andExpect(jsonPath("$.tenders[0].merchantAccount").value("vendor-upi-account")).andExpect(jsonPath("$.tenders[0].mockEnabled").value(false));
+  mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(bearer("alice","StaffPasswordForTests")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isOk()).andExpect(jsonPath("$.tenders[0].merchantAccount").value("vendor-upi-account")).andExpect(jsonPath("$.tenders[0].mockEnabled").value(false));
  }
  @Test void guestCashIsAtomicAndIdempotent(){
   var r=as("alice", () -> checkout.cashSale(a.cashier(),"checkout-1",sale(1,"120")));
@@ -995,7 +995,7 @@ class PosTest {
  }
  @Test void httpCheckoutUsesAuthenticatedMembership() throws Exception {
   String payload="{\"sessionId\":\""+session+"\",\"items\":[{\"productId\":1,\"quantity\":1}],\"cashReceived\":120,\"invoiceRequested\":true}";
-  mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_CASH_RECORD",()->"POS_RECEIPT_VIEW"))
+  mvc.perform(post("/api/v1/vendor/pos/sales").with(csrf()).with(bearer("alice","StaffPasswordForTests"))
    .header("Idempotency-Key","http-sale1").contentType("application/json").content(payload))
    .andExpect(result -> {
     if(result.getResponse().getStatus()!=200) throw new AssertionError("Cash sale HTTP "+result.getResponse().getStatus()+" response: "+result.getResponse().getContentAsString());
@@ -1281,7 +1281,7 @@ class PosTest {
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content("{\"countedCash\":0}"))
    .andExpect(status().isBadRequest());
   String body="{\"countedCash\":0,\"reason\":\"Shortage\",\"requestId\":\""+key+"\"}";
-  for(int i=0;i<2;i++)mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content(body))
+  for(int i=0;i<2;i++)mvc.perform(post(path).with(csrf()).with(bearer("alice","StaffPasswordForTests")).contentType("application/json").content(body))
    .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CLOSING")).andExpect(jsonPath("$.requestId").value(key)).andExpect(jsonPath("$.variance").value(-50));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SHIFT_VARIANCE_SUBMIT'",Integer.class)).isEqualTo(1);
  }

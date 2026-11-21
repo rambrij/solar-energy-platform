@@ -200,14 +200,14 @@ The role stores its source key and version. Changing the catalogue never synchro
 ### P1-04 — Complete frontend page, tab and operation permission mapping
 
 - **Requirement:** Menus, submenus, pages, tabs and buttons reflect effective permissions; backend independently enforces each operation.
-- **Current gap:** `Shell.tsx` filters navigation and `App.tsx` gates selected actions; full mapping across all features is not established.
-- **Proposed implementation:** Define per-page and per-action permission metadata tied to canonical endpoint operations. Distinguish view permission from mutation permission.
-- **Backend changes:** None unless P0-02/P0-06 finds missing guards.
-- **Frontend changes:** Gate every action, tab and nested page; handle 403 without losing pending user data; keep route guard separate from operation guards.
+- **Current gap:** `Shell.tsx` and `usePermissions.ts` provide canonical route metadata and `PlatformApp` has page/action checks, but several POS operation controls and the workspace entry boundary did not fully match the route/operation distinction. Complete component-by-component and tab-level coverage is still required.
+- **Implementation update (2026-11-22): IN PROGRESS — VALIDATION PENDING.** The POS authentication boundary now verifies VENDOR actor context without requiring the broad `POS_VIEW` grant before page guards run, so narrow grants can reach their own permitted deep links. Duplicate POS navigation filtering in `App.tsx` was removed; `Shell.tsx` now applies the canonical route map. Store Settings route metadata was aligned to `POS_SETTINGS_MANAGE` / `POS_DISCOUNT_OVERRIDE`, and its loader requests only resources covered by the current actor's grants. POS reserved-draft cancellation, cash tender, external tender, and receipt recovery controls are gated by their corresponding operation permissions. Cash-refund recovery is gated by `POS_REFUND_VIEW`. The canonical registry and frontend route policy were updated together.
+- **Tests added:** A narrow-grant direct-route test for `PRODUCT_VIEW` without `POS_VIEW`, plus route-policy tests for Store Settings grants. Existing Shell, usePermissions, PlatformApp and registry-parity tests remain regression coverage.
+- **Remaining work before acceptance:** Audit every component, nested tab, recovery/retry action and data-loading operation against its exact endpoint/service permission; add missing component tests; verify session permission revocation/expiry and preserve pending user data on 403; run the full frontend test/build and backend H2/MySQL 8.4 regression workflow on the resulting branch head. Backend authorization remains authoritative.
+- **Backend changes:** None in this P1-04 pass; backend 403 remains the security boundary.
 - **Database/schema changes:** None.
-- **Tests required:** Component tests for each action; route tests for each deep link; permission change/expiry tests; unauthorized API remains denied even when UI is manipulated.
 - **Dependencies:** P0-06 and P1-03.
-- **Acceptance criteria:** No button or tab is visible/enabled without its exact effective permission; direct URLs are denied; backend 403 remains authoritative.
+- **Acceptance criteria:** No button or tab is visible/enabled without its exact effective permission; direct URLs are denied; backend 403 remains authoritative. **Not yet accepted** until the remaining audit and CI evidence above pass.
 
 ## 5. P2 — Important quality and verification improvements
 

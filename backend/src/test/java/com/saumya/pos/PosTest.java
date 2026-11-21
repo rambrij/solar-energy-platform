@@ -3011,6 +3011,11 @@ class PosTest {
       }
      }
      var response=mvc.perform(request).andReturn();
+     // Each mapped endpoint is an independent HTTP operation. Flush its
+     // writes and clear the shared test EntityManager so a previous endpoint
+     // cannot leave stale versioned entities in the next request's context.
+     em.flush();
+     em.clear();
      int actual=response.getResponse().getStatus();
      Throwable resolved=response.getResolvedException();
      String exception=resolved==null?"":resolved.getClass().getSimpleName();

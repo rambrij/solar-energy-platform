@@ -257,7 +257,7 @@ class RuntimeAuthorizationPersistedRoleTest {
             .isNotEmpty()
             .allMatch(grant -> grant.getAuthority().endsWith("_VIEW"));
         assertThat(principal.getAuthorities())
-            .anyMatch(grant -> grant.getAuthority().equals(AuthorizationContext.ACTOR_CONTEXT_VENDOR));
+            .anyMatch(grant -> grant.getAuthority().equals("ACTOR_CONTEXT_VENDOR"));
         var security = SecurityContextHolder.createEmptyContext();
         security.setAuthentication(principal);
         SecurityContextHolder.setContext(security);

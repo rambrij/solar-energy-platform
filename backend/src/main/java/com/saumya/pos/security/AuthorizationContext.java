@@ -54,8 +54,8 @@ public class AuthorizationContext {
         if(authorities.contains(ACTOR_CONTEXT_PLATFORM)) {
             if(permissions.isEmpty()||permissions.stream().anyMatch(p->!p.startsWith("PLATFORM_")))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Platform context cannot contain commercial permissions");
-            if(auth.getDetails() instanceof com.saumya.pos.identity.AuthenticationService.ActorSessionDetails details
-                &&(details.actorType()!=com.saumya.pos.identity.AuthenticationService.ActorType.PLATFORM
+            if(auth.getDetails() instanceof ActorSessionDetails details
+                &&(!details.actorType().equals("PLATFORM")
                     ||details.tenantId()!=null||details.membershipId()!=null))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Platform actor context is stale or inconsistent");
             return new Context(username,null,null,null,permissions,true,false,false);
@@ -64,8 +64,8 @@ public class AuthorizationContext {
         if(authorities.contains(ACTOR_CONTEXT_CUSTOMER)) {
             if(!permissions.equals(Set.of("CUSTOMER")))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Customer context cannot contain vendor or platform permissions");
-            if(auth.getDetails() instanceof com.saumya.pos.identity.AuthenticationService.ActorSessionDetails details
-                &&(details.actorType()!=com.saumya.pos.identity.AuthenticationService.ActorType.CUSTOMER
+            if(auth.getDetails() instanceof ActorSessionDetails details
+                &&(!details.actorType().equals("CUSTOMER")
                     ||details.tenantId()!=null||details.membershipId()!=null))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Customer actor context is stale or inconsistent");
             return new Context(username,null,null,null,permissions,false,true,false);
@@ -81,8 +81,8 @@ public class AuthorizationContext {
         // A principal may carry a subset of current grants, but never an invented or revoked grant.
         if(!activePermissions.containsAll(permissions))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Vendor permission context is stale or inconsistent");
-        if(auth.getDetails() instanceof com.saumya.pos.identity.AuthenticationService.ActorSessionDetails details
-            &&(details.actorType()!=com.saumya.pos.identity.AuthenticationService.ActorType.VENDOR
+        if(auth.getDetails() instanceof ActorSessionDetails details
+            &&(!details.actorType().equals("VENDOR")
                 ||!java.util.Objects.equals(details.tenantId(),access.tenant())
                 ||!java.util.Objects.equals(details.membershipId(),access.id())))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Vendor membership context is stale or inconsistent");

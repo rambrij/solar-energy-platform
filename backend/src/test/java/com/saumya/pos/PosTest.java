@@ -3035,7 +3035,7 @@ class PosTest {
    update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",register);
    assignRegister(adminName,910001,910001,register);
    assignRegister(supervisorName,910001,910001,register);
-   String varianceSession=as(adminName,()->service.open(adminScope,new PosService.OpenSession(register,BigDecimal.ZERO))).id();
+   String varianceSession=as(adminName,()->service.open(adminScope,new PosService.OpenSession(register,BigDecimal.ZERO))).get("id").toString();
    BigDecimal expected=as(adminName,()->service.reconciliation(adminScope,varianceSession)).expectedCash();
    as(adminName,()->service.close(adminScope,varianceSession,expected.add(BigDecimal.ONE),
        "P0-06 persisted supervisor review fixture","00000000-0000-4000-8000-000000000006"));

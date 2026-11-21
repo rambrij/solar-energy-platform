@@ -2758,6 +2758,8 @@ class PosTest {
      var assertTrue=matrixRecordAnnotation(part,jakarta.validation.constraints.AssertTrue.class);
      if(partType==String.class&&pattern!=null)values[i]=matrixPatternValue(pattern.regexp(),partName);
      else if(partType==String.class&&email!=null)values[i]="matrix.probe@example.test";
+     else if(partType.isEnum()&&partType.getSimpleName().equals("TenantStatus"))
+      values[i]=Enum.valueOf((Class<Enum>)partType,"SUSPENDED");
      else if((partType==boolean.class||partType==Boolean.class)&&assertTrue!=null)values[i]=true;
      else if(partType==String.class&&partName.toLowerCase(Locale.ROOT).contains("entitlements"))values[i]="{\"features\":{\"POS\":true}}";
      else if(partType==String.class&&partName.toLowerCase(Locale.ROOT).contains("taxmetadata"))values[i]="{}";
@@ -2834,7 +2836,7 @@ class PosTest {
    return plan==null?"1":plan.toString();
   }
   if(route.contains("/tenants/{tenantId}/subscription"))return "930001";
-  if(route.contains("/identities/{username}"))return "superadmin@platform.demo.test";
+  if(route.contains("/identities/{username}"))return "p006.matrix.mfa.target@platform.demo.test";
   if(type==java.util.UUID.class)return "550e8400-e29b-41d4-a716-446655440000";
   if(type==String.class){
    String n=key.toLowerCase(Locale.ROOT);
@@ -2898,7 +2900,8 @@ class PosTest {
   if(controller.startsWith("Platform")){
    preferred=expression.contains("PLATFORM_IDENTITY_MANAGE")?"PLATFORM_SUPER_ADMIN_SECOND":
        (expression.contains("PLATFORM_SUPPORT_ACCESS")?"PLATFORM_SUPPORT":"PLATFORM_SUPER_ADMIN");
-  }else if(expression.contains("'CUSTOMER'")&&!expression.contains("PLATFORM_"))preferred="CUSTOMER";
+  }else if(expression.contains("POS_SHIFT_VARIANCE_APPROVE"))preferred="SALES_MANAGER";
+  else if(expression.contains("'CUSTOMER'")&&!expression.contains("PLATFORM_"))preferred="CUSTOMER";
   else if(controller.contains("Report")||(expression.contains("POS_REPORT_VIEW")&&!expression.contains("POS_VIEW")))preferred="ACCOUNTANT";
   else if(controller.contains("Pos")||controller.contains("Register")||controller.contains("Shift")
       ||controller.contains("Return")||controller.contains("Refund")||controller.contains("Cash")
@@ -2948,6 +2951,11 @@ class PosTest {
       secondPlatformAdmin,encoder.encode("MatrixPlatform2Password2026!"));
   for(String permission:com.saumya.pos.platform.PlatformPermissionRegistry.all())
    update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,?)",secondPlatformAdmin,permission);
+  String mfaTarget="p006.matrix.mfa.target@platform.demo.test";
+  long mfaTargetId=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM users",Long.class);
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",mfaTargetId,
+      mfaTarget,encoder.encode("MatrixMfaTargetPassword2026!"));
+  update("INSERT INTO platform_user_permissions(username,permission) VALUES(?,'PLATFORM_IDENTITY_MANAGE')",mfaTarget);
 
   String adminName="admin@saumya.demo.test";
   Long adminRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+100 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
@@ -2973,6 +2981,14 @@ class PosTest {
   PosService.Scope cashierScope=new PosService.Scope(910001,910001,cashierName);
   if(db.queryForObject("SELECT COUNT(*) FROM pos_sessions WHERE tenant_id=910001 AND cashier=? AND state='OPEN'",
       Integer.class,cashierName)==0)as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(cashierRegister,BigDecimal.ZERO)));
+  // Keep independent assigned open tills available so one close/resume probe
+  // cannot invalidate unrelated POS endpoint authorization probes.
+  for(int i=0;i<3;i++){
+   Long extraRegister=db.queryForObject("SELECT COALESCE(MAX(id),910011)+1 FROM registers WHERE tenant_id=910001 AND branch_id=910001",Long.class);
+   update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,910001,910001)",extraRegister);
+   assignRegister(cashierName,910001,910001,extraRegister);
+   as(cashierName,()->service.open(cashierScope,new PosService.OpenSession(extraRegister,BigDecimal.ZERO)));
+  }
 
   // Finalize is a read of an already-paid sale in this sweep. Seed that sale
   // through the real checkout flow so the probe proves endpoint authorization

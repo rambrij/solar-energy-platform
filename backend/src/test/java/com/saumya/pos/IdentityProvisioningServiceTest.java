@@ -55,15 +55,22 @@ class IdentityProvisioningServiceTest {
         assertThatThrownBy(()->service.acceptInvitation(invitation.token(),"AnotherStrongPassword2026"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
-    @Test void customerIdentityCannotBeReusedAsVendorEmployee(){
+    @Test void existingCustomerIdentityCanBeReusedForVendorMembershipOnboarding(){
         when(platform.permissions("customer@vendor.test")).thenReturn(java.util.List.of());
-        when(customers.profileCount("customer@vendor.test")).thenReturn(1L);
+        var existingCustomer=new GlobalUser(9,"customer@vendor.test","$2a$10$active",true);
+        when(users.findByUsername("customer@vendor.test")).thenReturn(Optional.of(existingCustomer));
         var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,new BCryptPasswordEncoder(4),Clock.systemUTC());
         authorize(service,vendorActor());
-        assertThatThrownBy(()->service.issueInvitation("customer@vendor.test"))
-            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
-            .hasMessageContaining("Customer identities cannot receive vendor membership");
-        verifyNoInteractions(users,sequences,invitations);
+
+        service.ensureVendorEligible("customer@vendor.test");
+        var invitation=service.issueInvitation("customer@vendor.test");
+
+        assertThat(invitation.username()).isEqualTo("customer@vendor.test");
+        assertThat(invitation.accountAlreadyActive()).isTrue();
+        assertThat(invitation.token()).isNull();
+        verify(users).findByUsername("customer@vendor.test");
+        verifyNoInteractions(sequences,invitations);
+        verifyNoInteractions(customers);
     }
     @Test void platformIdentityCannotBeReusedAsVendorAdmin(){
         when(platform.permissions("platform@saumya.test")).thenReturn(java.util.List.of("PLATFORM_TENANT_CREATE"));

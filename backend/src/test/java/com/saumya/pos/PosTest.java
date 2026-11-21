@@ -2861,8 +2861,10 @@ class PosTest {
    if(route.contains("/sessions/{id}")){
     String cashier=actor.equals("POS_CASHIER")?"cashier@saumya.demo.test":
         (actor.equals("ACCOUNTANT")?"finance@saumya.demo.test":"admin@saumya.demo.test");
-    String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier=?",String.class,cashier);
-    return session==null?"P006-NO-SUCH-SESSION":session;
+    int offset=route.endsWith("/resume")?1:(route.endsWith("/cash-movements")?2:
+        (route.endsWith("/reconciliation")?3:0));
+    List<String> sessions=db.queryForList("SELECT id FROM pos_sessions WHERE tenant_id=910001 AND cashier=? ORDER BY register_id,id",String.class,cashier);
+    return sessions.isEmpty()?"P006-NO-SUCH-SESSION":sessions.get(Math.min(offset,sessions.size()-1));
    }
    if(n.contains("order")||n.contains("draft")||route.contains("/sales/{")){
     String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND branch_id=910001 AND cashier='admin@saumya.demo.test' AND sales_channel='IN_STORE' AND status='PAID'",String.class);

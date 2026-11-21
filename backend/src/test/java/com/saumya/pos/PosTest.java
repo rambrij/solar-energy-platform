@@ -2839,13 +2839,31 @@ class PosTest {
    String n=key.toLowerCase(Locale.ROOT);
    if(controller.contains("Platform")&&n.contains("username"))return "superadmin@platform.demo.test";
    if(n.contains("username"))return "admin@saumya.demo.test";
+   if(route.contains("/customer/orders/{id}")){
+    String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE customer_id=949001 AND sales_channel='ONLINE'",String.class);
+    return order==null?"1":order;
+   }
+   if(route.contains("/customer/checkout/drafts/{id}")){
+    String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE customer_id=949001 AND sales_channel='ONLINE' AND status='DRAFT'",String.class);
+    return order==null?"1":order;
+   }
+   if(route.contains("/vendor/pos/drafts/{id}")){
+    String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND sales_channel='IN_STORE' AND status='DRAFT'",String.class);
+    return order==null?"1":order;
+   }
+   if(route.contains("/vendor/pos/orders/{id}")||route.contains("/vendor/pos/sales/{id}")){
+    String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND sales_channel='IN_STORE'",String.class);
+    return order==null?"1":order;
+   }
+   if(route.contains("/sessions/{id}")){
+    String cashier=actor.equals("POS_CASHIER")?"cashier@saumya.demo.test":
+        (actor.equals("ACCOUNTANT")?"finance@saumya.demo.test":"admin@saumya.demo.test");
+    String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier=?",String.class,cashier);
+    return session==null?"P006-NO-SUCH-SESSION":session;
+   }
    if(n.contains("order")||n.contains("draft")||route.contains("/sales/{")){
     String order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001 AND branch_id=910001 AND cashier='admin@saumya.demo.test' AND sales_channel='IN_STORE' AND status='PAID'",String.class);
     return order==null?"1":order;
-   }
-   if(n.contains("session")){
-    String session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",String.class);
-    return session==null?"P006-NO-SUCH-SESSION":session;
    }
    if(n.contains("token"))return "A".repeat(43);
    return "1";

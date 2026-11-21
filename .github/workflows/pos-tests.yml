@@ -192,7 +192,7 @@ jobs:
   browser-e2e:
     name: Browser E2E (Playwright / MySQL 8.4)
     needs: [backend, frontend]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       DB_PASSWORD: solar-e2e-app-password

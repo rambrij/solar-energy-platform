@@ -65,3 +65,10 @@ The P0-07 focused workflow selectors now invoke the checked-in `AuthenticationAc
 - Corrected the pre-existing IdentityProvisioningServiceTest case that still rejected Customer identities during Vendor onboarding. It now verifies that an active Customer identity can be selected for Vendor onboarding and receives no redundant invitation token.
 - Expanded both focused P0-07 database steps to run AuthenticationServiceTest and IdentityProvisioningServiceTest in addition to the actor-context, authorization-context and persisted HTTP regressions.
 - Confirmed that the current branch still has no retrievable CI status checks or associated pull-request workflow runs for the updated commits. The repository integration did not provide a local Maven execution environment, so H2, MySQL 8.4 and full-suite results remain unverified.
+
+
+### Latest CI failure and correction — 2026-11-21
+
+- Failed run: [44887311743](https://github.com/rambrij/solar-energy-platform/actions/runs/44887311743). Frontend tests/build passed. Both backend H2 and MySQL 8.4 failed in `IdentityProvisioningServiceTest.existingCustomerIdentityCanBeReusedForVendorMembershipOnboarding` because the test invoked the Platform-only initial Vendor onboarding eligibility operation under a Vendor actor and received the expected `403 Platform identity required`.
+- Corrected the test fixture to authorize with `platformActor()`. Production authorization was not weakened; initial tenant/Vendor membership provisioning remains Platform-authorized. The test still verifies an active Customer account can be reused without generating a redundant invitation.
+- Fix commit: `5e5de70bfba33fcae05511afabcf079315a893bf`. A new GitHub Actions run was observed in progress at the time of this update. H2, MySQL 8.4 and full backend acceptance remain pending until that run completes successfully.

@@ -89,7 +89,7 @@ test('Platform Super Admin: platform workspace works and vendor POS context is r
   await page.goto('/platform');
   await expect(page.getByRole('link', { name: 'Platform overview' })).toBeVisible();
   await page.goto('/vendor/pos');
-  await expect(page.getByRole('alert')).toContainText('does not have access to this workspace');
+  await expect(page.getByRole('alert')).toContainText('Access denied');
 });
 
 test('Customer: purchase history opens only in the customer marketplace context', async ({ page }) => {
@@ -117,7 +117,7 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   } else {
     await page.getByRole('button', { name: 'Load assigned registers' }).click();
     await expect(page.getByText(/configured registers/)).toBeVisible();
-    const register = page.getByLabel('Assigned register');
+    const register = page.getByLabel('Assigned register', { exact: true });
     const availableOption = register.locator('option:not([value=""])').first();
     await expect(availableOption).toContainText('Available');
     const registerValue = await availableOption.getAttribute('value');

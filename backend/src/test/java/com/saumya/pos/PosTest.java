@@ -2155,7 +2155,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=910001 AND product_id=910301",Integer.class)).isEqualTo(37);
   assertThat(db.queryForObject("SELECT price FROM products WHERE id=910301",BigDecimal.class)).isEqualByComparingTo("12345");
   assertThat(authentication.login("cashier@saumya.demo.test","ChangedDemoPassword2026!").account().permissions()).doesNotContain("POS_SALE_CREATE");
-  assertThat(authentication.login("superadmin@platform.demo.test","PlatformDemo2026!").account().permissions())\n    .containsExactlyInAnyOrderElementsOf(com.saumya.pos.platform.PlatformPermissionRegistry.all().stream()\n        .filter(permission->!permission.equals("PLATFORM_SUPPORT_ACCESS")).toList());
+  assertThat(authentication.login("superadmin@platform.demo.test","PlatformDemo2026!").account().permissions()).containsExactlyInAnyOrderElementsOf(com.saumya.pos.platform.PlatformPermissionRegistry.all().stream().filter(permission->!permission.equals("PLATFORM_SUPPORT_ACCESS")).toList());
   assertThat(db.queryForObject("SELECT split_tender_enabled FROM branches WHERE id=910001",Boolean.class)).isFalse();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id IN (910001,920001,930001)",Integer.class)).isEqualTo(18);
   assertThat(db.queryForObject("SELECT next_id FROM identity_sequence WHERE id=1",Long.class)).isGreaterThanOrEqualTo(950000L);

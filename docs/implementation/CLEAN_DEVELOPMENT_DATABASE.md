@@ -74,8 +74,7 @@ If startup fails, stop and inspect the first Flyway or Spring exception. Do not 
 
 The main migration chain creates the schema and persisted RBAC structures. In particular:
 
-- V45 creates tenant-owned roles, role permissions, explicit employee-role assignments, register assignments and vendor access audit records. It does not copy employee grants into synthetic roles.
-- V49 drops the retired employee_permissions table. It does not copy grants, create replacement roles or preserve legacy employee grants.
+- V1 does not create a direct employee_permissions table. V45 creates tenant-owned roles, role permissions, explicit employee-role assignments, register assignments and vendor access audit records. It does not copy employee grants into synthetic roles.
 - V54 adds the standard-template origin fields and check constraint to vendor_roles.
 - Local V39 creates tenant, branch, register, catalogue and inventory demo fixtures only; it does not create obsolete demo employee identities or permission grants.
 - Local V51 creates current demo identities and provisions only supported tenant-owned standard-role snapshots with explicit assignments. Deferred role identities remain unassigned and have no effective vendor permissions.

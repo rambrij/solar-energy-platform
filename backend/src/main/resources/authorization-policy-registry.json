@@ -36,6 +36,9 @@
     "POS_TENDER_EXTERNAL_RECORD",
     "POS_TENDER_MANUAL_VERIFY",
     "POS_VIEW",
+    "PRICE_UPDATE",
+    "PRICE_VIEW",
+    "PRODUCT_ARCHIVE",
     "PRODUCT_CREATE",
     "PRODUCT_UPDATE",
     "PRODUCT_VIEW",
@@ -295,9 +298,6 @@
     "ORDER_UPDATE",
     "ORDER_VIEW",
     "POS_PRICE_OVERRIDE",
-    "PRICE_UPDATE",
-    "PRICE_VIEW",
-    "PRODUCT_ARCHIVE",
     "QUOTATION_APPROVE",
     "QUOTATION_CONVERT",
     "QUOTATION_CREATE",
@@ -814,6 +814,36 @@
       "scope": "Authenticated vendor tenant + active branch/register/session checks per resource",
       "ui": "POS > Register, sales, orders, shifts, receipts",
       "test": "PosControllerAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "PRICE_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PUT /api/v1/vendor/products/{id} (price/tax fields only)",
+      "service": "ProductAdminService#update",
+      "scope": "Tenant-owned product; requires PRODUCT_UPDATE plus PRICE_UPDATE when price or tax changes",
+      "ui": "Marketplace > Product management > edit price and tax",
+      "test": "PosTest#productCategoryAssignmentAndPriceChangesUseTheirOwnPermissions"
+    },
+    {
+      "permission": "PRICE_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/products",
+      "service": "ProductAdminService#list; ProductAdminService#view",
+      "scope": "Tenant-owned product rows; price and tax fields are redacted unless PRICE_VIEW is effective",
+      "ui": "Marketplace > Product management > price and tax details",
+      "test": "PosTest#productPriceViewRequiresSeparatePermission"
+    },
+    {
+      "permission": "PRODUCT_ARCHIVE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PUT /api/v1/vendor/products/{id}; PUT /api/v1/vendor/categories/{id} (deactivate/archive)",
+      "service": "ProductAdminService#update; CategoryAdminService#update",
+      "scope": "Tenant-owned product/category; unpublish/archive requires the separate permission in addition to PRODUCT_UPDATE",
+      "ui": "Marketplace > Product management / Category management > unpublish or archive",
+      "test": "PosTest#productManagementIsTenantScopedAuditedAndVersioned; PosTest#categoryManagementEnforcesPermissionsTenantOwnershipVersionAndArchive"
     },
     {
       "permission": "PRODUCT_CREATE",

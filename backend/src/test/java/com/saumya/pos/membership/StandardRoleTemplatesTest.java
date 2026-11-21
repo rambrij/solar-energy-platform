@@ -29,8 +29,8 @@ class StandardRoleTemplatesTest {
             assertThat(template.permissions()).as(template.key())
                 .doesNotHaveDuplicates()
                 .allMatch(permission -> !permission.startsWith("PLATFORM_"));
-            assertThat(StandardRoleTemplates.implemented()).containsAll(template.permissions());
-            assertThat(VendorPermissionRegistry.all()).containsAll(template.permissions());
+            assertThat(StandardRoleTemplates.implemented().containsAll(template.permissions())).isTrue();
+            assertThat(VendorPermissionRegistry.all().containsAll(template.permissions())).isTrue();
         }
     }
 

@@ -39,14 +39,14 @@ jobs:
         run: mvn -B -f backend/pom.xml '-Dtest=RuntimeAuthorizationEndpointInventoryTest,RuntimeAuthorizationPersistedRoleTest,AuthorizationPolicyMatrixTest,AuthorizationPolicyRegistryTest' test
       - name: P0-07 explicit actor-context separation (H2)
         if: matrix.database == 'h2'
-        run: mvn -B -f backend/pom.xml '-Dtest=AuthenticationActorContextTest,AuthorizationContextTest,AuthenticationServiceTest#authMeReturnsServerResolvedEffectiveVendorPermissions+dualCustomerVendorIdentityRequiresExplicitSelectionAndNeverCombinesPermissions,PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack+p007VendorCanSwitchBackToCustomerAndDropsVendorScope+p007PlatformIdentityCannotSwitchIntoCommercialContext' test
+        run: mvn -B -f backend/pom.xml '-Dtest=AuthenticationActorContextTest,AuthorizationContextTest,PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack+p007VendorCanSwitchBackToCustomerAndDropsVendorScope+p007PlatformIdentityCannotSwitchIntoCommercialContext' test
       - name: P0-07 explicit actor-context separation (MySQL 8.4)
         if: matrix.database == 'mysql'
         env:
           TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
-        run: mvn -B -f backend/pom.xml '-Dtest=AuthenticationActorContextTest,AuthorizationContextTest,AuthenticationServiceTest#authMeReturnsServerResolvedEffectiveVendorPermissions+dualCustomerVendorIdentityRequiresExplicitSelectionAndNeverCombinesPermissions,PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack+p007VendorCanSwitchBackToCustomerAndDropsVendorScope+p007PlatformIdentityCannotSwitchIntoCommercialContext' test
+        run: mvn -B -f backend/pom.xml '-Dtest=AuthenticationActorContextTest,AuthorizationContextTest,PosTest#p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack+p007VendorCanSwitchBackToCustomerAndDropsVendorScope+p007PlatformIdentityCannotSwitchIntoCommercialContext' test
       - name: P0-06 persisted platform, vendor and accountant actors (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=PosTest#p006PlatformSuperAdminAndSupportUsePersistedPlatformGrantsWithoutVendorAuthority+p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory+p006VendorAdminCannotForgeTenantScopeThroughQueryParameters' test

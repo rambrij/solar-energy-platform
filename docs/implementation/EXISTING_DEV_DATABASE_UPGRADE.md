@@ -25,6 +25,26 @@ This procedure upgrades an existing local MySQL 8.4 development database in plac
    docker compose ps -a
    ```
 
+## Special recovery for a previously failed V43
+
+If `flyway_schema_history` contains version `43` with `success=0`, do not treat it as a normal upgrade. First back up the database and verify both the MySQL variable and trigger state:
+
+```sql
+SHOW VARIABLES LIKE 'log_bin';
+SHOW VARIABLES LIKE 'log_bin_trust_function_creators';
+
+SELECT TRIGGER_NAME, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT
+FROM information_schema.TRIGGERS
+WHERE TRIGGER_SCHEMA=DATABASE()
+  AND TRIGGER_NAME IN ('trg_platform_audit_no_update','trg_platform_audit_no_delete');
+
+SELECT version, success
+FROM flyway_schema_history
+WHERE version='43';
+```
+
+The local Compose configuration must show `log_bin_trust_function_creators=ON` after the MySQL container is recreated. If V43 is recorded as failed and **neither** expected trigger exists, run Flyway `repair` once against this same database (using the same Flyway version, connection and migration locations as the application) to remove the failed history entry, then restart the backend so V43 can run again. Do not run repair if either trigger already exists: the deployed V43 migration is not idempotent, and an existing trigger requires a reviewed reconciliation before retrying. Do not manually delete successful history rows or edit migration checksums.
+
 ## Apply the upgrade without deleting data
 
 The checked-in Compose configuration enables `--log-bin-trust-function-creators=ON` for the local MySQL service so the least-privilege application account can install the V43 audit triggers when binary logging is enabled. An already-created MySQL container does not acquire a changed command until it is recreated. Recreate only the container; the named `mysql-data` volume remains attached:

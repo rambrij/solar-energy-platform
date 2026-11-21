@@ -27,11 +27,11 @@ class JwtServiceTest {
   var service=new JwtService("",env,Clock.systemUTC());
   var customer=service.decoder().decode(service.issue("buyer","customer-family",AuthenticationService.ActorType.CUSTOMER,null,null));
   assertThat(customer.getClaimAsString("actor_type")).isEqualTo("CUSTOMER");
-  assertThat((Object)customer.getClaim("tenant")).isNull();
+  assertThat(customer.getClaims().containsKey("tenant")).isFalse();
   assertThat(customer.getClaimAsString("membership_id")).isNull();
   var platform=service.decoder().decode(service.issue("admin","platform-family",AuthenticationService.ActorType.PLATFORM,null,null));
   assertThat(platform.getClaimAsString("actor_type")).isEqualTo("PLATFORM");
-  assertThat((Object)platform.getClaim("tenant")).isNull();
+  assertThat(platform.getClaims().containsKey("tenant")).isFalse();
   assertThat(platform.getClaimAsString("membership_id")).isNull();
  }
  @Test void actorScopeCannotBeOmittedOrContradictTheActorType(){

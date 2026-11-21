@@ -6,7 +6,7 @@ vi.mock('./api',async importOriginal=>({...await importOriginal<typeof import('.
 vi.mock('./session',async original=>({
  ...await original<typeof import('./session')>(),
  useSession:()=>({ready:true,account:{
-  username:'cashier@test.local',tenantId:1,branchId:1,
+  username:'cashier@test.local',tenantId:1,branchId:1,actorType:'VENDOR',
   permissions:["POS_VIEW","POS_SESSION_OPEN","POS_SESSION_CLOSE","POS_SALE_CREATE","POS_SALE_CANCEL","POS_TENDER_CASH_RECORD","POS_TENDER_EXTERNAL_RECORD","POS_RECEIPT_VIEW","POS_RECEIPT_REPRINT","POS_RETURN_VIEW","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT","POS_RETURN_AUDIT_VIEW","POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD","POS_REFUND_PRINT","POS_REPORT_VIEW","POS_REPORT_EXPORT","POS_SHIFT_VARIANCE_APPROVE","POS_TENDER_MANUAL_VERIFY","PRODUCT_VIEW","PRODUCT_CREATE","PRODUCT_UPDATE","INVENTORY_VIEW","INVENTORY_RECEIVE","TENANT_PROFILE_VIEW","POS_CASHIER_REPORT_VIEW","POS_DISCOUNT_APPLY","CATALOG_PROMOTION_MANAGE","POS_DISCOUNT_APPROVE","POS_CASH_IN","POS_CASH_OUT","POS_SAFE_DROP","POS_SETTINGS_MANAGE","POS_DISCOUNT_OVERRIDE"]
  }})
 }));
@@ -23,7 +23,7 @@ function mockBackend(implementation:typeof api){
  });
 }
 
-beforeEach(()=>{window.history.replaceState({},'','/vendor/pos');vi.mocked(authApi).mockResolvedValue({ username: 'cashier@test.local', tenantId: 1, branchId: 1, permissions: ["POS_VIEW","POS_SESSION_OPEN","POS_SESSION_CLOSE","POS_SALE_CREATE","POS_SALE_CANCEL","POS_RECEIPT_VIEW","POS_RETURN_VIEW","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT","POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD","POS_REPORT_VIEW","POS_SHIFT_VARIANCE_APPROVE","POS_TENDER_MANUAL_VERIFY","PRODUCT_VIEW","PRODUCT_CREATE","PRODUCT_UPDATE","INVENTORY_VIEW","INVENTORY_RECEIVE","TENANT_PROFILE_VIEW","POS_CASHIER_REPORT_VIEW"] });});
+beforeEach(()=>{window.history.replaceState({},'','/vendor/pos');vi.mocked(authApi).mockResolvedValue({ username: 'cashier@test.local', tenantId: 1, branchId: 1, actorType: 'VENDOR', permissions: ["POS_VIEW","POS_SESSION_OPEN","POS_SESSION_CLOSE","POS_SALE_CREATE","POS_SALE_CANCEL","POS_RECEIPT_VIEW","POS_RETURN_VIEW","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT","POS_REFUND_VIEW","POS_REFUND_APPROVE","POS_REFUND_CASH_RECORD","POS_REPORT_VIEW","POS_SHIFT_VARIANCE_APPROVE","POS_TENDER_MANUAL_VERIFY","PRODUCT_VIEW","PRODUCT_CREATE","PRODUCT_UPDATE","INVENTORY_VIEW","INVENTORY_RECEIVE","TENANT_PROFILE_VIEW","POS_CASHIER_REPORT_VIEW"] });});
 function visitPos(path:string){window.history.pushState({},'',path);fireEvent(window,new PopStateEvent('popstate'));}
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.restoreAllMocks();sessionStorage.clear();window.history.replaceState({},'','/vendor/pos');});
 it('does not request customer identity for guest checkout',async()=>{

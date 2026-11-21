@@ -252,7 +252,12 @@ class RuntimeAuthorizationPersistedRoleTest {
         String token = bearerToken();
         Authentication principal = identities.authenticate(jwt.decoder().decode(token));
         assertThat(principal.getAuthorities()).isNotEmpty();
-        assertThat(principal.getAuthorities()).allMatch(grant -> grant.getAuthority().endsWith("_VIEW"));
+        assertThat(principal.getAuthorities())
+            .filteredOn(grant -> !grant.getAuthority().startsWith("ACTOR_CONTEXT_"))
+            .isNotEmpty()
+            .allMatch(grant -> grant.getAuthority().endsWith("_VIEW"));
+        assertThat(principal.getAuthorities())
+            .anyMatch(grant -> grant.getAuthority().equals(AuthorizationContext.ACTOR_CONTEXT_VENDOR));
         var security = SecurityContextHolder.createEmptyContext();
         security.setAuthentication(principal);
         SecurityContextHolder.setContext(security);
@@ -519,6 +524,20 @@ class RuntimeAuthorizationPersistedRoleTest {
                         report.add(String.join(",", method.name(), "\"" + route.replace("\"", "\"\"") + "\"",
                             controllerType.getSimpleName(), handler.getMethod().getName(),
                             "NOT_APPLICABLE", "NOT_APPLICABLE", "NOT_APPLICABLE", "NO_PERMISSION"));
+                        publicNotApplicable++;
+                        continue;
+                    }
+
+                    // Context switching is not a generic isAuthenticated() route:
+                    // it requires the caller's real refresh-token family, a dual
+                    // identity, and a validated target context. P0-07 verifies this
+                    // operation with the issued cookie and access token.
+                    if ("/api/v1/auth/context".equals(route)
+                        && "switchContext".equals(handler.getMethod().getName())) {
+                        report.add(String.join(",", method.name(), "\"" + route.replace("\"", "\"\"") + "\"",
+                            controllerType.getSimpleName(), handler.getMethod().getName(),
+                            "P0-07_DEDICATED_REAL_SESSION", "P0-07_DEDICATED_REAL_SESSION",
+                            "DELEGATED_TO_P0_07", "CUSTOMER_VENDOR_DUAL_IDENTITY"));
                         publicNotApplicable++;
                         continue;
                     }

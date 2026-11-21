@@ -40,7 +40,7 @@ Implementation details and the request/response contract are documented in [P0-0
 ### Changes in this increment
 
 - Updated Vendor onboarding eligibility so a global Customer profile may coexist with a Vendor employee membership. Platform-granted identities remain ineligible for Vendor membership.
-- Extended the persisted dual-identity HTTP regression to cover the Customer onboarding case, unspecified-context conflict, Customer-only scope, Customer-to-Vendor switching, wrong-tenant denial, failed-switch session preservation, refresh scope preservation, disabled-membership invalidation and Platform exclusion.
+- Extended the persisted dual-identity HTTP regression to start from a Customer-only identity, verify Platform-authorized eligibility and active-account invitation handling, provision its initial Vendor membership, then cover unspecified-context conflict, Customer-only scope, Customer-to-Vendor switching, wrong-tenant denial, failed-switch session preservation, refresh scope preservation, disabled-membership invalidation and Platform exclusion.
 - Added a Vendor-to-Customer context-switch regression verifying refresh-family rotation, removal of Vendor tenant/membership claims, actor-specific API denial and old-token invalidation.
 - Added a Platform no-switch regression for attempts to enter Customer or Vendor context.
 - No frontend implementation was changed in this increment.

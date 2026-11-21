@@ -1,6 +1,6 @@
 import {renderHook,waitFor} from '@testing-library/react';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-import {usePermissions,hasNavigationPermission,NAVIGATION_PERMISSIONS,type UserPermissions} from './usePermissions';
+import {usePermissions,hasNavigationPermission,NAVIGATION_PERMISSIONS,type UserPermissions,PLATFORM_PAGE_PERMISSIONS,hasPlatformPagePermission} from './usePermissions';
 import {navigationItems} from './navigation';
 
 const {mockAuthApi,mockUseSession}=vi.hoisted(()=>({mockAuthApi:vi.fn(),mockUseSession:vi.fn()}));
@@ -140,5 +140,20 @@ describe('hasNavigationPermission',()=>{
   expect(hasNavigationPermission('checkout',[])).toBe(false);
   expect(hasNavigationPermission('cash-refunds',[])).toBe(false);
   expect(hasNavigationPermission('vendor-directory',[])).toBe(false);
+ });
+});
+
+describe('platform page permission metadata',()=>{
+ it('defines a canonical policy for every platform page and denies unknown pages',()=>{
+  for(const page of ['dashboard','tenants','plans','audit','support','configuration','identities','platform-subscriptions'])expect(PLATFORM_PAGE_PERMISSIONS[page],page).toBeDefined();
+  expect(hasPlatformPagePermission('unclassified',['PLATFORM_ANALYTICS_VIEW'])).toBe(false);
+ });
+ it('requires the matching platform grant for each page',()=>{
+  expect(hasPlatformPagePermission('dashboard',['PLATFORM_ANALYTICS_VIEW'])).toBe(true);
+  expect(hasPlatformPagePermission('dashboard',['PLATFORM_SUPPORT_ACCESS'])).toBe(false);
+  expect(hasPlatformPagePermission('support',['PLATFORM_SUPPORT_ACCESS'])).toBe(true);
+  expect(hasPlatformPagePermission('identities',['PLATFORM_IDENTITY_MANAGE'])).toBe(true);
+  expect(hasPlatformPagePermission('platform-subscriptions',['PLATFORM_SUBSCRIPTION_ADJUST'])).toBe(false);
+  expect(hasPlatformPagePermission('plans',['PLATFORM_SUBSCRIPTION_VIEW'])).toBe(true);
  });
 });

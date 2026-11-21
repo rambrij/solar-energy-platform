@@ -51,11 +51,11 @@ The earlier command results in the table above are a historical baseline and do 
 
 | Check | P0-07 increment result |
 | --- | --- |
-| Backend compile / H2 test suite | **Pending** — not executed after these changes |
-| Backend MySQL 8.4 test suite | **Pending** — no successful current CI result retrieved |
-| Frontend tests / production build | Not rerun — frontend sources were not changed |
+| Backend H2 full suite | **PASS** — 630 tests, 0 failures, 0 errors, 0 skipped |
+| Backend MySQL 8.4 full suite | **PASS** — 630 tests, 0 failures, 0 errors, 0 skipped |
+| Frontend tests / production build | **PASS** — frontend CI job succeeded |
 | Git diff / whitespace check | Not run in this connector session |
-| P0-07 release acceptance | **Pending** |
+| P0-07 runtime acceptance | **PASS** — 18/18 scenarios, 0 failed, 0 not executed |
 
 The P0-07 focused workflow selectors now invoke the checked-in `AuthenticationActorContextTest`, `AuthorizationContextTest`, `AuthenticationServiceTest`, `IdentityProvisioningServiceTest` and three persisted P0-07 `PosTest` HTTP scenarios in both H2 and MySQL 8.4 jobs, followed by the complete backend suite. The contradictory legacy Customer-reuse denial assertion was updated to RC-01. The latest commits still have no retrievable CI status checks or associated PR workflow runs, and no local Maven run was available through the repository integration. This is not evidence of a pass. Do not use the historical 297 backend / 266 frontend counts as sign-off for P0-07. Record actual H2 and MySQL 8.4 results before marking this increment accepted.
 
@@ -80,3 +80,8 @@ The P0-07 focused workflow selectors now invoke the checked-in `AuthenticationAc
 - Updated `backend/scripts/generate-p0-06-runtime-report.py` to emit a dedicated report row for every `actorContextAcceptance` scenario in `runtime-authorization-matrix.json`, resolve each reference against full-suite Surefire XML, and permit a delegated actor-context route only when every associated P0-07 acceptance scenario passes. P0-07 acceptance failures or unexecuted scenarios remain hard failures.
 - Corrected the aggregate VIEW-only counters to calculate from the finalized combined LIVE_ENDPOINT rows after delegation classification. This prevents the source CSV's pre-delegation `NOT_EXECUTED` marker from overriding the report's verified P0-07 delegation result.
 - Commits: `3a887eaed972e0afa1c89854b2bfce65f58135f5` (dedicated P0-07 evidence rows and gate) and `965f793bfb3f4a32c4e1aad2cf2519651220c429` (aggregate totals after delegation). The first run started on the first commit while the aggregate correction landed in the next commit; final CI acceptance must be based on the run for the latest branch head.
+
+
+### P0-07 verified acceptance result — 2026-11-21
+
+The P0-07 focused workflow selectors invoke `AuthenticationActorContextTest`, `AuthorizationContextTest`, `AuthenticationServiceTest`, `IdentityProvisioningServiceTest` and the three persisted P0-07 `PosTest` HTTP scenarios in both H2 and MySQL 8.4 jobs, followed by the complete backend suite. The contradictory legacy Customer-reuse denial assertion was updated to RC-01. Successful GitHub Actions run [44891619695](https://github.com/rambrij/solar-energy-platform/actions/runs/44891619695) verifies 630/630 tests passing in each backend database job and all 18/18 declared P0-07 runtime acceptance scenarios passing.

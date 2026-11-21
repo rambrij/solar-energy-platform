@@ -2,6 +2,7 @@ import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {platformApi,ApiError} from './api';
 import PlatformIdentityAdmin from './PlatformIdentityAdmin';
 import {signOut,useSession} from './session';
+import {hasPlatformPagePermission} from './usePermissions';
 
 type Page='dashboard'|'tenants'|'plans'|'audit'|'support'|'configuration'|'identities';
 type Tenant={id:number;slug:string;name:string;legalName:string;lifecycleStatus:string;contactEmail?:string|null;contactPhone?:string|null;initialVendorAdminUsername?:string|null;createdAt:string;onlineBranchId?:number|null};
@@ -23,7 +24,10 @@ const pages:{id:Page;label:string;description:string}[]=[
 export default function PlatformApp(){
  const {account}=useSession();
  const [page,setPage]=useState<Page>('dashboard');
- const visiblePages=pages.filter(item=>item.id!=='identities'||account?.permissions.includes('PLATFORM_IDENTITY_MANAGE'));
+ const permissions=account?.permissions??[];
+ const can=(permission:string)=>permissions.includes(permission);
+ const canPage=(id:Page)=>hasPlatformPagePermission(id,permissions);
+ const visiblePages=pages.filter(item=>canPage(item.id));
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [tenantPage,setTenantPage]=useState<TenantPage>({items:[],totalElements:0,totalPages:0,page:0});
  const [tenantSearch,setTenantSearch]=useState(''),[tenantStatus,setTenantStatus]=useState('');
@@ -42,14 +46,24 @@ export default function PlatformApp(){
   setError('');
   try{
    if(target==='dashboard')setDashboard(await platformApi('/dashboard'));
-   if(target==='tenants')setTenantPage(await platformApi(`/tenants?page=0&size=50${tenantStatus?'&status='+tenantStatus:''}${tenantSearch?'&q='+encodeURIComponent(tenantSearch):''}`));
+   if(target==='tenants'){
+    if(can('PLATFORM_TENANT_VIEW'))setTenantPage(await platformApi(`/tenants?page=0&size=50${tenantStatus?'&status='+tenantStatus:''}${tenantSearch?'&q='+encodeURIComponent(tenantSearch):''}`));
+    else setTenantPage({items:[],totalElements:0,totalPages:0,page:0});
+   }
    if(target==='plans')setPlans(await platformApi('/subscription-plans'));
    if(target==='audit')setAudit(await platformApi('/audit?page=0&size=50'));
    if(target==='support')setSupport(await platformApi('/support-access'));
    if(target==='configuration')setSettings(await platformApi('/configuration'));
   }catch(e){setError((e as Error).message);}
- },[tenantSearch,tenantStatus]);
- useEffect(()=>{void load(page);},[page,load]);
+ },[tenantSearch,tenantStatus,account?.permissions.join('|')]);
+ useEffect(()=>{
+  if(!canPage(page)){
+   const first=pages.find(item=>canPage(item.id));
+   if(first)setPage(first.id);
+   return;
+  }
+  void load(page);
+ },[page,load,account?.permissions.join('|')]);
 
  async function run(action:()=>Promise<unknown>,success:string){
   setBusy(true);setError('');setNotice('');
@@ -86,7 +100,16 @@ export default function PlatformApp(){
   setConfigForm({key:'',category:'INTEGRATION',value:'',sensitive:false,secretReference:''});
  }
  const lifecycleActions=(tenant:Tenant)=>{
-  switch(tenant.lifecycleStatus){case 'PENDING':return ['UNDER_REVIEW','CLOSED'];case 'UNDER_REVIEW':return ['ACTIVE','CLOSED'];case 'ACTIVE':return ['SUSPENDED','CLOSED'];case 'SUSPENDED':return ['ACTIVE','CLOSED'];default:return [];}
+  const actions=tenant.lifecycleStatus==='PENDING'?['UNDER_REVIEW','CLOSED']:
+   tenant.lifecycleStatus==='UNDER_REVIEW'?['ACTIVE','CLOSED']:
+   tenant.lifecycleStatus==='ACTIVE'?['SUSPENDED','CLOSED']:
+   tenant.lifecycleStatus==='SUSPENDED'?['ACTIVE','CLOSED']:[];
+  return actions.filter(action=>{
+   const permission=action==='SUSPENDED'?'PLATFORM_TENANT_SUSPEND':
+    action==='CLOSED'?'PLATFORM_TENANT_CLOSE':
+    action==='ACTIVE'&&tenant.lifecycleStatus==='SUSPENDED'?'PLATFORM_TENANT_REACTIVATE':'PLATFORM_TENANT_UPDATE';
+   return can(permission);
+  });
  };
 
  return <div className="platform-app">
@@ -107,7 +130,7 @@ export default function PlatformApp(){
      <div className="platform-boundary-grid"><article><h3>Commercial catalogue</h3><strong>Vendor-owned only</strong><p>There is no platform seller or platform catalogue.</p></article><article><h3>Customer purchase funds</h3><strong>Direct to vendor</strong><p>Customer order payments must use the vendor merchant context.</p></article><article><h3>SaaS subscriptions</h3><strong>Platform merchant</strong><p>Subscription billing uses independent records and credentials.</p></article><article><h3>Support access</h3><strong>Purpose-bound and time-limited</strong><p>A grant alone does not provide unrestricted tenant access.</p></article></div>
     </section>}
     {page==='tenants'&&<>
-     <section className="platform-panel"><h2>Onboard a vendor tenant</h2><p>Create the tenant, initial branch and initial Vendor Admin membership. The invitation token is displayed once after creation.</p>
+     {can('PLATFORM_TENANT_CREATE')&&<section className="platform-panel"><h2>Onboard a vendor tenant</h2><p>Create the tenant, initial branch and initial Vendor Admin membership. The invitation token is displayed once after creation.</p>
       <form className="platform-form-grid" onSubmit={createTenant}>
        <label>Store slug<input required pattern="[a-z0-9]+(-[a-z0-9]+)*" value={tenantForm.slug} onChange={e=>setTenantForm({...tenantForm,slug:e.target.value})}/></label>
        <label>Display name<input required value={tenantForm.name} onChange={e=>setTenantForm({...tenantForm,name:e.target.value})}/></label>
@@ -120,16 +143,17 @@ export default function PlatformApp(){
        <div className="platform-form-actions"><button disabled={busy}>Create vendor tenant</button></div>
       </form>
       {invite&&<div className="platform-invitation"><strong>Vendor Admin invitation token</strong><code>{invite}</code><p>Share securely with the nominated Vendor Admin. The token is not stored in the platform audit record.</p></div>}
-     </section>
-     <section className="platform-panel"><div className="platform-panel-heading"><h2>Tenant directory</h2><button className="secondary" onClick={()=>void load('tenants')}>Refresh</button></div>
+     </section>}
+     {can('PLATFORM_TENANT_VIEW')&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Tenant directory</h2><button className="secondary" onClick={()=>void load('tenants')}>Refresh</button></div>
       <div className="platform-toolbar"><input aria-label="Search tenants" placeholder="Search name, legal name or slug" value={tenantSearch} onChange={e=>setTenantSearch(e.target.value)}/><select aria-label="Filter lifecycle status" value={tenantStatus} onChange={e=>setTenantStatus(e.target.value)}><option value="">All statuses</option>{['PENDING','UNDER_REVIEW','ACTIVE','SUSPENDED','CLOSED'].map(s=><option key={s}>{s}</option>)}</select><button className="secondary" onClick={()=>void load('tenants')}>Search</button></div>
-      <label>Lifecycle reason for the next action<input value={reason} onChange={e=>setReason(e.target.value)} placeholder="Required for every lifecycle change"/></label>
+      {(can('PLATFORM_TENANT_UPDATE')||can('PLATFORM_TENANT_SUSPEND')||can('PLATFORM_TENANT_CLOSE')||can('PLATFORM_TENANT_REACTIVATE'))&&<label>Lifecycle reason for the next action<input value={reason} onChange={e=>setReason(e.target.value)} placeholder="Required for every lifecycle change"/></label>}
       <div className="platform-table-wrap"><table><thead><tr><th>Vendor tenant</th><th>Status</th><th>Initial Vendor Admin</th><th>Storefront</th><th>Lifecycle actions</th></tr></thead><tbody>{tenantPage.items.map(t=><tr key={t.id}><td><strong>{t.name}</strong><small>{t.legalName} · #{t.id}</small></td><td><span className="platform-status">{t.lifecycleStatus}</span></td><td>{t.initialVendorAdminUsername??'—'}</td><td>{t.slug}</td><td><div className="platform-row-actions">{lifecycleActions(t).map(action=><button key={action} className="secondary" disabled={busy} onClick={()=>void changeLifecycle(t,action)}>{action.replaceAll('_',' ')}</button>)}</div></td></tr>)}</tbody></table></div>
       <p>{tenantPage.totalElements} tenants · page {tenantPage.page+1} of {tenantPage.totalPages}</p>
-     </section>
+     </section>}
+     {!can('PLATFORM_TENANT_VIEW')&&!can('PLATFORM_TENANT_CREATE')&&<p role="status">No tenant-management permissions are available.</p>}
     </>}
     {page==='plans'&&<>
-     <section className="platform-panel"><h2>Create subscription plan</h2><p>Each saved change creates a new immutable plan version. Existing invoices and subscription snapshots are not rewritten.</p>
+     {can('PLATFORM_PLAN_MANAGE')&&<section className="platform-panel"><h2>Create subscription plan</h2><p>Each saved change creates a new immutable plan version. Existing invoices and subscription snapshots are not rewritten.</p>
       <form className="platform-form-grid" onSubmit={createPlan}>
        <label>Plan key<input required value={planForm.planKey} onChange={e=>setPlanForm({...planForm,planKey:e.target.value})}/></label><label>Display name<input required value={planForm.displayName} onChange={e=>setPlanForm({...planForm,displayName:e.target.value})}/></label>
        <label>Price<input required type="number" min="0" step="0.0001" value={planForm.price} onChange={e=>setPlanForm({...planForm,price:e.target.value})}/></label><label>Currency<input required maxLength={3} value={planForm.currency} onChange={e=>setPlanForm({...planForm,currency:e.target.value.toUpperCase()})}/></label>
@@ -144,10 +168,10 @@ export default function PlatformApp(){
        <label className="platform-wide">Invoice description<input required value={planForm.invoiceDescription} onChange={e=>setPlanForm({...planForm,invoiceDescription:e.target.value})}/></label>
        <div className="platform-form-actions"><button disabled={busy}>Save plan version</button></div>
       </form>
-     </section>
-     <section className="platform-panel"><div className="platform-panel-heading"><h2>Plan catalogue</h2><button className="secondary" onClick={()=>void load('plans')}>Refresh</button></div>
-      {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><span key={v.version}>v{v.version} · {v.currency} {v.price} · {v.billingInterval}</span>)}</div><button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button></article>)}
-     </section>
+     </section>}
+     {(can('PLATFORM_PLAN_MANAGE')||can('PLATFORM_SUBSCRIPTION_VIEW'))&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Plan catalogue</h2><button className="secondary" onClick={()=>void load('plans')}>Refresh</button></div>
+      {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><span key={v.version}>v{v.version} · {v.currency} {v.price} · {v.billingInterval}</span>)}</div>{can('PLATFORM_PLAN_MANAGE')&&<button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button>}</article>)}
+     </section>}
     </>}
     {page==='audit'&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Immutable platform audit events</h2><button className="secondary" onClick={()=>void load('audit')}>Refresh</button></div><div className="platform-table-wrap"><table><thead><tr><th>Occurred</th><th>Actor</th><th>Action</th><th>Resource</th><th>Tenant</th><th>Reason</th></tr></thead><tbody>{audit.items.map(row=><tr key={row.id}><td>{new Date(row.occurredAt).toLocaleString()}</td><td>{row.actor}</td><td>{row.action}</td><td>{row.resourceType} {row.resourceId}</td><td>{row.tenantId??'Platform'}</td><td>{row.reason??'—'}</td></tr>)}</tbody></table></div></section>}
     {page==='support'&&<><section className="platform-panel"><h2>Grant controlled support window</h2><p>Maximum duration is four hours. Grants are recorded and audited; no general tenant-data bypass is provided.</p><form className="platform-form-grid" onSubmit={createSupport}>

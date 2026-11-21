@@ -20,7 +20,7 @@ class ProductAdminServiceTest {
  private void authenticate(String... permissions){var context=SecurityContextHolder.createEmptyContext();context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated("viewer","test",java.util.Arrays.stream(permissions).map(SimpleGrantedAuthority::new).toList()));SecurityContextHolder.setContext(context);}
  private void authorize(ProductAdminService service,String... permissions){
   var auth=mock(AuthorizationContext.class);
-  when(auth.current()).thenReturn(new AuthorizationContext.Context("viewer",7L,9L,Set.of(permissions),false,false,true));
+  when(auth.current()).thenReturn(new AuthorizationContext.Context("viewer", 7L, 9L, String.valueOf(7L) + ":" + ("viewer"), Set.of(permissions), false, false, true));
   ReflectionTestUtils.setField(service,"authorization",auth);
  }
  private ProductAdminService serviceFor(Product product){var products=(ProductRepository)java.lang.reflect.Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),new Class<?>[]{ProductRepository.class},(proxy,method,args)->{if(method.getName().equals("findByTenantIdOrderByNameAscIdAsc"))return new PageImpl<>(List.of(product),(Pageable)args[1],1);throw new UnsupportedOperationException(method.getName());});var assignments=(ProductCategoryRepository)java.lang.reflect.Proxy.newProxyInstance(ProductCategoryRepository.class.getClassLoader(),new Class<?>[]{ProductCategoryRepository.class},(proxy,method,args)->java.util.Optional.empty());var service=new ProductAdminService(products,null,assignments,null,null,Clock.systemUTC());authorize(service,"PRODUCT_VIEW","PRICE_VIEW","PRODUCT_CREATE","PRODUCT_UPDATE","PRODUCT_ARCHIVE","PRICE_UPDATE");return service;}

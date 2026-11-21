@@ -35,7 +35,7 @@ class ReturnSaleAccessAuthorizationBoundaryTest {
     }
 
     private static AuthorizationContext.Context vendor(Set<String> permissions) {
-        return new AuthorizationContext.Context("cashier", 7L, 12L, permissions, false, false, true);
+        return new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), permissions, false, false, true);
     }
 
     @Test
@@ -77,19 +77,11 @@ class ReturnSaleAccessAuthorizationBoundaryTest {
 
     @Test
     void customerAndPlatformActorsCannotUseVendorReturnDataPlane() {
-        var customer = fixture(new AuthorizationContext.Context(
-            "buyer", null, null,
-            Set.of("CUSTOMER", "POS_VIEW", "POS_RETURN_VIEW", "POS_RETURN_CREATE"),
-            false, true, false
-        ));
+        var customer = fixture(new AuthorizationContext.Context("buyer", null, null, null, Set.of("CUSTOMER", "POS_VIEW", "POS_RETURN_VIEW", "POS_RETURN_CREATE"), false, true, false));
         forbidden(() -> customer.service().read(7, 12, "order-1"));
         forbidden(() -> customer.service().lock(7, 12, "order-1"));
 
-        var platform = fixture(new AuthorizationContext.Context(
-            "platform-admin", null, null,
-            Set.of("PLATFORM_TENANT_VIEW", "POS_VIEW", "POS_RETURN_VIEW", "POS_RETURN_CREATE"),
-            true, false, false
-        ));
+        var platform = fixture(new AuthorizationContext.Context("platform-admin", null, null, null, Set.of("PLATFORM_TENANT_VIEW", "POS_VIEW", "POS_RETURN_VIEW", "POS_RETURN_CREATE"), true, false, false));
         forbidden(() -> platform.service().read(7, 12, "order-1"));
         forbidden(() -> platform.service().cashSale(7, 12, "order-1"));
 

@@ -17,7 +17,7 @@ class PosCatalogServiceTest {
   var repo=(PosCatalogRepository)Proxy.newProxyInstance(PosCatalogRepository.class.getClassLoader(),new Class<?>[]{PosCatalogRepository.class},(p,m,args)->{reads++;if(m.getName().startsWith("count"))return 2L;arguments=args;return new PageImpl<>(rows,(Pageable)args[9],rows.size());});
   var catalogue=new CatalogService(null,null,null){@Override public List<CategoryInfo> publishedCategories(long tenant){assertThat(tenant).isEqualTo(7);return List.of(new CategoryInfo(11,"Panels","panels",1));}};
   var auth=mock(AuthorizationContext.class);
-  when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier",7L,9L,Set.of("POS_VIEW"),false,false,true));
+  when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier", 7L, 9L, String.valueOf(7L) + ":" + ("cashier"), Set.of("POS_VIEW"), false, false, true));
   var stock=mock(com.saumya.pos.inventory.InventoryService.class);
   service=new PosCatalogService(repo,catalogue,auth,stock);
  }

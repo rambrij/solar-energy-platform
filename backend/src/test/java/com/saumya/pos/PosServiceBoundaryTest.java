@@ -11,8 +11,7 @@ class PosServiceBoundaryTest {
     @Test void internalLockReceiptAndAuditPrimitivesRequireTrustedOperationPermissionBeforeJdbc(){
         var db=mock(org.springframework.jdbc.core.JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);
-        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier",7L,12L,
-            java.util.Set.of("PRODUCT_VIEW"),false,false,true));
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), java.util.Set.of("PRODUCT_VIEW"), false, false, true));
         var service=new PosService(db,null,auth);
         var scope=new PosService.Scope(7,12,"cashier");
         assertThatThrownBy(()->service.lockOutlet(scope)).isInstanceOf(ResponseStatusException.class);
@@ -26,8 +25,7 @@ class PosServiceBoundaryTest {
     @Test void supervisorSessionFinalizationRequiresManualVerificationBeforeJdbc(){
         var db=mock(org.springframework.jdbc.core.JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);
-        when(auth.current()).thenReturn(new AuthorizationContext.Context("manager",7L,12L,
-            java.util.Set.of("POS_VIEW"),false,false,true));
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("manager", 7L, 12L, String.valueOf(7L) + ":" + ("manager"), java.util.Set.of("POS_VIEW"), false, false, true));
         var service=new PosService(db,null,auth);
         var supervisorScope=new PosService.Scope(7,12,"manager");
 
@@ -42,8 +40,7 @@ class PosServiceBoundaryTest {
     @Test void publicSessionVarianceMovementAndReconciliationMethodsDenyBeforeJdbc(){
         var db=mock(org.springframework.jdbc.core.JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);
-        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier",7L,12L,
-            java.util.Set.of("PRODUCT_VIEW"),false,false,true));
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), java.util.Set.of("PRODUCT_VIEW"), false, false, true));
         var service=new PosService(db,null,auth);
         var scope=new PosService.Scope(7,12,"cashier");
         var open=new PosService.OpenSession(1,java.math.BigDecimal.ZERO);
@@ -79,8 +76,7 @@ class PosServiceBoundaryTest {
     @Test void tenderMutationSessionGuardRequiresItsExactPermissionBeforeJdbc(){
         var db=mock(org.springframework.jdbc.core.JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);
-        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier",7L,12L,
-            java.util.Set.of("POS_VIEW"),false,false,true));
+        when(auth.current()).thenReturn(new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), java.util.Set.of("POS_VIEW"), false, false, true));
         var service=new PosService(db,null,auth);
         var scope=new PosService.Scope(7,12,"cashier");
         assertThatThrownBy(()->service.requireOpenForTender(scope,"session-1","POS_TENDER_EXTERNAL_RECORD"))

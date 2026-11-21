@@ -35,8 +35,7 @@ class ReceiptDocumentServiceTest {
 
  @Test void authenticatedVendorWithoutReceiptReprintGrantIsDeniedBeforeReceiptRenderOrAudit(){
   var authorization=mock(AuthorizationContext.class);
-  when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-      "cashier",7L,12L,Set.of("POS_VIEW"),false,false,true));
+  when(authorization.current()).thenReturn(new AuthorizationContext.Context("cashier", 7L, 12L, String.valueOf(7L) + ":" + ("cashier"), Set.of("POS_VIEW"), false, false, true));
   var receipts=mock(CheckoutReceiptService.class);
   var renderer=mock(ReceiptPdfRenderer.class);
   var audits=mock(ReceiptDocumentAuditRepository.class);

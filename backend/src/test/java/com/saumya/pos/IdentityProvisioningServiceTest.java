@@ -20,8 +20,8 @@ class IdentityProvisioningServiceTest {
     private void authorize(IdentityProvisioningServiceImpl service,AuthorizationContext.Context actor){
         var context=mock(AuthorizationContext.class);when(context.current()).thenReturn(actor);ReflectionTestUtils.setField(service,"authorization",context);
     }
-    private AuthorizationContext.Context vendorActor(){return new AuthorizationContext.Context("vendor-admin",1L,1L,java.util.Set.of("USER_CREATE"),false,false,true);}
-    private AuthorizationContext.Context platformActor(){return new AuthorizationContext.Context("platform-admin",null,null,java.util.Set.of("PLATFORM_TENANT_CREATE"),true,false,false);}
+    private AuthorizationContext.Context vendorActor(){return new AuthorizationContext.Context("vendor-admin", 1L, 1L, String.valueOf(1L) + ":" + ("vendor-admin"), java.util.Set.of("USER_CREATE"), false, false, true);}
+    private AuthorizationContext.Context platformActor(){return new AuthorizationContext.Context("platform-admin", null, null, null, java.util.Set.of("PLATFORM_TENANT_CREATE"), true, false, false);}
     @Mock GlobalUserRepository users;
     @Mock IdentitySequenceRepository sequences;
     @Mock IdentityInvitationRepository invitations;

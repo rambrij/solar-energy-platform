@@ -79,6 +79,16 @@ class AuthenticationActorContextTest {
   SecurityContextHolder.getContext().setAuthentication(authentication);
  }
 
+ private void authenticateVendor(String family){
+  var authorities=List.of(new SimpleGrantedAuthority("PRODUCT_VIEW"),
+      new SimpleGrantedAuthority("ORDER_VIEW"),
+      new SimpleGrantedAuthority(AuthorizationContext.ACTOR_CONTEXT_VENDOR));
+  var authentication=UsernamePasswordAuthenticationToken.authenticated(USER,null,authorities);
+  authentication.setDetails(new AuthenticationService.ActorSessionDetails(
+      AuthenticationService.ActorType.VENDOR,77L,"77:"+USER,family));
+  SecurityContextHolder.getContext().setAuthentication(authentication);
+ }
+
  @Test void customerToVendorSwitchValidatesMembershipRotatesFamilyAndRevokesPreviousSession(){
   var old=new RefreshSession("old-hash",USER,"customer-family",clock.instant().plusSeconds(3600),false,"CUSTOMER",null,null);
   var saved=new ArrayList<RefreshSession>();var revoked=new ArrayList<String>();
@@ -97,6 +107,25 @@ class AuthenticationActorContextTest {
   assertThat(saved.getFirst().membershipId()).isEqualTo("77:"+USER);
   assertThat(saved.getFirst().family()).isNotEqualTo("customer-family");
   assertThat(revoked).contains("customer-family");
+  assertThat(old.spent()).isTrue();
+ }
+
+ @Test void vendorToCustomerSwitchRemovesTenantAndMembershipScopeAndRotatesFamily(){
+  var old=new RefreshSession("old-hash",USER,"vendor-family",clock.instant().plusSeconds(3600),false,"VENDOR",77L,"77:"+USER);
+  var saved=new ArrayList<RefreshSession>();var revoked=new ArrayList<String>();
+  var service=service(old,true,saved,revoked);
+  authenticateVendor("vendor-family");
+  var session=service.switchContext(USER,REFRESH,AuthenticationService.ActorType.CUSTOMER,null);
+  assertThat(session.account().actorType()).isEqualTo(AuthenticationService.ActorType.CUSTOMER);
+  assertThat(session.account().permissions()).containsExactly("CUSTOMER");
+  assertThat(session.account().tenantId()).isNull();
+  assertThat(session.account().membershipId()).isNull();
+  assertThat(saved).hasSize(1);
+  assertThat(saved.getFirst().actorType()).isEqualTo("CUSTOMER");
+  assertThat(saved.getFirst().tenantId()).isNull();
+  assertThat(saved.getFirst().membershipId()).isNull();
+  assertThat(saved.getFirst().family()).isNotEqualTo("vendor-family");
+  assertThat(revoked).contains("vendor-family");
   assertThat(old.spent()).isTrue();
  }
 

@@ -773,6 +773,14 @@
       "expected": 401,
       "test": "AuthenticationActorContextTest#foreignRefreshCookieCannotRevokeAnotherIdentityRefreshFamily",
       "assertion": "The attempted context switch fails without revoking the unrelated account's refresh family"
+    },
+    {
+      "id": "P007-VENDOR-TO-CUSTOMER-SWITCH",
+      "actor": "CUSTOMER_VENDOR_DUAL_IDENTITY",
+      "endpoint": "POST /api/v1/auth/context",
+      "expected": 200,
+      "test": "AuthenticationActorContextTest#vendorToCustomerSwitchRemovesTenantAndMembershipScopeAndRotatesFamily",
+      "assertion": "New Customer context and new refresh family; Vendor tenant/membership scope and grants are absent; old Vendor family revoked"
     }
   ]
 }

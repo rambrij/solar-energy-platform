@@ -3,6 +3,7 @@ package com.saumya.pos;
 import com.saumya.pos.isolation.TenantIsolationFixture;
 import com.saumya.pos.membership.MembershipService;
 import com.saumya.pos.membership.VendorRoleService;
+import com.saumya.pos.membership.TenantEntitlementPolicy;
 import com.saumya.pos.security.ActorSessionDetails;
 import java.util.List;
 import java.util.function.Supplier;
@@ -46,6 +47,7 @@ class P101VendorRoleLifecycleTest {
     @Autowired PasswordEncoder passwords;
     @Autowired VendorRoleService roles;
     @Autowired MembershipService memberships;
+    @Autowired TenantEntitlementPolicy entitlementPolicy;
 
     private TenantIsolationFixture.Seed seed;
 
@@ -70,6 +72,20 @@ class P101VendorRoleLifecycleTest {
             JOIN subscription_plan_versions v ON v.plan_id=s.plan_id AND v.version=s.plan_version
             WHERE s.tenant_id=?
             """,String.class,VENDOR_A_TENANT)).contains("ADMINISTRATION");
+        assertThat(db.queryForList("""
+            SELECT rp.permission
+            FROM employee_role_assignments a
+            JOIN vendor_role_permissions rp
+              ON rp.tenant_id=a.tenant_id AND rp.role_id=a.role_id
+            WHERE a.tenant_id=? AND a.username=? AND a.active=TRUE
+            ORDER BY rp.permission
+            """,String.class,VENDOR_A_TENANT,VENDOR_A))
+            .as("P1-01 persisted active assignment exposes its stored grants")
+            .contains("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW");
+        assertThat(entitlementPolicy.permissions(VENDOR_A_TENANT,
+            List.of("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW")))
+            .as("P1-01 subscription policy retains entitled feature permissions")
+            .contains("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW");
         assertThat(memberships.access(VENDOR_A).orElseThrow().permissions())
             .as("P1-01 actor permissions include persisted role grants after subscription filtering")
             .contains("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW");

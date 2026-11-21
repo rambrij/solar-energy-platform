@@ -2726,8 +2726,11 @@ class PosTest {
    if(template.key().equals("POS_CASHIER")){
     // POS_VIEW is necessary but not sufficient: the cashier must also have
     // a persisted assignment and an OPEN session on the requested register.
+    long cashierRegister=db.queryForObject("SELECT COALESCE(MAX(id),0)+1 FROM registers",Long.class);
+    update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(?,?,?)",cashierRegister,1L,1L);
+    assignRegister(target,1,1,cashierRegister);
     as(target,()->service.open(new PosService.Scope(1,1,target),
-      new PosService.OpenSession(1,new BigDecimal("0"))));
+      new PosService.OpenSession(cashierRegister,new BigDecimal("0"))));
    }
    mvc.perform(get("/api/v1/vendor/"+routes.get(template.key())).header("Authorization","Bearer "+token)).andExpect(status().isOk());
    int before=db.queryForObject("SELECT COUNT(*) FROM vendor_roles",Integer.class);

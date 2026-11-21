@@ -77,6 +77,17 @@ describe('usePermissions',()=>{
   await waitFor(()=>expect(result.current.isCustomer).toBe(true));
   expect(mockAuthApi).toHaveBeenCalledWith('/api/v1/auth/me');
  });
+ it('removes a permission from the effective UI snapshot after session refresh',async()=>{
+  mockAuthApi.mockResolvedValue(response(vendorAccount));
+  const {result,rerender}=renderHook(()=>usePermissions());
+  await waitFor(()=>expect(result.current.hasPermission('POS_SALE_CREATE')).toBe(true));
+  const revoked={...vendorAccount,permissions:['POS_VIEW']};
+  mockUseSession.mockReturnValue({ready:true,account:revoked});
+  mockAuthApi.mockResolvedValue(response(revoked));
+  rerender();
+  await waitFor(()=>expect(result.current.hasPermission('POS_SALE_CREATE')).toBe(false));
+  expect(result.current.hasPermission('POS_VIEW')).toBe(true);
+ });
  it('handles API errors gracefully',async()=>{
   mockAuthApi.mockRejectedValue(new Error('Network error'));
   const {result}=renderHook(()=>usePermissions());

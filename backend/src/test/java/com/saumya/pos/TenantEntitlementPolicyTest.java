@@ -8,7 +8,6 @@ import java.time.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.env.MockEnvironment;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -16,7 +15,7 @@ import static org.mockito.Mockito.*;
 class TenantEntitlementPolicyTest {
     private static final Clock CLOCK=Clock.fixed(Instant.parse("2026-11-16T12:00:00Z"),ZoneOffset.UTC);
     private TenantEntitlementPolicy policy(JdbcTemplate db){
-        return new TenantEntitlementPolicy(db,new ObjectMapper(),CLOCK,new MockEnvironment().withProperty("spring.profiles.active","production"));
+        return new TenantEntitlementPolicy(db,new ObjectMapper(),CLOCK);
     }
     private Map<String,Object> subscription(String state,LocalDate end,Instant grace,String entitlements){
         Map<String,Object> row=new HashMap<>();row.put("status",state);row.put("billing_period_end",Date.valueOf(end));
@@ -25,7 +24,7 @@ class TenantEntitlementPolicyTest {
     private void rows(JdbcTemplate db,Map<String,Object> row){
         when(db.queryForList(anyString(),eq(10L))).thenReturn(List.of(row));
     }
-    @Test void noSubscriptionIsDeniedOutsideLocalAndTestProfiles(){
+    @Test void noSubscriptionIsDeniedInEveryRuntimeProfileIncludingLocalAndTest(){
         JdbcTemplate db=mock(JdbcTemplate.class);when(db.queryForList(anyString(),eq(10L))).thenReturn(List.of());
         assertThat(policy(db).permissions(10,List.of("POS_VIEW","POS_SALE_CREATE"))).isEmpty();
     }

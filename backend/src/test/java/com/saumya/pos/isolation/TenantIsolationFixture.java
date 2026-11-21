@@ -63,6 +63,34 @@ public final class TenantIsolationFixture {
         db.update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,?,?,TRUE),(?,?,?,TRUE)",
             VENDOR_A, VENDOR_A_TENANT, VENDOR_A_BRANCH,
             VENDOR_B, VENDOR_B_TENANT, VENDOR_B_BRANCH);
+        db.update("""
+            INSERT INTO subscription_plans(plan_key,display_name,active,current_version)
+            SELECT 'p004-p101-test-plan','P004/P1-01 Test Plan',TRUE,1
+            WHERE NOT EXISTS(SELECT 1 FROM subscription_plans WHERE plan_key='p004-p101-test-plan')
+            """);
+        Long planId=db.queryForObject("SELECT id FROM subscription_plans WHERE plan_key=?",
+            Long.class,"p004-p101-test-plan");
+        db.update("""
+            INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,
+                max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,
+                tax_metadata,invoice_description,created_by)
+            SELECT ?,1,0,'INR','MONTHLY',1000,100000,100,100,
+                '{"features":{"POS":true,"CATALOG":true,"INVENTORY":true,"ADMINISTRATION":true,"CRM":true,"LEADS":true,"QUOTATIONS":true,"ORDERS":true,"RETURNS":true,"FINANCE":true,"SHIPMENTS":true,"SERVICE":true,"REPORTING":true}}',
+                30,'{}','P004/P1-01 test subscription',?
+            WHERE NOT EXISTS(SELECT 1 FROM subscription_plan_versions WHERE plan_id=? AND version=1)
+            """,planId,VENDOR_A,planId);
+        db.update("""
+            INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,
+                billing_period_start,billing_period_end,terms_snapshot)
+            SELECT ?,?,1,'ACTIVE',DATE '2026-01-01',DATE '2099-12-31','{"test":true}'
+            WHERE NOT EXISTS(SELECT 1 FROM tenant_subscriptions WHERE tenant_id=?)
+            """,VENDOR_A_TENANT,planId,VENDOR_A_TENANT);
+        db.update("""
+            INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,
+                billing_period_start,billing_period_end,terms_snapshot)
+            SELECT ?,?,1,'ACTIVE',DATE '2026-01-01',DATE '2099-12-31','{"test":true}'
+            WHERE NOT EXISTS(SELECT 1 FROM tenant_subscriptions WHERE tenant_id=?)
+            """,VENDOR_B_TENANT,planId,VENDOR_B_TENANT);
 
         db.update("INSERT INTO customer_profiles(id,user_id) VALUES(?,?),(?,?)",
             CUSTOMER_A_ID, CUSTOMER_A_ID, CUSTOMER_B_ID, CUSTOMER_B_ID);

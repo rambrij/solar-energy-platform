@@ -2739,6 +2739,22 @@ class PosTest {
   mvc.perform(get("/api/v1/vendor/roles/"+foreignRole).header("Authorization","Bearer "+adminToken))
     .andExpect(status().isNotFound());
 
+  Long ownRole=db.queryForObject("SELECT MIN(id) FROM vendor_roles WHERE tenant_id=910001",Long.class);
+  String scopedList=mvc.perform(get("/api/v1/vendor/roles").header("Authorization","Bearer "+adminToken)
+      .header("X-Tenant-Id","920001").param("tenantId","920001"))
+    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+  assertThat(scopedList).contains("\"id\":"+ownRole).doesNotContain("\"id\":"+foreignRole);
+
+  int rolesBeforeForgedBody=db.queryForObject("SELECT COUNT(*) FROM vendor_roles WHERE tenant_id=910001",Integer.class);
+  int auditsBeforeForgedBody=db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=910001",Integer.class);
+  String forgedCreate="{\"roleKey\":\"p006-forged-tenant\",\"displayName\":\"Forged tenant role\",\"permissions\":[\"PRODUCT_VIEW\"],\"reason\":\"Tenant input must never set authorization scope\",\"tenantId\":920001}";
+  mvc.perform(post("/api/v1/vendor/roles").header("Authorization","Bearer "+adminToken).with(csrf())
+      .contentType("application/json").content(forgedCreate))
+    .andExpect(status().isBadRequest());
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_roles WHERE tenant_id=910001",Integer.class)).isEqualTo(rolesBeforeForgedBody);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_roles WHERE tenant_id=920001 AND role_key='p006-forged-tenant'",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=910001",Integer.class)).isEqualTo(auditsBeforeForgedBody);
+
   String createRole="{\"roleKey\":\"p006-catalog-viewer\",\"displayName\":\"P0-06 catalogue viewer\",\"permissions\":[\"PRODUCT_VIEW\"],\"reason\":\"Create least-privilege custom role for runtime matrix\"}";
   mvc.perform(post("/api/v1/vendor/roles").header("Authorization","Bearer "+adminToken).with(csrf())
       .contentType("application/json").content(createRole))

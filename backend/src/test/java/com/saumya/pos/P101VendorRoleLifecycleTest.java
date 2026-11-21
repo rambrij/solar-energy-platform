@@ -52,6 +52,13 @@ class P101VendorRoleLifecycleTest {
     @BeforeEach
     void seedTenantActorsAndRolePermissions() {
         seed = new TenantIsolationFixture(db, passwords).seed();
+        assertThat(db.queryForObject("""
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE LOWER(table_name)='employee_permissions'
+            """,Integer.class)).isZero();
+        assertThat(db.queryForObject("""
+            SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'legacy-%'
+            """,Integer.class)).isZero();
         grant(VENDOR_A_TENANT, seed.vendorARoleId(), "ROLE_CREATE", VENDOR_A);
         grant(VENDOR_A_TENANT, seed.vendorARoleId(), "PRODUCT_VIEW", VENDOR_A);
         grant(VENDOR_A_TENANT, seed.vendorARoleId(), "POS_VIEW", VENDOR_A);

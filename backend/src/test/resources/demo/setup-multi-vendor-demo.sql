@@ -157,6 +157,27 @@ UPDATE tenants SET online_branch_id=id WHERE id IN (SELECT id FROM demo_vendors)
 INSERT INTO users(id,username,password_hash,enabled) SELECT id,username,password_hash,TRUE FROM demo_new_accounts;
 
 INSERT INTO employees(username,tenant_id,branch_id,enabled) SELECT username,tenant_id,tenant_id,TRUE FROM demo_new_accounts WHERE tenant_id IS NOT NULL;
+-- Local demo tenants use a persisted subscription; local/test profiles never bypass entitlements.
+INSERT INTO subscription_plans(plan_key,display_name,active,current_version)
+SELECT 'local-demo-unlimited','Local Demo Unlimited',TRUE,1
+WHERE NOT EXISTS(SELECT 1 FROM subscription_plans WHERE plan_key='local-demo-unlimited');
+
+INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,
+ max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,tax_metadata,
+ invoice_description,created_by)
+SELECT p.id,1,0,'INR','MONTHLY',1000,100000,100,100,
+ '{"features":{"POS":true,"CATALOG":true,"INVENTORY":true,"ADMINISTRATION":true,"CRM":true,"LEADS":true,"QUOTATIONS":true,"ORDERS":true,"RETURNS":true,"FINANCE":true,"SHIPMENTS":true,"SERVICE":true,"REPORTING":true}}',
+ 30,'{}','Local demo subscription','superadmin@platform.demo.test'
+FROM subscription_plans p
+WHERE p.plan_key='local-demo-unlimited'
+ AND NOT EXISTS(SELECT 1 FROM subscription_plan_versions v WHERE v.plan_id=p.id AND v.version=1);
+
+INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,
+ billing_period_start,billing_period_end,terms_snapshot)
+SELECT d.id,p.id,1,'ACTIVE',DATE '2026-01-01',DATE '2099-12-31','{"demo":true}'
+FROM demo_vendors d CROSS JOIN subscription_plans p
+WHERE p.plan_key='local-demo-unlimited'
+ AND NOT EXISTS(SELECT 1 FROM tenant_subscriptions s WHERE s.tenant_id=d.id);
 
 INSERT INTO customer_profiles(id,user_id) SELECT id,id FROM demo_new_accounts WHERE role_name='CUSTOMER';
 

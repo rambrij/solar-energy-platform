@@ -2,6 +2,10 @@ package com.saumya.pos.identity;
 
 import com.saumya.pos.identity.internal.*;
 import com.saumya.pos.membership.MembershipService;
+import com.saumya.pos.membership.TenantEntitlementPolicy;
+import com.saumya.pos.membership.internal.EmployeeMembershipRepository;
+import com.saumya.pos.tenant.TenantLifecycleService;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.security.ActorSessionDetails;
 import java.lang.reflect.Proxy;
@@ -41,7 +45,9 @@ class AuthenticationActorContextTest {
    case "revoke" -> {revoked.add((String)a[0]);yield 1;}
    default -> throw new UnsupportedOperationException(m.getName());
   });
-  var membership=new MembershipService(null,null,null){
+  var membership=new MembershipService(
+      mock(EmployeeMembershipRepository.class),mock(TenantLifecycleService.class),
+      mock(JdbcTemplate.class),mock(TenantEntitlementPolicy.class)){
    @Override public Optional<Access> access(String name){
     return vendorMembershipActive?Optional.of(new Access(77,770,name,List.of("PRODUCT_VIEW","ORDER_VIEW"))):Optional.empty();
    }

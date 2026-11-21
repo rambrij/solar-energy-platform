@@ -27,6 +27,11 @@ class MembershipServiceTest {
         return proxy(EmployeeMembershipRepository.class,(p,m,a)->m.getName().equals("findByUsernameIgnoreCase")
             ?Optional.ofNullable(membership):null);
     }
+    private TenantEntitlementPolicy passThroughEntitlements(){
+        var policy=mock(TenantEntitlementPolicy.class);
+        when(policy.permissions(anyLong(),anyList())).thenAnswer(call->call.getArgument(1));
+        return policy;
+    }
     private TenantLifecycleService activeTenant(){
         return proxy(TenantLifecycleService.class,(p,m,a)->switch(m.getName()){
             case "isActive" -> true;
@@ -39,17 +44,32 @@ class MembershipServiceTest {
         var db=mock(JdbcTemplate.class);
         when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier")))
             .thenReturn(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
-        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db);
+        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,passThroughEntitlements());
         assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
             .isEqualTo(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
         verify(db).queryForList(argThat(sql->sql.contains("a.active=TRUE")&&sql.contains("r.active=TRUE")
             &&sql.contains("SELECT DISTINCT")),eq(String.class),eq(7L),eq("cashier"));
     }
 
+    @Test void persistedRoleUnionIsFilteredThroughTheMandatoryTenantEntitlementPolicy(){
+        var db=mock(JdbcTemplate.class);
+        when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier")))
+            .thenReturn(List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
+        var entitlements=mock(TenantEntitlementPolicy.class);
+        when(entitlements.permissions(7L,List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW")))
+            .thenReturn(List.of("POS_VIEW"));
+        var service=new MembershipService(
+            memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,entitlements);
+
+        assertThat(service.access("cashier")).get()
+            .extracting(MembershipService.Access::permissions).isEqualTo(List.of("POS_VIEW"));
+        verify(entitlements).permissions(7L,List.of("ORDER_VIEW","POS_VIEW","PRODUCT_VIEW"));
+    }
+
     @Test void noRoleAssignmentFailsClosedWithoutReadingAnyOtherPermissionSource(){
         var db=mock(JdbcTemplate.class);
         when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier"))).thenReturn(List.of());
-        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db);
+        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,passThroughEntitlements());
         assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions).isEqualTo(List.of());
         verify(db).queryForList(anyString(),eq(String.class),eq(7L),eq("cashier"));
         verifyNoMoreInteractions(db);
@@ -58,7 +78,7 @@ class MembershipServiceTest {
     @Test void revokingEveryRoleLeavesTheActiveEmployeeWithZeroPermissions(){
         var db=mock(JdbcTemplate.class);
         when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier"))).thenReturn(List.of());
-        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db);
+        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,passThroughEntitlements());
 
         assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions).isEqualTo(List.of());
         verify(db).queryForList(argThat(sql->sql.contains("a.active=TRUE")&&sql.contains("r.active=TRUE")),eq(String.class),eq(7L),eq("cashier"));
@@ -67,7 +87,7 @@ class MembershipServiceTest {
     @Test void inactiveAndDeactivatedRolesGrantNoPermissions(){
         var db=mock(JdbcTemplate.class);
         when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier"))).thenReturn(List.of());
-        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db);
+        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,passThroughEntitlements());
         assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions).isEqualTo(List.of());
     }
 
@@ -75,16 +95,16 @@ class MembershipServiceTest {
         var db=mock(JdbcTemplate.class);
         when(db.queryForList(anyString(),eq(String.class),eq(7L),eq("cashier")))
             .thenReturn(List.of("POS_VIEW","PLATFORM_TENANT_CREATE","UNKNOWN_PERMISSION"));
-        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db);
+        var service=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),activeTenant(),db,passThroughEntitlements());
         assertThat(service.access("cashier")).get().extracting(MembershipService.Access::permissions)
             .isEqualTo(List.of("POS_VIEW"));
     }
 
     @Test void disabledEmployeeAndSuspendedTenantResolveNoMembership(){
-        var disabled=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,false)),activeTenant(),mock(JdbcTemplate.class));
+        var disabled=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,false)),activeTenant(),mock(JdbcTemplate.class),passThroughEntitlements());
         assertThat(disabled.access("cashier")).isEmpty();
         var suspended=proxy(TenantLifecycleService.class,(p,m,a)->m.getName().equals("isActive")?false:null);
-        var inactiveTenant=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),suspended,mock(JdbcTemplate.class));
+        var inactiveTenant=new MembershipService(memberships(new EmployeeMembership("cashier",7,12,true)),suspended,mock(JdbcTemplate.class),passThroughEntitlements());
         assertThat(inactiveTenant.access("cashier")).isEmpty();
     }
 
@@ -102,7 +122,7 @@ class MembershipServiceTest {
         when(db.queryForObject(startsWith("SELECT id FROM vendor_roles"),eq(Long.class),eq(7L),eq("vendor-admin-initial"))).thenReturn(99L);
         when(db.queryForObject(startsWith("SELECT COUNT(*) FROM employee_role_assignments"),eq(Integer.class),eq(7L),eq("admin@example.com"))).thenReturn(0);
         when(db.queryForObject(startsWith("SELECT COUNT(*) FROM vendor_role_permissions"),eq(Integer.class),eq(7L),eq(99L))).thenReturn(77);
-        var service=new MembershipService(membershipRepo,activeTenant(),db);
+        var service=new MembershipService(membershipRepo,activeTenant(),db,passThroughEntitlements());
         var result=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         assertThat(result.created()).isTrue();
         assertThat(result.permissionCount()).isEqualTo(77);

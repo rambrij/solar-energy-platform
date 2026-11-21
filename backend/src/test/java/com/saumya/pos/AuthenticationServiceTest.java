@@ -2,6 +2,7 @@ package com.saumya.pos;
 import com.saumya.pos.identity.*;
 import com.saumya.pos.identity.internal.*;
 import com.saumya.pos.membership.MembershipService;
+import com.saumya.pos.security.ActorSessionDetails;
 import java.lang.reflect.Proxy;
 import java.time.Clock;
 import java.util.*;
@@ -48,8 +49,8 @@ class AuthenticationServiceTest {
   var service=new AuthenticationService(users,customers,null,null,membership,encoder,
     new JwtService("",environment,Clock.systemUTC()),Clock.systemUTC(),platform,environment);
   var authentication=UsernamePasswordAuthenticationToken.authenticated("employee@example.test",null,List.of());
-  authentication.setDetails(new AuthenticationService.ActorSessionDetails(
-    AuthenticationService.ActorType.VENDOR,7L,"7:employee@example.test","family"));
+  authentication.setDetails(new ActorSessionDetails(
+    "VENDOR",7L,"7:employee@example.test","family"));
   SecurityContextHolder.getContext().setAuthentication(authentication);
   try{
    var me=service.me("employee@example.test");

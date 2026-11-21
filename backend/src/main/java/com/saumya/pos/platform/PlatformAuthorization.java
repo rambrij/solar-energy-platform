@@ -1,6 +1,7 @@
 package com.saumya.pos.platform;
 
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.security.ActorSessionDetails;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -24,8 +25,8 @@ public final class PlatformAuthorization {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Explicit Platform actor context required");
         if(authorities.stream().anyMatch(a->!a.equals(AuthorizationContext.ACTOR_CONTEXT_PLATFORM)&&!a.startsWith("PLATFORM_")))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Platform context cannot contain commercial permissions");
-        if(auth.getDetails() instanceof com.saumya.pos.identity.AuthenticationService.ActorSessionDetails details
-            &&(details.actorType()!=com.saumya.pos.identity.AuthenticationService.ActorType.PLATFORM
+        if(auth.getDetails() instanceof ActorSessionDetails details
+            &&(!details.actorType().equals("PLATFORM")
                 ||details.tenantId()!=null||details.membershipId()!=null))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Platform actor scope is inconsistent");
         if(expectedActor!=null&&!expectedActor.equals(auth.getName()))

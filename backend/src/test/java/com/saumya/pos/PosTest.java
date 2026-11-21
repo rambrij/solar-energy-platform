@@ -2923,12 +2923,15 @@ class PosTest {
 
   // Create persisted subscription fixtures through authenticated platform APIs.
   String platformToken=tokens.get("PLATFORM_SUPER_ADMIN");
-  String planBody=json.writeValueAsString(Map.of(
-      "planKey","p006-matrix-plan","displayName","P0-06 Matrix Plan","price",new BigDecimal("10.00"),
-      "currency","INR","billingInterval","MONTHLY","maxUsers",10,"maxStorageMb",1024,
-      "maxBranches",2,"maxWarehouses",1,
-      "entitlements","{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ORDERS\":true}}",
-      "graceDays",7,"taxMetadata","{}","invoiceDescription","P0-06 authorization fixture"));
+  Map<String,Object> planPayload=new LinkedHashMap<>();
+  planPayload.put("planKey","p006-matrix-plan");planPayload.put("displayName","P0-06 Matrix Plan");
+  planPayload.put("price",new BigDecimal("10.00"));planPayload.put("currency","INR");
+  planPayload.put("billingInterval","MONTHLY");planPayload.put("maxUsers",10);
+  planPayload.put("maxStorageMb",1024);planPayload.put("maxBranches",2);planPayload.put("maxWarehouses",1);
+  planPayload.put("entitlements","{\"features\":{\"POS\":true,\"CATALOG\":true,\"INVENTORY\":true,\"ORDERS\":true}}");
+  planPayload.put("graceDays",7);planPayload.put("taxMetadata","{}");
+  planPayload.put("invoiceDescription","P0-06 authorization fixture");
+  String planBody=json.writeValueAsString(planPayload);
   var planResponse=mvc.perform(post("/api/v1/platform/subscription-plans")
       .header("Authorization","Bearer "+platformToken).with(csrf())
       .contentType("application/json").content(planBody)).andExpect(status().isCreated()).andReturn();

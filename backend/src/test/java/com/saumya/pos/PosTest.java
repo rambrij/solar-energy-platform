@@ -1709,7 +1709,12 @@ class PosTest {
  }
  void demoStore(){update("INSERT INTO tenants(id,name,legal_name,lifecycle_status,slug) VALUES(900001,'Demo store','Demo store','ACTIVE','vendor-900001')");update("INSERT INTO branches(id,tenant_id,name) VALUES(900001,900001,'Demo outlet')");}
  @Test void solarDemoSeedAddsCategorizedProductsAndPreservesEditsStockHoldsAndSales() throws Exception {
-  var receipt=as("alice", () -> checkout.cashSale(a.cashier(),"demo-existing",sale(1,"120")));demoStore();employee("admin@saumya.demo.test",900001,900001);loadSolarDemoSeed();
+  var receipt=as("alice", () -> checkout.cashSale(a.cashier(),"demo-existing",sale(1,"120")));
+  demoStore();
+  employee("admin@saumya.demo.test",900001,900001);
+  new com.saumya.pos.isolation.TenantIsolationFixture(db,encoder)
+      .seedEntitlements(900001,"admin@saumya.demo.test");
+  loadSolarDemoSeed();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM product_categories WHERE tenant_id=900001",Integer.class)).isEqualTo(18);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM catalog_categories WHERE tenant_id=900001",Integer.class)).isEqualTo(6);
@@ -2421,12 +2426,13 @@ class PosTest {
     "INSERT INTO pos_active_drafts(tenant_id,branch_id,cashier,session_id,order_reference) VALUES(1,1,'alice',?,?)",
     session,orderBId)).isInstanceOf(RuntimeException.class);
 
-  update("INSERT INTO subscription_plans(plan_key,display_name,active,current_version) VALUES('v48-plan','V48 test plan',TRUE,1)");
-  Long planId=db.queryForObject("SELECT id FROM subscription_plans WHERE plan_key='v48-plan'",Long.class);
-  update("INSERT INTO subscription_plan_versions(plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by) VALUES(?,1,0,'INR','MONTHLY',1,0,1,0,'{}',0,'{}','V48 test','alice')",planId);
-  update("INSERT INTO tenant_subscriptions(tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot) VALUES(1,?,1,'ACTIVE','2026-01-01','2026-12-31','{}'),(2,?,1,'ACTIVE','2026-01-01','2026-12-31','{}')",planId,planId);
-  Long subscriptionA=db.queryForObject("SELECT id FROM tenant_subscriptions WHERE tenant_id=1",Long.class);
-  Long subscriptionB=db.queryForObject("SELECT id FROM tenant_subscriptions WHERE tenant_id=2",Long.class);
+  // The shared fixture already created one active subscription per tenant.
+  // Reuse those persisted rows so this test focuses on the composite tenant FK
+  // instead of violating the one-effective-subscription invariant.
+  Long subscriptionA=db.queryForObject(
+      "SELECT id FROM tenant_subscriptions WHERE tenant_id=1",Long.class);
+  Long subscriptionB=db.queryForObject(
+      "SELECT id FROM tenant_subscriptions WHERE tenant_id=2",Long.class);
 
   update("INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(1,?,'ACTIVE','alice','same tenant event')",subscriptionA);
   assertThatThrownBy(()->update(

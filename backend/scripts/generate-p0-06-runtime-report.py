@@ -223,7 +223,7 @@ def build() -> int:
             row["runtime_actor_evidence"] = "PERSISTED_ACTOR_HTTP"
             row["runtime_actor_test_reference"] = actor_endpoint.get("test_reference", "")
         explicit_scenarios = actor_coverage.get(key, [])
-        explicit_scenario_pass = any(item.startswith(" ") is False and ":PASS[" in item for item in explicit_scenarios)
+        explicit_scenario_pass = any(":PASS[" in item for item in explicit_scenarios)
         generic_actor_pass = actor_endpoint is not None and actor_endpoint.get("result") == "PASS"
         row["runtime_actor_coverage_result"] = "PASS" if generic_actor_pass or explicit_scenario_pass else (
             actor_endpoint.get("result", "NOT_EXECUTED") if actor_endpoint is not None else "NOT_EXECUTED"

@@ -33,6 +33,24 @@ class V50LocalDemoRoleAssignmentsTest {
   assertThat(sql).doesNotContain("('SALES_EXECUTIVE','","('OPERATIONS_MANAGER','","('SERVICE_MANAGER','","('SERVICE_ENGINEER','","('CONTENT_MANAGER','");
  }
 
+ @Test void checkedInMultiVendorDemoGrantsExactlyMatchSupportedStandardTemplates() throws Exception {
+  String sql;
+  try(var in=new ClassPathResource("demo/setup-multi-vendor-demo.sql").getInputStream()){
+   sql=StreamUtils.copyToString(in,StandardCharsets.UTF_8);
+  }
+  int start=sql.indexOf("INSERT INTO demo_grants VALUES");
+  int end=sql.indexOf(";",start);
+  assertThat(start).isGreaterThanOrEqualTo(0);
+  assertThat(end).isGreaterThan(start);
+  Map<String,Set<String>> actual=new HashMap<>();
+  var matcher=Pattern.compile("\\('([A-Z_]+)','([A-Z0-9_]+)'\\)").matcher(sql.substring(start,end));
+  while(matcher.find())actual.computeIfAbsent(matcher.group(1),ignored->new HashSet<>()).add(matcher.group(2));
+  Map<String,Set<String>> expected=new HashMap<>();
+  for(var definition:StandardRoleTemplates.ALL)if(definition.supported())
+   expected.put(definition.key(),new HashSet<>(definition.permissions()));
+  assertThat(actual).isEqualTo(expected);
+ }
+
  @Test void v54StampsTemplateOriginForLocalStandardRoleSnapshots() throws Exception {
   String sql;
   try(var in=new ClassPathResource("db/migration/V54__tenant_role_template_origin.sql").getInputStream()){

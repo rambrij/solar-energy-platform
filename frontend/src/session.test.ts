@@ -1,5 +1,6 @@
+import {renderHook} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {signIn,switchActorContext} from './session';
+import {authenticatedFetch,signIn,switchActorContext,useSession} from './session';
 
 function response(body:unknown,status=200){
  return {ok:status>=200&&status<300,status,json:vi.fn().mockResolvedValue(body)} as unknown as Response;

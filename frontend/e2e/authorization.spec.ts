@@ -136,18 +136,22 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   await expect(page.getByText('Vendor sale receipt')).toBeVisible({ timeout: 30_000 });
 });
 
-test('Revoked custom Sales role loses existing bearer access and protected route after refresh', async ({ page }) => {
-  const adminToken = await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
-  await ensureCustomSalesRole(page, adminToken);
-  await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();
-  const salesToken = await signIn(page, demo.salesExecutive.username, demo.salesExecutive.password);
-  await page.goto('/vendor/pos/products');
-  await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
-  const revoked = await apiAs(page, adminToken, '/api/v1/vendor/employees/' + encodeURIComponent(demo.salesExecutive.username) + '/roles', 'PUT', { roleIds: [], reason: 'Verify P2-01 permission revocation' });
-  expect(revoked.status).toBe(200);
-  const staleTokenRequest = await apiAs(page, salesToken, '/api/v1/vendor/products?page=0&size=20');
-  expect(staleTokenRequest.status).toBe(403);
-  await page.reload();
-  await expect(page.getByRole('alert')).toContainText('Access denied');
+test('Revoked custom Sales role loses existing bearer access and protected route after refresh', async ({ page, browser }) => {
+  const adminContext = await browser.newContext();
+  try {
+    const adminPage = await adminContext.newPage();
+    const adminToken = await signIn(adminPage, demo.vendorAdmin.username, demo.vendorAdmin.password);
+    await ensureCustomSalesRole(adminPage, adminToken);
+    const salesToken = await signIn(page, demo.salesExecutive.username, demo.salesExecutive.password);
+    await page.goto('/vendor/pos/products');
+    await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
+    const revoked = await apiAs(adminPage, adminToken, '/api/v1/vendor/employees/' + encodeURIComponent(demo.salesExecutive.username) + '/roles', 'PUT', { roleIds: [], reason: 'Verify P2-01 permission revocation' });
+    expect(revoked.status).toBe(200);
+    const staleTokenRequest = await apiAs(page, salesToken, '/api/v1/vendor/products?page=0&size=20');
+    expect(staleTokenRequest.status).toBe(403);
+    await page.reload();
+    await expect(page.getByRole('alert')).toContainText('Access denied');
+  } finally {
+    await adminContext.close();
+  }
 });

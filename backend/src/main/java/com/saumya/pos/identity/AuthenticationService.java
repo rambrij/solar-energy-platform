@@ -181,7 +181,7 @@ public class AuthenticationService {
   if(!(auth.getDetails() instanceof ActorSessionDetails active))throw denied();
   if(ActorType.valueOf(active.actorType())==ActorType.PLATFORM||target==null||target==ActorType.PLATFORM)
    throw new ResponseStatusException(FORBIDDEN,"Platform identity cannot switch into or out of commercial actor context");
-  if(active.actorType()==target&&Objects.equals(active.tenantId(),targetTenantId))
+  if(ActorType.valueOf(active.actorType())==target&&Objects.equals(active.tenantId(),targetTenantId))
    throw new ResponseStatusException(CONFLICT,"Requested actor context is already active");
 
   var current=sessions.locked(hash(refreshToken)).orElseThrow(this::denied);

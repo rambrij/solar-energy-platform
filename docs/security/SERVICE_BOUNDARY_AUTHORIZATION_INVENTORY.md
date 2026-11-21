@@ -201,7 +201,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | TenderReviewService | review | Delegates to PaymentCheckoutService.verifyEvidence, which checks tender review permission and order scope |
 | VendorCustomerService | associate | Trusted internal call from CustomerAssociationService.approve only; exact `system:customer-association` principal plus `SYSTEM_CUSTOMER_ASSOCIATION` authority required before relationship repository access; MANDATORY transaction and original customer context restored by caller |
 | ReceiptDocumentService | generate | POS receipt/reprint permissions and owned receipt |
-| AuthenticationService | login, register, refresh, logout, authenticate, me | Authentication protocol/token/session checks; me binds username to authenticated principal |
+| AuthenticationService | login, register, refresh, logout, authenticate, me, switchContext | Authentication protocol/token/session checks; `switchContext` requires the authenticated actor's matching persisted refresh family, permits only Customer↔Vendor, validates the target vendor membership/tenant server-side, revokes the prior family and issues a new one; Platform switching is denied |
 | IdentityProvisioningServiceImpl | ensureVendorEligible, issueInvitation, acceptInvitation | Platform tenant-create or vendor USER_CREATE; acceptance is one-time token-authorized |
 | JwtService | decoder, issue | Security infrastructure; decoder is consumed by Spring Security, issue is called by AuthenticationService |
 | PlatformMfaService | issueEnrollment, start, complete, status | Platform identity-management permission; enrollment token hash/expiry/one-time checks; status actor binding |

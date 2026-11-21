@@ -111,13 +111,16 @@ Implementation touched:
 - `identity/IdentityProvisioningServiceImpl`: Customer/Vendor coexistence allowed; Platform identity remains excluded from Vendor onboarding.
 - `PosTest`: persisted dual-identity HTTP scenarios.
 
-New P0-07 regression methods in `backend/src/test/java/com/saumya/pos/PosTest.java`:
+P0-07 regression coverage is split across two existing test classes:
 
-- `p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack`: Customer/Vendor overlap, 409 for unspecified context, Customer-to-Vendor switch, wrong-context/tenant denial, old-token invalidation, refresh scope preservation, disabled-membership failure, and Platform onboarding exclusion.
-- `p007VendorCanSwitchBackToCustomerAndDropsVendorScope`: Vendor-to-Customer rotation, removal of tenant/membership scope, old-token invalidation and Customer refresh preservation.
-- `p007PlatformIdentityCannotSwitchIntoCommercialContext`: Platform-to-Customer and Platform-to-Vendor denial, and continued denial of commercial APIs.
+- `backend/src/test/java/com/saumya/pos/identity/AuthenticationActorContextTest.java` verifies Customer-to-Vendor and Vendor-to-Customer switch rules, refresh preserving the selected context, revoked Vendor membership failing without Customer fallback, Platform entry denial, Platform identity exclusion from Customer/Vendor identities, persisted JWT/session scope matching, and rejection of a foreign refresh cookie.
+- `backend/src/test/java/com/saumya/pos/PosTest.java` contains persisted end-to-end HTTP regressions:
+  - `p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack`: Customer/Vendor onboarding coexistence, 409 for unspecified context, Customer-only scope, Customer-to-Vendor switch, wrong-context/tenant denial, failed-switch preservation, old-token invalidation, refresh scope preservation, disabled-membership failure and Platform onboarding exclusion.
+  - `p007VendorCanSwitchBackToCustomerAndDropsVendorScope`: Vendor-to-Customer rotation, removal of tenant/membership scope, old-token invalidation and Customer refresh preservation.
+  - `p007PlatformIdentityCannotSwitchIntoCommercialContext`: Platform-to-Customer and Platform-to-Vendor denial, and continued denial of commercial APIs.
+- `backend/src/test/java/com/saumya/pos/security/AuthorizationContextTest.java` verifies single actor markers, strict Customer/Platform permission separation, tenant/branch scope checks and revoked membership denial.
 
-The `POS tests` workflow explicitly selects all three methods in separate H2 and MySQL 8.4 focused P0-07 steps, and then runs the complete backend suite. The workflow change is committed; test execution remains pending.
+The `POS tests` workflow selects these actual test classes/methods in focused H2 and MySQL 8.4 P0-07 steps, followed by the complete backend suite. An obsolete selector referencing a non-existent `AuthenticationServiceTest` class was removed so the focused job invokes the checked-in tests. Execution remains pending.
 
 ## 7. Verification status and remaining acceptance
 

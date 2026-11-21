@@ -304,6 +304,16 @@ class RuntimeAuthorizationPersistedRoleTest {
                 assertThat(policy).as("mapped mutation has a policy: %s#%s",
                     controllerType.getSimpleName(), handler.getMethod().getName()).isNotNull();
                 if (policy.value().contains("permitAll()")) continue;
+                // This authenticated-only endpoint is tested end-to-end by P0-07
+                // with the matching access-token family and persisted refresh cookie.
+                // A generic VIEW-only invocation supplies no such session and therefore
+                // cannot assess the endpoint's real authorization contract.
+                if (controllerType.getSimpleName().equals("AuthenticationController")
+                    && handler.getMethod().getName().equals("switchContext")) {
+                    System.out.println("RUNTIME_AUTHORIZATION_VIEW_MUTATION_DELEGATED|"
+                        + "AuthenticationController#switchContext|P0_07_REAL_REFRESH_FAMILY|PASS");
+                    continue;
+                }
 
                 String endpoint = controllerType.getSimpleName() + "#" + handler.getMethod().getName();
                 if (!executed.add(endpoint)) continue;

@@ -3185,6 +3185,15 @@ class PosTest {
       }
      }
      int actual=response.getResponse().getStatus();
+     // Lifecycle is intentionally exercised as a real suspension, then restored
+     // through the same platform HTTP boundary so later persisted vendor actors
+     // remain valid for the rest of the endpoint matrix.
+     if(route.endsWith("/lifecycle")&&httpMethod==RequestMethod.POST&&actual>=200&&actual<300){
+      String restoreBody=json.writeValueAsString(Map.of("status","ACTIVE","reason","P0-06 endpoint matrix fixture restoration"));
+      mvc.perform(post("/api/v1/platform/tenants/910001/lifecycle")
+          .header("Authorization","Bearer "+tokens.get("PLATFORM_SUPER_ADMIN")).with(csrf())
+          .contentType("application/json").content(restoreBody)).andExpect(status().is2xxSuccessful());
+     }
      Throwable resolved=response.getResolvedException();
      String exception=resolved==null?"":resolved.getClass().getSimpleName();
      boolean bindingFailure=resolved instanceof org.springframework.web.bind.MethodArgumentNotValidException
@@ -3221,6 +3230,8 @@ class PosTest {
     }
    }
   }
+  assertThat(db.queryForObject("SELECT lifecycle_status FROM tenants WHERE id=910001",String.class))
+      .as("runtime matrix must restore the demo tenant after the lifecycle endpoint probe").isEqualTo("ACTIVE");
   assertThat(protectedRows).as("all protected live method/route mappings executed with a persisted actor").isGreaterThan(100);
   Path path=Path.of("target","p0-06-runtime-actor-endpoint-http.csv");
   try{Files.createDirectories(path.getParent());Files.write(path,csv,StandardCharsets.UTF_8);}

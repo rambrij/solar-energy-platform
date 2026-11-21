@@ -62,6 +62,17 @@ class P101VendorRoleLifecycleTest {
         grant(VENDOR_A_TENANT, seed.vendorARoleId(), "ROLE_CREATE", VENDOR_A);
         grant(VENDOR_A_TENANT, seed.vendorARoleId(), "PRODUCT_VIEW", VENDOR_A);
         grant(VENDOR_A_TENANT, seed.vendorARoleId(), "POS_VIEW", VENDOR_A);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM tenant_subscriptions WHERE tenant_id=? AND status='ACTIVE'",
+            Integer.class,VENDOR_A_TENANT)).as("P1-01 tenant has a persisted active subscription").isEqualTo(1);
+        assertThat(db.queryForObject("""
+            SELECT entitlements FROM tenant_subscriptions s
+            JOIN subscription_plan_versions v ON v.plan_id=s.plan_id AND v.version=s.plan_version
+            WHERE s.tenant_id=?
+            """,String.class,VENDOR_A_TENANT)).contains("ADMINISTRATION");
+        assertThat(memberships.access(VENDOR_A).orElseThrow().permissions())
+            .as("P1-01 actor permissions include persisted role grants after subscription filtering")
+            .contains("ROLE_CREATE","ROLE_VIEW","PRODUCT_VIEW","POS_VIEW");
         db.update("INSERT INTO users(id,username,password_hash,enabled) VALUES(?,?,?,TRUE)",
             TARGET_USER_ID, TARGET, passwords.encode("P101-test-employee-password"));
         db.update("INSERT INTO employees(username,tenant_id,branch_id,enabled) VALUES(?,?,?,TRUE)",

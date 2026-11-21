@@ -22,6 +22,7 @@
 | Custom Sales role | `/vendor/pos/products` | Persisted custom role grants `PRODUCT_VIEW` only | Direct route and product list allowed | Custom Sales role test |
 | Custom Sales product mutation | `POST /api/v1/vendor/products` | Requires `PRODUCT_CREATE`, not granted | HTTP 403; product IDs unchanged | Custom Sales role test |
 | Cashier session entry | `/vendor/pos` | `POS_VIEW`, `POS_SESSION_OPEN` | Session-selection page allowed | Cashier mobile navigation test |
+| Cashier direct deep link | `/vendor/pos/products` | Requires `PRODUCT_VIEW`, not granted | Route renders Access denied even when URL is entered directly | Cashier mobile navigation test |
 | Cashier administration routes | `/vendor/pos/roles`, `/vendor/pos/products` | `ROLE_VIEW`, `PRODUCT_VIEW` not granted | Navigation entries absent | Cashier mobile navigation test |
 | Accountant reporting | `/vendor/pos/sales-insights` | `POS_REPORT_VIEW` | Reporting page allowed | Accountant test |
 | Accountant inventory | `GET /api/v1/vendor/inventory/receipts` | Requires `INVENTORY_VIEW`, not granted | HTTP 403 | Accountant test |

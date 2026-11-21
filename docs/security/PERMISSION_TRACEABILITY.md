@@ -4,7 +4,7 @@
 |---|---|
 | Canonical source | `backend/src/main/resources/authorization-policy-registry.json` |
 | Catalogue version | 2 |
-| Status | COMPLETE — VERIFIED 2026-11-21 on d550c392de4267718dc6c387378de83bf64471c7 (workflow #44931160016) |
+| Status | COMPLETE — VERIFIED 2026-11-21 on current branch head `e20ea97c9693aacc641f55c87abfb0924fd2858a` (workflow #44933142896) |
 | Rule | Only vendor/platform permissions in the canonical assignable lists can be granted. Customer is an actor marker, not a vendor role permission. |
 
 ## Assignable permissions
@@ -100,7 +100,7 @@ Permission grants do not replace scope checks. Tenant membership, branch assignm
 
 ## Verification state
 
-The traceability rows identify current endpoints, services, UI operations and test references. Runtime proof was executed on the final branch head. Workflow #44931160016 passed P1-01/P1-02, P0-06 and P0-07 focused regressions, full H2 (662 tests; 0 failures/errors; 1 skipped) and MySQL 8.4 (662 tests; 0 failures/errors/skips), plus frontend (62 files / 303 tests), registry parity and production build. V55 permission catalogue and FK migration ran successfully on both databases.
+The traceability rows identify current endpoints, services, UI operations and test references. Runtime proof was executed on the final branch head. Workflow #44931160016 passed P1-01/P1-02, P0-06 and P0-07 focused regressions, full H2 (662 tests; 0 failures/errors; 1 skipped) and MySQL 8.4 (662 tests; 0 failures/errors/skips), plus frontend (62 files / 303 tests), registry parity and production build. V55 permission catalogue and FK migration ran successfully on both databases. The subsequent current branch head `e20ea97c9693aacc641f55c87abfb0924fd2858a` was revalidated by workflow #44933142896; frontend, H2 and MySQL 8.4 jobs all concluded SUCCESS.
 
 ## SRS-to-runtime permission refinements
 
@@ -132,7 +132,8 @@ The following implementation-level permissions are additional, narrower authorit
 
 ## Final runtime evidence — 2026-11-21
 
-- Branch head: d550c392de4267718dc6c387378de83bf64471c7; [GitHub Actions #44931160016](https://github.com/rambrij/solar-energy-platform/actions/runs/44931160016). H2, MySQL 8.4 and frontend jobs all SUCCESS.
+- Detailed acceptance-matrix commit: d550c392de4267718dc6c387378de83bf64471c7; [GitHub Actions #44931160016](https://github.com/rambrij/solar-energy-platform/actions/runs/44931160016). H2, MySQL 8.4 and frontend jobs all SUCCESS.
+- Latest branch head: `e20ea97c9693aacc641f55c87abfb0924fd2858a`; [GitHub Actions #44933142896](https://github.com/rambrij/solar-energy-platform/actions/runs/44933142896). Frontend, H2 and MySQL 8.4 jobs all SUCCESS.
 - The P0-06 report produced on each database records 146 live endpoint rows, 41/41 actor scenarios PASS, 18/18 P0-07 actor-context cases PASS, zero protected routes without persisted matching-actor evidence, 130 missing-permission HTTP checks PASS, 131 anonymous checks PASS, and 66/66 VIEW-only mutation denials. Public routes and the delegated actor-context endpoint remain explicitly distinguished in the report.
 - Frontend permission registry parity: 27 routes, 41 backend controllers, 63 permission identifiers; 62 test files / 303 tests and production build passed.
 - V55 creates the vendor/platform permission catalogue constraints from this canonical JSON. H2 and MySQL 8.4 migration and DB parity tests passed; MySQL clean local-demo migration step passed.

@@ -2729,7 +2729,7 @@ class PosTest {
   if(type==Boolean.class||type==boolean.class)return true;
   if(type==BigDecimal.class)return BigDecimal.ONE;
   if(type==java.time.LocalDate.class)return java.time.LocalDate.of(2026,11,20);
-  if(type==java.time.Instant.class)return java.time.Instant.parse("2026-11-20T00:00:00Z");
+  if(type==java.time.Instant.class)return java.time.Instant.now().plus(java.time.Duration.ofHours(2));
   if(type==java.util.UUID.class)return java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
   if(type==java.security.Principal.class)return (java.security.Principal)()->"admin@saumya.demo.test";
   if(type.isEnum())return type.getEnumConstants().length==0?null:type.getEnumConstants()[0];
@@ -2769,7 +2769,7 @@ class PosTest {
   return null;
  }
 
- private String matrixPathValue(java.lang.reflect.Parameter parameter,String controller){
+ private String matrixPathValue(java.lang.reflect.Parameter parameter,String controller,String route){
   String key=parameter.getName();
   var annotation=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
   if(annotation!=null){if(!annotation.name().isBlank())key=annotation.name();else if(!annotation.value().isBlank())key=annotation.value();}
@@ -2782,7 +2782,10 @@ class PosTest {
     Long order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001",Long.class);
     return order==null?"1":order.toString();
    }
-   if(n.contains("session"))return "P006-NO-SUCH-SESSION";
+   if(n.contains("session")){
+    Long session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",Long.class);
+    return session==null?"P006-NO-SUCH-SESSION":session.toString();
+   }
    if(n.contains("token"))return "A".repeat(43);
    return "1";
   }
@@ -2790,6 +2793,10 @@ class PosTest {
   if(n.contains("order")||n.contains("draft")){
    Long order=db.queryForObject("SELECT MIN(id) FROM orders WHERE tenant_id=910001",Long.class);
    return order==null? "1":order.toString();
+  }
+  if(n.contains("session")||route.contains("/sessions/{")){
+   Long session=db.queryForObject("SELECT MIN(id) FROM pos_sessions WHERE tenant_id=910001 AND cashier='admin@saumya.demo.test' AND state='OPEN'",Long.class);
+   return session==null?"1":session.toString();
   }
   if(n.contains("tenant"))return "910001";
   if(n.contains("branch"))return "910001";
@@ -2923,7 +2930,7 @@ class PosTest {
       var path=parameter.getAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
       if(path!=null){
        String key=!path.name().isBlank()?path.name():(!path.value().isBlank()?path.value():parameter.getName());
-       concrete=concrete.replace("{"+key+"}",matrixPathValue(parameter,controllerType.getSimpleName()));
+       concrete=concrete.replace("{"+key+"}",matrixPathValue(parameter,controllerType.getSimpleName(),route));
       }
      }
      concrete=concrete.replaceAll("\\{[^/]+\\}","1");

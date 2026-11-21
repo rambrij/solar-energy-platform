@@ -111,6 +111,7 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   await page.goto('/vendor/pos');
   await expect(page.getByRole('heading', { name: 'Open cashier session' })).toBeVisible();
   const resume = page.getByRole('button', { name: /^Resume register/ });
+  await expect.poll(async () => (await resume.count()) > 0 || await page.getByText('No open sessions found for your account.').isVisible().catch(() => false), { timeout: 15_000 }).toBe(true);
   if (await resume.count()) {
     await resume.first().click();
   } else {

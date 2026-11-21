@@ -27,6 +27,26 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: backend/pom.xml
+      - name: P1-01 custom role lifecycle and delegation (H2)
+        if: matrix.database == 'h2'
+        run: mvn -B -f backend/pom.xml '-Dtest=P101VendorRoleLifecycleTest,VendorRolePermissionCatalogueTest,VendorRoleControllerAuthorizationTest,VendorRoleServiceAuthorizationBoundaryTest' test
+      - name: P1-01 custom role lifecycle and delegation (MySQL 8.4)
+        if: matrix.database == 'mysql'
+        env:
+          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: disposable-test-password
+        run: mvn -B -f backend/pom.xml '-Dtest=P101VendorRoleLifecycleTest,VendorRolePermissionCatalogueTest,VendorRoleControllerAuthorizationTest,VendorRoleServiceAuthorizationBoundaryTest' test
+      - name: P0-03 role-only authorization and entitlements (H2)
+        if: matrix.database == 'h2'
+        run: mvn -B -f backend/pom.xml '-Dtest=MembershipServiceTest,TenantEntitlementPolicyTest,VendorRoleServiceProvisioningTest,VendorRoleServiceAuthorizationBoundaryTest' test
+      - name: P0-03 role-only authorization and entitlements (MySQL 8.4)
+        if: matrix.database == 'mysql'
+        env:
+          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: disposable-test-password
+        run: mvn -B -f backend/pom.xml '-Dtest=MembershipServiceTest,TenantEntitlementPolicyTest,VendorRoleServiceProvisioningTest,VendorRoleServiceAuthorizationBoundaryTest' test
       - name: P0-06 runtime authorization matrix (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=RuntimeAuthorizationEndpointInventoryTest,RuntimeAuthorizationPersistedRoleTest,AuthorizationPolicyMatrixTest,AuthorizationPolicyRegistryTest' test

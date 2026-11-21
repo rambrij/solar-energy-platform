@@ -23,6 +23,9 @@ public class VendorRoleController {
     public record Reason(@NotBlank @Size(max=500) String reason){}
 
     @GetMapping("/roles") @PreAuthorize("hasAuthority('ROLE_VIEW')") public Object roles(){return service.roles();}
+    @GetMapping("/roles/permissions")
+    @PreAuthorize("hasAnyAuthority('ROLE_VIEW','ROLE_CREATE','ROLE_UPDATE')")
+    public Object delegablePermissions(){return java.util.Map.of("permissions",service.delegablePermissions());}
     @GetMapping("/roles/{id}") @PreAuthorize("hasAuthority('ROLE_VIEW')") public Object role(@PathVariable long id){return service.role(id);}
     @PostMapping("/roles") @PreAuthorize("hasAuthority('ROLE_CREATE')") public Object create(@Valid @RequestBody RoleCreate request){return org.springframework.http.ResponseEntity.status(HttpStatus.CREATED).body(service.create(request.roleKey(),request.displayName(),request.permissions(),request.reason()));}
     @PutMapping("/roles/{id}") @PreAuthorize("hasAuthority('ROLE_UPDATE')") public Object update(@PathVariable long id,@Valid @RequestBody RoleUpdate request){return service.update(id,request.expectedVersion(),request.displayName(),request.permissions(),request.reason());}

@@ -29,6 +29,7 @@ class VendorRoleControllerAuthorizationTest {
     @Test @WithMockUser(authorities={"CUSTOMER"})
     void customerCannotAccessVendorRoles() throws Exception {
         mvc.perform(get("/api/v1/vendor/roles")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/vendor/roles/permissions")).andExpect(status().isForbidden());
         verifyNoInteractions(service);
     }
 
@@ -41,6 +42,16 @@ class VendorRoleControllerAuthorizationTest {
             .content("{\"roleKey\":\"cashier\",\"displayName\":\"Cashier\",\"permissions\":[\"POS_VIEW\"],\"reason\":\"Create\u0020role\"}"))
             .andExpect(status().isForbidden());
         verify(service).roles();verifyNoMoreInteractions(service);
+    }
+
+    @Test @WithMockUser(authorities={"ROLE_CREATE"})
+    void roleCreatorCanReadOnlyTheServerResolvedDelegablePermissionList() throws Exception {
+        when(service.delegablePermissions()).thenReturn(List.of("ROLE_CREATE", "PRODUCT_VIEW"));
+        mvc.perform(get("/api/v1/vendor/roles/permissions"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.permissions[0]").value("ROLE_CREATE"))
+            .andExpect(jsonPath("$.permissions[1]").value("PRODUCT_VIEW"));
+        verify(service).delegablePermissions();
     }
 
     @Test @WithMockUser(authorities={"ROLE_CREATE"})

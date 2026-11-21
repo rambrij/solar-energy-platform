@@ -6,57 +6,144 @@ type Role={id:number;key:string;displayName:string;active:boolean;version:number
 type Employee={username:string;branchId:number;enabled:boolean;roleIds:number[];registerIds:number[]};
 type Invitation={username:string;invitationToken:string|null;expiresAt:string|null;accountAlreadyActive:boolean};
 
+function errorMessage(error:unknown){
+ if(error instanceof ApiError){
+  if(error.status===403)return 'You do not currently have permission to perform this action.';
+  if(error.status===404)return 'This role or employee is unavailable in the active vendor workspace.';
+  if(error.status===409)return 'The role has changed since it was loaded. The latest role list was refreshed; reopen the role before retrying.';
+ }
+ return (error as Error)?.message??'The request could not be completed.';
+}
+
 export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const {account}=useSession();
  const rights=new Set(account?.permissions??[]);
  const [roles,setRoles]=useState<Role[]>([]),[employees,setEmployees]=useState<Employee[]>([]);
+ const [delegablePermissions,setDelegablePermissions]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
- const [roleKey,setRoleKey]=useState(''),[displayName,setDisplayName]=useState(''),[permissions,setPermissions]=useState('POS_VIEW');
+ const [roleKey,setRoleKey]=useState(''),[displayName,setDisplayName]=useState(''),[selectedPermissions,setSelectedPermissions]=useState<string[]>([]);
+ const [editingRole,setEditingRole]=useState<Role|null>(null),[editDisplayName,setEditDisplayName]=useState(''),[editPermissions,setEditPermissions]=useState<string[]>([]);
  const [reason,setReason]=useState(''),[employeeEmail,setEmployeeEmail]=useState(''),[employeeBranch,setEmployeeBranch]=useState(String(account?.branchId??'')),[employeeRole,setEmployeeRole]=useState('');
  const [subject,setSubject]=useState(''),[selectedRoles,setSelectedRoles]=useState<number[]>([]),[registerIds,setRegisterIds]=useState('');
  const [effective,setEffective]=useState<string[]>([]),[invitation,setInvitation]=useState<Invitation|null>(null);
  const canRoleView=rights.has('ROLE_VIEW'),canRoleCreate=rights.has('ROLE_CREATE'),canRoleUpdate=rights.has('ROLE_UPDATE'),canRoleAssign=rights.has('ROLE_ASSIGN');
  const canUserView=rights.has('USER_VIEW'),canUserCreate=rights.has('USER_CREATE'),canUserUpdate=rights.has('USER_UPDATE'),canUserDisable=rights.has('USER_DISABLE');
+ const permissionOptions=[...new Set(delegablePermissions)]
+  .filter(permission=>!permission.startsWith('PLATFORM_')&&permission!=='CUSTOMER')
+  .sort();
+
  const load=useCallback(async()=>{
   setError('');
   try{
-   if(canRoleView||canRoleCreate||canRoleUpdate){const value=await vendorApi('/roles');setRoles(value);}
-   if(canUserView||canUserCreate||canUserUpdate||canUserDisable){const value=await vendorApi('/employees');setEmployees(value);}
-  }catch(e){setError((e as Error).message);}
- },[canRoleView,canRoleCreate,canRoleUpdate,canUserView,canUserCreate,canUserUpdate,canUserDisable]);
+   if(canRoleView)setRoles(await vendorApi('/roles'));
+   else setRoles([]);
+   if(canRoleView||canRoleCreate||canRoleUpdate){
+    const value=await vendorApi('/roles/permissions');
+    setDelegablePermissions(value.permissions??[]);
+   }else setDelegablePermissions([]);
+   if(canUserView)setEmployees(await vendorApi('/employees'));
+   else setEmployees([]);
+  }catch(e){setError(errorMessage(e));}
+ },[canRoleView,canRoleCreate,canRoleUpdate,canUserView]);
  useEffect(()=>{void load();},[load]);
+
  async function run(action:()=>Promise<any>,message:string){
   setBusy(true);setError('');setNotice('');
   try{const value=await action();setNotice(message);await load();return value;}
-  catch(e){setError(e instanceof ApiError?e.message:(e as Error).message);return undefined;}
-  finally{setBusy(false);}
+  catch(e){
+   if(e instanceof ApiError&&(e.status===404||e.status===409)){
+    await load();
+    setEditingRole(null);
+   }
+   setError(errorMessage(e));return undefined;
+  }finally{setBusy(false);}
  }
- function parsedPermissions(){return [...new Set(permissions.split(/[\s,]+/).map(x=>x.trim().toUpperCase()).filter(Boolean))];}
- async function createRole(e:FormEvent){e.preventDefault();const value=await run(()=>vendorApi('/roles','POST',{roleKey,displayName,permissions:parsedPermissions(),reason}), 'Role created and audited.');if(value){setRoleKey('');setDisplayName('');}}
- async function createEmployee(e:FormEvent){e.preventDefault();const value=await run(()=>vendorApi('/employees','POST',{username:employeeEmail,branchId:Number(employeeBranch),roleId:Number(employeeRole),reason}),'Employee invitation and initial role assignment created.');if(value)setInvitation(value);}
- async function assignRoles(){await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/roles','PUT',{roleIds:selectedRoles,reason}),'Employee roles updated and audited.');}
- async function assignRegisters(){await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/registers','PUT',{registerIds:registerIds.split(/[\s,]+/).filter(Boolean).map(Number),reason}),'Register assignments updated and audited.');}
- async function changeBranch(){await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/branch','PATCH',{branchId:Number(employeeBranch),reason}),'Employee branch updated; prior register assignments revoked.');}
- async function disableEmployee(username:string){await run(()=>vendorApi('/employees/'+encodeURIComponent(username)+'/disable','POST',{reason}),'Employee disabled and active assignments revoked.');}
- async function preview(){const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/effective-permissions'),'Effective permission preview refreshed.');if(value)setEffective(value.permissions??[]);}
- const chooseEmployee=(username:string)=>{setSubject(username);const row=employees.find(e=>e.username===username);setSelectedRoles(row?.roleIds??[]);setRegisterIds(row?.registerIds.join(',')??'');if(row)setEmployeeBranch(String(row.branchId));setEffective([]);};
+ function togglePermission(value:string,selected:string[],setter:(values:string[])=>void){
+  setter(selected.includes(value)?selected.filter(p=>p!==value):[...selected,value]);
+ }
+ async function createRole(e:FormEvent){
+  e.preventDefault();
+  const value=await run(()=>vendorApi('/roles','POST',{roleKey,displayName,permissions:selectedPermissions,reason}),'Role created and audited.');
+  if(value){setRoleKey('');setDisplayName('');setSelectedPermissions([]);}
+ }
+ function startEdit(role:Role){
+  setEditingRole(role);setEditDisplayName(role.displayName);
+  setEditPermissions(role.permissions.filter(p=>permissionOptions.includes(p)));
+ }
+ async function updateRole(e:FormEvent){
+  e.preventDefault();if(!editingRole)return;
+  const role=editingRole;
+  const value=await run(()=>vendorApi('/roles/'+role.id,'PUT',{
+   expectedVersion:role.version,displayName:editDisplayName,permissions:editPermissions,reason
+  }),'Role updated and permissions replaced.');
+  if(value){setEditingRole(null);setEditDisplayName('');setEditPermissions([]);}
+ }
+ async function createEmployee(e:FormEvent){
+  e.preventDefault();
+  const value=await run(()=>vendorApi('/employees','POST',{username:employeeEmail,branchId:Number(employeeBranch),roleId:Number(employeeRole),reason}),'Employee invitation and initial role assignment created.');
+  if(value)setInvitation(value);
+ }
+ async function refreshEffectivePermissions(){
+  if(!subject||!canUserView)return;
+  try{
+   const value=await vendorApi('/employees/'+encodeURIComponent(subject)+'/effective-permissions');
+   setEffective(value.permissions??[]);
+  }catch(e){setEffective([]);setError(errorMessage(e));}
+ }
+ async function assignRoles(){
+  const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/roles','PUT',{roleIds:selectedRoles,reason}),'Employee roles updated and audited.');
+  if(value)await refreshEffectivePermissions();
+ }
+ async function assignRegisters(){
+  await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/registers','PUT',{registerIds:registerIds.split(/[\s,]+/).filter(Boolean).map(Number),reason}),'Register assignments updated and audited.');
+ }
+ async function changeBranch(){
+  const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/branch','PATCH',{branchId:Number(employeeBranch),reason}),'Employee branch updated; prior register assignments revoked.');
+  if(value)await refreshEffectivePermissions();
+ }
+ async function disableEmployee(username:string){
+  const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(username)+'/disable','POST',{reason}),'Employee disabled and active assignments revoked.');
+  if(value&&subject===username)await refreshEffectivePermissions();
+ }
+ async function preview(){await refreshEffectivePermissions();}
+ const chooseEmployee=(username:string)=>{
+  setSubject(username);const row=employees.find(e=>e.username===username);
+  setSelectedRoles(row?.roleIds??[]);setRegisterIds(row?.registerIds.join(',')??'');
+  if(row)setEmployeeBranch(String(row.branchId));setEffective([]);
+ };
  return <section className="vendor-access-admin">
   <header><h2>{mode==='roles'?'Roles & permissions':'Employee administration'}</h2><p>Access is resolved from the signed-in tenant membership, active role assignments and current resource assignments. Platform permissions cannot be assigned here.</p></header>
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
   <div className="vendor-access-toolbar"><span>Tenant #{account?.tenantId??'unavailable'}</span><button type="button" className="secondary" disabled={busy} onClick={()=>void load()}>Refresh</button></div>
   {mode==='roles'&&<>
-   {canRoleCreate&&<form onSubmit={e=>void createRole(e)} className="vendor-access-form">
+   {canRoleCreate&&<form data-testid="create-role-form" onSubmit={e=>void createRole(e)} className="vendor-access-form">
     <h3>Create tenant role</h3>
     <label>Role key<input required pattern="[a-z][a-z0-9_-]{1,79}" value={roleKey} onChange={e=>setRoleKey(e.target.value)}/></label>
     <label>Display name<input required maxLength={120} value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label>
-    <label>Permissions (comma or newline separated)<textarea required rows={5} value={permissions} onChange={e=>setPermissions(e.target.value)}/></label>
+    <fieldset><legend>Permissions you can delegate</legend>
+     {permissionOptions.map(permission=><label key={permission}><input type="checkbox" aria-label={permission} checked={selectedPermissions.includes(permission)} onChange={()=>togglePermission(permission,selectedPermissions,setSelectedPermissions)}/>{permission}</label>)}
+     {!permissionOptions.length&&<p>No currently delegable vendor permissions are available.</p>}
+    </fieldset>
     <label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-    <button disabled={busy}>Create role</button>
+    <button disabled={busy||!selectedPermissions.length}>Create role</button>
    </form>}
-   <div className="vendor-access-list"><h3>Tenant roles</h3>{roles.map(role=><article key={role.id}>
+   {canRoleView&&<div className="vendor-access-list"><h3>Tenant roles</h3>{roles.map(role=><article key={role.id}>
     <div><strong>{role.displayName}</strong><small>{role.key} · {role.active?'Active':'Inactive'} · v{role.version}</small><p>{role.permissions.join(', ')}</p></div>
-    {canRoleUpdate&&role.active&&<button className="secondary" disabled={busy} onClick={()=>void run(()=>vendorApi('/roles/'+role.id+'/deactivate','POST',{reason}),'Role deactivated.')}>Deactivate</button>}
-   </article>)}</div>
+    <div className="vendor-access-actions">
+     {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>startEdit(role)}>Edit role {role.displayName}</button>}
+     {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>void run(()=>vendorApi('/roles/'+role.id+'/deactivate','POST',{reason}),'Role deactivated.')}>Deactivate role {role.displayName}</button>}
+    </div>
+   </article>)}</div>}
+   {editingRole&&<form data-testid="edit-role-form" onSubmit={e=>void updateRole(e)} className="vendor-access-form">
+    <h3>Edit tenant role: {editingRole.displayName} · v{editingRole.version}</h3>
+    <label>Updated role name<input required maxLength={120} value={editDisplayName} onChange={e=>setEditDisplayName(e.target.value)}/></label>
+    <fieldset><legend>Replacement permissions</legend>
+     {permissionOptions.map(permission=><label key={permission}><input type="checkbox" aria-label={permission} checked={editPermissions.includes(permission)} onChange={()=>togglePermission(permission,editPermissions,setEditPermissions)}/>{permission}</label>)}
+    </fieldset>
+    <label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+    <button disabled={busy||!editPermissions.length}>Save role changes</button>
+    <button type="button" className="secondary" disabled={busy} onClick={()=>setEditingRole(null)}>Cancel</button>
+   </form>}
   </>}
   {mode==='employees'&&<>
    {canUserCreate&&<form onSubmit={e=>void createEmployee(e)} className="vendor-access-form">
@@ -68,10 +155,10 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     <button disabled={busy||!employeeRole}>Create employee invitation</button>
     {invitation&&<p role="status">Invitation for {invitation.username}: {invitation.invitationToken??'This identity already has an active account; no invitation token issued.'}</p>}
    </form>}
-   <div className="vendor-access-list"><h3>Employees</h3>{employees.map(e=><article key={e.username}>
+   {canUserView&&<div className="vendor-access-list"><h3>Employees</h3>{employees.map(e=><article key={e.username}>
     <div><strong>{e.username}</strong><small>Branch {e.branchId} · {e.enabled?'Enabled':'Disabled'}</small><p>Roles: {e.roleIds.join(', ')||'None'} · Registers: {e.registerIds.join(', ')||'None'}</p></div>
     <div className="vendor-access-actions"><button type="button" className="secondary" onClick={()=>chooseEmployee(e.username)}>Manage</button>{canUserDisable&&e.enabled&&<button type="button" className="secondary" disabled={busy} onClick={()=>void disableEmployee(e.username)}>Disable</button>}</div>
-   </article>)}</div>
+   </article>)}</div>}
    {subject&&<div className="vendor-access-form">
     <h3>Manage {subject}</h3>
     {canRoleAssign&&<><label>Role assignments<select multiple value={selectedRoles.map(String)} onChange={e=>setSelectedRoles(Array.from(e.target.selectedOptions).map(x=>Number(x.value)))}>{roles.filter(r=>r.active).map(r=><option key={r.id} value={r.id}>{r.displayName}</option>)}</select></label><button type="button" disabled={busy} onClick={()=>void assignRoles()}>Save role assignments</button></>}

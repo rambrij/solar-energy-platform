@@ -45,6 +45,25 @@ public class VendorRoleService {
         return db.queryForList("SELECT id,role_key,display_name,active,version FROM vendor_roles WHERE tenant_id=? ORDER BY role_key",c.tenantId())
             .stream().map(r->view(c,r)).toList();
     }
+    /**
+     * Returns only permissions the current vendor actor can actually delegate.
+     * MembershipService re-resolves active persisted role grants and applies
+     * tenant entitlements; intersecting with the current request authorities
+     * also respects a deliberately narrowed access token.
+     */
+    public List<String> delegablePermissions(){
+        var c=auth.current();
+        c.requireVendorMembership();
+        if(!c.hasAnyPermission("ROLE_VIEW","ROLE_CREATE","ROLE_UPDATE"))
+            throw new ResponseStatusException(FORBIDDEN,"Role administration permission required");
+        var access=memberships.access(c.username())
+            .filter(m->m.tenant()==c.tenantId())
+            .orElseThrow(()->new ResponseStatusException(FORBIDDEN,"Active vendor membership required"));
+        return access.permissions().stream()
+            .filter(c.permissions()::contains)
+            .filter(VendorPermissionRegistry.all()::contains)
+            .distinct().sorted().toList();
+    }
     public Role role(long id){var c=require("ROLE_VIEW");return view(c,roleRow(c,id));}
     public Role create(String roleKey,String displayName,List<String> requested,String requestedReason){
         var c=require("ROLE_CREATE");String why=reason(requestedReason);
@@ -85,7 +104,13 @@ public class VendorRoleService {
         return names.stream().map(r->employee(c,(String)r.get("username"),((Number)r.get("branch_id")).longValue(),Boolean.TRUE.equals(r.get("enabled")))).toList();
     }
     private Employee employee(AuthorizationContext.Context c,String username,long branch,boolean enabled){
-        var roles=db.queryForList("SELECT role_id FROM employee_role_assignments WHERE tenant_id=? AND username=? AND active=TRUE ORDER BY role_id",Long.class,c.tenantId(),username);
+        var roles=db.queryForList("""
+            SELECT a.role_id
+            FROM employee_role_assignments a
+            JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id
+            WHERE a.tenant_id=? AND a.username=? AND a.active=TRUE AND r.active=TRUE
+            ORDER BY a.role_id
+            """,Long.class,c.tenantId(),username);
         var registers=db.queryForList("SELECT register_id FROM employee_register_assignments WHERE tenant_id=? AND username=? AND active=TRUE ORDER BY register_id",Long.class,c.tenantId(),username);
         return new Employee(username,branch,enabled,roles,registers);
     }

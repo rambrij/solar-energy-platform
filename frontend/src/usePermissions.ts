@@ -102,7 +102,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'shift-history':{allOf:['POS_VIEW']},
  'shift-reviews':{anyOf:['POS_SHIFT_VARIANCE_APPROVE']},
  'terminal-tender-review':{anyOf:['POS_TENDER_MANUAL_VERIFY']},
- 'store-settings':{allOf:['POS_VIEW']},
+ 'store-settings':{anyOf:['POS_DISCOUNT_OVERRIDE','POS_SETTINGS_MANAGE']},
  'promotion-history':{allOf:['POS_VIEW','CATALOG_PROMOTION_MANAGE','POS_DISCOUNT_APPROVE']},
  'sales-insights':{allOf:['POS_VIEW','POS_REPORT_VIEW']},
  'refund-insights':{allOf:['POS_VIEW','POS_REPORT_VIEW','POS_REFUND_VIEW']},

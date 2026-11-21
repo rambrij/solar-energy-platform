@@ -36,4 +36,23 @@ describe('actor context session switching',()=>{
   expect((switchOptions as RequestInit).credentials).toBe('same-origin');
   expect(JSON.parse(String((switchOptions as RequestInit).body))).toEqual({actorType:'VENDOR'});
  });
+ it('refreshes permissions after 403 but never replays the denied request',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  const full={username:'vendor@example.test',tenantId:8,branchId:80,permissions:['POS_VIEW','POS_SALE_CREATE'],actorType:'VENDOR'};
+  const narrow={...full,permissions:['POS_VIEW']};
+  fetchMock
+   .mockResolvedValueOnce(response({token:'csrf-login'}))
+   .mockResolvedValueOnce(response({accessToken:'vendor-token',account:full}))
+   .mockResolvedValueOnce(response({detail:'Forbidden'},403))
+   .mockResolvedValueOnce(response({token:'csrf-refresh'}))
+   .mockResolvedValueOnce(response({accessToken:'refreshed-token',account:narrow}));
+  await signIn('vendor@example.test','safe-test-password');
+  const {result}=renderHook(()=>useSession());
+  const denied=await authenticatedFetch('/api/v1/vendor/pos/sales',{method:'POST',body:'{}'});
+  expect(denied.status).toBe(403);
+  expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/vendor/pos/sales')).toHaveLength(1);
+  expect(result.current.account?.permissions).toEqual(['POS_VIEW']);
+  expect(fetchMock).toHaveBeenCalledTimes(5);
+ });
+
 });

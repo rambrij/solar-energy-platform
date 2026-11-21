@@ -28,9 +28,7 @@ DROP TEMPORARY TABLE IF EXISTS demo_check;
 
 DROP TEMPORARY TABLE IF EXISTS demo_vendors;
 
-DROP TEMPORARY TABLE IF EXISTS demo_accounts;
 
-DROP TEMPORARY TABLE IF EXISTS demo_new_accounts;
 
 DROP TEMPORARY TABLE IF EXISTS demo_categories;
 
@@ -46,27 +44,6 @@ CREATE TEMPORARY TABLE demo_vendors (id BIGINT PRIMARY KEY,name VARCHAR(160),slu
 INSERT INTO demo_vendors VALUES (910001,'Saumya Solar Rooftops','saumya-rooftops','Jaipur Rooftop Store'),
  (920001,'Helio Rural Energy','helio-rural','Nashik Farm Energy Store'),
  (930001,'Lumina Solar Lighting','lumina-lighting','Pune Lighting Store');
-
-CREATE TEMPORARY TABLE demo_accounts (id BIGINT PRIMARY KEY,username VARCHAR(100),password_hash VARCHAR(200),tenant_id BIGINT,role_name VARCHAR(40));
-
-INSERT INTO demo_accounts VALUES (910101,'admin@saumya.demo.test','$2a$10$ZW/gDxU1bYq5BtemgJIPN.p0p5P67Jd4ip/hYDVznhVnFPq58JOxa',910001,'VENDOR_ADMIN'),
- (910102,'sales@saumya.demo.test','$2a$10$bBJJBfEd4qyxleRLNAHV0.lrlCxIKNJeDbJZ51JdzXed9Nm9YpxYi',910001,'SALES_MANAGER'),
- (910103,'inventory@saumya.demo.test','$2a$10$jxTW2GE87c8SAuN5pbjafuaoXZlel5xa9itWduwhXxWu039vj0GVm',910001,'INVENTORY_MANAGER'),
- (910104,'cashier@saumya.demo.test','$2a$10$mYHMHE0zqVFxGdz0HS/P8.KgbUHHYQLrbuqiXLpZHZ73nyZ3s9Cn6',910001,'POS_CASHIER'),
- (910105,'finance@saumya.demo.test','$2a$10$as7IxoUT48Tv3jhZ6/3G5ODfPFpTJ4GQjsyE9SEDYkc4G7VCxJiZi',910001,'ACCOUNTANT'),
- (920101,'admin@helio.demo.test','$2a$10$51d8VApLp/rpmCw7.IplZecOlZLP2dWSwmkC2EoO/GWEgUOY4a9f.',920001,'VENDOR_ADMIN'),
- (920102,'sales@helio.demo.test','$2a$10$kHFViA7yOCnbNk.dfiQ7ye5FfIUCFuVKmakWfJfitMtnyQ7.iBRMy',920001,'SALES_MANAGER'),
- (920103,'inventory@helio.demo.test','$2a$10$U9xE8F4SbLZaHJ6izLo0junRrHVC1O6zzJhJWuFpS3LyTRVtOYgr6',920001,'INVENTORY_MANAGER'),
- (920104,'cashier@helio.demo.test','$2a$10$Z0Rbjt6R7Z4o3uGoAZ75UOI5A4uzC9s76LcwJq5aPfb5jp3GLzpkG',920001,'POS_CASHIER'),
- (920105,'finance@helio.demo.test','$2a$10$W084uZNVYh/Lx9qL1vqFOunpBZcash10czuxRIgn1Rn8DNtAZiO22',920001,'ACCOUNTANT'),
- (930101,'admin@lumina.demo.test','$2a$10$j3xa5vm70gZLG0/zvB2FGOG8Jnc6qxAGD3xOR8q3vzvV80zTf82qi',930001,'VENDOR_ADMIN'),
- (930102,'sales@lumina.demo.test','$2a$10$Va3Lu3ue2ngBy93g8JfyhOfiuH4Y7PrNbqSNeCDEIE.wSkBikbJH6',930001,'SALES_MANAGER'),
- (930103,'inventory@lumina.demo.test','$2a$10$NFNh48JOFzvicxebmOkM5.AqkHpGNixNOCvnI0T72pag8t2Gp9fEm',930001,'INVENTORY_MANAGER'),
- (930104,'cashier@lumina.demo.test','$2a$10$Zz8I9pma7GUWQ2P.ETHnDueKoZRFrOXcDIIV.wZU.Cm9i2gQXaDqG',930001,'POS_CASHIER'),
- (930105,'finance@lumina.demo.test','$2a$10$1CxsBJp1JHyGeXLL/BP9MOXdE/ssF.dLn7Cw9ZYLVfmop3/K7mzcG',930001,'ACCOUNTANT'),
- (940001,'superadmin@platform.demo.test','$2a$10$F40TEv3oN0s232CLki6Qt.rEIWzKAiF.jUHFydSR21PkINrqHd0S6',NULL,'PLATFORM_SUPER_ADMIN'),
- (949001,'asha@customer.demo.test','$2a$10$XnFTU62LfAmsjJHfIucnM.4/kfZYSumxHqC8YwbhYkw0PQq7nxPDO',NULL,'CUSTOMER'),
- (949002,'rahul@customer.demo.test','$2a$10$Jqoe3d.y.Bc5HEDxZGuHnu1kh/z3XfFubpFsb0VFkbtZ.yQoul7jG',NULL,'CUSTOMER');
 
 CREATE TEMPORARY TABLE demo_categories (id BIGINT PRIMARY KEY,tenant_id BIGINT,name VARCHAR(120),slug VARCHAR(100));
 
@@ -117,17 +94,11 @@ INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_vendors d JOIN tenan
 
 INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_vendors d JOIN branches b ON b.id=d.id WHERE b.tenant_id<>d.id);
 
-INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_accounts d JOIN users u ON (u.id=d.id OR u.username=d.username) WHERE u.id<>d.id OR u.username<>d.username);
 
-INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_accounts d JOIN employees e ON e.username=d.username WHERE d.tenant_id IS NULL OR e.tenant_id<>d.tenant_id OR e.branch_id<>d.tenant_id);
 
-INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_accounts d JOIN users u ON u.id=d.id WHERE d.tenant_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM employees e WHERE e.username=d.username AND e.tenant_id=d.tenant_id));
 
-INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_accounts d JOIN customer_profiles c ON c.user_id=d.id WHERE d.role_name<>'CUSTOMER' OR c.id<>d.id);
 
-INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_accounts d JOIN platform_user_permissions g ON g.username=d.username WHERE d.role_name<>'PLATFORM_SUPER_ADMIN');
 
-INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM customer_profiles c JOIN demo_accounts d ON c.id=d.id WHERE c.user_id<>d.id);
 
 INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_products d JOIN products p ON (p.id=d.id OR (p.tenant_id=d.tenant_id AND (p.sku=d.sku OR p.barcode=d.barcode))) WHERE p.id<>d.id OR p.tenant_id<>d.tenant_id OR p.sku<>d.sku);
 
@@ -135,9 +106,7 @@ INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_categories d JOIN ca
 
 INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM demo_registers d JOIN registers r ON r.id=d.id WHERE r.tenant_id<>d.tenant_id OR r.branch_id<>d.branch_id);
 
-INSERT INTO demo_check SELECT NOT EXISTS(SELECT 1 FROM tenant_customers c WHERE c.id IN ('demo-asha-saumya','demo-asha-helio','demo-asha-lumina','demo-rahul-helio') AND NOT ((c.id='demo-asha-saumya' AND c.tenant_id=910001 AND c.customer_id=949001) OR (c.id='demo-asha-helio' AND c.tenant_id=920001 AND c.customer_id=949001) OR (c.id='demo-asha-lumina' AND c.tenant_id=930001 AND c.customer_id=949001) OR (c.id='demo-rahul-helio' AND c.tenant_id=920001 AND c.customer_id=949002)));
 
-CREATE TEMPORARY TABLE demo_new_accounts AS SELECT d.* FROM demo_accounts d WHERE NOT EXISTS(SELECT 1 FROM users u WHERE u.id=d.id);
 
 INSERT INTO tenants(id,name,active,slug) SELECT d.id,d.name,TRUE,d.slug FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM tenants t WHERE t.id=d.id);
 
@@ -145,31 +114,18 @@ INSERT INTO branches(id,tenant_id,name,invoice_required,pos_return_window_days,c
 
 UPDATE tenants SET online_branch_id=id WHERE id IN (SELECT id FROM demo_vendors) AND online_branch_id IS NULL AND NOT EXISTS(SELECT 1 FROM products p WHERE p.tenant_id=tenants.id);
 
-INSERT INTO users(id,username,password_hash,enabled) SELECT id,username,password_hash,TRUE FROM demo_new_accounts;
 
-INSERT INTO employees(username,tenant_id,branch_id,enabled) SELECT username,tenant_id,tenant_id,TRUE FROM demo_new_accounts WHERE tenant_id IS NOT NULL;
 
-INSERT INTO customer_profiles(id,user_id) SELECT id,id FROM demo_new_accounts WHERE role_name='CUSTOMER';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_CREATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_UPDATE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_SUSPEND' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_TENANT_CLOSE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_PLAN_MANAGE' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_SUBSCRIPTION_VIEW' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_SUBSCRIPTION_ADJUST' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_ANALYTICS_VIEW' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_AUDIT_VIEW' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
-INSERT INTO platform_user_permissions(username,permission) SELECT username,'PLATFORM_SUPPORT_ACCESS' FROM demo_new_accounts WHERE role_name='PLATFORM_SUPER_ADMIN';
 
 INSERT INTO catalog_discount_policy(tenant_id,maximum_percent) SELECT d.id,10.00 FROM demo_vendors d WHERE NOT EXISTS(SELECT 1 FROM catalog_discount_policy p WHERE p.tenant_id=d.id);
 
@@ -185,13 +141,9 @@ INSERT INTO inventory(tenant_id,branch_id,product_id,quantity,reserved) SELECT d
 
 INSERT INTO catalog_stock(tenant_id,branch_id,product_id,available) SELECT i.tenant_id,i.branch_id,i.product_id,i.quantity-i.reserved FROM inventory i JOIN demo_products d ON d.id=i.product_id AND d.tenant_id=i.tenant_id WHERE NOT EXISTS(SELECT 1 FROM catalog_stock s WHERE s.tenant_id=i.tenant_id AND s.branch_id=i.branch_id AND s.product_id=i.product_id);
 
-INSERT INTO tenant_customers(id,tenant_id,customer_id,consent_at,provenance) SELECT 'demo-asha-saumya',910001,949001,CURRENT_TIMESTAMP,'DEMO_EXPLICIT_CONSENT' WHERE NOT EXISTS(SELECT 1 FROM tenant_customers WHERE tenant_id=910001 AND customer_id=949001);
 
-INSERT INTO tenant_customers(id,tenant_id,customer_id,consent_at,provenance) SELECT 'demo-asha-helio',920001,949001,CURRENT_TIMESTAMP,'DEMO_EXPLICIT_CONSENT' WHERE NOT EXISTS(SELECT 1 FROM tenant_customers WHERE tenant_id=920001 AND customer_id=949001);
 
-INSERT INTO tenant_customers(id,tenant_id,customer_id,consent_at,provenance) SELECT 'demo-asha-lumina',930001,949001,CURRENT_TIMESTAMP,'DEMO_EXPLICIT_CONSENT' WHERE NOT EXISTS(SELECT 1 FROM tenant_customers WHERE tenant_id=930001 AND customer_id=949001);
 
-INSERT INTO tenant_customers(id,tenant_id,customer_id,consent_at,provenance) SELECT 'demo-rahul-helio',920001,949002,CURRENT_TIMESTAMP,'DEMO_EXPLICIT_CONSENT' WHERE NOT EXISTS(SELECT 1 FROM tenant_customers WHERE tenant_id=920001 AND customer_id=949002);
 
 UPDATE identity_sequence SET next_id=GREATEST(next_id,950000) WHERE id=1;
 
@@ -206,9 +158,7 @@ DROP TEMPORARY TABLE demo_products;
 
 DROP TEMPORARY TABLE demo_categories;
 
-DROP TEMPORARY TABLE demo_new_accounts;
 
-DROP TEMPORARY TABLE demo_accounts;
 
 DROP TEMPORARY TABLE demo_vendors;
 

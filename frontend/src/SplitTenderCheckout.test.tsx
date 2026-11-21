@@ -3,6 +3,7 @@ import {afterEach,expect,it,vi} from 'vitest';
 import SplitTenderCheckout from './SplitTenderCheckout';
 import {api} from './api';
 vi.mock('./api',()=>({api:vi.fn(),ApiError:class extends Error{constructor(public status:number){super('Rejected');}}}));
+vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_SALE_CREATE','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD']}})}));
 afterEach(()=>{cleanup();sessionStorage.clear();vi.resetAllMocks();});
 const balance={orderId:'sale-1',orderStatus:'DRAFT',total:110,confirmed:0,remaining:110,splitEnabled:true,tenders:[]};
 it('records partial cash with change and keeps sale unpaid',async()=>{

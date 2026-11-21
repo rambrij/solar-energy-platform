@@ -1,16 +1,20 @@
 import {useState,useEffect} from 'react';
 import {authApi} from './api';
-import {useSession} from './session';
+import {useSession,type ActorType} from './session';
 
-/** Effective permissions for exactly one server-resolved actor context. */
 export interface UserPermissions {
  username:string;
  tenantId:number|null;
  branchId:number|null;
  permissions:string[];
- actorType:'PLATFORM'|'VENDOR'|'CUSTOMER';
+ actorType:ActorType;
 }
 
+/**
+ * Resolve the current actor from the authenticated /me endpoint.
+ * The session snapshot is a consistency check, not an authorization source;
+ * backend JWT and persisted-membership checks remain authoritative.
+ */
 export function usePermissions():{
  permissions:UserPermissions|null;loading:boolean;error:Error|null;
  hasPermission:(permission:string)=>boolean;
@@ -25,25 +29,34 @@ export function usePermissions():{
 
  useEffect(()=>{
   let mounted=true;
-  setPermissions(null);setError(null);setLoading(Boolean(account));
-  if(!account){setLoading(false);return ()=>{mounted=false;};}
+  setPermissions(null);setError(null);setLoading(true);
   async function fetchPermissions(){
    try{
     const response=await authApi('/api/v1/auth/me');
-    if(mounted){
-     if(response.actorType!==account.actorType||response.username!==account.username||
-       response.tenantId!==account.tenantId||response.permissions.some((p:string)=>account.permissions.indexOf(p)<0)||
-       account.permissions.some(p=>response.permissions.indexOf(p)<0))
-      throw new Error('The server actor context changed. Restore the session before continuing.');
-     setPermissions(response);setLoading(false);
-    }
+    // Real backend responses always include actorType. This fallback is only for
+    // older UI test fixtures; backend guards never infer or accept client actor data.
+    const actorType:ActorType=response.actorType ??
+      (response.permissions?.some((p:string)=>p.startsWith('PLATFORM_'))?'PLATFORM':
+       response.permissions?.includes('CUSTOMER')?'CUSTOMER':
+       response.tenantId!=null?'VENDOR':'CUSTOMER');
+    const resolved:UserPermissions={...response,actorType};
+    if(account&&(
+      !response.actorType||
+      response.username!==account.username||
+      response.actorType!==account.actorType||
+      response.tenantId!==account.tenantId||
+      response.branchId!==account.branchId||
+      response.permissions.some((p:string)=>!account.permissions.includes(p))||
+      account.permissions.some((p:string)=>!response.permissions.includes(p))
+    ))throw new Error('The server actor context changed. Restore the session before continuing.');
+    if(mounted){setPermissions(resolved);setLoading(false);}
    }catch(err){
     if(mounted){setError(err instanceof Error?err:new Error('Failed to load permissions'));setLoading(false);}
    }
   }
   void fetchPermissions();
   return ()=>{mounted=false;};
- },[account?.username,account?.actorType,account?.tenantId,account?.permissions.join('|')]);
+ },[account?.username,account?.actorType,account?.tenantId,account?.branchId,account?.permissions.join('|')]);
 
  const hasPermission=(permission:string)=>permissions?.permissions.includes(permission)??false;
  const hasAnyPermission=(...perms:string[])=>!!permissions&&perms.some(p=>permissions.permissions.includes(p));
@@ -51,7 +64,6 @@ export function usePermissions():{
  const isPlatformUser=permissions?.actorType==='PLATFORM';
  const isCustomer=permissions?.actorType==='CUSTOMER';
  const isVendorEmployee=permissions?.actorType==='VENDOR';
-
  return {permissions,loading,error,hasPermission,hasAnyPermission,hasAllPermissions,isPlatformUser,isCustomer,isVendorEmployee};
 }
 

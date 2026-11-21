@@ -70,11 +70,12 @@ describe('usePermissions',()=>{
   expect(result.current.permissions).toBeNull();
   expect(result.current.error?.message).toContain('actor context changed');
  });
- it('does not fetch an identity when signed out',async()=>{
-  mockUseSession.mockReturnValue({ready:true,account:null});
+ it('still resolves server identity when the client session snapshot is not hydrated yet',async()=>{
+  mockUseSession.mockReturnValue({ready:false,account:null});
+  mockAuthApi.mockResolvedValue(response(customerAccount));
   const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.loading).toBe(false));
-  expect(mockAuthApi).not.toHaveBeenCalled();
+  await waitFor(()=>expect(result.current.isCustomer).toBe(true));
+  expect(mockAuthApi).toHaveBeenCalledWith('/api/v1/auth/me');
  });
  it('handles API errors gracefully',async()=>{
   mockAuthApi.mockRejectedValue(new Error('Network error'));

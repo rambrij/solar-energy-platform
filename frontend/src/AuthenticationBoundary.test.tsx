@@ -5,6 +5,7 @@ import AuthenticationBoundary from './AuthenticationBoundary';
 import {useSession} from './session';
 
 vi.mock('./session',()=>({useSession:vi.fn(),restoreSession:vi.fn()}));
+vi.mock('./Shell',()=>({default:({children}:{children:import('react').ReactNode})=><div>{children}</div>}));
 afterEach(()=>{cleanup();vi.resetAllMocks();});
 
 it('does not mount protected work before a secure session is restored',()=>{

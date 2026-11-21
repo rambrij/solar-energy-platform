@@ -383,7 +383,7 @@ class PosTest {
   assertThat(customerRefresh).isNotNull();
   var customerJwt=jwt.decoder().decode(customerToken);
   assertThat(customerJwt.getClaimAsString("actor_type")).isEqualTo("CUSTOMER");
-  assertThat(customerJwt.getClaim("tenant")).isNull();
+  assertThat((Object)customerJwt.getClaim("tenant")).isNull();
   assertThat(customerJwt.getClaimAsString("membership_id")).isNull();
   mvc.perform(get("/api/v1/auth/me").header("Authorization","Bearer "+customerToken))
       .andExpect(status().isOk()).andExpect(jsonPath("$.actorType").value("CUSTOMER"))

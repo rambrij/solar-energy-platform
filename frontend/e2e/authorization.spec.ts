@@ -109,30 +109,32 @@ test('Expired refresh session: protected POS route returns to the sign-in bounda
   await signInButton.click();
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();
 });
-test('Cashier: open assigned register, complete a cash sale and receive its receipt', async ({ page }) => {
+test('Cashier: resume assigned register, complete a cash sale and receive its receipt', async ({ page }) => {
   const token = await signIn(page, demo.cashier.username, demo.cashier.password);
   await page.goto('/vendor/pos');
   await expect(page.getByRole('heading', { name: 'Open cashier session' })).toBeVisible();
+
+  const activeBefore = await apiAs(page, token, '/api/v1/vendor/pos/sessions/active');
+  expect(activeBefore.status).toBe(200);
+  expect(activeBefore.body).toEqual([]);
+
+  const directory = await apiAs(page, token, '/api/v1/vendor/pos/registers?page=0&size=12');
+  expect(directory.status, JSON.stringify(directory.body)).toBe(200);
+  const assignedRegister = directory.body.items.find((item: { available: boolean }) => item.available);
+  expect(assignedRegister, JSON.stringify(directory.body)).toBeTruthy();
+
+  const opened = await apiAs(page, token, '/api/v1/vendor/pos/sessions', 'POST', {
+    registerId: assignedRegister.id,
+    openingFloat: 0,
+  });
+  expect(opened.status, JSON.stringify(opened.body)).toBe(200);
+  expect(opened.body).toMatchObject({ registerId: assignedRegister.id, state: 'OPEN' });
+
+  await page.reload();
   const resume = page.getByRole('button', { name: /^Resume register/ });
-  await expect.poll(async () => (await resume.count()) > 0 || await page.getByText('No open sessions found for your account.').isVisible().catch(() => false), { timeout: 15_000 }).toBe(true);
-  if (await resume.count()) {
-    await resume.first().click();
-  } else {
-    const directory = await apiAs(page, token, '/api/v1/vendor/pos/registers?page=0&size=12');
-    expect(directory.status, JSON.stringify(directory.body)).toBe(200);
-    expect(directory.body.items, JSON.stringify(directory.body)).toContainEqual(expect.objectContaining({ available: true }));
-    await page.getByRole('button', { name: 'Load assigned registers' }).click();
-    await expect(page.getByText(/configured registers/)).toBeVisible();
-    const register = page.locator('select[name="register"]');
-    await expect(register).toBeVisible();
-    const availableOption = register.locator('option').filter({ hasText: 'Available' }).first();
-    await expect(availableOption).toBeVisible();
-    const registerValue = await availableOption.getAttribute('value');
-    expect(registerValue).toBeTruthy();
-    await register.selectOption(registerValue!);
-    await page.getByLabel('Opening float').fill('0');
-    await page.getByRole('button', { name: 'Open session' }).click();
-  }
+  await expect.poll(async () => (await resume.count()) > 0, { timeout: 15_000 }).toBe(true);
+  await resume.first().click();
+
   await expect(page.locator('.product-grid')).toBeVisible();
   await expect(page.locator('.product-grid button:not([disabled])').first()).toBeVisible();
   await page.locator('.product-grid button:not([disabled])').first().click();
@@ -142,7 +144,6 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   await page.getByRole('button', { name: 'Complete cash sale' }).click();
   await expect(page.getByText('Vendor sale receipt')).toBeVisible({ timeout: 30_000 });
 });
-
 test('Revoked custom Sales role loses existing bearer access and protected route after refresh', async ({ page, browser }) => {
   const adminContext = await browser.newContext();
   try {

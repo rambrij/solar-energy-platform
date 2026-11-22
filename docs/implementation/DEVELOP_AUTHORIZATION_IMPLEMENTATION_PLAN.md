@@ -512,3 +512,13 @@ See the companion gap analysis section **REQUIRES CLARIFICATION register** for t
 
 
 **Follow-up validation started (2026-11-22; commit `4f8b61026aaa081d8f9bc022751652839d08e175`):** Added `PosTest.tenantSuspensionAndDraftExpirySerializeOnThePersistedTenantRow`, an integration test using two real Spring transactions and a two-thread executor. The expiry transaction acquires the tenant row lock through `TenantLifecycleService.lockActive`; a concurrent suspension must remain blocked until expiry releases the lock; after suspension commits, a subsequent lifecycle lock/read must report inactive. This verifies DB transaction locking rather than Mockito behavior. Push triggered GitHub Actions run [#1644](https://github.com/rambrij/solar-energy-platform/actions/runs/45030762615). At documentation update time the run is **IN PROGRESS**: H2 and MySQL 8.4 backend matrix jobs are initializing, and frontend `npm test` is running. The workflow includes P0-02, P0-04, P0-06, the full H2/MySQL backend suites, frontend tests/build and Playwright. No passing result is claimed until the run finishes; P2-03 remains IN PROGRESS.
+
+
+### P2-04 implementation progress (2026-11-22)
+
+- **Status: IN PROGRESS — NOT ACCEPTED.** Commit `66ab0f09abcb0a964e5cb482ab0ea526a768e767` extends `ModuleArchitectureTest` to cover all currently implemented module package roots, acyclic dependencies, controller-to-repository prohibition, cross-module repository ownership, cross-module internal imports, and an explicit three-service JDBC exception list (`MembershipService`, `VendorRoleService`, `PosService`).
+- Isolated ArchUnit fixtures under `com.p204fixtures.architecture` prove controller/repository, repository ownership and internal-import rules reject violations.
+- `.github/workflows/pos-tests.yml` now runs a focused P2-04 backend gate on both H2 and MySQL 8.4, containing `ModuleArchitectureTest`, `AuthorizationPolicyRegistryTest` and `ServiceBoundaryMethodInventoryTest`.
+- **Not yet implemented/accepted:** operation-level actor/scope/assignment metadata; exhaustive tenant repository/JDBC/native SQL analysis; complete tab/button/action frontend registry and backend parity; all requested negative fixtures (unknown permission, VIEW mutation, missing actor/scope, missing service inventory and frontend violations); CI execution evidence for the new gate and full H2/MySQL/frontend/Playwright matrix on this commit.
+- No exception beyond the three named JDBC service classes is approved by this change. Their SQL remains subject to manual tenant-scope review; static dependency allow-list is not proof of query scoping.
+- Do not mark P2-04 COMPLETE until every listed gap is closed and exact-commit CI evidence is green.

@@ -2697,6 +2697,16 @@ class PosTest {
   assertThatThrownBy(()->db.update("DELETE FROM pos_sessions WHERE tenant_id=2 AND id=?",sessionB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("DELETE FROM branches WHERE tenant_id=1 AND id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("DELETE FROM branches WHERE tenant_id=2 AND id=2")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM orders WHERE tenant_id=2 AND id=?",orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM pos_returns WHERE tenant_id=2 AND id=?",returnB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM pos_cash_refunds WHERE tenant_id=2 AND id='p2-cross-refund-b'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM products WHERE tenant_id=2 AND id=2")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM registers WHERE tenant_id=1 AND id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM registers WHERE tenant_id=2 AND id=2")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM tenants WHERE id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM tenants WHERE id=2")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM employees WHERE tenant_id=1 AND username='alice'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM employees WHERE tenant_id=2 AND username='bob'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
 
   // UPDATE paths must be guarded as strictly as INSERT paths.
   assertThatThrownBy(()->db.update("UPDATE vendor_invoices SET tenant_id=2 WHERE tenant_id=1 AND order_id=?",orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);

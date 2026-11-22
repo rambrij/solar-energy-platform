@@ -661,6 +661,13 @@ class JdbcTenantSqlAstAnalysisTest {
                             Map<String,String> previousTypes=localTypes;
                             callerMethod=method.getName().toString();
                             localTypes=new HashMap<>();
+                            // Method parameters are common provenance hand-off points. Resolve
+                            // their declared receiver types so calls made through injected or
+                            // delegated helper parameters are not silently skipped.
+                            for(VariableTree parameter:method.getParameters()) {
+                                if(parameter.getType()!=null)
+                                    localTypes.put(parameter.getName().toString(),simpleTypeName(parameter.getType().toString()));
+                            }
                             try { return super.visitMethod(method,unused); }
                             finally { callerMethod=previous; localTypes=previousTypes; }
                         }
@@ -681,6 +688,7 @@ class JdbcTenantSqlAstAnalysisTest {
                                 } else {
                                     String resolved=localTypes.getOrDefault(simple,fieldTypes.get(simple));
                                     if(resolved==null)resolved=simple;
+                                    resolved=simpleTypeName(resolved);
                                     targetClass=simpleTypes.getOrDefault(resolved,resolved);
                                 }
                             }

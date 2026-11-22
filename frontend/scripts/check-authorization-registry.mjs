@@ -367,7 +367,7 @@ for(const file of sourceFiles){
   let variants=[raw];
   const routeValues=actionRegistry.dynamicRouteParameters?.[fileName]??{};
   for(const [parameter,values] of Object.entries(routeValues)){
-   variants=variants.flatMap(value=>value.includes('+parameter+')?values.map(v=>value.replaceAll('+parameter+',v)):[value]);
+   variants=variants.flatMap(value=>value.includes('${'+parameter+'}')?values.map(v=>value.replaceAll('${'+parameter+'}',v)):value.includes('+parameter+')?values.map(v=>value.replaceAll('+parameter+',v)):[value]);
   }
   variants=variants.map(value=>value.replace(/\$\{encodeURIComponent\(([^)]+)\)\}/g,'{}').replace(/\$\{[^}]+\}/g,'{}'));
   const options=args[1]??'';

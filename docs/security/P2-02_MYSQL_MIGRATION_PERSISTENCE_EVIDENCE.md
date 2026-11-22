@@ -1,20 +1,16 @@
 # P2-02 MySQL 8.4 migration and persistence evidence
 
 **Branch:** `feature/develop-authorization-gap-analysis`  
-**Status:** IN PROGRESS — transaction-boundary failure-injection matrix implemented and focused H2/MySQL 8.4 gates PASS; latest full workflow and required-check enforcement remain unverified.  
+**Status:** IN PROGRESS — implementation, focused H2/MySQL 8.4 acceptance, and latest full CI workflow PASS; GitHub required-check / branch-protection enforcement remains UNVERIFIED.  
 **Earlier dedicated test commit:** `4886946beb76cbc716e39858886daf639a5e5e58`  
 **Latest tested implementation snapshot:** `f16b92878dccbaa81775ae2630d2029dc506cbb5`  
 **Workflow:** [GitHub Actions run #44997794980](https://github.com/rambrij/solar-energy-platform/actions/runs/44997794980) — SUCCESS (2026-11-22).
 
 ## Latest branch-head verification (2026-11-22)
 
-Run [#45026864067](https://github.com/rambrij/solar-energy-platform/actions/runs/45026864067), implementation commit `f16b92878dccbaa81775ae2630d2029dc506cbb5`, reports:
-- Focused financial tenant-isolation, rollback and deletion acceptance: **PASS on H2 and MySQL 8.4**, including the expanded failure-injection tests.
-- Frontend tests and production build: **PASS**.
-- Full backend H2 and MySQL suites: still running when checked.
-- Dedicated P2-02 MySQL migration/schema contracts and Browser E2E: not yet completed at the time of this evidence update.
+Run [#45026864067](https://github.com/rambrij/solar-energy-platform/actions/runs/45026864067), implementation commit `f16b92878dccbaa81775ae2630d2029dc506cbb5`, completed successfully. All four jobs passed: backend MySQL, backend H2, frontend tests/build, and Browser E2E (Playwright/MySQL 8.4). The backend MySQL job passed the focused financial acceptance selection (11 tests, 0 failures/errors/skips) and the dedicated `P202MysqlPersistenceIntegrationTest` (13 tests, 0 failures/errors/skips). The backend H2 job also passed its focused financial acceptance step. The full backend suites, frontend and browser E2E all completed successfully.
 
-The most recent fully completed all-job workflow is [#45025123755](https://github.com/rambrij/solar-energy-platform/actions/runs/45025123755), commit `496c3871c62f123df3ba004cd800f4dd34581684`; backend H2, backend MySQL, frontend and Browser E2E all passed there. That run predates the new transaction-boundary matrix, so it is historical baseline evidence, not final validation of the current matrix.
+This is the final full-workflow evidence for the implementation snapshot. Required-check / branch-protection enforcement remains a separate administrative verification item and has not been confirmed.
 
 The current `P202MysqlPersistenceIntegrationTest` source contains **13 @Test methods** covering clean install/repeatable migration, V47 upgrade retention, core metadata, tenant-owned table classification/composite parent keys, V40–V47 named constraint inventory and behavior, generated-column/stock-location behavior, immutable audit and financial deletion restrictions, UTC timestamp round-trip, optimistic locking, V45 composite-FK rejection, plan-limit checks and V48 preflight rejection. It also probes missing plan parents and invalid subscription plan-version references on INSERT and UPDATE.
 
@@ -25,11 +21,11 @@ The current `P202MysqlPersistenceIntegrationTest` source contains **13 @Test met
 | Expanded financial isolation/rollback/deletion acceptance (H2) | PASS — run #45026864067, implementation commit `f16b928` |
 | Expanded financial isolation/rollback/deletion acceptance (MySQL 8.4) | PASS — run #45026864067, implementation commit `f16b928` |
 | Frontend tests and production build | PASS — run #45026864067 |
-| Dedicated P2-02 MySQL 8.4 migration/schema contract class | Pending in run #45026864067 when checked |
-| Full backend H2 suite | IN PROGRESS in run #45026864067 |
-| Full backend MySQL suite | IN PROGRESS in run #45026864067 |
-| Browser E2E / Playwright on MySQL 8.4 | Pending in run #45026864067 when checked |
-| Last fully completed all-job workflow | PASS — run #45025123755; this predates the transaction-boundary matrix |
+| Dedicated P2-02 MySQL 8.4 migration/schema contract class | PASS — 13 tests, 0 failures/errors/skips, run #45026864067 |
+| Full backend H2 suite | PASS — run #45026864067 |
+| Full backend MySQL suite | PASS — run #45026864067 |
+| Browser E2E / Playwright on MySQL 8.4 | PASS — run #45026864067 |
+| Full workflow (all four jobs) | PASS — run #45026864067, implementation commit `f16b928` |
 
 Focused gates prove the new matrix executes successfully on both test databases. P2-02 is not yet acceptance-complete: wait for the full latest workflow, including Playwright, and verify required-check enforcement before changing the disposition.
 
@@ -70,7 +66,7 @@ The successful workflow also ran the existing P0-04 and P0-05 suites and the ful
 - Corrected tested code commit: `4886946beb76cbc716e39858886daf639a5e5e58`.
 - Corrected run: [#44997794980](https://github.com/rambrij/solar-energy-platform/actions/runs/44997794980) — all jobs SUCCESS.
 
-## Detailed outstanding acceptance assessment (refreshed 2026-11-22)
+## Detailed acceptance assessment (refreshed 2026-11-22)
 
 | Requirement | Assessment | Current evidence and exact remaining exit condition |
 |---|---|---|
@@ -78,10 +74,10 @@ The successful workflow also ran the existing P0-04 and P0-05 suites and the ful
 | All tenant-owned tables and composite keys inventoried | **IMPLEMENTED — schema inventory** | `tenantOwnedTableInventoryAndCompositeParentKeysAreAssertedOnMysql` compares all schema-discovered `tenant_id` tables against explicit tenant-owned and optional-scope classifications; requires NOT NULL tenant_id for every tenant-owned table; discovers tenant-to-tenant FK edges; verifies tenant columns are carried across edges (with only three documented legacy subscription FKs exempted); and verifies each discovered referenced tuple has a UNIQUE parent key. Keep this schema-derived test synchronized with future schema additions. |
 | All commercial and financial ownership relationships tested | **IMPLEMENTED — current relationship matrix** | MySQL positive controls and cross-tenant INSERT/UPDATE rejection cover POS orders/order items, vendor invoices/payment attempts, receipts, inventory receipts/ledger, returns/events/refunds/refund items/dispositions, subscription invoices/payments/events, carts/cart items, active drafts, drawer tenders, cash movements, buyer snapshots and customer challenges. The V45 role/employee/register composite relationships are covered separately in the P202 class. Add equivalent probes whenever a new commercial or financial FK is introduced. |
 | MySQL CHECK, composite FK and generated-column coverage | **IMPLEMENTED — scoped V40–V47 plus POS projections** | All named V40–V47 CHECK constraints have invalid-row behavior probes; V41/V45 composite ownership FKs have INSERT/UPDATE rejection tests; generated active-register/cart-customer/subscription-tenant values and the POS stock-location CHECK are behavior-tested. This claim is scoped to the inventoried V40–V47 constraints and the explicitly listed POS projection constraints, not every CHECK in every historical migration. |
-| Transaction rollback across every required financial side effect | **PARTIAL** | Existing POS acceptance tests prove selected stock/audit/refund rollback boundaries. The P2-02 MySQL schema class does not yet inject failures after each order, payment, receipt, ledger, reservation, refund and inventory write and verify every participating row and balance is unchanged. Add deterministic failure hooks/test adapters at each remaining workflow boundary and assert complete before/after database state on MySQL 8.4. |
+| Transaction rollback across the required financial workflows | **IMPLEMENTED — focused H2/MySQL acceptance PASS** | The transaction-boundary failure-injection matrix in `PosTest` covers draft/order lines/reservation/audit, payment initiation and provider confirmation, cash completion, receipt/invoice/ledger, inventory receipt, refunds, return intake/approval/inspection/disposition, multi-line reservation failure, and shared JPA/JDBC rollback. Focused financial acceptance passed on H2 and MySQL 8.4 in run #45026864067 (MySQL selection: 11 tests, zero failures/errors/skips). Keep the matrix synchronized as new transactional side effects are introduced. |
 | Financial/audit deletion restrictions | **IMPLEMENTED — identified parent families** | Actual DELETE attempts and unchanged-row assertions cover orders, order items, returns, return items, refunds, inventory, products, sessions, branches, registers, tenants and employees; subscription invoice/subscription/plan-version/plan parents are also tested. Platform audit triggers reject UPDATE/DELETE, and schema-wide referential-rule checks ensure listed financial/audit parent families do not cascade or SET NULL. Extend the parent matrix if future migrations add a new history parent. |
 | MySQL UTC timestamp round-trip and optimistic locking | **IMPLEMENTED — focused behavior** | `mysqlUtcTimestampRoundTripPreservesTheExactInstant` sets the session to UTC and proves exact Instant round-trip. `versionColumnsSupportCompareAndSwapWithoutStaleOverwrite` proves a stale compare-and-swap update affects zero rows and cannot overwrite the winning value. Confirm these contracts remain applicable to every entity using timestamp/version semantics; add entity-level JPA tests where direct JDBC alone does not cover the application mapping. |
-| CI gate and branch protection | **PARTIAL** | Run #45023892481 passed backend H2, backend MySQL, frontend and Browser E2E; run #45024947655 passed the latest focused financial H2/MySQL tests and frontend, while full backend suites were still running. Branch protection / ruleset required-check enforcement could not be read: GitHub returned 403 for the branch-protection endpoint. An authorized repository administrator must verify that the required workflow checks are enforced before merge. |
+| CI workflow | **PASS — full workflow** | Run #45026864067 on implementation commit `f16b928` passed backend H2, backend MySQL, frontend and Browser E2E. Focused financial acceptance passed on H2/MySQL; dedicated MySQL migration/schema class passed 13/13 tests. |
 
 ## Additional financial acceptance tests (2026-11-22)
 
@@ -112,12 +108,12 @@ The matrix is implemented in `PosTest` and explicitly included in the dedicated 
 | Shared JPA/JDBC transaction boundary | `jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary` proves JPA stock writes and JDBC audit writes roll back together under the configured transaction manager. |
 | Cash-sale invoice issuance failure after stock consume | `cashSaleFailureAfterStockConsumeRollsBackEveryLocalFinancialWrite` checks order state, inventory, reservations, ledger, payment attempts and sale audit. |
 
-These tests force exceptions inside Spring `TransactionTemplate` boundaries after the relevant service operations have succeeded. The focused matrix passed on H2 and MySQL 8.4 in [run #45026864067](https://github.com/rambrij/solar-energy-platform/actions/runs/45026864067). The full workflow remains the required final gate.
+These tests force exceptions inside Spring `TransactionTemplate` boundaries after the relevant service operations have succeeded. The focused matrix passed on H2 and MySQL 8.4 in [run #45026864067](https://github.com/rambrij/solar-energy-platform/actions/runs/45026864067). The same run's full workflow (backend H2, backend MySQL, frontend, and Browser E2E) also passed.
 
-### Remaining acceptance gates
+### Remaining acceptance gate
 
-1. Complete the latest full H2 and MySQL backend suites, the dedicated P2-02 migration/schema step, frontend and Browser E2E on the final documentation/implementation commit.
-2. Verify that repository branch protection or rulesets require the relevant CI checks before merge. The GitHub branch-protection endpoint previously returned 403, so this remains an administrator verification item.
-3. Refresh this evidence with exact final run ID, commit SHA, job conclusions and any test counts.
+1. **Administrative verification:** an authorized repository administrator must confirm that the branch protection / ruleset requires the relevant successful CI checks before merge. The available GitHub integration could not verify this setting (previous branch-protection API request returned 403).
 
-**Disposition:** The transaction-boundary failure-injection matrix is implemented and its focused H2/MySQL acceptance steps pass. The broader P2-02 item remains **IN PROGRESS** until the latest full workflow passes and required-check enforcement is verified. Do not mark P2-02 COMPLETE based on focused-step success alone.
+All implementation and CI execution gates documented here have passed on implementation commit `f16b92878dccbaa81775ae2630d2029dc506cbb5` in full workflow [#45026864067](https://github.com/rambrij/solar-energy-platform/actions/runs/45026864067). The focused MySQL financial acceptance selection passed 11/11 tests; `P202MysqlPersistenceIntegrationTest` passed 13/13 tests; all four workflow jobs passed.
+
+**Disposition:** **IN PROGRESS — IMPLEMENTATION AND FULL CI PASS; REQUIRED-CHECK ENFORCEMENT UNVERIFIED.** Do not mark P2-02 COMPLETE until an authorized administrator confirms required-check enforcement, or the project owner formally removes that administrative check from the acceptance criteria.

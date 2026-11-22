@@ -320,7 +320,7 @@ class SpringDataRepositoryAstAnalysisTest {
                         return super.visitVariable(node,unused);
                     }
                 }.scan(type,null);
-                new TreePathScanner<Void,Void>(){
+                new TreeScanner<Void,Void>(){
                     private String methodName;
                     private Set<String> trustedVariables=new HashSet<>();
                     @Override public Void visitMethod(MethodTree node,Void unused){

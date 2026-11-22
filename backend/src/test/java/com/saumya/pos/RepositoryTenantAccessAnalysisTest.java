@@ -223,13 +223,21 @@ class RepositoryTenantAccessAnalysisTest {
             String source = Files.readString(file);
             if (source.contains("JpaSpecificationExecutor")) specifications.add(repositoryName(file));
         }
-        assertThat(specifications).containsExactly("CashRefundRepository");
+        assertThat(specifications).containsExactlyInAnyOrder("CashRefundRepository", "DraftRepository");
         Path service = sourceRoot().resolve("com/saumya/pos/returns/RefundHistoryService.java");
         String source = Files.readString(service);
         assertThat(source).contains("retail.scope()")
             .contains("b.equal(r.get(\"tenant\"), scope.tenant())")
             .contains("b.equal(r.get(\"branch\"), scope.branch())")
             .contains("refunds.findAll(owned");
+        Path draftService = sourceRoot().resolve("com/saumya/pos/checkout/OrderHistoryService.java");
+        String draftSource = Files.readString(draftService);
+        assertThat(draftSource).contains("retail.scope()")
+            .contains("b.equal(r.get(\"tenantId\"),scope.tenant())")
+            .contains("b.equal(r.get(\"branchId\"),scope.branch())")
+            .contains("customers.resolve(username)")
+            .contains("orders.findAll(filtered(scope,filter)")
+            .contains("orders.findOne(scope.and");
     }
 
     @Test

@@ -3048,7 +3048,7 @@ class PosTest {
   int invoiceBefore=db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
   int receiptAuditBefore=db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
   int saleAuditBefore=db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1 AND resource_id=?",Integer.class,draft.id());
-  int receiptSequenceBefore=db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Integer.class);
+  Long receiptSequenceBefore=db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class);
   assertThatThrownBy(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
     checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"));
     throw new IllegalStateException("Inject failure after cash payment, stock consume, invoice and receipt writes");
@@ -3108,14 +3108,14 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_items WHERE tenant_id=1",Integer.class)).isEqualTo(itemsBefore);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1",Integer.class)).isEqualTo(eventsBefore);
 
+  var pending=as("alice",()->returns.create("p2-matrix-return-review",returnRequest(order,1)));
+  int reviewEventsBefore=db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1 AND return_id=?",Integer.class,pending.id());
   assertThatThrownBy(()->as("manager",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
-    var pending=returns.create("p2-matrix-return-review",returnRequest(order,1));
     returns.review(pending.id(),approveReturn());
     throw new IllegalStateException("Inject failure after independent return approval and timeline event");
   }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_returns WHERE tenant_id=1",Integer.class)).isEqualTo(returnsBefore);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_items WHERE tenant_id=1",Integer.class)).isEqualTo(itemsBefore);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1",Integer.class)).isEqualTo(eventsBefore);
+  assertThat(db.queryForObject("SELECT state FROM pos_returns WHERE tenant_id=1 AND id=?",String.class,pending.id())).isEqualTo("REQUESTED");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1 AND return_id=?",Integer.class,pending.id())).isEqualTo(reviewEventsBefore);
 
   var returned=as("alice",()->returns.create("p2-matrix-return-real",returnRequest(order,1)));
   as("manager",()->returns.review(returned.id(),approveReturn()));

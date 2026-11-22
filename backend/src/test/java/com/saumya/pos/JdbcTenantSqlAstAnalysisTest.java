@@ -124,6 +124,12 @@ class JdbcTenantSqlAstAnalysisTest {
         for(String variable:tainted)if(java.util.regex.Pattern.compile("\\b"+java.util.regex.Pattern.quote(variable)+"\\b").matcher(expression).find())return true;
         return false;
     }
+    private static Set<String> jdbcReceiverNames(String source){
+        Set<String> names=new TreeSet<>();
+        var matcher=Pattern.compile("\\b(?:JdbcTemplate|NamedParameterJdbcTemplate|JdbcOperations)\\s+([A-Za-z_$][\\w$]*)").matcher(source);
+        while(matcher.find())names.add(matcher.group(1));
+        return names;
+    }
     private static boolean hasTrustedTenantArgument(String expression) {
         if(clientOrigin(expression,Set.of()))return false;
         return java.util.regex.Pattern.compile("(?i)(?:\\b(?:auth|authorization|ctx|c|actor|scope|s|event|m|order)\\s*\\.|\\.tenant\\s*\\(|\\.tenantId\\s*\\()")
@@ -226,6 +232,7 @@ class JdbcTenantSqlAstAnalysisTest {
                 String className=relative.replace('/','.').replace(".java","");
                 String fileSource=Files.readString(file);
                 JsonNode classPolicy=trusted.get(className);
+                Set<String> jdbcReceivers=jdbcReceiverNames(fileSource);
                 new TreePathScanner<Void,Void>() {
                     String methodName="";
                     Set<String> taintedTenantVariables=new HashSet<>();
@@ -262,7 +269,9 @@ class JdbcTenantSqlAstAnalysisTest {
                         }
                         if(sqlMethods.contains(name) && call.contains(".")) {
                             String receiver=call.substring(0,call.lastIndexOf('.'));
-                            if(!receiver.matches("(?:this\\.)?(?:db|jdbc|namedJdbc|jdbcTemplate|template)"))return super.visitMethodInvocation(node,unused);
+                            String receiverName=receiver.replaceFirst("^this\\.","");
+                            if(!receiver.matches("(?:this\\.)?(?:db|jdbc|namedJdbc|jdbcTemplate|template)")
+                                &&!jdbcReceivers.contains(receiverName))return super.visitMethodInvocation(node,unused);
                             assertThat(classPolicy).as("JDBC SQL consumer must have a trusted-source policy: %s",className).isNotNull();
                             observedSources.add(className);
                             observedMethods.computeIfAbsent(className,k->new TreeSet<>()).add(methodName);
@@ -464,6 +473,14 @@ class JdbcTenantSqlAstAnalysisTest {
                 .toList();
             assertThat(membershipCallers).containsExactly(platformPath);
         }
+    }
+
+    @Test
+    void jdbcReceiverTypeDiscoveryIncludesRenamedTemplateFieldsAndParameters() {
+        assertThat(jdbcReceiverNames("private final JdbcTemplate queryClient;")).contains("queryClient");
+        assertThat(jdbcReceiverNames("void run(NamedParameterJdbcTemplate tenantSql){}")).contains("tenantSql");
+        assertThat(jdbcReceiverNames("JdbcOperations operations;")).contains("operations");
+        assertThat(jdbcReceiverNames("String queryClient;")).doesNotContain("queryClient");
     }
 
     @Test

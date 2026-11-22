@@ -74,7 +74,10 @@ class SpringDataRepositoryAstAnalysisTest {
                     if(!(declaration instanceof ClassTree type)||type.getKind()!=Tree.Kind.INTERFACE||!type.getSimpleName().toString().endsWith("Repository"))continue;
                     String repository=type.getSimpleName().toString();
                     for(Tree member:type.getMembers()){
-                        if(!(member instanceof MethodTree method)||!queryMethod(method.getName().toString()))continue;
+                        if(!(member instanceof MethodTree method))continue;
+                        boolean declaresQuery=method.getModifiers().getAnnotations().stream()
+                            .anyMatch(annotation->annotation.getAnnotationType().toString().endsWith("Query"));
+                        if(!declaresQuery&&!queryMethod(method.getName().toString()))continue;
                         String operation=repository+"#"+method.getName();
                         boolean queryAnnotation=false;
                         for(AnnotationTree annotation:method.getModifiers().getAnnotations()){

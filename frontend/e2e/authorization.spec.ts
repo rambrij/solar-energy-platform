@@ -110,7 +110,7 @@ test('Expired refresh session: protected POS route returns to the sign-in bounda
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible();
 });
 test('Cashier: open assigned register, complete a cash sale and receive its receipt', async ({ page }) => {
-  await signIn(page, demo.cashier.username, demo.cashier.password);
+  const token = await signIn(page, demo.cashier.username, demo.cashier.password);
   await page.goto('/vendor/pos');
   await expect(page.getByRole('heading', { name: 'Open cashier session' })).toBeVisible();
   const resume = page.getByRole('button', { name: /^Resume register/ });
@@ -118,7 +118,7 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   if (await resume.count()) {
     await resume.first().click();
   } else {
-    const directory = await apiAs(page, await signIn(page, demo.cashier.username, demo.cashier.password), '/api/v1/vendor/pos/registers?page=0&size=12');
+    const directory = await apiAs(page, token, '/api/v1/vendor/pos/registers?page=0&size=12');
     expect(directory.status, JSON.stringify(directory.body)).toBe(200);
     expect(directory.body.items, JSON.stringify(directory.body)).toContainEqual(expect.objectContaining({ available: true }));
     await page.getByRole('button', { name: 'Load assigned registers' }).click();

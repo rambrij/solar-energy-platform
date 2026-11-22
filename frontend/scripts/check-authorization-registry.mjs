@@ -282,10 +282,17 @@ if(!frontendControlInventory.length)throw new Error('Frontend JSX control invent
 const controlSummary=frontendControlInventory.reduce((summary,item)=>{
  summary[item.classification]=(summary[item.classification]??0)+1;return summary;
 },{});
+function requireControlActionMapping(control,actions){
+ const mapped=actions.some(action=>action.component===control.component);
+ if(!mapped)throw new Error('Backend-triggering frontend control has no registered backend operation: '+control.component+' '+control.event+' '+control.handler);
+ return mapped;
+}
+assert.throws(()=>requireControlActionMapping({component:'Fixture.tsx',event:'onClick',handler:'save'},[]),
+ /Backend-triggering frontend control has no registered backend operation/);
 for(const control of frontendControlInventory){
  if(control.classification!=='BACKEND_ACTION')continue;
  const actions=actionRegistry.actions.filter(action=>action.component===control.component);
- if(!actions.length)throw new Error('Backend-triggering frontend control has no registered backend operation: '+control.component+' '+control.event+' '+control.handler);
+ requireControlActionMapping(control,actionRegistry.actions);
 }
 
 const validActors=new Set(['PUBLIC','SESSION','CUSTOMER','VENDOR','PLATFORM']);
@@ -390,10 +397,16 @@ assert.equal(
  normalizeActionPath("/api/v1/platform/identities/'+encodeURIComponent(username)+'/mfa-enrollment"),
  '/api/v1/platform/identities/{}/mfa-enrollment'
 );
+function requireBackendOperation(action,operations){
+ const operation=operations.find(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint));
+ if(!operation)throw new Error('No backend operation for frontend action '+action.id+': '+action.backendOperation);
+ return operation;
+}
+assert.throws(()=>requireBackendOperation({id:'fixture-missing-backend-operation',method:'POST',endpoint:'/api/v1/vendor/missing',backendOperation:'POST /api/v1/vendor/missing'},[]),
+ /No backend operation for frontend action/);
 const backendOperations=await collectControllerRoutes(path.join(repo,'backend/src/main/java'));
 for(const action of actionRegistry.actions){
- const operation=backendOperations.find(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint));
- if(!operation)throw new Error('No backend operation for frontend action '+action.id+': '+action.backendOperation);
+ const operation=requireBackendOperation(action,backendOperations);
  validateActionPermissionParity(action,operation.policy);
 }
 
@@ -441,10 +454,16 @@ for(const match of sessionSource.matchAll(/\bauthRequest\s*\(([^,]+),/g)){
 const expectedSessionPaths=sessionOperations.map(item=>item.path).sort();
 if(JSON.stringify([...observedSessionPaths].sort())!==JSON.stringify(expectedSessionPaths))
  throw new Error('Session auth call sites diverge from explicit operation inventory: observed='+observedSessionPaths.join(',')+' expected='+expectedSessionPaths.join(','));
-for(const item of sessionOperations){
- const action=actionRegistry.actions.find(value=>value.id===item.action);
+function requireSessionAction(item,actions){
+ const action=actions.find(value=>value.id===item.action);
  if(!action||action.method!=='POST'||action.endpoint!=='/api/v1/auth'+item.path)
   throw new Error('Session auth path does not map to its exact backend action: '+item.path);
+ return action;
+}
+assert.throws(()=>requireSessionAction({path:'/missing',action:'missing'},[]),
+ /Session auth path does not map to its exact backend action/);
+for(const item of sessionOperations){
+ const action=requireSessionAction(item,actionRegistry.actions);
  const operation=backendOperations.find(value=>value.method===action.method&&value.endpoint===normalizeActionPath(action.endpoint));
  if(!operation)throw new Error('Session auth action has no backend controller mapping: '+item.action);
  validateActionPermissionParity(action,operation.policy);
@@ -517,17 +536,25 @@ for(const file of sourceFiles){
   for(const endpoint of resolved.endpoints??[resolved.endpoint])observedApiCalls.push({...resolved,endpoint});
  }
 }
-for(const call of observedApiCalls){
- const mapped=actionRegistry.actions.some(action=>
-  action.component===call.component&&action.method===call.method&&normalizeActionPath(action.endpoint)===call.endpoint);
+function requireRegisteredFrontendOperation(call,actions){
+ const mapped=actions.some(action=>action.component===call.component&&action.method===call.method
+  &&normalizeActionPath(action.endpoint)===call.endpoint);
  if(!mapped)throw new Error('Unregistered literal frontend API operation at '+call.component+':'+call.line+' '+call.method+' '+call.endpoint);
+ return mapped;
 }
+assert.throws(()=>requireRegisteredFrontendOperation({component:'Fixture.tsx',line:1,method:'POST',endpoint:'/api/v1/vendor/unregistered'},[]),
+ /Unregistered literal frontend API operation/);
+for(const call of observedApiCalls)requireRegisteredFrontendOperation(call,actionRegistry.actions);
 const dynamicCallSites=actionRegistry.dynamicApiCallSites??{};
 const observedDynamicCallSites=new Set();
+function requireDynamicCallSite(key,declarations){
+ if(!declarations[key])throw new Error('Unregistered dynamic frontend API call site: '+key);
+ return declarations[key];
+}
+assert.throws(()=>requireDynamicCallSite('Fixture.tsx:9',{}),/Unregistered dynamic frontend API call site/);
 for(const call of dynamicApiCalls){
  const key=call.component+':'+call.line;
- const declaration=dynamicCallSites[key];
- if(!declaration)throw new Error('Unregistered dynamic frontend API call site: '+key+' '+call.fn);
+ const declaration=requireDynamicCallSite(key,dynamicCallSites);
  if(observedDynamicCallSites.has(key))throw new Error('Duplicate dynamic frontend API call site: '+key);
  observedDynamicCallSites.add(key);
  const open=sourceFiles.map(file=>({file,source:fs.readFileSync(file,'utf8')})).find(item=>path.basename(item.file)===call.component);

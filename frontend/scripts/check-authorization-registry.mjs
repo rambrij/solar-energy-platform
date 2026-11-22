@@ -148,6 +148,14 @@ for(const [file,source] of platformUiSources){
 const actionRegistry=JSON.parse(fs.readFileSync(path.join(frontend,'src/authorization-action-registry.json'),'utf8'));
 const uniqueIds=items=>{const ids=items.map(item=>item.id);if(new Set(ids).size!==ids.length)throw new Error('Duplicate authorization registry IDs');return ids.sort();};
 const routeIds=uniqueIds(actionRegistry.routes);
+
+const navigationDefinitions=[...navigationSource.matchAll(/\{\s*id:\s*'([^']+)',\s*label:\s*'[^']+',\s*group:\s*'([^']+)',[\s\S]*?path:\s*'([^']+)'\s*\}/g)].map(m=>({id:m[1],group:m[2],path:m[3]}));
+const actualNavigation=new Map(navigationDefinitions.map(item=>[item.id,item]));
+for(const route of actionRegistry.routes){
+ const actual=actualNavigation.get(route.id);
+ if(!actual||actual.path!==route.path||actual.group!==route.group)throw new Error('Menu/submenu route metadata diverges from navigation source: '+route.id);
+}
+
 if(JSON.stringify(routeIds)!==JSON.stringify(Object.keys(registry.frontendRoutes).sort()))throw new Error('Action registry routes diverge from canonical navigation permissions');
 const tabIds=uniqueIds(actionRegistry.tabs);
 if(JSON.stringify(tabIds)!==JSON.stringify(Object.keys(registry.frontendPlatformPages).sort()))throw new Error('Platform tab registry diverges from canonical platform page permissions');

@@ -1467,7 +1467,8 @@
         "ROLE_UPDATE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/roles/permissions"
+      "backendOperation": "GET /api/v1/vendor/roles/permissions",
+      "permissionMode": "ANY"
     },
     {
       "id": "vendor-role-read",

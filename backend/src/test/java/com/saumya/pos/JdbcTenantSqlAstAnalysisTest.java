@@ -402,11 +402,14 @@ class JdbcTenantSqlAstAnalysisTest {
                 List<String> bodies=methodBodies(callerSource,callerMethod);
                 int argumentIndex=caller.path("argumentIndex").asInt(-1);
                 String expression=caller.path("expression").asText();
-                boolean exactFlow=bodies.stream().flatMap(body->invocationArguments(body,calleeMethod).stream())
-                    .anyMatch(args->argumentIndex>=0&&argumentIndex<args.size()&&args.get(argumentIndex).contains(expression));
-                assertThat(exactFlow)
-                    .as("%s argument %s must flow unchanged from %s into %s",parameter,expression,callerRef,callee)
-                    .isTrue();
+                List<List<String>> matchingCalls=bodies.stream().flatMap(body->invocationArguments(body,calleeMethod).stream())
+                    .filter(args->argumentIndex>=0&&argumentIndex<args.size()&&args.get(argumentIndex).contains(expression))
+                    .toList();
+                int expectedCallCount=caller.path("expectedCallCount").asInt(1);
+                assertThat(matchingCalls)
+                    .as("%s argument %s must flow unchanged exactly %s time(s) from %s into %s",
+                        parameter,expression,expectedCallCount,callerRef,callee)
+                    .hasSize(expectedCallCount);
                 proven.add(callee+"#"+parameter);
             }
         }

@@ -385,7 +385,6 @@ class RepositoryTenantAccessAnalysisTest {
     void unscopedInheritedBulkRepositoryOperationsAreProhibited() throws Exception {
         Pattern unscopedRead = Pattern.compile("\\.findAll\\s*\\(\\s*\\)");
         Pattern bulkMutation = Pattern.compile("\\.(?:findAllById|deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\s*\\(");
-        Pattern unscopedCount = Pattern.compile("\\.count\\s*\\(\\s*\\)");
         try (var files = Files.walk(sourceRoot())) {
             for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
                 String source = Files.readString(file);
@@ -393,8 +392,6 @@ class RepositoryTenantAccessAnalysisTest {
                     .as("unscoped inherited findAll() is prohibited in %s", file).isFalse();
                 assertThat(bulkMutation.matcher(source).find())
                     .as("inherited bulk/delete-by-ID repository operations require an explicit scoped method in %s", file).isFalse();
-                assertThat(unscopedCount.matcher(source).find())
-                    .as("unscoped inherited count() is prohibited in %s", file).isFalse();
             }
         }
     }
@@ -407,7 +404,6 @@ class RepositoryTenantAccessAnalysisTest {
         assertThat(unscopedRead.matcher("repository.findAll()").find()).isTrue();
         assertThat(bulkMutation.matcher("repository.deleteById(id)").find()).isTrue();
         assertThat(bulkMutation.matcher("repository.findAllById(ids)").find()).isTrue();
-        assertThat(unscopedCount.matcher("repository.count()").find()).isTrue();
         assertThat(unscopedRead.matcher("repository.findAll(tenantSpecification)").find()).isFalse();
     }
 

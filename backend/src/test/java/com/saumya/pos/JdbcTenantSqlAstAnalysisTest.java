@@ -107,6 +107,7 @@ class JdbcTenantSqlAstAnalysisTest {
         Map<String,JsonNode> trusted=new TreeMap<>();
         registry.path("trustedTenantParameterSources").forEach(item->trusted.put(item.path("source").asText(),item));
         Set<String> observedSources=new TreeSet<>(), observedSqlSites=new TreeSet<>();
+        Map<String,Set<String>> observedMethods=new TreeMap<>();
         JavaCompiler compiler=ToolProvider.getSystemJavaCompiler();
         assertThat(compiler).as("JDK compiler is required for AST analysis").isNotNull();
         List<Path> javaFiles;
@@ -135,6 +136,7 @@ class JdbcTenantSqlAstAnalysisTest {
                         String name=call.substring(call.lastIndexOf('.')+1);
                         List<String> sqlMethods=List.of("query","queryForList","queryForObject","queryForMap","queryForRowSet","update","batchUpdate","execute");
                         if(name.equals("one") && className.equals("com.saumya.pos.retail.PosService")) {
+                            observedMethods.computeIfAbsent(className,k->new TreeSet<>()).add(methodName);
                             assertThat(node.getArguments()).as("PosService.one call has SQL and tenant arguments: %s",node).isNotEmpty();
                             String sql=literal(node.getArguments().getFirst());
                             assertThat(sql).as("every PosService.one call must pass a static SQL literal: %s",node).isNotNull();
@@ -146,6 +148,7 @@ class JdbcTenantSqlAstAnalysisTest {
                             if(!receiver.matches("(?:this\\.)?(?:db|jdbc|namedJdbc|jdbcTemplate|template)"))return super.visitMethodInvocation(node,unused);
                             assertThat(classPolicy).as("JDBC SQL consumer must have a trusted-source policy: %s",className).isNotNull();
                             observedSources.add(className);
+                            observedMethods.computeIfAbsent(className,k->new TreeSet<>()).add(methodName);
                             JsonNode methods=classPolicy.path("methods");
                             boolean declared=methods.isArray() && (methods.toString().contains("\"*\"") ||
                                 java.util.stream.StreamSupport.stream(methods.spliterator(),false).anyMatch(x->x.asText().equals(methodName)));
@@ -192,6 +195,7 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(observedSources).as("all trusted direct-JDBC source inventory entries are reached by AST analysis")
             .containsExactlyInAnyOrderElementsOf(trustedSources(registry));
         assertThat(observedSqlSites).as("AST analyzer must discover direct JDBC SQL operations").isNotEmpty();
+        observedMethods.forEach((source,methods)->System.out.println("P2-04_JDBC_METHODS|"+source+"|"+String.join(",",methods)));
     }
 
     @Test

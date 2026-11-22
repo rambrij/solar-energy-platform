@@ -488,9 +488,22 @@ class P202MysqlPersistenceIntegrationTest {
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
             assertThatThrownBy(() -> db.update("DELETE FROM tenant_subscriptions WHERE id=993031"))
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update(
+                    "DELETE FROM subscription_plan_versions WHERE plan_id=993021 AND version=1"))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("DELETE FROM subscription_plans WHERE id=993021"))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
             assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_invoices WHERE id=?",
                     Integer.class, invoiceId)).isEqualTo(1);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_payments WHERE tenant_id=993011 AND subscription_invoice_id=?",
+                    Integer.class, invoiceId)).isEqualTo(1);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_events WHERE tenant_id=993011 AND subscription_id=993031",
+                    Integer.class)).isEqualTo(1);
             assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_subscriptions WHERE id=993031",
+                    Integer.class)).isEqualTo(1);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_plan_versions WHERE plan_id=993021 AND version=1",
+                    Integer.class)).isEqualTo(1);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_plans WHERE id=993021",
                     Integer.class)).isEqualTo(1);
 
             for (String constraint : Set.of("fk_sub_payment_invoice_owner",

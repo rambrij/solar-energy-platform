@@ -44,9 +44,36 @@ class JdbcTenantSqlAstAnalysisTest {
         if(start<0||end<start||end>source.length())return tree.toString();
         return source.substring((int)start,(int)end);
     }
+    private static String maskSqlLiteralsAndComments(String sql) {
+        StringBuilder masked=new StringBuilder(sql.length());
+        char quote=0;boolean lineComment=false,blockComment=false;
+        for(int i=0;i<sql.length();i++){
+            char ch=sql.charAt(i),next=i+1<sql.length()?sql.charAt(i+1):0;
+            if(lineComment){masked.append(ch==10||ch==13?ch:' ');if(ch==10||ch==13)lineComment=false;continue;}
+            if(blockComment){masked.append(ch==10||ch==13?ch:' ');if(ch=='*'&&next=='/'){masked.append(' ');i++;blockComment=false;}continue;}
+            if(quote!=0){
+                masked.append(ch==10||ch==13?ch:' ');
+                if(ch==quote){
+                    if(i+1<sql.length()&&sql.charAt(i+1)==quote){masked.append(' ');i++;}
+                    else quote=0;
+                }else if(ch==92&&i+1<sql.length()){masked.append(' ');i++;}
+                continue;
+            }
+            if(ch=='-'&&next=='-'){masked.append("  ");i++;lineComment=true;continue;}
+            if(ch=='/'&&next=='*'){masked.append("  ");i++;blockComment=true;continue;}
+            if(ch==39||ch==34||ch==96){quote=ch;masked.append(' ');continue;}
+            masked.append(ch);
+        }
+        return masked.toString();
+    }
+    private static int countSqlPlaceholders(String sql,int before) {
+        String masked=maskSqlLiteralsAndComments(sql.substring(0,Math.min(before,sql.length())));
+        return (int)masked.chars().filter(ch->ch=='?').count();
+    }
     private static boolean tenantPredicate(String sql) {
+        String searchable=maskSqlLiteralsAndComments(sql);
         return java.util.regex.Pattern.compile("(?is)(?:where|and|on)\\s+(?:[a-z_][a-z0-9_]*\\.)?tenant_id\\s*=\\s*\\?")
-            .matcher(sql).find();
+            .matcher(searchable).find();
     }
     private static List<String> splitArguments(String text) {
         List<String> result=new ArrayList<>();int start=0,depth=0;char quote=0;boolean escaped=false;
@@ -62,9 +89,10 @@ class JdbcTenantSqlAstAnalysisTest {
         return result;
     }
     private static int tenantPlaceholderIndex(String sql) {
-        var match=java.util.regex.Pattern.compile("(?is)(?:where|and|on)\\s+(?:[a-z_][a-z0-9_]*\\.)?tenant_id\\s*=\\s*\\?").matcher(sql);
-        if(match.find())return (int)sql.substring(0,match.start()).chars().filter(ch->ch=='?').count();
-        var insert=java.util.regex.Pattern.compile("(?is)insert\\s+into\\s+[a-z_][a-z0-9_]*\\s*\\(([^)]*)\\)\\s*values\\s*\\(([^)]*)\\)").matcher(sql);
+        String searchable=maskSqlLiteralsAndComments(sql);
+        var match=java.util.regex.Pattern.compile("(?is)(?:where|and|on)\\s+(?:[a-z_][a-z0-9_]*\\.)?tenant_id\\s*=\\s*\\?").matcher(searchable);
+        if(match.find())return countSqlPlaceholders(sql,match.end()-1);
+        var insert=java.util.regex.Pattern.compile("(?is)insert\\s+into\\s+[a-z_][a-z0-9_]*\\s*\\(([^)]*)\\)\\s*values\\s*\\(([^)]*)\\)").matcher(searchable);
         if(insert.find()){
             List<String> columns=splitArguments(insert.group(1));
             for(int i=0;i<columns.size();i++)if(columns.get(i).trim().equalsIgnoreCase("tenant_id"))return i;
@@ -241,6 +269,16 @@ class JdbcTenantSqlAstAnalysisTest {
             .as("the delegated SQL helper must forward its exact validated SQL and argument array").isTrue();
         assertThat(Pattern.compile("\\bone\\s*\\(sql\\s*,").matcher(source).find())
             .as("the helper cannot be called with a runtime SQL variable at an unreviewed call site").isFalse();
+    }
+
+    @Test
+    void tenantSqlAnalysisIgnoresQuestionMarksAndPredicatesInsideLiteralsAndComments() {
+        String query="SELECT * FROM rows WHERE note='tenant_id=?' AND status=? /* tenant_id=? */ AND tenant_id=?";
+        assertThat(tenantPredicate(query)).isTrue();
+        assertThat(tenantPlaceholderIndex(query)).isEqualTo(1);
+        assertThat(tenantPredicate("SELECT * FROM rows WHERE note='tenant_id=?'")).isFalse();
+        assertThat(tenantPredicate("SELECT * FROM rows WHERE id=? -- AND tenant_id=?")).isFalse();
+        assertThat(tenantPlaceholderIndex("SELECT * FROM rows WHERE id=? AND tenant_id=? /* ? */")).isEqualTo(1);
     }
 
     @Test

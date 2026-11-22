@@ -221,6 +221,27 @@ class P004TenantIsolationTest {
             Integer.class, VENDOR_A_TENANT, VENDOR_B_TENANT)).isZero();
     }
 
+    @Test
+    @DisplayName("A vendor cannot use another branch in the same tenant to read or mutate inventory")
+    void sameTenantWrongBranchInventoryIsDeniedBeforeRepositoryAccessAndLeavesStockUnchanged() {
+        long secondBranch = 9_881_101L;
+        db.update("INSERT INTO branches(id,tenant_id,name) VALUES(?,?,?)",
+            secondBranch, VENDOR_A_TENANT, "P004 Vendor A Second Branch");
+        db.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity) VALUES(?,?,?,3)",
+            VENDOR_A_TENANT, secondBranch, VENDOR_A_PRODUCT_ID);
+
+        forbidden(() -> asVendorA(() -> inventory.atBranch(
+            VENDOR_A_TENANT, secondBranch, VENDOR_A_PRODUCT_ID)));
+        forbidden(() -> asVendorA(() -> {
+            inventory.issue(VENDOR_A_TENANT, secondBranch, VENDOR_A_PRODUCT_ID, 1);
+            return null;
+        }));
+
+        assertThat(db.queryForObject(
+            "SELECT quantity FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?",
+            Integer.class, VENDOR_A_TENANT, secondBranch, VENDOR_A_PRODUCT_ID)).isEqualTo(3);
+    }
+
     private static final List<String> VENDOR_A_GRANTS = List.of(
         "ROLE_VIEW", "ROLE_UPDATE", "USER_VIEW", "ROLE_ASSIGN", "USER_UPDATE",
         "USER_DISABLE", "INVENTORY_VIEW");

@@ -205,12 +205,12 @@ for(const action of actionRegistry.actions){
 }
 function validateActionPermissionParity(action,policy){
  if(action.actor==='PUBLIC'){
-  if(!/permitAll\\s*\\(\\s*\\)/.test(policy))throw new Error('Public frontend action is not permitAll on backend: '+action.id);
+  if(!/permitAll\s*\(\s*\)/.test(policy))throw new Error('Public frontend action is not permitAll on backend: '+action.id);
   return;
  }
  if(action.actor==='VENDOR'&&action.permissions.some(permission=>permission.startsWith('PLATFORM_')))
   throw new Error('Platform permission assigned to vendor action '+action.id);
- const actual=[...policy.matchAll(/has(?:Any)?Authority\\s*\\(([^)]*)\\)/g)].flatMap(call=>[...call[1].matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map(match=>match[1]));
+ const actual=[...policy.matchAll(/has(?:Any)?Authority\s*\(([^)]*)\)/g)].flatMap(call=>[...call[1].matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map(match=>match[1]));
  if(action.permissions.includes('POS_CASH_MOVEMENT_DYNAMIC')){
   if(!policy.includes("'POS_' + #request.type().name()"))throw new Error('Dynamic POS cash-movement permission mapping mismatch: '+action.id);
  }else{
@@ -218,7 +218,7 @@ function validateActionPermissionParity(action,policy){
   if(JSON.stringify(expected)!==JSON.stringify(observed))throw new Error('Frontend/backend permission parity mismatch for '+action.id+': frontend='+expected.join(',')+' backend='+observed.join(','));
   if(action.permissions.length>1){
    const expectsAny=action.permissionMode==='ANY';
-   const backendAny=/hasAnyAuthority\\s*\\(/.test(policy)||/\\sor\\s/.test(policy);
+   const backendAny=/hasAnyAuthority\s*\(/.test(policy)||/\sor\s/.test(policy);
    if(expectsAny!==backendAny)throw new Error('Frontend/backend ANY-vs-ALL authorization mode mismatch for '+action.id);
   }
  }

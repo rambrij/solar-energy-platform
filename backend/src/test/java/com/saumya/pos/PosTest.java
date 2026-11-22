@@ -2782,13 +2782,22 @@ class PosTest {
   update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
   var command=refundPay(returned,paying);
   BigDecimal cashBefore=as("manager",()->service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash();
+  int refundsBefore=db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds WHERE tenant_id=1",Integer.class);
+  int refundItemsBefore=db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items WHERE tenant_id=1",Integer.class);
+  int returnEventsBefore=db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1",Integer.class);
+  int posAuditBefore=db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1",Integer.class);
+  int dispositionsBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions WHERE tenant_id=1",Integer.class);
+  String returnStateBefore=db.queryForObject("SELECT state FROM pos_returns WHERE tenant_id=1 AND id=?",String.class,returned);
   assertThatThrownBy(()->as("manager",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
     refunds.pay("p2-refund-rollback",command);
     throw new IllegalStateException("Inject failure after refund payment and audit writes");
   }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds WHERE tenant_id=1",Integer.class)).isZero();
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items WHERE tenant_id=1",Integer.class)).isZero();
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1 AND action='CASH_REFUND'",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds WHERE tenant_id=1",Integer.class)).isEqualTo(refundsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items WHERE tenant_id=1",Integer.class)).isEqualTo(refundItemsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1",Integer.class)).isEqualTo(returnEventsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1",Integer.class)).isEqualTo(posAuditBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions WHERE tenant_id=1",Integer.class)).isEqualTo(dispositionsBefore);
+  assertThat(db.queryForObject("SELECT state FROM pos_returns WHERE tenant_id=1 AND id=?",String.class,returned)).isEqualTo(returnStateBefore);
   assertThat(as("manager",()->service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash()).isEqualByComparingTo(cashBefore);
  }
 

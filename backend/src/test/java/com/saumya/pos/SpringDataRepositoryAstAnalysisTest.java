@@ -440,15 +440,17 @@ class SpringDataRepositoryAstAnalysisTest {
                 new TreeScanner<Void,Void>(){
                     private String methodName;
                     private Set<String> trustedVariables=new HashSet<>();
+                    private List<? extends VariableTree> currentMethodParameters=List.of();
                     @Override public Void visitMethod(MethodTree node,Void unused){
                         String previousMethod=methodName;Set<String> previousVariables=trustedVariables;
-                        methodName=node.getName().toString();trustedVariables=new HashSet<>();
+                        List<? extends VariableTree> previousParameters=currentMethodParameters;
+                        methodName=node.getName().toString();currentMethodParameters=node.getParameters();trustedVariables=new HashSet<>();
                         for(VariableTree parameter:node.getParameters()){
                             String key=className+"#"+methodName+"#"+parameter.getName();
                             if(trustedParameters.contains(key))trustedVariables.add(parameter.getName().toString());
                         }
                         Void result=super.visitMethod(node,unused);
-                        methodName=previousMethod;trustedVariables=previousVariables;
+                        methodName=previousMethod;trustedVariables=previousVariables;currentMethodParameters=previousParameters;
                         return result;
                     }
                     @Override public Void visitVariable(VariableTree node,Void unused){
@@ -470,6 +472,14 @@ class SpringDataRepositoryAstAnalysisTest {
                             &&!node.getArguments().isEmpty()
                             &&node.getArguments().get(0) instanceof IdentifierTree tenantArgument)
                             trustedVariables.add(tenantArgument.getName().toString());
+                        String invocationText=node.getMethodSelect().toString();
+                        if(invokedName.equals("requirePlatform")||invokedName.equals("requireRead")
+                            ||invocationText.endsWith("PlatformAuthorization.require")){
+                            trustedVariables.add("__platformAuthorizedTenantTarget");
+                            for(VariableTree parameter:currentMethodParameters)
+                                if(parameter.getName().toString().matches("(?i).*tenant.*"))
+                                    trustedVariables.add(parameter.getName().toString());
+                        }
                         if(node.getMethodSelect() instanceof MemberSelectTree select){
                             String receiver=simpleReceiver(select.getExpression().toString());
                             String repository=repositoryVariables.getOrDefault(receiver,

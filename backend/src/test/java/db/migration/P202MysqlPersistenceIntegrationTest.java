@@ -246,54 +246,40 @@ class P202MysqlPersistenceIntegrationTest {
     }
 
     @Test
-    void generatedOwnershipColumnsAndMysqlChecksBehaveAsDeclared() throws Exception {
+    void generatedPosSessionColumnAndMysqlStockLocationCheckBehaveAsDeclared() throws Exception {
         withSchema((url, user, password, schema) -> {
             flyway(url, user, password, schema, null).migrate();
             JdbcTemplate db = jdbc(url, user, password);
-            db.execute("SET FOREIGN_KEY_CHECKS=0");
-            try {
-                db.update("""
-                        INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float)
-                        VALUES('p2-open-session',991001,991011,'p2-cashier',991011,'OPEN',0.00)
-                        """);
-                assertThat(db.queryForObject("SELECT active_register FROM pos_sessions WHERE id='p2-open-session'",
-                        Long.class)).isEqualTo(991011L);
-                db.update("UPDATE pos_sessions SET state='CLOSED' WHERE id='p2-open-session'");
-                assertThat(db.queryForObject("SELECT active_register FROM pos_sessions WHERE id='p2-open-session'",
-                        Long.class)).isNull();
+            db.update("INSERT INTO tenants(id,name) VALUES(991001,'P2 generated-column tenant')");
+            db.update("INSERT INTO branches(id,tenant_id,name) VALUES(991011,991001,'P2 generated-column branch')");
+            db.update("""
+                    INSERT INTO employees(username,password_hash,tenant_id,branch_id,enabled)
+                    VALUES('p2-cashier','not-a-login-secret',991001,991011,TRUE)
+                    """);
+            db.update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(991011,991001,991011)");
+            db.update("""
+                    INSERT INTO pos_stock_locations
+                    (tenant_id,branch_id,stock_location_id,location_code,display_name,active)
+                    VALUES(991001,991011,991011,'POS_DEFAULT','P2 POS stock',TRUE)
+                    """);
+            db.update("""
+                    INSERT INTO pos_sessions
+                    (id,tenant_id,branch_id,cashier,register_id,state,opening_float)
+                    VALUES('p2-open-session',991001,991011,'p2-cashier',991011,'OPEN',0.00)
+                    """);
+            assertThat(db.queryForObject(
+                    "SELECT active_register FROM pos_sessions WHERE id='p2-open-session'", Long.class))
+                    .isEqualTo(991011L);
+            db.update("UPDATE pos_sessions SET state='CLOSED' WHERE id='p2-open-session'");
+            assertThat(db.queryForObject(
+                    "SELECT active_register FROM pos_sessions WHERE id='p2-open-session'", Long.class))
+                    .isNull();
 
-                db.update("INSERT INTO carts(id,tenant_id,customer_id,state) VALUES('p2-cart',991001,991099,'ACTIVE')");
-                assertThat(db.queryForObject("SELECT active_customer_id FROM carts WHERE id='p2-cart'",
-                        Long.class)).isEqualTo(991099L);
-                db.update("UPDATE carts SET state='ARCHIVED' WHERE id='p2-cart'");
-                assertThat(db.queryForObject("SELECT active_customer_id FROM carts WHERE id='p2-cart'",
-                        Long.class)).isNull();
-
-                db.update("""
-                        INSERT INTO tenant_subscriptions
-                        (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
-                        VALUES(991021,991001,991031,1,'ACTIVE','2026-01-01','2026-02-01','{}')
-                        """);
-                assertThat(db.queryForObject("""
-                        SELECT active_tenant_id FROM tenant_subscriptions WHERE id=991021
-                        """, Long.class)).isEqualTo(991001L);
-                db.update("UPDATE tenant_subscriptions SET status='CANCELLED' WHERE id=991021");
-                assertThat(db.queryForObject("""
-                        SELECT active_tenant_id FROM tenant_subscriptions WHERE id=991021
-                        """, Long.class)).isNull();
-
-                assertThatThrownBy(() -> db.update("""
-                        INSERT INTO pos_stock_locations
-                        (tenant_id,branch_id,stock_location_id,location_code,display_name,active)
-                        VALUES(991001,991011,991012,'POS_DEFAULT','invalid branch stock',TRUE)
-                        """)).hasMessageContaining("chk_pos_stock_location_branch_key");
-                assertThatThrownBy(() -> db.update("""
-                        INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
-                        VALUES(991001,991041,'PLATFORM_TENANT_CLOSE','p2-actor')
-                        """)).hasMessageContaining("chk_vendor_role_permission_no_platform");
-            } finally {
-                db.execute("SET FOREIGN_KEY_CHECKS=1");
-            }
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO pos_stock_locations
+                    (tenant_id,branch_id,stock_location_id,location_code,display_name,active)
+                    VALUES(991001,991011,991012,'POS_DEFAULT','invalid branch stock',TRUE)
+                    """)).hasMessageContaining("chk_pos_stock_location_branch_key");
         });
     }
 

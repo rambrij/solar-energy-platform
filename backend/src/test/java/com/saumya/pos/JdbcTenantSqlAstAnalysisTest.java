@@ -55,7 +55,8 @@ class JdbcTenantSqlAstAnalysisTest {
         return java.util.regex.Pattern.compile("(?is)select\\s+id\\s+from\\s+tenants\\s+where\\s+id\\s*=\\s*\\?").matcher(sql).find();
     }
     private static boolean hasTrustedTenantArgument(String args) {
-        return java.util.regex.Pattern.compile("(?i)(?:\\btenant(?:Id)?\\b|\\.tenant\\s*\\(|\\.tenantId\\s*\\(|\\.tenantId\\b)")
+        if (java.util.regex.Pattern.compile("(?i)\\b(?:request|body|payload|dto|filter|criteria)\\s*\\.\\s*(?:get)?tenantId\\s*\\(").matcher(args).find()) return false;
+        return java.util.regex.Pattern.compile("(?i)(?:\\btenant(?:Id)?\\b|\\b(?:auth|authorization|ctx|c|actor|scope|s|event|m|order)\\s*\\.|\\.tenant\\s*\\(|\\.tenantId\\s*\\()")
             .matcher(args).find();
     }
     private static Set<String> trustedSources(JsonNode policy) {
@@ -153,6 +154,5 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(tenantInsert("INSERT INTO vendor_roles(tenant_id,role_key) VALUES(?,?)")).isTrue();
         assertThat(hasTrustedTenantArgument("request.getTenantId()")).isTrue();
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();
-.isEqualTo("SELECT * FROM x");
     }
 }

@@ -123,9 +123,11 @@ class ModuleArchitectureTest {
     @Test
     void forgedTenantParameterNegativeFixturesRejectClientControlledTenantSources() {
         assertThatThrownBy(() -> assertNoClientSuppliedTenantParameter(
-            "db.queryForList(sql, request.tenantId())", "negative fixture: request tenant"));
+            "db.queryForList(sql, request.tenantId())", "negative fixture: request tenant"))
+            .isInstanceOf(AssertionError.class);
         assertThatThrownBy(() -> assertNoClientSuppliedTenantParameter(
-            "db.update(sql, filter.getTenantId())", "negative fixture: filter tenant"));
+            "db.update(sql, filter.getTenantId())", "negative fixture: filter tenant"))
+            .isInstanceOf(AssertionError.class);
     }
 
     private static List<String> extractSqlStatements(String source) {

@@ -526,3 +526,10 @@ The current code implements synchronous POS receipt JSON/PDF, online customer re
 
 **Disposition:** P2-03 acceptance for the current implemented paths is PASS on the exact tested commit. Absent cache/object-storage/signed-URL/outbox/queue infrastructure remains explicitly NOT APPLICABLE. Re-audit and add dedicated ownership, authorization, idempotency and retry tests if those paths are introduced; this result must not be generalized to future infrastructure.
 
+
+
+## P2-04 — Architecture/static authorization checks (current status)
+
+**Status: IN PROGRESS — NOT COMPLETE.** On 2026-11-22, commit `66ab0f09abcb0a964e5cb482ab0ea526a768e767` added broader ArchUnit rules and isolated architecture fixtures, plus a focused H2/MySQL CI gate. The current rules cover module cycles, module internal visibility, controller-to-repository access, cross-module repository ownership and a narrowly named direct-JDBC dependency exception for `MembershipService`, `VendorRoleService` and `PosService`.
+
+The commit does not yet satisfy the full P2-04 acceptance criteria. Remaining work includes operation-level authorization actor/scope/assignment metadata, complete tenant repository and SQL query analysis, full frontend menu/route/tab/button/action registry and backend-operation parity, and negative fixtures for every required authorization/tenant/frontend/service-inventory failure. The focused CI run on this commit is pending; no tests are reported as passed until GitHub Actions finishes. The JDBC dependency allow-list does not certify tenant-scoped SQL. P0-02 and P0-06 runtime tests remain independent and are retained.

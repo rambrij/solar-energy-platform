@@ -189,5 +189,105 @@
       "service": "RefundHistoryService",
       "scope": "Tenant and branch are both taken from authenticated PosService.Scope; Specification predicates constrain tenant, branch and time window."
     }
+  ],
+  "trustedTenantParameterSources": [
+    {
+      "source": "com.saumya.pos.membership.MembershipService",
+      "methods": [
+        "effectiveVendorPermissions",
+        "provisionInitialVendorAdmin"
+      ],
+      "authority": "Active EmployeeMembership row supplies tenant for effective permissions; initial Vendor Admin provisioning is invoked by platform identity provisioning after authorized tenant creation.",
+      "evidence": [
+        "memberships.findByUsernameIgnoreCase",
+        "m.tenant()",
+        "tenants.get(tenantId)",
+        "StandardRoleTemplates.initialize"
+      ]
+    },
+    {
+      "source": "com.saumya.pos.membership.VendorRoleService",
+      "methods": [
+        "*"
+      ],
+      "authority": "Every operation obtains AuthorizationContext.current(), requires vendor membership and derives SQL tenant parameters from that immutable context.",
+      "evidence": [
+        "auth.current()",
+        "requireVendorMembership()",
+        "c.tenantId()"
+      ]
+    },
+    {
+      "source": "com.saumya.pos.membership.TenantEntitlementPolicy",
+      "methods": [
+        "permissions",
+        "requireFeature"
+      ],
+      "authority": "Called by MembershipService with the tenant from the persisted active EmployeeMembership; no request DTO is accepted.",
+      "evidence": [
+        "permissions(long tenant",
+        "requireFeature(long tenant"
+      ]
+    },
+    {
+      "source": "com.saumya.pos.membership.StandardRoleTemplates",
+      "methods": [
+        "*"
+      ],
+      "authority": "Package-private provisioning helpers receive tenant only from authenticated MembershipService or VendorRoleService actor context.",
+      "evidence": [
+        "static void lockTenant",
+        "static long initialize",
+        "static long insert"
+      ]
+    },
+    {
+      "source": "com.saumya.pos.retail.PosService",
+      "methods": [
+        "*"
+      ],
+      "authority": "Scope is derived from AuthorizationContext.current(); all JDBC methods use scope.tenant() or actor.tenant(), and internal scope revalidates the current actor.",
+      "evidence": [
+        "authContext.current()",
+        "ctx.tenantId()",
+        "authorizeInternalScope",
+        "scope.tenant()"
+      ]
+    },
+    {
+      "source": "com.saumya.pos.retail.DraftSessionProjection",
+      "methods": [
+        "changed"
+      ],
+      "authority": "Projection writes are driven only by server-published PosDraftStateChanged domain events; tenant is copied from event aggregate metadata.",
+      "evidence": [
+        "@EventListener",
+        "PosDraftStateChanged event",
+        "event.tenant()"
+      ]
+    },
+    {
+      "source": "com.saumya.pos.retail.CashDrawerProjection",
+      "methods": [
+        "*"
+      ],
+      "authority": "Projection writes are driven only by server-published drawer/tender domain events; tenant is copied from event aggregate metadata.",
+      "evidence": [
+        "@EventListener",
+        "event.tenant()"
+      ]
+    },
+    {
+      "source": "com.saumya.pos.retail.BranchProvisioningServiceImpl",
+      "methods": [
+        "createInitialBranch"
+      ],
+      "authority": "Provisioning is invoked from the platform tenant lifecycle workflow; tenantId is the platform-authorized tenant resource, not a vendor-supplied tenant field.",
+      "evidence": [
+        "createInitialBranch(long tenantId",
+        "authorization",
+        "tenantId"
+      ]
+    }
   ]
 }

@@ -242,4 +242,69 @@ class RepositoryTenantAccessAnalysisTest {
         assertThat(hasTenantPredicate("select * from refunds where tenant_id=?1 and id=?2")).isTrue();
         assertThat(hasOwnerPredicate("select c from Cart c where c.customerId=:customer and c.id=:id")).isTrue();
     }
+    @Test
+    void directJdbcTenantParametersHaveReviewedTrustedAuthorityProvenance() throws Exception {
+        JsonNode root = policy();
+        JsonNode sources = root.path("trustedTenantParameterSources");
+        assertThat(sources.isArray()).isTrue();
+        Map<String, String> expected = new TreeMap<>();
+        for (JsonNode item : sources) {
+            String sourceName = item.path("source").asText();
+            assertThat(sourceName).isNotBlank();
+            assertThat(item.path("authority").asText()).isNotBlank();
+            assertThat(item.path("methods").isArray()).isTrue();
+            assertThat(item.path("evidence").isArray()).isTrue();
+            Path file = sourceRoot().resolve(sourceName.replace("com.saumya.pos.", "com/saumya/pos/") + ".java");
+            assertThat(Files.isRegularFile(file)).as("trusted JDBC source %s exists", sourceName).isTrue();
+            String source = Files.readString(file);
+            for (JsonNode evidence : item.path("evidence")) {
+                assertThat(source).as("trusted tenant provenance evidence in %s", sourceName)
+                    .contains(evidence.asText());
+            }
+            assertThat(expected.put(sourceName, item.path("authority").asText())).isNull();
+        }
+        Set<String> actualJdbc = new TreeSet<>();
+        try (var files = Files.walk(sourceRoot())) {
+            for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
+                String source = Files.readString(file);
+                if (source.contains("JdbcTemplate") || source.contains("NamedParameterJdbcTemplate")) {
+                    if (Pattern.compile("\\\\b(?:JdbcTemplate|NamedParameterJdbcTemplate)\\\\b").matcher(source).find()
+                        && (source.contains("queryFor") || source.contains(".update(") || source.contains(".batchUpdate(")))
+                        actualJdbc.add("com.saumya.pos." + sourceRoot().relativize(file).toString()
+                            .replace('\\\\','/').replace('/', '.').replace(".java",""));
+                }
+            }
+        }
+        assertThat(actualJdbc).as("every direct JDBC production consumer has an explicit trusted tenant provenance record")
+            .containsExactlyInAnyOrderElementsOf(expected.keySet());
+    }
+
+    @Test
+    void clientSuppliedTenantIdentifiersCannotFlowIntoProductionServiceOrPersistenceCode() throws Exception {
+        Pattern direct = Pattern.compile(
+            "(?i)\\\\b(?:request|body|payload|filter|criteria|query|params|dto)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+        Pattern alias = Pattern.compile(
+            "(?i)\\\\b(?:long|Long|var)\\\\s+([a-zA-Z_$][\\\\w$]*)\\\\s*=\\\\s*(?:request|body|payload|filter|criteria|query|params|dto)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+        try (var files = Files.walk(sourceRoot())) {
+            for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
+                String source = Files.readString(file);
+                assertThat(direct.matcher(source).find())
+                    .as("client-controlled tenant ID must never be read as data-access authority in %s", file).isFalse();
+                assertThat(alias.matcher(source).find())
+                    .as("tenant aliases cannot originate in request DTOs in %s", file).isFalse();
+            }
+        }
+    }
+
+    @Test
+    void negativeFixturesRejectForgedTenantAuthorityAndUntrustedAliases() {
+        Pattern direct = Pattern.compile(
+            "(?i)\\\\b(?:request|body|payload|filter|criteria|query|params|dto)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+        Pattern alias = Pattern.compile(
+            "(?i)\\\\b(?:long|Long|var)\\\\s+([a-zA-Z_$][\\\\w$]*)\\\\s*=\\\\s*(?:request|body|payload|filter|criteria|query|params|dto)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+        assertThat(direct.matcher("long tenant = request.getTenantId();").find()).isTrue();
+        assertThat(alias.matcher("long tenant = request.getTenantId();").find()).isTrue();
+        assertThat(direct.matcher("long tenant = authorizationContext.current().tenantId();").find()).isFalse();
+    }
+
 }

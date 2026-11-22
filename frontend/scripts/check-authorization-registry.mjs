@@ -163,6 +163,14 @@ const menuItems=actionRegistry.menus.flatMap(menu=>menu.items);
 if(new Set(menuItems).size!==menuItems.length||JSON.stringify([...menuItems].sort())!==JSON.stringify(routeIds.concat(tabIds).sort()))throw new Error('Every route and platform tab must appear exactly once in a menu registry');
 for(const submenu of actionRegistry.submenus)if(!submenu.items.length||submenu.items.some(id=>!routeIds.includes(id)))throw new Error('Unknown/empty submenu '+submenu.id);
 const actionIds=uniqueIds(actionRegistry.actions);
+
+const expectedButtonIds=actionRegistry.actions.filter(a=>a.trigger==='button'||a.trigger==='submit').map(a=>a.id).sort();
+if(JSON.stringify(uniqueIds(actionRegistry.buttons))!==JSON.stringify(expectedButtonIds))throw new Error('Frontend button/form inventory is incomplete or diverges from action mappings');
+for(const button of actionRegistry.buttons){
+ const action=actionRegistry.actions.find(item=>item.id===button.id);
+ if(!action||button.component!==action.component||button.trigger!==action.trigger||button.backendOperation!==action.backendOperation)throw new Error('Button-to-backend-action mapping mismatch: '+button.id);
+}
+
 const validActors=new Set(['PUBLIC','CUSTOMER','VENDOR','PLATFORM']);
 for(const action of actionRegistry.actions){
  if(!validActors.has(action.actor)||!action.component||!action.trigger||!action.method||!action.endpoint||action.backendOperation!==action.method+' '+action.endpoint)throw new Error('Incomplete frontend action mapping '+action.id);

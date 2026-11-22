@@ -262,9 +262,12 @@ class PosTest {
     return active;
    }));
    assertThat(expiryOwnsLock.await(10,TimeUnit.SECONDS)).isTrue();
+   var suspensionStarted=new CountDownLatch(1);
    var suspensionFuture=executor.submit(()->suspend.execute(status->{
+    suspensionStarted.countDown();
     db.update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=1");return null;
    }));
+   assertThat(suspensionStarted.await(10,TimeUnit.SECONDS)).isTrue();
    Thread.sleep(150);
    assertThat(suspensionFuture.isDone()).as("suspension must wait while expiry owns the tenant row lock").isFalse();
    allowExpiryCommit.countDown();

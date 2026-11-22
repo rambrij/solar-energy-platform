@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class DiscountPolicyServiceTest {
  @AfterEach void clearSecurityContext(){SecurityContextHolder.clearContext();}
@@ -29,5 +30,16 @@ class DiscountPolicyServiceTest {
   assertThatThrownBy(()->service.configure(1,new BigDecimal("101"))).isInstanceOf(IllegalArgumentException.class);
   service.configure(1,new BigDecimal("20"));
   assertThat(service.maximum(1)).isEqualByComparingTo("20");
+ }
+
+ @Test void directPolicyReadAndWriteRejectMissingPermissionBeforeRepositoryAccess(){
+  var repository=mock(DiscountPolicyRepository.class);
+  var auth=mock(AuthorizationContext.class);
+  org.mockito.Mockito.when(auth.current()).thenReturn(new AuthorizationContext.Context(
+   "cashier",7L,12L,"7:cashier",List.of("PRODUCT_VIEW"),false,false,true));
+  var service=new DiscountPolicyService(repository,new BillPricing(),auth);
+  assertThatThrownBy(()->service.maximum(7L)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  assertThatThrownBy(()->service.configure(7L,new BigDecimal("10"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+  verifyNoInteractions(repository);
  }
 }

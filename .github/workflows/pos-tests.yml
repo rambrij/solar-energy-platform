@@ -156,14 +156,14 @@ jobs:
         run: mvn -B -f backend/pom.xml -Dtest=P004TenantIsolationTest test
       - name: Financial tenant isolation, rollback and deletion acceptance (H2)
         if: matrix.database == 'h2'
-        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion+inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites+cashRefundFailureRollsBackRefundAllocationAndAuditTimeline' test
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion+inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites+cashRefundFailureRollsBackRefundAllocationAndAuditTimeline+receiptIdentityRollsBackWithSaleAndLegacyReadNeverInventsNames' test
       - name: Financial tenant isolation, rollback and deletion acceptance (MySQL 8.4)
         if: matrix.database == 'mysql'
         env:
           TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
-        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion+inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites+cashRefundFailureRollsBackRefundAllocationAndAuditTimeline' test
+        run: mvn -B -f backend/pom.xml '-Dtest=PosTest#commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion+inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites+cashRefundFailureRollsBackRefundAllocationAndAuditTimeline+receiptIdentityRollsBackWithSaleAndLegacyReadNeverInventsNames' test
       - name: H2 suite
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml test

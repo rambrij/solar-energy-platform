@@ -753,9 +753,11 @@
   ],
   "trustedServiceTenantParameters": {
     "com.saumya.pos.cart.CartService": {
-      "requireFeature": [
-        "tenant"
-      ]
+      "trustedTenantParameters": {
+        "requireFeature": [
+          "tenant"
+        ]
+      }
     }
   }
 }

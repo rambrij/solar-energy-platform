@@ -715,6 +715,14 @@ class P202MysqlPersistenceIntegrationTest {
                     VALUES(996001,996011,996011,'POS_DEFAULT','P2 composite stock A',TRUE),
                           (996002,996012,996012,'POS_DEFAULT','P2 composite stock B',TRUE)
                     """);
+            // V28 binds employee usernames to global user identities. Seed
+            // those parents first so this fixture reaches the V45 tenant/branch
+            // composite relationships it is intended to exercise.
+            db.update("""
+                    INSERT INTO users(id,username,password_hash,enabled)
+                    VALUES(996001,'p2-composite-a','not-a-login-secret',TRUE),
+                          (996002,'p2-composite-b','not-a-login-secret',TRUE)
+                    """);
             db.update("""
                     INSERT INTO employees(username,tenant_id,branch_id,enabled)
                     VALUES('p2-composite-a',996001,996011,TRUE),

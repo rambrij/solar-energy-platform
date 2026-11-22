@@ -2052,6 +2052,16 @@
       "method": "POST",
       "endpoint": "/api/v1/auth/platform-mfa/enrollment/complete",
       "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/complete"
+    },
+    {
+      "id": "auth-session-me",
+      "component": "usePermissions.ts",
+      "trigger": "session-bootstrap",
+      "actor": "SESSION",
+      "permissions": [],
+      "method": "GET",
+      "endpoint": "/api/v1/auth/me",
+      "backendOperation": "GET /api/v1/auth/me"
     }
   ],
   "buttons": [

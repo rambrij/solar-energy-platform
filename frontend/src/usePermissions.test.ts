@@ -85,8 +85,10 @@ describe('usePermissions',()=>{
   mockUseSession.mockReturnValue({ready:true,account:revoked});
   mockAuthApi.mockResolvedValue(response(revoked));
   rerender();
-  await waitFor(()=>expect(result.current.hasPermission('POS_SALE_CREATE')).toBe(false));
-  expect(result.current.hasPermission('POS_VIEW')).toBe(true);
+  await waitFor(()=>{
+   expect(result.current.hasPermission('POS_SALE_CREATE')).toBe(false);
+   expect(result.current.hasPermission('POS_VIEW')).toBe(true);
+  });
  });
  it('handles API errors gracefully',async()=>{
   mockAuthApi.mockRejectedValue(new Error('Network error'));

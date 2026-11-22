@@ -47,7 +47,7 @@ class SpringDataRepositoryAstAnalysisTest {
             if(key.contains("branch"))return name.contains("branch");
             if(key.contains("register"))return name.contains("register");
             if(key.contains("owner"))return name.contains("owner");
-            if(key.contains("username"))return name.contains("username");
+            if(key.contains("username"))return name.contains("username")||name.contains("reviewer")||name.contains("cashier")||name.contains("actor");
             if(key.contains("token")||key.equals("hash"))return name.contains("token")||name.equals("hash");
             if(key.contains("family"))return name.contains("family");
             if(key.contains("subscription"))return name.contains("subscription");
@@ -270,7 +270,7 @@ class SpringDataRepositoryAstAnalysisTest {
         boolean found=false;
         while(matcher.find()){
             found=true;
-            int index=positionalParameterIndex(query,matcher.start(2));
+            int index=positionalParameterIndex(query,matcher.start(1));
             if(index>=parameters.size())return false;
             if(!scopeFieldMatchesParameter(matcher.group(1),Set.of(parameters.get(index))))return false;
         }

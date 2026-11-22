@@ -1,7 +1,0 @@
-**/target/
-**/node_modules/
-**/dist/
-.env
-.m2/
-.npm-cache/
-*.log

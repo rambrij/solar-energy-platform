@@ -118,6 +118,39 @@ class AuthorizationPolicyRegistryTest {
         void postFixture(){}
     }
 
+
+    @Test void everyProtectedControllerOperationHasCanonicalActorScopeAndAssignmentMetadata(){
+        try(InputStream in=getClass().getResourceAsStream("/runtime-authorization-matrix.json")){
+            assertThat(in).as("P0-06 runtime authorization matrix").isNotNull();
+            JsonNode matrix=new ObjectMapper().readTree(in).path("controllerPolicies");
+            JsonNode registryControllers=registry().path("controllerPolicies");
+            Set<String> expected=new TreeSet<>();registryControllers.fieldNames().forEachRemaining(expected::add);
+            Set<String> actual=new TreeSet<>();matrix.fieldNames().forEachRemaining(actual::add);
+            assertThat(actual).containsExactlyInAnyOrderElementsOf(expected);
+            for(String controller:actual){
+                JsonNode metadata=matrix.path(controller);
+                for(String field:List.of("actor","scope","assignment")){
+                    assertThat(metadata.path(field).asText()).as("%s operation metadata: %s",controller,field).isNotBlank();
+                }
+            }
+        }catch(Exception exception){throw new AssertionError(exception);}
+    }
+
+    private static void rejectPlatformPermissionForVendor(String actor,String expression,String location){
+        if(!"VENDOR".equals(actor))return;
+        Matcher matcher=Pattern.compile("(?:hasAuthority|hasAnyAuthority)\\('([A-Z][A-Z0-9_]+)'").matcher(expression);
+        while(matcher.find()){
+            assertThat(matcher.group(1)).as("PLATFORM permission cannot authorize vendor operation %s",location)
+                .doesNotStartWith("PLATFORM_");
+        }
+    }
+
+    @Test void negativeFixtureRejectsPlatformPermissionOnVendorOperation(){
+        assertThatThrownBy(() -> rejectPlatformPermissionForVendor("VENDOR",
+            "hasAuthority('PLATFORM_TENANT_SUSPEND')","fixture#vendorMutation"))
+            .isInstanceOf(AssertionError.class);
+    }
+
     @Test void vendorPermissionRegistryRejectsUnknownAndPlatformGrants(){
         assertThatThrownBy(()->VendorPermissionRegistry.requireVendorPermission("PLATFORM_IDENTITY_MANAGE"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);

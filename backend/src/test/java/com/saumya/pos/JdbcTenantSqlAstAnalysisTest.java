@@ -644,6 +644,26 @@ class JdbcTenantSqlAstAnalysisTest {
                 }
             }
 
+            // Resolve interface-typed service fields to their concrete production
+            // implementation when that implementation owns the reviewed tenant parameter.
+            // An interface boundary must not make the implementation call disappear.
+            Map<String,Set<String>> implementations=new TreeMap<>();
+            for(CompilationUnitTree unit:units) {
+                String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
+                for(Tree declaration:unit.getTypeDecls()) {
+                    if(!(declaration instanceof ClassTree implementation))continue;
+                    String implementationClass=packageName+implementation.getSimpleName();
+                    if(!parameterPolicies.containsKey(implementationClass))continue;
+                    for(Tree implemented:implementation.getImplementsClause()) {
+                        String interfaceName=simpleTypeName(implemented.toString());
+                        implementations.computeIfAbsent(interfaceName,key->new TreeSet<>()).add(implementationClass);
+                    }
+                }
+            }
+            implementations.forEach((interfaceName,implementors)->{
+                if(implementors.size()==1)simpleTypes.put(interfaceName,implementors.iterator().next());
+            });
+
             for(CompilationUnitTree unit:units) {
                 String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
                 for(Tree declaration:unit.getTypeDecls()) {

@@ -270,7 +270,7 @@ class RepositoryTenantAccessAnalysisTest {
                 if (source.contains("JdbcTemplate") || source.contains("NamedParameterJdbcTemplate")) {
                     if (Pattern.compile("\\\\b(?:JdbcTemplate|NamedParameterJdbcTemplate)\\\\b").matcher(source).find()
                         && (source.contains("queryFor") || source.contains(".update(") || source.contains(".batchUpdate(")))
-                        actualJdbc.add("com.saumya.pos." + sourceRoot().relativize(file).toString()
+                        actualJdbc.add(sourceRoot().relativize(file).toString()
                             .replace('\\\\','/').replace('/', '.').replace(".java",""));
                 }
             }

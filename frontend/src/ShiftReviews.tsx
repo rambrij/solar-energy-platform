@@ -15,7 +15,7 @@ export default function ShiftReviews() {
     try { sessionStorage.setItem(storageKey, JSON.stringify(attempt)); } catch { setError('Cannot save review retry details; no decision was sent.'); return; }
     setPending(attempt); setBusy(true); setError(''); setNotice('');
     try {
-      await api(`/sessions/${attempt.sessionId}/${attempt.action}`, { requestId: attempt.requestId, reason: attempt.reason });
+      await api(`/sessions/${attempt.sessionId}/${attempt.action === 'approve-variance' ? 'approve-variance' : 'return-for-correction'}`, { requestId: attempt.requestId, reason: attempt.reason });
       sessionStorage.removeItem(storageKey); setPending(undefined); setRows(rows => rows.filter(row => row.requestId !== attempt.requestId)); setNotice('Supervisor decision recorded. Refresh to view remaining requests.');
     } catch (e) {
       if (!pending && e instanceof ApiError && [400,403,404,409].includes(e.status)) {

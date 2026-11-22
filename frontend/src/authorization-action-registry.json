@@ -1694,7 +1694,7 @@
     {
       "id": "customer-draft-create",
       "component": "ReservedDrafts.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "method": "POST",
       "endpoint": "/api/v1/customer/checkout/drafts",
       "permissions": [
@@ -2188,7 +2188,7 @@
     {
       "id": "customer-draft-create",
       "component": "ReservedDrafts.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "backendOperation": "POST /api/v1/customer/checkout/drafts"
     },
     {

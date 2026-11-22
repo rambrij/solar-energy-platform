@@ -43,10 +43,7 @@ class ServiceBoundaryMethodInventoryTest {
             // their caller contract is documented in §5 of the inventory.
             if (actual.isEmpty()) continue;
 
-            Entry entry = inventory.get(simpleName);
-            assertThat(entry)
-                .as("method-by-method inventory row for @Service %s", service.getName())
-                .isNotNull();
+            Entry entry = requireInventoryEntry(inventory, simpleName, service.getName());
             assertThat(actual)
                 .as("public methods on %s must match its explicit inventory row", service.getName())
                 .containsExactlyInAnyOrderElementsOf(entry.methods());
@@ -60,6 +57,19 @@ class ServiceBoundaryMethodInventoryTest {
         assertThat(checkedServices)
             .as("all concrete Spring service implementations must participate in the inventory regression")
             .isGreaterThan(40);
+    }
+
+    private static Entry requireInventoryEntry(Map<String, Entry> inventory, String simpleName, String qualifiedName) {
+        Entry entry = inventory.get(simpleName);
+        assertThat(entry).as("method-by-method inventory row for @Service %s", qualifiedName).isNotNull();
+        return entry;
+    }
+
+    @Test
+    void negativeFixtureRejectsPublicServiceMissingFromInventory() {
+        assertThatThrownBy(() -> requireInventoryEntry(Map.of(), "UnlistedServiceFixture",
+            "com.p204fixtures.service.UnlistedServiceFixture"))
+            .isInstanceOf(AssertionError.class);
     }
 
     private Map<String, Entry> readInventory() throws Exception {

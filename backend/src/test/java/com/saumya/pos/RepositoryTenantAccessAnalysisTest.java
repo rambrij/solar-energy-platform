@@ -268,10 +268,10 @@ class RepositoryTenantAccessAnalysisTest {
             for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
                 String source = Files.readString(file);
                 if (source.contains("JdbcTemplate") || source.contains("NamedParameterJdbcTemplate")) {
-                    if (Pattern.compile("\\\\b(?:JdbcTemplate|NamedParameterJdbcTemplate)\\\\b").matcher(source).find()
+                    if (Pattern.compile("\\b(?:JdbcTemplate|NamedParameterJdbcTemplate)\\b").matcher(source).find()
                         && (source.contains("queryFor") || source.contains(".update(") || source.contains(".batchUpdate(")))
                         actualJdbc.add(sourceRoot().relativize(file).toString()
-                            .replace('\\\\','/').replace('/', '.').replace(".java",""));
+                            .replace('\\','/').replace('/', '.').replace(".java",""));
                 }
             }
         }
@@ -282,9 +282,9 @@ class RepositoryTenantAccessAnalysisTest {
     @Test
     void clientSuppliedTenantIdentifiersCannotFlowIntoProductionServiceOrPersistenceCode() throws Exception {
         Pattern direct = Pattern.compile(
-            "(?i)\\\\b(?:request|body|payload|filter|criteria|query|params|dto)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+            "(?i)\\b(?:request|body|payload|filter|criteria|query|params|dto)\\s*\\.\\s*(?:get)?tenantId\\s*\\(");
         Pattern alias = Pattern.compile(
-            "(?i)\\\\b(?:long|Long|var)\\\\s+([a-zA-Z_$][\\\\w$]*)\\\\s*=\\\\s*(?:request|body|payload|filter|criteria|query|params|dto)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+            "(?i)\\b(?:long|Long|var)\\s+([a-zA-Z_$][\\w$]*)\\s*=\\s*(?:request|body|payload|filter|criteria|query|params|dto)\\s*\\.\\s*(?:get)?tenantId\\s*\\(");
         try (var files = Files.walk(sourceRoot())) {
             for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
                 String source = Files.readString(file);
@@ -299,9 +299,9 @@ class RepositoryTenantAccessAnalysisTest {
     @Test
     void negativeFixturesRejectForgedTenantAuthorityAndUntrustedAliases() {
         Pattern direct = Pattern.compile(
-            "(?i)\\\\b(?:request|body|payload|filter|criteria|query|params|dto)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+            "(?i)\\b(?:request|body|payload|filter|criteria|query|params|dto)\\s*\\.\\s*(?:get)?tenantId\\s*\\(");
         Pattern alias = Pattern.compile(
-            "(?i)\\\\b(?:long|Long|var)\\\\s+([a-zA-Z_$][\\\\w$]*)\\\\s*=\\\\s*(?:request|body|payload|filter|criteria|query|params|dto)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+            "(?i)\\b(?:long|Long|var)\\s+([a-zA-Z_$][\\w$]*)\\s*=\\s*(?:request|body|payload|filter|criteria|query|params|dto)\\s*\\.\\s*(?:get)?tenantId\\s*\\(");
         assertThat(direct.matcher("long tenant = request.getTenantId();").find()).isTrue();
         assertThat(alias.matcher("long tenant = request.getTenantId();").find()).isTrue();
         assertThat(direct.matcher("long tenant = authorizationContext.current().tenantId();").find()).isFalse();

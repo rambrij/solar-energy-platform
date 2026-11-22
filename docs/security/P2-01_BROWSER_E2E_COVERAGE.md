@@ -1,6 +1,6 @@
 # P2-01 Browser E2E coverage and traceability
 
-**Status:** IN PROGRESS — implementation added; final CI validation pending.  
+**Status:** IN PROGRESS — browser assertion corrected; final branch-head CI and artifact review pending.  
 **Branch:** `feature/develop-authorization-gap-analysis`  
 **Runtime:** Playwright Chromium against the disposable Docker Compose stack, local Spring profile, and MySQL 8.4.
 
@@ -43,4 +43,5 @@
 - Local run: start the repository Compose stack with the local profile and the documented demo-only credentials, install pinned `@playwright/test@1.52.0`, install Chromium, then run `npm run test:e2e` from `frontend`.
 - CI run: `browser-e2e` in `.github/workflows/pos-tests.yml` waits for backend H2/MySQL and frontend jobs, starts a fresh MySQL 8.4 local-profile stack, waits for `/api/v1/auth/csrf`, runs Playwright, and uploads artifacts.
 - P2-01 is not COMPLETE until the browser job passes on the final branch head and the Playwright report/traces are inspected. A passing browser job does not close P0-06's full Role × Endpoint matrix or P1-04's exhaustive page/tab/action audit.
+- **2026-11-22 CI failure analysis:** workflow [#44990198027](https://github.com/rambrij/solar-energy-platform/actions/runs/44990198027) passed frontend, backend H2 and backend MySQL 8.4 jobs; the Playwright job failed only in the Customer → `/vendor/pos` deep-link test. The shell rendered the expected generic `Access denied` state because the route permission guard denied the customer before the actor-specific message was rendered. The original assertion incorrectly required the actor-specific message. Updated the browser assertion to verify denial and absence of protected POS/product content (commit `d807f5c211e045b40175ae21dd90374914dce4e9`). The full Playwright suite and all CI jobs must pass again on this new head before completion. Failure screenshots, videos, traces and HTML report from run #44990198027 were downloaded and inspected; they confirm the mismatch is the assertion, not successful access to POS. Rerun: [#44991134966](https://github.com/rambrij/solar-energy-platform/actions/runs/44991134966) (pending at documentation update).
 - No backend production code, authorization policy, migration, schema, or source-of-truth product/SRS document is changed by this test addition.

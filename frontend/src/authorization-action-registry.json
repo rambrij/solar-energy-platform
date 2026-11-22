@@ -1936,6 +1936,30 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/customer-association"
+    },
+    {
+      "id": "pos-stock-products-list",
+      "component": "StockReceiving.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/products",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products"
+    },
+    {
+      "id": "pos-tender-review-awaiting-read",
+      "component": "TerminalTenderReview.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/payments/awaiting-review",
+      "permissions": [
+        "POS_TENDER_MANUAL_VERIFY"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/payments/awaiting-review"
     }
   ],
   "buttons": [
@@ -2342,5 +2366,58 @@
     "ReservedDrafts.tsx": [
       "path"
     ]
+  },
+  "dynamicApiCallSites": {
+    "CategoryManager.tsx:13": {
+      "fn": "vendorApi",
+      "argument": "selected?`/categories/${selected.id}`:'/categories'",
+      "methodArgument": "selected?'PUT':'POST'",
+      "actions": [
+        "pos-category-update",
+        "pos-category-create"
+      ]
+    },
+    "PaymentCheckout.tsx:15": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/checkout'+base+suffix",
+      "methodArgument": "body===undefined?'GET':'POST'",
+      "actions": [
+        "customer-payment-read",
+        "customer-payment-create"
+      ]
+    },
+    "ProductManager.tsx:17": {
+      "fn": "vendorApi",
+      "argument": "selected?`/products/${selected.id}`:'/products'",
+      "methodArgument": "selected?'PUT':'POST'",
+      "actions": [
+        "pos-product-update",
+        "pos-product-create"
+      ]
+    },
+    "StockReceiving.tsx:13": {
+      "fn": "vendorApi",
+      "argument": "kind==='products'?`/products?page=${page}&size=20`:`/inventory/receipts?page=${page}&size=20`",
+      "actions": [
+        "pos-stock-products-list",
+        "pos-stock-list"
+      ]
+    },
+    "TerminalTenderReview.tsx:11": {
+      "fn": "api",
+      "argument": "id?`/payments/review/${encodeURIComponent(id)}`:'/payments/awaiting-review'",
+      "actions": [
+        "pos-tender-review-read",
+        "pos-tender-review-awaiting-read"
+      ]
+    },
+    "VendorAccessAdmin.tsx:78": {
+      "fn": "vendorApi",
+      "argument": "'/roles/'+role.id",
+      "methodArgument": "'PUT'",
+      "actions": [
+        "vendor-role-update"
+      ]
+    }
   }
 }

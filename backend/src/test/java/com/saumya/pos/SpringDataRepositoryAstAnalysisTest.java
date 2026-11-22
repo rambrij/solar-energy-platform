@@ -50,25 +50,37 @@ class SpringDataRepositoryAstAnalysisTest {
         }
         return found;
     }
+    private static boolean scopeParameterName(String name){
+        return name.matches("(?i).*(tenant|customer|owner|branch|register|username|reviewer|cashier|actor|token|hash|family|subscription|invoice|plan).*");
+    }
     private static boolean hasBoundScopeParameter(String query,MethodTree method){
         Set<String> availableNames=new HashSet<>();
         for(VariableTree parameter:method.getParameters())availableNames.addAll(parameterNames(parameter));
-        java.util.regex.Matcher positional=java.util.regex.Pattern.compile(
-            "(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*\\?(\\d*)")
+        java.util.regex.Matcher bindings=java.util.regex.Pattern.compile(
+            "(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(tenantId|tenant_id|tenant|customerId|customer_id|customer|ownerId|owner_id|owner|branchId|branch_id|branch|registerId|register_id|register|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*(:[a-z][a-zA-Z0-9_]*|\\?(\\d*))")
             .matcher(query);
-        boolean hasNumbered=false;
-        while(positional.find()){
-            String indexText=positional.group(1);
-            if(indexText.isEmpty())continue;
-            hasNumbered=true;
-            int index=Integer.parseInt(indexText)-1;
-            if(index<0||index>=method.getParameters().size())return false;
-            VariableTree parameter=method.getParameters().get(index);
-            if(parameterNames(parameter).stream().noneMatch(name->name.matches("(?i).*(tenant|customer|owner|username|token|hash|family|subscription|invoice|plan).*")))return false;
+        boolean found=false;
+        int positionalIndex=0;
+        while(bindings.find()){
+            found=true;
+            String field=bindings.group(1);
+            String reference=bindings.group(2);
+            if(reference.startsWith(":")){
+                if(!availableNames.contains(reference.substring(1)))return false;
+            }else{
+                String indexText=bindings.group(3);
+                int index;
+                if(indexText==null||indexText.isEmpty())index=positionalIndex++;
+                else index=Integer.parseInt(indexText)-1;
+                if(index<0||index>=method.getParameters().size())return false;
+                Set<String> names=parameterNames(method.getParameters().get(index));
+                if(names.stream().noneMatch(SpringDataRepositoryAstAnalysisTest::scopeParameterName))return false;
+                if(field.matches("(?i).*tenant.*")&&names.stream().noneMatch(n->n.matches("(?i).*(tenant).*")))return false;
+                if(field.matches("(?i).*branch.*")&&names.stream().noneMatch(n->n.matches("(?i).*(branch).*")))return false;
+                if(field.matches("(?i).*register.*")&&names.stream().noneMatch(n->n.matches("(?i).*(register).*")))return false;
+            }
         }
-        if(query.contains(":"))return namedScopeBindingsMatch(query,availableNames);
-        if(hasNumbered)return true;
-        return hasScopeParameter(method);
+        return found;
     }
     private static boolean hasScopeParameter(MethodTree method){
         for(VariableTree parameter:method.getParameters()){

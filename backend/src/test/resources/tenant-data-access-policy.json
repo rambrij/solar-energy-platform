@@ -672,6 +672,21 @@
           "caller": "com.saumya.pos.checkout.CustomerAssociationService#approve",
           "expression": "order.tenant()",
           "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.checkout.OnlineReceiptService#view",
+          "expression": "order.tenant()",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.checkout.OnlineReceiptService#copy",
+          "expression": "order.tenant()",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.checkout.SaleDocumentsService#issue",
+          "expression": "order.tenant()",
+          "argumentIndex": 0
         }
       ]
     }

@@ -247,7 +247,7 @@ class RepositoryTenantAccessAnalysisTest {
 
     @Test
     void queryTextCannotMasqueradeAsDerivedRepositoryMethodDeclarations() {
-        String source = "@Query(value=\\"select count(*) from rows\\") long countByTenantId(long tenant);";
+        String source = "@Query(value=\"select count(*) from rows\") long countByTenantId(long tenant);";
         assertThat(queryMethodNames(source)).contains("countByTenantId").doesNotContain("count");
     }
 

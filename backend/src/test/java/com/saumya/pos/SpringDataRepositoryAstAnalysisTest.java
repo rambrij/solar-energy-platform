@@ -56,13 +56,13 @@ class SpringDataRepositoryAstAnalysisTest {
     private static int positionalParameterIndex(String query,int placeholderOffset){
         int index=0;char quote=0;boolean lineComment=false,blockComment=false;
         for(int i=0;i<placeholderOffset;i++){
-            char ch=query.charAt(i),next=i+1<placeholderOffset?query.charAt(i+1):'\\0';
-            if(lineComment){if(ch=='\\n'||ch=='\\r')lineComment=false;continue;}
+            char ch=query.charAt(i),next=i+1<placeholderOffset?query.charAt(i+1):0;
+            if(lineComment){if(ch=='\n'||ch=='\r')lineComment=false;continue;}
             if(blockComment){if(ch=='*'&&next=='/'){blockComment=false;i++;}continue;}
-            if(quote!=0){if(ch=='\\\\'&&i+1<placeholderOffset){i++;continue;}if(ch==quote)quote=0;continue;}
+            if(quote!=0){if(ch=='\\'&&i+1<placeholderOffset){i++;continue;}if(ch==quote)quote=0;continue;}
             if(ch=='-'&&next=='-'){lineComment=true;i++;continue;}
             if(ch=='/'&&next=='*'){blockComment=true;i++;continue;}
-            if(ch=='\\''||ch=='"'||ch=='`'){quote=ch;continue;}
+            if(ch==39||ch==34||ch==96){quote=ch;continue;}
             if(ch=='?')index++;
         }
         return index;

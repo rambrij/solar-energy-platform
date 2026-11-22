@@ -2241,6 +2241,9 @@
   "dynamicQuerySuffixes": {
     "OrderHistory.tsx": [
       "suffix"
+    ],
+    "PosReturns.tsx": [
+      "suffix"
     ]
   }
 }

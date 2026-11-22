@@ -601,7 +601,7 @@
     },
     {
       "id": "pos-refund-history",
-      "component": "CashRefunds.tsx",
+      "component": "RefundJournal.tsx",
       "trigger": "load",
       "method": "GET",
       "endpoint": "/api/v1/vendor/pos/refunds/history",
@@ -610,7 +610,8 @@
         "POS_REFUND_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/refunds/history"
+      "backendOperation": "GET /api/v1/vendor/pos/refunds/history",
+      "permissionMode": "ALL"
     },
     {
       "id": "pos-return-queue",

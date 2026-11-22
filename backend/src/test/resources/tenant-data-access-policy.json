@@ -545,7 +545,8 @@
       "callers": [
         {
           "caller": "com.saumya.pos.membership.MembershipService#access",
-          "expression": "m.tenant()"
+          "expression": "m.tenant()",
+          "argumentIndex": 1
         }
       ]
     },
@@ -555,7 +556,8 @@
       "callers": [
         {
           "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
-          "expression": "tenant.id()"
+          "expression": "tenant.id()",
+          "argumentIndex": 0
         }
       ]
     },
@@ -565,11 +567,13 @@
       "callers": [
         {
           "caller": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
-          "expression": "tenantId"
+          "expression": "tenantId",
+          "argumentIndex": 1
         },
         {
           "caller": "com.saumya.pos.membership.VendorRoleService#applyTemplate",
-          "expression": "actor.tenantId()"
+          "expression": "actor.tenantId()",
+          "argumentIndex": 1
         }
       ]
     },
@@ -579,7 +583,8 @@
       "callers": [
         {
           "caller": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
-          "expression": "tenantId"
+          "expression": "tenantId",
+          "argumentIndex": 1
         }
       ]
     },
@@ -589,11 +594,13 @@
       "callers": [
         {
           "caller": "com.saumya.pos.membership.StandardRoleTemplates#initialize",
-          "expression": "tenant"
+          "expression": "tenant",
+          "argumentIndex": 1
         },
         {
           "caller": "com.saumya.pos.membership.VendorRoleService#applyTemplate",
-          "expression": "actor.tenantId()"
+          "expression": "actor.tenantId()",
+          "argumentIndex": 1
         }
       ]
     },
@@ -603,11 +610,13 @@
       "callers": [
         {
           "caller": "com.saumya.pos.membership.MembershipService#access",
-          "expression": "m.tenant()"
+          "expression": "m.tenant()",
+          "argumentIndex": 0
         },
         {
           "caller": "com.saumya.pos.membership.TenantEntitlementPolicy#requireFeature",
-          "expression": "tenant"
+          "expression": "tenant",
+          "argumentIndex": 0
         }
       ]
     },
@@ -617,7 +626,8 @@
       "callers": [
         {
           "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
-          "expression": "tenant.id()"
+          "expression": "tenant.id()",
+          "argumentIndex": 0
         }
       ]
     }

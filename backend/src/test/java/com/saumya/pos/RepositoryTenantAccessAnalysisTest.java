@@ -127,9 +127,15 @@ class RepositoryTenantAccessAnalysisTest {
     }
 
     private static Set<String> queryMethodNames(String source) {
+        // SQL/JPQL literals can contain tokens that resemble Java declarations
+        // (for example "select count(*)"). Mask literals and comments before
+        // discovering method signatures so query text cannot create phantom methods.
+        String code = source
+            .replaceAll("(?s)\\\"\\\"\\\".*?\\\"\\\"\\\"|\\\"(?:\\\\\\\\.|[^\\\"\\\\\\\\])*\\\"|'(?:\\\\\\\\.|[^'\\\\\\\\])*'", " ")
+            .replaceAll("(?s)/\\\\*.*?\\\\*/|//[^\\\\r\\\\n]*", " ");
         Set<String> names = new TreeSet<>();
-        Matcher matcher = Pattern.compile("(?m)^\\s*(?:default\\s+)?(?:[\\w.$<>?,\\[\\] ]+)\\s+(\\w+)\\s*\\([^;{}]*\\)\\s*(?:throws\\s+[\\w., ]+)?\\s*(?:;|\\{)")
-            .matcher(source);
+        Matcher matcher = Pattern.compile("(?m)^\\\\s*(?:default\\\\s+)?(?:[\\\\w.$<>?,\\\\[\\] ]+)\\\\s+(\\\\w+)\\\\s*\\\\([^;{}]*\\\\)\\\\s*(?:throws\\\\s+[\\\\w., ]+)?\\\\s*(?:;|\\\\{)")
+            .matcher(code);
         while (matcher.find()) {
             String name = matcher.group(1);
             if (name.matches("(?:find|findAll|findTop\\d*|exists|count|delete|remove|read|query|lock|locked).*")) names.add(name);
@@ -238,6 +244,12 @@ class RepositoryTenantAccessAnalysisTest {
             .contains("customers.resolve(username)")
             .contains("orders.findAll(filtered(scope,filter)")
             .contains("orders.findOne(scope.and");
+    }
+
+    @Test
+    void queryTextCannotMasqueradeAsDerivedRepositoryMethodDeclarations() {
+        String source = "@Query(value=\\"select count(*) from rows\\") long countByTenantId(long tenant);";
+        assertThat(queryMethodNames(source)).contains("countByTenantId").doesNotContain("count");
     }
 
     @Test

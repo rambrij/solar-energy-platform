@@ -244,10 +244,15 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(trustedParameterAt(List.of("sql", "trustedScope.tenant()", "resourceId"), 1,
             tenantPlaceholderIndex("SELECT * FROM rows WHERE tenant_id=? AND id=?"), "one", false))
             .isEqualTo("trustedScope.tenant()");
-        assertThat(trustedParameterAt(List.of("sql", "resourceId", "request.tenantId()"), 1,
-            tenantPlaceholderIndex("SELECT * FROM rows WHERE id=? AND tenant_id=?"), "one", false))
-            .isEqualTo("request.tenantId()");
-        assertThat(hasTrustedTenantArgument("request.tenantId()")).isFalse();
+        String forgedTenantArgument = trustedParameterAt(List.of("sql", "resourceId", "request.tenantId()"), 1,
+            tenantPlaceholderIndex("SELECT * FROM rows WHERE id=? AND tenant_id=?"), "one", false);
+        assertThat(forgedTenantArgument).isEqualTo("request.tenantId()");
+        assertThat(clientOrigin(forgedTenantArgument, Set.of())).isTrue();
+        assertThat(hasTrustedTenantArgument(forgedTenantArgument)).isFalse();
+        String forgedAliasArgument = trustedParameterAt(List.of("sql", "tenantAlias", "resourceId"), 1,
+            tenantPlaceholderIndex("SELECT * FROM rows WHERE tenant_id=? AND id=?"), "one", false);
+        assertThat(clientOrigin(forgedAliasArgument, Set.of("tenantAlias"))).isTrue();
+        assertThat(hasTrustedTenantArgument(forgedAliasArgument)).isFalse();
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();
     }
 }

@@ -476,3 +476,49 @@ See `docs/security/P2-01_BROWSER_E2E_COVERAGE.md` for the route/action/permissio
 The dedicated CI step is named **Financial tenant isolation, rollback and deletion acceptance** and runs before the broader matrix on both database lanes. The full workflow also passed frontend tests/build and 11 Playwright browser journeys.
 
 **Scope boundary:** P2-02 remains IN PROGRESS for separate exhaustive V40–V47 schema inventory/behavior coverage, MySQL UTC/optimistic-lock verification and branch-protection enforcement. Those separate items do not invalidate the six financial release criteria recorded as PASS above.
+
+
+## P2-03 — Documents, exports, caches and asynchronous work (2026-11-22)
+
+**Status: IN PROGRESS — VALIDATION PENDING. P2-03 is NOT COMPLETE.**
+
+### Branch and implementation inventory
+
+The working branch is `feature/develop-authorization-gap-analysis`. Implementation commit: `4b55b6d2a6991d3ea507e5ad28e81e926b5d02e9`.
+
+The authoritative Version 2.0 requirements and SRS/HLD specify tenant-scoped documents and exports, reauthorization before signed URL issuance, tenant-aware cache keys, and execution-time tenant-state/ownership validation for async jobs. The current code tree is narrower than the target architecture: it implements synchronous receipt/PDF and CSV response paths plus one scheduled draft-expiry worker. It does not implement Redis cache, object storage, signed URLs, outbox/inbox, queue consumers, async listeners, webhook handlers or notification delivery workers. Those are recorded NOT APPLICABLE for this current implementation, not passed.
+
+### Findings and changes
+
+1. **Receipt/PDF:** Existing POS PDF generation derives scope from the authenticated POS context, checks POS_VIEW, POS_RECEIPT_VIEW and POS_RECEIPT_REPRINT, reads the receipt through tenant/branch/cashier/session-scoped locked lookup, and writes immutable tenant/branch/order/actor/reason/digest/length audit before returning the bytes. The endpoint sets `Cache-Control: no-store`. There is no object key or signed URL to authorize.
+2. **Customer receipt:** Existing online receipt code resolves the global customer ID from the authenticated identity and locks by customer ID + order ID. It requires PAID state and returns non-disclosing NOT_FOUND for foreign/missing/unpaid IDs. Copy requests create customer-scoped audit.
+3. **CSV exports:** Existing sales/refund export services derive tenant/branch from POS scope, call report services whose queries include tenant and branch predicates, require operation-specific export permissions and a reason, store immutable digest/audit rows and return no-store CSV bytes synchronously. There is no saved export artifact or separate ID-based download path.
+4. **Scheduled draft expiry:** The prior worker exposed a public single-order helper that accepted tenant/order selectors. This was removed. The scheduler now selects a bounded batch of persisted due drafts and installs its private system identity only around each execution. The checkout expiry service rejects every other identity, locks/revalidates the tenant as ACTIVE before loading the order, then locks the tenant-owned order and checks DRAFT status, expiry and unresolved terminal-payment state before any stock/buyer cleanup or synchronous domain event. The tenant row lock serializes suspension against expiry. The worker clears SecurityContextHolder on pooled-thread reuse when there was no prior authentication, and restores an existing nested caller context otherwise. Per-item 403 (for example, a tenant suspended after selection) is skipped without stopping unrelated due work.
+5. **No cache or object-storage implementation:** No Redis dependency, cache abstraction/key builder, MinIO/S3 adapter, persisted PDF object, signed URL issuance or signed URL download endpoint was found. No cache/object-storage security change or test is claimed.
+6. **No asynchronous event/queue implementation:** No transactional outbox/inbox, message broker, async listener/consumer, dead-letter/retry worker, webhook handler or notification worker was found. The existing Spring ApplicationEventPublisher calls are in-process synchronous events; catalog/branch/return/subscription event entities are persisted audit/history, not an outbox envelope. No async envelope contract or duplicate-delivery guarantee is claimed.
+
+### Path → Ownership Scope → Authorization → Storage/Cache/Async Boundary → Test → Result
+
+| Path | Ownership scope | Authorization | Storage/cache/async boundary | Test | Result |
+|---|---|---|---|---|---|
+| POS receipt JSON/reprint | Tenant + branch + cashier/session; order ID is selector only | Receipt permissions; current POS scope and locked tenant/branch/order/session lookup; reprint audit | DB snapshots, synchronous response | CheckoutReceiptServiceTest; PosTest receipt/foreign actor scenarios | PARTIAL — CI pending |
+| POS receipt PDF copy | Tenant + branch + cashier/session/order | POS_VIEW + POS_RECEIPT_VIEW + POS_RECEIPT_REPRINT; scope re-derived; receipt ownership before render; immutable audit | In-memory PDF; no-store; no object store | ReceiptDocumentServiceTest; PosTest receiptPdf* | PARTIAL — CI pending |
+| Customer receipt/copy | Global customer ID + owned order | CUSTOMER actor; principal-derived CustomerAccess; customer+order locked lookup; PAID-only; non-disclosing NOT_FOUND | DB snapshots; synchronous response; copy audit | OnlineReceiptServiceTest; PosTest Customer A/B receipt probes | PARTIAL — CI pending |
+| Sales CSV export | Tenant + branch from authenticated POS scope | POS_VIEW + POS_REPORT_VIEW + POS_REPORT_EXPORT; server-derived filters | Tenant/branch SQL aggregates; in-memory CSV; immutable audit; no-store | ReportExportServiceTest; PosTest salesCsvExport* and forged filters | PARTIAL — CI pending |
+| Cash-refund CSV export | Tenant + branch from authenticated POS scope | POS_VIEW + POS_REPORT_VIEW + POS_REPORT_EXPORT + POS_REFUND_VIEW; server-derived filters | Tenant/branch SQL aggregates; in-memory CSV; immutable audit; no-store | ReportExportServiceTest; ReturnsExportsAuthorizationBoundaryTest; PosTest cashRefundCsvExport* | PARTIAL — CI pending |
+| Scheduled draft expiry | Persisted draft tenant + order ID | Private system identity; tenant row lock and ACTIVE revalidation at execution; locked tenant/order and state checks | Scheduled DB batch; transactional stock release/buyer snapshot cleanup; synchronous event | DraftExpiryAuthorizationTest; PosTest expiry scenarios | PARTIAL — new tests committed; CI pending |
+| Redis/cache | N/A | N/A | No current runtime cache path | None applicable | NOT APPLICABLE |
+| Object storage/signed URL | N/A | N/A | No MinIO/S3 adapter, persisted object or signed URL endpoint | None applicable | NOT APPLICABLE |
+| Export artifact retrieval | N/A | N/A | Exports are synchronous response bytes; no saved artifact/download ID route | None applicable | NOT APPLICABLE |
+| Outbox/inbox/async listeners/webhooks/notification worker | N/A | N/A | No queue or async consumer; current domain events are synchronous | None applicable | NOT APPLICABLE |
+
+### Tests and validation status
+
+- Added execution-time suspended-tenant denial before order repository access.
+- Added persisted due-order selection and nested caller-context restoration coverage.
+- Added injected failure/thread-reuse cleanup and retry coverage.
+- Replaced existing POS integration test calls to the removed single-order helper with the scheduled persisted-batch path.
+- Existing receipt and export tests remain in place for permission denial, foreign receipt ID non-disclosure, cross-vendor report scope, branch scope, forged tenant filter rejection, audit digest, and no-store response.
+- No tests were executed for implementation commit `4b55b6d2a6991d3ea507e5ad28e81e926b5d02e9`: GitHub reported no commit status checks at review time, and this runtime could not clone the repository because network DNS resolution failed. Do not report Maven/H2/MySQL/Playwright results for this commit.
+- Required next verification: focused DraftExpiryAuthorizationTest, receipt/document/export/report suites, P0-04 tenant isolation, P0-02 service-boundary tests, P0-06 authorization regression, full H2 suite, full MySQL 8.4 suite, and frontend/Playwright if affected. Add a real transactional tenant-suspension race test before acceptance.
+- P2-03 remains open until exact-commit H2 and MySQL 8.4 suites pass and every implemented path's cross-tenant/side-effect tests are confirmed. NOT APPLICABLE infrastructure must be re-audited when introduced.

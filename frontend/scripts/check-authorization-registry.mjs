@@ -336,7 +336,7 @@ for(const call of dynamicApiCalls){
  observedDynamicCallSites.add(key);
  const open=sourceFiles.map(file=>({file,source:fs.readFileSync(file,'utf8')})).find(item=>path.basename(item.file)===call.component);
  if(!open)throw new Error('Missing dynamic API source '+call.component);
- const match=[...open.source.matchAll(/\\b(api|vendorApi|platformApi|marketplaceApi)\\s*\\(/g)].find(item=>open.source.slice(0,item.index).split('\\n').length===call.line);
+ const match=[...open.source.matchAll(/\b(api|vendorApi|platformApi|marketplaceApi)\s*\(/g)].find(item=>open.source.slice(0,item.index).split('\n').length===call.line);
  if(!match||match[1]!==declaration.fn)throw new Error('Dynamic API call-site function mismatch: '+key);
  const args=splitCallArguments(open.source,open.source.indexOf('(',match.index));
  if(args[0]!==declaration.argument)throw new Error('Dynamic API endpoint expression drift: '+key);

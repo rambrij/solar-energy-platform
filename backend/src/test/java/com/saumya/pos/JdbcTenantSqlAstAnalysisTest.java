@@ -616,6 +616,7 @@ class JdbcTenantSqlAstAnalysisTest {
         }
 
         Map<String,List<Integer>> targetParameterIndexes=new TreeMap<>();
+        Map<String,Map<String,Integer>> observed=new TreeMap<>();
         try(StandardJavaFileManager manager=compiler.getStandardFileManager(null,null,null)) {
             JavacTask task=(JavacTask)compiler.getTask(null,manager,null,List.of("-proc:none"),null,
                 manager.getJavaFileObjectsFromPaths(javaFiles));

@@ -2,6 +2,30 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+import assert from 'node:assert/strict';
+
+function validatePermissionReferences(source, permissions, label='frontend source'){
+  const referenced=[...source.matchAll(/['"]((?:PLATFORM|POS|PRODUCT|PRICE|ROLE|USER|INVENTORY|CATALOG|CUSTOMER)_[A-Z0-9_]+|CUSTOMER)['"]/g)]
+    .map(match=>match[1]);
+  const unknown=[...new Set(referenced.filter(permission=>!permissions.has(permission)))];
+  if(unknown.length)throw new Error(`Unknown permission reference in ${label}: ${unknown.join(', ')}`);
+}
+
+function validateNoHardcodedRoleAuthorization(source, label='frontend source'){
+  const patterns=[
+    /\\b(?:role|roleKey|roleName|userRole)\\s*(?:===|!==|==|!=)\\s*['"][A-Z][A-Z0-9_ -]*['"]/i,
+    /['"][A-Z][A-Z0-9_ -]*['"]\\s*(?:===|!==|==|!=)\\s*\\b(?:role|roleKey|roleName|userRole)\\b/i
+  ];
+  if(patterns.some(pattern=>pattern.test(source)))
+    throw new Error(`Hardcoded role-name authorization is prohibited in ${label}; authorize using server-derived permissions`);
+}
+
+// The guard itself is mutation-tested: these fixtures must be rejected.
+assert.throws(()=>validatePermissionReferences("hasAuthority('UNKNOWN_P204_PERMISSION')",new Set()),
+  /Unknown permission reference/);
+assert.throws(()=>validateNoHardcodedRoleAuthorization("if (user.role === 'ADMIN') allow();"),
+  /Hardcoded role-name authorization/);
+
 const here=path.dirname(fileURLToPath(import.meta.url));
 const frontend=path.resolve(here,'..');
 const repo=path.resolve(frontend,'..');
@@ -91,6 +115,23 @@ for(const [name,policy] of Object.entries(registry.controllerPolicies)){
   if(typeof policy!=='string'||policy.trim().length===0)throw new Error(`Missing endpoint policy description for ${name}`);
 }
 
+
+const sourceFiles=[];
+async function collectFrontendSources(directory){
+  for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+    const full=path.join(directory,entry.name);
+    if(entry.isDirectory())await collectFrontendSources(full);
+    else if(entry.isFile()&&/\\.(tsx|ts)$/.test(entry.name)&&!/(\\.test|\\.spec)\\.tsx?$/.test(entry.name))
+      sourceFiles.push(full);
+  }
+}
+await collectFrontendSources(path.join(frontend,'src'));
+for(const file of sourceFiles){
+  const source=fs.readFileSync(file,'utf8');
+  validatePermissionReferences(source,permissions,path.relative(repo,file));
+  validateNoHardcodedRoleAuthorization(source,path.relative(repo,file));
+}
+
 const platformUiSources=['PlatformApp.tsx','PlatformSubscriptions.tsx','PlatformBoundary.tsx']
   .map(file=>[file,fs.readFileSync(path.join(frontend,'src',file),'utf8')]);
 for(const [file,source] of platformUiSources){
@@ -99,4 +140,4 @@ for(const [file,source] of platformUiSources){
   if(unknown.length)throw new Error(`Unknown platform permission reference in ${file}: ${unknown.join(', ')}`);
 }
 
-console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${permissions.size} permission identifiers.`);
+console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${sourceFiles.length} frontend source files, ${permissions.size} permission identifiers.`);

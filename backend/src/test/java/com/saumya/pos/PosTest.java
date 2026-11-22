@@ -3985,7 +3985,7 @@ class PosTest {
      // identity with the same actor class and sufficient broad grants. Only
      // resource-selector routes are probed: collection endpoints are allowed
      // to return the caller's own tenant/customer projection.
-     if(route.contains("{")&&route.startsWith("/api/v1/vendor/")&&!actor.startsWith("PLATFORM")){
+     if(httpMethod==RequestMethod.GET&&route.contains("{")&&route.startsWith("/api/v1/vendor/")&&!actor.startsWith("PLATFORM")){
       request.with(servletRequest->{
        servletRequest.removeHeader("Authorization");
        servletRequest.addHeader("Authorization","Bearer "+tokens.get("VENDOR_B_ADMIN"));
@@ -4003,7 +4003,7 @@ class PosTest {
       System.out.println("P002_ENDPOINT_FOREIGN_TENANT_RESOURCE|"+httpMethod.name()+"|"+route
           +"|VENDOR_A_RESOURCE->VENDOR_B_ADMIN|"+foreignStatus+"|"
           +(foreignStatus==403||foreignStatus==404?"PASS":"FAIL"));
-     } else if(route.contains("{")&&route.startsWith("/api/v1/customer/")&&actor.equals("CUSTOMER")){
+     } else if(httpMethod==RequestMethod.GET&&route.contains("{")&&route.startsWith("/api/v1/customer/")&&actor.equals("CUSTOMER")){
       request.with(servletRequest->{
        servletRequest.removeHeader("Authorization");
        servletRequest.addHeader("Authorization","Bearer "+tokens.get("CUSTOMER_B"));

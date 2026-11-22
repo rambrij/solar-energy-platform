@@ -2855,6 +2855,7 @@ class PosTest {
     .isInstanceOf(org.springframework.dao.DataAccessException.class);
   // Failed parent deletes must leave every commercial/financial history row intact.
   assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE tenant_id=1 AND id=?",Integer.class,orderA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM order_items WHERE tenant_id=1 AND order_id=? AND product_id=1",Integer.class,orderA)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_returns WHERE tenant_id=1 AND id=?",Integer.class,returnA)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds WHERE tenant_id=1 AND id='p2-cross-refund-a'",Integer.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,orderA)).isEqualTo(1);

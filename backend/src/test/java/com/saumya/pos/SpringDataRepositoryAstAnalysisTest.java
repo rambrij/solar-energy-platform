@@ -82,6 +82,27 @@ class SpringDataRepositoryAstAnalysisTest {
         }
         return found;
     }
+    private static boolean hasDerivedScopeParameters(MethodTree method){
+        String name=method.getName().toString();
+        int by=name.indexOf("By");
+        if(by<0)return false;
+        String predicate=name.substring(by+2);
+        int order=predicate.indexOf("OrderBy");
+        if(order>=0)predicate=predicate.substring(0,order);
+        Set<String> parameters=new HashSet<>();
+        for(VariableTree parameter:method.getParameters())parameters.addAll(parameterNames(parameter));
+        String[] parts=predicate.split("And|Or");
+        boolean scoped=false;
+        for(String part:parts){
+            String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|NotNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
+            String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
+            if(!scopeParameterName(normalized))continue;
+            scoped=true;
+            if(!parameters.contains(normalized)&&!(normalized.equals("tenantId")&&parameters.contains("tenant"))
+                &&!(normalized.equals("customerId")&&parameters.contains("customer")))return false;
+        }
+        return scoped;
+    }
     private static boolean hasScopeParameter(MethodTree method){
         for(VariableTree parameter:method.getParameters()){
             String name=parameter.getName().toString();
@@ -148,8 +169,8 @@ class SpringDataRepositoryAstAnalysisTest {
                         }
                         if(queryAnnotation)continue;
                         if(method.getName().toString().matches("(?i).*(Tenant|TenantId|Customer|CustomerId|Username|TokenHash|Hash|Family|SubscriptionId|InvoiceId|PlanId|Owner).*")){
-                            assertThat(hasScopeParameter(method))
-                                .as("derived repository method scope token must have a corresponding scope parameter: %s",operation).isTrue();
+                            assertThat(hasDerivedScopeParameters(method))
+                                .as("every tenant/customer/owner predicate in a derived repository method must bind its matching parameter: %s",operation).isTrue();
                             continue;
                         }
                         if(composites.containsKey(operation)||globals.containsKey(operation))continue;
@@ -165,6 +186,26 @@ class SpringDataRepositoryAstAnalysisTest {
     void namedQueryScopeCannotBeSatisfiedByAnUnrelatedParameter(){
         assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("tenant"))).isTrue();
         assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("customerId"))).isFalse();
+    }
+
+    private static boolean derivedScopeBindingFixture(String methodName,Set<String> parameters){
+        String predicate=methodName.substring(methodName.indexOf("By")+2);
+        int order=predicate.indexOf("OrderBy");if(order>=0)predicate=predicate.substring(0,order);
+        boolean scoped=false;
+        for(String part:predicate.split("And|Or")){
+            String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
+            String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
+            if(!scopeParameterName(normalized))continue;scoped=true;
+            if(!parameters.contains(normalized))return false;
+        }
+        return scoped;
+    }
+
+    @Test
+    void derivedQueryMustBindEveryTenantPredicateToItsMatchingParameter(){
+        assertThat(derivedScopeBindingFixture("findAllByTenantAndOrderOrderByCreatedAscIdAsc",Set.of("tenant","order"))).isTrue();
+        assertThat(derivedScopeBindingFixture("findAllByTenantAndOrderOrderByCreatedAscIdAsc",Set.of("order","requestedTenant"))).isFalse();
+        assertThat(derivedScopeBindingFixture("findByUsernameIgnoreCase",Set.of("username"))).isTrue();
     }
 
     @Test

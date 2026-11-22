@@ -644,7 +644,6 @@ class JdbcTenantSqlAstAnalysisTest {
                 }
             }
 
-            Map<String,Map<String,Integer>> observed=new TreeMap<>();
             for(CompilationUnitTree unit:units) {
                 String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
                 for(Tree declaration:unit.getTypeDecls()) {

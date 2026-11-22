@@ -3870,6 +3870,8 @@ class PosTest {
   csv.add("method,route,controller,operation,actor,permission,scope,expected,actual,result,exception_type,test_reference");
   int protectedRows=0,passedRows=0,failedRows=0,contextSwitchCoverage=0;
   List<String> endpointFailures=new ArrayList<>();
+  int negativeActorChecks=0,negativeActorFailures=0;
+  List<String> negativeActorFailureDetails=new ArrayList<>();
   for(var entry:requestMappings.getHandlerMethods().entrySet()){
    HandlerMethod handler=entry.getValue();Class<?> controllerType=handler.getBeanType();
    if(!controllerType.getName().startsWith("com.saumya.pos.")
@@ -3949,6 +3951,32 @@ class PosTest {
       }
      }
      var response=performInRollbackTransaction(request);
+     // P0-02 negative persisted-actor matrix: execute the same live request
+     // with a real token from the wrong actor domain. The request is wrapped
+     // in a rollback transaction, so even a regression that reaches a write
+     // cannot leave database state behind.
+     boolean permissionGated=policy.value().contains("hasAuthority(")
+         ||policy.value().contains("hasAnyAuthority(")||policy.value().contains("hasRole(");
+     if(permissionGated){
+      String wrongActor=actor.startsWith("PLATFORM")?"VENDOR_ADMIN"
+          :(actor.equals("CUSTOMER")?"VENDOR_ADMIN":"PLATFORM_SUPPORT");
+      request.with(servletRequest->{
+       servletRequest.removeHeader("Authorization");
+       servletRequest.addHeader("Authorization","Bearer "+tokens.get(wrongActor));
+       return servletRequest;
+      });
+      var wrongActorResponse=performInRollbackTransaction(request);
+      int wrongStatus=wrongActorResponse.getResponse().getStatus();
+      negativeActorChecks++;
+      if(wrongStatus!=403&&wrongStatus!=404){
+       negativeActorFailures++;
+       negativeActorFailureDetails.add(wrongActor+" "+httpMethod.name()+" "+route
+           +" expected 403/404 but got "+wrongStatus+" body="
+           +wrongActorResponse.getResponse().getContentAsString());
+      }
+      System.out.println("P002_ENDPOINT_WRONG_ACTOR|"+httpMethod.name()+"|"+route+"|"
+          +actor+"->"+wrongActor+"|"+wrongStatus+"|"+(wrongStatus==403||wrongStatus==404?"PASS":"FAIL"));
+     }
      int actual=response.getResponse().getStatus();
      Throwable resolved=response.getResolvedException();
      String exception=resolved==null?"":resolved.getClass().getSimpleName();
@@ -3997,6 +4025,10 @@ class PosTest {
       +"|authorizedBusinessRejections="+(protectedRows-passedRows-failedRows)+"|authorizationFailures="+failedRows);
   endpointFailures.forEach(failure->System.out.println("P006_ENDPOINT_ACTOR_FAILURE|"+failure));
   assertThat(failedRows).as("all protected live method/route mappings must execute successfully with persisted matching actors").isZero();
+  assertThat(negativeActorChecks).as("every permission-gated live route must be probed with a persisted wrong-domain actor").isGreaterThan(50);
+  negativeActorFailureDetails.forEach(failure->System.out.println("P002_ENDPOINT_WRONG_ACTOR_FAILURE|"+failure));
+  assertThat(negativeActorFailures).as("wrong persisted actor must be denied before endpoint business execution").isZero();
+  System.out.println("P002_ENDPOINT_WRONG_ACTOR_SUMMARY|checks="+negativeActorChecks+"|failures="+negativeActorFailures+"|database=ROLLBACK_PER_PROBE");
  }
 
 }

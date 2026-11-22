@@ -25,7 +25,7 @@ function validateNoHardcodedRoleAuthorization(source, label='frontend source'){
 }
 
 // The guard itself is mutation-tested: these fixtures must be rejected.
-assert.throws(()=>validatePermissionReferences("hasAuthority('UNKNOWN_P204_PERMISSION')",new Set()),
+assert.throws(()=>validatePermissionReferences("can('UNKNOWN_P204_PERMISSION')",new Set()),
   /Unknown permission reference/);
 assert.throws(()=>validateNoHardcodedRoleAuthorization("if (user.role === 'ADMIN') allow();"),
   /Hardcoded role-name authorization/);

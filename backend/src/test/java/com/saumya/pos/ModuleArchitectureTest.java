@@ -120,28 +120,28 @@ class ModuleArchitectureTest {
             String candidate = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
             if (candidate == null) continue;
             String sql = candidate.strip();
-            if (sql.matches("(?is)^(SELECT|INSERT|UPDATE|DELETE)\\\\b[\\\\s\\\\S]*")) statements.add(sql);
+            if (sql.matches("(?is)^(SELECT|INSERT|UPDATE|DELETE)\\b[\\s\\S]*")) statements.add(sql);
         }
         return statements;
     }
 
     private static void assertTenantScopedSql(String sql, String source) {
         String normalized = sql.strip();
-        if (normalized.matches("(?is)^SELECT\\\\b[\\\\s\\\\S]*\\\\bFROM\\\\s+tenants\\\\b[\\\\s\\\\S]*")) {
+        if (normalized.matches("(?is)^SELECT\\b[\\s\\S]*\\bFROM\\s+tenants\\b[\\s\\S]*")) {
             assertThat(normalized).as("global tenant-directory lock is explicitly keyed by tenant primary key in %s", source)
-                .containsPattern("(?i)\\\\bWHERE\\\\s+id\\\\s*=\\\\s*\\\\?");
+                .containsPattern("(?i)\\bWHERE\\s+id\\s*=\\s*\\?");
             return;
         }
-        if (normalized.matches("(?is)^INSERT\\\\b[\\\\s\\\\S]*")) {
+        if (normalized.matches("(?is)^INSERT\\b[\\s\\S]*")) {
             java.util.regex.Matcher columns = java.util.regex.Pattern
-                .compile("(?is)^INSERT\\\\s+INTO\\\\s+[a-z_][a-z0-9_]*\\\\s*\\\\(([^)]*)\\\\)").matcher(normalized);
+                .compile("(?is)^INSERT\\s+INTO\\s+[a-z_][a-z0-9_]*\\s*\\(([^)]*)\\)").matcher(normalized);
             assertThat(columns.find()).as("INSERT column list is statically visible in %s: %s", source, normalized).isTrue();
             assertThat(columns.group(1)).as("tenant-owned INSERT must persist tenant_id in %s", source)
-                .containsPattern("(?i)(?:^|,\\\\s*)tenant_id(?:\\\\s*,|$)");
+                .containsPattern("(?i)(?:^|,\\s*)tenant_id(?:\\s*,|$)");
             return;
         }
         assertThat(normalized).as("tenant-owned SELECT/UPDATE/DELETE must constrain tenant_id with a bound parameter in %s: %s", source, normalized)
-            .containsPattern("(?is)\\\\bWHERE\\\\b[\\\\s\\\\S]*\\\\b(?:[a-z_][a-z0-9_]*\\\\.)?tenant_id\\\\s*=\\\\s*\\\\?");
+            .containsPattern("(?is)\\bWHERE\\b[\\s\\S]*\\b(?:[a-z_][a-z0-9_]*\\.)?tenant_id\\s*=\\s*\\?");
     }
 
     @Test

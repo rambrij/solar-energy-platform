@@ -573,7 +573,7 @@
     {
       "id": "pos-refund-pay",
       "component": "CashRefunds.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "method": "POST",
       "endpoint": "/api/v1/vendor/pos/refunds",
       "permissions": [
@@ -1888,7 +1888,7 @@
     {
       "id": "pos-refund-pay",
       "component": "CashRefunds.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "backendOperation": "POST /api/v1/vendor/pos/refunds"
     },
     {

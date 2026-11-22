@@ -3838,7 +3838,9 @@ class PosTest {
     {"PLATFORM_SUPER_ADMIN","superadmin@platform.demo.test","PlatformDemo2026!"},
     {"PLATFORM_SUPER_ADMIN_SECOND",secondPlatformAdmin,"MatrixPlatform2Password2026!"},
     {"PLATFORM_SUPPORT",supportUsername,"MatrixSupportPassword2026!"},
-    {"CUSTOMER","asha@customer.demo.test","AshaBuyer2026!"}
+    {"CUSTOMER","asha@customer.demo.test","AshaBuyer2026!"},
+    {"CUSTOMER_B","rahul@customer.demo.test","RahulBuyer2026!"},
+    {"VENDOR_B_ADMIN","admin@helio.demo.test","HelioAdmin2026!"}
   };
   for(String[] account:accounts){
    var session=authentication.login(account[1],account[2]);
@@ -3872,6 +3874,8 @@ class PosTest {
   List<String> endpointFailures=new ArrayList<>();
   int negativeActorChecks=0,negativeActorFailures=0;
   List<String> negativeActorFailureDetails=new ArrayList<>();
+  int foreignResourceChecks=0,foreignResourceFailures=0;
+  List<String> foreignResourceFailureDetails=new ArrayList<>();
   for(var entry:requestMappings.getHandlerMethods().entrySet()){
    HandlerMethod handler=entry.getValue();Class<?> controllerType=handler.getBeanType();
    if(!controllerType.getName().startsWith("com.saumya.pos.")
@@ -3977,6 +3981,47 @@ class PosTest {
       System.out.println("P002_ENDPOINT_WRONG_ACTOR|"+httpMethod.name()+"|"+route+"|"
           +actor+"->"+wrongActor+"|"+wrongStatus+"|"+(wrongStatus==403||wrongStatus==404?"PASS":"FAIL"));
      }
+     // Cross-tenant/customer resource probes use a real second persisted
+     // identity with the same actor class and sufficient broad grants. Only
+     // resource-selector routes are probed: collection endpoints are allowed
+     // to return the caller's own tenant/customer projection.
+     if(route.contains("{")&&route.startsWith("/api/v1/vendor/")&&!actor.startsWith("PLATFORM")){
+      request.with(servletRequest->{
+       servletRequest.removeHeader("Authorization");
+       servletRequest.addHeader("Authorization","Bearer "+tokens.get("VENDOR_B_ADMIN"));
+       return servletRequest;
+      });
+      var foreignResourceResponse=performInRollbackTransaction(request);
+      int foreignStatus=foreignResourceResponse.getResponse().getStatus();
+      foreignResourceChecks++;
+      if(foreignStatus!=403&&foreignStatus!=404){
+       foreignResourceFailures++;
+       foreignResourceFailureDetails.add("VENDOR_B_ADMIN "+httpMethod.name()+" "+route
+           +" expected 403/404 but got "+foreignStatus+" body="
+           +foreignResourceResponse.getResponse().getContentAsString());
+      }
+      System.out.println("P002_ENDPOINT_FOREIGN_TENANT_RESOURCE|"+httpMethod.name()+"|"+route
+          +"|VENDOR_A_RESOURCE->VENDOR_B_ADMIN|"+foreignStatus+"|"
+          +(foreignStatus==403||foreignStatus==404?"PASS":"FAIL"));
+     } else if(route.contains("{")&&route.startsWith("/api/v1/customer/")&&actor.equals("CUSTOMER")){
+      request.with(servletRequest->{
+       servletRequest.removeHeader("Authorization");
+       servletRequest.addHeader("Authorization","Bearer "+tokens.get("CUSTOMER_B"));
+       return servletRequest;
+      });
+      var foreignResourceResponse=performInRollbackTransaction(request);
+      int foreignStatus=foreignResourceResponse.getResponse().getStatus();
+      foreignResourceChecks++;
+      if(foreignStatus!=404&&foreignStatus!=403){
+       foreignResourceFailures++;
+       foreignResourceFailureDetails.add("CUSTOMER_B "+httpMethod.name()+" "+route
+           +" expected 403/404 but got "+foreignStatus+" body="
+           +foreignResourceResponse.getResponse().getContentAsString());
+      }
+      System.out.println("P002_ENDPOINT_FOREIGN_CUSTOMER_RESOURCE|"+httpMethod.name()+"|"+route
+          +"|CUSTOMER_A_RESOURCE->CUSTOMER_B|"+foreignStatus+"|"
+          +(foreignStatus==403||foreignStatus==404?"PASS":"FAIL"));
+     }
      int actual=response.getResponse().getStatus();
      Throwable resolved=response.getResolvedException();
      String exception=resolved==null?"":resolved.getClass().getSimpleName();
@@ -4029,6 +4074,10 @@ class PosTest {
   negativeActorFailureDetails.forEach(failure->System.out.println("P002_ENDPOINT_WRONG_ACTOR_FAILURE|"+failure));
   assertThat(negativeActorFailures).as("wrong persisted actor must be denied before endpoint business execution").isZero();
   System.out.println("P002_ENDPOINT_WRONG_ACTOR_SUMMARY|checks="+negativeActorChecks+"|failures="+negativeActorFailures+"|database=ROLLBACK_PER_PROBE");
+  assertThat(foreignResourceChecks).as("all resource-selector routes must be probed with a second persisted tenant/customer identity").isGreaterThan(10);
+  foreignResourceFailureDetails.forEach(failure->System.out.println("P002_ENDPOINT_FOREIGN_RESOURCE_FAILURE|"+failure));
+  assertThat(foreignResourceFailures).as("foreign tenant/customer resource selectors must return non-disclosing 403/404").isZero();
+  System.out.println("P002_ENDPOINT_FOREIGN_RESOURCE_SUMMARY|checks="+foreignResourceChecks+"|failures="+foreignResourceFailures+"|database=ROLLBACK_PER_PROBE");
  }
 
 }

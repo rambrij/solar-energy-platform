@@ -6,22 +6,22 @@ import assert from 'node:assert/strict';
 
 function validatePermissionReferences(source, permissions, label='frontend source'){
   const references=[];
-  const calls=/(?:hasPermission|hasAnyPermission|hasAllPermissions|hasNavigationPermission|hasPlatformPagePermission|can)\\s*\\(([^)]*)\\)/gs;
+  const calls=/(?:hasPermission|hasAnyPermission|hasAllPermissions|hasNavigationPermission|hasPlatformPagePermission|can)\s*\(([^)]*)\)/gs;
   for(const match of source.matchAll(calls)){
     for(const literal of match[1].matchAll(/['"]([A-Z][A-Z0-9_]+|CUSTOMER)['"]/g))references.push(literal[1]);
   }
-  for(const match of source.matchAll(/\\.permissions\\.includes\\(\\s*['"]([A-Z][A-Z0-9_]+|CUSTOMER)['"]\\s*\\)/g))references.push(match[1]);
+  for(const match of source.matchAll(/\.permissions\.includes\(\s*['"]([A-Z][A-Z0-9_]+|CUSTOMER)['"]\s*\)/g))references.push(match[1]);
   const unknown=[...new Set(references.filter(permission=>!permissions.has(permission)))];
-  if(unknown.length)throw new Error(`Unknown permission reference in ${label}: ${unknown.join(', ')}`);
+  if(unknown.length)throw new Error('Unknown permission reference in '+label+': '+unknown.join(', '));
 }
+
 function validateNoHardcodedRoleAuthorization(source, label='frontend source'){
-  const roleNames='(?:PLATFORM_SUPER_ADMIN|PLATFORM_SUPPORT|VENDOR_ADMIN|POS_CASHIER|CASHIER|ACCOUNTANT|ADMIN|SUPER_ADMIN|CUSTOMER|VENDOR)';
   const patterns=[
-    new RegExp('\\\\b(?:role|roleKey|roleName|userRole)\\\\s*(?:===|!==|==|!=)\\\\s*[\\\\"\\\\']'+roleNames+'[\\\\"\\\\']','i'),
-    new RegExp('[\\\\"\\\\']'+roleNames+'[\\\\"\\\\']\\\\s*(?:===|!==|==|!=)\\\\s*\\\\b(?:role|roleKey|roleName|userRole)\\\\b','i')
+    /\b(?:role|roleKey|roleName|userRole)\s*(?:===|!==|==|!=)\s*['"](?:PLATFORM_SUPER_ADMIN|PLATFORM_SUPPORT|VENDOR_ADMIN|POS_CASHIER|CASHIER|ACCOUNTANT|ADMIN|SUPER_ADMIN|CUSTOMER|VENDOR)['"]/i,
+    /['"](?:PLATFORM_SUPER_ADMIN|PLATFORM_SUPPORT|VENDOR_ADMIN|POS_CASHIER|CASHIER|ACCOUNTANT|ADMIN|SUPER_ADMIN|CUSTOMER|VENDOR)['"]\s*(?:===|!==|==|!=)\s*\b(?:role|roleKey|roleName|userRole)\b/i
   ];
   if(patterns.some(pattern=>pattern.test(source)))
-    throw new Error(`Hardcoded role-name authorization is prohibited in ${label}; authorize using server-derived permissions`);
+    throw new Error('Hardcoded role-name authorization is prohibited in '+label+'; authorize using server-derived permissions');
 }
 
 // The guard itself is mutation-tested: these fixtures must be rejected.

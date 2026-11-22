@@ -93,7 +93,7 @@ class SpringDataRepositoryAstAnalysisTest {
         if(order>=0)predicate=predicate.substring(0,order);
         Set<String> parameters=new HashSet<>();
         for(VariableTree parameter:method.getParameters())parameters.addAll(parameterNames(parameter));
-        String[] parts=predicate.split("And");
+        String[] parts=predicate.split("And(?=[A-Z])|Or(?=[A-Z])");
         boolean scoped=false;
         for(String part:parts){
             String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|NotNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");

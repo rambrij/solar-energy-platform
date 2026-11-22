@@ -49,4 +49,14 @@ class PlatformAdminServiceAuthorizationTest {
         assertThatThrownBy(()->service(tenants).tenants(null,null,0,20)).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(tenants);
     }
+
+    @Test void tenantTransitionRequiresTheSpecificLifecyclePermissionBeforeTenantReadsOrWrites(){
+        var tenants=mock(TenantLifecycleService.class);
+        authenticate("operator@platform.test","PLATFORM_TENANT_UPDATE");
+        assertThatThrownBy(()->service(tenants).transition(910001L,
+            com.saumya.pos.tenant.TenantStatus.SUSPENDED,"P0-02 denial","operator@platform.test",null))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("PLATFORM_TENANT_SUSPEND");
+        verifyNoInteractions(tenants);
+    }
 }

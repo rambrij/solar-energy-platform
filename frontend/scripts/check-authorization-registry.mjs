@@ -290,7 +290,7 @@ function resolveApiCall(file,source,match){
  while((found=ternary.exec(endpoint))!==null)variants.push([found[2],found[4]]);
  let endpoints=[endpoint];
  for(const pair of variants){endpoints=endpoints.flatMap(value=>pair.map(replacement=>value.replace(/\$\{[^{}]+?\?\s*(['"])[^'"]+\1\s*:\s*(['"])[^'"]+\2\}/,replacement)));}
- endpoints=endpoints.map(value=>normalizeActionPath(value.replace(/\$\{[^}]+\}/g,'{}').split('?')[0]));
+ endpoints=endpoints.map(value=>{for(const parameter of actionRegistry.dynamicQuerySuffixes?.[path.basename(file)]??[])value=value.replaceAll('${'+parameter+'}','');return normalizeActionPath(value.replace(/\$\{[^}]+\}/g,'{}').split('?')[0]);});
  return {component:path.basename(file),method,endpoints,fn,line:source.slice(0,match.index).split('\n').length};
 }
 const observedApiCalls=[];

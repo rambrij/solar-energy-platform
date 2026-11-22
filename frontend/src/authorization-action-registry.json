@@ -2205,5 +2205,10 @@
         "cash-refunds"
       ]
     }
+  },
+  "dynamicQuerySuffixes": {
+    "OrderHistory.tsx": [
+      "suffix"
+    ]
   }
 }

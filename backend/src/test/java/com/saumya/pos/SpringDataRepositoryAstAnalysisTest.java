@@ -307,6 +307,7 @@ class SpringDataRepositoryAstAnalysisTest {
                 trustedParameters.add(callee+"#"+parameter);
             });
             List<String> untrusted=new ArrayList<>();
+            List<String> observedCallsites=new ArrayList<>();
             for(CompilationUnitTree unit:units)for(Tree declaration:unit.getTypeDecls()){
                 if(!(declaration instanceof ClassTree type)||type.getKind()==Tree.Kind.INTERFACE&&type.getSimpleName().toString().endsWith("Repository"))continue;
                 String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
@@ -353,6 +354,7 @@ class SpringDataRepositoryAstAnalysisTest {
                             if(repository!=null){
                                 for(ScopedRepositoryMethod method:repositoryMethods.getOrDefault(repository,List.of())){
                                     if(!method.name().equals(select.getIdentifier().toString())||method.parameterCount()!=node.getArguments().size())continue;
+                                    observedCallsites.add(className+"#"+methodName+" -> "+repository+"#"+method.name());
                                     for(int index:method.tenantIndexes()){
                                         String argument=node.getArguments().get(index).toString();
                                         if(!trustedTenantExpression(argument,trustedVariables)){
@@ -369,6 +371,8 @@ class SpringDataRepositoryAstAnalysisTest {
                     }
                 }.scan(type,null);
             }
+            assertThat(repositoryMethods).as("the repository AST must discover tenant-scoped method signatures").isNotEmpty();
+            assertThat(observedCallsites).as("the callsite AST must inspect actual Spring Data repository invocations").isNotEmpty();
             assertThat(untrusted).as("every tenant-scoped Spring Data call must receive a server-derived tenant argument; add an explicit trusted helper flow when it crosses a method boundary")
                 .isEmpty();
         }

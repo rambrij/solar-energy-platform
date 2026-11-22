@@ -481,7 +481,7 @@
     {
       "id": "pos-sale-create",
       "component": "App.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "method": "POST",
       "endpoint": "/api/v1/vendor/pos/sales",
       "permissions": [
@@ -1864,7 +1864,7 @@
     {
       "id": "pos-sale-create",
       "component": "App.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "backendOperation": "POST /api/v1/vendor/pos/sales"
     },
     {

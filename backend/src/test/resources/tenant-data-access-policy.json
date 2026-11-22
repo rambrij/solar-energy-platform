@@ -249,6 +249,9 @@
       "trustedTenantParameters": {
         "permissions": [
           "tenant"
+        ],
+        "requireFeature": [
+          "tenant"
         ]
       }
     },
@@ -689,6 +692,70 @@
           "argumentIndex": 0
         }
       ]
+    },
+    {
+      "callee": "com.saumya.pos.cart.CartService#requireFeature",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.cart.CartService#view",
+          "expression": "cart.tenantId()",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#put",
+          "expression": "vendor.id()",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#remove",
+          "expression": "current.tenantId()",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#switchVendor",
+          "expression": "current.tenantId()",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#quote",
+          "expression": "current.tenantId()",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#restore",
+          "expression": "archived.tenantId()",
+          "argumentIndex": 0
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.membership.TenantEntitlementPolicy#requireFeature",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.cart.CartService#requireFeature",
+          "expression": "tenant",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.checkout.CheckoutService#online",
+          "expression": "vendor.id()",
+          "argumentIndex": 0
+        },
+        {
+          "caller": "com.saumya.pos.checkout.PaymentCheckoutService#requireOnlineEntitlement",
+          "expression": "order.tenant()",
+          "argumentIndex": 0
+        }
+      ]
     }
-  ]
+  ],
+  "trustedServiceTenantParameters": {
+    "com.saumya.pos.cart.CartService": {
+      "requireFeature": [
+        "tenant"
+      ]
+    }
+  }
 }

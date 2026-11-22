@@ -220,4 +220,67 @@ for(const action of actionRegistry.actions){
  }
 }
 
+
+function splitCallArguments(source,open){
+ const args=[];let start=open+1,depth=0,quote=null,escaped=false;
+ for(let i=open+1;i<source.length;i++){
+  const ch=source[i];
+  if(quote){if(escaped){escaped=false;continue;}if(ch==='\\'){escaped=true;continue;}if(ch===quote)quote=null;continue;}
+  if(ch==="'"||ch==='"'||ch===String.fromCharCode(96)){quote=ch;continue;}
+  if(ch==='('||ch==='{'||ch==='[')depth++;
+  else if(ch===')'||ch==='}'||ch===']'){
+   if(ch===')'&&depth===0){args.push(source.slice(start,i).trim());return args;}
+   depth--;
+  }else if(ch===','&&depth===0){args.push(source.slice(start,i).trim());start=i+1;}
+ }
+ return args;
+}
+function literalArgument(value){
+ const match=value.match(/^(['"])([\s\S]*)\1$/);
+ if(match)return match[2];
+ const tick=String.fromCharCode(96);
+ if(value.startsWith(tick)&&value.endsWith(tick))return value.slice(1,-1);
+ return null;
+}
+function resolveApiCall(file,source,match){
+ const fn=match[1],open=source.indexOf('(',match.index),args=splitCallArguments(source,open);
+ const raw=literalArgument(args[0]??'');
+ if(raw===null)return {dynamic:true,component:path.basename(file),line:source.slice(0,match.index).split('\n').length,fn};
+ if(fn==='api'&&raw==='/csrf')return null;
+ if(fn==='marketplaceApi'&&raw.endsWith('/csrf'))return null;
+ let method='GET',endpoint=raw;
+ if(fn==='api')method=args.length>1&&args[1]&&!/^(?:undefined|null)$/.test(args[1])?'POST':'GET';
+ else if(fn==='authPost')method='POST';
+ else if(['vendorApi','platformApi','marketplaceApi'].includes(fn)){
+  const declared=(args[1]??'').match(/^['"](GET|POST|PUT|PATCH|DELETE)['"]$/);
+  method=declared?declared[1]:'GET';
+ }
+ if(fn==='api'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor/pos'+endpoint;
+ if(fn==='vendorApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor'+endpoint;
+ if(fn==='platformApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/platform'+endpoint;
+ if(fn==='authPost'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/auth'+endpoint;
+ endpoint=normalizeActionPath(endpoint.split('?')[0].replace(/\$\{[^}]+\}/g,'{}'));
+ return {component:path.basename(file),method,endpoint,fn,line:source.slice(0,match.index).split('\n').length};
+}
+const observedApiCalls=[];
+const dynamicApiCalls=[];
+for(const file of sourceFiles){
+ const source=fs.readFileSync(file,'utf8');
+ const relative=path.relative(path.join(frontend,'src'),file);
+ if(['api.ts','marketplaceApi.ts'].includes(relative))continue;
+ const callPattern=/\b(api|vendorApi|platformApi|authApi|authPost|marketplaceApi)\s*\(/g;
+ for(const match of source.matchAll(callPattern)){
+  const resolved=resolveApiCall(file,source,match);
+  if(!resolved)continue;
+  if(resolved.dynamic){dynamicApiCalls.push(resolved);continue;}
+  observedApiCalls.push(resolved);
+ }
+}
+for(const call of observedApiCalls){
+ const mapped=actionRegistry.actions.some(action=>
+  action.component===call.component&&action.method===call.method&&normalizeActionPath(action.endpoint)===call.endpoint);
+ if(!mapped)throw new Error('Unregistered literal frontend API operation at '+call.component+':'+call.line+' '+call.method+' '+call.endpoint);
+}
+if(dynamicApiCalls.length)throw new Error('Frontend API endpoints must be literal or explicitly registered as dynamic call sites: '+dynamicApiCalls.map(x=>x.component+':'+x.line+' '+x.fn).join(', '));
+
 console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${sourceFiles.length} frontend source files, ${permissions.size} permission identifiers.`);

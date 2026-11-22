@@ -63,7 +63,7 @@ class P202MysqlPersistenceIntegrationTest {
 
             // V47 is the explicitly supported pre-ownership-hardening schema.
             // The records are deliberately present before V48/V50 are applied.
-            db.update("INSERT INTO tenants(id,name,active) VALUES(990001,'P2-02 retained tenant',TRUE)");
+            db.update("INSERT INTO tenants(id,name) VALUES(990001,'P2-02 retained tenant')");
             db.update("INSERT INTO branches(id,tenant_id,name) VALUES(990011,990001,'P2-02 retained branch')");
 
             Flyway upgraded = flyway(url, user, password, schema, null);
@@ -126,6 +126,323 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(indexHasLeadingTenant(db, schema, "inventory", "tenant_id")).isTrue();
             assertThat(indexHasLeadingTenant(db, schema, "subscription_invoices", "tenant_id")).isTrue();
         });
+    }
+
+
+    @Test
+    void tenantOwnedTableInventoryAndCompositeParentKeysAreAssertedOnMysql() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            JdbcTemplate db = jdbc(url, user, password);
+
+            // This is the explicit tenant-owned table inventory derived from the
+            // V1-V55 schema and the SRS ownership classification. Platform audit
+            // events are intentionally excluded: their tenant_id is nullable.
+            Set<String> expectedTenantTables = Set.of(
+                    "branches", "employees", "registers", "pos_sessions", "products",
+                    "inventory", "orders", "order_items", "inventory_ledger", "pos_audit",
+                    "vendor_invoices", "pos_cash_movements", "carts", "cart_items",
+                    "catalog_categories", "product_categories", "catalog_promotions",
+                    "catalog_promotion_audit", "pos_returns", "pos_return_items",
+                    "pos_return_events", "inventory_return_dispositions", "pos_cash_refunds",
+                    "pos_cash_refund_items", "report_export_audit", "receipt_document_audit",
+                    "vendor_payment_attempts", "tenant_customers", "pos_customer_challenges",
+                    "branch_settings_events", "catalog_stock", "catalog_change_events",
+                    "pos_drawer_tenders", "inventory_receipts", "order_buyer_snapshots",
+                    "pos_active_drafts", "tenant_subscriptions", "subscription_invoices",
+                    "subscription_payments", "subscription_events", "vendor_roles",
+                    "vendor_role_permissions", "employee_role_assignments",
+                    "employee_register_assignments", "vendor_access_audit_events",
+                    "pos_stock_locations");
+
+            Set<String> discovered = new HashSet<>(db.queryForList("""
+                    SELECT DISTINCT table_name FROM information_schema.columns
+                    WHERE table_schema=? AND column_name='tenant_id'
+                    """, String.class, schema));
+            discovered.remove("platform_audit_events"); // platform-owned, optional tenant scope
+            assertThat(discovered).containsAll(expectedTenantTables);
+
+            for (String table : discovered) {
+                assertThat(db.queryForObject("""
+                        SELECT is_nullable FROM information_schema.columns
+                        WHERE table_schema=? AND table_name=? AND column_name='tenant_id'
+                        """, String.class, schema, table))
+                        .as("%s.tenant_id must be NOT NULL", table)
+                        .isEqualTo("NO");
+            }
+
+            // Every parent key used by tenant-scoped relationships must include
+            // tenant_id in the unique key, not merely in an unrelated index.
+            assertUniqueKey(db, schema, "branches", "tenant_id,id");
+            assertUniqueKey(db, schema, "employees", "tenant_id,branch_id,username");
+            assertUniqueKey(db, schema, "registers", "tenant_id,branch_id,id");
+            assertUniqueKey(db, schema, "pos_sessions", "tenant_id,branch_id,id");
+            assertUniqueKey(db, schema, "products", "tenant_id,id");
+            assertUniqueKey(db, schema, "orders", "tenant_id,id");
+            assertUniqueKey(db, schema, "orders", "tenant_id,branch_id,session_id,id");
+            assertUniqueKey(db, schema, "orders", "tenant_id,branch_id,cashier,session_id,id");
+            assertUniqueKey(db, schema, "carts", "tenant_id,id");
+            assertUniqueKey(db, schema, "tenant_customers", "tenant_id,id");
+            assertUniqueKey(db, schema, "pos_returns", "tenant_id,id");
+            assertUniqueKey(db, schema, "pos_cash_refunds", "tenant_id,id");
+            assertUniqueKey(db, schema, "tenant_subscriptions", "tenant_id,id");
+            assertUniqueKey(db, schema, "subscription_invoices", "tenant_id,id");
+            assertUniqueKey(db, schema, "vendor_roles", "tenant_id,id");
+        });
+    }
+
+    @Test
+    void v40ThroughV47ChecksCompositeRelationshipsAndGeneratedColumnsArePresent() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            JdbcTemplate db = jdbc(url, user, password);
+
+            assertConstraint(db, schema, "tenants", "chk_tenant_lifecycle", "CHECK");
+            assertConstraint(db, schema, "platform_audit_events", "chk_platform_audit_outcome", "CHECK");
+            assertConstraint(db, schema, "platform_support_access", "chk_support_expiry", "CHECK");
+            assertConstraint(db, schema, "platform_configuration", "chk_platform_config_secret", "CHECK");
+            assertConstraint(db, schema, "subscription_plan_versions", "chk_plan_interval", "CHECK");
+            assertConstraint(db, schema, "subscription_plan_versions", "chk_plan_limits", "CHECK");
+            assertConstraint(db, schema, "tenant_subscriptions", "chk_subscription_status", "CHECK");
+            assertConstraint(db, schema, "subscription_invoices", "chk_sub_invoice_status", "CHECK");
+            assertConstraint(db, schema, "subscription_payments", "chk_sub_payment_status", "CHECK");
+            assertConstraint(db, schema, "vendor_role_permissions",
+                    "chk_vendor_role_permission_no_platform", "CHECK");
+            assertConstraint(db, schema, "platform_user_permissions", "chk_platform_permissions_v47", "CHECK");
+
+            assertConstraint(db, schema, "tenant_subscriptions", "uk_tenant_subscription_tenant_id", "UNIQUE");
+            assertConstraint(db, schema, "subscription_invoices", "uk_sub_invoice_tenant_id", "UNIQUE");
+            assertConstraint(db, schema, "vendor_roles", "uk_vendor_role_tenant_id", "UNIQUE");
+            assertConstraint(db, schema, "subscription_invoices",
+                    "fk_sub_invoice_subscription_owner", "FOREIGN KEY");
+            assertConstraint(db, schema, "subscription_payments",
+                    "fk_sub_payment_invoice_owner", "FOREIGN KEY");
+            assertConstraint(db, schema, "subscription_events",
+                    "fk_sub_event_subscription_owner", "FOREIGN KEY");
+            assertConstraint(db, schema, "vendor_role_permissions",
+                    "fk_vendor_role_permission_role", "FOREIGN KEY");
+            assertConstraint(db, schema, "employee_role_assignments",
+                    "fk_employee_role_employee", "FOREIGN KEY");
+            assertConstraint(db, schema, "employee_register_assignments",
+                    "fk_employee_register_register", "FOREIGN KEY");
+
+            assertForeignKey(db, schema, "subscription_invoices", "tenant_id,subscription_id",
+                    "tenant_subscriptions", "tenant_id,id");
+            assertForeignKey(db, schema, "subscription_payments", "tenant_id,subscription_invoice_id",
+                    "subscription_invoices", "tenant_id,id");
+            assertForeignKey(db, schema, "subscription_events", "tenant_id,subscription_id",
+                    "tenant_subscriptions", "tenant_id,id");
+            assertForeignKey(db, schema, "pos_drawer_tenders", "tenant_id,branch_id,session_id",
+                    "pos_sessions", "tenant_id,branch_id,id");
+            assertForeignKey(db, schema, "pos_drawer_tenders", "tenant_id,branch_id,session_id,order_reference",
+                    "orders", "tenant_id,branch_id,session_id,id");
+            assertForeignKey(db, schema, "pos_active_drafts", "tenant_id,branch_id,cashier,session_id,order_reference",
+                    "orders", "tenant_id,branch_id,cashier,session_id,id");
+
+            assertGeneratedColumn(db, schema, "pos_sessions", "active_register");
+            assertGeneratedColumn(db, schema, "carts", "active_customer_id");
+            assertGeneratedColumn(db, schema, "tenant_subscriptions", "active_tenant_id");
+        });
+    }
+
+    @Test
+    void generatedOwnershipColumnsAndMysqlChecksBehaveAsDeclared() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            JdbcTemplate db = jdbc(url, user, password);
+            db.execute("SET FOREIGN_KEY_CHECKS=0");
+            try {
+                db.update("""
+                        INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float)
+                        VALUES('p2-open-session',991001,991011,'p2-cashier',991011,'OPEN',0.00)
+                        """);
+                assertThat(db.queryForObject("SELECT active_register FROM pos_sessions WHERE id='p2-open-session'",
+                        Long.class)).isEqualTo(991011L);
+                db.update("UPDATE pos_sessions SET state='CLOSED' WHERE id='p2-open-session'");
+                assertThat(db.queryForObject("SELECT active_register FROM pos_sessions WHERE id='p2-open-session'",
+                        Long.class)).isNull();
+
+                db.update("INSERT INTO carts(id,tenant_id,customer_id,state) VALUES('p2-cart',991001,991099,'ACTIVE')");
+                assertThat(db.queryForObject("SELECT active_customer_id FROM carts WHERE id='p2-cart'",
+                        Long.class)).isEqualTo(991099L);
+                db.update("UPDATE carts SET state='ARCHIVED' WHERE id='p2-cart'");
+                assertThat(db.queryForObject("SELECT active_customer_id FROM carts WHERE id='p2-cart'",
+                        Long.class)).isNull();
+
+                db.update("""
+                        INSERT INTO tenant_subscriptions
+                        (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
+                        VALUES(991021,991001,991031,1,'ACTIVE','2026-01-01','2026-02-01','{}')
+                        """);
+                assertThat(db.queryForObject("""
+                        SELECT active_tenant_id FROM tenant_subscriptions WHERE id=991021
+                        """, Long.class)).isEqualTo(991001L);
+                db.update("UPDATE tenant_subscriptions SET status='CANCELLED' WHERE id=991021");
+                assertThat(db.queryForObject("""
+                        SELECT active_tenant_id FROM tenant_subscriptions WHERE id=991021
+                        """, Long.class)).isNull();
+
+                assertThatThrownBy(() -> db.update("""
+                        INSERT INTO pos_stock_locations
+                        (tenant_id,branch_id,stock_location_id,location_code,display_name,active)
+                        VALUES(991001,991011,991012,'POS_DEFAULT','invalid branch stock',TRUE)
+                        """)).hasMessageContaining("chk_pos_stock_location_branch_key");
+                assertThatThrownBy(() -> db.update("""
+                        INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+                        VALUES(991001,991041,'PLATFORM_TENANT_CLOSE','p2-actor')
+                        """)).hasMessageContaining("chk_vendor_role_permission_no_platform");
+            } finally {
+                db.execute("SET FOREIGN_KEY_CHECKS=1");
+            }
+        });
+    }
+
+    @Test
+    void platformAuditIsAppendOnlyAndFinancialForeignKeysRestrictDeletion() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            JdbcTemplate db = jdbc(url, user, password);
+
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.triggers
+                    WHERE trigger_schema=? AND event_object_table='platform_audit_events'
+                      AND trigger_name IN ('trg_platform_audit_no_update','trg_platform_audit_no_delete')
+                    """, Integer.class, schema)).isEqualTo(2);
+
+            db.execute("SET FOREIGN_KEY_CHECKS=0");
+            try {
+                db.update("""
+                        INSERT INTO platform_audit_events(actor_username,action,resource_type,outcome)
+                        VALUES('p2-missing-actor','P2_IMMUTABILITY_TEST','TEST','SUCCESS')
+                        """);
+            } finally {
+                db.execute("SET FOREIGN_KEY_CHECKS=1");
+            }
+            Long auditId = db.queryForObject("""
+                    SELECT MAX(id) FROM platform_audit_events
+                    WHERE action='P2_IMMUTABILITY_TEST'
+                    """, Long.class);
+            assertThat(auditId).isNotNull();
+            assertThatThrownBy(() -> db.update("""
+                    UPDATE platform_audit_events SET reason='tampered' WHERE id=?
+                    """, auditId)).hasMessageContaining("immutable");
+            assertThatThrownBy(() -> db.update("DELETE FROM platform_audit_events WHERE id=?", auditId))
+                    .hasMessageContaining("cannot be deleted");
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM platform_audit_events WHERE id=?
+                    """, Integer.class, auditId)).isEqualTo(1);
+
+            var deleteRules = db.queryForList("""
+                    SELECT CONCAT(table_name, ':', delete_rule)
+                    FROM information_schema.referential_constraints
+                    WHERE constraint_schema=?
+                      AND referenced_table_name IN (
+                        'orders','vendor_invoices','subscription_invoices','subscription_payments',
+                        'tenant_subscriptions','pos_returns','pos_cash_refunds','inventory_ledger'
+                      )
+                    """, String.class, schema);
+            assertThat(deleteRules).isNotEmpty();
+            assertThat(deleteRules).allMatch(rule ->
+                    rule.endsWith(":RESTRICT") || rule.endsWith(":NO ACTION"));
+        });
+    }
+
+    @Test
+    void mysqlUtcTimestampRoundTripPreservesTheExactInstant() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            try (Connection connection = DriverManager.getConnection(url, user, password);
+                 Statement statement = connection.createStatement()) {
+                statement.execute("SET time_zone = '+00:00'");
+                statement.execute("CREATE TABLE p2_utc_timestamp_probe (id INT PRIMARY KEY, occurred_at TIMESTAMP(6) NOT NULL)");
+                java.time.Instant expected = java.time.Instant.parse("2026-11-22T07:08:09.123456Z");
+                try (var insert = connection.prepareStatement(
+                        "INSERT INTO p2_utc_timestamp_probe(id,occurred_at) VALUES(1,?)")) {
+                    insert.setTimestamp(1, java.sql.Timestamp.from(expected),
+                            java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")));
+                    insert.executeUpdate();
+                }
+                try (var select = connection.prepareStatement(
+                        "SELECT occurred_at FROM p2_utc_timestamp_probe WHERE id=1");
+                     ResultSet rows = select.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getTimestamp(1,
+                            java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))).toInstant())
+                            .isEqualTo(expected);
+                    assertThat(rows.next()).isFalse();
+                }
+                try (ResultSet zone = statement.executeQuery("SELECT @@session.time_zone")) {
+                    assertThat(zone.next()).isTrue();
+                    assertThat(zone.getString(1)).isEqualTo("+00:00");
+                }
+            }
+        });
+    }
+
+    @Test
+    void versionColumnsSupportCompareAndSwapWithoutStaleOverwrite() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            JdbcTemplate db = jdbc(url, user, password);
+            db.update("INSERT INTO tenants(id,name) VALUES(992001,'P2 optimistic tenant')");
+            assertThat(db.update("""
+                    UPDATE tenants SET name='winner',version=version+1 WHERE id=992001 AND version=0
+                    """)).isEqualTo(1);
+            assertThat(db.update("""
+                    UPDATE tenants SET name='stale loser',version=version+1 WHERE id=992001 AND version=0
+                    """)).isZero();
+            assertThat(db.queryForObject("SELECT name FROM tenants WHERE id=992001", String.class))
+                    .isEqualTo("winner");
+            assertThat(db.queryForObject("SELECT version FROM tenants WHERE id=992001", Long.class))
+                    .isEqualTo(1L);
+        });
+    }
+
+    private static void assertConstraint(JdbcTemplate db, String schema, String table,
+                                         String name, String type) {
+        assertThat(constraintCount(db, schema, table, name))
+                .as("%s.%s must exist as %s", table, name, type)
+                .isEqualTo(1);
+    }
+
+    private static void assertGeneratedColumn(JdbcTemplate db, String schema, String table, String column) {
+        assertThat(db.queryForObject("""
+                SELECT extra FROM information_schema.columns
+                WHERE table_schema=? AND table_name=? AND column_name=?
+                """, String.class, schema, table, column).toUpperCase())
+                .as("%s.%s must be generated", table, column)
+                .contains("GENERATED");
+    }
+
+    private static void assertUniqueKey(JdbcTemplate db, String schema, String table, String columns) {
+        assertThat(db.queryForObject("""
+                SELECT COUNT(*) FROM (
+                    SELECT index_name, GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') AS key_columns
+                    FROM information_schema.statistics
+                    WHERE table_schema=? AND table_name=? AND non_unique=0
+                    GROUP BY index_name
+                ) keys_found WHERE key_columns=?
+                """, Integer.class, schema, table, columns))
+                .as("%s must have a UNIQUE key (%s)", table, columns)
+                .isGreaterThan(0);
+    }
+
+    private static void assertForeignKey(JdbcTemplate db, String schema, String childTable,
+                                         String childColumns, String parentTable, String parentColumns) {
+        assertThat(db.queryForObject("""
+                SELECT COUNT(*) FROM (
+                    SELECT constraint_name,
+                           GROUP_CONCAT(column_name ORDER BY ordinal_position SEPARATOR ',') AS child_columns,
+                           MIN(referenced_table_name) AS parent_table,
+                           GROUP_CONCAT(referenced_column_name ORDER BY ordinal_position SEPARATOR ',') AS parent_columns
+                    FROM information_schema.key_column_usage
+                    WHERE table_schema=? AND table_name=? AND referenced_table_name IS NOT NULL
+                    GROUP BY constraint_name
+                ) fk
+                WHERE child_columns=? AND parent_table=? AND parent_columns=?
+                """, Integer.class, schema, childTable, childColumns, parentTable, parentColumns))
+                .as("%s(%s) must reference %s(%s)", childTable, childColumns, parentTable, parentColumns)
+                .isGreaterThan(0);
     }
 
     @Test

@@ -179,10 +179,12 @@ test('Revoked custom Sales role loses existing bearer access and protected route
   }
 });
 
-test('Customer: direct vendor POS deep link is rejected by the vendor actor boundary', async ({ page }) => {
+test('Customer: direct vendor POS deep link is denied outside the customer workspace', async ({ page }) => {
   await signIn(page, demo.customer.username, demo.customer.password);
   await page.goto('/vendor/pos');
-  await expect(page.getByRole('alert')).toContainText('Your account does not have access to this workspace');
+  await expect(page.getByRole('alert')).toContainText('Access denied');
+  await expect(page.getByRole('heading', { name: 'Open cashier session' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Manage Products' })).toHaveCount(0);
 });
 
 test('Vendor Admin: direct Platform workspace URL is rejected by the platform actor boundary', async ({ page }) => {

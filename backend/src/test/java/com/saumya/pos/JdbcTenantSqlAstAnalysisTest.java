@@ -7,6 +7,7 @@ import com.sun.source.util.*;
 import java.io.InputStream;
 import java.nio.file.*;
 import java.util.*;
+import java.util.regex.Pattern;
 import javax.tools.*;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;

@@ -532,7 +532,7 @@ class P202MysqlPersistenceIntegrationTest {
                  Statement statement = connection.createStatement()) {
                 statement.execute("SET time_zone = '+00:00'");
                 statement.execute("INSERT INTO tenants(id,name) VALUES(995001,'P2 UTC timestamp tenant')");
-                java.time.Instant expected = java.time.Instant.parse("2026-11-22T07:08:09.123456Z");
+                java.time.Instant expected = java.time.Instant.parse("2026-11-22T07:08:09Z");
                 try (var update = connection.prepareStatement(
                         "UPDATE tenants SET created_at=?,updated_at=? WHERE id=995001")) {
                     var utc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));

@@ -1,5 +1,5 @@
 import {useState,type FormEvent} from 'react';
-import {acceptVendorInvitation,ApiError} from './api';
+import {authPost,ApiError} from './api';
 
 export default function VendorInvitationAcceptance(){
  const token=new URLSearchParams(window.location.search).get('token')??'';
@@ -9,7 +9,7 @@ export default function VendorInvitationAcceptance(){
   if(!token){setError('This invitation link is missing its token. Ask your platform administrator to issue a new invitation.');return;}
   if(password!==confirmation){setError('The passwords do not match.');return;}
   setBusy(true);
-  try{await acceptVendorInvitation(token,password);setComplete(true);setPassword('');setConfirmation('');}
+  try{await authPost('/invitations/accept',{token,password});setComplete(true);setPassword('');setConfirmation('');}
   catch(e){setError(e instanceof ApiError?e.message:(e as Error).message);}
   finally{setBusy(false);}
  }

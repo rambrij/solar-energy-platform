@@ -2582,5 +2582,17 @@
       "path": "/logout",
       "action": "auth-logout"
     }
+  ],
+  "transportEndpoints": [
+    {
+      "method": "GET",
+      "endpoint": "/api/v1/auth/csrf",
+      "helper": "session.ts;api.ts"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/api/v1/customer/csrf",
+      "helper": "marketplaceApi.ts"
+    }
   ]
 }

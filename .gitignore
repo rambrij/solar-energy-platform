@@ -5,3 +5,4 @@
 .m2/
 .npm-cache/
 *.log
+/frontend/authorization-control-inventory.generated.json

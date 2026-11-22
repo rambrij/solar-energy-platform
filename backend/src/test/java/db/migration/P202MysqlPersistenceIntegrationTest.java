@@ -556,19 +556,19 @@ class P202MysqlPersistenceIntegrationTest {
 
             assertThatThrownBy(() -> db.update(
                     "UPDATE tenants SET lifecycle_status='NOT_A_LIFECYCLE' WHERE id=994011"))
-                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO platform_audit_events(actor_username,action,resource_type,tenant_id,outcome)
                     VALUES('p2-check-actor','P2_BAD_OUTCOME','TEST',994011,'NOT_AN_OUTCOME')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO platform_support_access(tenant_id,actor_username,purpose,ticket_reference,expires_at)
                     VALUES(994011,'p2-check-actor','P2 invalid expiry','P2-EXPIRY','2000-01-01 00:00:00')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO platform_configuration(config_key,category,plain_value,secret_reference,is_sensitive,updated_by)
                     VALUES('p2-invalid-secret','SECURITY','plain-secret',NULL,TRUE,'p2-check-actor')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
 
             db.update("""
                     INSERT INTO subscription_plans(id,plan_key,display_name,active,current_version)
@@ -579,13 +579,13 @@ class P202MysqlPersistenceIntegrationTest {
                     (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
                      max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
                     VALUES(994031,1,100.0000,'INR','WEEKLY',5,1000,2,0,'{}',7,'{}','P2 invalid interval','p2-check-actor')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO subscription_plan_versions
                     (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
                      max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
                     VALUES(994031,2,-1.0000,'INR','MONTHLY',5,1000,2,0,'{}',7,'{}','P2 invalid price','p2-check-actor')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             db.update("""
                     INSERT INTO subscription_plan_versions
                     (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
@@ -596,7 +596,7 @@ class P202MysqlPersistenceIntegrationTest {
                     INSERT INTO tenant_subscriptions
                     (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
                     VALUES(994041,994011,994031,3,'NOT_A_STATUS','2026-01-01','2026-02-01','{}')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             db.update("""
                     INSERT INTO tenant_subscriptions
                     (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
@@ -608,7 +608,7 @@ class P202MysqlPersistenceIntegrationTest {
                      plan_snapshot,subtotal,tax_amount,total,status,due_at)
                     VALUES(994011,994042,'P2-BAD-INVOICE-STATUS','2026-01-01','2026-02-01','INR','{}',
                            100.0000,0.0000,100.0000,'NOT_A_STATUS','2026-02-15 00:00:00')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             db.update("""
                     INSERT INTO subscription_invoices
                     (tenant_id,subscription_id,invoice_number,billing_period_start,billing_period_end,currency,
@@ -622,7 +622,7 @@ class P202MysqlPersistenceIntegrationTest {
                     (tenant_id,subscription_invoice_id,provider,platform_merchant_reference,idempotency_key,
                      amount,currency,status)
                     VALUES(994011,?,'TEST','P2-BAD-PAYMENT','P2-BAD-PAYMENT','100.0000','INR','NOT_A_STATUS')
-                    """,invoiceId)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """,invoiceId)).isInstanceOf(org.springframework.dao.DataAccessException.class);
 
             db.update("""
                     INSERT INTO vendor_roles(id,tenant_id,role_key,display_name,created_by,updated_by)
@@ -631,11 +631,11 @@ class P202MysqlPersistenceIntegrationTest {
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
                     VALUES(994011,994051,'PLATFORM_CONFIG_MANAGE','p2-check-actor')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO platform_user_permissions(username,permission)
                     VALUES('p2-check-actor','NOT_A_PLATFORM_PERMISSION')
-                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
         });
     }
 

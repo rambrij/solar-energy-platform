@@ -127,14 +127,13 @@ class RepositoryTenantAccessAnalysisTest {
     }
 
     private static Set<String> queryMethodNames(String source) {
-        // SQL/JPQL literals can contain tokens that resemble Java declarations
-        // (for example "select count(*)"). Mask literals and comments before
-        // discovering method signatures so query text cannot create phantom methods.
+        // Mask Java text blocks, strings, chars, and comments before inspecting
+        // method signatures; SQL tokens such as count(*) are not Java methods.
         String code = source
-            .replaceAll("(?s)\\\"\\\"\\\".*?\\\"\\\"\\\"|\\\"(?:\\\\\\\\.|[^\\\"\\\\\\\\])*\\\"|'(?:\\\\\\\\.|[^'\\\\\\\\])*'", " ")
-            .replaceAll("(?s)/\\\\*.*?\\\\*/|//[^\\\\r\\\\n]*", " ");
+            .replaceAll("(?s)\"\"\".*?\"\"\"|\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'", " ")
+            .replaceAll("(?s)/\\*.*?\\*/|//[^\\r\\n]*", " ");
         Set<String> names = new TreeSet<>();
-        Matcher matcher = Pattern.compile("(?m)^\\\\s*(?:default\\\\s+)?(?:[\\\\w.$<>?,\\\\[\\] ]+)\\\\s+(\\\\w+)\\\\s*\\\\([^;{}]*\\\\)\\\\s*(?:throws\\\\s+[\\\\w., ]+)?\\\\s*(?:;|\\\\{)")
+        Matcher matcher = Pattern.compile("(?m)^\\s*(?:default\\s+)?(?:[\\w.$<>?,\\[\\] ]+)\\s+(\\w+)\\s*\\([^;{}]*\\)\\s*(?:throws\\s+[\\w., ]+)?\\s*(?:;|\\{)")
             .matcher(code);
         while (matcher.find()) {
             String name = matcher.group(1);

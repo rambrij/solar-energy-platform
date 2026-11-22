@@ -54,22 +54,20 @@ The successful workflow also ran the existing P0-04 and P0-05 suites and the ful
 - Corrected tested code commit: `4886946beb76cbc716e39858886daf639a5e5e58`.
 - Corrected run: [#44997794980](https://github.com/rambrij/solar-energy-platform/actions/runs/44997794980) — all jobs SUCCESS.
 
-## Acceptance matrix
+## Detailed outstanding acceptance assessment (2026-11-22)
 
-| Acceptance requirement | Verified status | Evidence / limitation |
+| Requirement | Assessment | Current evidence and exact remaining exit condition |
 |---|---|---|
-| MySQL 8.4 clean Flyway install | PASS | All 51 migrations applied through V55; validate and repeat startup pass |
-| Supported upgrade baseline | PASS | V47-to-V55 upgrade passes and retains tenant/branch rows |
-| MySQL migration version/order/checksum validation | PASS for applied chain | Flyway validate plus unique/sorted applied versions; no mutation/drift test is claimed |
-| V40–V47 role/tenant constraints | PARTIAL | Migrations execute in clean install and V47 upgrade; existing runtime tests pass, but exhaustive metadata inventory for every constraint/key is not yet asserted |
-| MySQL composite FKs / CHECKs / generated columns | PARTIAL | Selected named constraints and generated-column metadata are asserted; not all applicable ownership edges have explicit MySQL negative tests |
-| Tenant-owned table inventory and required composite unique keys | OPEN | No exhaustive inventory/assertion for every applicable tenant-owned table and `UNIQUE(tenant_id,id)` key |
-| P0-04 / P0-05 tenant ownership and concurrency | PASS for implemented test scope | Focused MySQL gates plus full MySQL suite pass |
-| Transaction rollback | PARTIAL | Existing stock/audit rollback boundary passes; not every order/payment/receipt/inventory side-effect permutation is independently asserted |
-| Financial/audit RESTRICT deletion semantics | OPEN | No exhaustive delete-restriction tests for each financial/audit table |
-| MySQL UTC timestamp round-trip and optimistic locking | OPEN | Dedicated assertions not yet added |
-| CI migration/persistence regression gate | PASS at workflow level | Dedicated MySQL step is part of the required backend job path and fails the job on test failure; repository branch-protection required-check settings were not verified |
-| Exact tested commit and result recorded | PASS | Commit and workflow run above |
+| V40–V47 constraints exhaustively asserted | **PARTIAL** | Clean install and V47 upgrade execute the migration chain; selected metadata and runtime checks pass. No exhaustive per-migration assertion of every tenant/role CHECK, UNIQUE key and FK, nor a negative insert/update test for every constraint. Inventory V40–V47 DDL and assert each applicable constraint and rejection path on MySQL 8.4. |
+| All tenant-owned tables and composite keys inventoried | **OPEN** | The current test checks a selected table list only. There is no complete schema-derived GLOBAL / CUSTOMER-GLOBAL / PLATFORM / TENANT inventory or proof that every tenant-owned parent has the required `UNIQUE(tenant_id,id)` key and every child edge is represented. Produce and test the full inventory against information_schema and migration metadata. |
+| All commercial and financial ownership relationships tested | **PARTIAL** | Existing P0-04/P0-05 and P2-02 tests cover selected POS, inventory, customer and subscription relationships. They do not exhaustively prove same-tenant success plus cross-tenant insert/update rejection for every implemented order, invoice, payment, refund, receipt and other financial relationship. Build a relationship matrix and execute both positive and negative MySQL cases for each edge. |
+| MySQL CHECK, composite FK and generated-column coverage | **PARTIAL** | Selected CHECK/FK metadata, selected POS relationship tests and the generated `pos_sessions.active_register` column are covered. Metadata presence is not proof that every constraint rejects invalid data or that every generated value is correct. Add behavior assertions for every applicable constraint and generated column. |
+| Transaction rollback across every required financial side effect | **PARTIAL** | Existing tests prove a stock/audit rollback boundary and selected transactional behavior. They do not independently force failures at each order, payment, receipt, ledger, reservation and inventory side-effect boundary and prove all participating writes roll back together. Add failure-injection tests and compare all affected rows and balances before/after. |
+| Financial/audit deletion restrictions | **OPEN** | No exhaustive MySQL delete-restriction suite currently proves that referenced financial and immutable audit history cannot be deleted. Add parent-delete attempts for every applicable FK/RESTRICT relationship and assert the SQL rejection plus unchanged source rows. |
+| MySQL UTC timestamp round-trip and optimistic locking | **OPEN** | No dedicated MySQL 8.4 UTC round-trip test or stale-version optimistic-lock test is recorded. Add timestamp persistence/readback assertions with explicit UTC semantics and concurrent/stale update tests that prove the losing update is rejected without overwriting the winner. |
+| CI gate and branch protection | **PARTIAL** | **Workflow gate PASS:** run [#44997794980](https://github.com/rambrij/solar-energy-platform/actions/runs/44997794980) passed backend H2, backend MySQL 8.4, frontend and Playwright; the dedicated MySQL P2-02 step passed 4/4. **Branch protection NOT VERIFIED:** repository protection/ruleset settings were not available in the inspected evidence. Verify that the relevant workflow checks are required before merge; do not infer this from a green run. |
+
+**Disposition:** These assessments are intentionally not promoted to COMPLETE based only on migration execution or selected examples. P2-02 remains **IN PROGRESS** until each PARTIAL/OPEN item has implementation-level evidence, MySQL 8.4 tests pass, and required-check enforcement is confirmed.
 
 ## Remaining work before P2-02 COMPLETE
 
@@ -81,4 +79,4 @@ The successful workflow also ran the existing P0-04 and P0-05 suites and the ful
 6. Verify repository branch-protection settings require the relevant CI checks before merge.
 7. Rerun the full H2/MySQL/frontend/Playwright workflow on the completion commit and record its exact result.
 
-**Final determination:** The corrected MySQL migration suite and the current full CI pipeline pass. **P2-02 does not yet meet all acceptance criteria and remains IN PROGRESS.** Do not mark this work item COMPLETE until the OPEN/PARTIAL entries above are closed with MySQL 8.4 evidence.
+**Final determination:** The corrected MySQL migration suite and the current full CI pipeline pass. The detailed assessment above records the remaining PARTIAL and OPEN items. **P2-02 does not yet meet all acceptance criteria and remains IN PROGRESS.** Do not mark this work item COMPLETE until each item is closed with MySQL 8.4 evidence and required-check enforcement is verified.

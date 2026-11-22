@@ -1,0 +1,193 @@
+{
+  "globalMethods": [
+    {
+      "operation": "CatalogSequenceRepository#locked",
+      "scope": "GLOBAL_SEQUENCE_LOCK",
+      "trustedSource": "Server-owned catalog sequence; no tenant data is read or mutated."
+    },
+    {
+      "operation": "CustomerRepository#lock",
+      "scope": "AUTHENTICATED_CUSTOMER_IDENTITY",
+      "trustedSource": "Customer profile primary key is resolved from the authenticated username before use."
+    },
+    {
+      "operation": "IdentitySequenceRepository#locked",
+      "scope": "GLOBAL_IDENTITY_SEQUENCE",
+      "trustedSource": "Server-owned identity sequence row."
+    },
+    {
+      "operation": "PlatformGrantRepository#permissions",
+      "scope": "PLATFORM_IDENTITY_GRANTS",
+      "trustedSource": "Platform identity administration; username is resolved from authenticated platform identity."
+    },
+    {
+      "operation": "PlatformGrantRepository#usernames",
+      "scope": "PLATFORM_IDENTITY_DIRECTORY",
+      "trustedSource": "Platform identity administration endpoint; platform-only authorization."
+    },
+    {
+      "operation": "RetailSequenceRepository#register",
+      "scope": "GLOBAL_RETAIL_SEQUENCE",
+      "trustedSource": "Server-owned register sequence row; not tenant business data."
+    },
+    {
+      "operation": "RetailSequenceRepository#branch",
+      "scope": "GLOBAL_RETAIL_SEQUENCE",
+      "trustedSource": "Server-owned branch sequence row; not tenant business data."
+    },
+    {
+      "operation": "TenantRepository#findBySlug",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Public slug lookup is followed by lifecycle and tenant policy checks; platform directory operations are separately platform-authorized."
+    },
+    {
+      "operation": "TenantRepository#lockById",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform tenant lifecycle operation; target tenant ID is a resource selector and service re-loads the tenant under platform authorization."
+    },
+    {
+      "operation": "TenantRepository#findBySlugAndLifecycleStatus",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform tenant directory lookup."
+    },
+    {
+      "operation": "TenantRepository#findByLifecycleStatusAndSlugIsNotNullOrderByNameAscIdAsc",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform tenant directory listing; platform-only operation."
+    },
+    {
+      "operation": "TenantRepository#countByLifecycleStatus",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform aggregate count; platform-only operation."
+    },
+    {
+      "operation": "TenantRepository#search",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform tenant directory search; no vendor-private records are returned."
+    },
+    {
+      "operation": "TenantRepository#searchActiveVendors",
+      "scope": "PUBLISHED_VENDOR_DIRECTORY",
+      "trustedSource": "Published vendor directory; public discovery fields only."
+    },
+    {
+      "operation": "TenantSequenceRepository#locked",
+      "scope": "GLOBAL_TENANT_SEQUENCE",
+      "trustedSource": "Server-owned tenant identifier sequence row."
+    },
+    {
+      "operation": "PlatformAuditRepository#findAllByOrderByOccurredAtDescIdDesc",
+      "scope": "PLATFORM_AUDIT_DIRECTORY",
+      "trustedSource": "Platform audit endpoint guarded by PLATFORM_AUDIT_VIEW."
+    },
+    {
+      "operation": "PlatformSupportRepository#findTop100ByOrderByGrantedAtDesc",
+      "scope": "PLATFORM_SUPPORT_DIRECTORY",
+      "trustedSource": "Platform support administration endpoint guarded by PLATFORM_SUPPORT_ACCESS."
+    },
+    {
+      "operation": "TenantSubscriptionRepository#findAllByOrderByCreatedAtDescIdDesc",
+      "scope": "PLATFORM_SUBSCRIPTION_DIRECTORY",
+      "trustedSource": "Platform subscription administration endpoint guarded by PLATFORM_SUBSCRIPTION_VIEW."
+    },
+    {
+      "operation": "SubscriptionPlanRepository#findByPlanKey",
+      "scope": "GLOBAL_SAAS_PLAN_CATALOGUE",
+      "trustedSource": "Platform-owned SaaS plan catalogue; no tenant-specific plan rows."
+    },
+    {
+      "operation": "SubscriptionPlanVersionRepository#findByPlanId",
+      "scope": "GLOBAL_SAAS_PLAN_CATALOGUE",
+      "trustedSource": "Plan ID is a platform-owned SaaS plan resource, not a tenant-owned entity."
+    },
+    {
+      "operation": "SubscriptionEventRepository#findBySubscriptionIdOrderByOccurredAtDescIdDesc",
+      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
+      "trustedSource": "Platform subscription event history; caller is platform-authorized and subscription ID is resolved in platform subscription workflow."
+    },
+    {
+      "operation": "SubscriptionInvoiceRepository#findBySubscriptionIdOrderByIssuedAtDescIdDesc",
+      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
+      "trustedSource": "Platform subscription invoice history; caller is platform-authorized."
+    },
+    {
+      "operation": "SubscriptionPaymentRepository#findByInvoiceIdOrderByCreatedAtDescIdDesc",
+      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
+      "trustedSource": "Platform subscription payment history; invoice ID is resolved from the platform-owned subscription."
+    },
+    {
+      "operation": "DraftRepository#findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc",
+      "scope": "SYSTEM_EXPIRY_JOB",
+      "trustedSource": "Scheduled expiry worker processes expired drafts and applies tenant/customer ownership before state transition."
+    },
+    {
+      "operation": "EmployeeMembershipRepository#findByUsernameIgnoreCase",
+      "scope": "GLOBAL_IDENTITY_MEMBERSHIP_LOOKUP",
+      "trustedSource": "Username is globally unique; callers use the returned membership only after tenant/branch checks."
+    },
+    {
+      "operation": "GlobalUserRepository#findByUsername",
+      "scope": "GLOBAL_IDENTITY_LOOKUP",
+      "trustedSource": "Username is the authenticated global identity key."
+    },
+    {
+      "operation": "GlobalUserRepository#lockedByUsername",
+      "scope": "GLOBAL_IDENTITY_LOOKUP",
+      "trustedSource": "Username is the authenticated global identity key; lock is used for identity lifecycle transitions."
+    },
+    {
+      "operation": "CustomerRepository#resolve",
+      "scope": "AUTHENTICATED_CUSTOMER_IDENTITY",
+      "trustedSource": "Resolves customer ID from authenticated username; native query joins users by username."
+    },
+    {
+      "operation": "CustomerRepository#profileCount",
+      "scope": "AUTHENTICATED_CUSTOMER_IDENTITY",
+      "trustedSource": "Counts profile for authenticated username during identity provisioning."
+    },
+    {
+      "operation": "IdentityInvitationRepository#locked",
+      "scope": "ONE_TIME_INVITATION_TOKEN",
+      "trustedSource": "SHA-256 token hash from one-time invitation token; expiry and single-use state are checked by service."
+    },
+    {
+      "operation": "IdentitySequenceRepository#locked",
+      "scope": "GLOBAL_IDENTITY_SEQUENCE",
+      "trustedSource": "Server-owned identity sequence row."
+    },
+    {
+      "operation": "PlatformMfaEnrollmentRepository#locked",
+      "scope": "ONE_TIME_PLATFORM_MFA_TOKEN",
+      "trustedSource": "SHA-256 token hash; one-time expiry and single-use checks are enforced by PlatformMfaService."
+    },
+    {
+      "operation": "RefreshSessionRepository#locked",
+      "scope": "AUTHENTICATED_REFRESH_SESSION",
+      "trustedSource": "SHA-256 refresh-token hash; session family, revocation and expiry are checked by AuthenticationService."
+    }
+  ],
+  "compositeKeyMethods": [
+    {
+      "operation": "CatalogStockRepository#findById",
+      "scope": "COMPOSITE_TENANT_KEY",
+      "trustedSource": "CatalogStock.Key contains tenantId as part of the embedded primary key."
+    },
+    {
+      "operation": "BuyerSnapshotRepository#findById",
+      "scope": "COMPOSITE_TENANT_KEY",
+      "trustedSource": "BuyerSnapshot.Key contains tenant as part of the embedded primary key."
+    },
+    {
+      "operation": "InvoiceSnapshotRepository#findById",
+      "scope": "COMPOSITE_TENANT_KEY",
+      "trustedSource": "InvoiceSnapshot.Key contains tenant as part of the embedded primary key."
+    }
+  ],
+  "specificationRepositories": [
+    {
+      "repository": "CashRefundRepository",
+      "service": "RefundHistoryService",
+      "scope": "Tenant and branch are both taken from authenticated PosService.Scope; Specification predicates constrain tenant, branch and time window."
+    }
+  ]
+}

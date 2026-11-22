@@ -3,7 +3,7 @@ import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.data.jpa.repository.*;
-public interface DraftRepository extends JpaRepository<DraftOrder,String>, JpaSpecificationExecutor<DraftOrder> {
+public interface DraftRepository extends JpaRepository<DraftOrder,String> {
     Optional<DraftOrder> findByTenantIdAndId(long tenant,String id);
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select d from DraftOrder d where d.customerId=:customer and d.id=:id") Optional<DraftOrder> lockLinkedCustomer(long customer,String id);
     Optional<DraftOrder> findByTenantIdAndKey(long tenant,String key);

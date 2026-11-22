@@ -334,6 +334,14 @@ class SpringDataRepositoryAstAnalysisTest {
                         return super.visitVariable(node,unused);
                     }
                 }.scan(type,null);
+                Set<String> trustedTenantGuardMethods=new HashSet<>();
+                for(Tree member:type.getMembers())if(member instanceof MethodTree helper&&helper.getBody()!=null){
+                    String body=helper.getBody().toString();
+                    if(body.contains("requireTenant(")
+                        &&(body.contains("authorization.current()")||body.contains("auth.current()")
+                            ||body.contains("context.requireTenant(")||body.contains("actor.requireTenant(")))
+                        trustedTenantGuardMethods.add(helper.getName().toString());
+                }
                 new TreeScanner<Void,Void>(){
                     private String methodName;
                     private Set<String> trustedVariables=new HashSet<>();
@@ -361,6 +369,12 @@ class SpringDataRepositoryAstAnalysisTest {
                         return super.visitAssignment(node,unused);
                     }
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
+                        String invokedName=node.getMethodSelect() instanceof MemberSelectTree selected
+                            ?selected.getIdentifier().toString():node.getMethodSelect().toString();
+                        if((invokedName.equals("requireTenant")||trustedTenantGuardMethods.contains(invokedName))
+                            &&!node.getArguments().isEmpty()
+                            &&node.getArguments().get(0) instanceof IdentifierTree tenantArgument)
+                            trustedVariables.add(tenantArgument.getName().toString());
                         if(node.getMethodSelect() instanceof MemberSelectTree select){
                             String receiver=simpleReceiver(select.getExpression().toString());
                             String repository=repositoryVariables.getOrDefault(receiver,

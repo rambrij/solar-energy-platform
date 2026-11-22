@@ -3032,7 +3032,7 @@ class PosTest {
   int paymentAttemptsBefore=db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
   int tenderAuditBefore=db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1 AND resource_id=? AND action='TENDER_RECORD'",Integer.class,draft.id());
   assertThatThrownBy(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
-    payments.tender("alice",draft.id(),"p2-matrix-upi",new PaymentCheckoutService.TenderRequest("UPI",draft.total(),null));
+    payments.tender("alice",draft.id(),"p2-matrix-upi",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("UPI",draft.total(),null));
     throw new IllegalStateException("Inject failure after payment-attempt and tender-audit writes");
   }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
   assertThat(db.queryForObject("SELECT status FROM orders WHERE tenant_id=1 AND id=?",String.class,draft.id())).isEqualTo("DRAFT");

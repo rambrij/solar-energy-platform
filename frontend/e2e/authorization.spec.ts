@@ -118,11 +118,15 @@ test('Cashier: open assigned register, complete a cash sale and receive its rece
   if (await resume.count()) {
     await resume.first().click();
   } else {
+    const directory = await apiAs(page, await signIn(page, demo.cashier.username, demo.cashier.password), '/api/v1/vendor/pos/registers?page=0&size=12');
+    expect(directory.status, JSON.stringify(directory.body)).toBe(200);
+    expect(directory.body.items, JSON.stringify(directory.body)).toContainEqual(expect.objectContaining({ available: true }));
     await page.getByRole('button', { name: 'Load assigned registers' }).click();
     await expect(page.getByText(/configured registers/)).toBeVisible();
-    const register = page.getByLabel('Assigned register', { exact: true });
-    const availableOption = register.locator('option').nth(1);
-    await expect(availableOption).toContainText('Available');
+    const register = page.locator('select[name="register"]');
+    await expect(register).toBeVisible();
+    const availableOption = register.locator('option').filter({ hasText: 'Available' }).first();
+    await expect(availableOption).toBeVisible();
     const registerValue = await availableOption.getAttribute('value');
     expect(registerValue).toBeTruthy();
     await register.selectOption(registerValue!);

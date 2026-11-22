@@ -302,6 +302,20 @@ class SpringDataRepositoryAstAnalysisTest {
             }
             JsonNode policy=policy();
             Set<String> trustedParameters=new HashSet<>();
+            // Trust only method parameters explicitly documented as server-derived in the
+            // tenant data-access policy. Merge the source inventory, service-level entries,
+            // and individually reviewed helper flows; do not infer trust from parameter names.
+            policy.path("trustedTenantParameterSources").forEach(source->{
+                String sourceClass=source.path("source").asText();
+                JsonNode declared=source.path("trustedTenantParameters");
+                declared.fields().forEachRemaining(method->method.getValue().forEach(parameter->
+                    trustedParameters.add(sourceClass+"#"+method.getKey()+"#"+parameter.asText())));
+            });
+            policy.path("trustedServiceTenantParameters").fields().forEachRemaining(source->{
+                String sourceClass=source.getKey();
+                source.getValue().path("trustedTenantParameters").fields().forEachRemaining(method->
+                    method.getValue().forEach(parameter->trustedParameters.add(sourceClass+"#"+method.getKey()+"#"+parameter.asText())));
+            });
             policy.path("trustedTenantParameterFlows").forEach(flow->{
                 String callee=flow.path("callee").asText(),parameter=flow.path("parameter").asText();
                 trustedParameters.add(callee+"#"+parameter);

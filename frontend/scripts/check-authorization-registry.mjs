@@ -342,7 +342,7 @@ assert.throws(()=>validateActionPermissionParity({id:'fixture-actor-mismatch',ac
 assert.throws(()=>validateActionPermissionParity({id:'fixture-public-mismatch',actor:'PUBLIC',permissions:[]}, "authenticated()"),
  /Public frontend action is not permitAll/);
 assert.throws(()=>validateActionPermissionParity({id:'fixture-vendor-platform-permission',actor:'VENDOR',permissions:['PLATFORM_TENANT_VIEW']}, "hasAuthority('PLATFORM_TENANT_VIEW')"),
- /Platform permission assigned to vendor action/);
+ /Platform permission assigned to vendor action|Vendor frontend actor maps to a non-vendor backend authority/);
 assert.throws(()=>validateActionPermissionParity({id:'fixture-customer-vendor-mismatch',actor:'CUSTOMER',permissions:['POS_VIEW']}, "hasAuthority('POS_VIEW')"),
  /Customer frontend actor does not match backend customer authority/);
 assert.throws(()=>validateActionPermissionParity({id:'fixture-platform-vendor-mismatch',actor:'PLATFORM',permissions:['POS_VIEW']}, "hasAuthority('POS_VIEW')"),

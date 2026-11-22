@@ -297,9 +297,9 @@ class SpringDataRepositoryAstAnalysisTest {
                     .add(new ServiceMethodRef(className,type.getSimpleName().toString(),method,fieldTypes,guards));
         }
         Set<String> trusted=new HashSet<>(initial);
-        boolean changed;
+        final boolean[] changed={false};
         do{
-            changed=false;
+            changed[0]=false;
             for(List<ServiceMethodRef> classMethods:methodsByClass.values())for(ServiceMethodRef ref:classMethods){
                 MethodTree method=ref.method();
                 if(method.getBody()==null)continue;
@@ -346,14 +346,14 @@ class SpringDataRepositoryAstAnalysisTest {
                                 String parameter=target.method().getParameters().get(i).getName().toString();
                                 if(parameter.matches("(?i).*tenant.*")
                                     &&trustedTenantExpression(node.getArguments().get(i).toString(),variables))
-                                    if(trusted.add(target.className()+"#"+target.method().getName()+"#"+parameter))changed=true;
+                                    if(trusted.add(target.className()+"#"+target.method().getName()+"#"+parameter))changed[0]=true;
                             }
                         }
                         return super.visitMethodInvocation(node,unused);
                     }
                 }.scan(method.getBody(),null);
             }
-        }while(changed);
+        }while(changed[0]);
         return trusted;
     }
     private static String repositoryType(VariableTree variable){
@@ -414,7 +414,7 @@ class SpringDataRepositoryAstAnalysisTest {
                 String callee=flow.path("callee").asText(),parameter=flow.path("parameter").asText();
                 trustedParameters.add(callee+"#"+parameter);
             });
-            trustedParameters=trustedServiceParameterClosure(units,trustedParameters);
+            trustedParameters.addAll(trustedServiceParameterClosure(units,trustedParameters));
             List<String> untrusted=new ArrayList<>();
             List<String> observedCallsites=new ArrayList<>();
             for(CompilationUnitTree unit:units)for(Tree declaration:unit.getTypeDecls()){

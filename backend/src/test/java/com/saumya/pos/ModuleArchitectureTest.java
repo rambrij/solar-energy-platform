@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Set;
 import java.util.Map;
+import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import com.p204fixtures.architecture.modulea.internal.ModuleARepository;

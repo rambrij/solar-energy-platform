@@ -180,8 +180,8 @@ class P202MysqlPersistenceIntegrationTest {
             // Verify every schema-discovered FK edge between tenant-owned tables
             // carries tenant_id on both sides. This catches omissions as migrations
             // add new commercial, financial or operational tables.
-            assertThat(db.queryForObject("""
-                    SELECT COUNT(*) FROM (
+            Set<String> nonCompositeTenantEdges = new HashSet<>(db.queryForList("""
+                    SELECT constraint_name FROM (
                       SELECT k.constraint_name,k.table_name,k.referenced_table_name,
                              SUM(k.column_name='tenant_id') AS child_tenant_columns,
                              SUM(k.referenced_column_name='tenant_id') AS parent_tenant_columns
@@ -197,7 +197,14 @@ class P202MysqlPersistenceIntegrationTest {
                        GROUP BY k.constraint_name,k.table_name,k.referenced_table_name
                       HAVING child_tenant_columns=0 OR parent_tenant_columns=0
                     ) incomplete_tenant_edges
-                    """, Integer.class, schema)).isZero();
+                    """, String.class, schema));
+            // V40's three single-column subscription FKs are retained for
+            // backward compatibility and strengthened by V41 composite owner
+            // FKs. The composite equivalents are asserted below; no other
+            // tenant-to-tenant relationship may omit tenant_id.
+            assertThat(nonCompositeTenantEdges).containsExactlyInAnyOrder(
+                    "fk_sub_invoice_subscription", "fk_sub_payment_invoice",
+                    "fk_sub_event_subscription");
 
             // Every discovered tenant-owned table must be represented by exactly
             // one ownership classification; all of its tenant-scoped foreign keys
@@ -334,12 +341,12 @@ class P202MysqlPersistenceIntegrationTest {
                     INSERT INTO employees(username,tenant_id,branch_id,enabled)
                     VALUES('p2-cashier',991001,991011,TRUE)
                     """);
-            db.update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(991011,991001,991011)");
             db.update("""
                     INSERT INTO pos_stock_locations
                     (tenant_id,branch_id,stock_location_id,location_code,display_name,active)
                     VALUES(991001,991011,991011,'POS_DEFAULT','P2 POS stock',TRUE)
                     """);
+            db.update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(991011,991001,991011)");
             db.update("""
                     INSERT INTO pos_sessions
                     (id,tenant_id,branch_id,cashier,register_id,state,opening_float)

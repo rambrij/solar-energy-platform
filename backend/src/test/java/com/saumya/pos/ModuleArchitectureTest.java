@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import java.util.Set;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
@@ -35,8 +35,9 @@ class ModuleArchitectureTest {
     static ArchRule repositoryOwnerRule(String owner) {
         return noClasses().that().resideOutsideOfPackage("com.saumya.pos." + owner + "..")
             .should().dependOnClassesThat()
+            .resideInAPackage("com.saumya.pos." + owner + ".internal..")
+            .andShould().dependOnClassesThat()
             .haveSimpleNameEndingWith("Repository")
-            .and().resideInAPackage("com.saumya.pos." + owner + "..")
             .because("repositories are owned by their module; consumers use public services or events");
     }
 
@@ -67,12 +68,19 @@ class ModuleArchitectureTest {
     @Test
     void directJdbcUsageIsLimitedToReviewedTenantScopedAdapters() {
         JavaClasses imported = productionClasses();
-        classes().that().dependOnClassesThat().resideInAnyPackage("org.springframework.jdbc..")
-            .should().haveFullyQualifiedName("com.saumya.pos.membership.MembershipService")
-            .orShould().haveFullyQualifiedName("com.saumya.pos.membership.VendorRoleService")
-            .orShould().haveFullyQualifiedName("com.saumya.pos.retail.PosService")
-            .because("direct JDBC is an explicit exception requiring tenant-scoped SQL review")
-            .check(imported);
+        Set<String> jdbcConsumers = imported.stream()
+            .filter(type -> type.getDirectDependenciesFromSelf().stream()
+                .anyMatch(dependency -> dependency.getTargetClass().getPackageName()
+                    .startsWith("org.springframework.jdbc")))
+            .map(type -> type.getName())
+            .collect(java.util.stream.Collectors.toSet());
+        assertThat(jdbcConsumers)
+            .as("direct JDBC dependencies require an explicitly reviewed service exception")
+            .containsOnly(
+                "com.saumya.pos.membership.MembershipService",
+                "com.saumya.pos.membership.VendorRoleService",
+                "com.saumya.pos.retail.PosService"
+            );
     }
 
     @Test

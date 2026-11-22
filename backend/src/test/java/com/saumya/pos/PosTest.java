@@ -853,6 +853,29 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(1);
  }
 
+ @Test void tenantJpaVersionRejectsAStaleConcurrentUpdate(){
+  var factory=applicationContext.getBean(jakarta.persistence.EntityManagerFactory.class);
+  var first=factory.createEntityManager();var second=factory.createEntityManager();
+  try{
+   first.getTransaction().begin();
+   var stale=first.find(com.saumya.pos.tenant.internal.Tenant.class,1L);
+   second.getTransaction().begin();
+   var winner=second.find(com.saumya.pos.tenant.internal.Tenant.class,1L);
+   winner.updateProfile("Winner","Winner Legal",null,null,null,null,java.time.Instant.parse("2026-11-22T09:00:00Z"));
+   second.flush();second.getTransaction().commit();
+
+   stale.updateProfile("Stale Loser","Stale Legal",null,null,null,null,java.time.Instant.parse("2026-11-22T09:01:00Z"));
+   assertThatThrownBy(first::flush).isInstanceOf(jakarta.persistence.OptimisticLockException.class);
+   first.getTransaction().rollback();
+   assertThat(db.queryForObject("SELECT name FROM tenants WHERE id=1",String.class)).isEqualTo("Winner");
+   assertThat(db.queryForObject("SELECT version FROM tenants WHERE id=1",Long.class)).isEqualTo(1L);
+  }finally{
+   if(first.getTransaction().isActive())first.getTransaction().rollback();
+   if(second.getTransaction().isActive())second.getTransaction().rollback();
+   first.close();second.close();
+  }
+ }
+
  @Test void guestCashIsAtomicAndIdempotent(){
   var r=as("alice", () -> checkout.cashSale(a.cashier(),"checkout-1",sale(1,"120")));
   assertThat(r.get("customer_id")).isNull();assertThat(r.get("total")).isEqualTo(new BigDecimal("110.00"));assertThat(r.get("change_given")).isEqualTo(new BigDecimal("10.00"));

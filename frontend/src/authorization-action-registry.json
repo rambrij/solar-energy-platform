@@ -495,7 +495,7 @@
     {
       "id": "pos-draft-create",
       "component": "ReservedDrafts.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "method": "POST",
       "endpoint": "/api/v1/vendor/pos/drafts",
       "permissions": [
@@ -793,7 +793,7 @@
     {
       "id": "customer-cart-add",
       "component": "Marketplace.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "method": "POST",
       "endpoint": "/api/v1/customer/cart/items",
       "permissions": [
@@ -877,7 +877,7 @@
     {
       "id": "customer-payment-create",
       "component": "PaymentCheckout.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "method": "POST",
       "endpoint": "/api/v1/customer/checkout/drafts/{id}/payment",
       "permissions": [
@@ -1870,7 +1870,7 @@
     {
       "id": "pos-draft-create",
       "component": "ReservedDrafts.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "backendOperation": "POST /api/v1/vendor/pos/drafts"
     },
     {
@@ -1936,7 +1936,7 @@
     {
       "id": "customer-cart-add",
       "component": "Marketplace.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "backendOperation": "POST /api/v1/customer/cart/items"
     },
     {
@@ -1966,7 +1966,7 @@
     {
       "id": "customer-payment-create",
       "component": "PaymentCheckout.tsx",
-      "trigger": "submit",
+      "trigger": "button",
       "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment"
     },
     {

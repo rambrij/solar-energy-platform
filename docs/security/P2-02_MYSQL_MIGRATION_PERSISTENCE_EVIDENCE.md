@@ -3,7 +3,7 @@
 **Branch:** `feature/develop-authorization-gap-analysis`  
 **Status:** IN PROGRESS — current CI gates PASS; exhaustive schema / transaction acceptance remains open.  
 **Earlier dedicated test commit:** `4886946beb76cbc716e39858886daf639a5e5e58`  
-**Latest branch-head snapshot:** `20d65039906475faa0def9d79f4e89e0249bda18`  
+**Latest tested implementation snapshot:** `20d65039906475faa0def9d79f4e89e0249bda18`  
 **Workflow:** [GitHub Actions run #44997794980](https://github.com/rambrij/solar-energy-platform/actions/runs/44997794980) — SUCCESS (2026-11-22).
 
 ## Latest branch-head verification (2026-11-22)
@@ -16,20 +16,15 @@ The current `P202MysqlPersistenceIntegrationTest` source contains **13 @Test met
 
 | Gate | Result |
 |---|---|
-| Backend H2 job | PASS — 666 tests, 0 failures, 0 errors, 5 skipped |
-| Backend MySQL 8.4 job (MySQL 8.4.13) | PASS — 666 tests, 0 failures, 0 errors, 0 skipped |
-| Dedicated P2-02 MySQL migration/schema step | PASS — 4 tests, 0 failures, 0 errors, 0 skipped |
-| MySQL P0-04 focused tenant isolation | PASS — 3 tests, 0 failures, 0 errors |
-| MySQL P0-05 POS ownership/session/stock-location/concurrency gate | PASS |
-| Frontend | PASS — 62 test files, 315 tests; production build passed |
-| Browser E2E / Playwright on MySQL 8.4 | PASS — 11 tests |
-| Overall workflow | PASS — backend H2, backend MySQL, frontend, Browser E2E jobs all SUCCESS |
+| Focused financial tenant-isolation/rollback/deletion acceptance (MySQL 8.4) | PASS — run #45024413703, commit `20d6503` |
+| Dedicated P2-02 MySQL migration/schema contract class | PASS — run #45024413703; all 13 declared test methods execute in the MySQL lane |
+| Frontend tests and production build | PASS — run #45024413703 |
+| Full backend H2 suite | IN PROGRESS when checked — run #45024413703 |
+| Full backend MySQL suite | IN PROGRESS when checked — run #45024413703 |
+| Browser E2E / Playwright on MySQL 8.4 | Last fully verified PASS in run #45019832365; not yet re-verified on the latest implementation snapshot |
+| Last fully completed all-job workflow | PASS — run #45019832365 (backend H2, backend MySQL, frontend, Browser E2E) |
 
-Relevant job IDs:
-- Backend MySQL: `137132478207`
-- Backend H2: `137132478023`
-- Frontend: `137132478204`
-- Browser E2E: `137134033888`
+The latest P2-specific gates are green, but the latest full backend suites were still running. Do not describe the latest implementation snapshot as fully CI-validated until run #45024413703 completes.
 
 ## Supported database contract
 
@@ -42,7 +37,7 @@ Relevant job IDs:
 
 ## Dedicated test coverage verified
 
-`P202MysqlPersistenceIntegrationTest` currently contains 13 test methods and the full class passed in the latest recorded MySQL 8.4 CI run (#45016085369):
+`P202MysqlPersistenceIntegrationTest` currently contains 13 test methods and the full class passed in the dedicated MySQL 8.4 step in run #45024413703:
 1. Clean install, applied migration ordering/version uniqueness, Flyway validation and repeatable startup.
 2. Supported V47-to-V55 upgrade with persisted tenant/branch data and stock-location backfill.
 3. Selected core MySQL schema metadata: tenant_id nullability, named CHECK constraints, composite foreign keys, generated column, DECIMAL precision and tenant-leading indexes.
@@ -92,7 +87,7 @@ The full backend acceptance suite already contained more P2-02 behavioral covera
 - `cashRefundFailureRollsBackRefundAllocationAndAuditTimeline`: injects failure after refund payment/audit work and verifies refund, refund items, return events/state, inventory dispositions, POS audit and expected cash reconciliation remain unchanged.
 - `jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary`: verifies JPA-managed stock and JDBC audit writes share the same transaction manager and roll back together.
 
-The focused financial tenant-isolation/rollback/deletion acceptance step passed on MySQL 8.4 in [workflow run #45019198864](https://github.com/rambrij/solar-energy-platform/actions/runs/45019198864). This is focused-step evidence only; the full MySQL backend job and dedicated P2-02 migration/schema step were still running when this note was added.
+The focused financial tenant-isolation/rollback/deletion acceptance step passed on MySQL 8.4 in [workflow run #45024413703](https://github.com/rambrij/solar-energy-platform/actions/runs/45024413703). The same run also passed the dedicated P2-02 migration/schema step; the full backend jobs were still running when this note was refreshed.
 
 
 

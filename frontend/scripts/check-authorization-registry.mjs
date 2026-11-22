@@ -203,6 +203,33 @@ for(const action of actionRegistry.actions){
  if(action.actor==='VENDOR'&&action.permissions.some(p=>p.startsWith('PLATFORM_')))throw new Error('Platform permission assigned to vendor action '+action.id);
  if(!fs.existsSync(path.join(frontend,'src',action.component)))throw new Error('Missing action component '+action.component);
 }
+function validateActionPermissionParity(action,policy){
+ if(action.actor==='PUBLIC'){
+  if(!/permitAll\\s*\\(\\s*\\)/.test(policy))throw new Error('Public frontend action is not permitAll on backend: '+action.id);
+  return;
+ }
+ if(action.actor==='VENDOR'&&action.permissions.some(permission=>permission.startsWith('PLATFORM_')))
+  throw new Error('Platform permission assigned to vendor action '+action.id);
+ const actual=[...policy.matchAll(/has(?:Any)?Authority\\s*\\(([^)]*)\\)/g)].flatMap(call=>[...call[1].matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map(match=>match[1]));
+ if(action.permissions.includes('POS_CASH_MOVEMENT_DYNAMIC')){
+  if(!policy.includes("'POS_' + #request.type().name()"))throw new Error('Dynamic POS cash-movement permission mapping mismatch: '+action.id);
+ }else{
+  const expected=[...action.permissions].sort(),observed=[...new Set(actual)].sort();
+  if(JSON.stringify(expected)!==JSON.stringify(observed))throw new Error('Frontend/backend permission parity mismatch for '+action.id+': frontend='+expected.join(',')+' backend='+observed.join(','));
+  if(action.permissions.length>1){
+   const expectsAny=action.permissionMode==='ANY';
+   const backendAny=/hasAnyAuthority\\s*\\(/.test(policy)||/\\sor\\s/.test(policy);
+   if(expectsAny!==backendAny)throw new Error('Frontend/backend ANY-vs-ALL authorization mode mismatch for '+action.id);
+  }
+ }
+}
+assert.throws(()=>validateActionPermissionParity({id:'fixture-actor-mismatch',actor:'VENDOR',permissions:['POS_VIEW']}, "hasAuthority('PLATFORM_TENANT_VIEW')"),
+ /Frontend\/backend permission parity mismatch|Platform permission assigned to vendor action/);
+assert.throws(()=>validateActionPermissionParity({id:'fixture-public-mismatch',actor:'PUBLIC',permissions:[]}, "authenticated()"),
+ /Public frontend action is not permitAll/);
+assert.throws(()=>validateActionPermissionParity({id:'fixture-vendor-platform-permission',actor:'VENDOR',permissions:['PLATFORM_TENANT_VIEW']}, "hasAuthority('PLATFORM_TENANT_VIEW')"),
+ /Platform permission assigned to vendor action/);
+
 async function collectControllerRoutes(directory){
  const found=[];
  for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
@@ -243,22 +270,7 @@ const backendOperations=await collectControllerRoutes(path.join(repo,'backend/sr
 for(const action of actionRegistry.actions){
  const operation=backendOperations.find(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint));
  if(!operation)throw new Error('No backend operation for frontend action '+action.id+': '+action.backendOperation);
- if(action.actor==='PUBLIC'){
-  if(!/permitAll\s*\(\s*\)/.test(operation.policy))throw new Error('Public frontend action is not permitAll on backend: '+action.id);
- }else{
-  const actual=[...operation.policy.matchAll(/has(?:Any)?Authority\s*\(([^)]*)\)/g)].flatMap(call=>[...call[1].matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map(m=>m[1]));
-  if(action.permissions.includes('POS_CASH_MOVEMENT_DYNAMIC')){
-   if(!operation.policy.includes("'POS_' + #request.type().name()"))throw new Error('Dynamic POS cash-movement permission mapping mismatch: '+action.id);
-  }else{
-   const expected=[...action.permissions].sort(),observed=[...new Set(actual)].sort();
-   if(JSON.stringify(expected)!==JSON.stringify(observed))throw new Error('Frontend/backend permission parity mismatch for '+action.id+': frontend='+expected.join(',')+' backend='+observed.join(','));
-   if(action.permissions.length>1){
-    const expectsAny=action.permissionMode==='ANY';
-    const backendAny=/hasAnyAuthority\s*\(/.test(operation.policy)||/\sor\s/.test(operation.policy);
-    if(expectsAny!==backendAny)throw new Error('Frontend/backend ANY-vs-ALL authorization mode mismatch for '+action.id);
-   }
-  }
- }
+ validateActionPermissionParity(action,operation.policy);
 }
 
 

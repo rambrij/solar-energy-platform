@@ -6,11 +6,16 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TenantRepository extends JpaRepository<Tenant,Long> {
     Optional<Tenant> findBySlug(String slug);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Tenant t where t.id=:id")
+    Optional<Tenant> lockById(@Param("id") long id);
     Optional<Tenant> findBySlugAndLifecycleStatus(String slug,TenantStatus status);
     List<Tenant> findByLifecycleStatusAndSlugIsNotNullOrderByNameAscIdAsc(TenantStatus status);
     long countByLifecycleStatus(TenantStatus status);

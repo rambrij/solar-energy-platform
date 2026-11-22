@@ -18,7 +18,10 @@ import com.saumya.pos.inventory.internal.ReservationRepository;
 import com.saumya.pos.inventory.internal.ReturnDispositionRepository;
 import com.saumya.pos.retail.PosService;
 import com.saumya.pos.shared.Pricing;
+import com.saumya.pos.tenant.TenantLifecycleService;
+import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -84,9 +88,14 @@ class DraftExpiryAuthorizationTest {
     }
 
     @Test
-    void scheduledWorkerInstallsDedicatedIdentityOnlyForTheExpiryCallAndRestoresCallerContext() {
+    void scheduledWorkerUsesPersistedDueOrderAndRestoresNestedCallerContext() {
         var orders = mock(DraftRepository.class);
         var checkout = mock(CheckoutService.class);
+        var due = new DraftOrder("draft-1", 7L, null, 9L, "operator", "session-1", "IN_STORE",
+            "idempotency", "request-hash", BigDecimal.ONE, 9L, "owner",
+            Instant.parse("2026-01-01T00:00:00Z"), false);
+        when(orders.findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc(
+            eq("DRAFT"), any(Instant.class))).thenReturn(List.of(due));
         var previous = UsernamePasswordAuthenticationToken.authenticated(
             "operator", null, List.of(new SimpleGrantedAuthority("POS_VIEW")));
         SecurityContextHolder.getContext().setAuthentication(previous);
@@ -99,10 +108,59 @@ class DraftExpiryAuthorizationTest {
             return null;
         }).when(checkout).expire(7L, "draft-1");
 
-        job.expireOne(7L, "draft-1");
-
+        assertThat(job.runBatch()).isEqualTo(1);
         verify(checkout).expire(7L, "draft-1");
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isSameAs(previous);
+    }
+
+    @Test
+    void scheduledWorkerClearsThreadContextAfterFailureAndRetriesOnTheReusedThread() {
+        var orders = mock(DraftRepository.class);
+        var checkout = mock(CheckoutService.class);
+        var due = new DraftOrder("draft-2", 8L, null, 10L, "cashier", "session-2", "IN_STORE",
+            "idempotency-2", "request-hash-2", BigDecimal.ONE, 10L, "owner",
+            Instant.parse("2026-01-01T00:00:00Z"), false);
+        when(orders.findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc(
+            eq("DRAFT"), any(Instant.class))).thenReturn(List.of(due));
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(invocation -> {
+            var worker = SecurityContextHolder.getContext().getAuthentication();
+            assertThat(worker.getName()).isEqualTo("system:draft-expiry");
+            assertThat(worker.getAuthorities()).extracting("authority").containsExactly(SYSTEM_GRANT);
+            if (calls.incrementAndGet() == 1) throw new IllegalStateException("injected expiry failure");
+            return null;
+        }).when(checkout).expire(8L, "draft-2");
+        var job = new DraftExpiryJob(orders, checkout, Clock.systemUTC(), true);
+        SecurityContextHolder.clearContext();
+
+        assertThatThrownBy(job::runBatch).isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("injected expiry failure");
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(job.runBatch()).isEqualTo(1);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(checkout, times(2)).expire(8L, "draft-2");
+    }
+
+    @Test
+    void expiryRejectsTenantSuspendedAfterSchedulingBeforeOrderLookup() {
+        var orders = mock(DraftRepository.class);
+        var tenants = mock(TenantLifecycleService.class);
+        when(tenants.lockActive(7L)).thenReturn(false);
+        var service = new CheckoutService(
+            orders, mock(DraftLineRepository.class), mock(CartService.class),
+            mock(CustomerAccess.class), mock(CatalogService.class), mock(InventoryService.class),
+            mock(PosService.class), mock(Pricing.class), Clock.systemUTC(),
+            mock(DraftRecoveryPolicy.class), 600);
+        ReflectionTestUtils.setField(service, "tenantLifecycle", tenants);
+        SecurityContextHolder.getContext().setAuthentication(
+            UsernamePasswordAuthenticationToken.authenticated(
+                "system:draft-expiry", null, List.of(new SimpleGrantedAuthority(SYSTEM_GRANT))));
+
+        assertThatThrownBy(() -> service.expire(7L, "draft-3"))
+            .isInstanceOfSatisfying(ResponseStatusException.class, error ->
+                assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+        verify(tenants).lockActive(7L);
+        verifyNoInteractions(orders);
     }
 
     @Test

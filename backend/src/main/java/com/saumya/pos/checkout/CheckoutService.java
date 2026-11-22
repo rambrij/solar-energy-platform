@@ -33,6 +33,7 @@ public class CheckoutService {
     @org.springframework.beans.factory.annotation.Autowired private BranchPolicyService terminalPolicies;
     @org.springframework.beans.factory.annotation.Autowired private SaleDiscountService discounts;
  @org.springframework.beans.factory.annotation.Autowired private TenantEntitlementPolicy entitlements;
+  @org.springframework.beans.factory.annotation.Autowired private com.saumya.pos.tenant.TenantLifecycleService tenantLifecycle;
     private final DraftRepository orders;private final DraftLineRepository lines;private final CartService carts;
     private final CustomerAccess customers;private final CatalogService catalogue;private final InventoryService stock;
     private final PosService retail;private final Pricing pricing;private final Clock clock;private final long ttl;private final DraftRecoveryPolicy recoveryPolicy;
@@ -181,6 +182,9 @@ public class CheckoutService {
                 ||!"system:draft-expiry".equals(authentication.getName())
                 ||authentication.getAuthorities().stream().noneMatch(grant->"SYSTEM_DRAFT_EXPIRY".equals(grant.getAuthority())))
             throw new ResponseStatusException(FORBIDDEN,"Trusted draft-expiry worker required");
+        // Hold the tenant row lock for this transaction so suspension cannot race this cleanup.
+        if(tenantLifecycle==null || !tenantLifecycle.lockActive(tenant))
+            throw new ResponseStatusException(FORBIDDEN,"Active tenant required for draft expiry");
         var order=orders.lock(tenant,id).orElseThrow(this::missing);
         if("DRAFT".equals(order.status())&&!order.expires().isAfter(clock.instant())&&!unresolvedTerminal(order)){
             stock.release(tenant,id);buyers.discardUnpaid(tenant,id);order.finish("EXPIRED",clock.instant());orders.flush();posState(order);

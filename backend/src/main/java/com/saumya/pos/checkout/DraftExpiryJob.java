@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Trusted system boundary for expiring unpaid reservations. This worker is the only production
@@ -43,15 +44,16 @@ public class DraftExpiryJob {
                 "DRAFT", clock.instant());
         int processed = 0;
         for (DraftOrder order : due) {
-            asSystem(() -> checkout.expire(order.tenant(), order.id()));
-            processed++;
+            try {
+                asSystem(() -> checkout.expire(order.tenant(), order.id()));
+                processed++;
+            } catch (ResponseStatusException denied) {
+                // A tenant may have been suspended after the due row was selected.
+                // Skip that row without blocking expiry work for other tenants.
+                if (denied.getStatusCode().value() != 403) throw denied;
+            }
         }
         return processed;
-    }
-
-    /** Explicit single-order operation for trusted internal callers and deterministic tests. */
-    public void expireOne(long tenant, String orderId) {
-        asSystem(() -> checkout.expire(tenant, orderId));
     }
 
     private void asSystem(Runnable action) {
@@ -63,7 +65,12 @@ public class DraftExpiryJob {
         try {
             action.run();
         } finally {
-            SecurityContextHolder.setContext(previous);
+            // Scheduler threads are pooled. Never leave a worker identity on a reused thread.
+            if (previous.getAuthentication() == null) {
+                SecurityContextHolder.clearContext();
+            } else {
+                SecurityContextHolder.setContext(previous);
+            }
         }
     }
 }

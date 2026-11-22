@@ -2296,9 +2296,26 @@ class PosTest {
   update("UPDATE tenants SET name='Later seller' WHERE id=1");var retry=as("alice", () -> checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));assertThat(retry.get("receipt_seller_name")).isEqualTo("Seller at payment");assertThat(retry.get("issued_at")).isEqualTo(receipt.get("issued_at"));
  }
  @Test void receiptIdentityRollsBackWithSaleAndLegacyReadNeverInventsNames(){
+  int ordersBefore=db.queryForObject("SELECT COUNT(*) FROM orders WHERE tenant_id=1",Integer.class);
+  int tendersBefore=db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders WHERE tenant_id=1",Integer.class);
+  int attemptsBefore=db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1",Integer.class);
+  int ledgerBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1",Integer.class);
+  int invoicesBefore=db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1",Integer.class);
+  int snapshotsBefore=db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots WHERE tenant_id=1",Integer.class);
+  int receiptAuditsBefore=db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit WHERE tenant_id=1",Integer.class);
+  int auditBefore=db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1",Integer.class);
+  int stockBefore=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
   assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{as("alice", () -> checkout.cashSale(a.cashier(),"identity-rollback",sale(1,"120")));throw new IllegalStateException("Rollback sale");})).isInstanceOf(IllegalStateException.class);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders",Integer.class)).isZero();
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders",Integer.class)).isZero();assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(1);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders WHERE tenant_id=1",Integer.class)).isEqualTo(tendersBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE tenant_id=1",Integer.class)).isEqualTo(ordersBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1",Integer.class)).isEqualTo(attemptsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1",Integer.class)).isEqualTo(ledgerBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1",Integer.class)).isEqualTo(invoicesBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM order_buyer_snapshots WHERE tenant_id=1",Integer.class)).isEqualTo(snapshotsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit WHERE tenant_id=1",Integer.class)).isEqualTo(receiptAuditsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1",Integer.class)).isEqualTo(auditBefore);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(stockBefore);
+  assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(stockBefore);assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isZero();
   String id=(String)as("alice", () -> checkout.cashSale(a.cashier(),"identity-legacy",sale(1,"120"))).get("id");update("UPDATE orders SET receipt_seller_name=NULL,receipt_outlet_name=NULL WHERE id=?",id);update("UPDATE tenants SET name='Mutable current seller' WHERE id=1");assertThat(receiptReader.receipt(a,id).get("receipt_seller_name")).isNull();assertThat(receiptReader.reprint(a,id).get("receipt_outlet_name")).isNull();assertThat(db.queryForObject("SELECT receipt_seller_name FROM orders WHERE id=?",String.class,id)).isNull();
  }
 

@@ -206,6 +206,30 @@ class RepositoryTenantAccessAnalysisTest {
         }
     }
 
+    private static boolean usesUnreviewedSqlExecutionApi(String source) {
+        return Pattern.compile("(?is)\\b(?:JdbcClient|DatabaseClient|DSLContext)\\b|"
+            + "\\.\\s*(?:prepareStatement|createStatement|executeQuery|executeUpdate|executeLargeUpdate|createNativeQuery|createStoredProcedureQuery|createSQLQuery)\\s*\\(")
+            .matcher(source).find();
+    }
+
+    @Test
+    void everySqlExecutionApiMustUseTheReviewedJdbcOrJpaAnalysisBoundary() throws Exception {
+        Set<String> unreviewed=new TreeSet<>();
+        try(var files=Files.walk(sourceRoot())){
+            for(Path file:files.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java")).toList()){
+                String source=Files.readString(file);
+                if(usesUnreviewedSqlExecutionApi(source))
+                    unreviewed.add(sourceRoot().relativize(file).toString().replace('\\','/'));
+            }
+        }
+        assertThat(unreviewed).as("unreviewed JDBC clients, raw JDBC statements, and alternate SQL execution APIs")
+            .isEmpty();
+        assertThat(usesUnreviewedSqlExecutionApi("jdbcClient.sql(dynamicSql).query()")).isTrue();
+        assertThat(usesUnreviewedSqlExecutionApi("connection.prepareStatement(dynamicSql)")).isTrue();
+        assertThat(usesUnreviewedSqlExecutionApi("entityManager.createNativeQuery(dynamicSql)")).isTrue();
+        assertThat(usesUnreviewedSqlExecutionApi("namedJdbc.queryForList(staticSql,params)")).isFalse();
+    }
+
     @Test
     void dynamicJpaQueryConstructionIsProhibitedOutsideReviewedSpecificationBoundary() throws Exception {
         Set<String> dynamicJpa = new TreeSet<>();

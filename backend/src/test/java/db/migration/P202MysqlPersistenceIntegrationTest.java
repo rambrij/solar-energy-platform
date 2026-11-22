@@ -740,7 +740,7 @@ class P202MysqlPersistenceIntegrationTest {
                     """);
             db.update("""
                     INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
-                    VALUES(996001,996031,'INVENTORY_READ','p2-composite-a')
+                    VALUES(996001,996031,'INVENTORY_VIEW','p2-composite-a')
                     """);
             db.update("""
                     INSERT INTO employee_role_assignments
@@ -788,16 +788,16 @@ class P202MysqlPersistenceIntegrationTest {
             // vendor_role_permissions -> tenant-owned role and tenant-owned actor
             assertForeignKeyRejected("vendor_role_permissions.role INSERT", () -> db.update("""
                     INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
-                    VALUES(996001,996032,'P2_BAD_ROLE','p2-composite-a')
+                    VALUES(996001,996032,'POS_VIEW','p2-composite-a')
                     """));
             assertForeignKeyRejected("vendor_role_permissions.actor INSERT", () -> db.update("""
                     INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
-                    VALUES(996001,996031,'P2_BAD_ACTOR','p2-composite-b')
+                    VALUES(996001,996031,'CATALOG_PROMOTION_MANAGE','p2-composite-b')
                     """));
             assertForeignKeyRejected("vendor_role_permissions.role UPDATE",
-                    () -> db.update("UPDATE vendor_role_permissions SET role_id=996032 WHERE tenant_id=996001 AND permission='INVENTORY_READ'"));
+                    () -> db.update("UPDATE vendor_role_permissions SET role_id=996032 WHERE tenant_id=996001 AND permission='INVENTORY_VIEW'"));
             assertForeignKeyRejected("vendor_role_permissions.actor UPDATE",
-                    () -> db.update("UPDATE vendor_role_permissions SET created_by='p2-composite-b' WHERE tenant_id=996001 AND permission='INVENTORY_READ'"));
+                    () -> db.update("UPDATE vendor_role_permissions SET created_by='p2-composite-b' WHERE tenant_id=996001 AND permission='INVENTORY_VIEW'"));
 
             // Employee-role assignment covers employee, role, assigned_by and
             // nullable revoked_by as independent composite ownership edges.
@@ -881,9 +881,9 @@ class P202MysqlPersistenceIntegrationTest {
                     .isEqualTo("p2-composite-a");
             assertThat(db.queryForObject("SELECT updated_by FROM vendor_roles WHERE id=996031", String.class))
                     .isEqualTo("p2-composite-a");
-            assertThat(db.queryForObject("SELECT role_id FROM vendor_role_permissions WHERE tenant_id=996001 AND permission='INVENTORY_READ'", Long.class))
+            assertThat(db.queryForObject("SELECT role_id FROM vendor_role_permissions WHERE tenant_id=996001 AND permission='INVENTORY_VIEW'", Long.class))
                     .isEqualTo(996031L);
-            assertThat(db.queryForObject("SELECT created_by FROM vendor_role_permissions WHERE tenant_id=996001 AND permission='INVENTORY_READ'", String.class))
+            assertThat(db.queryForObject("SELECT created_by FROM vendor_role_permissions WHERE tenant_id=996001 AND permission='INVENTORY_VIEW'", String.class))
                     .isEqualTo("p2-composite-a");
             assertThat(db.queryForObject("SELECT username FROM employee_role_assignments WHERE tenant_id=996001 AND role_id=996031", String.class))
                     .isEqualTo("p2-composite-a");

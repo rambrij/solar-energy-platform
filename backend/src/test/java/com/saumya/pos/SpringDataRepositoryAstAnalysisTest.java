@@ -29,6 +29,40 @@ class SpringDataRepositoryAstAnalysisTest {
     private static boolean queryScoped(String sql){
         return java.util.regex.Pattern.compile("(?is)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*(?::[a-z][a-zA-Z0-9_]*|\\?\\d*)").matcher(sql).find();
     }
+    private static boolean hasBoundScopeParameter(String query,MethodTree method){
+        java.util.regex.Matcher bindings=java.util.regex.Pattern.compile(
+            "(?i)(?:\\\\b[a-z_][a-z0-9_]*\\\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\\\s*=\\\\s*(:[a-z][a-zA-Z0-9_]*|\\\\?[0-9]*)")
+            .matcher(query);
+        boolean found=false;
+        while(bindings.find()){
+            found=true;
+            String reference=bindings.group(1);
+            boolean matched=false;
+            if(reference.startsWith(":")){
+                String name=reference.substring(1);
+                for(VariableTree parameter:method.getParameters()){
+                    if(parameter.getName().contentEquals(name)){matched=true;break;}
+                    for(AnnotationTree annotation:parameter.getModifiers().getAnnotations()){
+                        if(annotation.getAnnotationType().toString().endsWith("Param")
+                            &&annotation.toString().matches("(?s).*['\\\"]"+java.util.regex.Pattern.quote(name)+"['\\\"].*")){
+                            matched=true;break;
+                        }
+                    }
+                    if(matched)break;
+                }
+            }else if(reference.length()>1){
+                int index=Integer.parseInt(reference.substring(1))-1;
+                if(index>=0&&index<method.getParameters().size()){
+                    VariableTree parameter=method.getParameters().get(index);
+                    matched=parameter.getName().toString().matches("(?i).*(tenant|customer|owner|username|token|hash|family|subscription|invoice|plan).*");
+                    for(AnnotationTree annotation:parameter.getModifiers().getAnnotations())
+                        if(annotation.getAnnotationType().toString().endsWith("Param")&&annotation.toString().matches("(?s).*['\\\"].*['\\\"].*"))matched=true;
+                }
+            }else matched=hasScopeParameter(method);
+            if(!matched)return false;
+        }
+        return found;
+    }
     private static boolean hasScopeParameter(MethodTree method){
         for(VariableTree parameter:method.getParameters()){
             String name=parameter.getName().toString();
@@ -89,8 +123,8 @@ class SpringDataRepositoryAstAnalysisTest {
                             if(!scoped){
                                 assertThat(globals).as("unscoped @Query requires a reviewed global/resource exception: %s",operation).containsKey(operation);
                             }else{
-                                assertThat(hasScopeParameter(method))
-                                    .as("scoped @Query must bind a tenant/customer/owner method parameter: %s",operation).isTrue();
+                                assertThat(hasBoundScopeParameter(sql,method))
+                                    .as("scoped @Query must bind the exact named/positional tenant/customer/owner parameter: %s",operation).isTrue();
                             }
                         }
                         if(queryAnnotation)continue;
@@ -115,5 +149,7 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(queryScoped("select c from Cart c where c.customerId=:customer and c.id=:id")).isTrue();
         assertThat(queryScoped("select * from refunds where id=?1")).isFalse();
         assertThat(queryScoped("delete from refunds where tenant_id=?1 and id=?2")).isTrue();
+        assertThat(hasBoundScopeParameterFixture("select p from Product p where p.tenantId=:tenant",Set.of("tenant"))).isTrue();
+        assertThat(hasBoundScopeParameterFixture("select p from Product p where p.tenantId=:tenant",Set.of("customerId"))).isFalse();
     }
 }

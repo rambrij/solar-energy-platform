@@ -90,6 +90,11 @@ class JdbcTenantSqlAstAnalysisTest {
     private static boolean platformTenantSelector(String sql) {
         return java.util.regex.Pattern.compile("(?is)select\\s+id\\s+from\\s+tenants\\s+where\\s+id\\s*=\\s*\\?").matcher(sql).find();
     }
+    private static boolean clientOrigin(String expression,Set<String> tainted) {
+        if(java.util.regex.Pattern.compile("(?i)\\b(?:request|body|payload|dto|filter|criteria|query|params|form|input)\\s*\\.\\s*(?:get)?tenantId\\s*\\(").matcher(expression).find())return true;
+        for(String variable:tainted)if(java.util.regex.Pattern.compile("\\b"+java.util.regex.Pattern.quote(variable)+"\\b").matcher(expression).find())return true;
+        return false;
+    }
     private static boolean hasTrustedTenantArgument(String args) {
         if (java.util.regex.Pattern.compile("(?i)\\b(?:request|body|payload|dto|filter|criteria)\\s*\\.\\s*(?:get)?tenantId\\s*\\(").matcher(args).find()) return false;
         return java.util.regex.Pattern.compile("(?i)(?:\\btenant(?:Id)?\\b|\\b(?:auth|authorization|ctx|c|actor|scope|s|event|m|order)\\s*\\.|\\.tenant\\s*\\(|\\.tenantId\\s*\\()")
@@ -127,9 +132,21 @@ class JdbcTenantSqlAstAnalysisTest {
                 JsonNode classPolicy=trusted.get(className);
                 new TreePathScanner<Void,Void>() {
                     String methodName="";
+                    Set<String> taintedTenantVariables=new HashSet<>();
                     @Override public Void visitMethod(MethodTree node,Void unused) {
-                        String previous=methodName;methodName=node.getName().toString();
-                        try{return super.visitMethod(node,unused);}finally{methodName=previous;}
+                        String previous=methodName;Set<String> previousTainted=taintedTenantVariables;
+                        methodName=node.getName().toString();taintedTenantVariables=new HashSet<>();
+                        try{return super.visitMethod(node,unused);}finally{methodName=previous;taintedTenantVariables=previousTainted;}
+                    }
+                    @Override public Void visitVariable(VariableTree node,Void unused) {
+                        if(node.getInitializer()!=null&&clientOrigin(node.getInitializer().toString(),taintedTenantVariables))
+                            taintedTenantVariables.add(node.getName().toString());
+                        return super.visitVariable(node,unused);
+                    }
+                    @Override public Void visitAssignment(AssignmentTree node,Void unused) {
+                        if(node.getVariable() instanceof IdentifierTree id&&clientOrigin(node.getExpression().toString(),taintedTenantVariables))
+                            taintedTenantVariables.add(id.getName().toString());
+                        return super.visitAssignment(node,unused);
                     }
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused) {
                         String call=node.getMethodSelect().toString();
@@ -141,6 +158,7 @@ class JdbcTenantSqlAstAnalysisTest {
                             String sql=literal(node.getArguments().getFirst());
                             assertThat(sql).as("every PosService.one call must pass a static SQL literal: %s",node).isNotNull();
                             String args=node.getArguments().stream().skip(1).map(Object::toString).reduce("",(a,b)->a+" "+b);
+                            assertThat(clientOrigin(args,taintedTenantVariables)).as("forged tenant alias cannot flow into PosService.one: %s",node).isFalse();
                             assertThat(hasTrustedTenantArgument(args)).as("PosService.one call must receive trusted tenant provenance: %s",node).isTrue();
                         }
                         if(sqlMethods.contains(name) && call.contains(".")) {
@@ -183,6 +201,8 @@ class JdbcTenantSqlAstAnalysisTest {
                                     tenantArgument=trustedParameterAt(node.getArguments(),offset,tenantIndex,methodName,batch);
                                 }
                                 assertThat(tenantArgument).as("tenant placeholder %s must bind to an explicit trusted argument in %s",tenantIndex,node).isNotNull();
+                                assertThat(clientOrigin(tenantArgument,taintedTenantVariables))
+                                    .as("forged tenant value or transitive alias cannot bind a SQL tenant placeholder: %s",node).isFalse();
                                 assertThat(hasTrustedTenantArgument(tenantArgument))
                                     .as("tenant placeholder must bind to authenticated actor, persisted membership, platform authorization or trusted domain event: %s",node).isTrue();
                             }
@@ -205,6 +225,8 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(tenantInsert("INSERT INTO vendor_roles(id,role_key) VALUES(?,?)")).isFalse();
         assertThat(tenantInsert("INSERT INTO vendor_roles(tenant_id,role_key) VALUES(?,?)")).isTrue();
         assertThat(hasTrustedTenantArgument("request.getTenantId()")).isFalse();
+        assertThat(clientOrigin("tenantAlias",Set.of("tenantAlias"))).isTrue();
+        assertThat(clientOrigin("trustedScope.tenant()",Set.of())).isFalse();
         assertThat(tenantPlaceholderIndex("SELECT * FROM vendor_roles WHERE id=? AND tenant_id=?")).isEqualTo(1);
         assertThat(tenantPlaceholderIndex("INSERT INTO vendor_roles(id,tenant_id,role_key) VALUES(?,?,?)")).isEqualTo(1);
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();

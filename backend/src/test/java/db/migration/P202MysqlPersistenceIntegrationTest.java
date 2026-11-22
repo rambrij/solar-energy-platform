@@ -658,6 +658,12 @@ class P202MysqlPersistenceIntegrationTest {
                     INSERT INTO subscription_plan_versions
                     (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
                      max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(994099,1,100.0000,'INR','MONTHLY',5,1000,2,0,'{}',7,'{}','missing parent plan','p2-check-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
                     VALUES(994031,1,100.0000,'INR','WEEKLY',5,1000,2,0,'{}',7,'{}','P2 invalid interval','p2-check-actor')
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
@@ -679,6 +685,11 @@ class P202MysqlPersistenceIntegrationTest {
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO tenant_subscriptions
                     (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
+                    VALUES(994040,994011,994031,99,'PENDING','2026-01-01','2026-02-01','{}')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO tenant_subscriptions
+                    (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
                     VALUES(994041,994011,994031,3,'NOT_A_STATUS','2026-01-01','2026-02-01','{}')
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             db.update("""
@@ -693,6 +704,8 @@ class P202MysqlPersistenceIntegrationTest {
                     (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
                     VALUES(994043,994011,994031,3,'ACTIVE','2026-02-01','2026-03-01','{}')
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("UPDATE tenant_subscriptions SET plan_version=99 WHERE id=994042"))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("UPDATE tenant_subscriptions SET status='NOT_A_STATUS' WHERE id=994042"))
                     .isInstanceOf(org.springframework.dao.DataAccessException.class);
             db.update("UPDATE tenant_subscriptions SET status='CANCELLED' WHERE id=994042");

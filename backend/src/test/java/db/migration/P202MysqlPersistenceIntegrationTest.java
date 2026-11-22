@@ -135,9 +135,9 @@ class P202MysqlPersistenceIntegrationTest {
             flyway(url, user, password, schema, null).migrate();
             JdbcTemplate db = jdbc(url, user, password);
 
-            // This is the explicit tenant-owned table inventory derived from the
-            // V1-V55 schema and the SRS ownership classification. Platform audit
-            // events are intentionally excluded: their tenant_id is nullable.
+            // Explicit ownership classification for every table containing tenant_id
+            // in the V1-V55 schema. Platform audit and refresh-token rows are shared
+            // actor-context tables; support-access rows are tenant-owned records.
             Set<String> expectedTenantTables = Set.of(
                     "branches", "employees", "registers", "pos_sessions", "products",
                     "inventory", "orders", "order_items", "inventory_ledger", "pos_audit",
@@ -153,7 +153,8 @@ class P202MysqlPersistenceIntegrationTest {
                     "subscription_payments", "subscription_events", "vendor_roles",
                     "vendor_role_permissions", "employee_role_assignments",
                     "employee_register_assignments", "vendor_access_audit_events",
-                    "pos_stock_locations");
+                    "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
+                    "platform_support_access", "stock_reservations");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns
@@ -175,6 +176,37 @@ class P202MysqlPersistenceIntegrationTest {
                         .as("%s.tenant_id must be NOT NULL", table)
                         .isEqualTo("NO");
             }
+
+            // Verify every schema-discovered FK edge between tenant-owned tables
+            // carries tenant_id on both sides. This catches omissions as migrations
+            // add new commercial, financial or operational tables.
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM (
+                      SELECT k.constraint_name,k.table_name,k.referenced_table_name,
+                             SUM(k.column_name='tenant_id') AS child_tenant_columns,
+                             SUM(k.referenced_column_name='tenant_id') AS parent_tenant_columns
+                        FROM information_schema.key_column_usage k
+                        JOIN information_schema.columns child
+                          ON child.table_schema=k.table_schema AND child.table_name=k.table_name
+                         AND child.column_name='tenant_id'
+                        JOIN information_schema.columns parent
+                          ON parent.table_schema=k.referenced_table_schema
+                         AND parent.table_name=k.referenced_table_name
+                         AND parent.column_name='tenant_id'
+                       WHERE k.table_schema=? AND k.referenced_table_name IS NOT NULL
+                       GROUP BY k.constraint_name,k.table_name,k.referenced_table_name
+                      HAVING child_tenant_columns=0 OR parent_tenant_columns=0
+                    ) incomplete_tenant_edges
+                    """, Integer.class, schema)).isZero();
+
+            // Every discovered tenant-owned table must be represented by exactly
+            // one ownership classification; all of its tenant-scoped foreign keys
+            // are checked above against MySQL's actual ordered key metadata.
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.key_column_usage
+                    WHERE table_schema=? AND referenced_table_name IS NOT NULL
+                      AND column_name='tenant_id'
+                    """, Integer.class, schema)).isGreaterThan(0);
 
             // Every parent key used by tenant-scoped relationships must include
             // tenant_id in the unique key, not merely in an unrelated index.
@@ -214,6 +246,43 @@ class P202MysqlPersistenceIntegrationTest {
             assertConstraint(db, schema, "vendor_role_permissions",
                     "chk_vendor_role_permission_no_platform", "CHECK");
             assertConstraint(db, schema, "platform_user_permissions", "chk_platform_permissions_v47", "CHECK");
+
+            // Complete named-constraint inventory introduced or replaced by V40-V47.
+            // V44's permission CHECK is deliberately replaced by V47's expanded
+            // allow-list; both migrations are also verified by the final constraint.
+            Set<String> v40ToV47 = Set.of(
+                    "chk_tenant_lifecycle", "fk_platform_audit_actor", "fk_platform_audit_tenant",
+                    "chk_platform_audit_outcome", "fk_support_tenant", "fk_support_actor",
+                    "fk_support_revoker", "chk_support_expiry", "fk_platform_config_actor",
+                    "chk_platform_config_secret", "fk_plan_version_plan", "fk_plan_version_actor",
+                    "chk_plan_interval", "chk_plan_limits", "fk_subscription_tenant",
+                    "fk_subscription_plan_version", "chk_subscription_status", "fk_sub_invoice_tenant",
+                    "fk_sub_invoice_subscription", "chk_sub_invoice_status", "fk_sub_payment_tenant",
+                    "fk_sub_payment_invoice", "chk_sub_payment_status", "fk_sub_event_tenant",
+                    "fk_sub_event_subscription", "fk_sub_event_actor", "fk_invitation_user",
+                    "uk_tenant_subscription_tenant_id", "uk_tenant_effective_subscription",
+                    "uk_sub_invoice_tenant_id", "fk_sub_invoice_subscription_owner",
+                    "fk_sub_payment_invoice_owner", "fk_platform_mfa_token_user",
+                    "uk_vendor_role_tenant_key", "uk_vendor_role_tenant_id", "fk_vendor_role_tenant",
+                    "fk_vendor_role_created_by", "fk_vendor_role_updated_by",
+                    "fk_vendor_role_permission_role", "fk_vendor_role_permission_actor",
+                    "chk_vendor_role_permission_no_platform", "fk_employee_role_employee",
+                    "fk_employee_role_role", "fk_employee_role_assigned_by",
+                    "fk_employee_role_revoked_by", "fk_employee_register_employee",
+                    "fk_employee_register_register", "fk_employee_register_assigned_by",
+                    "fk_employee_register_revoked_by", "fk_vendor_access_audit_tenant",
+                    "fk_vendor_access_audit_actor", "fk_vendor_access_audit_subject",
+                    "chk_platform_permissions_v47");
+            Set<String> installedConstraintNames = new HashSet<>(db.queryForList("""
+                    SELECT constraint_name FROM information_schema.table_constraints
+                    WHERE table_schema=?
+                    """, String.class, schema));
+            assertThat(installedConstraintNames).containsAll(v40ToV47);
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.triggers
+                    WHERE trigger_schema=? AND event_object_table='platform_audit_events'
+                      AND trigger_name IN ('trg_platform_audit_no_update','trg_platform_audit_no_delete')
+                    """, Integer.class, schema)).isEqualTo(2);
 
             assertConstraint(db, schema, "tenant_subscriptions", "uk_tenant_subscription_tenant_id", "UNIQUE");
             assertConstraint(db, schema, "subscription_invoices", "uk_sub_invoice_tenant_id", "UNIQUE");
@@ -302,7 +371,7 @@ class P202MysqlPersistenceIntegrationTest {
                     INSERT INTO users(id,username,password_hash,enabled)
                     VALUES(993001,'p2-audit-actor','not-a-login-secret',TRUE)
                     """);
-            db.update("INSERT INTO tenants(id,name) VALUES(993011,'P2 financial tenant')");
+            db.update("INSERT INTO tenants(id,name) VALUES(993011,'P2 financial tenant'),(993012,'P2 second financial tenant')");
             db.update("""
                     INSERT INTO platform_audit_events(actor_username,action,resource_type,tenant_id,outcome)
                     VALUES('p2-audit-actor','P2_IMMUTABILITY_TEST','TEST',993011,'SUCCESS')
@@ -357,6 +426,38 @@ class P202MysqlPersistenceIntegrationTest {
                     INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason)
                     VALUES(993011,993031,'ACTIVE','p2-audit-actor','P2 delete restriction test')
                     """);
+
+            // Positive same-tenant ownership is represented by the rows above.
+            // Each corresponding tenant mismatch must fail on INSERT and UPDATE.
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_invoices
+                    (tenant_id,subscription_id,invoice_number,billing_period_start,billing_period_end,currency,
+                     plan_snapshot,subtotal,tax_amount,total,status,due_at)
+                    VALUES(993012,993031,'P2-CROSS-TENANT-INVOICE','2026-01-01','2026-02-01','INR','{}',
+                           100.0000,0.0000,100.0000,'OPEN','2026-02-15 00:00:00')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    UPDATE subscription_invoices SET tenant_id=993012 WHERE id=?
+                    """, invoiceId)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_payments
+                    (tenant_id,subscription_invoice_id,provider,platform_merchant_reference,idempotency_key,
+                     amount,currency,status)
+                    VALUES(993012,?,'TEST','P2-CROSS-TENANT-MERCHANT','P2-CROSS-TENANT-IDEMPOTENCY',
+                           100.0000,'INR','SUCCEEDED')
+                    """, invoiceId)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    UPDATE subscription_payments SET tenant_id=993012
+                    WHERE tenant_id=993011 AND subscription_invoice_id=?
+                    """, invoiceId)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason)
+                    VALUES(993012,993031,'ACTIVE','p2-audit-actor','cross-tenant must fail')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    UPDATE subscription_events SET tenant_id=993012
+                    WHERE tenant_id=993011 AND subscription_id=993031
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
 
             assertThatThrownBy(() -> db.update("DELETE FROM subscription_invoices WHERE id=?", invoiceId))
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);

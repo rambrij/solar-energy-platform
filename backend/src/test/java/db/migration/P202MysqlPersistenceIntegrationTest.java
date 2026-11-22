@@ -531,6 +531,107 @@ class P202MysqlPersistenceIntegrationTest {
         });
     }
 
+    @Test
+    void v40ToV47CheckConstraintsRejectInvalidTenantPlatformBillingAndRoleRowsOnMysql() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            JdbcTemplate db = jdbc(url, user, password);
+            db.update("""
+                    INSERT INTO users(id,username,password_hash,enabled)
+                    VALUES(994001,'p2-check-actor','not-a-login-secret',TRUE)
+                    """);
+            db.update("INSERT INTO tenants(id,name) VALUES(994011,'P2 check tenant')");
+            db.update("INSERT INTO branches(id,tenant_id,name) VALUES(994021,994011,'P2 check branch')");
+            db.update("""
+                    INSERT INTO employees(username,tenant_id,branch_id,enabled)
+                    VALUES('p2-check-actor',994011,994021,TRUE)
+                    """);
+
+            assertThatThrownBy(() -> db.update(
+                    "UPDATE tenants SET lifecycle_status='NOT_A_LIFECYCLE' WHERE id=994011"))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO platform_audit_events(actor_username,action,resource_type,tenant_id,outcome)
+                    VALUES('p2-check-actor','P2_BAD_OUTCOME','TEST',994011,'NOT_AN_OUTCOME')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO platform_support_access(tenant_id,actor_username,purpose,ticket_reference,expires_at)
+                    VALUES(994011,'p2-check-actor','P2 invalid expiry','P2-EXPIRY','2000-01-01 00:00:00')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO platform_configuration(config_key,category,plain_value,secret_reference,is_sensitive,updated_by)
+                    VALUES('p2-invalid-secret','SECURITY','plain-secret',NULL,TRUE,'p2-check-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+
+            db.update("""
+                    INSERT INTO subscription_plans(id,plan_key,display_name,active,current_version)
+                    VALUES(994031,'p2-check-plan','P2 Check Plan',TRUE,1)
+                    """);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(994031,1,100.0000,'INR','WEEKLY',5,1000,2,0,'{}',7,'{}','P2 invalid interval','p2-check-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(994031,2,-1.0000,'INR','MONTHLY',5,1000,2,0,'{}',7,'{}','P2 invalid price','p2-check-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(994031,3,100.0000,'INR','MONTHLY',5,1000,2,0,'{}',7,'{}','P2 valid plan version','p2-check-actor')
+                    """);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO tenant_subscriptions
+                    (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
+                    VALUES(994041,994011,994031,3,'NOT_A_STATUS','2026-01-01','2026-02-01','{}')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            db.update("""
+                    INSERT INTO tenant_subscriptions
+                    (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
+                    VALUES(994042,994011,994031,3,'ACTIVE','2026-01-01','2026-02-01','{}')
+                    """);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_invoices
+                    (tenant_id,subscription_id,invoice_number,billing_period_start,billing_period_end,currency,
+                     plan_snapshot,subtotal,tax_amount,total,status,due_at)
+                    VALUES(994011,994042,'P2-BAD-INVOICE-STATUS','2026-01-01','2026-02-01','INR','{}',
+                           100.0000,0.0000,100.0000,'NOT_A_STATUS','2026-02-15 00:00:00')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            db.update("""
+                    INSERT INTO subscription_invoices
+                    (tenant_id,subscription_id,invoice_number,billing_period_start,billing_period_end,currency,
+                     plan_snapshot,subtotal,tax_amount,total,status,due_at)
+                    VALUES(994011,994042,'P2-GOOD-INVOICE','2026-01-01','2026-02-01','INR','{}',
+                           100.0000,0.0000,100.0000,'OPEN','2026-02-15 00:00:00')
+                    """);
+            Long invoiceId=db.queryForObject("SELECT id FROM subscription_invoices WHERE invoice_number='P2-GOOD-INVOICE'",Long.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_payments
+                    (tenant_id,subscription_invoice_id,provider,platform_merchant_reference,idempotency_key,
+                     amount,currency,status)
+                    VALUES(994011,?,'TEST','P2-BAD-PAYMENT','P2-BAD-PAYMENT','100.0000','INR','NOT_A_STATUS')
+                    """,invoiceId)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+
+            db.update("""
+                    INSERT INTO vendor_roles(id,tenant_id,role_key,display_name,created_by,updated_by)
+                    VALUES(994051,994011,'p2-check-role','P2 Check Role','p2-check-actor','p2-check-actor')
+                    """);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+                    VALUES(994011,994051,'PLATFORM_CONFIG_MANAGE','p2-check-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO platform_user_permissions(username,permission)
+                    VALUES('p2-check-actor','NOT_A_PLATFORM_PERMISSION')
+                    """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        });
+    }
+
     private static void assertConstraint(JdbcTemplate db, String schema, String table,
                                          String name, String type) {
         assertThat(constraintCount(db, schema, table, name))

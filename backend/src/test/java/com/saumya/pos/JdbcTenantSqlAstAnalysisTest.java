@@ -165,12 +165,21 @@ class JdbcTenantSqlAstAnalysisTest {
         }
         return -1;
     }
-    private static String methodBody(String source,String methodName){
+    private static List<String> methodBodies(String source,String methodName){
+        List<String> bodies=new ArrayList<>();
         var declaration=Pattern.compile("(?s)\\b"+Pattern.quote(methodName)+"\\s*\\([^;{}]*\\)\\s*\\{").matcher(source);
-        if(!declaration.find())throw new AssertionError("Cannot locate method body for "+methodName);
-        int open=source.indexOf('{',declaration.start()),close=matchingJavaBrace(source,open);
-        if(close<0)throw new AssertionError("Unclosed method body for "+methodName);
-        return source.substring(open+1,close);
+        while(declaration.find()){
+            int open=source.indexOf('{',declaration.start()),close=matchingJavaBrace(source,open);
+            if(close<0)throw new AssertionError("Unclosed method body for "+methodName);
+            bodies.add(source.substring(open+1,close));
+            declaration.region(close+1,source.length());
+        }
+        return bodies;
+    }
+    private static String methodBody(String source,String methodName){
+        List<String> bodies=methodBodies(source,methodName);
+        if(bodies.isEmpty())throw new AssertionError("Cannot locate method body for "+methodName);
+        return bodies.getFirst();
     }
     private static List<List<String>> invocationArguments(String body,String methodName){
         List<List<String>> result=new ArrayList<>();
@@ -367,13 +376,12 @@ class JdbcTenantSqlAstAnalysisTest {
                 String callerClass=callerRef.substring(0,callerSplit),callerMethod=callerRef.substring(callerSplit+1);
                 Path callerFile=sourceRoot().resolve(callerClass.replace('.','/')+".java");
                 String callerSource=Files.readString(callerFile);
-                String body=methodBody(callerSource,callerMethod);
-                List<List<String>> calls=invocationArguments(body,calleeMethod);
+                List<String> bodies=methodBodies(callerSource,callerMethod);
                 int argumentIndex=caller.path("argumentIndex").asInt(-1);
                 String expression=caller.path("expression").asText();
-                assertThat(calls).as("caller %s must invoke %s",callerRef,callee).isNotEmpty();
-                assertThat(calls.stream().anyMatch(args->argumentIndex>=0&&argumentIndex<args.size()
-                    &&args.get(argumentIndex).contains(expression)))
+                boolean exactFlow=bodies.stream().flatMap(body->invocationArguments(body,calleeMethod).stream())
+                    .anyMatch(args->argumentIndex>=0&&argumentIndex<args.size()&&args.get(argumentIndex).contains(expression));
+                assertThat(exactFlow)
                     .as("%s argument %s must flow unchanged from %s into %s",parameter,expression,callerRef,callee)
                     .isTrue();
                 proven.add(callee+"#"+parameter);

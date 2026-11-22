@@ -289,5 +289,122 @@
         "tenantId"
       ]
     }
+  ],
+  "inheritedIdLookups": [
+    {
+      "source": "com/saumya/pos/cart/CartService.java",
+      "repository": "CartItemRepository#findById",
+      "scope": "TENANT_AND_CART_COMPOSITE_KEY",
+      "authority": "Authenticated customer is resolved from server actor context; cart vendor tenant and cart ID are server-loaded, then included in CartItem.Key.",
+      "evidence": [
+        "requireCustomer(customer)",
+        "customers.resolve(context.username())",
+        "new CartItem.Key(vendor.id(),current.id(),request.productId())",
+        "items.findById(key)"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/CatalogAvailabilityService.java",
+      "repository": "CatalogStockRepository#findById",
+      "scope": "TENANT_BRANCH_PRODUCT_COMPOSITE_KEY",
+      "authority": "Server-published stock availability event supplies tenant, branch and product aggregate identifiers.",
+      "evidence": [
+        "@EventListener",
+        "StockAvailabilityChanged event",
+        "new CatalogStock.Key(event.tenant(),event.branch(),event.product())",
+        "stock.findById(key)"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/DiscountPolicyService.java",
+      "repository": "DiscountPolicyRepository#findById",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PRIMARY_KEY",
+      "authority": "AuthorizationContext current actor must be vendor member and its tenantId must equal supplied tenant before lookup.",
+      "evidence": [
+        "auth.current()",
+        "c.requireVendorMembership()",
+        "c.tenantId()!=tenant",
+        "policies.findById(tenant)"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/ProductAdminService.java",
+      "repository": "ProductCategoryRepository#findById",
+      "scope": "TENANT_PRODUCT_COMPOSITE_KEY",
+      "authority": "AuthorizationContext requires current vendor membership to own tenant; ProductCategory.Key embeds tenantId and productId.",
+      "evidence": [
+        "context.requireTenant(tenant)",
+        "new ProductCategory.Key(tenant,p.id())",
+        "assignments.findById(key)"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/BuyerDetailsService.java",
+      "repository": "BuyerSnapshotRepository#findById",
+      "scope": "TENANT_ORDER_COMPOSITE_KEY",
+      "authority": "Tenant and order identifiers come from the already-authorized checkout aggregate; BuyerSnapshot.Key embeds tenant.",
+      "evidence": [
+        "new BuyerSnapshot.Key(tenant,id)",
+        "snapshots.findById"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/CheckoutReceiptService.java",
+      "repository": "InvoiceSnapshotRepository#findById",
+      "scope": "TENANT_ORDER_COMPOSITE_KEY",
+      "authority": "Service first resolves owned POS order under current PosService.Scope; invoice lookup uses that order tenant and ID in composite key.",
+      "evidence": [
+        "retail.scope()",
+        "order.tenant()",
+        "new InvoiceSnapshot.Key(order.tenant(),id)",
+        "invoices.findById"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/CustomerAssociationService.java",
+      "repository": "CustomerChallengeRepository#findById",
+      "scope": "ONE_TIME_CUSTOMER_ASSOCIATION_TOKEN",
+      "authority": "Lookup key is SHA-256 of presented one-time token; service verifies authenticated customer, token expiry and any existing customer binding before following persisted challenge tenant/order.",
+      "evidence": [
+        "String tokenHash=hash(token)",
+        "customers.resolve(username)",
+        "challenges.findById(tokenHash)",
+        "challenge.expires()",
+        "challenge.customer()",
+        "challenge.tenant()"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/OnlineReceiptService.java",
+      "repository": "InvoiceSnapshotRepository#findById",
+      "scope": "TENANT_ORDER_COMPOSITE_KEY",
+      "authority": "Customer-owned order is resolved before invoice lookup; tenant and order IDs are read from persisted owned order and embedded in InvoiceSnapshot.Key.",
+      "evidence": [
+        "order.tenant()",
+        "new InvoiceSnapshot.Key(order.tenant(),order.id())",
+        "invoices.findById"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/SaleDocumentsService.java",
+      "repository": "InvoiceSnapshotRepository#findById",
+      "scope": "TENANT_ORDER_COMPOSITE_KEY",
+      "authority": "Invoice snapshot is looked up only for persisted tenant-owned sale order after POS actor and scope validation.",
+      "evidence": [
+        "order.tenant()",
+        "new InvoiceSnapshot.Key(order.tenant(),order.id())",
+        "invoices.findById"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/tenant/TenantService.java",
+      "repository": "TenantRepository#findById",
+      "scope": "PLATFORM_TENANT_RESOURCE_OR_PERSISTED_MEMBERSHIP",
+      "authority": "Tenant is a platform-owned directory resource; lifecycle mutations are platform-authorized, while isActive checks use tenant ID from persisted EmployeeMembership.",
+      "evidence": [
+        "tenants.findById(id)",
+        "requiredTenant(long id)"
+      ]
+    }
   ]
 }

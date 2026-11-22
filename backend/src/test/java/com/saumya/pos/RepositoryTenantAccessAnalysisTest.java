@@ -315,4 +315,43 @@ class RepositoryTenantAccessAnalysisTest {
         assertThat(direct.matcher("long tenant = authorizationContext.current().tenantId();").find()).isFalse();
     }
 
+    @Test
+    void everyInheritedFindByIdCallHasExplicitTrustedResourceScope() throws Exception {
+        JsonNode entries = policy().path("inheritedIdLookups");
+        assertThat(entries.isArray()).isTrue();
+        Set<String> expectedSources = new TreeSet<>();
+        for (JsonNode entry : entries) {
+            String sourceName = entry.path("source").asText();
+            assertThat(entry.path("repository").asText()).isNotBlank();
+            assertThat(entry.path("scope").asText()).isNotBlank();
+            assertThat(entry.path("authority").asText()).isNotBlank();
+            Path file = sourceRoot().resolve(sourceName);
+            assertThat(Files.isRegularFile(file)).as("findById source exists: %s", sourceName).isTrue();
+            String source = Files.readString(file);
+            for (JsonNode evidence : entry.path("evidence")) {
+                assertThat(source).as("trusted findById provenance for %s", sourceName)
+                    .contains(evidence.asText());
+            }
+            assertThat(expectedSources.add(sourceName)).as("duplicate findById source %s", sourceName).isTrue();
+        }
+        Set<String> observedSources = new TreeSet<>();
+        try (var files = Files.walk(sourceRoot())) {
+            for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
+                String source = Files.readString(file);
+                if (Pattern.compile("\\\\.findById\\\\s*\\\\(").matcher(source).find()) {
+                    observedSources.add(sourceRoot().relativize(file).toString().replace('\\\\','/'));
+                }
+            }
+        }
+        assertThat(observedSources).as("all inherited Spring Data findById call sites must have a tenant/owner/global scope review")
+            .containsExactlyInAnyOrderElementsOf(expectedSources);
+    }
+
+    @Test
+    void inheritedFindByIdNegativeFixturesRejectUnscopedScalarResourceKeys() {
+        assertThat(hasTenantPredicate("select x from TenantOwned x where x.id=:id")).isFalse();
+        assertThat(hasTenantPredicate("select x from TenantOwned x where x.tenantId=:tenant and x.id=:id")).isTrue();
+        assertThat(hasOwnerPredicate("select x from CustomerOwned x where x.customerId=:customer and x.id=:id")).isTrue();
+    }
+
 }

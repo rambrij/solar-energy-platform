@@ -373,6 +373,8 @@ class JdbcTenantSqlAstAnalysisTest {
         JsonNode root=policy();
         Map<String,JsonNode> sourcePolicies=new TreeMap<>();
         root.path("trustedTenantParameterSources").forEach(item->sourcePolicies.put(item.path("source").asText(),item));
+        Map<String,JsonNode> parameterPolicies=new TreeMap<>(sourcePolicies);
+        root.path("trustedServiceTenantParameters").fields().forEachRemaining(entry->parameterPolicies.put(entry.getKey(),entry.getValue()));
         JsonNode flows=root.path("trustedTenantParameterFlows");
         assertThat(flows.isArray()).isTrue();
         Set<String> proven=new TreeSet<>();
@@ -381,7 +383,7 @@ class JdbcTenantSqlAstAnalysisTest {
             int split=callee.lastIndexOf('#');
             assertThat(split).isGreaterThan(0);
             String calleeClass=callee.substring(0,split),calleeMethod=callee.substring(split+1);
-            JsonNode sourcePolicy=sourcePolicies.get(calleeClass);
+            JsonNode sourcePolicy=parameterPolicies.get(calleeClass);
             assertThat(sourcePolicy).as("trusted parameter class policy for %s",callee).isNotNull();
             JsonNode allowed=sourcePolicy.path("trustedTenantParameters").path(calleeMethod);
             assertThat(allowed.isArray()).as("bare tenant parameter declaration for %s",callee).isTrue();
@@ -407,9 +409,9 @@ class JdbcTenantSqlAstAnalysisTest {
                 proven.add(callee+"#"+parameter);
             }
         }
-        for(JsonNode source:root.path("trustedTenantParameterSources")){
-            String className=source.path("source").asText();
-            JsonNode declared=source.path("trustedTenantParameters");
+        for(var source:parameterPolicies.entrySet()){
+            String className=source.getKey();
+            JsonNode declared=source.getValue().path("trustedTenantParameters");
             declared.fields().forEachRemaining(method->method.getValue().forEach(parameter->
                 assertThat(proven).as("bare tenant parameter requires caller-flow evidence")
                     .contains(className+"#"+method.getKey()+"#"+parameter.asText())));
@@ -435,7 +437,10 @@ class JdbcTenantSqlAstAnalysisTest {
             .containsExactlyInAnyOrder("com/saumya/pos/checkout/CustomerAssociationService.java",
                 "com/saumya/pos/checkout/OnlineReceiptService.java",
                 "com/saumya/pos/checkout/SaleDocumentsService.java");
-        assertThat(qualifiedCallsiteFiles("entitlements","requireFeature")).isEmpty();
+        assertThat(qualifiedCallsiteFiles("entitlements","requireFeature"))
+            .containsExactlyInAnyOrder("com/saumya/pos/cart/CartService.java",
+                "com/saumya/pos/checkout/CheckoutService.java",
+                "com/saumya/pos/checkout/PaymentCheckoutService.java");
         JsonNode membershipPolicy=sourcePolicies.get("com.saumya.pos.membership.MembershipService");
         assertThat(hasTrustedTenantArgument("tenant","com.saumya.pos.membership.MembershipService","access",membershipPolicy)).isFalse();
         assertThat(hasTrustedTenantArgument("tenant","com.saumya.pos.membership.MembershipService","effectiveVendorPermissions",membershipPolicy)).isTrue();

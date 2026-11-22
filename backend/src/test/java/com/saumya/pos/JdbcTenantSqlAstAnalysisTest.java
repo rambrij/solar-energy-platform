@@ -745,4 +745,20 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(expected).as("trusted tenant flow inventory must not be empty").isNotEmpty();
     }
 
+    private static String simpleTypeName(String type) {
+        String value=type.trim().replaceAll("@[\\\\w.]+(?:\\\\([^)]*\\\\))?\\\\s*","");
+        int generic=value.indexOf('<');
+        if(generic>=0)value=value.substring(0,generic);
+        while(value.endsWith("[]"))value=value.substring(0,value.length()-2);
+        int dot=value.lastIndexOf('.');
+        return dot>=0?value.substring(dot+1):value;
+    }
+
+    private static String simpleReceiver(String receiver) {
+        String value=receiver.trim();
+        if(value.equals("this")||value.equals("super"))return value;
+        int dot=value.lastIndexOf('.');
+        return dot>=0?value.substring(dot+1).trim():value;
+    }
+
 }

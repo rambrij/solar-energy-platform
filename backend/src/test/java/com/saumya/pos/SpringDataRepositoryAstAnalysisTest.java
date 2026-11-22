@@ -257,10 +257,103 @@ class SpringDataRepositoryAstAnalysisTest {
     }
     private static boolean trustedTenantExpression(String expression,Set<String> trustedVariables){
         String value=expression.trim();
+        if(value.matches("(?i)input\\s*\\.\\s*tenantId\\s*\\(\\s*\\)")
+            &&trustedVariables.contains("__platformAuthorizedTenantTarget"))return true;
         if(java.util.regex.Pattern.compile("(?i)(?:\\b(?:request|payload|body|filter|criteria|dto|command|input|form)\\s*\\.|\\bgetTenantId\\s*\\()").matcher(value).find())return false;
         if(java.util.regex.Pattern.compile("(?i)(?:\\b(?:auth|authorization)\\s*\\.\\s*current\\s*\\(\\s*\\)\\s*\\.\\s*tenantId\\s*\\(\\s*\\)|"
-            +"\\b(?:ctx|context|c|actor|reviewer|scope|s|event|m|order|membership|cart|current|archived|vendor|tenant)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*(?:\\(\\s*\\))?)").matcher(value).find())return true;
+            +"\\b(?:ctx|context|c|actor|reviewer|scope|s|event|m|order|membership|cart|current|archived|vendor|tenant|challenge|refund)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*(?:\\(\\s*\\))?|"
+            +"\\bactiveVendor\\s*\\([^)]*\\)\\s*\\.\\s*id\\s*\\(\\s*\\))").matcher(value).find())return true;
         return value.matches("[A-Za-z_$][\\w$]*")&&trustedVariables.contains(value);
+    }
+
+    private record ServiceMethodRef(String className,String simpleName,MethodTree method,Map<String,String> fieldTypes,
+                                    Set<String> tenantGuardMethods) {}
+    private static String simpleTypeName(String type){
+        if(type==null)return null;
+        String value=type.replaceAll("<.*>","").trim();
+        int dot=value.lastIndexOf('.');
+        return dot<0?value:value.substring(dot+1);
+    }
+    /** Propagate trust only through explicit trusted expressions and methods whose tenant guards are verified. */
+    private static Set<String> trustedServiceParameterClosure(List<CompilationUnitTree> units,Set<String> initial){
+        Map<String,List<ServiceMethodRef>> methodsByClass=new HashMap<>();
+        for(CompilationUnitTree unit:units)for(Tree declaration:unit.getTypeDecls()){
+            if(!(declaration instanceof ClassTree type))continue;
+            String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
+            String className=packageName+type.getSimpleName();
+            Map<String,String> fieldTypes=new HashMap<>();
+            for(Tree member:type.getMembers())if(member instanceof VariableTree field)
+                fieldTypes.put(field.getName().toString(),simpleTypeName(field.getType()==null?null:field.getType().toString()));
+            Set<String> guards=new HashSet<>();
+            for(Tree member:type.getMembers())if(member instanceof MethodTree helper&&helper.getBody()!=null){
+                String body=helper.getBody().toString();
+                if(body.contains("requireTenant(")
+                    &&(body.contains("authorization.current()")||body.contains("auth.current()")
+                        ||body.contains("context.requireTenant(")||body.contains("actor.requireTenant(")))
+                    guards.add(helper.getName().toString());
+            }
+            for(Tree member:type.getMembers())if(member instanceof MethodTree method)
+                methodsByClass.computeIfAbsent(type.getSimpleName().toString(),key->new ArrayList<>())
+                    .add(new ServiceMethodRef(className,type.getSimpleName().toString(),method,fieldTypes,guards));
+        }
+        Set<String> trusted=new HashSet<>(initial);
+        boolean changed;
+        do{
+            changed=false;
+            for(List<ServiceMethodRef> classMethods:methodsByClass.values())for(ServiceMethodRef ref:classMethods){
+                MethodTree method=ref.method();
+                if(method.getBody()==null)continue;
+                Set<String> variables=new HashSet<>();
+                for(VariableTree parameter:method.getParameters())
+                    if(trusted.contains(ref.className()+"#"+method.getName()+"#"+parameter.getName()))
+                        variables.add(parameter.getName().toString());
+                Map<String,String> localTypes=new HashMap<>();
+                new TreeScanner<Void,Void>(){
+                    @Override public Void visitVariable(VariableTree node,Void unused){
+                        if(node.getType()!=null)localTypes.put(node.getName().toString(),simpleTypeName(node.getType().toString()));
+                        if(node.getInitializer()!=null&&trustedTenantExpression(node.getInitializer().toString(),variables))
+                            variables.add(node.getName().toString());
+                        return super.visitVariable(node,unused);
+                    }
+                    @Override public Void visitAssignment(AssignmentTree node,Void unused){
+                        if(node.getVariable() instanceof IdentifierTree id
+                            &&trustedTenantExpression(node.getExpression().toString(),variables))variables.add(id.getName().toString());
+                        return super.visitAssignment(node,unused);
+                    }
+                    @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
+                        String invoked=node.getMethodSelect() instanceof MemberSelectTree select
+                            ?select.getIdentifier().toString():node.getMethodSelect().toString();
+                        if(invoked.equals("requireTenant")&&!node.getArguments().isEmpty()
+                            &&node.getArguments().get(0) instanceof IdentifierTree id)variables.add(id.getName().toString());
+                        if(invoked.equals("requirePlatform")||invoked.equals("requireRead")){
+                            variables.add("__platformAuthorizedTenantTarget");
+                            for(VariableTree parameter:method.getParameters())
+                                if(parameter.getName().toString().matches("(?i).*tenant.*"))variables.add(parameter.getName().toString());
+                        }
+                        String targetClass=ref.simpleName();
+                        if(node.getMethodSelect() instanceof MemberSelectTree select){
+                            String receiver=simpleReceiver(select.getExpression().toString());
+                            if(!receiver.equals("this")&&!receiver.equals(ref.simpleName())){
+                                String type=localTypes.getOrDefault(receiver,ref.fieldTypes().get(receiver));
+                                if(type!=null)targetClass=type;
+                            }
+                        }
+                        for(ServiceMethodRef target:methodsByClass.getOrDefault(targetClass,List.of())){
+                            if(!target.method().getName().contentEquals(invoked)
+                                ||target.method().getParameters().size()!=node.getArguments().size())continue;
+                            for(int i=0;i<node.getArguments().size();i++){
+                                String parameter=target.method().getParameters().get(i).getName().toString();
+                                if(parameter.matches("(?i).*tenant.*")
+                                    &&trustedTenantExpression(node.getArguments().get(i).toString(),variables))
+                                    if(trusted.add(target.className()+"#"+target.method().getName()+"#"+parameter))changed=true;
+                            }
+                        }
+                        return super.visitMethodInvocation(node,unused);
+                    }
+                }.scan(method.getBody(),null);
+            }
+        }while(changed);
+        return trusted;
     }
     private static String repositoryType(VariableTree variable){
         if(variable.getType()==null)return null;
@@ -320,6 +413,7 @@ class SpringDataRepositoryAstAnalysisTest {
                 String callee=flow.path("callee").asText(),parameter=flow.path("parameter").asText();
                 trustedParameters.add(callee+"#"+parameter);
             });
+            trustedParameters=trustedServiceParameterClosure(units,trustedParameters);
             List<String> untrusted=new ArrayList<>();
             List<String> observedCallsites=new ArrayList<>();
             for(CompilationUnitTree unit:units)for(Tree declaration:unit.getTypeDecls()){

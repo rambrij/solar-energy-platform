@@ -162,7 +162,7 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(queryScoped("select c from Cart c where c.customerId=:customer and c.id=:id")).isTrue();
         assertThat(queryScoped("select * from refunds where id=?1")).isFalse();
         assertThat(queryScoped("delete from refunds where tenant_id=?1 and id=?2")).isTrue();
-        assertThat(hasBoundScopeParameterFixture("select p from Product p where p.tenantId=:tenant",Set.of("tenant"))).isTrue();
-        assertThat(hasBoundScopeParameterFixture("select p from Product p where p.tenantId=:tenant",Set.of("customerId"))).isFalse();
+        assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("tenant"))).isTrue();
+        assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("customerId"))).isFalse();
     }
 }

@@ -232,15 +232,16 @@ The role stores its source key and version. Changing the catalogue never synchro
 
 ### P2-02 — Strengthen MySQL migration and persistence integration tests
 
-- **Requirement:** MySQL 8.4 clean install, upgrade and tenant constraints validated on every release.
-- **Current gap:** CI has H2/MySQL matrix but current test dependencies do not declare Testcontainers or REST Assured.
-- **Proposed implementation:** Standardize MySQL integration tests using the existing CI service or adopt Testcontainers. Add schema migration upgrade fixtures.
-- **Backend changes:** Add test profiles and DB-backed repository/API tests.
-- **Frontend changes:** None.
-- **Database/schema changes:** Migration corrections discovered by clean-install/upgrade tests.
-- **Tests required:** All Flyway versions; V40–V47 role/tenant constraints; MySQL composite FKs/checks/generated columns; concurrency and transaction rollback.
+- **Status: IN PROGRESS — IMPLEMENTATION ADDED; MySQL CI EVIDENCE PENDING.** Do not mark complete until the clean-install, supported-baseline upgrade, schema-contract, ownership, concurrency and rollback gates pass on the final branch head.
+- **Requirement:** MySQL 8.4 clean install, supported upgrade and tenant constraints are validated on every release. H2 remains a fast-test database only and is not MySQL-specific evidence.
+- **Selected infrastructure:** Reuse the pinned MySQL 8.4 GitHub Actions service in `.github/workflows/pos-tests.yml`. No Testcontainers dependency or per-test container is introduced; tests create and drop isolated schemas in the shared service.
+- **Supported upgrade baseline:** V47 is the explicit supported pre-hardening schema for this fixture. The test creates V1–V47 with Flyway target 47, inserts a deterministic tenant and branch, then applies V48–V55 and verifies retained data plus the V50 designated stock-location backfill. No upgrade compatibility is claimed for obsolete local migration histories.
+- **Added MySQL tests:** `P202MysqlPersistenceIntegrationTest` covers clean install, migration version uniqueness/order, Flyway validation, repeatable migration startup, V47-to-latest upgrade/data retention, core tenant_id nullability, selected MySQL CHECK/composite-FK/generated-column/DECIMAL/index metadata, and V48 invalid-data preflight preserving offending rows.
+- **Existing persistence regression coverage retained:** The MySQL backend lane continues to run P0-04 tenant isolation and P0-05 POS ownership/session/concurrency tests, including concurrent sale oversell prevention, online-reservation versus walk-in stock races, idempotent retries, and transactional rollback. These are existing tests and are not represented as new P2-02 tests.
+- **CI gate added:** A dedicated MySQL 8.4 Maven step runs `P202MysqlPersistenceIntegrationTest` before the existing focused authorization/POS tests and full backend suite.
+- **Not yet evidenced:** Financial/audit RESTRICT behavior across every table, all tenant-owned table inventory, every commercial ownership edge, MySQL UTC round-trip and optimistic-lock cases, all payment/refund/receipt rollback permutations, and final exact-commit CI results. Defects must be fixed with Flyway and regression tests if the new MySQL execution exposes them.
 - **Dependencies:** P0-01, P0-04, P0-05.
-- **Acceptance criteria:** H2 and MySQL suites pass; supported upgrade baseline passes; CI blocks on migration or ownership regression.
+- **Acceptance criteria:** Dedicated MySQL clean-install and V47 upgrade tests pass; schema and tenant ownership constraints pass on MySQL 8.4; existing P0-04/P0-05 ownership and concurrency tests plus rollback checks pass; full H2 and MySQL suites pass; CI blocks migration or persistence regressions; evidence records the exact tested commit and run.
 
 ### P2-03 — Audit documents, exports, caches and asynchronous work
 

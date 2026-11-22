@@ -44,6 +44,13 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml -Dtest=LocalDemoFlywaySeedMySqlTest test
+      - name: P2-02 MySQL 8.4 migration and schema contracts
+        if: matrix.database == 'mysql'
+        env:
+          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: disposable-test-password
+        run: mvn -B -f backend/pom.xml -Dtest=P202MysqlPersistenceIntegrationTest test
       - name: P1-01 custom role lifecycle and delegation (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=P101VendorRoleLifecycleTest,VendorRolePermissionCatalogueTest,VendorRoleControllerAuthorizationTest,VendorRoleServiceAuthorizationBoundaryTest' test

@@ -429,3 +429,15 @@ The existing implementation has useful authorization controls and must be preser
 **Status: IN PROGRESS — CI VALIDATION PENDING.** Playwright browser tests and a gated CI job have been added on `feature/develop-authorization-gap-analysis`. The suite exercises real browser login/session flows and persisted local demo actors. It does not replace the backend P0-06 Role × Endpoint matrix or the exhaustive P1-04 page/action audit.
 
 See `docs/security/P2-01_BROWSER_E2E_COVERAGE.md` for the route/action/permission/result/test matrix and execution contract. P0-04 evidence remains applicable to its implemented resource scope; P0-06 and P1-04 remain independently open until their own acceptance gates pass on the final branch head.
+
+
+## P2-02 — MySQL migration and persistence integration testing
+
+**Status: IN PROGRESS — implementation and dedicated CI gate added; execution evidence pending.**
+
+- The existing GitHub Actions MySQL 8.4 service is the authoritative database for MySQL-specific integration tests. H2 remains a fast test lane and is not accepted as proof of MySQL behavior.
+- A dedicated `P202MysqlPersistenceIntegrationTest` covers clean Flyway installation, applied migration ordering/uniqueness, checksum validation through Flyway validate, repeatable migration startup, supported V47-to-V55 upgrade with tenant/branch retention and V50 stock-location backfill, selected schema ownership/constraint metadata, and V48 invalid-data preflight without destructive cleanup.
+- V47 is the supported upgrade fixture baseline for this acceptance slice. The fixture does not claim support for superseded or obsolete local migration histories.
+- Existing MySQL P0-04/P0-05 tests remain required for tenant isolation, POS branch/register/session ownership, concurrent stock/sale operations, idempotency, and transaction rollback. A passing run on the exact final commit is still required.
+- Remaining scope before completion includes a complete applicable tenant-owned table inventory, all financial/audit RESTRICT assertions, commercial cart/order/payment/refund/receipt ownership edges, MySQL UTC and optimistic-lock tests, and explicit rollback assertions for each financial/inventory side effect.
+- Do not change P2-02 to COMPLETE until the dedicated test, focused P0-04/P0-05 gates, full MySQL 8.4 suite, full H2 suite, and any affected frontend/Playwright regressions pass on the final branch head and the evidence record is updated with exact CI run/job results.

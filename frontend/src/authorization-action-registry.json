@@ -1709,6 +1709,67 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/cancel"
+    },
+    {
+      "id": "pos-refund-read",
+      "component": "RefundJournal.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/refunds/{id}",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/refunds/{id}"
+    },
+    {
+      "id": "pos-refund-report",
+      "component": "RefundInsights.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/reports/cash-refunds",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/reports/cash-refunds"
+    },
+    {
+      "id": "pos-draft-recovery",
+      "component": "DraftReferenceRecovery.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/drafts/{id}",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/drafts/{id}"
+    },
+    {
+      "id": "customer-draft-recovery",
+      "component": "DraftReferenceRecovery.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/checkout/drafts/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/checkout/drafts/{id}"
+    },
+    {
+      "id": "customer-product-detail",
+      "component": "ProductDetails.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/marketplace/vendors/{slug}/products/{id}",
+      "permissions": [],
+      "actor": "PUBLIC",
+      "backendOperation": "GET /api/v1/marketplace/vendors/{slug}/products/{id}"
     }
   ]
 }

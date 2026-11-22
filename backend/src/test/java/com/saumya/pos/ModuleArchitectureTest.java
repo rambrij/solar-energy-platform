@@ -114,7 +114,7 @@ class ModuleArchitectureTest {
 
     private static void assertNoClientSuppliedTenantParameter(String sourceText, String source) {
         java.util.regex.Pattern forgedTenant = java.util.regex.Pattern.compile(
-            "(?i)\\\\b(?:request|filter|criteria|dto|body|payload|query|params)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+            "(?i)\\b(?:request|filter|criteria|dto|body|payload|query|params)\\s*\\.\\s*(?:get)?tenantId\\s*\\(");
         assertThat(forgedTenant.matcher(sourceText).find())
             .as("JDBC tenant authority must not be read from client-controlled request/filter DTOs in %s", source)
             .isFalse();
@@ -122,18 +122,10 @@ class ModuleArchitectureTest {
 
     @Test
     void forgedTenantParameterNegativeFixturesRejectClientControlledTenantSources() {
-        assertThatThrownBy(() -> {
-            String fixture = "db.queryForList(sql, request.tenantId())";
-            assertThat(java.util.regex.Pattern.compile(
-                "(?i)\\\\b(?:request|filter|criteria|dto|body|payload|query|params)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(")
-                .matcher(fixture).find()).isFalse();
-        }).isInstanceOf(AssertionError.class);
-        assertThatThrownBy(() -> {
-            String fixture = "db.update(sql, filter.getTenantId())";
-            assertThat(java.util.regex.Pattern.compile(
-                "(?i)\\\\b(?:request|filter|criteria|dto|body|payload|query|params)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(")
-                .matcher(fixture).find()).isFalse();
-        }).isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> assertNoClientSuppliedTenantParameter(
+            "db.queryForList(sql, request.tenantId())", "negative fixture: request tenant"));
+        assertThatThrownBy(() -> assertNoClientSuppliedTenantParameter(
+            "db.update(sql, filter.getTenantId())", "negative fixture: filter tenant"));
     }
 
     private static List<String> extractSqlStatements(String source) {

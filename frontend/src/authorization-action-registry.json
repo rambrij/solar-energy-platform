@@ -1812,6 +1812,16 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "POST /api/v1/customer/pos-association/approve"
+    },
+    {
+      "id": "customer-vendor-catalogue-search",
+      "component": "Marketplace.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/marketplace/vendors/{slug}/catalogue",
+      "permissions": [],
+      "actor": "PUBLIC",
+      "backendOperation": "GET /api/v1/marketplace/vendors/{slug}/catalogue"
     }
   ],
   "buttons": [

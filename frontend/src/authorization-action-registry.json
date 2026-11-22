@@ -1822,6 +1822,18 @@
       "permissions": [],
       "actor": "PUBLIC",
       "backendOperation": "GET /api/v1/marketplace/vendors/{slug}/catalogue"
+    },
+    {
+      "id": "pos-order-history-receipt-read",
+      "component": "OrderHistory.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}",
+      "permissions": [
+        "POS_RECEIPT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
     }
   ],
   "buttons": [
@@ -2196,6 +2208,12 @@
       "component": "CustomerAssociation.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/customer/pos-association/approve"
+    },
+    {
+      "id": "pos-order-history-receipt-read",
+      "component": "OrderHistory.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
     }
   ],
   "dynamicRouteParameters": {

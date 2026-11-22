@@ -76,11 +76,12 @@ class RuntimeAuthorizationEndpointInventoryTest {
             assertThat(stream).as("runtime-authorization-matrix.json is present").isNotNull();
             matrix = objectMapper.readTree(stream);
         }
-        JsonNode policies = matrix.path("controllerPolicies");
+        JsonNode policies = matrix.path("operationPolicies");
         assertThat(policies.isObject()).as("controllerPolicies object exists").isTrue();
 
         Set<Endpoint> endpoints = new TreeSet<>();
         Set<String> liveControllers = new TreeSet<>();
+        Set<String> liveOperations = new TreeSet<>();
         for (var entry : requestMappings.getHandlerMethods().entrySet()) {
             HandlerMethod handler = entry.getValue();
             Class<?> controllerType = handler.getBeanType();
@@ -91,9 +92,15 @@ class RuntimeAuthorizationEndpointInventoryTest {
 
             String controller = controllerType.getSimpleName();
             liveControllers.add(controller);
-            assertThat(policies.has(controller))
-                .as("canonical actor/scope/assignment metadata for live controller %s", controller)
-                .isTrue();
+            String operation = controller + "#" + handler.getMethod().getName();
+            liveOperations.add(operation);
+            JsonNode operationPolicy = policies.path(operation);
+            assertThat(operationPolicy.isObject())
+                .as("independent operation policy for live handler %s", operation).isTrue();
+            for (String field : List.of("actor", "scope", "assignment", "runtimeTest")) {
+                assertThat(operationPolicy.path(field).asText())
+                    .as("%s operation metadata field %s", operation, field).isNotBlank();
+            }
 
             RequestMappingInfo mapping = entry.getKey();
             Set<String> routes = mapping.getPatternValues();
@@ -110,10 +117,10 @@ class RuntimeAuthorizationEndpointInventoryTest {
 
         assertThat(liveControllers).isNotEmpty();
         assertThat(endpoints).as("live endpoint inventory is non-empty").hasSizeGreaterThan(50);
-        Set<String> policyControllers = new TreeSet<>();
-        policies.fieldNames().forEachRemaining(policyControllers::add);
-        assertThat(liveControllers).as("all controller policy metadata is referenced by a live endpoint")
-            .containsAll(policyControllers);
+        Set<String> policyOperations = new TreeSet<>();
+        policies.fieldNames().forEachRemaining(policyOperations::add);
+        assertThat(liveOperations).as("every live mapped handler has an explicit operation policy")
+            .containsExactlyInAnyOrderElementsOf(policyOperations);
 
         // Execute every mapped protected route anonymously through the real
         // Spring Security filter chain. Method arguments are deliberately absent:

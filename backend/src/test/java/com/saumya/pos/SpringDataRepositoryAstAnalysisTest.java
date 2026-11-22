@@ -29,39 +29,46 @@ class SpringDataRepositoryAstAnalysisTest {
     private static boolean queryScoped(String sql){
         return java.util.regex.Pattern.compile("(?is)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*(?::[a-z][a-zA-Z0-9_]*|\\?\\d*)").matcher(sql).find();
     }
-    private static boolean hasBoundScopeParameter(String query,MethodTree method){
+    private static Set<String> parameterNames(VariableTree parameter){
+        Set<String> names=new HashSet<>();
+        names.add(parameter.getName().toString());
+        for(AnnotationTree annotation:parameter.getModifiers().getAnnotations()){
+            if(!annotation.getAnnotationType().toString().endsWith("Param"))continue;
+            java.util.regex.Matcher value=java.util.regex.Pattern.compile("['\"]([^'\"]+)['\"]").matcher(annotation.toString());
+            if(value.find())names.add(value.group(1));
+        }
+        return names;
+    }
+    private static boolean namedScopeBindingsMatch(String query,Set<String> availableNames){
         java.util.regex.Matcher bindings=java.util.regex.Pattern.compile(
-            "(?i)(?:\\\\b[a-z_][a-z0-9_]*\\\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\\\s*=\\\\s*(:[a-z][a-zA-Z0-9_]*|\\\\?[0-9]*)")
+            "(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*:([a-z][a-zA-Z0-9_]*)")
             .matcher(query);
         boolean found=false;
         while(bindings.find()){
             found=true;
-            String reference=bindings.group(1);
-            boolean matched=false;
-            if(reference.startsWith(":")){
-                String name=reference.substring(1);
-                for(VariableTree parameter:method.getParameters()){
-                    if(parameter.getName().contentEquals(name)){matched=true;break;}
-                    for(AnnotationTree annotation:parameter.getModifiers().getAnnotations()){
-                        if(annotation.getAnnotationType().toString().endsWith("Param")
-                            &&annotation.toString().matches("(?s).*['\\\"]"+java.util.regex.Pattern.quote(name)+"['\\\"].*")){
-                            matched=true;break;
-                        }
-                    }
-                    if(matched)break;
-                }
-            }else if(reference.length()>1){
-                int index=Integer.parseInt(reference.substring(1))-1;
-                if(index>=0&&index<method.getParameters().size()){
-                    VariableTree parameter=method.getParameters().get(index);
-                    matched=parameter.getName().toString().matches("(?i).*(tenant|customer|owner|username|token|hash|family|subscription|invoice|plan).*");
-                    for(AnnotationTree annotation:parameter.getModifiers().getAnnotations())
-                        if(annotation.getAnnotationType().toString().endsWith("Param")&&annotation.toString().matches("(?s).*['\\\"].*['\\\"].*"))matched=true;
-                }
-            }else matched=hasScopeParameter(method);
-            if(!matched)return false;
+            if(!availableNames.contains(bindings.group(1)))return false;
         }
         return found;
+    }
+    private static boolean hasBoundScopeParameter(String query,MethodTree method){
+        Set<String> availableNames=new HashSet<>();
+        for(VariableTree parameter:method.getParameters())availableNames.addAll(parameterNames(parameter));
+        java.util.regex.Matcher positional=java.util.regex.Pattern.compile(
+            "(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*\\?(\\d*)")
+            .matcher(query);
+        boolean hasNumbered=false;
+        while(positional.find()){
+            String indexText=positional.group(1);
+            if(indexText.isEmpty())continue;
+            hasNumbered=true;
+            int index=Integer.parseInt(indexText)-1;
+            if(index<0||index>=method.getParameters().size())return false;
+            VariableTree parameter=method.getParameters().get(index);
+            if(parameterNames(parameter).stream().noneMatch(name->name.matches("(?i).*(tenant|customer|owner|username|token|hash|family|subscription|invoice|plan).*")))return false;
+        }
+        if(query.contains(":"))return namedScopeBindingsMatch(query,availableNames);
+        if(hasNumbered)return true;
+        return hasScopeParameter(method);
     }
     private static boolean hasScopeParameter(MethodTree method){
         for(VariableTree parameter:method.getParameters()){
@@ -140,6 +147,12 @@ class SpringDataRepositoryAstAnalysisTest {
             }
         }
         assertThat(observed).as("all declared @Query operations must be seen by the AST analyzer").isNotEmpty();
+    }
+
+    @Test
+    void namedQueryScopeCannotBeSatisfiedByAnUnrelatedParameter(){
+        assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("tenant"))).isTrue();
+        assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("customerId"))).isFalse();
     }
 
     @Test

@@ -157,9 +157,12 @@ class JdbcTenantSqlAstAnalysisTest {
                             assertThat(node.getArguments()).as("PosService.one call has SQL and tenant arguments: %s",node).isNotEmpty();
                             String sql=literal(node.getArguments().getFirst());
                             assertThat(sql).as("every PosService.one call must pass a static SQL literal: %s",node).isNotNull();
-                            String args=node.getArguments().stream().skip(1).map(Object::toString).reduce("",(a,b)->a+" "+b);
-                            assertThat(clientOrigin(args,taintedTenantVariables)).as("forged tenant alias cannot flow into PosService.one: %s",node).isFalse();
-                            assertThat(hasTrustedTenantArgument(args)).as("PosService.one call must receive trusted tenant provenance: %s",node).isTrue();
+                            int tenantIndex=tenantPlaceholderIndex(sql);
+                            assertThat(tenantIndex).as("PosService.one SQL must expose a tenant placeholder before binding arguments: %s",node).isGreaterThanOrEqualTo(0);
+                            String tenantArgument=trustedParameterAt(node.getArguments(),1,tenantIndex,methodName,false);
+                            assertThat(tenantArgument).as("PosService.one tenant placeholder %s must bind to the corresponding argument: %s",tenantIndex,node).isNotNull();
+                            assertThat(clientOrigin(tenantArgument,taintedTenantVariables)).as("forged tenant alias cannot flow into the exact PosService.one tenant placeholder: %s",node).isFalse();
+                            assertThat(hasTrustedTenantArgument(tenantArgument)).as("PosService.one tenant placeholder must receive trusted actor/membership/event scope, not merely another trusted-looking argument: %s",node).isTrue();
                         }
                         if(sqlMethods.contains(name) && call.contains(".")) {
                             String receiver=call.substring(0,call.lastIndexOf('.'));
@@ -238,6 +241,13 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(clientOrigin("trustedScope.tenant()",Set.of())).isFalse();
         assertThat(tenantPlaceholderIndex("SELECT * FROM vendor_roles WHERE id=? AND tenant_id=?")).isEqualTo(1);
         assertThat(tenantPlaceholderIndex("INSERT INTO vendor_roles(id,tenant_id,role_key) VALUES(?,?,?)")).isEqualTo(1);
+        assertThat(trustedParameterAt(List.of("sql", "trustedScope.tenant()", "resourceId"), 1,
+            tenantPlaceholderIndex("SELECT * FROM rows WHERE tenant_id=? AND id=?"), "one", false))
+            .isEqualTo("trustedScope.tenant()");
+        assertThat(trustedParameterAt(List.of("sql", "resourceId", "request.tenantId()"), 1,
+            tenantPlaceholderIndex("SELECT * FROM rows WHERE id=? AND tenant_id=?"), "one", false))
+            .isEqualTo("request.tenantId()");
+        assertThat(hasTrustedTenantArgument("request.tenantId()")).isFalse();
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();
     }
 }

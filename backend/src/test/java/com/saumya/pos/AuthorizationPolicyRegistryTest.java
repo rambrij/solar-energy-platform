@@ -67,9 +67,18 @@ class AuthorizationPolicyRegistryTest {
                         .isTrue();
                     String expression=methodPolicy!=null?methodPolicy.value():classPolicy.value();
                     validateAuthorities(expression,name+"#"+method.getName());
-                    rejectPlatformPermissionForVendor(actorPolicies.path(name).path("actor").asText(),
-                        expression,name+"#"+method.getName());
-                    assertMutationHasNonViewAuthority(method,expression,name+"#"+method.getName());
+                    JsonNode operationMetadata=actorPolicies.path(name);
+                    String operation=name+"#"+method.getName();
+                    assertThat(operationMetadata.path("actor").asText())
+                        .as("actor metadata for protected operation %s",operation).isIn(
+                            "PLATFORM","VENDOR","CUSTOMER","MIXED","PUBLIC","AUTHENTICATION","INVITATION_TOKEN");
+                    assertThat(operationMetadata.path("scope").asText())
+                        .as("tenant/customer/resource scope for protected operation %s",operation).isNotBlank();
+                    assertThat(operationMetadata.path("assignment").asText())
+                        .as("assignment/state metadata for protected operation %s",operation).isNotBlank();
+                    rejectPlatformPermissionForVendor(operationMetadata.path("actor").asText(),
+                        expression,operation);
+                    assertMutationHasNonViewAuthority(method,expression,operation);
                 }
             }
             Set<String> recorded=new TreeSet<>();policies.fieldNames().forEachRemaining(recorded::add);

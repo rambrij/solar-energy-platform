@@ -1873,6 +1873,57 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
+    },
+    {
+      "id": "split-tender-balance",
+      "component": "SplitTenderCheckout.tsx",
+      "trigger": "load-and-refresh",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/sales/{id}/tenders"
+    },
+    {
+      "id": "split-tender-record",
+      "component": "SplitTenderCheckout.tsx",
+      "trigger": "record-tender",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders",
+      "permissions": [
+        "POS_SALE_CREATE",
+        "POS_TENDER_CASH_RECORD",
+        "POS_TENDER_EXTERNAL_RECORD"
+      ],
+      "permissionMode": "CONDITIONAL",
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/tenders"
+    },
+    {
+      "id": "split-tender-finalize",
+      "component": "SplitTenderCheckout.tsx",
+      "trigger": "finalize",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/finalize",
+      "permissions": [
+        "POS_SALE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/finalize"
+    },
+    {
+      "id": "split-tender-unknown-outcome",
+      "component": "SplitTenderCheckout.tsx",
+      "trigger": "mark-outcome-unknown",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders/{attemptId}/unknown",
+      "permissions": [
+        "POS_TENDER_EXTERNAL_RECORD"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/tenders/{attemptId}/unknown"
     }
   ],
   "buttons": [

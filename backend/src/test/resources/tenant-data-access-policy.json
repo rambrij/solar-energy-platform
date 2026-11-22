@@ -406,5 +406,12 @@
         "requiredTenant(long id)"
       ]
     }
+  ],
+  "scopedBulkMethods": [
+    {
+      "operation": "BuyerDetailsService#discardUnpaid",
+      "scope": "TENANT_ORDER_COMPOSITE_KEY",
+      "trustedSource": "The checkout aggregate tenant and order ID are embedded in BuyerSnapshot.Key before deletion; repository deletion is constrained by the composite tenant key."
+    }
   ]
 }

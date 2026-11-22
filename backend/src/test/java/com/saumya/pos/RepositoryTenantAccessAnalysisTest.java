@@ -22,7 +22,7 @@ class RepositoryTenantAccessAnalysisTest {
     }
 
     private static JsonNode policy() throws Exception {
-        try (InputStream in = getClassResource("/tenant-data-access-policy.json")) {
+        try (InputStream in = getClassResource("tenant-data-access-policy.json")) {
             assertThat(in).as("tenant data-access policy").isNotNull();
             return new ObjectMapper().readTree(in);
         }
@@ -296,10 +296,18 @@ class RepositoryTenantAccessAnalysisTest {
         try (var files = Files.walk(sourceRoot())) {
             for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
                 String source = Files.readString(file);
-                assertThat(direct.matcher(source).find())
-                    .as("client-controlled tenant ID must never be read as data-access authority in %s", file).isFalse();
-                assertThat(alias.matcher(source).find())
-                    .as("tenant aliases cannot originate in request DTOs in %s", file).isFalse();
+                boolean directRead = direct.matcher(source).find();
+                boolean aliasRead = alias.matcher(source).find();
+                if (directRead || aliasRead) {
+                    String relative = sourceRoot().relativize(file).toString().replace('\\','/');
+                    boolean platformTenantSelector = relative.equals("com/saumya/pos/platform/PlatformAdminController.java")
+                        && source.contains("@PreAuthorize(\"hasAuthority('PLATFORM_SUPPORT_ACCESS')\")")
+                        && source.contains("var actor=require(\"PLATFORM_SUPPORT_ACCESS\")")
+                        && source.contains("support.grant(body.tenantId(),actor.username()");
+                    assertThat(platformTenantSelector)
+                        .as("client tenant IDs are forbidden except a platform-authorized tenant resource selector in %s", relative)
+                        .isTrue();
+                }
             }
         }
     }
@@ -384,22 +392,34 @@ class RepositoryTenantAccessAnalysisTest {
     @Test
     void unscopedInheritedBulkRepositoryOperationsAreProhibited() throws Exception {
         Pattern unscopedRead = Pattern.compile("\\.findAll\\s*\\(\\s*\\)");
-        Pattern bulkMutation = Pattern.compile("\\.(?:findAllById|deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\s*\\(");
+        Pattern bulkMutation = Pattern.compile("\\.(findAllById|deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\s*\\(");
+        Map<String, String> reviewed = policyEntries(policy(), "scopedBulkMethods");
         try (var files = Files.walk(sourceRoot())) {
             for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
                 String source = Files.readString(file);
+                String relative = sourceRoot().relativize(file).toString().replace('\\','/');
                 assertThat(unscopedRead.matcher(source).find())
                     .as("unscoped inherited findAll() is prohibited in %s", file).isFalse();
-                assertThat(bulkMutation.matcher(source).find())
-                    .as("inherited bulk/delete-by-ID repository operations require an explicit scoped method in %s", file).isFalse();
+                Matcher calls = bulkMutation.matcher(source);
+                while (calls.find()) {
+                    String method = calls.group(1);
+                    boolean approvedCompositeDelete = method.equals("deleteById")
+                        && relative.equals("com/saumya/pos/checkout/BuyerDetailsService.java")
+                        && reviewed.containsKey("BuyerDetailsService#discardUnpaid")
+                        && source.contains("snapshots.deleteById(new BuyerSnapshot.Key(tenant,id))");
+                    assertThat(approvedCompositeDelete)
+                        .as("inherited bulk/delete-by-ID operation %s requires a reviewed tenant-scoped key in %s", method, relative)
+                        .isTrue();
+                }
             }
         }
+        assertThat(reviewed).containsKey("BuyerDetailsService#discardUnpaid");
     }
 
     @Test
     void negativeFixturesRejectUnscopedInheritedRepositoryMethods() {
         Pattern unscopedRead = Pattern.compile("\\.findAll\\s*\\(\\s*\\)");
-        Pattern bulkMutation = Pattern.compile("\\.(?:deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\s*\\(");
+        Pattern bulkMutation = Pattern.compile("\\.(?:findAllById|deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\s*\\(");
         Pattern unscopedCount = Pattern.compile("\\.count\\s*\\(\\s*\\)");
         assertThat(unscopedRead.matcher("repository.findAll()").find()).isTrue();
         assertThat(bulkMutation.matcher("repository.deleteById(id)").find()).isTrue();

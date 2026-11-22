@@ -454,6 +454,40 @@
         "requirePlatform(actor,\"PLATFORM_PLAN_MANAGE\")",
         "plans.findById(id)"
       ]
+    },
+    {
+      "source": "com/saumya/pos/platform/PlatformConfigurationServiceImpl.java",
+      "repository": "PlatformConfigurationRepository#findById",
+      "scope": "PLATFORM_GLOBAL_CONFIGURATION_KEY",
+      "authority": "Only the platform configuration manager can read or update the global technical configuration resource; configuration keys are not tenant-owned business records.",
+      "evidence": [
+        "requireActor(actor)",
+        "repository.findById(key)",
+        "PlatformAuthorization.require(\"PLATFORM_CONFIG_MANAGE\",null)"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/platform/PlatformSupportServiceImpl.java",
+      "repository": "PlatformSupportRepository#findById",
+      "scope": "PLATFORM_SUPPORT_GRANT_RESOURCE",
+      "authority": "The support grant lookup is reached only after PlatformAuthorization.require(PLATFORM_SUPPORT_ACCESS, actor); grant tenant association is then checked by the audited support workflow.",
+      "evidence": [
+        "requirePlatform(actor,\"PLATFORM_SUPPORT_ACCESS\")",
+        "repository.findById(id)"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/subscription/TenantSubscriptionServiceImpl.java",
+      "repository": "SubscriptionPlanRepository#findById; TenantSubscriptionRepository#findById; SubscriptionPlanVersionRepository#findById",
+      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE_AND_COMPOSITE_PLAN_VERSION_KEY",
+      "authority": "All subscription resource lookups occur after requirePlatform or requireRead verifies the authenticated platform identity and permission; plan version lookup uses the embedded plan/version composite key.",
+      "evidence": [
+        "requirePlatform(actor,\"PLATFORM_SUBSCRIPTION_ADJUST\")",
+        "requireRead()",
+        "subscriptions.findById(id)",
+        "versions.findById(key)",
+        "plans.findById(input.planId())"
+      ]
     }
   ],
   "scopedBulkMethods": [

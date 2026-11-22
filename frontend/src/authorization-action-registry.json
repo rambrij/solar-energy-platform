@@ -2171,6 +2171,18 @@
       "component": "ReservedDrafts.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/cancel"
+    },
+    {
+      "id": "customer-pos-association-preview",
+      "component": "CustomerAssociation.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/pos-association/preview"
+    },
+    {
+      "id": "customer-pos-association-approve",
+      "component": "CustomerAssociation.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/pos-association/approve"
     }
   ]
 }

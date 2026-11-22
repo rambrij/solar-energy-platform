@@ -132,7 +132,8 @@ class JdbcTenantSqlAstAnalysisTest {
     }
     private static boolean hasTrustedTenantArgument(String expression) {
         if(clientOrigin(expression,Set.of()))return false;
-        return java.util.regex.Pattern.compile("(?i)(?:\\b(?:auth|authorization|ctx|c|actor|scope|s|event|m|order)\\s*\\.|\\.tenant\\s*\\(|\\.tenantId\\s*\\()")
+        return java.util.regex.Pattern.compile("(?i)(?:\\b(?:auth|authorization)\\s*\\.\\s*current\\s*\\(\\s*\\)\\s*\\.\\s*tenantId\\s*\\(\\s*\\)|"
+            + "\\b(?:ctx|context|c|actor|scope|s|event|m|order|membership|cart|current|archived|vendor|tenant)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*(?:\\(\\s*\\))?)")
             .matcher(expression).find();
     }
     private static boolean hasTrustedTenantArgument(String expression,String className,String methodName,JsonNode classPolicy) {
@@ -550,5 +551,8 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(hasTrustedTenantArgument("tenant")).isFalse();
         assertThat(hasTrustedTenantArgument("tenantId")).isFalse();
         assertThat(hasTrustedTenantArgument("request.tenantId()")).isFalse();
+        assertThat(hasTrustedTenantArgument("payload.tenant()")).isFalse();
+        assertThat(hasTrustedTenantArgument("untrusted.tenantId()")).isFalse();
+        assertThat(hasTrustedTenantArgument("vendor.getTenantId()")).isFalse();
     }
 }

@@ -398,12 +398,20 @@ assert.equal(
  '/api/v1/platform/identities/{}/mfa-enrollment'
 );
 function requireBackendOperation(action,operations){
- const operation=operations.find(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint));
- if(!operation)throw new Error('No backend operation for frontend action '+action.id+': '+action.backendOperation);
- return operation;
+ const expected=action.method+' '+action.endpoint;
+ if(action.backendOperation!==expected)
+  throw new Error('Frontend backendOperation metadata mismatch for '+action.id+': '+action.backendOperation+' expected '+expected);
+ const matches=operations.filter(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint));
+ if(matches.length===0)throw new Error('No backend operation for frontend action '+action.id+': '+action.backendOperation);
+ if(matches.length!==1)throw new Error('Ambiguous backend operation for frontend action '+action.id+': '+action.backendOperation);
+ return matches[0];
 }
 assert.throws(()=>requireBackendOperation({id:'fixture-missing-backend-operation',method:'POST',endpoint:'/api/v1/vendor/missing',backendOperation:'POST /api/v1/vendor/missing'},[]),
  /No backend operation for frontend action/);
+assert.throws(()=>requireBackendOperation({id:'fixture-wrong-backend-operation',method:'POST',endpoint:'/api/v1/vendor/missing',backendOperation:'GET /api/v1/vendor/missing'},[{method:'POST',endpoint:'/api/v1/vendor/missing'}]),
+ /Frontend backendOperation metadata mismatch/);
+assert.throws(()=>requireBackendOperation({id:'fixture-ambiguous-backend-operation',method:'POST',endpoint:'/api/v1/vendor/missing',backendOperation:'POST /api/v1/vendor/missing'},[{method:'POST',endpoint:'/api/v1/vendor/missing'},{method:'POST',endpoint:'/api/v1/vendor/missing'}]),
+ /Ambiguous backend operation/);
 const backendOperations=await collectControllerRoutes(path.join(repo,'backend/src/main/java'));
 for(const action of actionRegistry.actions){
  const operation=requireBackendOperation(action,backendOperations);

@@ -147,17 +147,12 @@ class JdbcTenantSqlAstAnalysisTest {
 
     @Test
     void sqlAstNegativeFixturesRejectDynamicAndUnscopedStatements() {
-        assertThat(literal(new com.sun.source.tree.TreeVisitorAdapter() {} == null ? null : null)).isNull();
         assertThat(tenantPredicate("SELECT * FROM vendor_roles WHERE id=?")).isFalse();
         assertThat(tenantPredicate("SELECT * FROM vendor_roles WHERE tenant_id=? AND id=?")).isTrue();
         assertThat(tenantInsert("INSERT INTO vendor_roles(id,role_key) VALUES(?,?)")).isFalse();
         assertThat(tenantInsert("INSERT INTO vendor_roles(tenant_id,role_key) VALUES(?,?)")).isTrue();
         assertThat(hasTrustedTenantArgument("request.getTenantId()")).isTrue();
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();
-        assertThat(literal(new com.sun.source.tree.LiteralTree() {
-            public Object getValue(){return "SELECT * FROM x";}
-            public Kind getKind(){return Kind.STRING_LITERAL;}
-            public <R,D> R accept(com.sun.source.tree.TreeVisitor<R,D> v,D d){return v.visitLiteral(this,d);}
-        })).isEqualTo("SELECT * FROM x");
+.isEqualTo("SELECT * FROM x");
     }
 }

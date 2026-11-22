@@ -3,14 +3,14 @@
 **Branch:** `feature/develop-authorization-gap-analysis`  
 **Status:** IN PROGRESS — current CI gates PASS; exhaustive schema / transaction acceptance remains open.  
 **Earlier dedicated test commit:** `4886946beb76cbc716e39858886daf639a5e5e58`  
-**Latest branch-head snapshot:** `3af16fc6d5be42c6631d8b2b9c08e585f257c587`  
+**Latest branch-head snapshot:** `20d65039906475faa0def9d79f4e89e0249bda18`  
 **Workflow:** [GitHub Actions run #44997794980](https://github.com/rambrij/solar-energy-platform/actions/runs/44997794980) — SUCCESS (2026-11-22).
 
 ## Latest branch-head verification (2026-11-22)
 
-Run [#45016085369](https://github.com/rambrij/solar-energy-platform/actions/runs/45016085369), commit `3af16fc6d5be42c6631d8b2b9c08e585f257c587`, reports the dedicated **P2-02 MySQL 8.4 migration and schema contracts** step SUCCESS, the full MySQL backend job SUCCESS, and frontend SUCCESS. Browser E2E was still in progress at the time this evidence was refreshed; therefore this is not yet a complete all-job branch-head validation.
+Run [#45024413703](https://github.com/rambrij/solar-energy-platform/actions/runs/45024413703), commit `20d65039906475faa0def9d79f4e89e0249bda18`, reports the focused **Financial tenant isolation, rollback and deletion acceptance (MySQL 8.4)** step SUCCESS and the dedicated **P2-02 MySQL 8.4 migration and schema contracts** step SUCCESS. Frontend is SUCCESS; the full H2 and MySQL backend jobs were still running when this evidence was refreshed. Do not treat this as a completed all-job branch-head validation.
 
-The current `P202MysqlPersistenceIntegrationTest` source contains **11 @Test methods** (not the four methods stated in the earlier evidence section): clean install/repeatable migration, V47 upgrade retention, core metadata, complete tenant-owned table classification and composite parent keys, V40–V47 named constraint inventory, generated-column/stock-location behavior, immutable audit and financial deletion restrictions, UTC timestamp round-trip, stale-version compare-and-swap, V40–V47 invalid-row rejection, and V48 preflight rejection without data deletion. The workflow invokes the entire class in its dedicated MySQL step.
+The current `P202MysqlPersistenceIntegrationTest` source contains **13 @Test methods**: clean install/repeatable migration, V47 upgrade retention, core metadata, complete tenant-owned table classification and composite parent keys, V40–V47 named constraint inventory, generated-column/stock-location behavior, immutable audit and financial deletion restrictions, UTC timestamp round-trip, stale-version compare-and-swap, V40–V47 invalid-row rejection, V45 composite-FK insert/update rejection, exhaustive invalid plan-limit checks, and V48 preflight rejection without data deletion. The class also probes missing plan parents and invalid subscription plan-version references on INSERT and UPDATE. The workflow invokes the entire class in its dedicated MySQL step.
 
 ## Verified CI results
 
@@ -42,7 +42,7 @@ Relevant job IDs:
 
 ## Dedicated test coverage verified
 
-`P202MysqlPersistenceIntegrationTest` currently contains 11 test methods and the full class passed in the latest recorded MySQL 8.4 CI run (#45016085369):
+`P202MysqlPersistenceIntegrationTest` currently contains 13 test methods and the full class passed in the latest recorded MySQL 8.4 CI run (#45016085369):
 1. Clean install, applied migration ordering/version uniqueness, Flyway validation and repeatable startup.
 2. Supported V47-to-V55 upgrade with persisted tenant/branch data and stock-location backfill.
 3. Selected core MySQL schema metadata: tenant_id nullability, named CHECK constraints, composite foreign keys, generated column, DECIMAL precision and tenant-leading indexes.
@@ -93,6 +93,12 @@ The full backend acceptance suite already contained more P2-02 behavioral covera
 - `jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary`: verifies JPA-managed stock and JDBC audit writes share the same transaction manager and roll back together.
 
 The focused financial tenant-isolation/rollback/deletion acceptance step passed on MySQL 8.4 in [workflow run #45019198864](https://github.com/rambrij/solar-energy-platform/actions/runs/45019198864). This is focused-step evidence only; the full MySQL backend job and dedicated P2-02 migration/schema step were still running when this note was added.
+
+
+
+The financial acceptance test now also attempts deletion of order_items, pos_return_items, and the referenced inventory row, then verifies that each original row remains. These supplement the existing delete attempts for orders, returns, refunds, products, sessions, branches, registers, tenants and employees.
+
+The V40–V47 behavior test now pairs invalid INSERT coverage with invalid UPDATE probes for support-access expiry, platform configuration secret/plain-value invariants, plan interval/limits, subscription status, invoice status, payment status, tenant-role permission prefixes and platform permission allow-lists. It also verifies missing plan parents and invalid subscription plan-version references are rejected on INSERT/UPDATE.
 
 The dedicated P2-02 MySQL test class now also exercises V45 role/employee/register composite FK INSERT and UPDATE rejection with positive controls, and validates plan-limit CHECK failures. The fixture seeds required global user identities and uses permission IDs from the canonical catalogue. The plan/invoice/subscription deletion test now additionally attempts to delete the referenced plan version and plan, and verifies subscription payment/event rows remain present after parent-delete rejection.
 

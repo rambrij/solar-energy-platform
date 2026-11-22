@@ -315,7 +315,12 @@
         "ctx.tenantId()",
         "authorizeInternalScope",
         "scope.tenant()"
-      ]
+      ],
+      "trustedTenantParameters": {
+        "requireOpenForCustomer": [
+          "tenant"
+        ]
+      }
     },
     {
       "source": "com.saumya.pos.retail.DraftSessionProjection",
@@ -627,6 +632,17 @@
         {
           "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
           "expression": "tenant.id()",
+          "argumentIndex": 0
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.retail.PosService#requireOpenForCustomer",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.checkout.CustomerAssociationService#approve",
+          "expression": "order.tenant()",
           "argumentIndex": 0
         }
       ]

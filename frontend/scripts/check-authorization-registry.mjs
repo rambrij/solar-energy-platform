@@ -227,7 +227,18 @@ async function collectControllerRoutes(directory){
  }
  return found;
 }
-function normalizeActionPath(value){return value.replace(/\{[^/]+\}/g,'{}').replace(/\/+/g,'/').replace(/\/$/,'')||'/';}
+function normalizeActionPath(value){
+ return value
+  .replace(/['"]\s*\+\s*encodeURIComponent\([^)]*\)\s*\+\s*['"]/g,'{}')
+  .replace(/\$\{encodeURIComponent\(([^)]+)\)\}/g,'{}')
+  .replace(/\{[^/]+\}/g,'{}')
+  .replace(/\/+/g,'/')
+  .replace(/\/$/,'')||'/';
+}
+assert.equal(
+ normalizeActionPath("/api/v1/platform/identities/'+encodeURIComponent(username)+'/mfa-enrollment"),
+ '/api/v1/platform/identities/{}/mfa-enrollment'
+);
 const backendOperations=await collectControllerRoutes(path.join(repo,'backend/src/main/java'));
 for(const action of actionRegistry.actions){
  const operation=backendOperations.find(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint));

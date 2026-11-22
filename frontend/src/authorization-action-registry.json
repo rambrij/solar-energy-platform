@@ -1772,6 +1772,19 @@
       "permissions": [],
       "actor": "PUBLIC",
       "backendOperation": "GET /api/v1/marketplace/vendors/{slug}/products/{id}"
+    },
+    {
+      "id": "pos-refund-return-lookup",
+      "component": "CashRefunds.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/refunds/return/{id}",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/refunds/return/{id}"
     }
   ],
   "buttons": [

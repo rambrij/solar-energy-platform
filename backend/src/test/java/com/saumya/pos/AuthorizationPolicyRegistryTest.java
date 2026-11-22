@@ -60,7 +60,9 @@ class AuthorizationPolicyRegistryTest {
                     assertThat(methodPolicy!=null||classPolicy!=null)
                         .as("every mapped endpoint must have a machine-enforced @PreAuthorize policy or explicit permitAll policy: %s#%s",name,method.getName())
                         .isTrue();
-                    validateAuthorities(methodPolicy!=null?methodPolicy.value():classPolicy.value(),name+"#"+method.getName());
+                    String expression=methodPolicy!=null?methodPolicy.value():classPolicy.value();
+                    validateAuthorities(expression,name+"#"+method.getName());
+                    assertMutationHasNonViewAuthority(method,expression,name+"#"+method.getName());
                 }
             }
             Set<String> recorded=new TreeSet<>();policies.fieldNames().forEachRemaining(recorded::add);
@@ -72,6 +74,21 @@ class AuthorizationPolicyRegistryTest {
         return AnnotatedElementUtils.hasAnnotation(method,RequestMapping.class);
     }
 
+    private static void assertMutationHasNonViewAuthority(Method method,String expression,String location){
+        RequestMapping mapping=AnnotatedElementUtils.findMergedAnnotation(method,RequestMapping.class);
+        if(mapping==null)return;
+        boolean mutation=Arrays.stream(mapping.method()).anyMatch(verb ->
+            verb==RequestMethod.POST||verb==RequestMethod.PUT||verb==RequestMethod.PATCH||verb==RequestMethod.DELETE);
+        if(!mutation)return;
+        Matcher matcher=Pattern.compile("(?:hasAuthority|hasAnyAuthority)\\('([A-Z][A-Z0-9_]+)'").matcher(expression);
+        Set<String> authorities=new HashSet<>();
+        while(matcher.find())authorities.add(matcher.group(1));
+        if(!authorities.isEmpty()){
+            assertThat(authorities).as("mutation endpoint %s must not be protected only by VIEW permissions",location)
+                .anyMatch(permission -> !permission.endsWith("_VIEW"));
+        }
+    }
+
     private static void validateAuthorities(String expression,String location){
         Matcher matcher=Pattern.compile("(?:hasAuthority|hasAnyAuthority)\\('([A-Z][A-Z0-9_]+)'").matcher(expression);
         while(matcher.find()){
@@ -81,6 +98,24 @@ class AuthorizationPolicyRegistryTest {
                 ||PlatformPermissionRegistry.contains(permission))
                 .as("known permission %s in %s",permission,location).isTrue();
         }
+    }
+
+    @Test void negativeFixturesRejectUnknownPermissionAndViewOnlyMutation(){
+        assertThatThrownBy(() -> validateAuthorities("hasAuthority('UNKNOWN_P204_PERMISSION')","fixture#unknown"))
+            .isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> assertMutationHasNonViewAuthority(
+            fixtureMethod("postFixture"),"hasAuthority('POS_VIEW')","fixture#postFixture"))
+            .isInstanceOf(AssertionError.class);
+    }
+
+    private static Method fixtureMethod(String name){
+        try{return AuthorizationPolicyRegistryTest.NegativeAuthorizationFixture.class.getDeclaredMethod(name);}
+        catch(NoSuchMethodException exception){throw new AssertionError(exception);}
+    }
+
+    static class NegativeAuthorizationFixture {
+        @PostMapping("/fixture")
+        void postFixture(){}
     }
 
     @Test void vendorPermissionRegistryRejectsUnknownAndPlatformGrants(){

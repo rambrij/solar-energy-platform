@@ -81,6 +81,23 @@ The successful workflow also ran the existing P0-04 and P0-05 suites and the ful
 | MySQL UTC timestamp round-trip and optimistic locking | **IMPLEMENTED — focused behavior** | `mysqlUtcTimestampRoundTripPreservesTheExactInstant` sets the session to UTC and proves exact Instant round-trip. `versionColumnsSupportCompareAndSwapWithoutStaleOverwrite` proves a stale compare-and-swap update affects zero rows and cannot overwrite the winning value. Confirm these contracts remain applicable to every entity using timestamp/version semantics; add entity-level JPA tests where direct JDBC alone does not cover the application mapping. |
 | CI gate and branch protection | **PARTIAL** | The dedicated MySQL 8.4 P2-02 step and full MySQL backend suite passed on run #45016085369. Frontend passed; Browser E2E was still running when checked. Branch protection / ruleset required-check enforcement could not be read: GitHub returned 403 for the branch-protection endpoint. An authorized repository administrator must verify that the required workflow checks are enforced before merge. |
 
+## Additional financial acceptance tests (2026-11-22)
+
+The full backend acceptance suite already contained more P2-02 behavioral coverage than the earlier gap summary credited. The following tests run in the MySQL 8.4 backend lane as part of `PosTest`:
+
+- `commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion`: creates same-tenant Vendor A/B order, return, invoice, payment-attempt, receipt-audit, inventory-receipt, refund, refund-item, return-event and inventory-disposition records; verifies same-tenant positive controls; rejects cross-tenant INSERT and UPDATE attempts; attempts deletion of orders, returns, refunds, products, sessions, branches, registers, tenants and employees. New assertions verify that rejected deletes leave the order, invoice, payment attempt, receipt audit, inventory receipt, return, return items/events, refund, refund items, inventory disposition and inventory ledger rows intact.
+- `cashSaleFailureAfterStockConsumeRollsBackEveryLocalFinancialWrite`: injects invoice issuance failure after cash-sale finalization has attempted stock consumption and payment/audit writes; verifies order state, stock quantity/reservation, inventory ledger, payment attempt and sale audit rollback.
+- `reservationFailureRollsBackEveryLineAndOrder`: a multi-line reservation failure leaves no order or reservation and restores available stock.
+- `inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites`: injects failures after stock receipt and after cash tender/payment, checking inventory quantity/reservation, receipt, ledger, payment, drawer tender, invoice, receipt-document audit and POS audit state.
+- `cashRefundFailureRollsBackRefundAllocationAndAuditTimeline`: injects failure after refund payment/audit work and verifies refund, refund items, return events/state, inventory dispositions, POS audit and expected cash reconciliation remain unchanged.
+- `jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary`: verifies JPA-managed stock and JDBC audit writes share the same transaction manager and roll back together.
+
+The focused financial tenant-isolation/rollback/deletion acceptance step passed on MySQL 8.4 in [workflow run #45019198864](https://github.com/rambrij/solar-energy-platform/actions/runs/45019198864). This is focused-step evidence only; the full MySQL backend job and dedicated P2-02 migration/schema step were still running when this note was added.
+
+The dedicated P2-02 MySQL test class now also exercises V45 role/employee/register composite FK INSERT and UPDATE rejection with positive controls, and validates plan-limit CHECK failures. The fixture seeds required global user identities and uses permission IDs from the canonical catalogue. The plan/invoice/subscription deletion test now additionally attempts to delete the referenced plan version and plan, and verifies subscription payment/event rows remain present after parent-delete rejection.
+
+**Still open:** This improves behavioral evidence but does not yet prove every discovered commercial/financial FK edge or every remaining V40–V47 constraint behavior. The P2-02 gate must stay IN PROGRESS until the current dedicated MySQL run passes and the residual relationship/constraint matrix is closed with explicit positive and negative cases.
+
 **Disposition:** Schema-derived tenant ownership inventory, focused UTC/optimistic-lock behavior and broadened migration checks are implemented and covered. The remaining PARTIAL items above are real acceptance gaps; do not promote them to COMPLETE without MySQL 8.4 behavioral evidence.
  
 ## Remaining work before P2-02 COMPLETE

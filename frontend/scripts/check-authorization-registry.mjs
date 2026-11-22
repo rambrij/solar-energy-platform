@@ -413,6 +413,7 @@ for(const action of actionRegistry.actions){
 
 const apiHelperSource=fs.readFileSync(path.join(frontend,'src/api.ts'),'utf8');
 const requiredApiHelpers=[
+ "export function authApi(path:string){if(path!=='/api/v1/auth/me')throw new Error('Unsupported auth read');return request(path,'GET');}",
  "export function authPost(path:string,body:unknown){return request('/api/v1/auth'+path,'POST',body);}",
  "export function api(path:string,body?:unknown,key?:string){return request('/api/v1/vendor/pos'+path,body===undefined?'GET':'POST',body,key);}",
  "export function vendorApi(path:string,method='GET',body?:unknown,key?:string){return request('/api/v1/vendor'+path,method,body,key);}",
@@ -420,10 +421,10 @@ const requiredApiHelpers=[
 ];
 for(const helper of requiredApiHelpers)if(!apiHelperSource.includes(helper))
  throw new Error('API helper must preserve its reviewed prefix and method semantics: '+helper);
-if(/\b(?:authApi|acceptVendorInvitation)\b/.test(apiHelperSource))
+if(/\bacceptVendorInvitation\b/.test(apiHelperSource))
  throw new Error('Unregistered generic auth API helper remains in api.ts');
 const apiHelperExports=[...apiHelperSource.matchAll(/export function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(match=>match[1]).sort();
-if(JSON.stringify(apiHelperExports)!==JSON.stringify(['api','authPost','platformApi','vendorApi']))
+if(JSON.stringify(apiHelperExports)!==JSON.stringify(['api','authApi','authPost','platformApi','vendorApi']))
  throw new Error('api.ts exports an unreviewed API helper: '+apiHelperExports.join(','));
 const sessionSource=fs.readFileSync(path.join(frontend,'src/session.ts'),'utf8');
 if(!/fetch\s*\(\s*['"]\/api\/v1\/auth\/csrf['"]/.test(sessionSource)
@@ -528,7 +529,7 @@ for(const file of sourceFiles){
  const source=fs.readFileSync(file,'utf8');
  const relative=path.relative(path.join(frontend,'src'),file);
  if(['api.ts','marketplaceApi.ts'].includes(relative))continue;
- const callPattern=/\b(api|vendorApi|platformApi|marketplaceApi|authPost)\s*\(/g;
+ const callPattern=/\b(api|authApi|vendorApi|platformApi|marketplaceApi|authPost)\s*\(/g;
  for(const match of source.matchAll(callPattern)){
   const resolved=resolveApiCall(file,source,match);
   if(!resolved)continue;

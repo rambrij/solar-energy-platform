@@ -245,6 +245,8 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | DraftExpiryJob | scheduledCleanup, runBatch | Trusted system worker; installs SYSTEM_DRAFT_EXPIRY only around CheckoutService.expire; processes persisted due drafts in bounded batches |
 | ReservationCleanup | sweep | Unscheduled compatibility facade in checkout.internal; delegates to DraftExpiryJob.scheduledCleanup and installs no authority itself |
 
+| PlatformIdentityQueryService | list | PLATFORM_IDENTITY_MANAGE; platform actor only; read-only identity inventory; repositories remain inside identity module |
+
 ### 9.1 InventoryService caller graph (INV-SVC-002)
 
 | Inventory method | Production caller(s) | Authorization boundary |

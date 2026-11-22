@@ -151,11 +151,6 @@
       "trustedSource": "SHA-256 token hash from one-time invitation token; expiry and single-use state are checked by service."
     },
     {
-      "operation": "IdentitySequenceRepository#locked",
-      "scope": "GLOBAL_IDENTITY_SEQUENCE",
-      "trustedSource": "Server-owned identity sequence row."
-    },
-    {
       "operation": "PlatformMfaEnrollmentRepository#locked",
       "scope": "ONE_TIME_PLATFORM_MFA_TOKEN",
       "trustedSource": "SHA-256 token hash; one-time expiry and single-use checks are enforced by PlatformMfaService."
@@ -449,6 +444,16 @@
         "tenants.findById(id)",
         "requiredTenant(long id)"
       ]
+    },
+    {
+      "source": "com/saumya/pos/subscription/SubscriptionPlanServiceImpl.java",
+      "repository": "SubscriptionPlanRepository#findById",
+      "scope": "PLATFORM_GLOBAL_SAAS_PLAN_RESOURCE",
+      "authority": "Only the authenticated platform actor with PLATFORM_PLAN_MANAGE reaches the global SaaS plan resource lookup; the plan catalogue is platform-owned and contains no tenant-private plan rows.",
+      "evidence": [
+        "requirePlatform(actor,\"PLATFORM_PLAN_MANAGE\")",
+        "plans.findById(id)"
+      ]
     }
   ],
   "scopedBulkMethods": [
@@ -456,6 +461,11 @@
       "operation": "BuyerDetailsService#discardUnpaid",
       "scope": "TENANT_ORDER_COMPOSITE_KEY",
       "trustedSource": "The checkout aggregate tenant and order ID are embedded in BuyerSnapshot.Key before deletion; repository deletion is constrained by the composite tenant key."
+    },
+    {
+      "operation": "SubscriptionPlanServiceImpl#list",
+      "scope": "PLATFORM_GLOBAL_SAAS_PLAN_CATALOGUE",
+      "trustedSource": "requireRead() verifies the authenticated platform identity and PLATFORM_SUBSCRIPTION_VIEW or PLATFORM_PLAN_MANAGE before the global SaaS plan catalogue findAll(); no tenant-owned business rows are queried."
     }
   ]
 }

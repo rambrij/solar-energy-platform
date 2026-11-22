@@ -262,7 +262,7 @@ class RepositoryTenantAccessAnalysisTest {
             assertThat(item.path("authority").asText()).isNotBlank();
             assertThat(item.path("methods").isArray()).isTrue();
             assertThat(item.path("evidence").isArray()).isTrue();
-            Path file = sourceRoot().resolve(sourceName.replace("com.saumya.pos.", "com/saumya/pos/") + ".java");
+            Path file = sourceRoot().resolve(sourceName.replace('.', '/') + ".java");
             assertThat(Files.isRegularFile(file)).as("trusted JDBC source %s exists", sourceName).isTrue();
             String source = Files.readString(file);
             for (JsonNode evidence : item.path("evidence")) {
@@ -369,7 +369,7 @@ class RepositoryTenantAccessAnalysisTest {
             "(?is)(?:db|jdbc)\\.(?:query|queryFor\\w*|update|execute|batchUpdate)\\s*\\(\\s*(?:[a-zA-Z_$][\\w$]*\\s*\\+|String\\.format\\s*\\(|new\\s+StringBuilder\\s*\\()");
         for (JsonNode item : sources) {
             String sourceName = item.path("source").asText();
-            Path file = sourceRoot().resolve(sourceName.replace("com.saumya.pos.", "com/saumya/pos/") + ".java");
+            Path file = sourceRoot().resolve(sourceName.replace('.', '/') + ".java");
             String source = Files.readString(file);
             assertThat(dynamicArgument.matcher(source).find())
                 .as("JDBC SQL expression must be a reviewed static literal, not runtime concatenation: %s", sourceName)
@@ -398,8 +398,20 @@ class RepositoryTenantAccessAnalysisTest {
             for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
                 String source = Files.readString(file);
                 String relative = sourceRoot().relativize(file).toString().replace('\\','/');
-                assertThat(unscopedRead.matcher(source).find())
-                    .as("unscoped inherited findAll() is prohibited in %s", file).isFalse();
+                Matcher reads=unscopedRead.matcher(source);
+                int approvedGlobalReads=0;
+                while(reads.find()){
+                    boolean approvedGlobalCatalogRead=relative.equals("com/saumya/pos/subscription/SubscriptionPlanServiceImpl.java")
+                        && reviewed.containsKey("SubscriptionPlanServiceImpl#list")
+                        && source.contains("requireRead();return plans.findAll()")
+                        && source.contains("context.isPlatformUser()")
+                        && source.contains("context.hasAnyPermission(");
+                    assertThat(approvedGlobalCatalogRead)
+                        .as("inherited findAll() requires a reviewed platform/global resource method in %s",file).isTrue();
+                    approvedGlobalReads++;
+                }
+                if(relative.equals("com/saumya/pos/subscription/SubscriptionPlanServiceImpl.java"))
+                    assertThat(approvedGlobalReads).as("only the reviewed platform plan catalogue may use inherited findAll()").isEqualTo(1);
                 Matcher calls = bulkMutation.matcher(source);
                 while (calls.find()) {
                     String method = calls.group(1);
@@ -414,6 +426,7 @@ class RepositoryTenantAccessAnalysisTest {
             }
         }
         assertThat(reviewed).containsKey("BuyerDetailsService#discardUnpaid");
+        assertThat(reviewed).containsKey("SubscriptionPlanServiceImpl#list");
     }
 
     @Test

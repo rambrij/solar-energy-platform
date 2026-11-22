@@ -55,7 +55,6 @@ class PlatformMfaTest {
         user.acceptPlatformMfaCounter(10);
         assertThat(user.platformMfaLastCounter()).isEqualTo(10);
     }
-}
 
     @Test
     void platformMfaServiceRejectsVendorDirectCallsBeforeAnyRepositoryOrAuditAccess() {
@@ -106,3 +105,4 @@ class PlatformMfaTest {
 
         verifyNoInteractions(users,grants,tokens,sessions,customers,memberships,crypto,totp,audit);
     }
+}

@@ -27,6 +27,16 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: backend/pom.xml
+      - name: P2-04 architecture and static authorization gate (H2)
+        if: matrix.database == 'h2'
+        run: mvn -B -f backend/pom.xml '-Dtest=ModuleArchitectureTest,AuthorizationPolicyRegistryTest,ServiceBoundaryMethodInventoryTest' test
+      - name: P2-04 architecture and static authorization gate (MySQL 8.4)
+        if: matrix.database == 'mysql'
+        env:
+          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: disposable-test-password
+        run: mvn -B -f backend/pom.xml '-Dtest=ModuleArchitectureTest,AuthorizationPolicyRegistryTest,ServiceBoundaryMethodInventoryTest' test
       - name: Financial tenant isolation, rollback and deletion acceptance (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=PosTest#tenantOwnedProjectionAndSubscriptionRowsRejectCrossTenantParents+commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion+cashSaleFailureAfterStockConsumeRollsBackEveryLocalFinancialWrite+reservationFailureRollsBackEveryLineAndOrder+jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary+inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites+cashRefundFailureRollsBackRefundAllocationAndAuditTimeline+transactionFailureInjectionMatrixRollsBackOnlinePosReservationPaymentSaleReceiptLedgerAndInventory+onlinePaymentConfirmationFailureRestoresPaymentStockReceiptInvoiceAndCart+returnIntakeInspectionAndInventoryDispositionRollbackAtInjectedFailureBoundaries+receiptIdentityRollsBackWithSaleAndLegacyReadNeverInventsNames' test
@@ -81,16 +91,6 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml '-Dtest=MembershipServiceTest,TenantEntitlementPolicyTest,VendorRoleServiceProvisioningTest,VendorRoleServiceAuthorizationBoundaryTest' test
-      - name: P2-04 architecture and static authorization gate (H2)
-        if: matrix.database == 'h2'
-        run: mvn -B -f backend/pom.xml '-Dtest=ModuleArchitectureTest,AuthorizationPolicyRegistryTest,ServiceBoundaryMethodInventoryTest' test
-      - name: P2-04 architecture and static authorization gate (MySQL 8.4)
-        if: matrix.database == 'mysql'
-        env:
-          TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
-          TEST_DB_USER: root
-          TEST_DB_PASSWORD: disposable-test-password
-        run: mvn -B -f backend/pom.xml '-Dtest=ModuleArchitectureTest,AuthorizationPolicyRegistryTest,ServiceBoundaryMethodInventoryTest' test
       - name: P0-02 service-boundary authorization acceptance (H2)
         if: matrix.database == 'h2'
         run: mvn -B -f backend/pom.xml '-Dtest=ServiceBoundaryMethodInventoryTest,BackgroundEntryPointInventoryTest,AuthorizationPolicyMatrixTest,AuthorizationPolicyRegistryTest,P004TenantIsolationTest,AuthenticationServiceTest,AuthenticationActorContextTest,IdentityProvisioningServiceTest,BranchProvisioningServiceTest,PlatformMfaTest,TenantLifecycleTest,TenantServiceDirectoryValidationTest,StockReceivingServiceTest,PosServiceBoundaryTest,CashierSalesServiceTest,SalesReportServiceTest,RefundReportServiceTest,ReportExportServiceTest,CheckoutReceiptServiceTest,DraftRecoveryServiceTest,OnlineReceiptServiceTest,OrderHistoryServiceTest,CatalogSearchServiceTest,ProductDetailServiceTest,CategoryAdminServiceTest,ProductAdminServiceTest,VendorDirectoryServiceTest,PosCatalogServiceTest,CartServiceAuthorizationBoundaryTest,CheckoutServiceAuthorizationBoundaryTest,CustomerAccessAuthorizationBoundaryTest,ReturnSaleAccessAuthorizationBoundaryTest,ReturnsExportsAuthorizationBoundaryTest,ReadOnlyServiceAuthorizationBoundaryTest,VendorRoleServiceAuthorizationBoundaryTest,BranchPolicyServiceAuthorizationBoundaryTest,DiscountPolicyServiceTest,SaleDiscountServiceTest,CatalogServicePaymentReviewAuthorizationTest,CatalogPromotionAuthorizationBoundaryTest,CustomerAssociationServiceTest,VendorCustomerServiceTest,ReceiptDocumentServiceTest,PaymentCheckoutServiceTest,PlatformAdminServiceAuthorizationTest,PlatformConfigurationServiceTest,PlatformSupportServiceTest,TenantSubscriptionServiceAuthorizationTest,PlatformAuditServiceTest,PosTest#directServiceCallsRejectMissingPermissionBeforeBusinessQueries+catalogAdminServicesRejectMissingPermissionAndForgedTenantOnDirectInvocation+everyProtectedControllerRouteRejectsAnonymousHttpRequests+everyEligibleProtectedGetRouteRejectsAuthenticatedPrincipalWithNoAuthorities+everyProtectedControllerMethodRejectsAuthenticatedZeroAuthorityDirectInvocation+checkoutServiceDirectInvocationHidesVendorBOrderFromVendorA+p006VendorAdminCustomRoleAndCustomerOwnedHttpResourcesAreTenantScoped+p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession+p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor+orderHistoryScopesPaginationDatesAndImmutableDetails+orderHistoryRequiresPermissionsAndRejectsInvalidFilters+salesReportUsesFinalizationDayAndRejectsForeignBranchesAndMissingGrants+salesCsvExportIsScopedAuditedAndContainsNoBuyerFields+exportsRejectForgedScopeInvalidRangeAndMissingRefundGrant+cashRefundCsvExportsOnlyScopedPayoutAggregatesWithoutChangingFinances+refundHistoryPagesSearchesAndDatesRemainBranchScoped+refundHistoryRejectsInvalidFiltersAndMissingPermissions+returnAuditTimelineIncludesStockAndFinancialEventsWithoutPrivateNotes+pagedReturnQueueFindsCasesBeyondTwentyAndEnforcesReadOnlyBranchScope+returnQueueRejectsMissingPermissionsAndInvalidFilters+registerDirectoryIsPagedScopedAndHidesDrawerDetails+registerDirectoryRejectsMissingRightsBadBoundsAndInactiveMembership+receiptPdfCopiesAreScopedAuditedAndMatchExactReturnedBytes+receiptPdfRejectsMissingRightsCsrfBadReasonForeignScopeAndUnsupportedGlyphs+ownClosedShiftHistoryIsPagedAndDoesNotExposeOtherCashiersOrChangeDrawers+ownShiftHistoryRejectsMissingPermissionsAndInvalidBounds+publicVendorDirectoryIsPagedSearchableAndContainsOnlyActivePublicCards+promotionAuditHistoryIsTenantScopedPagedAndReadOnlyForWithdrawnProducts+promotionAuditRejectsMissingRightsInactiveMembershipAndBadBounds' test

@@ -1,30 +1,37 @@
 # P2-02 MySQL 8.4 migration and persistence evidence
 
 **Branch:** `feature/develop-authorization-gap-analysis`  
-**Status:** IN PROGRESS — current CI gates PASS; exhaustive schema / transaction acceptance remains open.  
+**Status:** IN PROGRESS — transaction-boundary failure-injection matrix implemented and focused H2/MySQL 8.4 gates PASS; latest full workflow and required-check enforcement remain unverified.  
 **Earlier dedicated test commit:** `4886946beb76cbc716e39858886daf639a5e5e58`  
-**Latest tested implementation snapshot:** `3c65a09a435c4c56c70d1d6a47db305817b984b2`  
+**Latest tested implementation snapshot:** `f16b92878dccbaa81775ae2630d2029dc506cbb5`  
 **Workflow:** [GitHub Actions run #44997794980](https://github.com/rambrij/solar-energy-platform/actions/runs/44997794980) — SUCCESS (2026-11-22).
 
 ## Latest branch-head verification (2026-11-22)
 
-Run [#45024947655](https://github.com/rambrij/solar-energy-platform/actions/runs/45024947655), commit `3c65a09a435c4c56c70d1d6a47db305817b984b2`, reports the focused financial tenant-isolation/rollback/deletion step SUCCESS on both MySQL 8.4 and H2, and frontend SUCCESS. The full backend suites were still running when checked. The dedicated **P2-02 MySQL 8.4 migration and schema contracts** step passed on the immediately preceding implementation commit in [run #45024413703](https://github.com/rambrij/solar-energy-platform/actions/runs/45024413703); the P202 test source did not change between those commits. The last fully completed all-job workflow, [#45023892481](https://github.com/rambrij/solar-energy-platform/actions/runs/45023892481), passed backend H2, backend MySQL, frontend and Browser E2E on commit `d50e03d64e73c088ccf74185842575bf1ce12b39`.
+Run [#45026864067](https://github.com/rambrij/solar-energy-platform/actions/runs/45026864067), implementation commit `f16b92878dccbaa81775ae2630d2029dc506cbb5`, reports:
+- Focused financial tenant-isolation, rollback and deletion acceptance: **PASS on H2 and MySQL 8.4**, including the expanded failure-injection tests.
+- Frontend tests and production build: **PASS**.
+- Full backend H2 and MySQL suites: still running when checked.
+- Dedicated P2-02 MySQL migration/schema contracts and Browser E2E: not yet completed at the time of this evidence update.
 
-The current `P202MysqlPersistenceIntegrationTest` source contains **13 @Test methods**: clean install/repeatable migration, V47 upgrade retention, core metadata, complete tenant-owned table classification and composite parent keys, V40–V47 named constraint inventory, generated-column/stock-location behavior, immutable audit and financial deletion restrictions, UTC timestamp round-trip, stale-version compare-and-swap, V40–V47 invalid-row rejection, V45 composite-FK insert/update rejection, exhaustive invalid plan-limit checks, and V48 preflight rejection without data deletion. The class also probes missing plan parents and invalid subscription plan-version references on INSERT and UPDATE. The workflow invokes the entire class in its dedicated MySQL step.
+The most recent fully completed all-job workflow is [#45025123755](https://github.com/rambrij/solar-energy-platform/actions/runs/45025123755), commit `496c3871c62f123df3ba004cd800f4dd34581684`; backend H2, backend MySQL, frontend and Browser E2E all passed there. That run predates the new transaction-boundary matrix, so it is historical baseline evidence, not final validation of the current matrix.
+
+The current `P202MysqlPersistenceIntegrationTest` source contains **13 @Test methods** covering clean install/repeatable migration, V47 upgrade retention, core metadata, tenant-owned table classification/composite parent keys, V40–V47 named constraint inventory and behavior, generated-column/stock-location behavior, immutable audit and financial deletion restrictions, UTC timestamp round-trip, optimistic locking, V45 composite-FK rejection, plan-limit checks and V48 preflight rejection. It also probes missing plan parents and invalid subscription plan-version references on INSERT and UPDATE.
 
 ## Verified CI results
 
 | Gate | Result |
 |---|---|
-| Focused financial tenant-isolation/rollback/deletion acceptance (MySQL 8.4) | PASS — run #45024413703, commit `20d6503` |
-| Dedicated P2-02 MySQL migration/schema contract class | PASS — run #45024413703; all 13 declared test methods execute in the MySQL lane |
-| Frontend tests and production build | PASS — run #45024413703 |
-| Full backend H2 suite | IN PROGRESS when checked — run #45024413703 |
-| Full backend MySQL suite | IN PROGRESS when checked — run #45024413703 |
-| Browser E2E / Playwright on MySQL 8.4 | Last fully verified PASS in run #45019832365; not yet re-verified on the latest implementation snapshot |
-| Last fully completed all-job workflow | PASS — run #45019832365 (backend H2, backend MySQL, frontend, Browser E2E) |
+| Expanded financial isolation/rollback/deletion acceptance (H2) | PASS — run #45026864067, implementation commit `f16b928` |
+| Expanded financial isolation/rollback/deletion acceptance (MySQL 8.4) | PASS — run #45026864067, implementation commit `f16b928` |
+| Frontend tests and production build | PASS — run #45026864067 |
+| Dedicated P2-02 MySQL 8.4 migration/schema contract class | Pending in run #45026864067 when checked |
+| Full backend H2 suite | IN PROGRESS in run #45026864067 |
+| Full backend MySQL suite | IN PROGRESS in run #45026864067 |
+| Browser E2E / Playwright on MySQL 8.4 | Pending in run #45026864067 when checked |
+| Last fully completed all-job workflow | PASS — run #45025123755; this predates the transaction-boundary matrix |
 
-The latest P2-specific gates are green, but the latest full backend suites were still running. Do not describe the latest implementation snapshot as fully CI-validated until run #45024413703 completes.
+Focused gates prove the new matrix executes successfully on both test databases. P2-02 is not yet acceptance-complete: wait for the full latest workflow, including Playwright, and verify required-check enforcement before changing the disposition.
 
 ## Supported database contract
 
@@ -78,39 +85,39 @@ The successful workflow also ran the existing P0-04 and P0-05 suites and the ful
 
 ## Additional financial acceptance tests (2026-11-22)
 
-The full backend acceptance suite already contained more P2-02 behavioral coverage than the earlier gap summary credited. The following tests run in the MySQL 8.4 backend lane as part of `PosTest`:
+The full backend acceptance suite runs the following relationship and history tests in the MySQL 8.4 lane:
 
-- `commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion`: creates same-tenant Vendor A/B order, order-item, return, invoice, payment-attempt, receipt-audit, inventory-receipt, refund, refund-item, return-event and inventory-disposition records; verifies same-tenant positive controls; rejects cross-tenant INSERT and UPDATE attempts for order items, issued-stock ledger rows and the commercial/financial child families; attempts deletion of orders, returns, refunds, products, sessions, branches, registers, tenants and employees. New assertions verify that rejected deletes leave the order, order item, invoice, payment attempt, receipt audit, inventory receipt, return, return items/events, refund, refund items, inventory disposition and inventory ledger rows intact.
-- `cashSaleFailureAfterStockConsumeRollsBackEveryLocalFinancialWrite`: injects invoice issuance failure after cash-sale finalization has attempted stock consumption and payment/audit writes; verifies order state, stock quantity/reservation, inventory ledger, payment attempt and sale audit rollback.
-- `reservationFailureRollsBackEveryLineAndOrder`: a multi-line reservation failure leaves no order or reservation and restores available stock.
-- `inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites`: injects failures after stock receipt and after cash tender/payment, checking inventory quantity/reservation, receipt, ledger, payment, drawer tender, invoice, receipt-document audit and POS audit state.
-- `cashRefundFailureRollsBackRefundAllocationAndAuditTimeline`: injects failure after refund payment/audit work and verifies refund, refund items, return events/state, inventory dispositions, POS audit and expected cash reconciliation remain unchanged.
-- `jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary`: verifies JPA-managed stock and JDBC audit writes share the same transaction manager and roll back together.
+- `commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion`: creates same-tenant order, order-item, return, invoice, payment-attempt, receipt-audit, inventory-receipt, refund, refund-item, return-event and inventory-disposition fixtures; verifies same-tenant controls; rejects cross-tenant relationship writes; attempts protected parent deletes and verifies original financial/history rows remain.
+- POS and marketplace projection tests include cross-tenant UPDATE rejection for cart items, active drafts, drawer tenders, cash movements, buyer snapshots and customer challenges, with same-tenant controls where applicable.
+- `P202MysqlPersistenceIntegrationTest` covers V40–V47 named CHECK behavior, V45 composite-FK INSERT/UPDATE rejection and subscription plan/version parent references.
 
-The focused financial tenant-isolation/rollback/deletion acceptance step passed on MySQL 8.4 in [workflow run #45024413703](https://github.com/rambrij/solar-energy-platform/actions/runs/45024413703). The same run also passed the dedicated P2-02 migration/schema step; the full backend jobs were still running when this note was refreshed.
+### Transaction-boundary failure-injection matrix
 
+The matrix is implemented in `PosTest` and explicitly included in the dedicated focused H2 and MySQL 8.4 CI step:
 
+| Workflow boundary | Failure injection and rollback assertions |
+|---|---|
+| POS draft order + line persistence + reservation + draft audit | `transactionFailureInjectionMatrixRollsBackOnlinePosReservationPaymentSaleReceiptLedgerAndInventory` forces failure after successful POS draft creation and checks orders, order items, reservations, active-draft projection, audit, inventory quantity and reserved quantity. |
+| Online draft + stock reservation | The same matrix forces failure after online checkout and checks order, line, reservation and inventory state; customer cart remains active and unchanged. |
+| Payment initiation / tender audit | The same matrix forces failure after a terminal tender attempt and audit write; order remains DRAFT, payment attempt/audit rows are absent and stock remains reserved. |
+| POS cash completion + stock consume + payment + receipt/invoice + ledger | The same matrix forces failure after `finalizeCash` completes, then checks order status, inventory quantity/reserved quantity, HELD reservation, inventory ledger, payment attempt, drawer tender, invoice, receipt-document audit, POS audit and receipt sequence. |
+| Online provider confirmation + stock consume + invoice/receipt + cart archive | `onlinePaymentConfirmationFailureRestoresPaymentStockReceiptInvoiceAndCart` forces failure after confirmation and checks payment returns to PENDING, order remains DRAFT, stock/reservation/ledger/invoice/receipt/receipt sequence are unchanged, and cart remains ACTIVE. |
+| Inventory receipt + stock ledger/audit | `inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites` injects failure after inventory receipt writes and verifies quantity, reserved quantity, inventory receipt, ledger and POS audit counts. |
+| Cash tender + sale settlement | The same inventory/tender test injects failure after tender, stock consume, receipt and invoice writes; verifies order, payment attempts, drawer tenders, ledger, invoice, receipt audit, POS audit and inventory state. |
+| Refund payment + allocation + return timeline + disposition + cash reconciliation | `cashRefundFailureRollsBackRefundAllocationAndAuditTimeline` injects failure after refund payment/audit work and checks refund, refund items, return events/state, dispositions, POS audit and expected drawer cash. |
+| Return intake + return items + timeline event | `returnIntakeInspectionAndInventoryDispositionRollbackAtInjectedFailureBoundaries` forces failure after intake writes and verifies no return, item or event persists. |
+| Independent return approval + timeline event | The same test forces failure after approval and verifies the return remains REQUESTED and no approval event is retained. |
+| Return inspection + inventory disposition | The same test forces failure after inspection/disposition writes and verifies return state, disposition, ledger, event timeline, inventory quantity and reserved quantity are unchanged. |
+| Multi-line reservation failure | `reservationFailureRollsBackEveryLineAndOrder` proves insufficient stock on a later line leaves no order or reservation and restores available stock. |
+| Shared JPA/JDBC transaction boundary | `jpaStockAndJdbcFinancialWritesShareOneRollbackBoundary` proves JPA stock writes and JDBC audit writes roll back together under the configured transaction manager. |
+| Cash-sale invoice issuance failure after stock consume | `cashSaleFailureAfterStockConsumeRollsBackEveryLocalFinancialWrite` checks order state, inventory, reservations, ledger, payment attempts and sale audit. |
 
-The financial acceptance test now also attempts deletion of order_items, pos_return_items, and the referenced inventory row, then verifies that each original row remains.
+These tests force exceptions inside Spring `TransactionTemplate` boundaries after the relevant service operations have succeeded. The focused matrix passed on H2 and MySQL 8.4 in [run #45026864067](https://github.com/rambrij/solar-energy-platform/actions/runs/45026864067). The full workflow remains the required final gate.
 
-The V48 POS projection coverage now includes same-tenant positive fixtures and cross-tenant UPDATE rejection for drawer tenders, active drafts, cash movements, buyer snapshots and customer challenges. The marketplace cart-item test also rejects cross-tenant product rebinding on UPDATE, in addition to the existing INSERT rejection. These supplement the existing delete attempts for orders, returns, refunds, products, sessions, branches, registers, tenants and employees.
+### Remaining acceptance gates
 
-The V40–V47 behavior test now pairs invalid INSERT coverage with invalid UPDATE probes for support-access expiry, platform configuration secret/plain-value invariants, plan interval/limits, subscription status, invoice status, payment status, tenant-role permission prefixes and platform permission allow-lists. It also verifies missing plan parents and invalid subscription plan-version references are rejected on INSERT/UPDATE.
+1. Complete the latest full H2 and MySQL backend suites, the dedicated P2-02 migration/schema step, frontend and Browser E2E on the final documentation/implementation commit.
+2. Verify that repository branch protection or rulesets require the relevant CI checks before merge. The GitHub branch-protection endpoint previously returned 403, so this remains an administrator verification item.
+3. Refresh this evidence with exact final run ID, commit SHA, job conclusions and any test counts.
 
-The dedicated P2-02 MySQL test class now also exercises V45 role/employee/register composite FK INSERT and UPDATE rejection with positive controls, and validates plan-limit CHECK failures. The fixture seeds required global user identities and uses permission IDs from the canonical catalogue. The plan/invoice/subscription deletion test now additionally attempts to delete the referenced plan version and plan, and verifies subscription payment/event rows remain present after parent-delete rejection.
-
-**Still open:** This improves behavioral evidence but does not yet prove every discovered commercial/financial FK edge or every remaining V40–V47 constraint behavior. The P2-02 gate must stay IN PROGRESS until the current dedicated MySQL run passes and the residual relationship/constraint matrix is closed with explicit positive and negative cases.
-
-**Disposition:** Schema-derived tenant ownership inventory, focused UTC/optimistic-lock behavior and broadened migration checks are implemented and covered. The remaining PARTIAL items above are real acceptance gaps; do not promote them to COMPLETE without MySQL 8.4 behavioral evidence.
- 
-## Remaining work before P2-02 COMPLETE
-
-1. Add full schema inventory tests for every applicable tenant-owned table, non-null tenant ownership and required tenant-scoped parent unique keys.
-2. Assert all required same-tenant composite foreign keys and cross-tenant insert/update rejection across POS, carts/orders, subscription billing, customer associations, payments, invoices, refunds and receipts.
-3. Add financial/audit RESTRICT delete tests.
-4. Add MySQL UTC timestamp round-trip and optimistic-lock tests.
-5. Add explicit rollback assertions for order, payment, receipt and each inventory side effect.
-6. Verify repository branch-protection settings require the relevant CI checks before merge.
-7. Rerun the full H2/MySQL/frontend/Playwright workflow on the completion commit and record its exact result.
-
-**Final determination:** The expanded MySQL migration/schema class passes on the latest branch head, but that does not close the remaining implementation and verification gaps. Financial relationship behavior is not yet exhaustively proven across every applicable order, invoice, payment, refund, receipt and inventory edge; workflow rollback is not yet failure-injected at every required side-effect boundary; and branch protection/required checks could not be inspected because the GitHub connection denied access to branch-protection settings. **P2-02 remains IN PROGRESS and must not be marked COMPLETE.** Do not mark this work item COMPLETE until each item is closed with MySQL 8.4 evidence and required-check enforcement is verified.
+**Disposition:** The transaction-boundary failure-injection matrix is implemented and its focused H2/MySQL acceptance steps pass. The broader P2-02 item remains **IN PROGRESS** until the latest full workflow passes and required-check enforcement is verified. Do not mark P2-02 COMPLETE based on focused-step success alone.

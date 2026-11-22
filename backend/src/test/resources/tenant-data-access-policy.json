@@ -198,7 +198,15 @@
         "m.tenant()",
         "tenants.get(tenantId)",
         "StandardRoleTemplates.initialize"
-      ]
+      ],
+      "trustedTenantParameters": {
+        "effectiveVendorPermissions": [
+          "tenant"
+        ],
+        "provisionInitialVendorAdmin": [
+          "tenantId"
+        ]
+      }
     },
     {
       "source": "com.saumya.pos.membership.VendorRoleService",
@@ -237,7 +245,12 @@
       "evidence": [
         "permissions(long tenant",
         "requireFeature(long tenant"
-      ]
+      ],
+      "trustedTenantParameters": {
+        "permissions": [
+          "tenant"
+        ]
+      }
     },
     {
       "source": "com.saumya.pos.membership.StandardRoleTemplates",
@@ -251,7 +264,18 @@
         "static void lockTenant",
         "static long initialize",
         "static long insert"
-      ]
+      ],
+      "trustedTenantParameters": {
+        "lockTenant": [
+          "tenant"
+        ],
+        "initialize": [
+          "tenant"
+        ],
+        "insert": [
+          "tenant"
+        ]
+      }
     },
     {
       "source": "com.saumya.pos.retail.PosService",
@@ -326,7 +350,12 @@
         "createInitialBranch(long tenantId",
         "authorization",
         "tenantId"
-      ]
+      ],
+      "trustedTenantParameters": {
+        "createInitialBranch": [
+          "tenantId"
+        ]
+      }
     }
   ],
   "inheritedIdLookups": [
@@ -507,6 +536,90 @@
       "operation": "PlatformConfigurationServiceImpl#list",
       "scope": "PLATFORM_GLOBAL_CONFIGURATION",
       "trustedSource": "The list method requires PLATFORM_CONFIG_MANAGE for the authenticated platform actor before reading the platform-owned global configuration table; it returns redacted settings and never reads tenant-owned business data."
+    }
+  ],
+  "trustedTenantParameterFlows": [
+    {
+      "callee": "com.saumya.pos.membership.MembershipService#effectiveVendorPermissions",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.membership.MembershipService#access",
+          "expression": "m.tenant()"
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
+          "expression": "tenant.id()"
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.membership.StandardRoleTemplates#lockTenant",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
+          "expression": "tenantId"
+        },
+        {
+          "caller": "com.saumya.pos.membership.VendorRoleService#applyTemplate",
+          "expression": "actor.tenantId()"
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.membership.StandardRoleTemplates#initialize",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
+          "expression": "tenantId"
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.membership.StandardRoleTemplates#insert",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.membership.StandardRoleTemplates#initialize",
+          "expression": "tenant"
+        },
+        {
+          "caller": "com.saumya.pos.membership.VendorRoleService#applyTemplate",
+          "expression": "actor.tenantId()"
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.membership.TenantEntitlementPolicy#permissions",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.membership.MembershipService#access",
+          "expression": "m.tenant()"
+        },
+        {
+          "caller": "com.saumya.pos.membership.TenantEntitlementPolicy#requireFeature",
+          "expression": "tenant"
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.retail.BranchProvisioningServiceImpl#createInitialBranch",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
+          "expression": "tenant.id()"
+        }
+      ]
     }
   ]
 }

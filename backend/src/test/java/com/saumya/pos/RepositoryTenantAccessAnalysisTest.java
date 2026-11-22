@@ -354,4 +354,31 @@ class RepositoryTenantAccessAnalysisTest {
         assertThat(hasOwnerPredicate("select x from CustomerOwned x where x.customerId=:customer and x.id=:id")).isTrue();
     }
 
+    @Test
+    void directJdbcSqlMustNotBeAssembledFromRuntimeFragments() throws Exception {
+        JsonNode sources = policy().path("trustedTenantParameterSources");
+        Pattern dynamicArgument = Pattern.compile(
+            "(?is)(?:db|jdbc)\\\\.(?:query|queryFor\\\\w*|update|execute|batchUpdate)\\\\s*\\\\(\\\\s*(?:[a-zA-Z_$][\\\\w$]*\\\\s*\\\\+|String\\\\.format\\\\s*\\\\(|new\\\\s+StringBuilder\\\\s*\\\\()");
+        for (JsonNode item : sources) {
+            String sourceName = item.path("source").asText();
+            Path file = sourceRoot().resolve(sourceName.replace("com.saumya.pos.", "com/saumya/pos/") + ".java");
+            String source = Files.readString(file);
+            assertThat(dynamicArgument.matcher(source).find())
+                .as("JDBC SQL expression must be a reviewed static literal, not runtime concatenation: %s", sourceName)
+                .isFalse();
+            assertThat(source).as("direct JDBC adapters must not construct SQL through StringBuilder: %s", sourceName)
+                .doesNotContain("new StringBuilder", "String.format(");
+        }
+    }
+
+    @Test
+    void dynamicJdbcSqlNegativeFixturesAreRejected() {
+        Pattern dynamicArgument = Pattern.compile(
+            "(?is)(?:db|jdbc)\\\\.(?:query|queryFor\\\\w*|update|execute|batchUpdate)\\\\s*\\\\(\\\\s*(?:[a-zA-Z_$][\\\\w$]*\\\\s*\\\\+|String\\\\.format\\\\s*\\\\(|new\\\\s+StringBuilder\\\\s*\\\\()");
+        assertThat(dynamicArgument.matcher("db.queryForList(sql + filter, tenant)").find()).isTrue();
+        assertThat(dynamicArgument.matcher("db.update(String.format(\\"DELETE FROM rows WHERE tenant_id=%s\\", tenant))").find()).isTrue();
+        assertThat(dynamicArgument.matcher("db.query(new StringBuilder(\\"SELECT * FROM rows\\").toString())").find()).isTrue();
+        assertThat(dynamicArgument.matcher("db.queryForList(\\"SELECT * FROM rows WHERE tenant_id=?\\", tenant)").find()).isFalse();
+    }
+
 }

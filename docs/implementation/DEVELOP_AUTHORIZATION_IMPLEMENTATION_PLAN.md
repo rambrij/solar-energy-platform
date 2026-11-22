@@ -311,27 +311,21 @@ The dedicated workflow step **Financial tenant isolation, rollback and deletion 
 
 ### P2-04 — Expand architecture and static authorization checks
 
-- **Status (2026-11-22): IN PROGRESS — NOT ACCEPTANCE-COMPLETE.**
-- **Latest branch-head evidence:** commit `427a5037d4a9893d5b74702727dd592d0bc22904`, workflow [#45037041287](https://github.com/rambrij/solar-energy-platform/actions/runs/45037041287). Frontend tests/build, backend H2 and backend MySQL 8.4 jobs completed successfully. Browser E2E (Playwright/MySQL 8.4) was still in progress at the time of review. Do not record Playwright as passed until its job completes successfully.
-- **Verified acceptance gaps on this exact source revision:**
-  1. `AuthorizationPolicyRegistryTest` iterates mapped controller methods but obtains actor/scope/assignment metadata with `actorPolicies.path(controllerSimpleName)`. This is controller-family metadata inherited by each method, not independently keyed operation metadata.
-  2. `ModuleArchitectureTest` enforces module cycles, controller-to-repository prohibition, cross-module repository ownership and internal-package visibility. Its JDBC exception checks are class-level allowlists; for a subset of adapters it checks only that source text contains `tenant_id`. This does not analyze each repository method or SQL statement, prove trusted tenant-parameter provenance, or reject unsafe dynamic/native/JDBC queries.
-  3. `check-authorization-registry.mjs` verifies navigation permission parity, route IDs, platform page permission identifiers and controller inventory. It does not establish complete menu/submenu/tab/button/action registries or action-to-backend-operation parity.
-  4. Existing negative checks cover selected unknown permission, VIEW-only mutation, PLATFORM permission on vendor operation, service inventory, controller/repository and cross-module boundary failures. The complete acceptance fixture set is not present: notably forged-tenant and unsafe SQL/JDBC fixtures, plus frontend unknown-permission/hardcoded-role/action-parity and missing operation metadata failures.
-- **Required remaining implementation:** independently keyed metadata for every protected operation; repository-method and query-level tenant analysis with trusted actor/tenant provenance; complete frontend navigation/tab/action registry mapped to backend operation metadata; isolated negative fixtures for every required failure mode; and verification that each fixture fails its intended rule.
-- **Required final evidence:** focused P2-04 gate, P0-02, P0-06, P1-03, P1-04, full H2 and MySQL 8.4 suites, frontend tests/build and Playwright all pass on one exact branch-head commit. P0-06 runtime authorization/tenant tests remain authoritative and must not be replaced by static checks.
-- **Decision:** keep P2-04 **IN PROGRESS — NOT COMPLETE**. A green subset of CI jobs is not acceptance completion.
+- **Status: IN PROGRESS — NOT ACCEPTANCE-COMPLETE.**
+- **Implementation progress on 2026-11-22:**
+  1. Added `operationPolicies`, keyed by `ControllerSimpleName#JavaMethodName`, for all 146 mapped controller methods in the current inventory. The policy metadata contains actor, scope, assignment/state and runtime-test traceability. Public catalogue operations, customer-owned operations, authentication/context-switch operations and one-time platform MFA token operations are classified separately rather than relying on a controller-family default.
+  2. Removed the controller-family actor/scope/assignment map from `runtime-authorization-matrix.json`. `AuthorizationPolicyRegistryTest` and `RuntimeAuthorizationEndpointInventoryTest` now require an exact policy entry for every discovered/live handler and reject missing or orphaned operation keys. The runtime inventory resolves metadata by the actual handler method; there is no controller-level fallback.
+  3. Replaced the direct-JDBC source-text `tenant_id` check with SQL-literal extraction for all eight approved direct-JDBC consumers. The static check requires tenant predicates with bound placeholders for SELECT/UPDATE/DELETE, `tenant_id` in INSERT column lists, and separately recognizes the platform tenant-directory primary-key lock. Added negative fixtures for unscoped SELECT/UPDATE/DELETE/INSERT and client-controlled request/filter tenant parameters.
+  4. Expanded the frontend registry script to scan non-test TS/TSX sources for unknown permission identifiers in permission-check expressions and reject hardcoded role-name comparisons. Added mutation fixtures for both failure classes.
+  5. Moved the focused P2-04 gate to the beginning of each backend matrix job so unrelated earlier acceptance failures cannot skip this gate.
+- **Validation evidence:** operation-level policy registry and live runtime inventory passed in workflow #45040166066 (H2 and MySQL 8.4 P2-04 gate; H2 and MySQL P0-06 runtime matrix). Frontend scanner/tests/build passed in workflow #45040368381. The new SQL/JDBC analyzer and forged-tenant fixtures are awaiting focused P2-04 execution on the latest commit; workflow [#45040684206](https://github.com/rambrij/solar-energy-platform/actions/runs/45040684206) was queued/in progress at this documentation update.
+- **Remaining blockers:**
+  - SQL scanning currently covers direct JDBC consumers and SQL literals. It does not yet prove trusted parameter provenance through all local variables, analyze every Spring Data derived repository method or all JPA/native/dynamic query paths.
+  - Frontend scan now rejects unknown permission references and hardcoded role comparisons, but complete menu/submenu, route/page, tab, button and action registries—with each action mapped to backend operation metadata—are still not implemented.
+  - Negative fixtures still need to prove all requested cases: cross-module internals/repositories, missing operation actor/scope, permission namespace conflicts/orphans, frontend wrong actor/action parity, and unsafe native/JPA/derived repository queries. The forged-tenant fixture added here is a source-pattern guard for JDBC adapters, not a substitute for P0-06 runtime forged-tenant tests.
+  - Exact-commit CI still must pass focused P2-04, P0-02, P0-06, P1-03, P1-04, full H2/MySQL 8.4 suites, frontend tests/build and Playwright.
+- **Decision:** keep P2-04 **IN PROGRESS — NOT COMPLETE**. Do not infer full acceptance from the partial static checks.
 
-
-- **Requirement:** Module boundaries and authorization registry remain enforced in CI.
-- **Current gap:** ArchUnit and registry scripts exist but cover selected rules and inventory parity.
-- **Proposed implementation:** Extend static rules to every module and check each controller policy against canonical permission metadata. Keep runtime tests as the source of behavioral proof.
-- **Backend changes:** ArchUnit rules for repository ownership, controller/service boundary and public module APIs.
-- **Frontend changes:** Registry script validates route and action metadata, not only route IDs.
-- **Database/schema changes:** None.
-- **Tests required:** Mutation tests proving CI fails on missing policy, unknown permission, cross-module internal import and unscoped repository.
-- **Dependencies:** P0-02, P0-06, P1-03.
-- **Acceptance criteria:** CI detects policy drift and architectural bypasses before merge.
 
 ## 6. P3 — UX and cleanup
 

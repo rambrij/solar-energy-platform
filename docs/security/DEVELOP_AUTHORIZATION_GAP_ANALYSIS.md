@@ -554,3 +554,18 @@ The source-level recheck confirms the following blockers remain:
 - **CI evidence is partial.** H2, MySQL 8.4 and frontend jobs passed on the branch head, but Playwright was still in progress. P0-02, P0-06, P1-03 and P1-04 plus all required suites must be green on the same exact commit before acceptance.
 
 The architecture checks already present are retained; no allowlist has been broadened and no runtime authorization tests have been weakened. P2-04 must remain **IN PROGRESS — NOT COMPLETE** until the above gaps are implemented and their negative fixtures are shown to fail the intended rules, followed by exact-commit CI evidence.
+
+## P2-04 implementation update — 2026-11-22
+
+**Status: IN PROGRESS — NOT ACCEPTANCE-COMPLETE.** Implementation has advanced on branch `feature/develop-authorization-gap-analysis`; current CI candidate is commit `f5bc7597bdd1fe3e1ed307197074c7b97c592972`.
+
+- Added explicit `operationPolicies` keyed by `ControllerSimpleName#JavaMethodName` for the 146 currently inventoried mapped methods. Removed the controller-level actor/scope/assignment fallback from the runtime matrix. Both static registry and live Spring MVC inventory tests now require an exact operation key, all four metadata fields, and no missing/orphaned entries.
+- Added query-level SQL shape checks for the eight currently approved direct-JDBC consumers. SQL literals are extracted from source and checked for tenant-bound predicates or tenant_id insert columns. Negative fixtures cover unscoped SELECT, UPDATE, DELETE and INSERT statements, plus direct client-controlled request/filter tenant parameter expressions.
+- Expanded the frontend registry script to check permission references in frontend authorization expressions and detect hardcoded role-name authorization comparisons. Mutation fixtures prove those two rules reject their negative examples.
+- Moved the P2-04 backend gate before unrelated backend acceptance steps in the workflow so a failure in another suite does not silently skip the static gate.
+
+**Validation:** workflow #45040166066 passed the operation-level P2-04 gate on H2 and MySQL 8.4 and the P0-06 runtime authorization matrix on both databases. Workflow #45040368381 passed frontend tests/build with the expanded frontend static checks. The SQL/JDBC query analyzer and forged-tenant negative fixtures have not yet been verified by a successful focused P2-04 run on the current branch head. Latest workflow [#45040684206](https://github.com/rambrij/solar-energy-platform/actions/runs/45040684206) is queued/in progress.
+
+**Remaining acceptance gaps:** direct JDBC query scanning does not yet prove trusted parameter provenance through local variables and does not cover all Spring Data derived repository methods, JPA/native queries or dynamic SQL. The full frontend menu/submenu/route/tab/button/action registry and backend-operation parity remains outstanding. The full negative fixture matrix and exact-commit P0-02/P0-06/P1-03/P1-04, H2, MySQL 8.4, frontend and Playwright evidence are also outstanding. The source-pattern forged-tenant fixture is supplemental only; runtime forged-tenant tests remain authoritative.
+
+Do not mark P2-04 COMPLETE until these gaps are closed and all required gates pass on one exact branch-head commit.

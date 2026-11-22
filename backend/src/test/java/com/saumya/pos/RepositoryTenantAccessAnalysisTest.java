@@ -247,7 +247,7 @@ class RepositoryTenantAccessAnalysisTest {
 
     @Test
     void queryTextCannotMasqueradeAsDerivedRepositoryMethodDeclarations() {
-        String source = "@Query(value=\"select count(*) from rows\") long countByTenantId(long tenant);";
+        String source = "@Query(value=\\\"select count(*) from rows\\\")" + System.lineSeparator() + "long countByTenantId(long tenant);";
         assertThat(queryMethodNames(source)).contains("countByTenantId").doesNotContain("count");
     }
 
@@ -417,7 +417,11 @@ class RepositoryTenantAccessAnalysisTest {
                         && source.contains("requireRead();return plans.findAll()")
                         && source.contains("context.isPlatformUser()")
                         && source.contains("context.hasAnyPermission(");
-                    assertThat(approvedGlobalCatalogRead)
+                    boolean approvedGlobalConfigurationRead=relative.equals("com/saumya/pos/platform/PlatformConfigurationServiceImpl.java")
+                        && reviewed.containsKey("PlatformConfigurationServiceImpl#list")
+                        && source.contains("PlatformAuthorization.require(\"PLATFORM_CONFIG_MANAGE\",null)")
+                        && source.contains("return repository.findAll()");
+                    assertThat(approvedGlobalCatalogRead || approvedGlobalConfigurationRead)
                         .as("inherited findAll() requires a reviewed platform/global resource method in %s",file).isTrue();
                     approvedGlobalReads++;
                 }
@@ -438,6 +442,7 @@ class RepositoryTenantAccessAnalysisTest {
         }
         assertThat(reviewed).containsKey("BuyerDetailsService#discardUnpaid");
         assertThat(reviewed).containsKey("SubscriptionPlanServiceImpl#list");
+        assertThat(reviewed).containsKey("PlatformConfigurationServiceImpl#list");
     }
 
     @Test

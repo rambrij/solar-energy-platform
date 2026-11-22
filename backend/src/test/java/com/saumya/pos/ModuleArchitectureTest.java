@@ -118,10 +118,16 @@ class ModuleArchitectureTest {
         JavaClasses fixtures = new ClassFileImporter().importClasses(ModuleARepository.class, ModuleBController.class);
         assertThatThrownBy(() -> controllerRepositoryRule().check(fixtures))
             .isInstanceOf(AssertionError.class);
-        assertThatThrownBy(() -> repositoryOwnerRule("modulea").check(fixtures))
-            .isInstanceOf(AssertionError.class);
-        assertThatThrownBy(() -> internalTypesArePrivateRule("modulea").check(fixtures))
-            .isInstanceOf(AssertionError.class);
+        ArchRule fixtureRepositoryOwner = noClasses()
+            .that().resideOutsideOfPackage("com.p204fixtures.architecture.modulea..")
+            .should().dependOnClassesThat().resideInAPackage("com.p204fixtures.architecture.modulea.internal..")
+            .because("fixture consumers cannot access another module's repositories");
+        ArchRule fixtureInternalBoundary = noClasses()
+            .that().resideOutsideOfPackage("com.p204fixtures.architecture.modulea..")
+            .should().dependOnClassesThat().resideInAPackage("com.p204fixtures.architecture.modulea.internal..")
+            .because("fixture consumers cannot import another module's internal types");
+        assertThatThrownBy(() -> fixtureRepositoryOwner.check(fixtures)).isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> fixtureInternalBoundary.check(fixtures)).isInstanceOf(AssertionError.class);
         assertThat(fixtures).isNotEmpty();
     }
 }

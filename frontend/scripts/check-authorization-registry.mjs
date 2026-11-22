@@ -287,4 +287,32 @@ for(const call of observedApiCalls){
 }
 if(dynamicApiCalls.length)throw new Error('Frontend API endpoints must be literal or explicitly registered as dynamic call sites: '+dynamicApiCalls.map(x=>x.component+':'+x.line+' '+x.fn).join(', '));
 
+
+const directHttpCalls=[];
+for(const file of sourceFiles){
+ const fileName=path.basename(file);
+ if(['api.ts','marketplaceApi.ts','session.ts'].includes(fileName))continue;
+ const source=fs.readFileSync(file,'utf8');
+ const pattern=/\bauthenticatedFetch\s*\(/g;
+ for(const match of source.matchAll(pattern)){
+  const args=splitCallArguments(source,source.indexOf('(',match.index));
+  const raw=literalArgument(args[0]??'');
+  if(raw===null)throw new Error('Direct authenticatedFetch endpoint must be a literal/template in '+fileName+':'+source.slice(0,match.index).split('\n').length);
+  let variants=[raw];
+  const routeValues=actionRegistry.dynamicRouteParameters?.[fileName]??{};
+  for(const [parameter,values] of Object.entries(routeValues)){
+   variants=variants.flatMap(value=>value.includes('+parameter+')?values.map(v=>value.replaceAll('+parameter+',v)):[value]);
+  }
+  variants=variants.map(value=>value.replace(/\$\{encodeURIComponent\(([^)]+)\)\}/g,'{}').replace(/\$\{[^}]+\}/g,'{}'));
+  const options=args[1]??'';
+  const method=options.match(/\bmethod\s*:\s*['"](GET|POST|PUT|PATCH|DELETE)['"]/)?.[1]??'GET';
+  for(let endpoint of variants){
+   endpoint=normalizeActionPath(endpoint.split('?')[0]);
+   const mapped=actionRegistry.actions.some(action=>action.implementationFile===fileName&&action.method===method&&normalizeActionPath(action.endpoint)===endpoint);
+   if(!mapped)throw new Error('Unregistered direct HTTP operation at '+fileName+':'+source.slice(0,match.index).split('\n').length+' '+method+' '+endpoint);
+   directHttpCalls.push({file:fileName,method,endpoint});
+  }
+ }
+}
+
 console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${sourceFiles.length} frontend source files, ${permissions.size} permission identifiers.`);

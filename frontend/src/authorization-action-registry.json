@@ -1353,7 +1353,8 @@
         "POS_REPORT_EXPORT"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/reports/sales/export"
+      "backendOperation": "POST /api/v1/vendor/pos/reports/sales/export",
+      "implementationFile": "reportExportApi.ts"
     },
     {
       "id": "pos-refunds-export",
@@ -1368,7 +1369,8 @@
         "POS_REFUND_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/reports/cash-refunds/export"
+      "backendOperation": "POST /api/v1/vendor/pos/reports/cash-refunds/export",
+      "implementationFile": "reportExportApi.ts"
     },
     {
       "id": "pos-receipt-read",
@@ -1406,7 +1408,8 @@
         "POS_RECEIPT_REPRINT"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/document"
+      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/document",
+      "implementationFile": "receiptDocumentApi.ts"
     },
     {
       "id": "pos-discount-policy-read",
@@ -2184,5 +2187,13 @@
       "trigger": "button",
       "backendOperation": "POST /api/v1/customer/pos-association/approve"
     }
-  ]
+  ],
+  "dynamicRouteParameters": {
+    "reportExportApi.ts": {
+      "kind": [
+        "sales",
+        "cash-refunds"
+      ]
+    }
+  }
 }

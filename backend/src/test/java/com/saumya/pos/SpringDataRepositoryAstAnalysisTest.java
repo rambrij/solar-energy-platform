@@ -39,14 +39,32 @@ class SpringDataRepositoryAstAnalysisTest {
         }
         return names;
     }
+    private static boolean scopeFieldMatchesParameter(String field,Set<String> parameterNames){
+        String key=field.replace("_","").toLowerCase(Locale.ROOT);
+        return parameterNames.stream().map(name->name.replace("_","").toLowerCase(Locale.ROOT)).anyMatch(name->{
+            if(key.contains("tenant"))return name.contains("tenant");
+            if(key.contains("customer"))return name.contains("customer");
+            if(key.contains("branch"))return name.contains("branch");
+            if(key.contains("register"))return name.contains("register");
+            if(key.contains("owner"))return name.contains("owner");
+            if(key.contains("username"))return name.contains("username");
+            if(key.contains("token")||key.equals("hash"))return name.contains("token")||name.equals("hash");
+            if(key.contains("family"))return name.contains("family");
+            if(key.contains("subscription"))return name.contains("subscription");
+            if(key.contains("invoice"))return name.contains("invoice");
+            if(key.contains("plan"))return name.contains("plan");
+            return false;
+        });
+    }
     private static boolean namedScopeBindingsMatch(String query,Set<String> availableNames){
         java.util.regex.Matcher bindings=java.util.regex.Pattern.compile(
-            "(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*:([a-z][a-zA-Z0-9_]*)")
+            "(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(tenantId|tenant_id|tenant|customerId|customer_id|customer|ownerId|owner_id|owner|branchId|branch_id|branch|registerId|register_id|register|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*:([a-z][a-zA-Z0-9_]*)")
             .matcher(query);
         boolean found=false;
         while(bindings.find()){
             found=true;
-            if(!availableNames.contains(bindings.group(1)))return false;
+            String field=bindings.group(1),parameter=bindings.group(2);
+            if(!availableNames.contains(parameter)||!scopeFieldMatchesParameter(field,Set.of(parameter)))return false;
         }
         return found;
     }
@@ -80,7 +98,7 @@ class SpringDataRepositoryAstAnalysisTest {
             String field=bindings.group(1);
             String reference=bindings.group(2);
             if(reference.startsWith(":")){
-                if(!availableNames.contains(reference.substring(1)))return false;
+                if(!availableNames.contains(reference.substring(1))||!scopeFieldMatchesParameter(field,Set.of(reference.substring(1))))return false;
             }else{
                 String indexText=bindings.group(3);
                 int index;
@@ -90,10 +108,7 @@ class SpringDataRepositoryAstAnalysisTest {
                 }else index=Integer.parseInt(indexText)-1;
                 if(index<0||index>=method.getParameters().size())return false;
                 Set<String> names=parameterNames(method.getParameters().get(index));
-                if(names.stream().noneMatch(SpringDataRepositoryAstAnalysisTest::scopeParameterName))return false;
-                if(field.matches("(?i).*tenant.*")&&names.stream().noneMatch(n->n.matches("(?i).*(tenant).*")))return false;
-                if(field.matches("(?i).*branch.*")&&names.stream().noneMatch(n->n.matches("(?i).*(branch).*")))return false;
-                if(field.matches("(?i).*register.*")&&names.stream().noneMatch(n->n.matches("(?i).*(register).*")))return false;
+                if(!scopeFieldMatchesParameter(field,names))return false;
             }
         }
         return found;
@@ -215,13 +230,17 @@ class SpringDataRepositoryAstAnalysisTest {
     void namedQueryScopeCannotBeSatisfiedByAnUnrelatedParameter(){
         assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("tenant"))).isTrue();
         assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("customerId"))).isFalse();
+        assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:customer",Set.of("customer"))).isFalse();
+        assertThat(namedScopeBindingsMatch("select p from Product p where p.customerId=:tenant",Set.of("tenant"))).isFalse();
+        assertThat(namedScopeBindingsMatch("select p from Product p where p.branchId=:tenant",Set.of("tenant"))).isFalse();
+        assertThat(namedScopeBindingsMatch("select p from Product p where p.ownerId=:owner",Set.of("owner"))).isTrue();
     }
 
     private static boolean derivedScopeBindingFixture(String methodName,Set<String> parameters){
         String predicate=methodName.substring(methodName.indexOf("By")+2);
         int order=predicate.indexOf("OrderBy");if(order>=0)predicate=predicate.substring(0,order);
         boolean scoped=false;
-        for(String part:predicate.split("And")){
+        for(String part:predicate.split("And(?=[A-Z])|Or(?=[A-Z])")){
             String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
             if(property.isEmpty())continue;
             if(property.startsWith("Id")&&property.length()>2)property=property.substring(2);
@@ -247,15 +266,13 @@ class SpringDataRepositoryAstAnalysisTest {
     }
 
     private static boolean positionalScopeBindingFixture(String query,List<String> parameters){
-        var matcher=java.util.regex.Pattern.compile("(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(tenantId|tenant_id|branchId|branch_id)\\s*=\\s*\\?").matcher(query);
+        var matcher=java.util.regex.Pattern.compile("(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(tenantId|tenant_id|customerId|customer_id|ownerId|owner_id|branchId|branch_id|registerId|register_id)\\s*=\\s*\\?").matcher(query);
         boolean found=false;
         while(matcher.find()){
             found=true;
-            int index=(int)query.substring(0,matcher.start()).chars().filter(ch->ch=='?').count();
+            int index=positionalParameterIndex(query,matcher.start(2));
             if(index>=parameters.size())return false;
-            String field=matcher.group(1);
-            if(field.toLowerCase().contains("tenant")&&!parameters.get(index).toLowerCase().contains("tenant"))return false;
-            if(field.toLowerCase().contains("branch")&&!parameters.get(index).toLowerCase().contains("branch"))return false;
+            if(!scopeFieldMatchesParameter(matcher.group(1),Set.of(parameters.get(index))))return false;
         }
         return found;
     }
@@ -267,6 +284,8 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(derivedScopeBindingFixture("findByUsernameIgnoreCase",Set.of("username"))).isTrue();
         assertThat(derivedScopeBindingFixture("existsByTenantIdAndDraftOwner",Set.of("tenant","owner"))).isTrue();
         assertThat(derivedScopeBindingFixture("existsByTenantIdAndDraftOwner",Set.of("tenant","requestOwner"))).isFalse();
+        assertThat(derivedScopeBindingFixture("findByTenantIdOrOwnerId",Set.of("tenant","owner"))).isTrue();
+        assertThat(derivedScopeBindingFixture("findByTenantIdOrOwnerId",Set.of("tenant","customer"))).isFalse();
     }
 
     @Test

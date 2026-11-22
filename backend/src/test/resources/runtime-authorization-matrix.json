@@ -782,5 +782,884 @@
       "test": "AuthenticationActorContextTest#vendorToCustomerSwitchRemovesTenantAndMembershipScopeAndRotatesFamily",
       "assertion": "New Customer context and new refresh family; Vendor tenant/membership scope and grants are absent; old Vendor family revoked"
     }
-  ]
+  ],
+  "operationPolicies": {
+    "CashierSalesController#report": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "REGISTER_AND_CASHIER_SCOPE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CheckoutController#cashSale": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_OWNED_OR_VENDOR_TENANT",
+      "assignment": "POS_REGISTER_AND_OPEN_SESSION_FOR_POS",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CheckoutController#online": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_CHECKOUT_DRAFT",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CheckoutController#onlineList": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_CHECKOUT_DRAFT",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CheckoutController#cancelOnline": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_CHECKOUT_DRAFT",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CheckoutController#pos": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_OWNED_OR_VENDOR_TENANT",
+      "assignment": "POS_REGISTER_AND_OPEN_SESSION_FOR_POS",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CheckoutController#posList": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_OWNED_OR_VENDOR_TENANT",
+      "assignment": "POS_REGISTER_AND_OPEN_SESSION_FOR_POS",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CheckoutController#cancelPos": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_OWNED_OR_VENDOR_TENANT",
+      "assignment": "POS_REGISTER_AND_OPEN_SESSION_FOR_POS",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CheckoutController#cash": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_OWNED_OR_VENDOR_TENANT",
+      "assignment": "POS_REGISTER_AND_OPEN_SESSION_FOR_POS",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CustomerAssociationController#create": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_SALE_OWNER_FOR_VENDOR_ACTION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CustomerAssociationController#preview": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_SELF_ASSOCIATION_CHALLENGE",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CustomerAssociationController#approve": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_SELF_ASSOCIATION_CHALLENGE",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "DraftRecoveryController#pos": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_REGISTER_AND_SESSION_FOR_POS",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "DraftRecoveryController#customer": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_CHECKOUT_DRAFT",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "OnlineReceiptController#read": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_ORDER",
+      "assignment": "NONE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "OnlineReceiptController#copy": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_ORDER",
+      "assignment": "NONE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "OrderHistoryController#customer": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_ORDER",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "OrderHistoryController#pos": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "REGISTER_SCOPE_FOR_POS",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "OrderHistoryController#customerDetail": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_ORDER",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "OrderHistoryController#posDetail": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "REGISTER_SCOPE_FOR_POS",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#customerStatus": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_CHECKOUT_DRAFT_AND_PAYMENT",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#customerStart": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_CHECKOUT_DRAFT_AND_PAYMENT",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#customerConfirm": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_CHECKOUT_DRAFT_AND_PAYMENT",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#tenderStatus": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#tender": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#finalizeTenders": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#posUnknown": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#awaitingReview": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#reviewStatus": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PaymentCheckoutController#review": {
+      "actor": "MIXED",
+      "scope": "CUSTOMER_SELF_OR_VENDOR_TENANT",
+      "assignment": "POS_ORDER_OWNER_REGISTER_AND_SESSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "SalesReportController#sales": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_REPORT_SCOPE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReceiptDocumentController#generate": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RECEIPT",
+      "assignment": "REGISTER_ASSIGNMENT_AND_RECEIPT_REPRINT",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "SaleReceiptController#receipt": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RECEIPT",
+      "assignment": "REGISTER_ASSIGNMENT",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "SaleReceiptController#reprint": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RECEIPT",
+      "assignment": "REGISTER_ASSIGNMENT",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "AuthenticationController#csrf": {
+      "actor": "PUBLIC",
+      "scope": "PUBLIC_CSRF_BOOTSTRAP",
+      "assignment": "NONE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "AuthenticationController#login": {
+      "actor": "AUTHENTICATION",
+      "scope": "GLOBAL_IDENTITY_SELF",
+      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "AuthenticationController#register": {
+      "actor": "AUTHENTICATION",
+      "scope": "GLOBAL_IDENTITY_SELF",
+      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "AuthenticationController#refresh": {
+      "actor": "AUTHENTICATION",
+      "scope": "GLOBAL_IDENTITY_SELF",
+      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "AuthenticationController#switchContext": {
+      "actor": "MIXED",
+      "scope": "AUTHENTICATED_DUAL_IDENTITY",
+      "assignment": "EXPLICIT_CONTEXT_SWITCH_AND_ACTIVE_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "AuthenticationController#logout": {
+      "actor": "AUTHENTICATION",
+      "scope": "GLOBAL_IDENTITY_SELF",
+      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "AuthenticationController#me": {
+      "actor": "AUTHENTICATION",
+      "scope": "GLOBAL_IDENTITY_SELF",
+      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "IdentityInvitationController#accept": {
+      "actor": "INVITATION_TOKEN",
+      "scope": "ONE_TIME_INVITATION",
+      "assignment": "TOKEN_HASH_AND_EXPIRY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformIdentityController#list": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL",
+      "assignment": "PLATFORM_IDENTITY_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformIdentityController#issueEnrollment": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL",
+      "assignment": "PLATFORM_IDENTITY_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformMfaController#start": {
+      "actor": "MIXED",
+      "scope": "PLATFORM_IDENTITY_OR_ENROLLMENT_TOKEN",
+      "assignment": "MFA_TOKEN_OR_PLATFORM_AUDIT_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformMfaController#complete": {
+      "actor": "MIXED",
+      "scope": "PLATFORM_IDENTITY_OR_ENROLLMENT_TOKEN",
+      "assignment": "MFA_TOKEN_OR_PLATFORM_AUDIT_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformMfaController#status": {
+      "actor": "MIXED",
+      "scope": "PLATFORM_IDENTITY_OR_ENROLLMENT_TOKEN",
+      "assignment": "MFA_TOKEN_OR_PLATFORM_AUDIT_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CatalogSearchController#search": {
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_VENDOR_CATALOGUE",
+      "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CategoryAdminController#list": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_CATALOGUE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CategoryAdminController#create": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_CATALOGUE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CategoryAdminController#update": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_CATALOGUE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "DiscountPolicyController#view": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_BRANCH_SCOPE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "DiscountPolicyController#configure": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_BRANCH_SCOPE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#vendors": {
+      "actor": "MIXED",
+      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#products": {
+      "actor": "MIXED",
+      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#categories": {
+      "actor": "MIXED",
+      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#csrf": {
+      "actor": "MIXED",
+      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#cart": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_SINGLE_VENDOR_CART",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#put": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_SINGLE_VENDOR_CART",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#remove": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_SINGLE_VENDOR_CART",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#switchVendor": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_SINGLE_VENDOR_CART",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#quote": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_SINGLE_VENDOR_CART",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#history": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_SINGLE_VENDOR_CART",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "MarketplaceController#restore": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_SINGLE_VENDOR_CART",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductAdminController#list": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_CATALOGUE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductAdminController#create": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_CATALOGUE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductAdminController#update": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_CATALOGUE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductDetailController#detail": {
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_VENDOR_PRODUCT",
+      "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PromotionController#approve": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_PRODUCT",
+      "assignment": "POS_BRANCH_SCOPE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PromotionHistoryController#history": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_PRODUCT",
+      "assignment": "POS_BRANCH_SCOPE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "StockReceivingController#receive": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_STOCK_LOCATION",
+      "assignment": "DESIGNATED_POS_DEFAULT_LOCATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "StockReceivingController#list": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_STOCK_LOCATION",
+      "assignment": "DESIGNATED_POS_DEFAULT_LOCATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorDirectoryController#search": {
+      "actor": "PUBLIC",
+      "scope": "ACTIVE_VENDOR_DIRECTORY",
+      "assignment": "NONE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#roles": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#delegablePermissions": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#role": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#create": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#update": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#deactivate": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#employees": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#createEmployee": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#assignRoles": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#assignRegisters": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#branch": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#disable": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "VendorRoleController#permissions": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#dashboard": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#tenants": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#create": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#update": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#lifecycle": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#audit": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#support": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#grant": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#revoke": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#settings": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformAdminController#put": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL_OR_EXPLICIT_TENANT_TARGET",
+      "assignment": "PLATFORM_PERMISSION_AND_SUPPORT_GRANT_WHEN_APPLICABLE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformHealthController#get": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_GLOBAL",
+      "assignment": "PLATFORM_ANALYTICS_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformSubscriptionController#list": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_PLANS",
+      "assignment": "PLATFORM_PLAN_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformSubscriptionController#create": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_PLANS",
+      "assignment": "PLATFORM_PLAN_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformSubscriptionController#revise": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_PLANS",
+      "assignment": "PLATFORM_PLAN_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformSubscriptionController#active": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_PLANS",
+      "assignment": "PLATFORM_PLAN_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformTenantSubscriptionController#list": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_AND_TENANT",
+      "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformTenantSubscriptionController#create": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_AND_TENANT",
+      "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformTenantSubscriptionController#change": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_AND_TENANT",
+      "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformTenantSubscriptionController#events": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_AND_TENANT",
+      "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PlatformTenantSubscriptionController#billing": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_AND_TENANT",
+      "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReportExportController#sales": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REPORT",
+      "assignment": "POS_REPORT_AND_EXPORT_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReportExportController#refunds": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REPORT",
+      "assignment": "POS_REPORT_AND_EXPORT_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "BranchSettingsController#current": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_SETTINGS_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "BranchSettingsController#update": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_SETTINGS_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "BranchSettingsController#create": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH",
+      "assignment": "POS_SETTINGS_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosCatalogController#search": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_CATALOGUE_AND_STOCK",
+      "assignment": "REGISTER_ASSIGNMENT_AND_OPEN_SESSION_WHERE_REQUIRED",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosCatalogController#scan": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_CATALOGUE_AND_STOCK",
+      "assignment": "REGISTER_ASSIGNMENT_AND_OPEN_SESSION_WHERE_REQUIRED",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#csrf": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#products": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#open": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#activeSessions": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#sessionDetails": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#resume": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#reopen": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#close": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#closeStatus": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#pendingVariances": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#approveVariance": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#returnVariance": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#cashMovement": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "PosController#reconciliation": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_SESSION",
+      "assignment": "ACTIVE_EMPLOYEE_REGISTER_ASSIGNMENT_AND_SESSION_STATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "RegisterDirectoryController#directory": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER",
+      "assignment": "ACTIVE_REGISTER_ASSIGNMENT",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ShiftHistoryController#history": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REGISTER_HISTORY",
+      "assignment": "CASHIER_OR_SUPERVISOR_REGISTER_ASSIGNMENT",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CashRefundController#list": {
+      "actor": "VENDOR",
+      "scope": "TENANT_RETURN_REFUND_AND_DRAWER",
+      "assignment": "REGISTER_AND_OPEN_SESSION_FOR_CASH_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CashRefundController#get": {
+      "actor": "VENDOR",
+      "scope": "TENANT_RETURN_REFUND_AND_DRAWER",
+      "assignment": "REGISTER_AND_OPEN_SESSION_FOR_CASH_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CashRefundController#byReturn": {
+      "actor": "VENDOR",
+      "scope": "TENANT_RETURN_REFUND_AND_DRAWER",
+      "assignment": "REGISTER_AND_OPEN_SESSION_FOR_CASH_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CashRefundController#quote": {
+      "actor": "VENDOR",
+      "scope": "TENANT_RETURN_REFUND_AND_DRAWER",
+      "assignment": "REGISTER_AND_OPEN_SESSION_FOR_CASH_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CashRefundController#pay": {
+      "actor": "VENDOR",
+      "scope": "TENANT_RETURN_REFUND_AND_DRAWER",
+      "assignment": "REGISTER_AND_OPEN_SESSION_FOR_CASH_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CashRefundController#copy": {
+      "actor": "VENDOR",
+      "scope": "TENANT_RETURN_REFUND_AND_DRAWER",
+      "assignment": "REGISTER_AND_OPEN_SESSION_FOR_CASH_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "RefundHistoryController#history": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REFUND_HISTORY",
+      "assignment": "REFUND_VIEW_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "RefundReportController#report": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_REFUND_REPORT",
+      "assignment": "POS_REPORT_AND_REFUND_VIEW_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReturnAuditController#history": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN",
+      "assignment": "RETURN_AUDIT_PERMISSION_AND_POS_SCOPE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReturnController#list": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN_AND_ORDER",
+      "assignment": "REGISTER_AND_SESSION_FOR_POS_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReturnController#get": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN_AND_ORDER",
+      "assignment": "REGISTER_AND_SESSION_FOR_POS_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReturnController#eligibility": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN_AND_ORDER",
+      "assignment": "REGISTER_AND_SESSION_FOR_POS_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReturnController#create": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN_AND_ORDER",
+      "assignment": "REGISTER_AND_SESSION_FOR_POS_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReturnController#review": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN_AND_ORDER",
+      "assignment": "REGISTER_AND_SESSION_FOR_POS_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReturnController#inspect": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_RETURN_AND_ORDER",
+      "assignment": "REGISTER_AND_SESSION_FOR_POS_MUTATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ReturnQueueController#queue": {
+      "actor": "VENDOR",
+      "scope": "TENANT_BRANCH_RETURN_QUEUE",
+      "assignment": "RETURN_VIEW_PERMISSION_AND_POS_SCOPE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    }
+  },
+  "operationPolicyKey": "ControllerSimpleName#JavaMethodName"
 }

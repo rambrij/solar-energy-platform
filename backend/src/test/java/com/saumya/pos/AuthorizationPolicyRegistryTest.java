@@ -45,7 +45,7 @@ class AuthorizationPolicyRegistryTest {
             JsonNode actorPolicies;
             try(InputStream matrix=getClass().getResourceAsStream("/runtime-authorization-matrix.json")){
                 assertThat(matrix).isNotNull();
-                actorPolicies=new ObjectMapper().readTree(matrix).path("controllerPolicies");
+                actorPolicies=new ObjectMapper().readTree(matrix).path("operationPolicies");
             }
             var scanner=new ClassPathScanningCandidateComponentProvider(false);
             scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
@@ -67,8 +67,8 @@ class AuthorizationPolicyRegistryTest {
                         .isTrue();
                     String expression=methodPolicy!=null?methodPolicy.value():classPolicy.value();
                     validateAuthorities(expression,name+"#"+method.getName());
-                    JsonNode operationMetadata=actorPolicies.path(name);
                     String operation=name+"#"+method.getName();
+                    JsonNode operationMetadata=actorPolicies.path(operation);
                     assertThat(operationMetadata.path("actor").asText())
                         .as("actor metadata for protected operation %s",operation).isIn(
                             "PLATFORM","VENDOR","CUSTOMER","MIXED","PUBLIC","AUTHENTICATION","INVITATION_TOKEN");
@@ -138,15 +138,21 @@ class AuthorizationPolicyRegistryTest {
     @Test void everyProtectedControllerOperationHasCanonicalActorScopeAndAssignmentMetadata(){
         try(InputStream in=getClass().getResourceAsStream("/runtime-authorization-matrix.json")){
             assertThat(in).as("P0-06 runtime authorization matrix").isNotNull();
-            JsonNode matrix=new ObjectMapper().readTree(in).path("controllerPolicies");
-            JsonNode registryControllers=registry().path("controllerPolicies");
-            Set<String> expected=new TreeSet<>();registryControllers.fieldNames().forEachRemaining(expected::add);
+            JsonNode matrix=new ObjectMapper().readTree(in).path("operationPolicies");
             Set<String> actual=new TreeSet<>();matrix.fieldNames().forEachRemaining(actual::add);
-            assertThat(actual).containsExactlyInAnyOrderElementsOf(expected);
-            for(String controller:actual){
-                JsonNode metadata=matrix.path(controller);
-                for(String field:List.of("actor","scope","assignment")){
-                    assertThat(metadata.path(field).asText()).as("%s operation metadata: %s",controller,field).isNotBlank();
+            var scanner=new ClassPathScanningCandidateComponentProvider(false);
+            scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
+            Set<String> discovered=new TreeSet<>();
+            for(var bean:scanner.findCandidateComponents("com.saumya.pos")){
+                Class<?> type=Class.forName(bean.getBeanClassName());
+                for(Method method:type.getDeclaredMethods()) if(isMapped(method)) discovered.add(type.getSimpleName()+"#"+method.getName());
+            }
+            assertThat(actual).as("every mapped operation must have an independently keyed policy; no family fallback")
+                .containsExactlyInAnyOrderElementsOf(discovered);
+            for(String operation:actual){
+                JsonNode metadata=matrix.path(operation);
+                for(String field:List.of("actor","scope","assignment","runtimeTest")){
+                    assertThat(metadata.path(field).asText()).as("%s operation metadata: %s",operation,field).isNotBlank();
                 }
             }
         }catch(Exception exception){throw new AssertionError(exception);}

@@ -254,7 +254,7 @@ class JdbcTenantSqlAstAnalysisTest {
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused) {
                         String call=node.getMethodSelect().toString();
                         String name=call.substring(call.lastIndexOf('.')+1);
-                        List<String> sqlMethods=List.of("query","queryForList","queryForObject","queryForMap","queryForRowSet","update","batchUpdate","execute");
+                        List<String> sqlMethods=List.of("query","queryForList","queryForObject","queryForMap","queryForRowSet","queryForStream","update","batchUpdate","execute","call");
                         if(name.equals("one") && className.equals("com.saumya.pos.retail.PosService")) {
                             observedMethods.computeIfAbsent(className,k->new TreeSet<>()).add(methodName);
                             assertThat(node.getArguments()).as("PosService.one call has SQL and tenant arguments: %s",node).isNotEmpty();

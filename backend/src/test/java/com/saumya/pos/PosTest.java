@@ -2680,6 +2680,18 @@ class PosTest {
   assertThatThrownBy(()->db.update("INSERT INTO pos_cash_refund_items(tenant_id,refund_id,return_id,order_id,product_id,name,quantity,net,tax,amount) VALUES(2,'p2-cross-refund-b',?,?,1,'Foreign item',1,90,10,100)",returnB,orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("INSERT INTO inventory_return_dispositions(tenant_id,branch_id,return_id,product_id,quantity,disposition,received_condition,actor,created_at) VALUES(2,2,?,1,1,'QUARANTINE','DAMAGED','bob',CURRENT_TIMESTAMP)",returnA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
 
+  // Mirror UPDATE rejection: valid Vendor B children cannot be rebound to A's parents.
+  assertThatThrownBy(()->db.update("UPDATE vendor_invoices SET order_id=? WHERE tenant_id=2 AND order_id=?",orderA,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE vendor_payment_attempts SET order_id=? WHERE id='p2-cross-payment-b'",orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE receipt_document_audit SET order_id=? WHERE id='p2-cross-receipt-b'",orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE inventory_receipts SET product_id=1 WHERE id='p2-cross-stock-b'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_returns SET order_id=? WHERE tenant_id=2 AND id=?",orderA,returnB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_return_items SET order_id=? WHERE tenant_id=2 AND return_id=?",orderA,returnB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_return_events SET tenant_id=1 WHERE id='p2-cross-event-b'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_cash_refunds SET order_id=? WHERE tenant_id=2 AND id='p2-cross-refund-b'",orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_cash_refund_items SET order_id=? WHERE tenant_id=2 AND refund_id='p2-cross-refund-b'",orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE inventory_return_dispositions SET tenant_id=1 WHERE tenant_id=2 AND return_id=?",returnB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+
   // Direct SQL must not remove any financial-history parent while children remain.
   assertThatThrownBy(()->db.update("DELETE FROM pos_sessions WHERE tenant_id=1 AND id=?",session)).isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("DELETE FROM pos_sessions WHERE tenant_id=2 AND id=?",sessionB)).isInstanceOf(org.springframework.dao.DataAccessException.class);

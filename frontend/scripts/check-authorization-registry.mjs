@@ -257,7 +257,7 @@ function resolveApiCall(file,source,match){
  if(fn==='api'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor/pos'+endpoint;
  if(fn==='vendorApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor'+endpoint;
  if(fn==='platformApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/platform'+endpoint;
- endpoint=normalizeActionPath(endpoint.split('?')[0].replace(/\$\{[^}]+\}/g,'{}'));
+ endpoint=normalizeActionPath(endpoint.replace(/\$\{[^}]+\}/g,'{}').split('?')[0]);
  return {component:path.basename(file),method,endpoint,fn,line:source.slice(0,match.index).split('\n').length};
 }
 const observedApiCalls=[];

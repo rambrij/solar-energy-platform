@@ -140,6 +140,53 @@ class JdbcTenantSqlAstAnalysisTest {
         for(JsonNode value:declared)if(value.asText().equals(parameter))return true;
         return false;
     }
+    private static int matchingJavaBrace(String source,int open){
+        int depth=0;char quote=0;boolean escaped=false,lineComment=false,blockComment=false,textBlock=false;
+        for(int i=open;i<source.length();i++){
+            if(textBlock){
+                if(i+2<source.length()&&source.startsWith("\"\"\"",i)){textBlock=false;i+=2;}
+                continue;
+            }
+            char ch=source.charAt(i),next=i+1<source.length()?source.charAt(i+1):0;
+            if(lineComment){if(ch=='\n'||ch=='\r')lineComment=false;continue;}
+            if(blockComment){if(ch=='*'&&next=='/'){blockComment=false;i++;}continue;}
+            if(quote!=0){
+                if(escaped){escaped=false;continue;}
+                if(ch=='\\'){escaped=true;continue;}
+                if(ch==quote)quote=0;
+                continue;
+            }
+            if(ch=='/'&&next=='/'){lineComment=true;i++;continue;}
+            if(ch=='/'&&next=='*'){blockComment=true;i++;continue;}
+            if(ch=='"'&&i+2<source.length()&&source.startsWith("\"\"\"",i)){textBlock=true;i+=2;continue;}
+            if(ch=='"'||ch=='\''){quote=ch;continue;}
+            if(ch=='{')depth++;
+            else if(ch=='}'&&--depth==0)return i;
+        }
+        return -1;
+    }
+    private static String methodBody(String source,String methodName){
+        var declaration=Pattern.compile("(?s)\\b"+Pattern.quote(methodName)+"\\s*\\([^;{}]*\\)\\s*\\{").matcher(source);
+        if(!declaration.find())throw new AssertionError("Cannot locate method body for "+methodName);
+        int open=source.indexOf('{',declaration.start()),close=matchingJavaBrace(source,open);
+        if(close<0)throw new AssertionError("Unclosed method body for "+methodName);
+        return source.substring(open+1,close);
+    }
+    private static List<List<String>> invocationArguments(String body,String methodName){
+        List<List<String>> result=new ArrayList<>();
+        var calls=Pattern.compile("\\b"+Pattern.quote(methodName)+"\\s*\\(").matcher(body);
+        while(calls.find()){
+            int open=body.indexOf('(',calls.start()),depth=0;char quote=0;boolean escaped=false;
+            for(int i=open;i<body.length();i++){
+                char ch=body.charAt(i);
+                if(quote!=0){if(escaped){escaped=false;continue;}if(ch=='\\'){escaped=true;continue;}if(ch==quote)quote=0;continue;}
+                if(ch=='"'||ch=='\''){quote=ch;continue;}
+                if(ch=='(')depth++;
+                else if(ch==')'&&--depth==0){result.add(splitArguments(body.substring(open+1,i)));break;}
+            }
+        }
+        return result;
+    }
     private static Set<String> trustedSources(JsonNode policy) {
         Set<String> result=new TreeSet<>();
         policy.path("trustedTenantParameterSources").forEach(item->result.add(item.path("source").asText()));
@@ -290,6 +337,59 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(tenantPredicate("SELECT * FROM rows WHERE note='tenant_id=?'")).isFalse();
         assertThat(tenantPredicate("SELECT * FROM rows WHERE id=? -- AND tenant_id=?")).isFalse();
         assertThat(tenantPlaceholderIndex("SELECT * FROM rows WHERE id=? AND tenant_id=? /* ? */")).isEqualTo(1);
+    }
+
+    @Test
+    void everyBareTrustedTenantParameterHasAnExactReviewedCallerFlow() throws Exception {
+        JsonNode root=policy();
+        Map<String,JsonNode> sourcePolicies=new TreeMap<>();
+        root.path("trustedTenantParameterSources").forEach(item->sourcePolicies.put(item.path("source").asText(),item));
+        JsonNode flows=root.path("trustedTenantParameterFlows");
+        assertThat(flows.isArray()).isTrue();
+        Set<String> proven=new TreeSet<>();
+        for(JsonNode flow:flows){
+            String callee=flow.path("callee").asText(),parameter=flow.path("parameter").asText();
+            int split=callee.lastIndexOf('#');
+            assertThat(split).isGreaterThan(0);
+            String calleeClass=callee.substring(0,split),calleeMethod=callee.substring(split+1);
+            JsonNode sourcePolicy=sourcePolicies.get(calleeClass);
+            assertThat(sourcePolicy).as("trusted parameter class policy for %s",callee).isNotNull();
+            JsonNode allowed=sourcePolicy.path("trustedTenantParameters").path(calleeMethod);
+            assertThat(allowed.isArray()).as("bare tenant parameter declaration for %s",callee).isTrue();
+            assertThat(allowed.toString()).contains("\""+parameter+"\"");
+            Path calleeFile=sourceRoot().resolve(calleeClass.replace('.','/')+".java");
+            assertThat(Files.isRegularFile(calleeFile)).isTrue();
+            String calleeSource=Files.readString(calleeFile);
+            assertThat(methodBody(calleeSource,calleeMethod)).isNotBlank();
+            for(JsonNode caller:flow.path("callers")){
+                String callerRef=caller.path("caller").asText();
+                int callerSplit=callerRef.lastIndexOf('#');
+                String callerClass=callerRef.substring(0,callerSplit),callerMethod=callerRef.substring(callerSplit+1);
+                Path callerFile=sourceRoot().resolve(callerClass.replace('.','/')+".java");
+                String callerSource=Files.readString(callerFile);
+                String body=methodBody(callerSource,callerMethod);
+                List<List<String>> calls=invocationArguments(body,calleeMethod);
+                int argumentIndex=caller.path("argumentIndex").asInt(-1);
+                String expression=caller.path("expression").asText();
+                assertThat(calls).as("caller %s must invoke %s",callerRef,callee).isNotEmpty();
+                assertThat(calls.stream().anyMatch(args->argumentIndex>=0&&argumentIndex<args.size()
+                    &&args.get(argumentIndex).contains(expression)))
+                    .as("%s argument %s must flow unchanged from %s into %s",parameter,expression,callerRef,callee)
+                    .isTrue();
+                proven.add(callee+"#"+parameter);
+            }
+        }
+        for(JsonNode source:root.path("trustedTenantParameterSources")){
+            String className=source.path("source").asText();
+            JsonNode declared=source.path("trustedTenantParameters");
+            declared.fields().forEachRemaining(method->method.getValue().forEach(parameter->
+                assertThat(proven).as("bare tenant parameter requires caller-flow evidence")
+                    .contains(className+"#"+method.getKey()+"#"+parameter.asText())));
+        }
+        JsonNode membershipPolicy=sourcePolicies.get("com.saumya.pos.membership.MembershipService");
+        assertThat(hasTrustedTenantArgument("tenant","com.saumya.pos.membership.MembershipService","access",membershipPolicy)).isFalse();
+        assertThat(hasTrustedTenantArgument("tenant","com.saumya.pos.membership.MembershipService","effectiveVendorPermissions",membershipPolicy)).isTrue();
+        assertThat(hasTrustedTenantArgument("requestTenant","com.saumya.pos.membership.MembershipService","effectiveVendorPermissions",membershipPolicy)).isFalse();
     }
 
     @Test

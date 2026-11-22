@@ -207,7 +207,10 @@ const localControlHelpers=new Set([
  'randomUUID','includes','some','every','find','findIndex','map','filter','reduce','slice','splice',
  'trim','replace','replaceAll','toLowerCase','toUpperCase','toFixed','toString','startsWith','endsWith',
  'max','min','round','floor','ceil','isFinite','isInteger','from','assign','parse','stringify','sort',
- 'push','pop','join','split','has','get','set','delete','values','keys','entries'
+ 'push','pop','join','split','has','get','set','delete','values','keys','entries',
+ 'now','fromEntries','pushState','replaceState','back','forward','getElementById',
+ 'querySelector','querySelectorAll','addEventListener','removeEventListener','scrollIntoView',
+ 'dispatchEvent','closest','contains','matches','getBoundingClientRect'
 ]);
 function mergeControlClass(a,b){
  const rank={LOCAL_ONLY:0,DELEGATED_HELPER:1,DELEGATED_CALLBACK:2,BACKEND_ACTION:3};
@@ -227,9 +230,17 @@ function inventoryJsxControls(file,source){
   }
   if(ts.isFunctionDeclaration(node)&&node.name&&node.body)functions.set(node.name.text,node.body);
   if(ts.isMethodDeclaration(node)&&node.body&&node.name)functions.set(node.name.getText(unit),node.body);
-  if(ts.isVariableDeclaration(node)&&ts.isIdentifier(node.name)&&node.initializer
-    &&(ts.isArrowFunction(node.initializer)||ts.isFunctionExpression(node.initializer)))
-   functions.set(node.name.text,node.initializer.body);
+  if(ts.isVariableDeclaration(node)&&ts.isIdentifier(node.name)&&node.initializer){
+   // React hook-wrapped callbacks are still local functions. Treating useCallback
+   // and useMemo as opaque imports hides their real backend/local behavior.
+   const initializer=node.initializer;
+   const wrapped=ts.isCallExpression(initializer)
+    &&ts.isIdentifier(initializer.expression)
+    &&['useCallback','useMemo'].includes(initializer.expression.text)
+    ?initializer.arguments[0]:initializer;
+   if(wrapped&&(ts.isArrowFunction(wrapped)||ts.isFunctionExpression(wrapped)))
+    functions.set(node.name.text,wrapped.body);
+  }
   ts.forEachChild(node,collect);
  }
  collect(unit);

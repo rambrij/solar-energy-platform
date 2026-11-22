@@ -270,8 +270,9 @@ class PosTest {
    allowExpiryCommit.countDown();
    assertThat(expiryFuture.get(10,TimeUnit.SECONDS)).isTrue();
    suspensionFuture.get(10,TimeUnit.SECONDS);
-   assertThat(new org.springframework.transaction.support.TransactionTemplate(transactions)
-    .execute(status->tenantLifecycle.lockActive(1L))).isFalse();
+   boolean stillActive=Boolean.TRUE.equals(new org.springframework.transaction.support.TransactionTemplate(transactions)
+    .execute(status->tenantLifecycle.lockActive(1L)));
+   assertThat(stillActive).isFalse();
   } finally { executor.shutdownNow(); }
  }
 

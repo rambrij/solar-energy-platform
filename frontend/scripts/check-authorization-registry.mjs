@@ -296,7 +296,9 @@ for(const action of actionRegistry.actions){
  if(!fs.existsSync(path.join(frontend,'src',action.component)))throw new Error('Missing action component '+action.component);
 }
 function validateActionPermissionParity(action,policy){
+ const expected=[...action.permissions].sort();
  if(action.actor==='PUBLIC'){
+  if(action.permissions.length)throw new Error('Public frontend action cannot claim protected permissions: '+action.id);
   if(!/permitAll\s*\(\s*\)/.test(policy))throw new Error('Public frontend action is not permitAll on backend: '+action.id);
   return;
  }
@@ -306,13 +308,27 @@ function validateActionPermissionParity(action,policy){
   if(action.permissions.length)throw new Error('Session-only action cannot claim role permissions: '+action.id);
   return;
  }
- if(action.actor==='VENDOR'&&action.permissions.some(permission=>permission.startsWith('PLATFORM_')))
-  throw new Error('Platform permission assigned to vendor action '+action.id);
  const actual=[...policy.matchAll(/has(?:Any)?Authority\s*\(([^)]*)\)/g)].flatMap(call=>[...call[1].matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map(match=>match[1]));
+ if(action.actor==='CUSTOMER'){
+  if(JSON.stringify(expected)!==JSON.stringify(['CUSTOMER'])||!actual.includes('CUSTOMER')
+    ||actual.some(permission=>permission!=='CUSTOMER'))
+   throw new Error('Customer frontend actor does not match backend customer authority: '+action.id);
+ }
+ if(action.actor==='VENDOR'){
+  if(action.permissions.some(permission=>permission==='CUSTOMER'||permission.startsWith('PLATFORM_'))
+    ||actual.some(permission=>permission==='CUSTOMER'||permission.startsWith('PLATFORM_')))
+   throw new Error('Vendor frontend actor maps to a non-vendor backend authority: '+action.id);
+ }
+ if(action.actor==='PLATFORM'){
+  if(!action.permissions.length||action.permissions.some(permission=>!permission.startsWith('PLATFORM_'))
+    ||actual.some(permission=>!permission.startsWith('PLATFORM_')))
+   throw new Error('Platform frontend actor must map exclusively to platform backend authorities: '+action.id);
+ }
  if(action.permissions.includes('POS_CASH_MOVEMENT_DYNAMIC')){
-  if(!policy.includes("'POS_' + #request.type().name()"))throw new Error('Dynamic POS cash-movement permission mapping mismatch: '+action.id);
+  if(!policy.includes("'POS_' + #request.type().name()")||policy.includes('PLATFORM_')||policy.includes("'CUSTOMER'"))
+   throw new Error('Dynamic POS cash-movement permission mapping mismatch: '+action.id);
  }else{
-  const expected=[...action.permissions].sort(),observed=[...new Set(actual)].sort();
+  const observed=[...new Set(actual)].sort();
   if(JSON.stringify(expected)!==JSON.stringify(observed))throw new Error('Frontend/backend permission parity mismatch for '+action.id+': frontend='+expected.join(',')+' backend='+observed.join(','));
   if(action.permissions.length>1){
    const expectsAny=action.permissionMode==='ANY';
@@ -327,6 +343,14 @@ assert.throws(()=>validateActionPermissionParity({id:'fixture-public-mismatch',a
  /Public frontend action is not permitAll/);
 assert.throws(()=>validateActionPermissionParity({id:'fixture-vendor-platform-permission',actor:'VENDOR',permissions:['PLATFORM_TENANT_VIEW']}, "hasAuthority('PLATFORM_TENANT_VIEW')"),
  /Platform permission assigned to vendor action/);
+assert.throws(()=>validateActionPermissionParity({id:'fixture-customer-vendor-mismatch',actor:'CUSTOMER',permissions:['POS_VIEW']}, "hasAuthority('POS_VIEW')"),
+ /Customer frontend actor does not match backend customer authority/);
+assert.throws(()=>validateActionPermissionParity({id:'fixture-platform-vendor-mismatch',actor:'PLATFORM',permissions:['POS_VIEW']}, "hasAuthority('POS_VIEW')"),
+ /Platform frontend actor must map exclusively to platform backend authorities/);
+assert.throws(()=>validateActionPermissionParity({id:'fixture-public-permission-mismatch',actor:'PUBLIC',permissions:['POS_VIEW']}, "permitAll()"),
+ /Public frontend action cannot claim protected permissions/);
+assert.throws(()=>validateActionPermissionParity({id:'fixture-vendor-customer-mismatch',actor:'VENDOR',permissions:['CUSTOMER']}, "hasAuthority('CUSTOMER')"),
+ /Vendor frontend actor maps to a non-vendor backend authority/);
 assert.throws(()=>validateActionPermissionParity({id:'fixture-session-permit-all',actor:'SESSION',permissions:[]}, "permitAll()"),
  /Session frontend action must require an authenticated session/);
 

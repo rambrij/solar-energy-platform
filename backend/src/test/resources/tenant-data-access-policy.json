@@ -486,7 +486,9 @@
         "requireRead()",
         "subscriptions.findById(id)",
         "versions.findById(key)",
-        "plans.findById(input.planId())"
+        "plans.findById(input.planId())",
+        "subscriptions.findById(subscriptionId)",
+        "plans.findById(s.planId())"
       ]
     }
   ],

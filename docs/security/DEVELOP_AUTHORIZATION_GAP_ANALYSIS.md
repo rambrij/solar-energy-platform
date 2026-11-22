@@ -569,3 +569,7 @@ The architecture checks already present are retained; no allowlist has been broa
 **Remaining acceptance gaps:** direct JDBC query scanning does not yet prove trusted parameter provenance through local variables and does not cover all Spring Data derived repository methods, JPA/native queries or dynamic SQL. The full frontend menu/submenu/route/tab/button/action registry and backend-operation parity remains outstanding. The full negative fixture matrix and exact-commit P0-02/P0-06/P1-03/P1-04, H2, MySQL 8.4, frontend and Playwright evidence are also outstanding. The source-pattern forged-tenant fixture is supplemental only; runtime forged-tenant tests remain authoritative.
 
 Do not mark P2-04 COMPLETE until these gaps are closed and all required gates pass on one exact branch-head commit.
+
+### P2-04 focused-gate verification — 2026-11-22
+
+On branch-head candidate `bfc0c95eecf8d179149e226e846f59277359e61c`, workflow [#45040803579](https://github.com/rambrij/solar-energy-platform/actions/runs/45040803579) completed the focused P2-04 architecture/static authorization gate successfully on both H2 and MySQL 8.4. The frontend `npm test` (including the expanded registry script) and `npm run build` also passed. The full backend H2 and MySQL suites were still running at the time of this update. No full-suite, Playwright, or overall P2-04 acceptance pass is claimed. The SQL/JDBC analyzer is therefore verified for its current direct-JDBC source inventory, but its documented scope limitations remain.

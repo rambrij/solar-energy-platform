@@ -85,7 +85,7 @@ class JdbcTenantSqlAstAnalysisTest {
             for(CompilationUnitTree unit:task.parse()) {
                 Path file=Path.of(unit.getSourceFile().toUri());
                 String relative=sourceRoot().toAbsolutePath().normalize().relativize(file.toAbsolutePath().normalize()).toString().replace('\\','/');
-                String className="com.saumya.pos."+relative.replace('/','.').replace(".java","");
+                String className=relative.replace('/','.').replace(".java","");
                 String fileSource=Files.readString(file);
                 JsonNode classPolicy=trusted.get(className);
                 new TreePathScanner<Void,Void>() {

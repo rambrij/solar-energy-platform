@@ -376,9 +376,9 @@ class RepositoryTenantAccessAnalysisTest {
         Pattern dynamicArgument = Pattern.compile(
             "(?is)(?:db|jdbc)\\.(?:query|queryFor\\w*|update|execute|batchUpdate)\\s*\\(\\s*(?:[a-zA-Z_$][\\w$]*\\s*\\+|String\\.format\\s*\\(|new\\s+StringBuilder\\s*\\()");
         assertThat(dynamicArgument.matcher("db.queryForList(sql + filter, tenant)").find()).isTrue();
-        assertThat(dynamicArgument.matcher("db.update(String.format(\\"DELETE FROM rows WHERE tenant_id=%s\\", tenant))").find()).isTrue();
-        assertThat(dynamicArgument.matcher("db.query(new StringBuilder(\\"SELECT * FROM rows\\").toString())").find()).isTrue();
-        assertThat(dynamicArgument.matcher("db.queryForList(\\"SELECT * FROM rows WHERE tenant_id=?\\", tenant)").find()).isFalse();
+        assertThat(dynamicArgument.matcher("db.update(String.format(\"DELETE FROM rows WHERE tenant_id=%s\", tenant))").find()).isTrue();
+        assertThat(dynamicArgument.matcher("db.query(new StringBuilder(\"SELECT * FROM rows\").toString())").find()).isTrue();
+        assertThat(dynamicArgument.matcher("db.queryForList(\"SELECT * FROM rows WHERE tenant_id=?\", tenant)").find()).isFalse();
     }
 
     @Test

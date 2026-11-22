@@ -10,9 +10,9 @@ P0-01 inventory deliverables and the three resulting same-tenant FK protections 
 
 This remains a **partial audit and implementation**, not a PASS for the P0-02 acceptance criterion. INV-SVC-007 and INV-SVC-008 remain P0 acceptance blockers: the full database-backed role × tenant × branch × resource matrix is not yet complete, and uniform direct-denial/no-side-effect evidence does not yet cover every remaining public business method. The current status is deliberately kept IN PROGRESS.
 
-**Latest branch validation (2026-11-22):** Run [#45011292605](https://github.com/rambrij/solar-energy-platform/actions/runs/45011292605), commit `bfde26eab2c42e54a6ced1b061ad2a1504b61ec8`, completed successfully: H2 678 tests (0 failures, 0 errors, 12 skipped); MySQL 8.4 678 tests (0 failures, 0 errors, 0 skipped); frontend tests/build passed; Browser E2E passed. Its focused P0-06 persisted-actor endpoint sweep, role/policy checks, P0-05/P0-04 suites and P2-02 MySQL migration/schema contract step also passed. This is strong regression evidence but does not close the P0-02-specific INV-SVC-007/008 criteria.
+**Latest complete validation (2026-11-22):** Run [#45012573410](https://github.com/rambrij/solar-energy-platform/actions/runs/45012573410), commit `3e55e933a8308052a4e9cbff638ef79cfe63728e`, completed H2 (678 tests; 0 failures/errors; 12 skipped), MySQL 8.4 (678 tests; 0 failures/errors/skips), frontend tests/build, and the dedicated P0-02 service-boundary gate on both databases successfully. Browser E2E was still in progress when this inventory update was prepared; do not treat the run as fully green until that job completes.
 
-A dedicated P0-02 service-boundary CI gate was added in commit `e2d826cb3b4e40fe4067e8e5c197990446ef68a8`. It explicitly runs the method inventory, background-entry inventory, authorization policy tests, direct-denial suites, customer/tenant boundary suites and the persisted-actor HTTP matrix on both H2 and MySQL 8.4. **That new gate has not yet run on its own commit**; its result must be recorded before treating the new CI wiring as verified.
+The dedicated P0-02 gate was added in commit `e2d826cb3b4e40fe4067e8e5c197990446ef68a8` and validated by run #45012573410. Its targeted test list was broadened in commit `6c4dee45c013a36fd9e19c6ef6b5c07ca5c06e3f` to include authentication, identity provisioning, platform MFA, tenant lifecycle/directory, branch provisioning, inventory receiving, POS, reports/exports, receipts, recovery, customer receipts/history, catalogue search/detail/admin and directory suites. The broadened list requires a fresh run on that commit. This evidence improves breadth but does not close the exhaustive INV-SVC-007/008 criteria.
 
 No frontend changes or schema migrations are part of P0-02.
 
@@ -143,6 +143,9 @@ These methods are not independent user-facing operations. Their production calle
 | INV-SVC-009 | P2 | **Classified:** public catalogue/directory projections are separate from vendor administration and POS catalogue operations. Marketplace controllers expose only active-vendor and published product/category data through public slug routes; internal tenant-ID catalogue ports are service-to-service projections used by checkout/cart/search/detail flows; sensitive POS reads and product locks have distinct POS permission guards | preserve the public slug-only projection boundary; do not expose tenant-ID service-port methods through new HTTP controllers without adding an explicit actor/resource policy |
 
 
+
+
+**P0-02 CI expansion (2026-11-22):** Commit `6c4dee45c013a36fd9e19c6ef6b5c07ca5c06e3f` expands the dedicated H2/MySQL gate to execute the additional service-domain suites enumerated in `.github/workflows/pos-tests.yml` (authentication/identity, platform MFA, tenant/branch provisioning, stock receiving, POS, reports/exports, checkout/receipt/recovery, customer order/receipt, catalogue and vendor directory). This is targeted regression breadth, not a complete method-by-method deny-before-side-effect proof; the new commit must pass CI before this expanded gate is considered validated.
 
 ### Verified CI evidence
 

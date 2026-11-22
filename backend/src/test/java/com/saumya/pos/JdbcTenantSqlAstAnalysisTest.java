@@ -357,6 +357,17 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(tenantPlaceholderIndex("SELECT * FROM rows WHERE id=? AND tenant_id=? /* ? */")).isEqualTo(1);
     }
 
+    private static Set<String> qualifiedCallsiteFiles(String receiver,String methodName) throws Exception {
+        Set<String> files=new TreeSet<>();
+        Pattern call=Pattern.compile("\\b"+Pattern.quote(receiver)+"\\s*\\.\\s*"+Pattern.quote(methodName)+"\\s*\\(");
+        try(var paths=Files.walk(sourceRoot())){
+            for(Path file:paths.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java")).toList()){
+                if(call.matcher(Files.readString(file)).find())
+                    files.add(sourceRoot().relativize(file).toString().replace('\\','/'));
+            }
+        }
+        return files;
+    }
     @Test
     void everyBareTrustedTenantParameterHasAnExactReviewedCallerFlow() throws Exception {
         JsonNode root=policy();
@@ -403,6 +414,26 @@ class JdbcTenantSqlAstAnalysisTest {
                 assertThat(proven).as("bare tenant parameter requires caller-flow evidence")
                     .contains(className+"#"+method.getKey()+"#"+parameter.asText())));
         }
+        assertThat(qualifiedCallsiteFiles("memberships","provisionInitialVendorAdmin"))
+            .containsExactly("com/saumya/pos/platform/PlatformAdminService.java");
+        assertThat(qualifiedCallsiteFiles("branches","createInitialBranch"))
+            .containsExactly("com/saumya/pos/platform/PlatformAdminService.java");
+        assertThat(qualifiedCallsiteFiles("StandardRoleTemplates","lockTenant"))
+            .containsExactlyInAnyOrder("com/saumya/pos/membership/MembershipService.java",
+                "com/saumya/pos/membership/VendorRoleService.java");
+        assertThat(qualifiedCallsiteFiles("StandardRoleTemplates","initialize"))
+            .containsExactly("com/saumya/pos/membership/MembershipService.java");
+        assertThat(qualifiedCallsiteFiles("StandardRoleTemplates","insert"))
+            .containsExactly("com/saumya/pos/membership/VendorRoleService.java");
+        assertThat(qualifiedCallsiteFiles("entitlements","permissions"))
+            .containsExactly("com/saumya/pos/membership/MembershipService.java");
+        assertThat(qualifiedCallsiteFiles("retail","requireOpenForCustomer"))
+            .containsExactly("com/saumya/pos/checkout/CustomerAssociationService.java");
+        assertThat(qualifiedCallsiteFiles("retail","allocateReceiptForCustomer"))
+            .containsExactly("com/saumya/pos/checkout/PaymentCheckoutService.java");
+        assertThat(qualifiedCallsiteFiles("retail","customerDraftAudit"))
+            .containsExactly("com/saumya/pos/checkout/CustomerAssociationService.java");
+        assertThat(qualifiedCallsiteFiles("entitlements","requireFeature")).isEmpty();
         JsonNode membershipPolicy=sourcePolicies.get("com.saumya.pos.membership.MembershipService");
         assertThat(hasTrustedTenantArgument("tenant","com.saumya.pos.membership.MembershipService","access",membershipPolicy)).isFalse();
         assertThat(hasTrustedTenantArgument("tenant","com.saumya.pos.membership.MembershipService","effectiveVendorPermissions",membershipPolicy)).isTrue();

@@ -71,7 +71,7 @@ class ModuleArchitectureTest {
     }
 
     @Test
-    void directJdbcUsageIsLimitedToReviewedTenantScopedAdapters() {
+    void directJdbcUsageIsLimitedToReviewedTenantScopedAdapters() throws Exception {
         JavaClasses imported = productionClasses();
         Set<String> jdbcConsumers = imported.stream()
             .filter(type -> type.getDirectDependenciesFromSelf().stream()

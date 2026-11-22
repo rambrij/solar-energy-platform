@@ -398,9 +398,24 @@ for(const action of actionRegistry.actions){
 }
 
 
+const apiHelperSource=fs.readFileSync(path.join(frontend,'src/api.ts'),'utf8');
+const requiredApiHelpers=[
+ "export function authPost(path:string,body:unknown){return request('/api/v1/auth'+path,'POST',body);}",
+ "export function api(path:string,body?:unknown,key?:string){return request('/api/v1/vendor/pos'+path,body===undefined?'GET':'POST',body,key);}",
+ "export function vendorApi(path:string,method='GET',body?:unknown,key?:string){return request('/api/v1/vendor'+path,method,body,key);}",
+ "export function platformApi(path:string,method='GET',body?:unknown){return request('/api/v1/platform'+path,method,body);}"
+];
+for(const helper of requiredApiHelpers)if(!apiHelperSource.includes(helper))
+ throw new Error('API helper must preserve its reviewed prefix and method semantics: '+helper);
+if(/\b(?:authApi|acceptVendorInvitation)\b/.test(apiHelperSource))
+ throw new Error('Unregistered generic auth API helper remains in api.ts');
+const apiHelperExports=[...apiHelperSource.matchAll(/export function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(match=>match[1]).sort();
+if(JSON.stringify(apiHelperExports)!==JSON.stringify(['api','authPost','platformApi','vendorApi']))
+ throw new Error('api.ts exports an unreviewed API helper: '+apiHelperExports.join(','));
 const sessionSource=fs.readFileSync(path.join(frontend,'src/session.ts'),'utf8');
 if(!/fetch\s*\(\s*['"]\/api\/v1\/auth\/csrf['"]/.test(sessionSource)
- || !/fetch\s*\(\s*['"]\/api\/v1\/auth['"]\s*\+\s*path\s*,\s*\{\s*method\s*:\s*['"]POST['"]/.test(sessionSource)){
+ || !/fetch\s*\(\s*['"]\/api\/v1\/auth['"]\s*\+\s*path\s*,\s*\{\s*method\s*:\s*['"]POST['"]/.test(sessionSource)
+ || [...sessionSource.matchAll(/\bfetch\s*\(/g)].length!==4){
  throw new Error('Session auth transport must use the reviewed CSRF and POST /api/v1/auth path helpers');
 }
 const sessionOperations=actionRegistry.sessionApiOperations??[];

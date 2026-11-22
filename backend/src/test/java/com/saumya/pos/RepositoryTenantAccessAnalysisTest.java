@@ -207,8 +207,8 @@ class RepositoryTenantAccessAnalysisTest {
     }
 
     private static boolean usesUnreviewedSqlExecutionApi(String source) {
-        return Pattern.compile("(?is)\\b(?:JdbcClient|DatabaseClient|DSLContext)\\b|"
-            + "\\.\\s*(?:prepareStatement|createStatement|executeQuery|executeUpdate|executeLargeUpdate|createNativeQuery|createStoredProcedureQuery|createSQLQuery)\\s*\\(")
+        return Pattern.compile("(?is)\\b(?:JdbcClient|DatabaseClient|DSLContext|SimpleJdbcCall)\\b|"
+            + "\\.\\s*(?:prepareStatement|createStatement|executeQuery|executeUpdate|executeLargeUpdate|executeBatch|executeLargeBatch|prepareCall|createNativeQuery|createStoredProcedureQuery|createSQLQuery)\\s*\\(")
             .matcher(source).find();
     }
 
@@ -228,6 +228,9 @@ class RepositoryTenantAccessAnalysisTest {
         assertThat(usesUnreviewedSqlExecutionApi("jdbcClient.sql(dynamicSql).query()")).isTrue();
         assertThat(usesUnreviewedSqlExecutionApi("connection.prepareStatement(dynamicSql)")).isTrue();
         assertThat(usesUnreviewedSqlExecutionApi("entityManager.createNativeQuery(dynamicSql)")).isTrue();
+        assertThat(usesUnreviewedSqlExecutionApi("connection.prepareCall(dynamicSql)")).isTrue();
+        assertThat(usesUnreviewedSqlExecutionApi("statement.executeBatch()")).isTrue();
+        assertThat(usesUnreviewedSqlExecutionApi("simpleJdbcCall.execute(params)")).isTrue();
         assertThat(usesUnreviewedSqlExecutionApi("namedJdbc.queryForList(staticSql,params)")).isFalse();
     }
 

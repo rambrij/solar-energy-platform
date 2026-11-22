@@ -194,7 +194,7 @@ for(const action of actionRegistry.actions){
  if(action.actor==='PUBLIC'){
   if(!/permitAll\s*\(\s*\)/.test(operation.policy))throw new Error('Public frontend action is not permitAll on backend: '+action.id);
  }else{
-  const actual=[...operation.policy.matchAll(/has(?:Any)?Authority\s*\(\s*'([A-Z][A-Z0-9_]+)'/g)].map(m=>m[1]);
+  const actual=[...operation.policy.matchAll(/has(?:Any)?Authority\s*\(([^)]*)\)/g)].flatMap(call=>[...call[1].matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map(m=>m[1]));
   if(action.permissions.includes('POS_CASH_MOVEMENT_DYNAMIC')){
    if(!operation.policy.includes("'POS_' + #request.type().name()"))throw new Error('Dynamic POS cash-movement permission mapping mismatch: '+action.id);
   }else{

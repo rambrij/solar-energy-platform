@@ -257,18 +257,18 @@ class SpringDataRepositoryAstAnalysisTest {
     }
     private static boolean trustedTenantExpression(String expression,Set<String> trustedVariables){
         String value=expression.trim();
-        if(java.util.regex.Pattern.compile("(?i)(?:\\\\b(?:request|payload|body|filter|criteria|dto|command|input|form)\\\\s*\\\\.|\\\\bgetTenantId\\\\s*\\\\()").matcher(value).find())return false;
-        if(java.util.regex.Pattern.compile("(?i)(?:\\\\b(?:auth|authorization)\\\\s*\\\\.\\\\s*current\\\\s*\\\\(\\\\s*\\\\)\\\\s*\\\\.\\\\s*tenantId\\\\s*\\\\(\\\\s*\\\\)|"
-            +"\\\\b(?:ctx|context|c|actor|reviewer|scope|s|event|m|order|membership|cart|current|archived|vendor|tenant)\\\\s*\\\\.\\\\s*(?:tenant|tenantId|id)\\\\s*(?:\\\\(\\\\s*\\\\))?)").matcher(value).find())return true;
-        return value.matches("[A-Za-z_$][\\\\w$]*")&&trustedVariables.contains(value);
+        if(java.util.regex.Pattern.compile("(?i)(?:\\b(?:request|payload|body|filter|criteria|dto|command|input|form)\\s*\\.|\\bgetTenantId\\s*\\()").matcher(value).find())return false;
+        if(java.util.regex.Pattern.compile("(?i)(?:\\b(?:auth|authorization)\\s*\\.\\s*current\\s*\\(\\s*\\)\\s*\\.\\s*tenantId\\s*\\(\\s*\\)|"
+            +"\\b(?:ctx|context|c|actor|reviewer|scope|s|event|m|order|membership|cart|current|archived|vendor|tenant)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*(?:\\(\\s*\\))?)").matcher(value).find())return true;
+        return value.matches("[A-Za-z_$][\\w$]*")&&trustedVariables.contains(value);
     }
     private static String repositoryType(VariableTree variable){
         if(variable.getType()==null)return null;
-        var matcher=java.util.regex.Pattern.compile("([A-Za-z_$][\\\\w$]*Repository)").matcher(variable.getType().toString());
+        var matcher=java.util.regex.Pattern.compile("([A-Za-z_$][\\w$]*Repository)").matcher(variable.getType().toString());
         return matcher.find()?matcher.group(1):null;
     }
     private static String simpleReceiver(String receiver){
-        String value=receiver.replaceFirst("^this\\\\.","");
+        String value=receiver.replaceFirst("^this\\.","");
         int dot=value.lastIndexOf('.');
         return dot<0?value:value.substring(dot+1);
     }

@@ -142,7 +142,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
      <div><strong>{role.displayName}</strong><small>{role.templateKey?('Standard template '+role.templateKey+' · template v'+role.templateVersion):'Tenant custom role'} · {role.key} · {role.active?'Active':'Inactive'} · role v{role.version}</small><p>{role.permissions.join(', ')}</p></div>
     <div className="vendor-access-actions">
      {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>startEdit(role)}>Edit role {role.displayName}</button>}
-     {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>void run(()=>vendorApi('/roles/'+role.id+'/deactivate','POST',{reason}),'Role deactivated.')}>Deactivate role {role.displayName}</button>}
+     {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>void run(()=>vendorApi(`/roles/${encodeURIComponent(role.id)}/deactivate`,'POST',{reason}),'Role deactivated.')}>Deactivate role {role.displayName}</button>}
     </div>
    </article>)}</div>}
    {editingRole&&<form data-testid="edit-role-form" onSubmit={e=>void updateRole(e)} className="vendor-access-form">

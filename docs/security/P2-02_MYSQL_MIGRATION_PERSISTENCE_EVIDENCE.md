@@ -2,8 +2,15 @@
 
 **Branch:** `feature/develop-authorization-gap-analysis`  
 **Status:** IN PROGRESS — current CI gates PASS; exhaustive schema / transaction acceptance remains open.  
-**Verified code/test commit:** `4886946beb76cbc716e39858886daf639a5e5e58`  
+**Earlier dedicated test commit:** `4886946beb76cbc716e39858886daf639a5e5e58`  
+**Latest branch-head snapshot:** `3af16fc6d5be42c6631d8b2b9c08e585f257c587`  
 **Workflow:** [GitHub Actions run #44997794980](https://github.com/rambrij/solar-energy-platform/actions/runs/44997794980) — SUCCESS (2026-11-22).
+
+## Latest branch-head verification (2026-11-22)
+
+Run [#45016085369](https://github.com/rambrij/solar-energy-platform/actions/runs/45016085369), commit `3af16fc6d5be42c6631d8b2b9c08e585f257c587`, reports the dedicated **P2-02 MySQL 8.4 migration and schema contracts** step SUCCESS, the full MySQL backend job SUCCESS, and frontend SUCCESS. Browser E2E was still in progress at the time this evidence was refreshed; therefore this is not yet a complete all-job branch-head validation.
+
+The current `P202MysqlPersistenceIntegrationTest` source contains **11 @Test methods** (not the four methods stated in the earlier evidence section): clean install/repeatable migration, V47 upgrade retention, core metadata, complete tenant-owned table classification and composite parent keys, V40–V47 named constraint inventory, generated-column/stock-location behavior, immutable audit and financial deletion restrictions, UTC timestamp round-trip, stale-version compare-and-swap, V40–V47 invalid-row rejection, and V48 preflight rejection without data deletion. The workflow invokes the entire class in its dedicated MySQL step.
 
 ## Verified CI results
 
@@ -35,11 +42,18 @@ Relevant job IDs:
 
 ## Dedicated test coverage verified
 
-`P202MysqlPersistenceIntegrationTest` ran 4/4 tests successfully on MySQL 8.4:
+`P202MysqlPersistenceIntegrationTest` currently contains 11 test methods and the full class passed in the latest recorded MySQL 8.4 CI run (#45016085369):
 1. Clean install, applied migration ordering/version uniqueness, Flyway validation and repeatable startup.
 2. Supported V47-to-V55 upgrade with persisted tenant/branch data and stock-location backfill.
-3. Selected MySQL schema metadata: tenant_id nullability, named CHECK constraints, composite foreign keys, generated column, DECIMAL precision and tenant-leading indexes.
-4. V48 preflight rejection of invalid/cross-tenant rows while preserving those rows (no automatic deletion/reassignment).
+3. Selected core MySQL schema metadata: tenant_id nullability, named CHECK constraints, composite foreign keys, generated column, DECIMAL precision and tenant-leading indexes.
+4. Schema-derived inventory of all tenant_id tables, optional-scope classification, tenant-to-tenant FK composition and referenced unique parent keys.
+5. V40–V47 named CHECK/FK/UNIQUE constraint inventory and generated-column metadata.
+6. Generated POS-session active-register and POS stock-location CHECK behavior.
+7. Platform audit append-only behavior, selected subscription financial-history parent deletion restrictions, and schema-wide delete-rule checks for listed financial/audit parent families.
+8. MySQL UTC timestamp round-trip preserving the exact instant.
+9. Version compare-and-swap stale-write rejection.
+10. V40–V47 invalid tenant/platform/billing/role row rejection.
+11. V48 preflight rejection of invalid/cross-tenant rows while preserving those rows (no automatic deletion/reassignment).
 
 The MySQL full suite reran the same class successfully. H2 skipped its MySQL-only test methods as intended.
 
@@ -79,4 +93,4 @@ The successful workflow also ran the existing P0-04 and P0-05 suites and the ful
 6. Verify repository branch-protection settings require the relevant CI checks before merge.
 7. Rerun the full H2/MySQL/frontend/Playwright workflow on the completion commit and record its exact result.
 
-**Final determination:** The corrected MySQL migration suite and the current full CI pipeline pass. The detailed assessment above records the remaining PARTIAL and OPEN items. **P2-02 does not yet meet all acceptance criteria and remains IN PROGRESS.** Do not mark this work item COMPLETE until each item is closed with MySQL 8.4 evidence and required-check enforcement is verified.
+**Final determination:** The expanded MySQL migration/schema class passes on the latest branch head, but that does not close the remaining implementation and verification gaps. Financial relationship behavior is not yet exhaustively proven across every applicable order, invoice, payment, refund, receipt and inventory edge; workflow rollback is not yet failure-injected at every required side-effect boundary; and branch protection/required checks could not be inspected because the GitHub connection denied access to branch-protection settings. **P2-02 remains IN PROGRESS and must not be marked COMPLETE.** Do not mark this work item COMPLETE until each item is closed with MySQL 8.4 evidence and required-check enforcement is verified.

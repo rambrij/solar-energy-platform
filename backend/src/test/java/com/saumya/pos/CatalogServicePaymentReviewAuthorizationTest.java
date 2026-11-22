@@ -25,4 +25,44 @@ class CatalogServicePaymentReviewAuthorizationTest {
 
         verifyNoInteractions(products);
     }
+
+    @Test
+    void saleLockRequiresSaleGrantAndRejectsForgedTenantBeforeProductOrStockAccess() {
+        var products=mock(ProductRepository.class);
+        var stock=mock(com.saumya.pos.inventory.InventoryService.class);
+        var auth=mock(AuthorizationContext.class);
+        when(auth.current()).thenReturn(new AuthorizationContext.Context(
+            "cashier",7L,12L,"7:cashier",java.util.Set.of("POS_VIEW"),false,false,true));
+        var service=new CatalogService(null,products,stock);
+        ReflectionTestUtils.setField(service,"authorization",auth);
+
+        assertThatThrownBy(()->service.lockForSale(7L,11L))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("status",HttpStatus.FORBIDDEN);
+        assertThatThrownBy(()->service.requirePosStockLocation(8L,12L))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("status",HttpStatus.FORBIDDEN);
+
+        verifyNoInteractions(products,stock);
+    }
+
+    @Test
+    void posCatalogueAndStockScopeRequirePosViewBeforeAnyProductOrInventoryRead() {
+        var products=mock(ProductRepository.class);
+        var stock=mock(com.saumya.pos.inventory.InventoryService.class);
+        var auth=mock(AuthorizationContext.class);
+        when(auth.current()).thenReturn(new AuthorizationContext.Context(
+            "cashier",7L,12L,"7:cashier",java.util.Set.of("PRODUCT_VIEW"),false,false,true));
+        var service=new CatalogService(null,products,stock);
+        ReflectionTestUtils.setField(service,"authorization",auth);
+
+        assertThatThrownBy(()->service.requirePosStockScope(7L,12L))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("status",HttpStatus.FORBIDDEN);
+        assertThatThrownBy(()->service.posProducts(7L,12L))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("status",HttpStatus.FORBIDDEN);
+
+        verifyNoInteractions(products,stock);
+    }
 }

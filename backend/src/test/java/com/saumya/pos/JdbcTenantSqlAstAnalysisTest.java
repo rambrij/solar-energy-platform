@@ -47,6 +47,42 @@ class JdbcTenantSqlAstAnalysisTest {
         return java.util.regex.Pattern.compile("(?is)(?:where|and|on)\\s+(?:[a-z_][a-z0-9_]*\\.)?tenant_id\\s*=\\s*\\?")
             .matcher(sql).find();
     }
+    private static List<String> splitArguments(String text) {
+        List<String> result=new ArrayList<>();int start=0,depth=0;char quote=0;boolean escaped=false;
+        for(int i=0;i<text.length();i++){
+            char ch=text.charAt(i);
+            if(quote!=0){if(escaped){escaped=false;continue;}if(ch=='\\'){escaped=true;continue;}if(ch==quote)quote=0;continue;}
+            if(ch=='"'||ch=='\''){quote=ch;continue;}
+            if(ch=='('||ch=='{'||ch=='[')depth++;
+            else if(ch==')'||ch=='}'||ch==']')depth--;
+            else if(ch==','&&depth==0){result.add(text.substring(start,i).trim());start=i+1;}
+        }
+        if(start<text.length())result.add(text.substring(start).trim());
+        return result;
+    }
+    private static int tenantPlaceholderIndex(String sql) {
+        var match=java.util.regex.Pattern.compile("(?is)(?:where|and|on)\\s+(?:[a-z_][a-z0-9_]*\\.)?tenant_id\\s*=\\s*\\?").matcher(sql);
+        if(match.find())return (int)sql.substring(0,match.start()).chars().filter(ch->ch=='?').count();
+        var insert=java.util.regex.Pattern.compile("(?is)insert\\s+into\\s+[a-z_][a-z0-9_]*\\s*\\(([^)]*)\\)\\s*values\\s*\\(([^)]*)\\)").matcher(sql);
+        if(insert.find()){
+            List<String> columns=splitArguments(insert.group(1));
+            for(int i=0;i<columns.size();i++)if(columns.get(i).trim().equalsIgnoreCase("tenant_id"))return i;
+        }
+        return -1;
+    }
+    private static String trustedParameterAt(List<? extends ExpressionTree> args,int offset,int tenantIndex,
+                                             String methodName,boolean batch) {
+        if(batch && args.size()>1){
+            String batchArgs=args.get(1).toString();
+            var array=java.util.regex.Pattern.compile("(?s)new\\s+Object\\s*\\[\\s*\\]\\s*\\s*\\{([^}]*)\\}").matcher(batchArgs);
+            if(array.find()){
+                List<String> values=splitArguments(array.group(1));
+                if(tenantIndex<values.size())return values.get(tenantIndex);
+            }
+        }
+        int position=offset+tenantIndex;
+        return position>=0&&position<args.size()?args.get(position).toString():null;
+    }
     private static boolean tenantInsert(String sql) {
         var m=java.util.regex.Pattern.compile("(?is)insert\\s+into\\s+[a-z_][a-z0-9_]*\\s*\\(([^)]*)\\)\\s*values\\s*\\(([^)]*)\\)").matcher(sql);
         return m.find() && java.util.Arrays.stream(m.group(1).split(",")).anyMatch(c->c.trim().equalsIgnoreCase("tenant_id"));
@@ -130,10 +166,22 @@ class JdbcTenantSqlAstAnalysisTest {
                                 assertThat(platformTenantSelector(sql))
                                     .as("unscoped JDBC SQL requires an explicitly platform-owned tenant-directory selector: %s",node).isTrue();
                             } else {
-                                String args=node.getArguments().stream().skip(1).map(Object::toString).reduce("",(a,b)->a+" "+b);
+                                int tenantIndex=tenantPlaceholderIndex(sql);
+                                assertThat(tenantIndex).as("tenant SQL must have a traceable positional tenant parameter: %s",node).isGreaterThanOrEqualTo(0);
                                 boolean delegated=className.equals("com.saumya.pos.retail.PosService")&&methodName.equals("one");
-                                assertThat(delegated||hasTrustedTenantArgument(args))
-                                    .as("tenant SQL parameters must be bound from trusted actor/aggregate context: %s",node).isTrue();
+                                String tenantArgument;
+                                if(delegated) tenantArgument=trustedParameterAt(node.getArguments(),1,tenantIndex,methodName,false);
+                                else {
+                                    boolean batch=name.equals("batchUpdate");
+                                    int offset=(name.equals("query")||name.equals("queryForList")||name.equals("queryForObject"))
+                                        && node.getArguments().size()>1
+                                        && (node.getArguments().get(1).toString().endsWith(".class")
+                                            || name.equals("query") || name.equals("queryForObject")) ? 2 : 1;
+                                    tenantArgument=trustedParameterAt(node.getArguments(),offset,tenantIndex,methodName,batch);
+                                }
+                                assertThat(tenantArgument).as("tenant placeholder %s must bind to an explicit trusted argument in %s",tenantIndex,node).isNotNull();
+                                assertThat(hasTrustedTenantArgument(tenantArgument))
+                                    .as("tenant placeholder must bind to authenticated actor, persisted membership, platform authorization or trusted domain event: %s",node).isTrue();
                             }
                         }
                         return super.visitMethodInvocation(node,unused);
@@ -153,6 +201,8 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(tenantInsert("INSERT INTO vendor_roles(id,role_key) VALUES(?,?)")).isFalse();
         assertThat(tenantInsert("INSERT INTO vendor_roles(tenant_id,role_key) VALUES(?,?)")).isTrue();
         assertThat(hasTrustedTenantArgument("request.getTenantId()")).isFalse();
+        assertThat(tenantPlaceholderIndex("SELECT * FROM vendor_roles WHERE id=? AND tenant_id=?")).isEqualTo(1);
+        assertThat(tenantPlaceholderIndex("INSERT INTO vendor_roles(id,tenant_id,role_key) VALUES(?,?,?)")).isEqualTo(1);
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();
     }
 }

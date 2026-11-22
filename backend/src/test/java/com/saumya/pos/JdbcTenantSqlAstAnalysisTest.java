@@ -231,6 +231,18 @@ class JdbcTenantSqlAstAnalysisTest {
     }
 
     @Test
+    void delegatedPosServiceSqlHelperMustForwardTheValidatedArgumentsUnchanged() throws Exception {
+        Path service=sourceRoot().resolve("com/saumya/pos/retail/PosService.java");
+        String source=Files.readString(service);
+        assertThat(source).contains("private Map<String,Object> one(String sql,Object...args)")
+            .contains("return db.queryForList(sql,args).stream().findFirst()");
+        assertThat(Pattern.compile("(?s)private Map<String,Object> one\\(String sql,Object\\.\\.\\.args\\)\\s*\\{[^}]*db\\.queryForList\\(sql,args\\)").matcher(source).find())
+            .as("the delegated SQL helper must forward its exact validated SQL and argument array").isTrue();
+        assertThat(Pattern.compile("\\bone\\s*\\(sql\\s*,").matcher(source).find())
+            .as("the helper cannot be called with a runtime SQL variable at an unreviewed call site").isFalse();
+    }
+
+    @Test
     void sqlAstNegativeFixturesRejectDynamicAndUnscopedStatements() {
         assertThat(tenantPredicate("SELECT * FROM vendor_roles WHERE id=?")).isFalse();
         assertThat(tenantPredicate("SELECT * FROM vendor_roles WHERE tenant_id=? AND id=?")).isTrue();

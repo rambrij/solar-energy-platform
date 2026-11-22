@@ -1,25 +1,89 @@
 package com.saumya.pos;
 
+import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
+/** Architecture constraints for all currently implemented business modules. */
 class ModuleArchitectureTest {
-    @Test void moduleInternalsArePrivateAndModuleDependenciesAreAcyclic(){
-        var classes=new ClassFileImporter().withImportOption(new ImportOption.DoNotIncludeTests()).importPackages("com.saumya.pos");
-        for(String module:new String[]{"cart","catalog","customer","membership","identity","inventory","checkout","returns","reporting","retail","documents","tenant","platform","subscription"}){
-            noClasses().that().resideOutsideOfPackage("com.saumya.pos."+module+"..")
-                .should().dependOnClassesThat().resideInAnyPackage("com.saumya.pos."+module+".internal..")
-                .because("other modules must use the public application service").check(classes);
-        }
-        noClasses().that().resideInAnyPackage("..cart..","..catalog..","..identity..","..inventory..","..checkout..","..returns..","..reporting..","..documents..","..tenant..","..subscription..","..platform..")
-            .should().dependOnClassesThat().resideInAnyPackage("org.springframework.jdbc..")
-            .because("modules own Spring Data JPA persistence").check(classes);
-        noClasses().that().resideInAnyPackage("..platform..")
-            .should().dependOnClassesThat().resideInAnyPackage("..catalog.internal..","..membership.internal..","..identity.internal..","..tenant.internal..","..retail.internal..","..subscription.internal..")
-            .because("platform orchestration must use public application-service interfaces").check(classes);
-        slices().matching("com.saumya.pos.(*)..").should().beFreeOfCycles().check(classes);
+    static final String[] MODULES = {
+        "cart", "catalog", "checkout", "customer", "documents", "identity",
+        "inventory", "marketplace", "membership", "platform", "reporting",
+        "retail", "returns", "security", "shared", "subscription", "tenant"
+    };
+
+    static JavaClasses productionClasses() {
+        return new ClassFileImporter()
+            .withImportOption(new ImportOption.DoNotIncludeTests())
+            .importPackages("com.saumya.pos");
+    }
+
+    static ArchRule controllerRepositoryRule() {
+        return noClasses().that().haveSimpleNameEndingWith("Controller")
+            .should().dependOnClassesThat().haveSimpleNameEndingWith("Repository")
+            .because("HTTP controllers must delegate to application services");
+    }
+
+    static ArchRule repositoryOwnerRule(String owner) {
+        return noClasses().that().resideOutsideOfPackage("com.saumya.pos." + owner + "..")
+            .should().dependOnClassesThat()
+            .haveSimpleNameEndingWith("Repository")
+            .and().resideInAPackage("com.saumya.pos." + owner + "..")
+            .because("repositories are owned by their module; consumers use public services or events");
+    }
+
+    static ArchRule internalTypesArePrivateRule(String owner) {
+        return noClasses().that().resideOutsideOfPackage("com.saumya.pos." + owner + "..")
+            .should().dependOnClassesThat()
+            .resideInAPackage("com.saumya.pos." + owner + ".internal..")
+            .because("module internals are not cross-module APIs");
+    }
+
+    @Test
+    void implementedModulesAreAcyclicAndInternalPackagesArePrivate() {
+        JavaClasses imported = productionClasses();
+        for (String module : MODULES) internalTypesArePrivateRule(module).check(imported);
+        slices().matching("com.saumya.pos.(*)..")
+            .should().beFreeOfCycles()
+            .because("the modular monolith must remain acyclic")
+            .check(imported);
+    }
+
+    @Test
+    void controllersCannotAccessRepositoriesAndRepositoriesRemainModuleOwned() {
+        JavaClasses imported = productionClasses();
+        controllerRepositoryRule().check(imported);
+        for (String module : MODULES) repositoryOwnerRule(module).check(imported);
+    }
+
+    @Test
+    void directJdbcUsageIsLimitedToReviewedTenantScopedAdapters() {
+        JavaClasses imported = productionClasses();
+        classes().that().dependOnClassesThat().resideInAnyPackage("org.springframework.jdbc..")
+            .should().haveFullyQualifiedName("com.saumya.pos.membership.MembershipService")
+            .orShould().haveFullyQualifiedName("com.saumya.pos.membership.VendorRoleService")
+            .orShould().haveFullyQualifiedName("com.saumya.pos.retail.PosService")
+            .because("direct JDBC is an explicit exception requiring tenant-scoped SQL review")
+            .check(imported);
+    }
+
+    @Test
+    void negativeFixturesProveControllerAndCrossModuleRepositoryRulesFail() {
+        JavaClasses fixtures = new ClassFileImporter().importPackages("com.p204fixtures.architecture");
+        assertThatThrownBy(() -> controllerRepositoryRule().check(fixtures))
+            .isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> repositoryOwnerRule("modulea").check(fixtures))
+            .isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> internalTypesArePrivateRule("modulea").check(fixtures))
+            .isInstanceOf(AssertionError.class);
+        assertThat(fixtures).isNotEmpty();
     }
 }

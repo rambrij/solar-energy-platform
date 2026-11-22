@@ -63,7 +63,7 @@ class P202MysqlPersistenceIntegrationTest {
 
             // V47 is the explicitly supported pre-ownership-hardening schema.
             // The records are deliberately present before V48/V50 are applied.
-            db.update("INSERT INTO tenants(id,name,active) VALUES(990001,'P2-02 retained tenant',TRUE)");
+            db.update("INSERT INTO tenants(id,name) VALUES(990001,'P2-02 retained tenant')");
             db.update("INSERT INTO branches(id,tenant_id,name) VALUES(990011,990001,'P2-02 retained branch')");
 
             Flyway upgraded = flyway(url, user, password, schema, null);

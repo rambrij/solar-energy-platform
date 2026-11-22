@@ -1,7 +1,7 @@
 # P2-02 MySQL 8.4 migration and persistence evidence
 
 **Branch:** `feature/develop-authorization-gap-analysis`  
-**Status:** IN PROGRESS — implementation and CI gate added; verification pending.
+**Status:** IN PROGRESS — first MySQL run found a test-fixture mismatch; correction committed; rerun pending.
 
 ## Supported database contract
 
@@ -26,7 +26,9 @@
 
 A dedicated `P2-02 MySQL 8.4 migration and schema contracts` step runs `mvn -B -f backend/pom.xml -Dtest=P202MysqlPersistenceIntegrationTest test` in the MySQL matrix lane.
 
-- Exact commit tested: PENDING.
+- First CI attempt: [run #44997606113](https://github.com/rambrij/solar-energy-platform/actions/runs/44997606113), commit `ab5d0f6fa4210dbcd8b64ef0b907f0b966530850`. Frontend passed. The dedicated MySQL test ran all 4 test methods: 3 passed, 1 errored because the V47 upgrade fixture attempted to insert the `tenants.active` column, which V41 correctly drops. This is a fixture error, not a production migration failure.
+- Correction: changed the V47 fixture to insert only `tenants(id,name)`. Corrected test and docs are committed separately; a new CI run is required.
+- Exact corrected commit tested: PENDING.
 - Workflow run and job URLs: PENDING.
 - Clean-install result: PENDING.
 - Supported V47 upgrade result: PENDING.

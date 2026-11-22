@@ -433,10 +433,11 @@ See `docs/security/P2-01_BROWSER_E2E_COVERAGE.md` for the route/action/permissio
 
 ## P2-02 — MySQL migration and persistence integration testing
 
-**Status: IN PROGRESS — implementation and dedicated CI gate added; execution evidence pending.**
+**Status: IN PROGRESS — first MySQL run exposed a fixture error; corrected; rerun pending.**
 
 - The existing GitHub Actions MySQL 8.4 service is the authoritative database for MySQL-specific integration tests. H2 remains a fast test lane and is not accepted as proof of MySQL behavior.
 - A dedicated `P202MysqlPersistenceIntegrationTest` covers clean Flyway installation, applied migration ordering/uniqueness, checksum validation through Flyway validate, repeatable migration startup, supported V47-to-V55 upgrade with tenant/branch retention and V50 stock-location backfill, selected schema ownership/constraint metadata, and V48 invalid-data preflight without destructive cleanup.
+- First-run finding: MySQL rejected an obsolete `tenants.active` column in the V47 fixture because V41 removes it. The test fixture was corrected to insert only columns present at V47; no production migration changed. A rerun is required.
 - V47 is the supported upgrade fixture baseline for this acceptance slice. The fixture does not claim support for superseded or obsolete local migration histories.
 - Existing MySQL P0-04/P0-05 tests remain required for tenant isolation, POS branch/register/session ownership, concurrent stock/sale operations, idempotency, and transaction rollback. A passing run on the exact final commit is still required.
 - Remaining scope before completion includes a complete applicable tenant-owned table inventory, all financial/audit RESTRICT assertions, commercial cart/order/payment/refund/receipt ownership edges, MySQL UTC and optimistic-lock tests, and explicit rollback assertions for each financial/inventory side effect.

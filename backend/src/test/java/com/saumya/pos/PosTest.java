@@ -3063,7 +3063,7 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(invoiceBefore);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(receiptAuditBefore);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1 AND resource_id=?",Integer.class,draft.id())).isEqualTo(saleAuditBefore);
-  assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Integer.class)).isEqualTo(receiptSequenceBefore);
+  assertThat(db.queryForObject("SELECT receipt_sequence FROM branches WHERE id=1",Long.class)).isEqualTo(receiptSequenceBefore);
  }
 
  @Test void onlinePaymentConfirmationFailureRestoresPaymentStockReceiptInvoiceAndCart(){
@@ -3117,8 +3117,8 @@ class PosTest {
   assertThat(db.queryForObject("SELECT state FROM pos_returns WHERE tenant_id=1 AND id=?",String.class,pending.id())).isEqualTo("REQUESTED");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1 AND return_id=?",Integer.class,pending.id())).isEqualTo(reviewEventsBefore);
 
-  var returned=as("alice",()->returns.create("p2-matrix-return-real",returnRequest(order,1)));
-  as("manager",()->returns.review(returned.id(),approveReturn()));
+  as("manager",()->returns.review(pending.id(),approveReturn()));
+  var returned=pending;
   int quantityBefore=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
   int reservedBefore=db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
   int ledgerBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1",Integer.class);

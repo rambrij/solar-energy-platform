@@ -168,15 +168,40 @@ async function collectControllerRoutes(directory){
   const full=path.join(directory,entry.name);
   if(entry.isDirectory())found.push(...await collectControllerRoutes(full));
   else if(entry.isFile()&&entry.name.endsWith('Controller.java')){
-   const source=fs.readFileSync(full,'utf8'),base=source.match(/@RequestMapping\s*\(\s*["']([^"']*)["']/)?.[1]??'';
+   const source=fs.readFileSync(full,'utf8');
+   const classStart=source.indexOf('public class ');
+   const classPrefix=classStart<0?source:source.slice(0,classStart);
+   const classPolicy=[...classPrefix.matchAll(/@PreAuthorize\s*\(\s*"([^"]*)"/g)].at(-1)?.[1]??'';
+   const base=source.match(/@RequestMapping\s*\(\s*["']([^"']*)["']/)?.[1]??'';
    const pattern=/@(Get|Post|Put|Patch|Delete)Mapping\s*(?:\(\s*["']([^"']*)["'])?/g;
-   for(const match of source.matchAll(pattern)){const suffix=match[2]??'';const endpoint=suffix.startsWith('/api/')?suffix:base+suffix;found.push({method:match[1].toUpperCase(),endpoint:normalizeActionPath(endpoint)});}
+   const matches=[...source.matchAll(pattern)];
+   for(let i=0;i<matches.length;i++){
+    const match=matches[i],suffix=match[2]??'';
+    const endpoint=suffix.startsWith('/api/')?suffix:base+suffix;
+    const segment=source.slice(match.index,matches[i+1]?.index??source.length);
+    const methodPolicy=segment.match(/@PreAuthorize\s*\(\s*"([^"]*)"/)?.[1]??'';
+    found.push({method:match[1].toUpperCase(),endpoint:normalizeActionPath(endpoint),policy:methodPolicy||classPolicy});
+   }
   }
  }
  return found;
 }
 function normalizeActionPath(value){return value.replace(/\{[^/]+\}/g,'{}').replace(/\/+/g,'/').replace(/\/$/,'')||'/';}
 const backendOperations=await collectControllerRoutes(path.join(repo,'backend/src/main/java'));
-for(const action of actionRegistry.actions)if(!backendOperations.some(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint)))throw new Error('No backend operation for frontend action '+action.id+': '+action.backendOperation);
+for(const action of actionRegistry.actions){
+ const operation=backendOperations.find(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint));
+ if(!operation)throw new Error('No backend operation for frontend action '+action.id+': '+action.backendOperation);
+ if(action.actor==='PUBLIC'){
+  if(!/permitAll\s*\(\s*\)/.test(operation.policy))throw new Error('Public frontend action is not permitAll on backend: '+action.id);
+ }else{
+  const actual=[...operation.policy.matchAll(/has(?:Any)?Authority\s*\(\s*'([A-Z][A-Z0-9_]+)'/g)].map(m=>m[1]);
+  if(action.permissions.includes('POS_CASH_MOVEMENT_DYNAMIC')){
+   if(!operation.policy.includes("'POS_' + #request.type().name()"))throw new Error('Dynamic POS cash-movement permission mapping mismatch: '+action.id);
+  }else{
+   const expected=[...action.permissions].sort(),observed=[...new Set(actual)].sort();
+   if(JSON.stringify(expected)!==JSON.stringify(observed))throw new Error('Frontend/backend permission parity mismatch for '+action.id+': frontend='+expected.join(',')+' backend='+observed.join(','));
+  }
+ }
+}
 
 console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${sourceFiles.length} frontend source files, ${permissions.size} permission identifiers.`);

@@ -475,7 +475,8 @@
         "POS_REPORT_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/sessions/{id}/reconciliation"
+      "backendOperation": "GET /api/v1/vendor/pos/sessions/{id}/reconciliation",
+      "permissionMode": "ANY"
     },
     {
       "id": "pos-sale-create",
@@ -946,7 +947,8 @@
         "PLATFORM_TENANT_REACTIVATE"
       ],
       "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/tenants/{id}/lifecycle"
+      "backendOperation": "POST /api/v1/platform/tenants/{id}/lifecycle",
+      "permissionMode": "ANY"
     },
     {
       "id": "platform-plan-list",
@@ -959,7 +961,8 @@
         "PLATFORM_PLAN_MANAGE"
       ],
       "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/subscription-plans"
+      "backendOperation": "GET /api/v1/platform/subscription-plans",
+      "permissionMode": "ANY"
     },
     {
       "id": "platform-plan-create",

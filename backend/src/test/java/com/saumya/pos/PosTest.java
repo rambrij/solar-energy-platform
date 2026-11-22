@@ -2868,6 +2868,14 @@ class PosTest {
     .isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("DELETE FROM pos_cash_refunds WHERE tenant_id=1 AND id='p2-cross-refund-a'"))
     .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  // Child history rows are themselves protected parents for downstream
+  // refund, disposition and ledger records.
+  assertThatThrownBy(()->db.update("DELETE FROM order_items WHERE tenant_id=1 AND order_id=? AND product_id=1",orderA))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM pos_return_items WHERE tenant_id=1 AND return_id=? AND product_id=1",returnA))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1"))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("DELETE FROM products WHERE tenant_id=1 AND id=1"))
     .isInstanceOf(org.springframework.dao.DataAccessException.class);
   // Failed parent deletes must leave every commercial/financial history row intact.
@@ -2884,6 +2892,9 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items WHERE tenant_id=1 AND refund_id='p2-cross-refund-a'",Integer.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions WHERE tenant_id=1 AND return_id=?",Integer.class,returnA)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,orderA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM order_items WHERE tenant_id=1 AND order_id=? AND product_id=1",Integer.class,orderA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_items WHERE tenant_id=1 AND return_id=? AND product_id=1",Integer.class,returnA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(1);
  }
 
  @Test void inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites(){

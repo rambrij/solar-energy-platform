@@ -1848,6 +1848,18 @@
       "actor": "PLATFORM",
       "backendOperation": "GET /api/v1/platform/subscription-plans",
       "permissionMode": "ANY"
+    },
+    {
+      "id": "vendor-category-list",
+      "component": "ProductManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/categories",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/categories"
     }
   ],
   "buttons": [

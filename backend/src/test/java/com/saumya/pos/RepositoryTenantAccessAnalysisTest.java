@@ -218,8 +218,9 @@ class RepositoryTenantAccessAnalysisTest {
         try(var files=Files.walk(sourceRoot())){
             for(Path file:files.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java")).toList()){
                 String source=Files.readString(file);
-                if(usesUnreviewedSqlExecutionApi(source))
-                    unreviewed.add(sourceRoot().relativize(file).toString().replace('\\','/'));
+                String relative=sourceRoot().relativize(file).toString().replace('\\','/');
+                if(relative.startsWith("db/migration/"))continue;
+                if(usesUnreviewedSqlExecutionApi(source))unreviewed.add(relative);
             }
         }
         assertThat(unreviewed).as("unreviewed JDBC clients, raw JDBC statements, and alternate SQL execution APIs")

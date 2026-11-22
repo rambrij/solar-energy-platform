@@ -27,7 +27,7 @@ class SpringDataRepositoryAstAnalysisTest {
         return null;
     }
     private static boolean queryScoped(String sql){
-        return java.util.regex.Pattern.compile("(?is)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*(?::[a-z][a-zA-Z0-9_]*|\\?\\d*)").matcher(sql).find();
+        return java.util.regex.Pattern.compile("(?is)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|ownerId|owner_id|owner|branchId|branch_id|branch|registerId|register_id|register|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*(?::[a-z][a-zA-Z0-9_]*|\\?\\d*)").matcher(sql).find();
     }
     private static Set<String> parameterNames(VariableTree parameter){
         Set<String> names=new HashSet<>();
@@ -53,6 +53,20 @@ class SpringDataRepositoryAstAnalysisTest {
     private static boolean scopeParameterName(String name){
         return name.matches("(?i).*(tenant|customer|owner|branch|register|username|reviewer|cashier|actor|token|hash|family|subscription|invoice|plan).*");
     }
+    private static int positionalParameterIndex(String query,int placeholderOffset){
+        int index=0;char quote=0;boolean lineComment=false,blockComment=false;
+        for(int i=0;i<placeholderOffset;i++){
+            char ch=query.charAt(i),next=i+1<placeholderOffset?query.charAt(i+1):'\\0';
+            if(lineComment){if(ch=='\\n'||ch=='\\r')lineComment=false;continue;}
+            if(blockComment){if(ch=='*'&&next=='/'){blockComment=false;i++;}continue;}
+            if(quote!=0){if(ch=='\\\\'&&i+1<placeholderOffset){i++;continue;}if(ch==quote)quote=0;continue;}
+            if(ch=='-'&&next=='-'){lineComment=true;i++;continue;}
+            if(ch=='/'&&next=='*'){blockComment=true;i++;continue;}
+            if(ch=='\\''||ch=='"'||ch=='`'){quote=ch;continue;}
+            if(ch=='?')index++;
+        }
+        return index;
+    }
     private static boolean hasBoundScopeParameter(String query,MethodTree method){
         Set<String> availableNames=new HashSet<>();
         for(VariableTree parameter:method.getParameters())availableNames.addAll(parameterNames(parameter));
@@ -71,7 +85,7 @@ class SpringDataRepositoryAstAnalysisTest {
                 String indexText=bindings.group(3);
                 int index;
                 if(indexText==null||indexText.isEmpty()){
-                    index=(int)query.substring(0,bindings.start(2)).chars().filter(ch->ch=='?').count();
+                    index=positionalParameterIndex(query,bindings.start(2));
                     positionalIndex=index+1;
                 }else index=Integer.parseInt(indexText)-1;
                 if(index<0||index>=method.getParameters().size())return false;
@@ -216,6 +230,13 @@ class SpringDataRepositoryAstAnalysisTest {
             if(!derivedParameterMatches(normalized,parameters))return false;
         }
         return scoped;
+    }
+
+    @Test
+    void positionalPlaceholderIndexIgnoresQuestionMarksInsideSqlLiteralsAndComments(){
+        String query="select p from Product p where p.note='?' and p.status=? /* ? */ and p.tenantId=? and p.branchId=?";
+        assertThat(positionalParameterIndex(query,query.indexOf("p.tenantId"))).isEqualTo(1);
+        assertThat(positionalParameterIndex(query,query.indexOf("p.branchId"))).isEqualTo(2);
     }
 
     @Test

@@ -286,6 +286,7 @@ class SpringDataRepositoryAstAnalysisTest {
             JavacTask task=(JavacTask)compiler.getTask(null,manager,null,List.of("-proc:none"),null,manager.getJavaFileObjectsFromPaths(javaFiles));
             List<CompilationUnitTree> units=new ArrayList<>();
             task.parse().forEach(units::add);
+            Trees trees=Trees.instance(task);
             for(CompilationUnitTree unit:units)for(Tree declaration:unit.getTypeDecls()){
                 if(!(declaration instanceof ClassTree type)||type.getKind()!=Tree.Kind.INTERFACE||!type.getSimpleName().toString().endsWith("Repository"))continue;
                 String repository=type.getSimpleName().toString();
@@ -355,7 +356,8 @@ class SpringDataRepositoryAstAnalysisTest {
                                     for(int index:method.tenantIndexes()){
                                         String argument=node.getArguments().get(index).toString();
                                         if(!trustedTenantExpression(argument,trustedVariables)){
-                                            long line=unit.getLineMap().getLineNumber(node.getStartPosition());
+                                            long position=trees.getSourcePositions().getStartPosition(unit,node);
+                                            long line=unit.getLineMap().getLineNumber(position);
                                             untrusted.add(unit.getSourceFile().getName()+":"+line+" "+repository+"#"+method.name()
                                                 +" tenant argument["+index+"]="+argument+" in "+className+"#"+methodName);
                                         }

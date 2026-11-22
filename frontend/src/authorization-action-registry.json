@@ -1834,6 +1834,20 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
+    },
+    {
+      "id": "platform-subscription-plan-options",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/subscription-plans",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_VIEW",
+        "PLATFORM_PLAN_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/subscription-plans",
+      "permissionMode": "ANY"
     }
   ],
   "buttons": [

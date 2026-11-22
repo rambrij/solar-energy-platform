@@ -28,6 +28,8 @@
 | Accountant inventory | `GET /api/v1/vendor/inventory/receipts` | Requires `INVENTORY_VIEW`, not granted | HTTP 403 | Accountant test |
 | Platform Super Admin | `/platform` | Persisted platform grants; no vendor membership | Platform workspace allowed | Platform boundary test |
 | Platform-to-vendor boundary | `/vendor/pos` | Vendor actor context required | Workspace access denied | Platform boundary test |
+| Customer cross-workspace boundary | `/vendor/pos` | Vendor actor context required | Access-denied boundary | Customer direct vendor POS test |
+| Vendor cross-workspace boundary | `/platform` | Platform actor context required | Platform access denied | Vendor direct Platform URL test |
 | Customer purchase history | `/marketplace/purchases` | `CUSTOMER` actor; self-owned resources | Customer purchase page allowed | Customer test |
 
 | Cashier completed sale | `/vendor/pos` → assigned register → current bill → receipt | `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SALE_CREATE`, `POS_TENDER_CASH_RECORD`, `POS_RECEIPT_VIEW`; persisted register assignment | Cash sale is finalized and original receipt is displayed | Cashier POS cash-sale test |

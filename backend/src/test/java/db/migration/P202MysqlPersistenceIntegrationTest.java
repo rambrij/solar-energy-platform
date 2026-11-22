@@ -697,6 +697,269 @@ class P202MysqlPersistenceIntegrationTest {
         });
     }
 
+
+    @Test
+    void v45TenantRoleAndResourceCompositeForeignKeysRejectCrossTenantInsertAndUpdateOnMysql() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            JdbcTemplate db = jdbc(url, user, password);
+
+            db.update("INSERT INTO tenants(id,name) VALUES(996001,'P2 composite tenant A'),(996002,'P2 composite tenant B')");
+            db.update("""
+                    INSERT INTO branches(id,tenant_id,name)
+                    VALUES(996011,996001,'P2 composite branch A'),(996012,996002,'P2 composite branch B')
+                    """);
+            db.update("""
+                    INSERT INTO pos_stock_locations
+                    (tenant_id,branch_id,stock_location_id,location_code,display_name,active)
+                    VALUES(996001,996011,996011,'POS_DEFAULT','P2 composite stock A',TRUE),
+                          (996002,996012,996012,'POS_DEFAULT','P2 composite stock B',TRUE)
+                    """);
+            db.update("""
+                    INSERT INTO employees(username,tenant_id,branch_id,enabled)
+                    VALUES('p2-composite-a',996001,996011,TRUE),
+                          ('p2-composite-b',996002,996012,TRUE)
+                    """);
+            db.update("""
+                    INSERT INTO registers(id,tenant_id,branch_id)
+                    VALUES(996021,996001,996011),(996022,996002,996012)
+                    """);
+            db.update("""
+                    INSERT INTO vendor_roles(id,tenant_id,role_key,display_name,created_by,updated_by)
+                    VALUES(996031,996001,'p2-role-a','P2 Role A','p2-composite-a','p2-composite-a'),
+                          (996032,996002,'p2-role-b','P2 Role B','p2-composite-b','p2-composite-b'),
+                          (996033,996001,'p2-role-a2','P2 Role A2','p2-composite-a','p2-composite-a')
+                    """);
+            db.update("""
+                    INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+                    VALUES(996001,996031,'INVENTORY_READ','p2-composite-a')
+                    """);
+            db.update("""
+                    INSERT INTO employee_role_assignments
+                    (tenant_id,branch_id,username,role_id,active,assigned_by)
+                    VALUES(996001,996011,'p2-composite-a',996031,TRUE,'p2-composite-a')
+                    """);
+            db.update("""
+                    INSERT INTO employee_register_assignments
+                    (tenant_id,branch_id,username,register_id,active,assigned_by)
+                    VALUES(996001,996011,'p2-composite-a',996021,TRUE,'p2-composite-a')
+                    """);
+            db.update("""
+                    INSERT INTO vendor_access_audit_events
+                    (tenant_id,actor_username,subject_username,resource_type,action,reason)
+                    VALUES(996001,'p2-composite-a','p2-composite-a','ROLE','P2_COMPOSITE_FIXTURE','same-tenant positive control')
+                    """);
+
+            // Positive controls above prove each child relationship accepts a
+            // complete, same-tenant tuple before the negative probes are run.
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_roles WHERE tenant_id=996001", Integer.class))
+                    .isEqualTo(2);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_role_permissions WHERE tenant_id=996001", Integer.class))
+                    .isEqualTo(1);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM employee_role_assignments WHERE tenant_id=996001", Integer.class))
+                    .isEqualTo(1);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM employee_register_assignments WHERE tenant_id=996001", Integer.class))
+                    .isEqualTo(1);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=996001", Integer.class))
+                    .isEqualTo(1);
+
+            // vendor_roles -> employees(tenant_id, username)
+            assertForeignKeyRejected("vendor_roles.created_by INSERT", () -> db.update("""
+                    INSERT INTO vendor_roles(id,tenant_id,role_key,display_name,created_by,updated_by)
+                    VALUES(996041,996001,'p2-bad-created','Bad creator','p2-composite-b','p2-composite-a')
+                    """));
+            assertForeignKeyRejected("vendor_roles.updated_by INSERT", () -> db.update("""
+                    INSERT INTO vendor_roles(id,tenant_id,role_key,display_name,created_by,updated_by)
+                    VALUES(996042,996001,'p2-bad-updated','Bad updater','p2-composite-a','p2-composite-b')
+                    """));
+            assertForeignKeyRejected("vendor_roles.created_by UPDATE",
+                    () -> db.update("UPDATE vendor_roles SET created_by='p2-composite-b' WHERE id=996031"));
+            assertForeignKeyRejected("vendor_roles.updated_by UPDATE",
+                    () -> db.update("UPDATE vendor_roles SET updated_by='p2-composite-b' WHERE id=996031"));
+
+            // vendor_role_permissions -> tenant-owned role and tenant-owned actor
+            assertForeignKeyRejected("vendor_role_permissions.role INSERT", () -> db.update("""
+                    INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+                    VALUES(996001,996032,'P2_BAD_ROLE','p2-composite-a')
+                    """));
+            assertForeignKeyRejected("vendor_role_permissions.actor INSERT", () -> db.update("""
+                    INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+                    VALUES(996001,996031,'P2_BAD_ACTOR','p2-composite-b')
+                    """));
+            assertForeignKeyRejected("vendor_role_permissions.role UPDATE",
+                    () -> db.update("UPDATE vendor_role_permissions SET role_id=996032 WHERE tenant_id=996001 AND permission='INVENTORY_READ'"));
+            assertForeignKeyRejected("vendor_role_permissions.actor UPDATE",
+                    () -> db.update("UPDATE vendor_role_permissions SET created_by='p2-composite-b' WHERE tenant_id=996001 AND permission='INVENTORY_READ'"));
+
+            // Employee-role assignment covers employee, role, assigned_by and
+            // nullable revoked_by as independent composite ownership edges.
+            assertForeignKeyRejected("employee_role_assignments.employee INSERT", () -> db.update("""
+                    INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by)
+                    VALUES(996001,996011,'p2-composite-b',996031,TRUE,'p2-composite-a')
+                    """));
+            assertForeignKeyRejected("employee_role_assignments.role INSERT", () -> db.update("""
+                    INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by)
+                    VALUES(996001,996011,'p2-composite-a',996032,TRUE,'p2-composite-a')
+                    """));
+            assertForeignKeyRejected("employee_role_assignments.assigned_by INSERT", () -> db.update("""
+                    INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by)
+                    VALUES(996001,996011,'p2-composite-a',996033,TRUE,'p2-composite-b')
+                    """));
+            assertForeignKeyRejected("employee_role_assignments.revoked_by INSERT", () -> db.update("""
+                    INSERT INTO employee_role_assignments
+                    (tenant_id,branch_id,username,role_id,active,assigned_by,revoked_by,revoked_at)
+                    VALUES(996001,996011,'p2-composite-a',996033,FALSE,'p2-composite-a','p2-composite-b',CURRENT_TIMESTAMP)
+                    """));
+            assertForeignKeyRejected("employee_role_assignments.employee UPDATE",
+                    () -> db.update("UPDATE employee_role_assignments SET username='p2-composite-b' WHERE tenant_id=996001 AND role_id=996031"));
+            assertForeignKeyRejected("employee_role_assignments.role UPDATE",
+                    () -> db.update("UPDATE employee_role_assignments SET role_id=996032 WHERE tenant_id=996001 AND username='p2-composite-a'"));
+            assertForeignKeyRejected("employee_role_assignments.assigned_by UPDATE",
+                    () -> db.update("UPDATE employee_role_assignments SET assigned_by='p2-composite-b' WHERE tenant_id=996001 AND role_id=996031"));
+            assertForeignKeyRejected("employee_role_assignments.revoked_by UPDATE",
+                    () -> db.update("UPDATE employee_role_assignments SET revoked_by='p2-composite-b',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=996001 AND role_id=996031"));
+
+            // Employee-register assignment covers employee, register,
+            // assigned_by and revoked_by ownership independently.
+            assertForeignKeyRejected("employee_register_assignments.employee INSERT", () -> db.update("""
+                    INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)
+                    VALUES(996001,996011,'p2-composite-b',996021,TRUE,'p2-composite-a')
+                    """));
+            assertForeignKeyRejected("employee_register_assignments.register INSERT", () -> db.update("""
+                    INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)
+                    VALUES(996001,996011,'p2-composite-a',996022,TRUE,'p2-composite-a')
+                    """));
+            assertForeignKeyRejected("employee_register_assignments.assigned_by INSERT", () -> db.update("""
+                    INSERT INTO employee_register_assignments(tenant_id,branch_id,username,register_id,active,assigned_by)
+                    VALUES(996001,996011,'p2-composite-a',996023,TRUE,'p2-composite-b')
+                    """));
+            assertForeignKeyRejected("employee_register_assignments.revoked_by INSERT", () -> db.update("""
+                    INSERT INTO employee_register_assignments
+                    (tenant_id,branch_id,username,register_id,active,assigned_by,revoked_by,revoked_at)
+                    VALUES(996001,996011,'p2-composite-a',996024,FALSE,'p2-composite-a','p2-composite-b',CURRENT_TIMESTAMP)
+                    """));
+            assertForeignKeyRejected("employee_register_assignments.employee UPDATE",
+                    () -> db.update("UPDATE employee_register_assignments SET username='p2-composite-b' WHERE tenant_id=996001 AND register_id=996021"));
+            assertForeignKeyRejected("employee_register_assignments.register UPDATE",
+                    () -> db.update("UPDATE employee_register_assignments SET register_id=996022 WHERE tenant_id=996001 AND username='p2-composite-a'"));
+            assertForeignKeyRejected("employee_register_assignments.assigned_by UPDATE",
+                    () -> db.update("UPDATE employee_register_assignments SET assigned_by='p2-composite-b' WHERE tenant_id=996001 AND register_id=996021"));
+            assertForeignKeyRejected("employee_register_assignments.revoked_by UPDATE",
+                    () -> db.update("UPDATE employee_register_assignments SET revoked_by='p2-composite-b',revoked_at=CURRENT_TIMESTAMP WHERE tenant_id=996001 AND register_id=996021"));
+
+            // Vendor-access audit actors and subjects cannot be borrowed from
+            // another tenant, on either INSERT or UPDATE.
+            assertForeignKeyRejected("vendor_access_audit_events.actor INSERT", () -> db.update("""
+                    INSERT INTO vendor_access_audit_events
+                    (tenant_id,actor_username,subject_username,resource_type,action,reason)
+                    VALUES(996001,'p2-composite-b','p2-composite-a','ROLE','P2_BAD_ACTOR','must reject')
+                    """));
+            assertForeignKeyRejected("vendor_access_audit_events.subject INSERT", () -> db.update("""
+                    INSERT INTO vendor_access_audit_events
+                    (tenant_id,actor_username,subject_username,resource_type,action,reason)
+                    VALUES(996001,'p2-composite-a','p2-composite-b','ROLE','P2_BAD_SUBJECT','must reject')
+                    """));
+            Long auditId = db.queryForObject("""
+                    SELECT MAX(id) FROM vendor_access_audit_events WHERE action='P2_COMPOSITE_FIXTURE'
+                    """, Long.class);
+            assertForeignKeyRejected("vendor_access_audit_events.actor UPDATE",
+                    () -> db.update("UPDATE vendor_access_audit_events SET actor_username='p2-composite-b' WHERE id=?", auditId));
+            assertForeignKeyRejected("vendor_access_audit_events.subject UPDATE",
+                    () -> db.update("UPDATE vendor_access_audit_events SET subject_username='p2-composite-b' WHERE id=?", auditId));
+
+            // Every failed UPDATE is statement-atomic; verify the original
+            // same-tenant rows are still intact after all negative probes.
+            assertThat(db.queryForObject("SELECT created_by FROM vendor_roles WHERE id=996031", String.class))
+                    .isEqualTo("p2-composite-a");
+            assertThat(db.queryForObject("SELECT updated_by FROM vendor_roles WHERE id=996031", String.class))
+                    .isEqualTo("p2-composite-a");
+            assertThat(db.queryForObject("SELECT role_id FROM vendor_role_permissions WHERE tenant_id=996001 AND permission='INVENTORY_READ'", Long.class))
+                    .isEqualTo(996031L);
+            assertThat(db.queryForObject("SELECT created_by FROM vendor_role_permissions WHERE tenant_id=996001 AND permission='INVENTORY_READ'", String.class))
+                    .isEqualTo("p2-composite-a");
+            assertThat(db.queryForObject("SELECT username FROM employee_role_assignments WHERE tenant_id=996001 AND role_id=996031", String.class))
+                    .isEqualTo("p2-composite-a");
+            assertThat(db.queryForObject("SELECT assigned_by FROM employee_role_assignments WHERE tenant_id=996001 AND role_id=996031", String.class))
+                    .isEqualTo("p2-composite-a");
+            assertThat(db.queryForObject("SELECT register_id FROM employee_register_assignments WHERE tenant_id=996001 AND username='p2-composite-a'", Long.class))
+                    .isEqualTo(996021L);
+            assertThat(db.queryForObject("SELECT actor_username FROM vendor_access_audit_events WHERE id=?", String.class, auditId))
+                    .isEqualTo("p2-composite-a");
+            assertThat(db.queryForObject("SELECT subject_username FROM vendor_access_audit_events WHERE id=?", String.class, auditId))
+                    .isEqualTo("p2-composite-a");
+        });
+    }
+
+    @Test
+    void v40PlanLimitsCheckRejectsEveryInvalidLimitOnMysql() throws Exception {
+        withSchema((url, user, password, schema) -> {
+            flyway(url, user, password, schema, null).migrate();
+            JdbcTemplate db = jdbc(url, user, password);
+            db.update("""
+                    INSERT INTO users(id,username,password_hash,enabled)
+                    VALUES(997001,'p2-plan-limits-actor','not-a-login-secret',TRUE)
+                    """);
+            db.update("""
+                    INSERT INTO subscription_plans(id,plan_key,display_name,active,current_version)
+                    VALUES(997011,'p2-plan-limits','P2 Plan Limits',TRUE,1)
+                    """);
+
+            String validPrefix = """
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(997011,?,100.0000,'INR','MONTHLY',5,1000,2,0,'{}',7,'{}',?, 'p2-plan-limits-actor')
+                    """;
+            assertThat(db.update(validPrefix, 1, "P2 positive plan limit control")).isEqualTo(1);
+
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(997011,2,-1.0000,'INR','MONTHLY',5,1000,2,0,'{}',7,'{}','negative price','p2-plan-limits-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(997011,3,100.0000,'INR','MONTHLY',0,1000,2,0,'{}',7,'{}','zero users','p2-plan-limits-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(997011,4,100.0000,'INR','MONTHLY',5,-1,2,0,'{}',7,'{}','negative storage','p2-plan-limits-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(997011,5,100.0000,'INR','MONTHLY',5,1000,0,0,'{}',7,'{}','zero branches','p2-plan-limits-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(997011,6,100.0000,'INR','MONTHLY',5,1000,2,-1,'{}',7,'{}','negative warehouses','p2-plan-limits-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(997011,7,100.0000,'INR','MONTHLY',5,1000,2,0,'{}',-1,'{}','negative grace','p2-plan-limits-actor')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_plan_versions WHERE plan_id=997011", Integer.class))
+                    .isEqualTo(1);
+        });
+    }
+
+    private static void assertForeignKeyRejected(String relationship, Runnable operation) {
+        assertThatThrownBy(operation::run)
+                .as("%s must reject a cross-tenant INSERT or UPDATE", relationship)
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
     private static void assertConstraint(JdbcTemplate db, String schema, String table,
                                          String name, String type) {
         assertThat(constraintCount(db, schema, table, name))

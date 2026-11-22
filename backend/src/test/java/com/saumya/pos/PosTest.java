@@ -2528,6 +2528,57 @@ class PosTest {
     "INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(1,?,'ACTIVE','alice','cross tenant event')",
     subscriptionB)).isInstanceOf(RuntimeException.class);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_events WHERE tenant_id=1 AND subscription_id=?",Integer.class,subscriptionA)).isEqualTo(1);
+  update("INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(2,?,'ACTIVE','bob','same tenant event')",subscriptionB);
+  assertThatThrownBy(()->update("INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(2,?,'ACTIVE','bob','cross tenant event')",subscriptionA)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update("UPDATE subscription_events SET tenant_id=2,subscription_id=? WHERE tenant_id=1 AND subscription_id=?",subscriptionB,subscriptionA)).isInstanceOf(RuntimeException.class);
+
+  // Platform subscription invoices and payments are financial child records.
+  db.update("""
+    INSERT INTO subscription_invoices(tenant_id,subscription_id,invoice_number,billing_period_start,
+      billing_period_end,currency,plan_snapshot,subtotal,tax_amount,total,status,due_at)
+    VALUES(?,?,'P2-SUB-INVOICE-A',DATE '2026-01-01',DATE '2026-02-01','INR',CAST('{}' AS JSON),100,0,100,'OPEN',CURRENT_TIMESTAMP)
+    """,VENDOR_A_TENANT,subscriptionA);
+  db.update("""
+    INSERT INTO subscription_invoices(tenant_id,subscription_id,invoice_number,billing_period_start,
+      billing_period_end,currency,plan_snapshot,subtotal,tax_amount,total,status,due_at)
+    VALUES(?,?,'P2-SUB-INVOICE-B',DATE '2026-01-01',DATE '2026-02-01','INR',CAST('{}' AS JSON),200,0,200,'OPEN',CURRENT_TIMESTAMP)
+    """,VENDOR_B_TENANT,subscriptionB);
+  Long invoiceA=db.queryForObject("SELECT id FROM subscription_invoices WHERE invoice_number='P2-SUB-INVOICE-A'",Long.class);
+  Long invoiceB=db.queryForObject("SELECT id FROM subscription_invoices WHERE invoice_number='P2-SUB-INVOICE-B'",Long.class);
+  db.update("""
+    INSERT INTO subscription_payments(tenant_id,subscription_invoice_id,provider,platform_merchant_reference,
+      idempotency_key,amount,currency,status)
+    VALUES(?,?,'P2_TEST','P2-SUB-PAYMENT-A','p2-sub-payment-a',100,'INR','SUCCEEDED')
+    """,VENDOR_A_TENANT,invoiceA);
+  db.update("""
+    INSERT INTO subscription_payments(tenant_id,subscription_invoice_id,provider,platform_merchant_reference,
+      idempotency_key,amount,currency,status)
+    VALUES(?,?,'P2_TEST','P2-SUB-PAYMENT-B','p2-sub-payment-b',200,'INR','SUCCEEDED')
+    """,VENDOR_B_TENANT,invoiceB);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO subscription_invoices(tenant_id,subscription_id,invoice_number,billing_period_start,
+      billing_period_end,currency,plan_snapshot,subtotal,tax_amount,total,status,due_at)
+    VALUES(?,?,'P2-SUB-INVOICE-CROSS-A',DATE '2026-01-01',DATE '2026-02-01','INR',CAST('{}' AS JSON),100,0,100,'OPEN',CURRENT_TIMESTAMP)
+    """,VENDOR_A_TENANT,subscriptionB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO subscription_invoices(tenant_id,subscription_id,invoice_number,billing_period_start,
+      billing_period_end,currency,plan_snapshot,subtotal,tax_amount,total,status,due_at)
+    VALUES(?,?,'P2-SUB-INVOICE-CROSS-B',DATE '2026-01-01',DATE '2026-02-01','INR',CAST('{}' AS JSON),200,0,200,'OPEN',CURRENT_TIMESTAMP)
+    """,VENDOR_B_TENANT,subscriptionA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO subscription_payments(tenant_id,subscription_invoice_id,provider,platform_merchant_reference,
+      idempotency_key,amount,currency,status)
+    VALUES(?,?,'P2_TEST','P2-SUB-PAYMENT-CROSS-A','p2-sub-payment-cross-a',100,'INR','SUCCEEDED')
+    """,VENDOR_A_TENANT,invoiceB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO subscription_payments(tenant_id,subscription_invoice_id,provider,platform_merchant_reference,
+      idempotency_key,amount,currency,status)
+    VALUES(?,?,'P2_TEST','P2-SUB-PAYMENT-CROSS-B','p2-sub-payment-cross-b',200,'INR','SUCCEEDED')
+    """,VENDOR_B_TENANT,invoiceA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE subscription_invoices SET subscription_id=? WHERE tenant_id=? AND id=?",subscriptionA,VENDOR_B_TENANT,invoiceB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE subscription_payments SET subscription_invoice_id=? WHERE tenant_id=? AND id=(SELECT id FROM subscription_payments WHERE tenant_id=? AND subscription_invoice_id=?)",invoiceA,VENDOR_B_TENANT,VENDOR_B_TENANT,invoiceB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM subscription_invoices WHERE tenant_id=? AND id=?",VENDOR_A_TENANT,invoiceA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM tenant_subscriptions WHERE tenant_id=? AND id=?",VENDOR_A_TENANT,subscriptionA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
  }
 
 

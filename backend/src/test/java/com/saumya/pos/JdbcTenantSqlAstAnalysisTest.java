@@ -432,7 +432,9 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(qualifiedCallsiteFiles("retail","allocateReceiptForCustomer"))
             .containsExactly("com/saumya/pos/checkout/PaymentCheckoutService.java");
         assertThat(qualifiedCallsiteFiles("retail","customerDraftAudit"))
-            .containsExactly("com/saumya/pos/checkout/CustomerAssociationService.java");
+            .containsExactlyInAnyOrder("com/saumya/pos/checkout/CustomerAssociationService.java",
+                "com/saumya/pos/checkout/OnlineReceiptService.java",
+                "com/saumya/pos/checkout/SaleDocumentsService.java");
         assertThat(qualifiedCallsiteFiles("entitlements","requireFeature")).isEmpty();
         JsonNode membershipPolicy=sourcePolicies.get("com.saumya.pos.membership.MembershipService");
         assertThat(hasTrustedTenantArgument("tenant","com.saumya.pos.membership.MembershipService","access",membershipPolicy)).isFalse();

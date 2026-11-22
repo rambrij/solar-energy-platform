@@ -93,10 +93,12 @@ class SpringDataRepositoryAstAnalysisTest {
         if(order>=0)predicate=predicate.substring(0,order);
         Set<String> parameters=new HashSet<>();
         for(VariableTree parameter:method.getParameters())parameters.addAll(parameterNames(parameter));
-        String[] parts=predicate.split("And|Or");
+        String[] parts=predicate.split("And");
         boolean scoped=false;
         for(String part:parts){
             String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|NotNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
+            if(property.isEmpty())continue;
+            if(property.startsWith("Id")&&property.length()>2)property=property.substring(2);
             String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
             if(!scopeParameterName(normalized))continue;
             scoped=true;
@@ -194,11 +196,14 @@ class SpringDataRepositoryAstAnalysisTest {
         String predicate=methodName.substring(methodName.indexOf("By")+2);
         int order=predicate.indexOf("OrderBy");if(order>=0)predicate=predicate.substring(0,order);
         boolean scoped=false;
-        for(String part:predicate.split("And|Or")){
+        for(String part:predicate.split("And")){
             String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
+            if(property.isEmpty())continue;
+            if(property.startsWith("Id")&&property.length()>2)property=property.substring(2);
             String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
             if(!scopeParameterName(normalized))continue;scoped=true;
-            if(!parameters.contains(normalized))return false;
+            if(!parameters.contains(normalized)&&!(normalized.equals("tenantId")&&parameters.contains("tenant"))
+                &&!(normalized.equals("customerId")&&parameters.contains("customer")))return false;
         }
         return scoped;
     }

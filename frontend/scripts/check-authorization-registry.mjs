@@ -196,7 +196,7 @@ for(const button of actionRegistry.buttons){
  if(!action||button.component!==action.component||button.trigger!==action.trigger||button.backendOperation!==action.backendOperation)throw new Error('Button-to-backend-action mapping mismatch: '+button.id);
 }
 
-const validActors=new Set(['PUBLIC','CUSTOMER','VENDOR','PLATFORM']);
+const validActors=new Set(['PUBLIC','SESSION','CUSTOMER','VENDOR','PLATFORM']);
 for(const action of actionRegistry.actions){
  if(!validActors.has(action.actor)||!action.component||!action.trigger||!action.method||!action.endpoint||action.backendOperation!==action.method+' '+action.endpoint)throw new Error('Incomplete frontend action mapping '+action.id);
  for(const permission of action.permissions)if(!permissions.has(permission)&&permission!=='POS_CASH_MOVEMENT_DYNAMIC')throw new Error('Unknown action permission '+permission+' in '+action.id);
@@ -206,6 +206,12 @@ for(const action of actionRegistry.actions){
 function validateActionPermissionParity(action,policy){
  if(action.actor==='PUBLIC'){
   if(!/permitAll\s*\(\s*\)/.test(policy))throw new Error('Public frontend action is not permitAll on backend: '+action.id);
+  return;
+ }
+ if(action.actor==='SESSION'){
+  if(!/isAuthenticated\s*\(\s*\)/.test(policy)||/permitAll\s*\(\s*\)/.test(policy))
+   throw new Error('Session frontend action must require an authenticated session: '+action.id);
+  if(action.permissions.length)throw new Error('Session-only action cannot claim role permissions: '+action.id);
   return;
  }
  if(action.actor==='VENDOR'&&action.permissions.some(permission=>permission.startsWith('PLATFORM_')))
@@ -229,6 +235,8 @@ assert.throws(()=>validateActionPermissionParity({id:'fixture-public-mismatch',a
  /Public frontend action is not permitAll/);
 assert.throws(()=>validateActionPermissionParity({id:'fixture-vendor-platform-permission',actor:'VENDOR',permissions:['PLATFORM_TENANT_VIEW']}, "hasAuthority('PLATFORM_TENANT_VIEW')"),
  /Platform permission assigned to vendor action/);
+assert.throws(()=>validateActionPermissionParity({id:'fixture-session-permit-all',actor:'SESSION',permissions:[]}, "permitAll()"),
+ /Session frontend action must require an authenticated session/);
 
 async function collectControllerRoutes(directory){
  const found=[];
@@ -274,6 +282,39 @@ for(const action of actionRegistry.actions){
 }
 
 
+const sessionSource=fs.readFileSync(path.join(frontend,'src/session.ts'),'utf8');
+if(!/fetch\s*\(\s*['"]\/api\/v1\/auth\/csrf['"]/.test(sessionSource)
+ || !/fetch\s*\(\s*['"]\/api\/v1\/auth['"]\s*\+\s*path\s*,\s*\{\s*method\s*:\s*['"]POST['"]/.test(sessionSource)){
+ throw new Error('Session auth transport must use the reviewed CSRF and POST /api/v1/auth path helpers');
+}
+const sessionOperations=actionRegistry.sessionApiOperations??[];
+if(!Array.isArray(sessionOperations)||sessionOperations.length===0)throw new Error('Session API operation inventory is required');
+const observedSessionPaths=[];
+for(const match of sessionSource.matchAll(/\bauthRequest\s*\(([^,]+),/g)){
+ const prefix=sessionSource.slice(Math.max(0,match.index-24),match.index);
+ if(/function\s*$/.test(prefix))continue;
+ const values=[...match[1].matchAll(/['"]([^'"]+)['"]/g)].map(item=>item[1]);
+ if(!values.length)throw new Error('Dynamic authRequest path must enumerate literal path variants');
+ observedSessionPaths.push(...values);
+}
+const expectedSessionPaths=sessionOperations.map(item=>item.path).sort();
+if(JSON.stringify([...observedSessionPaths].sort())!==JSON.stringify(expectedSessionPaths))
+ throw new Error('Session auth call sites diverge from explicit operation inventory: observed='+observedSessionPaths.join(',')+' expected='+expectedSessionPaths.join(','));
+for(const item of sessionOperations){
+ const action=actionRegistry.actions.find(value=>value.id===item.action);
+ if(!action||action.method!=='POST'||action.endpoint!=='/api/v1/auth'+item.path)
+  throw new Error('Session auth path does not map to its exact backend action: '+item.path);
+ const operation=backendOperations.find(value=>value.method===action.method&&value.endpoint===normalizeActionPath(action.endpoint));
+ if(!operation)throw new Error('Session auth action has no backend controller mapping: '+item.action);
+ validateActionPermissionParity(action,operation.policy);
+}
+for(const file of sourceFiles){
+ const relative=path.relative(path.join(frontend,'src'),file);
+ if(['session.ts','api.ts','marketplaceApi.ts'].includes(relative))continue;
+ if(/\bfetch\s*\(/.test(fs.readFileSync(file,'utf8')))
+  throw new Error('Direct fetch bypasses the registered API helpers in '+relative);
+}
+
 function splitCallArguments(source,open){
  const args=[];let start=open+1,depth=0,quote=null,escaped=false;
  for(let i=open+1;i<source.length;i++){
@@ -303,6 +344,7 @@ function resolveApiCall(file,source,match){
  if(fn==='marketplaceApi'&&raw.endsWith('/csrf'))return null;
  let method='GET',endpoint=raw;
  if(fn==='api')method=args.length>1&&args[1]&&!/^(?:undefined|null)$/.test(args[1])?'POST':'GET';
+ else if(fn==='authPost')method='POST';
  else if(['vendorApi','platformApi','marketplaceApi'].includes(fn)){
   const declared=(args[1]??'').match(/^['"](GET|POST|PUT|PATCH|DELETE)['"]$/);
   method=declared?declared[1]:'GET';
@@ -310,6 +352,7 @@ function resolveApiCall(file,source,match){
  if(fn==='api'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor/pos'+endpoint;
  if(fn==='vendorApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor'+endpoint;
  if(fn==='platformApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/platform'+endpoint;
+ if(fn==='authPost'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/auth'+endpoint;
  const variants=[];
  const ternary=/\$\{[^{}]+?\?\s*(['"])([^'"]+)\1\s*:\s*(['"])([^'"]+)\3\}/g;
  let found;
@@ -325,7 +368,7 @@ for(const file of sourceFiles){
  const source=fs.readFileSync(file,'utf8');
  const relative=path.relative(path.join(frontend,'src'),file);
  if(['api.ts','marketplaceApi.ts'].includes(relative))continue;
- const callPattern=/\b(api|vendorApi|platformApi|marketplaceApi)\s*\(/g;
+ const callPattern=/\b(api|vendorApi|platformApi|marketplaceApi|authPost)\s*\(/g;
  for(const match of source.matchAll(callPattern)){
   const resolved=resolveApiCall(file,source,match);
   if(!resolved)continue;

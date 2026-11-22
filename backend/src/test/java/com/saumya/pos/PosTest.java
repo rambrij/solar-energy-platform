@@ -2620,6 +2620,72 @@ class PosTest {
       disposition,received_condition,actor,created_at)
     VALUES(1,1,?,2,1,'QUARANTINE','DAMAGED','alice',CURRENT_TIMESTAMP)
     """,returnB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  // Mirror the complete relationship graph: Vendor B must not be able to
+  // attach Vendor A's financial, return, receipt or stock-history parents.
+  BigDecimal totalB=db.queryForObject("SELECT total FROM orders WHERE tenant_id=2 AND id=?",BigDecimal.class,orderB);
+  BigDecimal netB=db.queryForObject("SELECT price*quantity FROM order_items WHERE tenant_id=2 AND order_id=? AND product_id=2",BigDecimal.class,orderB);
+  BigDecimal taxB=db.queryForObject("SELECT tax FROM order_items WHERE tenant_id=2 AND order_id=? AND product_id=2",BigDecimal.class,orderB);
+  Long receiptB=db.queryForObject("SELECT receipt_number FROM orders WHERE tenant_id=2 AND id=?",Long.class,orderB);
+  db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(2,?,'P2-CROSS-INVOICE-B','Vendor B','B',?)",orderB,totalB);
+  db.update("""
+    INSERT INTO vendor_payment_attempts(id,tenant_id,order_id,method,merchant_account,state,amount,created_at,idempotency_key,request_hash)
+    VALUES('p2-cross-payment-b',2,?,'UPI','merchant-b','PENDING',?,CURRENT_TIMESTAMP,'p2-cross-payment-key-b',REPEAT('b',64))
+    """,orderB,totalB);
+  db.update("""
+    INSERT INTO receipt_document_audit(id,tenant_id,branch_id,order_id,actor,reason,content_sha256,content_length,created_at)
+    VALUES('p2-cross-receipt-b',2,2,?,'bob','Copy requested',REPEAT('b',64),128,CURRENT_TIMESTAMP)
+    """,orderB);
+  db.update("""
+    INSERT INTO inventory_receipts(id,tenant_id,branch_id,product_id,quantity,actor,reason,command_key,available_after,created_at)
+    VALUES('p2-cross-stock-b',2,2,2,1,'bob','Delivery accepted','p2-stock-b',2,CURRENT_TIMESTAMP)
+    """);
+  db.update("""
+    INSERT INTO pos_cash_refunds(id,tenant_id,branch_id,return_id,order_id,original_receipt,cashier,
+      return_requester,session_id,idempotency_key,request_hash,quote_hash,amount,reason,paid_at)
+    VALUES('p2-cross-refund-b',2,2,?,?,?,'bob','alice',?,'p2-refund-b',?,?,?,'Refund paid',CURRENT_TIMESTAMP)
+    """,returnB,orderB,receiptB,sessionB,hashB,hashA,totalB);
+  db.update("""
+    INSERT INTO pos_cash_refund_items(tenant_id,refund_id,return_id,order_id,product_id,name,quantity,net,tax,amount)
+    VALUES(2,'p2-cross-refund-b',?,?,2,'Private',1,?,?,?)
+    """,returnB,orderB,netB,taxB,totalB);
+  db.update("""
+    INSERT INTO inventory_return_dispositions(tenant_id,branch_id,return_id,product_id,quantity,
+      disposition,received_condition,actor,created_at)
+    VALUES(2,2,?,2,1,'QUARANTINE','DAMAGED','bob',CURRENT_TIMESTAMP)
+    """,returnB);
+
+  assertThatThrownBy(()->db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(2,?,'P2-CROSS-INVOICE-REVERSE','Vendor B','B',100)",orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO vendor_payment_attempts(id,tenant_id,order_id,method,merchant_account,state,amount,created_at,idempotency_key,request_hash)
+    VALUES('p2-cross-payment-reverse',2,?,'UPI','merchant-b','PENDING',100,CURRENT_TIMESTAMP,'p2-cross-payment-key-reverse',REPEAT('b',64))
+    """,orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO receipt_document_audit(id,tenant_id,branch_id,order_id,actor,reason,content_sha256,content_length,created_at)
+    VALUES('p2-cross-receipt-reverse',2,2,?,'bob','Cross tenant copy',REPEAT('b',64),128,CURRENT_TIMESTAMP)
+    """,orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO inventory_receipts(id,tenant_id,branch_id,product_id,quantity,actor,reason,command_key,available_after,created_at)
+    VALUES('p2-cross-stock-reverse',2,2,1,1,'bob','Foreign product','p2-stock-reverse',1,CURRENT_TIMESTAMP)
+    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO pos_returns(id,tenant_id,branch_id,order_id,requester,session_id,idempotency_key,request_hash,reason,proof,proof_note,state,created_at)
+    VALUES('p2-cross-return-reverse',2,2,?,'bob',?,'p2-cross-return-reverse-key',?,'Foreign order','ORIGINAL_RECEIPT','No cross tenant','REQUESTED',CURRENT_TIMESTAMP)
+    """,orderA,sessionB,hashB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("INSERT INTO pos_return_items(tenant_id,return_id,order_id,product_id,name,quantity) VALUES(2,?,?,1,'Foreign item',1)",returnB,orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("INSERT INTO pos_return_events(id,tenant_id,return_id,actor,action,note,created_at) VALUES('p2-cross-event-reverse',2,?,'bob','REQUESTED','Foreign return',CURRENT_TIMESTAMP)",returnA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO pos_cash_refunds(id,tenant_id,branch_id,return_id,order_id,original_receipt,cashier,return_requester,session_id,idempotency_key,request_hash,quote_hash,amount,reason,paid_at)
+    VALUES('p2-cross-refund-reverse',2,2,?,?,?,'bob','alice',?,'p2-refund-reverse',?,?,100,'Foreign order',CURRENT_TIMESTAMP)
+    """,returnB,orderA,receiptB,sessionB,hashB,hashA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("INSERT INTO pos_cash_refund_items(tenant_id,refund_id,return_id,order_id,product_id,name,quantity,net,tax,amount) VALUES(2,'p2-cross-refund-b',?,?,1,'Foreign item',1,90,10,100)",returnB,orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("INSERT INTO inventory_return_dispositions(tenant_id,branch_id,return_id,product_id,quantity,disposition,received_condition,actor,created_at) VALUES(2,2,?,1,1,'QUARANTINE','DAMAGED','bob',CURRENT_TIMESTAMP)",returnA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+
+  // Direct SQL must not remove any financial-history parent while children remain.
+  assertThatThrownBy(()->db.update("DELETE FROM pos_sessions WHERE tenant_id=1 AND id=?",session)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM pos_sessions WHERE tenant_id=2 AND id=?",sessionB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM branches WHERE tenant_id=1 AND id=1")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM branches WHERE tenant_id=2 AND id=2")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+
   // UPDATE paths must be guarded as strictly as INSERT paths.
   assertThatThrownBy(()->db.update("UPDATE vendor_invoices SET tenant_id=2 WHERE tenant_id=1 AND order_id=?",orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("UPDATE vendor_payment_attempts SET tenant_id=2 WHERE id='p2-cross-payment-a'")).isInstanceOf(org.springframework.dao.DataAccessException.class);

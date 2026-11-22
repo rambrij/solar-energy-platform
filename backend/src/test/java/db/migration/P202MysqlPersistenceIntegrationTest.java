@@ -743,7 +743,8 @@ class P202MysqlPersistenceIntegrationTest {
                     """);
             db.update("""
                     INSERT INTO registers(id,tenant_id,branch_id)
-                    VALUES(996021,996001,996011),(996022,996002,996012)
+                    VALUES(996021,996001,996011),(996022,996002,996012),
+                          (996023,996001,996011),(996024,996001,996011)
                     """);
             db.update("""
                     INSERT INTO vendor_roles(id,tenant_id,role_key,display_name,created_by,updated_by)

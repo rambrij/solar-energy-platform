@@ -189,6 +189,9 @@ const actionIds=uniqueIds(actionRegistry.actions);
 const expectedButtonIds=actionRegistry.actions.filter(a=>a.trigger==='button'||a.trigger==='submit').map(a=>a.id).sort();
 if(JSON.stringify(uniqueIds(actionRegistry.buttons))!==JSON.stringify(expectedButtonIds))throw new Error('Frontend button/form inventory is incomplete or diverges from action mappings');
 for(const button of actionRegistry.buttons){
+ const buttonSource=fs.readFileSync(path.join(frontend,'src',button.component),'utf8');
+ if(button.trigger==='button'&&!/\bonClick\s*=/.test(buttonSource))throw new Error('Registered button action has no JSX onClick control: '+button.id);
+ if(button.trigger==='submit'&&!/\bonSubmit\s*=/.test(buttonSource))throw new Error('Registered submit action has no JSX onSubmit control: '+button.id);
  const action=actionRegistry.actions.find(item=>item.id===button.id);
  if(!action||button.component!==action.component||button.trigger!==action.trigger||button.backendOperation!==action.backendOperation)throw new Error('Button-to-backend-action mapping mismatch: '+button.id);
 }

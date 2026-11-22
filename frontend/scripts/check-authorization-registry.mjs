@@ -270,7 +270,7 @@ function inventoryJsxControls(file,source){
     &&node.initializer&&ts.isJsxExpression(node.initializer)&&node.initializer.expression){
    const expression=node.initializer.expression;
    const classification=classifyNode(expression);
-   controls.push({component:path.basename(file),event:node.name.text,handler:expression.getText(unit),classification});
+   controls.push({component:path.basename(file),line:unit.getLineAndCharacterOfPosition(node.getStart(unit)).line+1,event:node.name.text,handler:expression.getText(unit),classification});
   }
   ts.forEachChild(node,visit);
  }
@@ -605,5 +605,13 @@ for(const file of sourceFiles){
  }
 }
 
+const controlInventoryPath=path.join(frontend,'authorization-control-inventory.generated.json');
+fs.writeFileSync(controlInventoryPath,JSON.stringify({
+ schemaVersion:1,
+ commit:process.env.GITHUB_SHA??null,
+ generatedAt:new Date().toISOString(),
+ summary:controlSummary,
+ controls:frontendControlInventory
+},null,2)+'\n');
 console.log(`Frontend controls inventoried: ${frontendControlInventory.length} (${JSON.stringify(controlSummary)}).`);
 console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${sourceFiles.length} frontend source files, ${permissions.size} permission identifiers.`);

@@ -2515,6 +2515,43 @@ class PosTest {
     "INSERT INTO pos_active_drafts(tenant_id,branch_id,cashier,session_id,order_reference) VALUES(1,1,'alice',?,?)",
     session,orderBId)).isInstanceOf(RuntimeException.class);
 
+  assertThatThrownBy(()->update(
+    "INSERT INTO pos_active_drafts(tenant_id,branch_id,cashier,session_id,order_reference) VALUES(2,2,'bob',?,?)",
+    sessionB,orderAId)).isInstanceOf(RuntimeException.class);
+
+  // Mirror both tenant directions for the POS financial projections and
+  // immutable buyer snapshot relationship, not only tenant-A -> tenant-B.
+  assertThatThrownBy(()->update(
+    "INSERT INTO pos_drawer_tenders(id,tenant_id,branch_id,session_id,order_reference,cash_received,change_given) VALUES('v48-cross-order-reverse',2,2,?,?,100,0)",
+    sessionB,orderAId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO pos_drawer_tenders(id,tenant_id,branch_id,session_id,order_reference,cash_received,change_given) VALUES('v48-cross-session-reverse',2,2,?,?,100,0)",
+    session,orderBId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO pos_cash_movements(id,tenant_id,branch_id,cashier,session_id,movement_type,amount,reason,idempotency_key) VALUES('v48-cash-movement-a-cross',1,1,'alice',?,'CASH_IN',1,'Cross tenant test','v48-cash-a')",
+    sessionB)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO pos_cash_movements(id,tenant_id,branch_id,cashier,session_id,movement_type,amount,reason,idempotency_key) VALUES('v48-cash-movement-b-cross',2,2,'bob',?,'CASH_IN',1,'Cross tenant test','v48-cash-b')",
+    session)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO order_buyer_snapshots(tenant_id,order_id,name,captured_at) VALUES(1,?,'Foreign buyer',CURRENT_TIMESTAMP)",
+    orderBId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO order_buyer_snapshots(tenant_id,order_id,name,captured_at) VALUES(2,?,'Foreign buyer',CURRENT_TIMESTAMP)",
+    orderAId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO order_items(tenant_id,order_id,product_id,name,quantity,price,tax_rate,tax,total) VALUES(1,?,1,'Foreign item',1,100,0,0,100)",
+    orderBId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO order_items(tenant_id,order_id,product_id,name,quantity,price,tax_rate,tax,total) VALUES(2,?,2,'Foreign item',1,100,0,0,100)",
+    orderAId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO inventory_ledger(tenant_id,branch_id,product_id,order_id,quantity_delta) VALUES(1,1,1,?,-1)",
+    orderBId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "INSERT INTO inventory_ledger(tenant_id,branch_id,product_id,order_id,quantity_delta) VALUES(2,2,2,?,-1)",
+    orderAId)).isInstanceOf(RuntimeException.class);
+
   // The shared fixture already created one active subscription per tenant.
   // Reuse those persisted rows so this test focuses on the composite tenant FK
   // instead of violating the one-effective-subscription invariant.

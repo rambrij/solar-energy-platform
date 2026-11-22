@@ -572,4 +572,169 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(hasTrustedTenantArgument("untrusted.tenantId()")).isFalse();
         assertThat(hasTrustedTenantArgument("vendor.getTenantId()")).isFalse();
     }
+
+    /**
+     * The provenance allow-list is not sufficient if it only proves the callers it happens
+     * to name. Discover every production call to each tenant-bearing helper/service method
+     * and require an exact caller/argument/expression record. This makes a new helper boundary
+     * fail closed until its tenant source is reviewed.
+     */
+    @Test
+    void everyTrustedTenantParameterFlowEnumeratesEveryProductionCaller() throws Exception {
+        JsonNode root=policy();
+        Map<String,JsonNode> parameterPolicies=new TreeMap<>();
+        root.path("trustedTenantParameterSources").forEach(item ->
+            parameterPolicies.put(item.path("source").asText(),item));
+        root.path("trustedServiceTenantParameters").fields().forEachRemaining(entry ->
+            parameterPolicies.put(entry.getKey(),entry.getValue()));
+
+        JavaCompiler compiler=ToolProvider.getSystemJavaCompiler();
+        assertThat(compiler).as("JDK compiler is required for interprocedural provenance analysis").isNotNull();
+        List<Path> javaFiles;
+        try(var stream=Files.walk(sourceRoot())) {
+            javaFiles=stream.filter(Files::isRegularFile)
+                .filter(file->file.toString().endsWith(".java")).sorted().toList();
+        }
+
+        record Target(String className,String methodName,int parameterIndex) {}
+        record Site(String caller,String expression,int argumentIndex) {}
+        Map<String,Target> targets=new TreeMap<>();
+        Map<String,String> simpleTypes=new HashMap<>();
+        for(var entry:parameterPolicies.entrySet()) {
+            String className=entry.getKey();
+            Path file=sourceRoot().resolve(className.replace('.','/')+".java");
+            assertThat(Files.isRegularFile(file)).as("trusted helper source exists: %s",className).isTrue();
+            String source=Files.readString(file);
+            JsonNode declared=entry.getValue().path("trustedTenantParameters");
+            declared.fields().forEachRemaining(method -> {
+                List<String> bodies=methodBodies(source,method.getKey());
+                assertThat(bodies).as("trusted tenant helper method exists: %s#%s",className,method.getKey()).isNotEmpty();
+                // Parameter positions are obtained from the AST below; the method body
+                // check above deliberately rejects stale inventory entries.
+            });
+            simpleTypes.put(className.substring(className.lastIndexOf('.')+1),className);
+        }
+
+        Map<String,List<Integer>> targetParameterIndexes=new TreeMap<>();
+        try(StandardJavaFileManager manager=compiler.getStandardFileManager(null,null,null)) {
+            JavacTask task=(JavacTask)compiler.getTask(null,manager,null,List.of("-proc:none"),null,
+                manager.getJavaFileObjectsFromPaths(javaFiles));
+            List<CompilationUnitTree> units=new ArrayList<>();
+            task.parse().forEach(units::add);
+            for(CompilationUnitTree unit:units) {
+                String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
+                for(Tree declaration:unit.getTypeDecls()) {
+                    if(!(declaration instanceof ClassTree type))continue;
+                    String className=packageName+type.getSimpleName();
+                    JsonNode classPolicy=parameterPolicies.get(className);
+                    if(classPolicy==null)continue;
+                    classPolicy.path("trustedTenantParameters").fields().forEachRemaining(methodEntry -> {
+                        for(Tree member:type.getMembers()) {
+                            if(!(member instanceof MethodTree method)
+                                ||!method.getName().contentEquals(methodEntry.getKey()))continue;
+                            for(JsonNode parameter:methodEntry.getValue()) {
+                                String name=parameter.asText();
+                                for(int i=0;i<method.getParameters().size();i++)
+                                    if(method.getParameters().get(i).getName().contentEquals(name))
+                                        targetParameterIndexes.computeIfAbsent(className+"#"+method.getName(),k->new ArrayList<>()).add(i);
+                            }
+                        }
+                    });
+                }
+            }
+
+            Map<String,Map<String,Integer>> observed=new TreeMap<>();
+            for(CompilationUnitTree unit:units) {
+                String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
+                for(Tree declaration:unit.getTypeDecls()) {
+                    if(!(declaration instanceof ClassTree type))continue;
+                    String callerClass=packageName+type.getSimpleName();
+                    Map<String,String> fieldTypes=new HashMap<>();
+                    for(Tree member:type.getMembers())if(member instanceof VariableTree field&&field.getType()!=null)
+                        fieldTypes.put(field.getName().toString(),simpleTypeName(field.getType().toString()));
+
+                    new TreePathScanner<Void,Void>() {
+                        String callerMethod="<initializer>";
+                        Map<String,String> localTypes=new HashMap<>();
+                        @Override public Void visitMethod(MethodTree method,Void unused) {
+                            String previous=callerMethod;
+                            Map<String,String> previousTypes=localTypes;
+                            callerMethod=method.getName().toString();
+                            localTypes=new HashMap<>();
+                            try { return super.visitMethod(method,unused); }
+                            finally { callerMethod=previous; localTypes=previousTypes; }
+                        }
+                        @Override public Void visitVariable(VariableTree variable,Void unused) {
+                            if(variable.getType()!=null)
+                                localTypes.put(variable.getName().toString(),simpleTypeName(variable.getType().toString()));
+                            return super.visitVariable(variable,unused);
+                        }
+                        @Override public Void visitMethodInvocation(MethodInvocationTree call,Void unused) {
+                            String invoked=call.getMethodSelect() instanceof MemberSelectTree select
+                                ?select.getIdentifier().toString():call.getMethodSelect().toString();
+                            String targetClass=callerClass;
+                            if(call.getMethodSelect() instanceof MemberSelectTree select) {
+                                String receiver=select.getExpression().toString();
+                                String simple=simpleReceiver(receiver);
+                                if(simple.equals("this")||simple.equals(type.getSimpleName().toString())) {
+                                    targetClass=callerClass;
+                                } else {
+                                    String resolved=localTypes.getOrDefault(simple,fieldTypes.get(simple));
+                                    if(resolved==null)resolved=simple;
+                                    targetClass=simpleTypes.getOrDefault(resolved,resolved);
+                                }
+                            }
+                            String targetKey=targetClass+"#"+invoked;
+                            List<Integer> indexes=targetParameterIndexes.get(targetKey);
+                            if(indexes!=null)for(int index:indexes) {
+                                if(index<call.getArguments().size()) {
+                                    String expression=call.getArguments().get(index).toString();
+                                    String site=callerClass+"#"+callerMethod+"|"+index+"|"+expression;
+                                    observed.computeIfAbsent(targetKey+"#"+index,k->new TreeMap<>())
+                                        .merge(site,1,Integer::sum);
+                                }
+                            }
+                            return super.visitMethodInvocation(call,unused);
+                        }
+                    }.scan(type,null);
+                }
+            }
+        }
+
+        Map<String,Map<String,Integer>> expected=new TreeMap<>();
+        for(JsonNode flow:root.path("trustedTenantParameterFlows")) {
+            String callee=flow.path("callee").asText();
+            String parameter=flow.path("parameter").asText();
+            String className=callee.substring(0,callee.lastIndexOf('#'));
+            String methodName=callee.substring(callee.lastIndexOf('#')+1);
+            String source=Files.readString(sourceRoot().resolve(className.replace('.','/')+".java"));
+            // Resolve the parameter's declared position from the method declaration.
+            int parameterIndex=-1;
+            JavaCompiler compilerAgain=ToolProvider.getSystemJavaCompiler();
+            try(StandardJavaFileManager manager=compilerAgain.getStandardFileManager(null,null,null)) {
+                JavacTask task=(JavacTask)compilerAgain.getTask(null,manager,null,List.of("-proc:none"),null,
+                    manager.getJavaFileObjectsFromPaths(List.of(sourceRoot().resolve(className.replace('.','/')+".java"))));
+                for(CompilationUnitTree unit:task.parse())for(Tree declaration:unit.getTypeDecls())
+                    if(declaration instanceof ClassTree type)for(Tree member:type.getMembers())
+                        if(member instanceof MethodTree method&&method.getName().contentEquals(methodName))
+                            for(int i=0;i<method.getParameters().size();i++)
+                                if(method.getParameters().get(i).getName().contentEquals(parameter))parameterIndex=i;
+            }
+            assertThat(parameterIndex).as("trusted parameter index for %s#%s(%s)",className,methodName,parameter).isGreaterThanOrEqualTo(0);
+            String targetKey=callee+"#"+parameterIndex;
+            for(JsonNode caller:flow.path("callers")) {
+                String callerRef=caller.path("caller").asText();
+                String expression=caller.path("expression").asText();
+                int index=caller.path("argumentIndex").asInt(-1);
+                int count=caller.path("expectedCallCount").asInt(1);
+                assertThat(index).isEqualTo(parameterIndex);
+                String site=callerRef+"|"+index+"|"+expression;
+                expected.computeIfAbsent(targetKey,k->new TreeMap<>()).merge(site,count,Integer::sum);
+            }
+        }
+        assertThat(observed).as("all discovered trusted tenant helper/service calls must be explicitly inventoried")
+            .containsExactlyInAnyOrderEntriesOf(expected);
+        assertThat(expected).as("trusted tenant flow inventory must not be empty").isNotEmpty();
+    }
+
 }

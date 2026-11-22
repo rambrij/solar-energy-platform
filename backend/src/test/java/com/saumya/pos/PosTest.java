@@ -2736,7 +2736,10 @@ class PosTest {
 
  @Test void inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites(){
   int quantityBefore=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  int reservedBefore=db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
   int receiptsBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_receipts WHERE tenant_id=1 AND branch_id=1",Integer.class);
+  int stockAuditBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1",Integer.class);
+  int posAuditBefore=db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1",Integer.class);
   assertThatThrownBy(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
     service.lockInventoryOutlet(a);
     stockReceiving.receive(1,1,"alice","p2-stock-receipt-rollback",
@@ -2744,19 +2747,34 @@ class PosTest {
     throw new IllegalStateException("Inject failure after stock receipt and balance writes");
   }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantityBefore);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(reservedBefore);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts WHERE tenant_id=1 AND branch_id=1",Integer.class)).isEqualTo(receiptsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1",Integer.class)).isEqualTo(stockAuditBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1",Integer.class)).isEqualTo(posAuditBefore);
 
   var draft=as("alice",()->checkout.pos("alice","p2-payment-rollback",posDraft()));
   int ledgerBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
+  int paymentAttemptsBefore=db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1",Integer.class);
+  int drawerTendersBefore=db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders WHERE tenant_id=1",Integer.class);
+  int invoiceBefore=db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
+  int receiptAuditBefore=db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
+  int saleAuditBefore=db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1 AND resource_id=?",Integer.class,draft.id());
+  int paymentQuantityBefore=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  int paymentReservedBefore=db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
   assertThatThrownBy(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
     payments.tender("alice",draft.id(),"p2-cash-tender-rollback",
       new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",draft.total(),draft.total()));
     throw new IllegalStateException("Inject failure after payment, stock consume and receipt writes");
   }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
   assertThat(db.queryForObject("SELECT status FROM orders WHERE tenant_id=1 AND id=?",String.class,draft.id())).isEqualTo("DRAFT");
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1",Integer.class)).isEqualTo(paymentAttemptsBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders WHERE tenant_id=1",Integer.class)).isEqualTo(drawerTendersBefore);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(ledgerBefore);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(invoiceBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(receiptAuditBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1 AND resource_id=?",Integer.class,draft.id())).isEqualTo(saleAuditBefore);
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(paymentQuantityBefore);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(paymentReservedBefore);
  }
 
  @Test void cashRefundFailureRollsBackRefundAllocationAndAuditTimeline(){

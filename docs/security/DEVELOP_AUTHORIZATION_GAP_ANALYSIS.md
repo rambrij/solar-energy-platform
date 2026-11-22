@@ -583,3 +583,11 @@ The branch now contains a repository query-scope analyzer and trusted-tenant pro
 ### Additional SQL/repository guard verification — 2026-11-22
 
 Workflow [#45044300832](https://github.com/rambrij/solar-energy-platform/actions/runs/45044300832) on commit `dab7157d3b2bddd17bd49891ea3bfeb8079e9bd9` passed the focused P2-04 gate on H2 and MySQL 8.4 and passed frontend tests/build. This gate includes the new dynamic JDBC SQL construction negative fixtures, inherited unscoped repository bulk-method checks, and the full `findById` provenance inventory. Full backend suites continued running after these focused checks; no full-suite pass is claimed.
+
+## P2-04 AST/provenance hardening — 2026-11-22
+
+The latest implementation adds JDK AST parsing for declared Spring Data queries and direct JDBC SQL operations, positional tenant-parameter provenance checks, local alias taint detection, and frontend API-call-to-backend-operation parity checks. It also tightens menu/submenu/route/tab actor and permission parity.
+
+Focused P2-04 H2 and MySQL 8.4 gates passed on commit `e715b70f8aeddb0b89a80273270caa0bb82b9a22`. Later frontend changes address the mismatches found by the API-action scanner and are still undergoing CI verification.
+
+**Decision: IN PROGRESS.** Full H2/MySQL suites, the newest frontend test/build, P0/P1 regression gates, Playwright authorization tests, full interprocedural provenance and exhaustive local/delegated UI-control inventory are still required before acceptance.

@@ -359,6 +359,40 @@ Additional implementation committed on this branch:
    - Keep P2-04 **IN PROGRESS** until these remaining items and all required acceptance gates pass on one exact branch-head commit.
 
 
+
+### P2-04 AST, provenance and frontend parity hardening — 2026-11-22
+
+**Status: IN PROGRESS — final acceptance is not yet met.**
+
+Additional fail-closed analysis has been added:
+
+1. **Spring Data and JPA query analysis**
+   - Added `SpringDataRepositoryAstAnalysisTest`, using the JDK compiler tree API to parse repository interfaces and method declarations.
+   - It inspects every declared `@Query` annotation (JPQL and native SQL), rejects non-literal query definitions, requires a tenant/customer/owner predicate and a corresponding scope parameter, or an explicit global/composite-key exception.
+   - It inspects derived query method names and requires a matching scope parameter or a reviewed global/composite-key exception.
+   - Existing repository analysis continues to reject dynamic `EntityManager.createQuery`, `createNativeQuery` and stored-procedure construction unless explicitly reviewed.
+2. **Direct JDBC SQL and tenant provenance**
+   - Added `JdbcTenantSqlAstAnalysisTest`, parsing all production Java sources with the JDK compiler AST.
+   - It discovers direct JDBC query/update/batch calls, requires static SQL literals (except the reviewed `PosService.one(sql,args)` helper whose call sites are individually checked), and requires each JDBC consumer and method to be present in the trusted-source inventory.
+   - It identifies the positional tenant placeholder for SELECT/UPDATE/DELETE predicates and INSERT column positions, then verifies that exact argument is derived from a trusted tenant/actor/aggregate/event variable rather than merely finding a tenant-looking identifier elsewhere in the call.
+   - JDBC source/method inventories are explicit; wildcard method entries are rejected. Local variable and assignment aliases derived from request/body/payload/DTO/filter/query/form/input tenant values are tainted and rejected when used as a SQL tenant binding.
+   - Negative fixtures cover unscoped SQL, missing INSERT tenant scope, client-origin tenant values and transitive aliases. Dynamic JDBC concatenation/String.format/StringBuilder checks remain in place.
+3. **Frontend authorization inventory**
+   - The action registry currently contains 119 backend operation records and 62 backend-facing button/form trigger records.
+   - The checker now scans literal API-wrapper calls and direct `authenticatedFetch` helper calls, including explicit route-variant metadata for bounded dynamic route segments and query-only suffixes. Every discovered operation must map to an action record and an actual backend mapping.
+   - Menu entries must cover each route and Platform tab exactly once and match the actor. Workspace routes must appear in exactly one matching submenu. Platform tab permission mode and permissions must match the canonical platform-page registry.
+   - Frontend/backend permission sets and ANY-vs-ALL semantics are compared. Every registered backend button/submit trigger must exist as an actual JSX event control and map to the backend operation.
+4. **Verified CI evidence**
+   - Workflow [#45047753729](https://github.com/rambrij/solar-energy-platform/actions/runs/45047753729), commit `e715b70f8aeddb0b89a80273270caa0bb82b9a22`: focused P2-04 H2 gate passed and focused P2-04 MySQL 8.4 gate passed. This included the AST repository/JDBC analysis and exact method-level JDBC inventory.
+   - Frontend checks on that candidate still found an ANY-vs-ALL policy metadata mismatch; that was corrected by recognizing explicit OR expressions. Subsequent frontend runs exposed additional unregistered API call sites, which have been added to the action registry.
+5. **Remaining acceptance blockers**
+   - The frontend scanner and latest control-trigger validation are still being exercised on the newest branch head; a green frontend run on the same final commit is required.
+   - Backend full H2 and MySQL 8.4 suites, P0-02/P0-06/P1-03/P1-04 regressions and Playwright authorization tests must complete successfully on one exact final branch-head commit.
+   - The current provenance analyzer performs AST call-site inspection and local alias tainting, but it is not a complete interprocedural Java call-graph/data-flow proof across arbitrary helper/service boundaries. Any such path must remain explicitly inventoried and fail closed.
+   - Backend-facing button/form triggers are registered; a separate exhaustive per-control inventory of local-only and delegated UI controls is still outstanding.
+   - Do not mark P2-04 COMPLETE until all these gates pass on the same commit.
+
+
 ### P3-01 — Refine responsive navigation and active location
 
 - **Requirement:** Grouped sidebar, dropdown, tabs, breadcrumbs, active menu state and mobile hamburger navigation.

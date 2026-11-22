@@ -560,7 +560,8 @@
         {
           "caller": "com.saumya.pos.membership.MembershipService#access",
           "expression": "m.tenant()",
-          "argumentIndex": 1
+          "argumentIndex": 1,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -571,7 +572,8 @@
         {
           "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
           "expression": "tenant.id()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -582,12 +584,14 @@
         {
           "caller": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
           "expression": "tenantId",
-          "argumentIndex": 1
+          "argumentIndex": 1,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.membership.VendorRoleService#applyTemplate",
           "expression": "actor.tenantId()",
-          "argumentIndex": 1
+          "argumentIndex": 1,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -598,7 +602,8 @@
         {
           "caller": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
           "expression": "tenantId",
-          "argumentIndex": 1
+          "argumentIndex": 1,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -609,12 +614,14 @@
         {
           "caller": "com.saumya.pos.membership.StandardRoleTemplates#initialize",
           "expression": "tenant",
-          "argumentIndex": 1
+          "argumentIndex": 1,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.membership.VendorRoleService#applyTemplate",
           "expression": "actor.tenantId()",
-          "argumentIndex": 1
+          "argumentIndex": 1,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -625,12 +632,14 @@
         {
           "caller": "com.saumya.pos.membership.MembershipService#access",
           "expression": "m.tenant()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.membership.TenantEntitlementPolicy#requireFeature",
           "expression": "tenant",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -641,7 +650,8 @@
         {
           "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
           "expression": "tenant.id()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -652,7 +662,8 @@
         {
           "caller": "com.saumya.pos.checkout.CustomerAssociationService#approve",
           "expression": "order.tenant()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -663,7 +674,8 @@
         {
           "caller": "com.saumya.pos.checkout.PaymentCheckoutService#complete",
           "expression": "order.tenant()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -674,22 +686,26 @@
         {
           "caller": "com.saumya.pos.checkout.CustomerAssociationService#approve",
           "expression": "order.tenant()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.checkout.OnlineReceiptService#view",
           "expression": "order.tenant()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.checkout.OnlineReceiptService#copy",
           "expression": "order.tenant()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.checkout.SaleDocumentsService#issue",
           "expression": "order.tenant()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         }
       ]
     },
@@ -700,32 +716,38 @@
         {
           "caller": "com.saumya.pos.cart.CartService#view",
           "expression": "cart.tenantId()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.cart.CartService#put",
           "expression": "vendor.id()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 2
         },
         {
           "caller": "com.saumya.pos.cart.CartService#remove",
           "expression": "current.tenantId()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.cart.CartService#switchVendor",
           "expression": "current.tenantId()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.cart.CartService#quote",
           "expression": "current.tenantId()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.cart.CartService#restore",
           "expression": "archived.tenantId()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 2
         }
       ]
     },
@@ -736,17 +758,20 @@
         {
           "caller": "com.saumya.pos.cart.CartService#requireFeature",
           "expression": "tenant",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         },
         {
           "caller": "com.saumya.pos.checkout.CheckoutService#online",
           "expression": "vendor.id()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 2
         },
         {
           "caller": "com.saumya.pos.checkout.PaymentCheckoutService#requireOnlineEntitlement",
           "expression": "order.tenant()",
-          "argumentIndex": 0
+          "argumentIndex": 0,
+          "expectedCallCount": 2
         }
       ]
     }

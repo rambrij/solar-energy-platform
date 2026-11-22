@@ -232,6 +232,24 @@ class P202MysqlPersistenceIntegrationTest {
             assertUniqueKey(db, schema, "tenant_subscriptions", "tenant_id,id");
             assertUniqueKey(db, schema, "subscription_invoices", "tenant_id,id");
             assertUniqueKey(db, schema, "vendor_roles", "tenant_id,id");
+
+            // Derive every tenant-to-tenant FK edge from MySQL metadata and
+            // assert that its referenced ordered column tuple is itself unique.
+            // This covers parent keys beyond the hand-curated high-value list.
+            for (String edge : db.queryForList("""
+                    SELECT CONCAT(referenced_table_name,'|',
+                                  GROUP_CONCAT(referenced_column_name
+                                    ORDER BY position_in_unique_constraint SEPARATOR ','))
+                    FROM information_schema.key_column_usage
+                    WHERE table_schema=? AND referenced_table_name IS NOT NULL
+                    GROUP BY constraint_name,table_name,referenced_table_name
+                    HAVING SUM(column_name='tenant_id') > 0
+                       AND SUM(referenced_column_name='tenant_id') > 0
+                    """, String.class, schema)) {
+                int separator=edge.indexOf('|');
+                assertThat(separator).isGreaterThan(0);
+                assertUniqueKey(db,schema,edge.substring(0,separator),edge.substring(separator+1));
+            }
         });
     }
 

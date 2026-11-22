@@ -319,6 +319,12 @@
       "trustedTenantParameters": {
         "requireOpenForCustomer": [
           "tenant"
+        ],
+        "allocateReceiptForCustomer": [
+          "tenant"
+        ],
+        "customerDraftAudit": [
+          "tenant"
         ]
       }
     },
@@ -638,6 +644,28 @@
     },
     {
       "callee": "com.saumya.pos.retail.PosService#requireOpenForCustomer",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.checkout.CustomerAssociationService#approve",
+          "expression": "order.tenant()",
+          "argumentIndex": 0
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.retail.PosService#allocateReceiptForCustomer",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.checkout.PaymentCheckoutService#complete",
+          "expression": "order.tenant()",
+          "argumentIndex": 0
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.retail.PosService#customerDraftAudit",
       "parameter": "tenant",
       "callers": [
         {

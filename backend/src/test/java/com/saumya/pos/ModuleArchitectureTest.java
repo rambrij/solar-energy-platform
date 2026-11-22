@@ -91,18 +91,75 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.retail.CashDrawerProjection",
                 "com.saumya.pos.retail.BranchProvisioningServiceImpl"
             );
-        Map<String, String> tenantScopedSqlSources = Map.of(
+        Map<String, String> jdbcSqlSources = Map.of(
+            "com.saumya.pos.membership.MembershipService", "backend/src/main/java/com/saumya/pos/membership/MembershipService.java",
+            "com.saumya.pos.membership.VendorRoleService", "backend/src/main/java/com/saumya/pos/membership/VendorRoleService.java",
+            "com.saumya.pos.retail.PosService", "backend/src/main/java/com/saumya/pos/retail/PosService.java",
             "com.saumya.pos.membership.TenantEntitlementPolicy", "backend/src/main/java/com/saumya/pos/membership/TenantEntitlementPolicy.java",
             "com.saumya.pos.membership.StandardRoleTemplates", "backend/src/main/java/com/saumya/pos/membership/StandardRoleTemplates.java",
             "com.saumya.pos.retail.DraftSessionProjection", "backend/src/main/java/com/saumya/pos/retail/DraftSessionProjection.java",
             "com.saumya.pos.retail.CashDrawerProjection", "backend/src/main/java/com/saumya/pos/retail/CashDrawerProjection.java",
             "com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java"
         );
-        for (var entry : tenantScopedSqlSources.entrySet()) {
+        assertThat(jdbcConsumers).as("every direct JDBC consumer has a query-level review")
+            .containsExactlyInAnyOrderElementsOf(jdbcSqlSources.keySet());
+        for (var entry : jdbcSqlSources.entrySet()) {
             String source = Files.readString(resolveBackendSource(entry.getValue()));
-            assertThat(source).as("approved JDBC adapter %s must bind tenant ownership in SQL", entry.getKey())
-                .contains("tenant_id");
+            List<String> statements = extractSqlStatements(source);
+            assertThat(statements).as("SQL statements discovered in %s", entry.getKey()).isNotEmpty();
+            for (String statement : statements) assertTenantScopedSql(statement, entry.getKey());
         }
+    }
+
+    private static List<String> extractSqlStatements(String source) {
+        java.util.regex.Pattern literals = java.util.regex.Pattern.compile(
+            "(?s)\\\"\\\"\\\"(.*?)\\\"\\\"\\\"|\\\"((?:\\\\\\\\.|[^\\\"\\\\\\\\])*)\\\"");
+        java.util.regex.Matcher matcher = literals.matcher(source);
+        List<String> statements = new java.util.ArrayList<>();
+        while (matcher.find()) {
+            String candidate = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            if (candidate == null) continue;
+            String sql = candidate.strip();
+            if (sql.matches("(?is)^(SELECT|INSERT|UPDATE|DELETE)\\\\b[\\\\s\\\\S]*")) statements.add(sql);
+        }
+        return statements;
+    }
+
+    private static void assertTenantScopedSql(String sql, String source) {
+        String normalized = sql.strip();
+        if (normalized.matches("(?is)^SELECT\\\\b[\\\\s\\\\S]*\\\\bFROM\\\\s+tenants\\\\b[\\\\s\\\\S]*")) {
+            assertThat(normalized).as("global tenant-directory lock is explicitly keyed by tenant primary key in %s", source)
+                .containsPattern("(?i)\\\\bWHERE\\\\s+id\\\\s*=\\\\s*\\\\?");
+            return;
+        }
+        if (normalized.matches("(?is)^INSERT\\\\b[\\\\s\\\\S]*")) {
+            java.util.regex.Matcher columns = java.util.regex.Pattern
+                .compile("(?is)^INSERT\\\\s+INTO\\\\s+[a-z_][a-z0-9_]*\\\\s*\\\\(([^)]*)\\\\)").matcher(normalized);
+            assertThat(columns.find()).as("INSERT column list is statically visible in %s: %s", source, normalized).isTrue();
+            assertThat(columns.group(1)).as("tenant-owned INSERT must persist tenant_id in %s", source)
+                .containsPattern("(?i)(?:^|,\\\\s*)tenant_id(?:\\\\s*,|$)");
+            return;
+        }
+        assertThat(normalized).as("tenant-owned SELECT/UPDATE/DELETE must constrain tenant_id with a bound parameter in %s: %s", source, normalized)
+            .containsPattern("(?is)\\\\bWHERE\\\\b[\\\\s\\\\S]*\\\\b(?:[a-z_][a-z0-9_]*\\\\.)?tenant_id\\\\s*=\\\\s*\\\\?");
+    }
+
+    @Test
+    void unsafeSqlNegativeFixturesRejectUnscopedReadsWritesAndDeletes() {
+        assertThatThrownBy(() -> assertTenantScopedSql(
+            "SELECT * FROM vendor_roles WHERE id=?", "negative fixture: unscoped read"))
+            .isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> assertTenantScopedSql(
+            "UPDATE vendor_roles SET active=FALSE WHERE id=?", "negative fixture: unscoped update"))
+            .isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> assertTenantScopedSql(
+            "DELETE FROM vendor_roles WHERE id=?", "negative fixture: unscoped delete"))
+            .isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> assertTenantScopedSql(
+            "INSERT INTO vendor_roles(role_key,display_name) VALUES(?,?)", "negative fixture: tenantless insert"))
+            .isInstanceOf(AssertionError.class);
+        assertTenantScopedSql("SELECT id FROM vendor_roles WHERE tenant_id=? AND id=?",
+            "positive fixture: tenant-bound read");
     }
 
     private static Path resolveBackendSource(String repositoryRelativePath) {

@@ -587,7 +587,7 @@
     },
     {
       "id": "pos-refund-copy",
-      "component": "CashRefunds.tsx",
+      "component": "CashRefundReceipt.tsx",
       "trigger": "button",
       "method": "POST",
       "endpoint": "/api/v1/vendor/pos/refunds/{id}/copy",
@@ -1843,7 +1843,7 @@
     },
     {
       "id": "pos-refund-copy",
-      "component": "CashRefunds.tsx",
+      "component": "CashRefundReceipt.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/vendor/pos/refunds/{id}/copy"
     },

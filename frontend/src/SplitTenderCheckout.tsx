@@ -16,9 +16,8 @@ export default function SplitTenderCheckout({orderId,disabled=false,reservationE
  const [balance,setBalance]=useState<Balance>(),[method,setMethod]=useState(()=>canRecordCash?'CASH':'UPI'),[amount,setAmount]=useState(''),[cash,setCash]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [pending,setPending]=useState<Command|undefined>(()=>{try{return JSON.parse(sessionStorage.getItem(storageKey)??'null')??undefined;}catch{return undefined;}});
  const alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
- const base=`/sales/${encodeURIComponent(orderId)}`;
- function accept(value:Balance){if(value.orderId!==orderId||!Array.isArray(value.tenders))throw Error('Tender response mismatch');setBalance(value);if(value.orderStatus==='PAID')onComplete();}
- async function load(){setBusy(true);onBusyChange(true);setError('');try{const value=await api(`${base}/tenders`);if(alive.current)accept(value);}catch{if(alive.current)setError('Tender status unavailable. Check connection and permission before taking payment.');}finally{if(alive.current){setBusy(false);onBusyChange(false);}}}
+  function accept(value:Balance){if(value.orderId!==orderId||!Array.isArray(value.tenders))throw Error('Tender response mismatch');setBalance(value);if(value.orderStatus==='PAID')onComplete();}
+ async function load(){setBusy(true);onBusyChange(true);setError('');try{const value=await api(`/sales/${encodeURIComponent(orderId)}/tenders`);if(alive.current)accept(value);}catch{if(alive.current)setError('Tender status unavailable. Check connection and permission before taking payment.');}finally{if(alive.current){setBusy(false);onBusyChange(false);}}}
  async function post(command:Command){
   if(!canRecordMethod(command.body.method)){setError(command.body.method==='CASH'?'POS_TENDER_CASH_RECORD permission is required.':'POS_TENDER_EXTERNAL_RECORD permission is required.');return;}
   try{sessionStorage.setItem(storageKey,JSON.stringify(command));}catch{setError('Cannot save retry details. No payment request was submitted.');return;}
@@ -30,7 +29,7 @@ export default function SplitTenderCheckout({orderId,disabled=false,reservationE
  async function resolve(path:string){
   if(path.endsWith('/unknown')&&!canRecordExternal){setError('POS_TENDER_EXTERNAL_RECORD permission is required to mark an external outcome unknown.');return;}
   if(path==='/finalize'&&!canCreateSale){setError('POS_SALE_CREATE permission is required to finalize the reserved sale.');return;}
-  setBusy(true);onBusyChange(true);setError('');try{await api(base+path,{},`finalize-${orderId}`);const value=await api(`${base}/tenders`);if(alive.current)accept(value);}catch{if(alive.current)setError('Outcome not confirmed. Reload the original tender balance before another action. Do not collect payment again.');}finally{if(alive.current){setBusy(false);onBusyChange(false);}}}
+  setBusy(true);onBusyChange(true);setError('');try{if(path.endsWith('/unknown')){const attemptId=path.split('/')[2];await api(`/sales/${encodeURIComponent(orderId)}/tenders/${encodeURIComponent(attemptId)}/unknown`,{},`finalize-${orderId}`);}else{await api(`/sales/${encodeURIComponent(orderId)}/finalize`,{},`finalize-${orderId}`);}const value=await api(`/sales/${encodeURIComponent(orderId)}/tenders`);if(alive.current)accept(value);}catch{if(alive.current)setError('Outcome not confirmed. Reload the original tender balance before another action. Do not collect payment again.');}finally{if(alive.current){setBusy(false);onBusyChange(false);}}}
  const unresolved=balance?.tenders.some(t=>['PENDING_VERIFICATION','UNKNOWN_RECONCILIATION_REQUIRED'].includes(t.state));
  const validAmount=/^\d+(\.\d{1,2})?$/.test(amount)&&Number(amount)>=0&&Number(amount)<=Number(balance?.remaining??-1)&&(Number(amount)>0||Number(balance?.total)===0);
  const validCash=method!=='CASH'||(/^\d+(\.\d{1,2})?$/.test(cash)&&Number(cash)>=Number(amount));

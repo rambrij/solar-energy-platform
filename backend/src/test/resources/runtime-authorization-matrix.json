@@ -788,21 +788,21 @@
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "AuthenticationController#login": {
-      "actor": "AUTHENTICATION",
-      "scope": "GLOBAL_IDENTITY_SELF",
-      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "actor": "PUBLIC",
+      "scope": "PUBLIC_AUTHENTICATION_OR_REFRESH_TOKEN",
+      "assignment": "CREDENTIAL_OR_REFRESH_TOKEN_ONLY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "AuthenticationController#register": {
-      "actor": "AUTHENTICATION",
-      "scope": "GLOBAL_IDENTITY_SELF",
-      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "actor": "PUBLIC",
+      "scope": "PUBLIC_AUTHENTICATION_OR_REFRESH_TOKEN",
+      "assignment": "CREDENTIAL_OR_REFRESH_TOKEN_ONLY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "AuthenticationController#refresh": {
-      "actor": "AUTHENTICATION",
-      "scope": "GLOBAL_IDENTITY_SELF",
-      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "actor": "PUBLIC",
+      "scope": "PUBLIC_AUTHENTICATION_OR_REFRESH_TOKEN",
+      "assignment": "CREDENTIAL_OR_REFRESH_TOKEN_ONLY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "AuthenticationController#switchContext": {
@@ -812,15 +812,15 @@
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "AuthenticationController#logout": {
-      "actor": "AUTHENTICATION",
-      "scope": "GLOBAL_IDENTITY_SELF",
-      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "actor": "PUBLIC",
+      "scope": "PUBLIC_AUTHENTICATION_OR_REFRESH_TOKEN",
+      "assignment": "CREDENTIAL_OR_REFRESH_TOKEN_ONLY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "AuthenticationController#me": {
       "actor": "AUTHENTICATION",
-      "scope": "GLOBAL_IDENTITY_SELF",
-      "assignment": "SESSION_FAMILY_AND_ENABLED_USER",
+      "scope": "AUTHENTICATED_IDENTITY_SELF",
+      "assignment": "AUTHENTICATED_SESSION",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "IdentityInvitationController#accept": {
@@ -842,21 +842,21 @@
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "PlatformMfaController#start": {
-      "actor": "MIXED",
-      "scope": "PLATFORM_IDENTITY_OR_ENROLLMENT_TOKEN",
-      "assignment": "MFA_TOKEN_OR_PLATFORM_AUDIT_PERMISSION",
+      "actor": "INVITATION_TOKEN",
+      "scope": "ONE_TIME_PLATFORM_MFA_ENROLLMENT",
+      "assignment": "TOKEN_HASH_EXPIRY_AND_SINGLE_USE",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "PlatformMfaController#complete": {
-      "actor": "MIXED",
-      "scope": "PLATFORM_IDENTITY_OR_ENROLLMENT_TOKEN",
-      "assignment": "MFA_TOKEN_OR_PLATFORM_AUDIT_PERMISSION",
+      "actor": "INVITATION_TOKEN",
+      "scope": "ONE_TIME_PLATFORM_MFA_ENROLLMENT",
+      "assignment": "TOKEN_HASH_EXPIRY_AND_SINGLE_USE",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "PlatformMfaController#status": {
-      "actor": "MIXED",
-      "scope": "PLATFORM_IDENTITY_OR_ENROLLMENT_TOKEN",
-      "assignment": "MFA_TOKEN_OR_PLATFORM_AUDIT_PERMISSION",
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_IDENTITY_SELF",
+      "assignment": "PLATFORM_AUDIT_PERMISSION",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "CatalogSearchController#search": {
@@ -896,27 +896,27 @@
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "MarketplaceController#vendors": {
-      "actor": "MIXED",
-      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
-      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_VENDOR_CATALOGUE",
+      "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "MarketplaceController#products": {
-      "actor": "MIXED",
-      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
-      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_VENDOR_CATALOGUE",
+      "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "MarketplaceController#categories": {
-      "actor": "MIXED",
-      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
-      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_VENDOR_CATALOGUE",
+      "assignment": "VENDOR_SLUG_IS_DISCOVERY_ONLY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "MarketplaceController#csrf": {
-      "actor": "MIXED",
-      "scope": "PUBLIC_CATALOGUE_OR_CUSTOMER_SELF",
-      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_CSRF_BOOTSTRAP",
+      "assignment": "AUTHENTICATED_CUSTOMER_IDENTITY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
     "MarketplaceController#cart": {

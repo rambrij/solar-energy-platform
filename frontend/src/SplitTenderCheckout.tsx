@@ -22,7 +22,7 @@ export default function SplitTenderCheckout({orderId,disabled=false,reservationE
   if(!canRecordMethod(command.body.method)){setError(command.body.method==='CASH'?'POS_TENDER_CASH_RECORD permission is required.':'POS_TENDER_EXTERNAL_RECORD permission is required.');return;}
   try{sessionStorage.setItem(storageKey,JSON.stringify(command));}catch{setError('Cannot save retry details. No payment request was submitted.');return;}
   const retry=!!pending;setPending(command);setBusy(true);onBusyChange(true);setError('');
-  try{const value=await api(`${base}/tenders`,command.body,command.key);if(!alive.current)return;accept(value);sessionStorage.removeItem(storageKey);setPending(undefined);setAmount('');setCash('');}
+  try{const value=await api(`/sales/${encodeURIComponent(orderId)}/tenders`,command.body,command.key);if(!alive.current)return;accept(value);sessionStorage.removeItem(storageKey);setPending(undefined);setAmount('');setCash('');}
   catch(e){if(alive.current){if(!retry&&e instanceof ApiError&&[400,403,404,409].includes(e.status)){sessionStorage.removeItem(storageKey);setPending(undefined);setError(e.message+' Tender rejected; check the saved balance before taking payment.');}else setError('Payment outcome is uncertain. Retry the same saved tender; do not collect or charge again.');}}
   finally{if(alive.current){setBusy(false);onBusyChange(false);}}
  }

@@ -284,26 +284,20 @@ class P202MysqlPersistenceIntegrationTest {
     }
 
     @Test
-    void platformAuditIsAppendOnlyAndFinancialForeignKeysRestrictDeletion() throws Exception {
+    void platformAuditIsAppendOnlyAndFinancialHistoryRejectsParentDeletion() throws Exception {
         withSchema((url, user, password, schema) -> {
             flyway(url, user, password, schema, null).migrate();
             JdbcTemplate db = jdbc(url, user, password);
 
-            assertThat(db.queryForObject("""
-                    SELECT COUNT(*) FROM information_schema.triggers
-                    WHERE trigger_schema=? AND event_object_table='platform_audit_events'
-                      AND trigger_name IN ('trg_platform_audit_no_update','trg_platform_audit_no_delete')
-                    """, Integer.class, schema)).isEqualTo(2);
-
-            db.execute("SET FOREIGN_KEY_CHECKS=0");
-            try {
-                db.update("""
-                        INSERT INTO platform_audit_events(actor_username,action,resource_type,outcome)
-                        VALUES('p2-missing-actor','P2_IMMUTABILITY_TEST','TEST','SUCCESS')
-                        """);
-            } finally {
-                db.execute("SET FOREIGN_KEY_CHECKS=1");
-            }
+            db.update("""
+                    INSERT INTO users(id,username,password_hash,enabled)
+                    VALUES(993001,'p2-audit-actor','not-a-login-secret',TRUE)
+                    """);
+            db.update("INSERT INTO tenants(id,name) VALUES(993011,'P2 financial tenant')");
+            db.update("""
+                    INSERT INTO platform_audit_events(actor_username,action,resource_type,tenant_id,outcome)
+                    VALUES('p2-audit-actor','P2_IMMUTABILITY_TEST','TEST',993011,'SUCCESS')
+                    """);
             Long auditId = db.queryForObject("""
                     SELECT MAX(id) FROM platform_audit_events
                     WHERE action='P2_IMMUTABILITY_TEST'
@@ -318,18 +312,61 @@ class P202MysqlPersistenceIntegrationTest {
                     SELECT COUNT(*) FROM platform_audit_events WHERE id=?
                     """, Integer.class, auditId)).isEqualTo(1);
 
-            var deleteRules = db.queryForList("""
-                    SELECT CONCAT(table_name, ':', delete_rule)
-                    FROM information_schema.referential_constraints
-                    WHERE constraint_schema=?
-                      AND referenced_table_name IN (
-                        'orders','vendor_invoices','subscription_invoices','subscription_payments',
-                        'tenant_subscriptions','pos_returns','pos_cash_refunds','inventory_ledger'
-                      )
-                    """, String.class, schema);
-            assertThat(deleteRules).isNotEmpty();
-            assertThat(deleteRules).allMatch(rule ->
-                    rule.endsWith(":RESTRICT") || rule.endsWith(":NO ACTION"));
+            db.update("""
+                    INSERT INTO subscription_plans(id,plan_key,display_name,active,current_version)
+                    VALUES(993021,'p2-test-plan','P2 Test Plan',TRUE,1)
+                    """);
+            db.update("""
+                    INSERT INTO subscription_plan_versions
+                    (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+                     max_warehouses,entitlements,grace_days,tax_metadata,invoice_description,created_by)
+                    VALUES(993021,1,100.0000,'INR','MONTHLY',5,1000,2,0,'{}',7,'{}','P2 test plan','p2-audit-actor')
+                    """);
+            db.update("""
+                    INSERT INTO tenant_subscriptions
+                    (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
+                    VALUES(993031,993011,993021,1,'ACTIVE','2026-01-01','2026-02-01','{}')
+                    """);
+            db.update("""
+                    INSERT INTO subscription_invoices
+                    (tenant_id,subscription_id,invoice_number,billing_period_start,billing_period_end,currency,
+                     plan_snapshot,subtotal,tax_amount,total,status,due_at)
+                    VALUES(993011,993031,'P2-INV-993031','2026-01-01','2026-02-01','INR','{}',
+                           100.0000,0.0000,100.0000,'OPEN','2026-02-15 00:00:00')
+                    """);
+            Long invoiceId = db.queryForObject("""
+                    SELECT id FROM subscription_invoices WHERE invoice_number='P2-INV-993031'
+                    """, Long.class);
+            db.update("""
+                    INSERT INTO subscription_payments
+                    (tenant_id,subscription_invoice_id,provider,platform_merchant_reference,idempotency_key,
+                     amount,currency,status)
+                    VALUES(993011,?,'TEST','P2-MERCHANT-993031','P2-IDEMPOTENCY-993031',
+                           100.0000,'INR','SUCCEEDED')
+                    """, invoiceId);
+            db.update("""
+                    INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason)
+                    VALUES(993011,993031,'ACTIVE','p2-audit-actor','P2 delete restriction test')
+                    """);
+
+            assertThatThrownBy(() -> db.update("DELETE FROM subscription_invoices WHERE id=?", invoiceId))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> db.update("DELETE FROM tenant_subscriptions WHERE id=993031"))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_invoices WHERE id=?",
+                    Integer.class, invoiceId)).isEqualTo(1);
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_subscriptions WHERE id=993031",
+                    Integer.class)).isEqualTo(1);
+
+            for (String constraint : Set.of("fk_sub_payment_invoice_owner",
+                    "fk_sub_invoice_subscription_owner", "fk_sub_event_subscription_owner")) {
+                assertThat(db.queryForObject("""
+                        SELECT COUNT(*) FROM information_schema.referential_constraints
+                        WHERE constraint_schema=? AND constraint_name=? AND delete_rule IN ('RESTRICT','NO ACTION')
+                        """, Integer.class, schema, constraint))
+                        .as("%s must prevent financial-history parent deletion", constraint)
+                        .isEqualTo(1);
+            }
         });
     }
 

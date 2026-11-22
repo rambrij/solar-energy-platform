@@ -1924,6 +1924,18 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/tenders/{attemptId}/unknown"
+    },
+    {
+      "id": "pos-customer-association-create",
+      "component": "WalkInCustomer.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/customer-association",
+      "permissions": [
+        "POS_SALE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/customer-association"
     }
   ],
   "buttons": [
@@ -2304,6 +2316,12 @@
       "component": "OrderHistory.tsx",
       "trigger": "button",
       "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
+    },
+    {
+      "id": "pos-customer-association-create",
+      "component": "WalkInCustomer.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/customer-association"
     }
   ],
   "dynamicRouteParameters": {

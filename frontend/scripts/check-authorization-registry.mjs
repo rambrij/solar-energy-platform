@@ -418,6 +418,16 @@ if(!/fetch\s*\(\s*['"]\/api\/v1\/auth\/csrf['"]/.test(sessionSource)
  || [...sessionSource.matchAll(/\bfetch\s*\(/g)].length!==4){
  throw new Error('Session auth transport must use the reviewed CSRF and POST /api/v1/auth path helpers');
 }
+const marketplaceHelperSource=fs.readFileSync(path.join(frontend,'src/marketplaceApi.ts'),'utf8');
+if(!/authenticatedFetch\(\s*path\s*,\s*\{\s*method/.test(marketplaceHelperSource)
+ || !/marketplaceApi\(\s*['"]\/api\/v1\/customer\/csrf['"]\s*\)/.test(marketplaceHelperSource)
+ || !/authenticatedFetch\(\s*['"]\/api\/v1\/auth\/csrf['"]/.test(apiHelperSource))
+ throw new Error('CSRF transport helpers must use only their reviewed fixed endpoints');
+const transportEndpoints=actionRegistry.transportEndpoints??[];
+const expectedTransports=['GET /api/v1/auth/csrf','GET /api/v1/customer/csrf'].sort();
+const observedTransports=transportEndpoints.map(item=>item.method+' '+item.endpoint).sort();
+if(JSON.stringify(observedTransports)!==JSON.stringify(expectedTransports))
+ throw new Error('CSRF transport endpoint inventory is incomplete or contains an unreviewed endpoint');
 const sessionOperations=actionRegistry.sessionApiOperations??[];
 if(!Array.isArray(sessionOperations)||sessionOperations.length===0)throw new Error('Session API operation inventory is required');
 const observedSessionPaths=[];

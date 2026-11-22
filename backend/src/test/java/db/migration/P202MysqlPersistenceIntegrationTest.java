@@ -484,6 +484,25 @@ class P202MysqlPersistenceIntegrationTest {
                         .as("%s must prevent financial-history parent deletion", constraint)
                         .isEqualTo(1);
             }
+
+            // No FK may cascade-delete or null out referenced financial history.
+            // This is a schema-wide guard over the implemented commercial and
+            // financial parent tables, not just the subscription invoice fixture.
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.referential_constraints r
+                    JOIN information_schema.key_column_usage k
+                      ON k.constraint_schema=r.constraint_schema
+                     AND k.constraint_name=r.constraint_name
+                     AND k.table_name=r.table_name
+                    WHERE r.constraint_schema=?
+                      AND k.referenced_table_name IN (
+                        'orders','vendor_invoices','subscription_invoices','subscription_payments',
+                        'pos_returns','pos_cash_refunds','inventory_receipts','inventory_ledger',
+                        'pos_drawer_tenders','pos_cash_movements','platform_audit_events',
+                        'vendor_access_audit_events','receipt_document_audit','pos_audit'
+                      )
+                      AND r.delete_rule NOT IN ('RESTRICT','NO ACTION')
+                    """, Integer.class, schema)).isZero();
         });
     }
 

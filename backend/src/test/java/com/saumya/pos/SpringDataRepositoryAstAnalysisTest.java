@@ -226,6 +226,162 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(observed).as("all declared @Query operations must be seen by the AST analyzer").isNotEmpty();
     }
 
+    private record ScopedRepositoryMethod(String repository,String name,int parameterCount,Set<Integer> tenantIndexes) {}
+    private static Set<Integer> tenantParameterIndices(MethodTree method,String query){
+        Set<Integer> indices=new TreeSet<>();
+        if(query!=null){
+            var bindings=java.util.regex.Pattern.compile("(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(tenantId|tenant_id|tenant)\\s*=\\s*(:[a-z][a-zA-Z0-9_]*|\\?(\\d*))").matcher(query);
+            while(bindings.find()){
+                String field=bindings.group(1),reference=bindings.group(2);
+                if(reference.startsWith(":")){
+                    String name=reference.substring(1);
+                    for(int i=0;i<method.getParameters().size();i++)
+                        if(scopeFieldMatchesParameter(field,parameterNames(method.getParameters().get(i)))&&parameterNames(method.getParameters().get(i)).contains(name))
+                            indices.add(i);
+                }else{
+                    String number=bindings.group(3);
+                    int index=number==null||number.isEmpty()?positionalParameterIndex(query,bindings.start(2)):Integer.parseInt(number)-1;
+                    if(index>=0&&index<method.getParameters().size()
+                        &&scopeFieldMatchesParameter(field,parameterNames(method.getParameters().get(index))))indices.add(index);
+                }
+            }
+            return indices;
+        }
+        String name=method.getName().toString();
+        if(!name.matches("(?i).*(Tenant|TenantId).*"))return indices;
+        for(int i=0;i<method.getParameters().size();i++){
+            Set<String> names=parameterNames(method.getParameters().get(i));
+            if(names.stream().anyMatch(value->value.toLowerCase(Locale.ROOT).contains("tenant")))indices.add(i);
+        }
+        return indices;
+    }
+    private static boolean trustedTenantExpression(String expression,Set<String> trustedVariables){
+        String value=expression.trim();
+        if(java.util.regex.Pattern.compile("(?i)(?:\\\\b(?:request|payload|body|filter|criteria|dto|command|input|form)\\\\s*\\\\.|\\\\bgetTenantId\\\\s*\\\\()").matcher(value).find())return false;
+        if(java.util.regex.Pattern.compile("(?i)(?:\\\\b(?:auth|authorization)\\\\s*\\\\.\\\\s*current\\\\s*\\\\(\\\\s*\\\\)\\\\s*\\\\.\\\\s*tenantId\\\\s*\\\\(\\\\s*\\\\)|"
+            +"\\\\b(?:ctx|context|c|actor|reviewer|scope|s|event|m|order|membership|cart|current|archived|vendor|tenant)\\\\s*\\\\.\\\\s*(?:tenant|tenantId|id)\\\\s*(?:\\\\(\\\\s*\\\\))?)").matcher(value).find())return true;
+        return value.matches("[A-Za-z_$][\\\\w$]*")&&trustedVariables.contains(value);
+    }
+    private static String repositoryType(VariableTree variable){
+        if(variable.getType()==null)return null;
+        var matcher=java.util.regex.Pattern.compile("([A-Za-z_$][\\\\w$]*Repository)").matcher(variable.getType().toString());
+        return matcher.find()?matcher.group(1):null;
+    }
+    private static String simpleReceiver(String receiver){
+        String value=receiver.replaceFirst("^this\\\\.","");
+        int dot=value.lastIndexOf('.');
+        return dot<0?value:value.substring(dot+1);
+    }
+
+    @Test
+    void everyTenantScopedSpringDataCallsiteUsesTrustedTenantProvenance() throws Exception {
+        JavaCompiler compiler=ToolProvider.getSystemJavaCompiler();
+        assertThat(compiler).isNotNull();
+        List<Path> javaFiles;
+        try(var stream=Files.walk(sourceRoot())){
+            javaFiles=stream.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java")).sorted().toList();
+        }
+        Map<String,List<ScopedRepositoryMethod>> repositoryMethods=new HashMap<>();
+        try(StandardJavaFileManager manager=compiler.getStandardFileManager(null,null,null)){
+            JavacTask task=(JavacTask)compiler.getTask(null,manager,null,List.of("-proc:none"),null,manager.getJavaFileObjectsFromPaths(javaFiles));
+            List<CompilationUnitTree> units=new ArrayList<>();
+            task.parse().forEach(units::add);
+            for(CompilationUnitTree unit:units)for(Tree declaration:unit.getTypeDecls()){
+                if(!(declaration instanceof ClassTree type)||type.getKind()!=Tree.Kind.INTERFACE||!type.getSimpleName().toString().endsWith("Repository"))continue;
+                String repository=type.getSimpleName().toString();
+                for(Tree member:type.getMembers())if(member instanceof MethodTree method){
+                    String query=null;
+                    for(AnnotationTree annotation:method.getModifiers().getAnnotations())
+                        if(annotation.getAnnotationType().toString().endsWith("Query"))query=queryValue(annotation);
+                    Set<Integer> tenantIndexes=tenantParameterIndices(method,query);
+                    if(!tenantIndexes.isEmpty())
+                        repositoryMethods.computeIfAbsent(repository,key->new ArrayList<>())
+                            .add(new ScopedRepositoryMethod(repository,method.getName().toString(),method.getParameters().size(),tenantIndexes));
+                }
+            }
+            JsonNode policy=policy();
+            Set<String> trustedParameters=new HashSet<>();
+            policy.path("trustedTenantParameterFlows").forEach(flow->{
+                String callee=flow.path("callee").asText(),parameter=flow.path("parameter").asText();
+                trustedParameters.add(callee+"#"+parameter);
+            });
+            List<String> untrusted=new ArrayList<>();
+            for(CompilationUnitTree unit:units)for(Tree declaration:unit.getTypeDecls()){
+                if(!(declaration instanceof ClassTree type)||type.getKind()==Tree.Kind.INTERFACE&&type.getSimpleName().toString().endsWith("Repository"))continue;
+                String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
+                String className=packageName+type.getSimpleName();
+                Map<String,String> repositoryVariables=new HashMap<>();
+                new TreeScanner<Void,Void>(){
+                    @Override public Void visitVariable(VariableTree node,Void unused){
+                        String repoType=repositoryType(node);
+                        if(repoType!=null)repositoryVariables.put(node.getName().toString(),repoType);
+                        return super.visitVariable(node,unused);
+                    }
+                }.scan(type,null);
+                new TreePathScanner<Void,Void>(){
+                    private String methodName;
+                    private Set<String> trustedVariables=new HashSet<>();
+                    @Override public Void visitMethod(MethodTree node,Void unused){
+                        String previousMethod=methodName;Set<String> previousVariables=trustedVariables;
+                        methodName=node.getName().toString();trustedVariables=new HashSet<>();
+                        for(VariableTree parameter:node.getParameters()){
+                            String key=className+"#"+methodName+"#"+parameter.getName();
+                            if(trustedParameters.contains(key))trustedVariables.add(parameter.getName().toString());
+                        }
+                        Void result=super.visitMethod(node,unused);
+                        methodName=previousMethod;trustedVariables=previousVariables;
+                        return result;
+                    }
+                    @Override public Void visitVariable(VariableTree node,Void unused){
+                        if(methodName!=null&&node.getInitializer()!=null
+                            &&trustedTenantExpression(node.getInitializer().toString(),trustedVariables))
+                            trustedVariables.add(node.getName().toString());
+                        return super.visitVariable(node,unused);
+                    }
+                    @Override public Void visitAssignment(AssignmentTree node,Void unused){
+                        if(methodName!=null&&node.getVariable() instanceof IdentifierTree identifier
+                            &&trustedTenantExpression(node.getExpression().toString(),trustedVariables))
+                            trustedVariables.add(identifier.getName().toString());
+                        return super.visitAssignment(node,unused);
+                    }
+                    @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
+                        if(node.getMethodSelect() instanceof MemberSelectTree select){
+                            String receiver=simpleReceiver(select.getExpression().toString());
+                            String repository=repositoryVariables.getOrDefault(receiver,
+                                receiver.endsWith("Repository")?receiver:null);
+                            if(repository!=null){
+                                for(ScopedRepositoryMethod method:repositoryMethods.getOrDefault(repository,List.of())){
+                                    if(!method.name().equals(select.getIdentifier().toString())||method.parameterCount()!=node.getArguments().size())continue;
+                                    for(int index:method.tenantIndexes()){
+                                        String argument=node.getArguments().get(index).toString();
+                                        if(!trustedTenantExpression(argument,trustedVariables)){
+                                            long line=unit.getLineMap().getLineNumber(node.getStartPosition());
+                                            untrusted.add(unit.getSourceFile().getName()+":"+line+" "+repository+"#"+method.name()
+                                                +" tenant argument["+index+"]="+argument+" in "+className+"#"+methodName);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        return super.visitMethodInvocation(node,unused);
+                    }
+                }.scan(type,null);
+            }
+            assertThat(untrusted).as("every tenant-scoped Spring Data call must receive a server-derived tenant argument; add an explicit trusted helper flow when it crosses a method boundary")
+                .isEmpty();
+        }
+    }
+
+    @Test
+    void tenantRepositoryCallsiteProvenanceFixturesRejectForgedAndUnreviewedArguments(){
+        assertThat(trustedTenantExpression("scope.tenant()",Set.of())).isTrue();
+        assertThat(trustedTenantExpression("order.tenant()",Set.of())).isTrue();
+        assertThat(trustedTenantExpression("request.tenantId()",Set.of())).isFalse();
+        assertThat(trustedTenantExpression("payload.tenant()",Set.of())).isFalse();
+        assertThat(trustedTenantExpression("tenant",Set.of())).isFalse();
+        assertThat(trustedTenantExpression("tenant",Set.of("tenant"))).isTrue();
+    }
+
     @Test
     void namedQueryScopeCannotBeSatisfiedByAnUnrelatedParameter(){
         assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("tenant"))).isTrue();

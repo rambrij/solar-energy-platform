@@ -105,10 +105,35 @@ class ModuleArchitectureTest {
             .containsExactlyInAnyOrderElementsOf(jdbcSqlSources.keySet());
         for (var entry : jdbcSqlSources.entrySet()) {
             String source = Files.readString(resolveBackendSource(entry.getValue()));
+            assertNoClientSuppliedTenantParameter(source, entry.getKey());
             List<String> statements = extractSqlStatements(source);
             assertThat(statements).as("SQL statements discovered in %s", entry.getKey()).isNotEmpty();
             for (String statement : statements) assertTenantScopedSql(statement, entry.getKey());
         }
+    }
+
+    private static void assertNoClientSuppliedTenantParameter(String sourceText, String source) {
+        java.util.regex.Pattern forgedTenant = java.util.regex.Pattern.compile(
+            "(?i)\\\\b(?:request|filter|criteria|dto|body|payload|query|params)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(");
+        assertThat(forgedTenant.matcher(sourceText).find())
+            .as("JDBC tenant authority must not be read from client-controlled request/filter DTOs in %s", source)
+            .isFalse();
+    }
+
+    @Test
+    void forgedTenantParameterNegativeFixturesRejectClientControlledTenantSources() {
+        assertThatThrownBy(() -> {
+            String fixture = "db.queryForList(sql, request.tenantId())";
+            assertThat(java.util.regex.Pattern.compile(
+                "(?i)\\\\b(?:request|filter|criteria|dto|body|payload|query|params)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(")
+                .matcher(fixture).find()).isFalse();
+        }).isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> {
+            String fixture = "db.update(sql, filter.getTenantId())";
+            assertThat(java.util.regex.Pattern.compile(
+                "(?i)\\\\b(?:request|filter|criteria|dto|body|payload|query|params)\\\\s*\\\\.\\\\s*(?:get)?tenantId\\\\s*\\\\(")
+                .matcher(fixture).find()).isFalse();
+        }).isInstanceOf(AssertionError.class);
     }
 
     private static List<String> extractSqlStatements(String source) {

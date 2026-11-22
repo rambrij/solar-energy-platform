@@ -84,6 +84,18 @@ class SpringDataRepositoryAstAnalysisTest {
         }
         return found;
     }
+    private static boolean derivedParameterMatches(String property,Set<String> parameters){
+        if(parameters.contains(property))return true;
+        return switch(property){
+            case "tenantId" -> parameters.contains("tenant");
+            case "customerId" -> parameters.contains("customer");
+            case "branchId" -> parameters.contains("branch");
+            case "registerId" -> parameters.contains("register");
+            case "draftOwner","ownerId" -> parameters.contains("owner");
+            case "tokenHash" -> parameters.contains("hash");
+            default -> false;
+        };
+    }
     private static boolean hasDerivedScopeParameters(MethodTree method){
         String name=method.getName().toString();
         int by=name.indexOf("By");
@@ -102,8 +114,7 @@ class SpringDataRepositoryAstAnalysisTest {
             String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
             if(!scopeParameterName(normalized))continue;
             scoped=true;
-            if(!parameters.contains(normalized)&&!(normalized.equals("tenantId")&&parameters.contains("tenant"))
-                &&!(normalized.equals("customerId")&&parameters.contains("customer")))return false;
+            if(!derivedParameterMatches(normalized,parameters))return false;
         }
         return scoped;
     }
@@ -202,8 +213,7 @@ class SpringDataRepositoryAstAnalysisTest {
             if(property.startsWith("Id")&&property.length()>2)property=property.substring(2);
             String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
             if(!scopeParameterName(normalized))continue;scoped=true;
-            if(!parameters.contains(normalized)&&!(normalized.equals("tenantId")&&parameters.contains("tenant"))
-                &&!(normalized.equals("customerId")&&parameters.contains("customer")))return false;
+            if(!derivedParameterMatches(normalized,parameters))return false;
         }
         return scoped;
     }
@@ -234,6 +244,8 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(derivedScopeBindingFixture("findAllByTenantAndOrderOrderByCreatedAscIdAsc",Set.of("tenant","order"))).isTrue();
         assertThat(derivedScopeBindingFixture("findAllByTenantAndOrderOrderByCreatedAscIdAsc",Set.of("order","requestedTenant"))).isFalse();
         assertThat(derivedScopeBindingFixture("findByUsernameIgnoreCase",Set.of("username"))).isTrue();
+        assertThat(derivedScopeBindingFixture("existsByTenantIdAndDraftOwner",Set.of("tenant","owner"))).isTrue();
+        assertThat(derivedScopeBindingFixture("existsByTenantIdAndDraftOwner",Set.of("tenant","requestOwner"))).isFalse();
     }
 
     @Test

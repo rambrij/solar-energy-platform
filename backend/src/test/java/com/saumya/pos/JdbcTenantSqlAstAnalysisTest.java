@@ -314,7 +314,7 @@ class JdbcTenantSqlAstAnalysisTest {
             .contains("entitlements.permissions(m.tenant(),effective)")
             .contains("WHERE a.tenant_id=? AND a.username=?");
 
-        assertThat(branch).contains("auth.current()")
+        assertThat(branch).contains("authorization.current()")
             .contains("actor.requirePermission(\"PLATFORM_TENANT_CREATE\")")
             .contains("new BranchConfiguration(id,tenantId,name)")
             .contains("tenantId,id,id,name+\" POS stock room\"");

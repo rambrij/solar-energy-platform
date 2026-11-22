@@ -338,8 +338,8 @@ class RepositoryTenantAccessAnalysisTest {
         try (var files = Files.walk(sourceRoot())) {
             for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
                 String source = Files.readString(file);
-                if (Pattern.compile("\\\\.findById\\\\s*\\\\(").matcher(source).find()) {
-                    observedSources.add(sourceRoot().relativize(file).toString().replace('\\\\','/'));
+                if (Pattern.compile("\\.findById\\s*\\(").matcher(source).find()) {
+                    observedSources.add(sourceRoot().relativize(file).toString().replace('\\','/'));
                 }
             }
         }

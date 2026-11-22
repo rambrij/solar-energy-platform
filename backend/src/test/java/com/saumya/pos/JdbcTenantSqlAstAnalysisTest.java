@@ -370,6 +370,19 @@ class JdbcTenantSqlAstAnalysisTest {
         return files;
     }
     @Test
+    void paymentReviewTenantScopeIsAuthorizedBeforeTheOriginalCashierLookup() throws Exception {
+        Path service=sourceRoot().resolve("com/saumya/pos/retail/PosService.java");
+        String source=Files.readString(service);
+        String method=methodBody(source,"requireOpenForPaymentReview");
+        int authorization=method.indexOf("authorizeInternalScope(reviewer");
+        int lookup=method.indexOf("one(");
+        assertThat(authorization).isGreaterThanOrEqualTo(0);
+        assertThat(lookup).isGreaterThan(authorization);
+        assertThat(method).contains("catalogue.requirePosStockLocation(reviewer.tenant(),reviewer.branch())")
+            .contains("reviewer.tenant(),reviewer.branch(),ownerCashier,sessionId");
+    }
+
+    @Test
     void everyBareTrustedTenantParameterHasAnExactReviewedCallerFlow() throws Exception {
         JsonNode root=policy();
         Map<String,JsonNode> sourcePolicies=new TreeMap<>();

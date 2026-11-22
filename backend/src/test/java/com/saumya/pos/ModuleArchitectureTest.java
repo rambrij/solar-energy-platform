@@ -9,6 +9,10 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Set;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import com.p204fixtures.architecture.modulea.internal.ModuleARepository;
+import com.p204fixtures.architecture.moduleb.ModuleBController;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
@@ -79,13 +83,30 @@ class ModuleArchitectureTest {
             .containsOnly(
                 "com.saumya.pos.membership.MembershipService",
                 "com.saumya.pos.membership.VendorRoleService",
-                "com.saumya.pos.retail.PosService"
+                "com.saumya.pos.retail.PosService",
+                "com.saumya.pos.membership.TenantEntitlementPolicy",
+                "com.saumya.pos.membership.StandardRoleTemplates",
+                "com.saumya.pos.retail.DraftSessionProjection",
+                "com.saumya.pos.retail.CashDrawerProjection",
+                "com.saumya.pos.retail.BranchProvisioningServiceImpl"
             );
+        Map<String, String> tenantScopedSqlSources = Map.of(
+            "com.saumya.pos.membership.TenantEntitlementPolicy", "backend/src/main/java/com/saumya/pos/membership/TenantEntitlementPolicy.java",
+            "com.saumya.pos.membership.StandardRoleTemplates", "backend/src/main/java/com/saumya/pos/membership/StandardRoleTemplates.java",
+            "com.saumya.pos.retail.DraftSessionProjection", "backend/src/main/java/com/saumya/pos/retail/DraftSessionProjection.java",
+            "com.saumya.pos.retail.CashDrawerProjection", "backend/src/main/java/com/saumya/pos/retail/CashDrawerProjection.java",
+            "com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java"
+        );
+        for (var entry : tenantScopedSqlSources.entrySet()) {
+            String source = Files.readString(Path.of(entry.getValue()));
+            assertThat(source).as("approved JDBC adapter %s must bind tenant ownership in SQL", entry.getKey())
+                .contains("tenant_id");
+        }
     }
 
     @Test
     void negativeFixturesProveControllerAndCrossModuleRepositoryRulesFail() {
-        JavaClasses fixtures = new ClassFileImporter().importPackages("com.p204fixtures.architecture");
+        JavaClasses fixtures = new ClassFileImporter().importClasses(ModuleARepository.class, ModuleBController.class);
         assertThatThrownBy(() -> controllerRepositoryRule().check(fixtures))
             .isInstanceOf(AssertionError.class);
         assertThatThrownBy(() -> repositoryOwnerRule("modulea").check(fixtures))

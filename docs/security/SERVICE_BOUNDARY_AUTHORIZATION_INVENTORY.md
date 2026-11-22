@@ -129,6 +129,7 @@ These methods are not independent user-facing operations. Their production calle
 | SubscriptionPlanServiceImpl and TenantSubscriptionServiceImpl | Platform subscription administration flows | Platform-only permission and actor binding before plan/subscription repositories or tenant lifecycle lookup |
 | CheckoutService.expire | DraftExpiryJob.runBatch and expireOne only | Requires exact system:draft-expiry principal and SYSTEM_DRAFT_EXPIRY before DraftRepository access; ReservationCleanup.sweep is unscheduled and delegates to DraftExpiryJob |
 | DraftExpiryJob.scheduledCleanup / runBatch / expireOne | Spring scheduler; deterministic test/internal entry points | Sole scheduled worker; bounded batch; installs dedicated identity/authority and restores previous SecurityContext in finally |
+| PlatformIdentityQueryService.list | PlatformIdentityController.list | PLATFORM_IDENTITY_MANAGE enforced by controller; read-only identity listing; repository access remains inside identity module service |
 | PlatformMfaService.issueEnrollment / start / complete / status | Platform MFA controller and one-time enrollment flow | PLATFORM_IDENTITY_MANAGE or token hash/expiry/one-time checks; status is actor-bound |
 
 ## 6. Gaps still open

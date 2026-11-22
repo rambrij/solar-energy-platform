@@ -43,6 +43,7 @@ class PosTest {
  @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager em;
  @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
  @Autowired com.saumya.pos.checkout.CheckoutService checkout;
+ @Autowired com.saumya.pos.tenant.TenantLifecycleService tenantLifecycle;
  @Autowired com.saumya.pos.checkout.DraftExpiryJob draftExpiry;
  @Autowired com.saumya.pos.checkout.CashierSalesService cashierSales;
  @Autowired com.saumya.pos.checkout.OrderHistoryService orderHistory;
@@ -247,6 +248,33 @@ class PosTest {
   as("alice", () -> payments.tender("alice",draft.id(),"gate-partial",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("40"),new BigDecimal("40"))));update("UPDATE orders SET expires_at=? WHERE id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)),draft.id());draftExpiry.runBatch();assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isEqualTo(1);assertThatThrownBy(()->asScope(a, () -> service.close(a,session,new BigDecimal("90")))).hasMessageContaining("Resolve reserved");
   as("alice", () -> payments.tender("alice",draft.id(),"gate-remainder",new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",new BigDecimal("70"),new BigDecimal("70"))));assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts",Integer.class)).isZero();assertThat(asScope(a, () -> service.close(a,session,new BigDecimal("160"))).state()).isEqualTo("CLOSED");
  }
+
+ @Test void tenantSuspensionAndDraftExpirySerializeOnThePersistedTenantRow() throws Exception {
+  var executor=Executors.newFixedThreadPool(2);
+  try {
+   var expiryOwnsLock=new CountDownLatch(1);var allowExpiryCommit=new CountDownLatch(1);
+   var expiry=new org.springframework.transaction.support.TransactionTemplate(transactions);
+   var suspend=new org.springframework.transaction.support.TransactionTemplate(transactions);
+   var expiryFuture=executor.submit(()->expiry.execute(status->{
+    boolean active=tenantLifecycle.lockActive(1L);expiryOwnsLock.countDown();
+    try { if(!allowExpiryCommit.await(10,TimeUnit.SECONDS)) throw new IllegalStateException("expiry lock release timed out"); }
+    catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException(e);}
+    return active;
+   }));
+   assertThat(expiryOwnsLock.await(10,TimeUnit.SECONDS)).isTrue();
+   var suspensionFuture=executor.submit(()->suspend.execute(status->{
+    db.update("UPDATE tenants SET lifecycle_status='SUSPENDED' WHERE id=1");return null;
+   }));
+   Thread.sleep(150);
+   assertThat(suspensionFuture.isDone()).as("suspension must wait while expiry owns the tenant row lock").isFalse();
+   allowExpiryCommit.countDown();
+   assertThat(expiryFuture.get(10,TimeUnit.SECONDS)).isTrue();
+   suspensionFuture.get(10,TimeUnit.SECONDS);
+   assertThat(new org.springframework.transaction.support.TransactionTemplate(transactions)
+    .execute(status->tenantLifecycle.lockActive(1L))).isFalse();
+  } finally { executor.shutdownNow(); }
+ }
+
  @Test void guestBuyerSnapshotsArePrivateTransactionFactsAndNeverCreateAccounts()throws Exception{
   var buyer=new com.saumya.pos.checkout.BuyerDetailsPolicy.Input("Private walk-in buyer","private-contact","PRIVATE-TAX","Private street");
   var receipt=as("alice", () -> checkout.cashSale("alice","guest-buyer",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1)),new BigDecimal("120"),false,null,buyer)));String id=(String)receipt.get("id");assertThat(receipt.get("buyer")).isEqualTo(buyer);

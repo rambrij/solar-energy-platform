@@ -250,7 +250,6 @@ function resolveApiCall(file,source,match){
  if(fn==='marketplaceApi'&&raw.endsWith('/csrf'))return null;
  let method='GET',endpoint=raw;
  if(fn==='api')method=args.length>1&&args[1]&&!/^(?:undefined|null)$/.test(args[1])?'POST':'GET';
- else if(fn==='authPost')method='POST';
  else if(['vendorApi','platformApi','marketplaceApi'].includes(fn)){
   const declared=(args[1]??'').match(/^['"](GET|POST|PUT|PATCH|DELETE)['"]$/);
   method=declared?declared[1]:'GET';
@@ -258,7 +257,6 @@ function resolveApiCall(file,source,match){
  if(fn==='api'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor/pos'+endpoint;
  if(fn==='vendorApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor'+endpoint;
  if(fn==='platformApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/platform'+endpoint;
- if(fn==='authPost'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/auth'+endpoint;
  endpoint=normalizeActionPath(endpoint.split('?')[0].replace(/\$\{[^}]+\}/g,'{}'));
  return {component:path.basename(file),method,endpoint,fn,line:source.slice(0,match.index).split('\n').length};
 }
@@ -268,7 +266,7 @@ for(const file of sourceFiles){
  const source=fs.readFileSync(file,'utf8');
  const relative=path.relative(path.join(frontend,'src'),file);
  if(['api.ts','marketplaceApi.ts'].includes(relative))continue;
- const callPattern=/\b(api|vendorApi|platformApi|authApi|authPost|marketplaceApi)\s*\(/g;
+ const callPattern=/\b(api|vendorApi|platformApi|marketplaceApi)\s*\(/g;
  for(const match of source.matchAll(callPattern)){
   const resolved=resolveApiCall(file,source,match);
   if(!resolved)continue;

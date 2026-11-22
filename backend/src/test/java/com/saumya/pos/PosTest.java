@@ -2837,8 +2837,19 @@ class PosTest {
     .isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("DELETE FROM products WHERE tenant_id=1 AND id=1"))
     .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  // Failed parent deletes must leave every commercial/financial history row intact.
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM orders WHERE tenant_id=1 AND id=?",Integer.class,orderA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_returns WHERE tenant_id=1 AND id=?",Integer.class,returnA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds WHERE tenant_id=1 AND id='p2-cross-refund-a'",Integer.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,orderA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1 AND id='p2-cross-payment-a'",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM receipt_document_audit WHERE tenant_id=1 AND id='p2-cross-receipt-a'",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts WHERE tenant_id=1 AND id='p2-cross-stock-a'",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_items WHERE tenant_id=1 AND return_id=?",Integer.class,returnA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1 AND return_id=?",Integer.class,returnA)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items WHERE tenant_id=1 AND refund_id='p2-cross-refund-a'",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_return_dispositions WHERE tenant_id=1 AND return_id=?",Integer.class,returnA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,orderA)).isEqualTo(1);
  }
 
  @Test void inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites(){

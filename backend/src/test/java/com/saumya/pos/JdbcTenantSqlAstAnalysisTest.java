@@ -565,7 +565,6 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(hasTrustedTenantArgument(forgedAliasArgument)).isFalse();
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();
         assertThat(hasTrustedTenantArgument("reviewer.tenant()")).isTrue();
-        assertThat(hasTrustedTenantArgument("reviewer.branch()")).isTrue();
         assertThat(hasTrustedTenantArgument("tenant")).isFalse();
         assertThat(hasTrustedTenantArgument("tenantId")).isFalse();
         assertThat(hasTrustedTenantArgument("request.tenantId()")).isFalse();

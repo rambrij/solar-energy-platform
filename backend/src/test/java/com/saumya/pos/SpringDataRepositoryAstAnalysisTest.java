@@ -323,7 +323,8 @@ class SpringDataRepositoryAstAnalysisTest {
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
                         String invoked=node.getMethodSelect() instanceof MemberSelectTree select
                             ?select.getIdentifier().toString():node.getMethodSelect().toString();
-                        if(invoked.equals("requireTenant")&&!node.getArguments().isEmpty()
+                        if((invoked.equals("requireTenant")||ref.tenantGuardMethods().contains(invoked))
+                            &&!node.getArguments().isEmpty()
                             &&node.getArguments().get(0) instanceof IdentifierTree id)variables.add(id.getName().toString());
                         if(invoked.equals("requirePlatform")||invoked.equals("requireRead")){
                             variables.add("__platformAuthorizedTenantTarget");

@@ -51,6 +51,7 @@ class PosTest {
  @Autowired com.saumya.pos.catalog.ProductAdminService productAdmin;
  @Autowired com.saumya.pos.catalog.CategoryAdminService categoryAdmin;
  @Autowired com.saumya.pos.checkout.PaymentCheckoutService payments;
+ @Autowired com.saumya.pos.inventory.StockReceivingService stockReceiving;
  @Autowired com.saumya.pos.checkout.ReturnSaleAccess returnSaleAccess;
  @Autowired com.saumya.pos.checkout.OnlineReceiptService onlineReceipts;
  @Autowired com.saumya.pos.catalog.PromotionService promotions;
@@ -2513,6 +2514,161 @@ class PosTest {
  }
 
 
+
+
+ @Test void commercialAndFinancialRelationshipsRejectCrossTenantParentsAndRestrictHistoryDeletion(){
+  var saleA=asScope(a,()->checkout.cashSale("alice","p2-cross-owner-a",sale(1,"120")));
+  String orderA=(String)saleA.get("id");
+  String sessionB=(String)asScope(b,()->service.open(b,new PosService.OpenSession(2,BigDecimal.ZERO)).get("id"));
+  var saleB=asScope(b,()->checkout.cashSale("bob","p2-cross-owner-b",
+    new CheckoutService.CashSale(sessionB,List.of(new CheckoutService.Item(2,1)),new BigDecimal("100"),false,null,null)));
+  String orderB=(String)saleB.get("id");
+  String returnA="p2-cross-return-a",returnB="p2-cross-return-b";
+  String hashA="a".repeat(64),hashB="b".repeat(64);
+  db.update("""
+    INSERT INTO pos_returns(id,tenant_id,branch_id,order_id,requester,session_id,idempotency_key,
+      request_hash,reason,proof,proof_note,state,created_at)
+    VALUES(?,1,1,?,'alice',?,'p2-cross-return-key-a',?,'Verified return','ORIGINAL_RECEIPT',
+      'Original receipt checked','REQUESTED',CURRENT_TIMESTAMP)
+    """,returnA,orderA,session,hashA);
+  db.update("""
+    INSERT INTO pos_returns(id,tenant_id,branch_id,order_id,requester,session_id,idempotency_key,
+      request_hash,reason,proof,proof_note,state,created_at)
+    VALUES(?,2,2,?,'bob',?,'p2-cross-return-key-b',?,'Verified return','ORIGINAL_RECEIPT',
+      'Original receipt checked','REQUESTED',CURRENT_TIMESTAMP)
+    """,returnB,orderB,sessionB,hashB);
+  db.update("INSERT INTO pos_return_items(tenant_id,return_id,order_id,product_id,name,quantity) VALUES(1,?,?,1,'Panel',1)",returnA,orderA);
+  db.update("INSERT INTO pos_return_items(tenant_id,return_id,order_id,product_id,name,quantity) VALUES(2,?,?,2,'Private',1)",returnB,orderB);
+  db.update("INSERT INTO pos_return_events(id,tenant_id,return_id,actor,action,note,created_at) VALUES('p2-cross-event-a',1,?,'alice','REQUESTED','A event',CURRENT_TIMESTAMP)",returnA);
+  db.update("INSERT INTO pos_return_events(id,tenant_id,return_id,actor,action,note,created_at) VALUES('p2-cross-event-b',2,?,'bob','REQUESTED','B event',CURRENT_TIMESTAMP)",returnB);
+
+  BigDecimal totalA=db.queryForObject("SELECT total FROM orders WHERE tenant_id=1 AND id=?",BigDecimal.class,orderA);
+  BigDecimal netA=db.queryForObject("SELECT price*quantity FROM order_items WHERE tenant_id=1 AND order_id=? AND product_id=1",BigDecimal.class,orderA);
+  BigDecimal taxA=db.queryForObject("SELECT tax FROM order_items WHERE tenant_id=1 AND order_id=? AND product_id=1",BigDecimal.class,orderA);
+  Long receiptA=db.queryForObject("SELECT receipt_number FROM orders WHERE tenant_id=1 AND id=?",Long.class,orderA);
+  db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(1,?,'P2-CROSS-INVOICE-A','Vendor A','A',?)",orderA,totalA);
+  db.update("""
+    INSERT INTO vendor_payment_attempts(id,tenant_id,order_id,method,merchant_account,state,amount,created_at)
+    VALUES('p2-cross-payment-a',1,?,'UPI','merchant-a','PENDING',?,CURRENT_TIMESTAMP)
+    """,orderA,totalA);
+  db.update("""
+    INSERT INTO receipt_document_audit(id,tenant_id,branch_id,order_id,actor,reason,content_sha256,content_length,created_at)
+    VALUES('p2-cross-receipt-a',1,1,?,'alice','Copy requested',REPEAT('a',64),128,CURRENT_TIMESTAMP)
+    """,orderA);
+  db.update("""
+    INSERT INTO inventory_receipts(id,tenant_id,branch_id,product_id,quantity,actor,reason,command_key,available_after,created_at)
+    VALUES('p2-cross-stock-a',1,1,1,1,'alice','Delivery accepted','p2-stock-a',2,CURRENT_TIMESTAMP)
+    """);
+  db.update("""
+    INSERT INTO pos_cash_refunds(id,tenant_id,branch_id,return_id,order_id,original_receipt,cashier,
+      return_requester,session_id,idempotency_key,request_hash,quote_hash,amount,reason,paid_at)
+    VALUES('p2-cross-refund-a',1,1,?,?,?,'alice','bob',?,'p2-refund-a',?, ?,?,'Refund paid',CURRENT_TIMESTAMP)
+    """,returnA,orderA,receiptA,session,hashA,hashB,totalA);
+  db.update("""
+    INSERT INTO pos_cash_refund_items(tenant_id,refund_id,return_id,order_id,product_id,name,quantity,net,tax,amount)
+    VALUES(1,'p2-cross-refund-a',?,?,1,'Panel',1,?,?,?)
+    """,returnA,orderA,netA,taxA,totalA);
+
+  // Cross-tenant parents must be rejected even when the child tenant, branch,
+  // cashier, session, or one of the other parent references is otherwise valid.
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total)
+    VALUES(1,?,'P2-CROSS-INVOICE-B','Vendor A','A',100)
+    """,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO vendor_payment_attempts(id,tenant_id,order_id,method,merchant_account,state,amount,created_at)
+    VALUES('p2-cross-payment-bad',1,?,'UPI','merchant-a','PENDING',100,CURRENT_TIMESTAMP)
+    """,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO receipt_document_audit(id,tenant_id,branch_id,order_id,actor,reason,content_sha256,content_length,created_at)
+    VALUES('p2-cross-receipt-bad',1,1,?,'alice','Cross tenant copy',REPEAT('b',64),128,CURRENT_TIMESTAMP)
+    """,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO inventory_receipts(id,tenant_id,branch_id,product_id,quantity,actor,reason,command_key,available_after,created_at)
+    VALUES('p2-cross-stock-bad',1,1,2,1,'alice','Foreign product','p2-stock-bad',1,CURRENT_TIMESTAMP)
+    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO pos_returns(id,tenant_id,branch_id,order_id,requester,session_id,idempotency_key,
+      request_hash,reason,proof,proof_note,state,created_at)
+    VALUES('p2-cross-return-bad',1,1,?,'alice',?,'p2-cross-return-bad-key',?,'Foreign order',
+      'ORIGINAL_RECEIPT','No cross tenant','REQUESTED',CURRENT_TIMESTAMP)
+    """,orderB,session,hashA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO pos_return_items(tenant_id,return_id,order_id,product_id,name,quantity)
+    VALUES(1,?,?,2,'Foreign item',1)
+    """,returnA,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO pos_return_events(id,tenant_id,return_id,actor,action,note,created_at)
+    VALUES('p2-cross-event-bad',1,?,'alice','REQUESTED','Foreign return',CURRENT_TIMESTAMP)
+    """,returnB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO pos_cash_refunds(id,tenant_id,branch_id,return_id,order_id,original_receipt,cashier,
+      return_requester,session_id,idempotency_key,request_hash,quote_hash,amount,reason,paid_at)
+    VALUES('p2-cross-refund-bad',1,1,?,?,?,'alice','bob',?,'p2-refund-bad',?,?,100,'Foreign order',CURRENT_TIMESTAMP)
+    """,returnA,orderB,receiptA,session,hashA,hashB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO pos_cash_refund_items(tenant_id,refund_id,return_id,order_id,product_id,name,quantity,net,tax,amount)
+    VALUES(1,'p2-cross-refund-a',?,?,2,'Foreign item',1,90,10,100)
+    """,returnA,orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO inventory_return_dispositions(tenant_id,branch_id,return_id,product_id,quantity,
+      disposition,received_condition,actor,created_at)
+    VALUES(1,1,?,2,1,'QUARANTINE','DAMAGED','alice',CURRENT_TIMESTAMP)
+    """,returnB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+
+  // Financial/commercial history is retained: parent deletion is blocked by
+  // its dependent invoice, payment, return, receipt, refund and audit records.
+  assertThatThrownBy(()->db.update("DELETE FROM orders WHERE tenant_id=1 AND id=?",orderA))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM pos_returns WHERE tenant_id=1 AND id=?",returnA))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM pos_cash_refunds WHERE tenant_id=1 AND id='p2-cross-refund-a'"))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("DELETE FROM products WHERE tenant_id=1 AND id=1"))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,orderA)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items WHERE tenant_id=1 AND refund_id='p2-cross-refund-a'",Integer.class)).isEqualTo(1);
+ }
+
+ @Test void inventoryReceiptAndCashTenderRollbackTogetherWithTheirStockAuditAndReceiptWrites(){
+  int quantityBefore=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  int receiptsBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_receipts WHERE tenant_id=1 AND branch_id=1",Integer.class);
+  assertThatThrownBy(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
+    service.lockInventoryOutlet(a);
+    stockReceiving.receive(1,1,"alice","p2-stock-receipt-rollback",
+      new com.saumya.pos.inventory.StockReceivingService.Input(1,2,"Rollback integration receipt"));
+    throw new IllegalStateException("Inject failure after stock receipt and balance writes");
+  }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantityBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_receipts WHERE tenant_id=1 AND branch_id=1",Integer.class)).isEqualTo(receiptsBefore);
+
+  var draft=as("alice",()->checkout.pos("alice","p2-payment-rollback",posDraft()));
+  int ledgerBefore=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id());
+  assertThatThrownBy(()->as("alice",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
+    payments.tender("alice",draft.id(),"p2-cash-tender-rollback",
+      new com.saumya.pos.checkout.PaymentCheckoutService.TenderRequest("CASH",draft.total(),draft.total()));
+    throw new IllegalStateException("Inject failure after payment, stock consume and receipt writes");
+  }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE tenant_id=1 AND id=?",String.class,draft.id())).isEqualTo("DRAFT");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM payment_attempts WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(ledgerBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+ }
+
+ @Test void cashRefundFailureRollsBackRefundAllocationAndAuditTimeline(){
+  String returned=inspectedRefundReturn(),paying=refundSession("200");
+  update("UPDATE branches SET cash_refunds_enabled=TRUE WHERE id=1");
+  var command=refundPay(returned,paying);
+  BigDecimal cashBefore=as("manager",()->service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash();
+  assertThatThrownBy(()->as("manager",()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
+    refunds.pay("p2-refund-rollback",command);
+    throw new IllegalStateException("Inject failure after refund payment and audit writes");
+  }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refunds WHERE tenant_id=1",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_cash_refund_items WHERE tenant_id=1",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_return_events WHERE tenant_id=1 AND action='CASH_REFUND'",Integer.class)).isZero();
+  assertThat(as("manager",()->service.reconciliation(new PosService.Scope(1,1,"manager"),paying)).expectedCash()).isEqualByComparingTo(cashBefore);
+ }
 
  @Test void directServiceCallsRejectMissingPermissionBeforeBusinessQueries() {
   // No controller is involved: call the Spring service proxies directly with

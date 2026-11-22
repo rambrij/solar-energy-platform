@@ -282,6 +282,72 @@ class JdbcTenantSqlAstAnalysisTest {
     }
 
     @Test
+    void tenantProvisioningAndEntitlementHelpersPreserveTrustedTenantProvenanceAcrossServiceBoundaries() throws Exception {
+        Path platformPath=sourceRoot().resolve("com/saumya/pos/platform/PlatformAdminService.java");
+        Path membershipPath=sourceRoot().resolve("com/saumya/pos/membership/MembershipService.java");
+        Path branchPath=sourceRoot().resolve("com/saumya/pos/retail/BranchProvisioningServiceImpl.java");
+        Path rolePath=sourceRoot().resolve("com/saumya/pos/membership/StandardRoleTemplates.java");
+        Path roleServicePath=sourceRoot().resolve("com/saumya/pos/membership/VendorRoleService.java");
+        Path entitlementPath=sourceRoot().resolve("com/saumya/pos/membership/TenantEntitlementPolicy.java");
+        String platform=Files.readString(platformPath),membership=Files.readString(membershipPath);
+        String branch=Files.readString(branchPath),roles=Files.readString(rolePath);
+        String roleService=Files.readString(roleServicePath),entitlements=Files.readString(entitlementPath);
+
+        int platformGate=platform.indexOf("require(actor,\"PLATFORM_TENANT_CREATE\")");
+        int tenantCreation=platform.indexOf("var tenant=tenants.create(request)");
+        int branchProvision=platform.indexOf("branches.createInitialBranch(tenant.id()");
+        int membershipProvision=platform.indexOf("memberships.provisionInitialVendorAdmin(tenant.id(),branch");
+        assertThat(platformGate).isGreaterThanOrEqualTo(0);
+        assertThat(tenantCreation).isGreaterThan(platformGate);
+        assertThat(branchProvision).isGreaterThan(tenantCreation);
+        assertThat(membershipProvision).isGreaterThan(branchProvision);
+        assertThat(platform.substring(tenantCreation,branchProvision)).doesNotContain("request.tenantId()");
+        assertThat(platform.substring(branchProvision,membershipProvision)).contains("tenant.id()");
+
+        int membershipGate=membership.indexOf("PlatformAuthorization.require(\"PLATFORM_TENANT_CREATE\",null)");
+        int roleLock=membership.indexOf("StandardRoleTemplates.lockTenant(jdbc,tenantId)");
+        int roleInitialize=membership.indexOf("StandardRoleTemplates.initialize(jdbc,tenantId,actor)");
+        assertThat(membershipGate).isGreaterThanOrEqualTo(0);
+        assertThat(roleLock).isGreaterThan(membershipGate);
+        assertThat(roleInitialize).isGreaterThan(roleLock);
+        assertThat(membership).contains("effectiveVendorPermissions(m.username(),m.tenant())")
+            .contains("entitlements.permissions(m.tenant(),effective)")
+            .contains("WHERE a.tenant_id=? AND a.username=?");
+
+        assertThat(branch).contains("authorization.current()")
+            .contains("actor.requirePermission(\"PLATFORM_TENANT_CREATE\")")
+            .contains("new BranchConfiguration(id,tenantId,name)")
+            .contains("tenantId,id,id,name+\" POS stock room\"");
+        assertThat(branch.indexOf("actor.requirePermission(\"PLATFORM_TENANT_CREATE\")"))
+            .isLessThan(branch.indexOf("db.update(\"INSERT INTO pos_stock_locations"));
+
+        assertThat(roles).contains("static void lockTenant(JdbcTemplate db, long tenant)")
+            .contains("static long initialize(JdbcTemplate db, long tenant, String actor)")
+            .contains("static long insert(JdbcTemplate db, long tenant, String actor");
+        assertThat(roles).doesNotContain("public static void lockTenant","public static long initialize","public static long insert");
+        assertThat(roleService).contains("authorization.current()")
+            .contains("StandardRoleTemplates.lockTenant(db,actor.tenantId())")
+            .contains("StandardRoleTemplates.insert(db,actor.tenantId(),actor.username()");
+
+        assertThat(entitlements).contains("public List<String> permissions(long tenant,List<String> grants)")
+            .contains("WHERE s.tenant_id=?");
+        assertThat(entitlements).doesNotContain("request.getTenantId()","body.getTenantId()","filter.getTenantId()");
+
+        try(var files=Files.walk(sourceRoot())){
+            List<Path> branchCallers=files.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java"))
+                .filter(p->{try{return Pattern.compile("\\\\.createInitialBranch\\\\s*\\\\(").matcher(Files.readString(p)).find();}catch(Exception e){throw new RuntimeException(e);}})
+                .toList();
+            assertThat(branchCallers).containsExactly(platformPath);
+        }
+        try(var files=Files.walk(sourceRoot())){
+            List<Path> membershipCallers=files.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java"))
+                .filter(p->{try{return Pattern.compile("\\\\.provisionInitialVendorAdmin\\\\s*\\\\(").matcher(Files.readString(p)).find();}catch(Exception e){throw new RuntimeException(e);}})
+                .toList();
+            assertThat(membershipCallers).containsExactly(platformPath);
+        }
+    }
+
+    @Test
     void sqlAstNegativeFixturesRejectDynamicAndUnscopedStatements() {
         assertThat(tenantPredicate("SELECT * FROM vendor_roles WHERE id=?")).isFalse();
         assertThat(tenantPredicate("SELECT * FROM vendor_roles WHERE tenant_id=? AND id=?")).isTrue();

@@ -29,6 +29,73 @@ class SpringDataRepositoryAstAnalysisTest {
     private static boolean queryScoped(String sql){
         return java.util.regex.Pattern.compile("(?is)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|ownerId|owner_id|owner|branchId|branch_id|branch|registerId|register_id|register|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*(?::[a-z][a-zA-Z0-9_]*|\\?\\d*)").matcher(sql).find();
     }
+
+    private static String maskQueryLiteralsAndComments(String query){
+        StringBuilder masked=new StringBuilder(query.length());
+        char quote=0;boolean lineComment=false,blockComment=false,escaped=false;
+        for(int i=0;i<query.length();i++){
+            char ch=query.charAt(i),next=i+1<query.length()?query.charAt(i+1):0;
+            if(lineComment){masked.append(ch=='\\n'||ch=='\\r'?ch:' ');if(ch=='\\n'||ch=='\\r')lineComment=false;continue;}
+            if(blockComment){masked.append(ch=='\\n'||ch=='\\r'?ch:' ');if(ch=='*'&&next=='/'){masked.append(' ');i++;blockComment=false;}continue;}
+            if(quote!=0){
+                masked.append(ch=='\\n'||ch=='\\r'?ch:' ');
+                if(escaped){escaped=false;continue;}
+                if(ch=='\\\\'){escaped=true;continue;}
+                if(ch==quote){if(next==quote){masked.append(' ');i++;}else quote=0;}
+                continue;
+            }
+            if(ch=='-'&&next=='-'){masked.append("  ");i++;lineComment=true;continue;}
+            if(ch=='/'&&next=='*'){masked.append("  ");i++;blockComment=true;continue;}
+            if(ch=='\\''||ch=='"'||ch=='`'){quote=ch;masked.append(' ');continue;}
+            masked.append(ch);
+        }
+        return masked.toString();
+    }
+
+    /**
+     * A scope predicate must constrain the complete WHERE expression. An OR at the
+     * WHERE's top level can bypass a tenant/owner term that appears in only one branch.
+     * Parenthesized search alternatives remain valid when the scope predicate is a
+     * separate top-level conjunct.
+     */
+    private static boolean hasTopLevelConjunctiveScope(String query){
+        String masked=maskQueryLiteralsAndComments(query);
+        java.util.regex.Matcher where=java.util.regex.Pattern.compile("(?i)\\bwhere\\b").matcher(masked);
+        if(!where.find())return false;
+        int start=where.end(),end=masked.length(),depth=0;
+        java.util.regex.Matcher words=java.util.regex.Pattern.compile("[A-Za-z_]+").matcher(masked);
+        words.region(start,masked.length());
+        boolean topLevelOr=false;
+        while(words.find()){
+            String word=words.group().toLowerCase(Locale.ROOT);
+            int pos=words.start();
+            // Track parenthesis depth from the previous word to this token.
+            for(int i=(pos==start?start:pos-1);i<pos;i++){
+                char ch=masked.charAt(i);
+                if(ch=='(')depth++;
+                else if(ch==')')depth=Math.max(0,depth-1);
+            }
+            if(depth==0&&Set.of("group","order","having","limit","offset","fetch","returning","for").contains(word)){
+                end=pos;break;
+            }
+            if(depth==0&&word.equals("or"))topLevelOr=true;
+        }
+        if(topLevelOr)return false;
+        String whereClause=masked.substring(start,end);
+        java.util.regex.Matcher scopes=java.util.regex.Pattern.compile(
+            "(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(?:tenantId|tenant_id|tenant|customerId|customer_id|customer|ownerId|owner_id|owner|branchId|branch_id|branch|registerId|register_id|register|username|tokenHash|token_hash|hash|family|subscriptionId|invoiceId|planId)\\s*=\\s*(?::[a-z][a-zA-Z0-9_]*|\\?\\d*)")
+            .matcher(whereClause);
+        while(scopes.find()){
+            int localDepth=0;
+            for(int i=0;i<scopes.start();i++){
+                char ch=whereClause.charAt(i);
+                if(ch=='(')localDepth++;
+                else if(ch==')')localDepth=Math.max(0,localDepth-1);
+            }
+            if(localDepth==0)return true;
+        }
+        return false;
+    }
     private static Set<String> parameterNames(VariableTree parameter){
         Set<String> names=new HashSet<>();
         names.add(parameter.getName().toString());
@@ -168,6 +235,23 @@ class SpringDataRepositoryAstAnalysisTest {
         }
         return null;
     }
+
+    private static Map<String,String> queryValues(AnnotationTree annotation){
+        Map<String,String> values=new LinkedHashMap<>();
+        for(ExpressionTree argument:annotation.getArguments()){
+            if(argument instanceof AssignmentTree assignment){
+                String key=assignment.getVariable().toString();
+                if(key.equals("value")||key.equals("countQuery")){
+                    String value=literal(assignment.getExpression());
+                    if(value!=null)values.put(key,value);
+                }
+            }else{
+                String value=literal(argument);
+                if(value!=null)values.put("value",value);
+            }
+        }
+        return values;
+    }
     private static Map<String,String> entries(JsonNode policy,String key){
         Map<String,String> result=new TreeMap<>();
         policy.path(key).forEach(item->result.put(item.path("operation").asText(),item.path("scope").asText()));
@@ -201,14 +285,19 @@ class SpringDataRepositoryAstAnalysisTest {
                         for(AnnotationTree annotation:method.getModifiers().getAnnotations()){
                             if(!annotation.getAnnotationType().toString().endsWith("Query"))continue;
                             queryAnnotation=true;observed.add(operation);
-                            String sql=queryValue(annotation);
-                            assertThat(sql).as("@Query SQL must be statically declared for %s",operation).isNotNull();
-                            boolean scoped=queryScoped(sql);
-                            if(!scoped){
-                                assertThat(globals).as("unscoped @Query requires a reviewed global/resource exception: %s",operation).containsKey(operation);
-                            }else{
-                                assertThat(hasBoundScopeParameter(sql,method))
-                                    .as("scoped @Query must bind the exact named/positional tenant/customer/owner parameter: %s",operation).isTrue();
+                            Map<String,String> queries=queryValues(annotation);
+                            assertThat(queries).as("@Query and declared countQuery SQL must be statically visible for %s",operation).containsKey("value");
+                            for(var query:queries.entrySet()){
+                                String sql=query.getValue();
+                                boolean scoped=queryScoped(sql);
+                                if(!scoped){
+                                    assertThat(globals).as("unscoped @Query %s requires a reviewed global/resource exception: %s",query.getKey(),operation).containsKey(operation);
+                                }else{
+                                    assertThat(hasTopLevelConjunctiveScope(sql))
+                                        .as("tenant/customer/owner scope must constrain the complete @Query %s for %s; top-level OR is unsafe",query.getKey(),operation).isTrue();
+                                    assertThat(hasBoundScopeParameter(sql,method))
+                                        .as("scoped @Query %s must bind the exact named/positional tenant/customer/owner parameter: %s",query.getKey(),operation).isTrue();
+                                }
                             }
                         }
                         if(queryAnnotation)continue;
@@ -519,6 +608,21 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(trustedTenantExpression("payload.tenant()",Set.of())).isFalse();
         assertThat(trustedTenantExpression("tenant",Set.of())).isFalse();
         assertThat(trustedTenantExpression("tenant",Set.of("tenant"))).isTrue();
+    }
+
+
+    @Test
+    void queryScopeMustRemainConjunctiveAcrossEveryTopLevelOrBranch(){
+        assertThat(hasTopLevelConjunctiveScope(
+            "select p from Product p where p.tenantId=:tenant and (lower(p.name) like :pattern or lower(p.sku) like :pattern)")).isTrue();
+        assertThat(hasTopLevelConjunctiveScope(
+            "select p from Product p where p.tenantId=:tenant or p.status=:status")).isFalse();
+        assertThat(hasTopLevelConjunctiveScope(
+            "select p from Product p where (p.tenantId=:tenant and p.status=:status) or p.published=true")).isFalse();
+        assertThat(hasTopLevelConjunctiveScope(
+            "select p from Product p where p.status=:status /* OR tenantId=:tenant */")).isFalse();
+        assertThat(hasTopLevelConjunctiveScope(
+            "select p from Product p where p.tenantId=:tenant and p.note='OR status'")).isTrue();
     }
 
     @Test

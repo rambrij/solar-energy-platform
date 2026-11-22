@@ -257,8 +257,14 @@ function resolveApiCall(file,source,match){
  if(fn==='api'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor/pos'+endpoint;
  if(fn==='vendorApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/vendor'+endpoint;
  if(fn==='platformApi'&&!endpoint.startsWith('/api/'))endpoint='/api/v1/platform'+endpoint;
- endpoint=normalizeActionPath(endpoint.replace(/\$\{[^}]+\}/g,'{}').split('?')[0]);
- return {component:path.basename(file),method,endpoint,fn,line:source.slice(0,match.index).split('\n').length};
+ const variants=[];
+ const ternary=/\$\{[^{}?]+\?\s*(['"])([^'"]+)\1\s*:\s*(['"])([^'"]+)\3\}/g;
+ let found;
+ while((found=ternary.exec(endpoint))!==null)variants.push([found[2],found[4]]);
+ let endpoints=[endpoint];
+ for(const pair of variants){endpoints=endpoints.flatMap(value=>pair.map(replacement=>value.replace(/\$\{[^{}?]+\?\s*(['"])[^'"]+\1\s*:\s*(['"])[^'"]+\2\}/,replacement)));}
+ endpoints=endpoints.map(value=>normalizeActionPath(value.replace(/\$\{[^}]+\}/g,'{}').split('?')[0]));
+ return {component:path.basename(file),method,endpoints,fn,line:source.slice(0,match.index).split('\n').length};
 }
 const observedApiCalls=[];
 const dynamicApiCalls=[];
@@ -271,7 +277,7 @@ for(const file of sourceFiles){
   const resolved=resolveApiCall(file,source,match);
   if(!resolved)continue;
   if(resolved.dynamic){dynamicApiCalls.push(resolved);continue;}
-  observedApiCalls.push(resolved);
+  for(const endpoint of resolved.endpoints??[resolved.endpoint])observedApiCalls.push({...resolved,endpoint});
  }
 }
 for(const call of observedApiCalls){

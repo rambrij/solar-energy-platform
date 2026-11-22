@@ -513,16 +513,17 @@ class P202MysqlPersistenceIntegrationTest {
             try (Connection connection = DriverManager.getConnection(url, user, password);
                  Statement statement = connection.createStatement()) {
                 statement.execute("SET time_zone = '+00:00'");
-                statement.execute("CREATE TABLE p2_utc_timestamp_probe (id INT PRIMARY KEY, occurred_at TIMESTAMP(6) NOT NULL)");
+                statement.execute("INSERT INTO tenants(id,name) VALUES(995001,'P2 UTC timestamp tenant')");
                 java.time.Instant expected = java.time.Instant.parse("2026-11-22T07:08:09.123456Z");
-                try (var insert = connection.prepareStatement(
-                        "INSERT INTO p2_utc_timestamp_probe(id,occurred_at) VALUES(1,?)")) {
-                    insert.setTimestamp(1, java.sql.Timestamp.from(expected),
-                            java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")));
-                    insert.executeUpdate();
+                try (var update = connection.prepareStatement(
+                        "UPDATE tenants SET created_at=?,updated_at=? WHERE id=995001")) {
+                    var utc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+                    update.setTimestamp(1, java.sql.Timestamp.from(expected), utc);
+                    update.setTimestamp(2, java.sql.Timestamp.from(expected), utc);
+                    update.executeUpdate();
                 }
                 try (var select = connection.prepareStatement(
-                        "SELECT occurred_at FROM p2_utc_timestamp_probe WHERE id=1");
+                        "SELECT created_at FROM tenants WHERE id=995001");
                      ResultSet rows = select.executeQuery()) {
                     assertThat(rows.next()).isTrue();
                     assertThat(rows.getTimestamp(1,

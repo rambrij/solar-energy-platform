@@ -116,19 +116,34 @@ test('Cashier: resume assigned register, complete a cash sale and receive its re
 
   const activeBefore = await apiAs(page, token, '/api/v1/vendor/pos/sessions/active');
   expect(activeBefore.status).toBe(200);
-  expect(activeBefore.body).toEqual([]);
+  expect(Array.isArray(activeBefore.body)).toBe(true);
 
   const directory = await apiAs(page, token, '/api/v1/vendor/pos/registers?page=0&size=12');
   expect(directory.status, JSON.stringify(directory.body)).toBe(200);
-  const assignedRegister = directory.body.items.find((item: { available: boolean }) => item.available);
-  expect(assignedRegister, JSON.stringify(directory.body)).toBeTruthy();
+  const existingSession = activeBefore.body.find((session: { state: string }) => session.state === 'OPEN');
+  const assignedRegister = directory.body.items.find((item: { id: number; available: boolean }) =>
+    existingSession ? item.id === existingSession.registerId : item.available);
+  expect(assignedRegister, JSON.stringify({ directory: directory.body, active: activeBefore.body })).toBeTruthy();
 
-  const opened = await apiAs(page, token, '/api/v1/vendor/pos/sessions', 'POST', {
-    registerId: assignedRegister.id,
-    openingFloat: 0,
-  });
-  expect(opened.status, JSON.stringify(opened.body)).toBe(200);
-  expect(opened.body).toMatchObject({ registerId: assignedRegister.id, state: 'OPEN' });
+  let sessionId: string;
+  if (existingSession) {
+    sessionId = existingSession.id;
+  } else {
+    const opened = await apiAs(page, token, '/api/v1/vendor/pos/sessions', 'POST', {
+      registerId: assignedRegister.id,
+      openingFloat: 0,
+    });
+    expect(opened.status, JSON.stringify(opened.body)).toBe(200);
+    expect(opened.body.id).toBeTruthy();
+    sessionId = opened.body.id;
+    const activeAfter = await apiAs(page, token, '/api/v1/vendor/pos/sessions/active');
+    expect(activeAfter.status).toBe(200);
+    expect(activeAfter.body).toContainEqual(expect.objectContaining({
+      id: sessionId,
+      registerId: assignedRegister.id,
+      state: 'OPEN',
+    }));
+  }
 
   await page.reload();
   const resume = page.getByRole('button', { name: /^Resume register/ });

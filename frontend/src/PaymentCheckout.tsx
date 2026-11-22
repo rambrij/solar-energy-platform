@@ -7,11 +7,11 @@ export default function PaymentCheckout({orderId,disabled=false,onComplete,onBus
  const alive=useRef(true);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  const base=`/drafts/${encodeURIComponent(orderId)}/payment`;
- async function request(action:'status'|'UPI'|'CARD'|'confirm'|'unknown'){
+ async function request(action:'status'|'UPI'|'CARD'|'confirm'){
   setBusy(true);onBusyChange(true);setError('');
   try{
-   const suffix=action==='confirm'?'/mock-confirm':action==='unknown'?'/unknown':'';
-   const body=action==='status'?undefined:action==='confirm'||action==='unknown'?{attemptId:payment?.attemptId}:{method:action};
+   const suffix=action==='confirm'?'/mock-confirm':'';
+   const body=action==='status'?undefined:action==='confirm'?{attemptId:payment?.attemptId}:{method:action};
    const value:Payment=await marketplaceApi('/api/v1/customer/checkout'+base+suffix,body===undefined?'GET':'POST',body);
    if(!alive.current)return;
    if(value.orderId!==orderId)throw Error('Payment order mismatch');

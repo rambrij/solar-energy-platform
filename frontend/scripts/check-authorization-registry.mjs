@@ -1,3 +1,4 @@
+import ts from 'typescript';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -194,6 +195,97 @@ for(const button of actionRegistry.buttons){
  if(button.trigger==='submit'&&!/\bonSubmit\s*=/.test(buttonSource))throw new Error('Registered submit action has no JSX onSubmit control: '+button.id);
  const action=actionRegistry.actions.find(item=>item.id===button.id);
  if(!action||button.component!==action.component||button.trigger!==action.trigger||button.backendOperation!==action.backendOperation)throw new Error('Button-to-backend-action mapping mismatch: '+button.id);
+}
+
+const backendControlHelpers=new Set([
+ 'api','vendorApi','platformApi','marketplaceApi','authPost','authApi','authenticatedFetch','fetch',
+ 'signIn','switchActorContext','signOut'
+]);
+const localControlHelpers=new Set([
+ 'navigateWorkspace','printDocument','assessCash','billEstimate','formatCurrency','formatDate',
+ 'preventDefault','stopPropagation','writeText','reload','focus','blur','removeItem','setItem','getItem',
+ 'randomUUID','includes','some','every','find','findIndex','map','filter','reduce','slice','splice',
+ 'trim','replace','replaceAll','toLowerCase','toUpperCase','toFixed','toString','startsWith','endsWith',
+ 'max','min','round','floor','ceil','isFinite','isInteger','from','assign','parse','stringify','sort',
+ 'push','pop','join','split','has','get','set','delete','values','keys','entries'
+]);
+function mergeControlClass(a,b){
+ const rank={LOCAL_ONLY:0,DELEGATED_HELPER:1,DELEGATED_CALLBACK:2,BACKEND_ACTION:3};
+ return rank[a]>=rank[b]?a:b;
+}
+function inventoryJsxControls(file,source){
+ const kind=file.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS;
+ const unit=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true,kind);
+ const functions=new Map(),imports=new Set();
+ function collect(node){
+  if(ts.isImportDeclaration(node)&&node.importClause){
+   const clause=node.importClause;
+   if(clause.name)imports.add(clause.name.text);
+   if(clause.namedBindings&&ts.isNamedImports(clause.namedBindings))
+    for(const item of clause.namedBindings.elements)imports.add(item.name.text);
+   if(clause.namedBindings&&ts.isNamespaceImport(clause.namedBindings))imports.add(clause.namedBindings.name.text);
+  }
+  if(ts.isFunctionDeclaration(node)&&node.name&&node.body)functions.set(node.name.text,node.body);
+  if(ts.isMethodDeclaration(node)&&node.body&&node.name)functions.set(node.name.getText(unit),node.body);
+  if(ts.isVariableDeclaration(node)&&ts.isIdentifier(node.name)&&node.initializer
+    &&(ts.isArrowFunction(node.initializer)||ts.isFunctionExpression(node.initializer)))
+   functions.set(node.name.text,node.initializer.body);
+  ts.forEachChild(node,collect);
+ }
+ collect(unit);
+ function classifyCall(name,visited){
+  if(backendControlHelpers.has(name))return 'BACKEND_ACTION';
+  if(name.startsWith('on')&&name.length>2)return 'DELEGATED_CALLBACK';
+  if(functions.has(name)){
+   if(visited.has(name))return 'DELEGATED_HELPER';
+   const next=new Set(visited);next.add(name);
+   return classifyNode(functions.get(name),next);
+  }
+  if(name.startsWith('set')||localControlHelpers.has(name))return 'LOCAL_ONLY';
+  if(imports.has(name))return 'DELEGATED_HELPER';
+  return 'DELEGATED_HELPER';
+ }
+ function classifyNode(node,visited=new Set()){
+  if(!node)return 'LOCAL_ONLY';
+  if(ts.isIdentifier(node)){
+   if(node.text.startsWith('on')&&node.text.length>2)return 'DELEGATED_CALLBACK';
+   if(functions.has(node.text))return classifyCall(node.text,visited);
+   if(backendControlHelpers.has(node.text))return 'BACKEND_ACTION';
+   if(imports.has(node.text))return 'DELEGATED_HELPER';
+   return 'LOCAL_ONLY';
+  }
+  let result='LOCAL_ONLY';
+  if(ts.isCallExpression(node)){
+   let name='';
+   if(ts.isIdentifier(node.expression))name=node.expression.text;
+   else if(ts.isPropertyAccessExpression(node.expression))name=node.expression.name.text;
+   if(name)result=mergeControlClass(result,classifyCall(name,visited));
+  }
+  ts.forEachChild(node,child=>{result=mergeControlClass(result,classifyNode(child,visited));});
+  return result;
+ }
+ const controls=[];
+ function visit(node){
+  if(ts.isJsxAttribute(node)&&ts.isIdentifier(node.name)&&/^on[A-Z]/.test(node.name.text)
+    &&node.initializer&&ts.isJsxExpression(node.initializer)&&node.initializer.expression){
+   const expression=node.initializer.expression;
+   const classification=classifyNode(expression);
+   controls.push({component:path.basename(file),event:node.name.text,handler:expression.getText(unit),classification});
+  }
+  ts.forEachChild(node,visit);
+ }
+ visit(unit);
+ return controls;
+}
+const frontendControlInventory=sourceFiles.flatMap(file=>inventoryJsxControls(file,fs.readFileSync(file,'utf8')));
+if(!frontendControlInventory.length)throw new Error('Frontend JSX control inventory is empty');
+const controlSummary=frontendControlInventory.reduce((summary,item)=>{
+ summary[item.classification]=(summary[item.classification]??0)+1;return summary;
+},{});
+for(const control of frontendControlInventory){
+ if(control.classification!=='BACKEND_ACTION')continue;
+ const actions=actionRegistry.actions.filter(action=>action.component===control.component);
+ if(!actions.length)throw new Error('Backend-triggering frontend control has no registered backend operation: '+control.component+' '+control.event+' '+control.handler);
 }
 
 const validActors=new Set(['PUBLIC','SESSION','CUSTOMER','VENDOR','PLATFORM']);
@@ -436,4 +528,5 @@ for(const file of sourceFiles){
  }
 }
 
+console.log(`Frontend controls inventoried: ${frontendControlInventory.length} (${JSON.stringify(controlSummary)}).`);
 console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${sourceFiles.length} frontend source files, ${permissions.size} permission identifiers.`);

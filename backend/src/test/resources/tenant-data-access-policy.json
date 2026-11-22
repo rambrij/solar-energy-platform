@@ -502,6 +502,11 @@
       "operation": "SubscriptionPlanServiceImpl#list",
       "scope": "PLATFORM_GLOBAL_SAAS_PLAN_CATALOGUE",
       "trustedSource": "requireRead() verifies the authenticated platform identity and PLATFORM_SUBSCRIPTION_VIEW or PLATFORM_PLAN_MANAGE before the global SaaS plan catalogue findAll(); no tenant-owned business rows are queried."
+    },
+    {
+      "operation": "PlatformConfigurationServiceImpl#list",
+      "scope": "PLATFORM_GLOBAL_CONFIGURATION",
+      "trustedSource": "The list method requires PLATFORM_CONFIG_MANAGE for the authenticated platform actor before reading the platform-owned global configuration table; it returns redacted settings and never reads tenant-owned business data."
     }
   ]
 }

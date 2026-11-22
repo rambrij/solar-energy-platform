@@ -10,6 +10,10 @@ P0-01 inventory deliverables and the three resulting same-tenant FK protections 
 
 This remains a **partial audit and implementation**, not a PASS for the P0-02 acceptance criterion. INV-SVC-007 and INV-SVC-008 remain P0 acceptance blockers: the full database-backed role × tenant × branch × resource matrix is not yet complete, and uniform direct-denial/no-side-effect evidence does not yet cover every remaining public business method. The current status is deliberately kept IN PROGRESS.
 
+**Latest branch validation (2026-11-22):** Run [#45011292605](https://github.com/rambrij/solar-energy-platform/actions/runs/45011292605), commit `bfde26eab2c42e54a6ced1b061ad2a1504b61ec8`, completed successfully: H2 678 tests (0 failures, 0 errors, 12 skipped); MySQL 8.4 678 tests (0 failures, 0 errors, 0 skipped); frontend tests/build passed; Browser E2E passed. Its focused P0-06 persisted-actor endpoint sweep, role/policy checks, P0-05/P0-04 suites and P2-02 MySQL migration/schema contract step also passed. This is strong regression evidence but does not close the P0-02-specific INV-SVC-007/008 criteria.
+
+A dedicated P0-02 service-boundary CI gate was added in commit `e2d826cb3b4e40fe4067e8e5c197990446ef68a8`. It explicitly runs the method inventory, background-entry inventory, authorization policy tests, direct-denial suites, customer/tenant boundary suites and the persisted-actor HTTP matrix on both H2 and MySQL 8.4. **That new gate has not yet run on its own commit**; its result must be recorded before treating the new CI wiring as verified.
+
 No frontend changes or schema migrations are part of P0-02.
 
 ## 2. Enforcement rules used
@@ -142,9 +146,11 @@ These methods are not independent user-facing operations. Their production calle
 
 ### Verified CI evidence
 
-GitHub Actions run [#44048006296](https://github.com/rambrij/solar-energy-platform/actions/runs/44048006296) completed successfully on code commit `e6250e19acd59742cd850d1966bff3f7733b98fc`: H2 backend **565 tests passed**, MySQL 8.4 backend **565 tests passed**, frontend tests and production build passed, and the ArchUnit module architecture test passed. Both backend profiles report 0 failures and 0 errors.
+Historical baseline: GitHub Actions run [#44048006296](https://github.com/rambrij/solar-energy-platform/actions/runs/44048006296) completed successfully on code commit `e6250e19acd59742cd850d1966bff3f7733b98fc`: H2 and MySQL 8.4 each passed 565 backend tests; frontend tests/build and module architecture checks passed.
 
-A green run validates the code snapshot attached to that run. INV-SVC-007 and INV-SVC-008 remain partial because route/policy tests and direct-denial suites still do not prove the complete DB-backed role × tenant × branch matrix and deny-before-side-effect behavior for every public method.
+Latest complete branch-head evidence before the new dedicated gate: run [#45011292605](https://github.com/rambrij/solar-energy-platform/actions/runs/45011292605) on `bfde26eab2c42e54a6ced1b061ad2a1504b61ec8` passed H2 and MySQL 8.4 full suites (678 tests each; H2 had 12 skips), frontend tests/build, Browser E2E and all configured focused gates. This run validates its exact commit only. Commit `e2d826cb3b4e40fe4067e8e5c197990446ef68a8` adds a dedicated P0-02 H2/MySQL gate; that commit's run is still required.
+
+A green run validates only the code snapshot attached to that run. INV-SVC-007 and INV-SVC-008 remain partial because the available evidence does not yet prove the complete DB-backed role × tenant × branch × resource matrix and deny-before-side-effect behavior for every remaining public method.
 ## 7. REQUIRES CLARIFICATION
 
 - Warehouse/stock-location assignment remains RC-02 from the P0-01 gap analysis. Do not invent a warehouse permission or new schema.

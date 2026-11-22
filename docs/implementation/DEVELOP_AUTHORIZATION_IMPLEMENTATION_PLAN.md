@@ -329,6 +329,35 @@ The dedicated workflow step **Financial tenant isolation, rollback and deletion 
 
 ## 6. P3 — UX and cleanup
 
+
+### P2-04 expanded repository and frontend inventory update — 2026-11-22
+
+**Status remains IN PROGRESS — NOT ACCEPTANCE-COMPLETE.**
+
+Additional implementation committed on this branch:
+
+1. **Repository/query inventory**
+   - Added `RepositoryTenantAccessAnalysisTest` and `tenant-data-access-policy.json`.
+   - The test discovers every Spring Data `*Repository` interface and checks declared `@Query` JPQL/native SQL statements for tenant or owner predicates, and checks derived query methods for explicit tenant/owner naming or a narrowly named global-resource exception.
+   - Explicit global/resource exceptions are recorded for platform directory, identity, token, sequence, SaaS plan/subscription, expiry-job and public vendor-directory queries. Composite tenant keys are recorded separately.
+   - JPA `EntityManager.createQuery`, `createNativeQuery` and stored-procedure query construction are rejected until individually reviewed. The only current `JpaSpecificationExecutor` repositories are `DraftRepository` and `CashRefundRepository`; their service Specifications are checked for customer or tenant+branch predicates derived from authenticated identity/scope.
+   - Every inherited `findById` call site in production source is now inventoried and reviewed: tenant/cart composite key, tenant/branch/product composite key, authenticated tenant primary key, tenant/product composite key, tenant/order composite keys, one-time customer association token, and platform tenant resource. The test fails if a new `findById` call site appears without an entry.
+   - Added explicit trusted-tenant provenance records for all eight direct-JDBC consumers. Tests require the records to match the discovered consumer set and verify source evidence for server-derived actor context, persisted membership, server-published domain events, or platform-authorized provisioning. Production Java is scanned to reject direct or aliased `tenantId` reads from request/filter/body/DTO objects.
+2. **Frontend registry**
+   - Added `frontend/src/authorization-action-registry.json`.
+   - Current inventory: 3 top-level menus, 9 submenu groups, 27 vendor/customer workspace routes, 8 Platform pages/tabs, 115 frontend API action records and 60 backend-facing button/form triggers.
+   - Each action records UI component, trigger, actor, permission set, HTTP method, endpoint and backend operation. The checker validates route and submenu parity against `navigation.ts`, tab parity against `PLATFORM_PAGE_PERMISSIONS`, unique menu coverage, component existence, and every backend operation against actual controller mappings.
+   - The checker also compares frontend action permissions and ANY/ALL semantics with the backend controller's `@PreAuthorize` expression; public actions must map to `permitAll`. Vendor actions cannot reference platform permissions.
+3. **Verification**
+   - Workflow [#45043726993](https://github.com/rambrij/solar-energy-platform/actions/runs/45043726993), code commit `911c036759df931ecb8f66d7292997ece6bce430`: focused P2-04 gate passed on H2 and MySQL 8.4; frontend tests/build passed. Full backend matrix jobs were still running at last inspection.
+   - Workflow [#45043839258](https://github.com/rambrij/solar-energy-platform/actions/runs/45043839258), frontend-registry candidate `b88b9593faa670e6216eb2102c58d2ffd45c7b77`: frontend tests and build passed with the explicit button/form inventory. Backend gate jobs were still running at last inspection.
+4. **Remaining acceptance work**
+   - The query analyzer is source-level static analysis, not a full Java AST/data-flow engine. It currently covers declared repository queries, derived method naming, the two explicit Specification paths, inherited `findById` call sites and the eight direct-JDBC consumers. It does not yet prove all possible interprocedural argument flows for every repository method or analyze arbitrary SQL assembled outside the currently inventoried direct-JDBC adapters.
+   - The frontend action registry covers backend API operations and the 60 associated form/button triggers currently declared. A separate exhaustive DOM-control inventory is still needed for local-only controls, nested action callbacks and any API call assembled through nonliteral helper paths. Those controls must be explicitly marked as local-only or mapped to the corresponding registered backend operation.
+   - Exact-current-commit full H2 and MySQL 8.4 suites, P0-02/P0-06/P1-03/P1-04 regressions, Playwright authorization coverage and final CI evidence are still required.
+   - Keep P2-04 **IN PROGRESS** until these remaining items and all required acceptance gates pass on one exact branch-head commit.
+
+
 ### P3-01 — Refine responsive navigation and active location
 
 - **Requirement:** Grouped sidebar, dropdown, tabs, breadcrumbs, active menu state and mobile hamburger navigation.

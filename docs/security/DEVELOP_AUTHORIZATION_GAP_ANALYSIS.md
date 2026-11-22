@@ -573,3 +573,9 @@ Do not mark P2-04 COMPLETE until these gaps are closed and all required gates pa
 ### P2-04 focused-gate verification — 2026-11-22
 
 On branch-head candidate `bfc0c95eecf8d179149e226e846f59277359e61c`, workflow [#45040803579](https://github.com/rambrij/solar-energy-platform/actions/runs/45040803579) completed the focused P2-04 architecture/static authorization gate successfully on both H2 and MySQL 8.4. The frontend `npm test` (including the expanded registry script) and `npm run build` also passed. The full backend H2 and MySQL suites were still running at the time of this update. No full-suite, Playwright, or overall P2-04 acceptance pass is claimed. The SQL/JDBC analyzer is therefore verified for its current direct-JDBC source inventory, but its documented scope limitations remain.
+
+## P2-04 expanded inventory update — 2026-11-22
+
+The branch now contains a repository query-scope analyzer and trusted-tenant provenance inventory, plus a frontend menu/route/tab/button/API-action registry. The canonical implementation details, exact counts, scope limitations and CI evidence are recorded in the P2-04 section of `DEVELOP_AUTHORIZATION_IMPLEMENTATION_PLAN.md`.
+
+**Current decision: IN PROGRESS — NOT COMPLETE.** Focused P2-04 H2 and MySQL 8.4 gates passed on commit `911c036759df931ecb8f66d7292997ece6bce430`; frontend tests/build passed on the later button-inventory candidate `b88b9593faa670e6216eb2102c58d2ffd45c7b77`. Full backend suites and final acceptance evidence remain outstanding. The current static query analyzer is not a full interprocedural Java data-flow engine, and local-only/nested frontend controls still require exhaustive inventory.

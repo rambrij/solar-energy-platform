@@ -42,6 +42,11 @@ class AuthorizationPolicyRegistryTest {
     @Test void everyMappedBackendControllerIsInCanonicalEndpointInventoryAndHasAClassifiedPolicy(){
         try {
             JsonNode policies=registry().path("controllerPolicies");
+            JsonNode actorPolicies;
+            try(InputStream matrix=getClass().getResourceAsStream("/runtime-authorization-matrix.json")){
+                assertThat(matrix).isNotNull();
+                actorPolicies=new ObjectMapper().readTree(matrix).path("controllerPolicies");
+            }
             var scanner=new ClassPathScanningCandidateComponentProvider(false);
             scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
             Set<String> discovered=new TreeSet<>();
@@ -62,6 +67,8 @@ class AuthorizationPolicyRegistryTest {
                         .isTrue();
                     String expression=methodPolicy!=null?methodPolicy.value():classPolicy.value();
                     validateAuthorities(expression,name+"#"+method.getName());
+                    rejectPlatformPermissionForVendor(actorPolicies.path(name).path("actor").asText(),
+                        expression,name+"#"+method.getName());
                     assertMutationHasNonViewAuthority(method,expression,name+"#"+method.getName());
                 }
             }

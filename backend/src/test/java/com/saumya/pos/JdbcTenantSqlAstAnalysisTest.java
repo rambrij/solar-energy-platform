@@ -96,7 +96,7 @@ class JdbcTenantSqlAstAnalysisTest {
         return false;
     }
     private static boolean hasTrustedTenantArgument(String args) {
-        if (java.util.regex.Pattern.compile("(?i)\\b(?:request|body|payload|dto|filter|criteria)\\s*\\.\\s*(?:get)?tenantId\\s*\\(").matcher(args).find()) return false;
+        if (clientOrigin(args,Set.of())) return false;
         return java.util.regex.Pattern.compile("(?i)(?:\\btenant(?:Id)?\\b|\\b(?:auth|authorization|ctx|c|actor|scope|s|event|m|order)\\s*\\.|\\.tenant\\s*\\(|\\.tenantId\\s*\\()")
             .matcher(args).find();
     }

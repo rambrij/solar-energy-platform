@@ -1427,6 +1427,8 @@ class PosTest {
   assertThat(asCustomer("customer", () -> marketplace.cart(100)).items().getFirst().quantity()).isEqualTo(2);
   assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1",Integer.class)).isEqualTo(1);
   assertThatThrownBy(()->update("INSERT INTO cart_items VALUES(1,?,2,1)",cart.id())).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  assertThatThrownBy(()->update("UPDATE cart_items SET product_id=2 WHERE tenant_id=1 AND cart_id=? AND product_id=1",cart.id()))
+    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   assertThat(asCustomer("customer", () -> marketplace.remove(100,1)).items()).isEmpty();
   assertThat(asCustomer("customer", () -> marketplace.put(100,new CartService.Item("vendor-2",2,1))).vendorSlug()).isEqualTo("vendor-2");
  }
@@ -2518,6 +2520,36 @@ class PosTest {
   assertThatThrownBy(()->update(
     "INSERT INTO pos_active_drafts(tenant_id,branch_id,cashier,session_id,order_reference) VALUES(2,2,'bob',?,?)",
     sessionB,orderAId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "UPDATE pos_active_drafts SET order_reference=? WHERE tenant_id=1 AND order_reference=?",
+    orderBId,draft.id())).isInstanceOf(RuntimeException.class);
+
+  // Same-tenant positive controls for drawer movements, customer challenges
+  // and immutable buyer snapshots precede cross-tenant UPDATE probes.
+  db.update("""
+    INSERT INTO pos_cash_movements(id,tenant_id,branch_id,cashier,session_id,movement_type,amount,reason,idempotency_key)
+    VALUES('v48-cash-movement-a',1,1,'alice',?,'CASH_IN',1,'Same tenant','v48-cash-a-good')
+    """,session);
+  db.update("""
+    INSERT INTO pos_cash_movements(id,tenant_id,branch_id,cashier,session_id,movement_type,amount,reason,idempotency_key)
+    VALUES('v48-cash-movement-b',2,2,'bob',?,'CASH_IN',1,'Same tenant','v48-cash-b-good')
+    """,sessionB);
+  assertThatThrownBy(()->update("UPDATE pos_cash_movements SET session_id=? WHERE id='v48-cash-movement-a'",sessionB))
+    .isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update("UPDATE pos_cash_movements SET session_id=? WHERE id='v48-cash-movement-b'",session))
+    .isInstanceOf(RuntimeException.class);
+
+  db.update("INSERT INTO order_buyer_snapshots(tenant_id,order_id,name,captured_at) VALUES(1,?,'Buyer A',CURRENT_TIMESTAMP)",orderAId);
+  db.update("INSERT INTO order_buyer_snapshots(tenant_id,order_id,name,captured_at) VALUES(2,?,'Buyer B',CURRENT_TIMESTAMP)",orderBId);
+  assertThatThrownBy(()->update("UPDATE order_buyer_snapshots SET order_id=? WHERE tenant_id=1 AND order_id=?",orderBId,orderAId))
+    .isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update("UPDATE order_buyer_snapshots SET order_id=? WHERE tenant_id=2 AND order_id=?",orderAId,orderBId))
+    .isInstanceOf(RuntimeException.class);
+
+  java.sql.Timestamp challengeExpiry=java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(300));
+  db.update("INSERT INTO pos_customer_challenges(token_hash,tenant_id,order_id,expires_at) VALUES('v48-challenge-a',1,?,?)",orderAId,challengeExpiry);
+  assertThatThrownBy(()->update("UPDATE pos_customer_challenges SET order_id=? WHERE tenant_id=1 AND token_hash='v48-challenge-a'",orderBId))
+    .isInstanceOf(RuntimeException.class);
 
   // Mirror both tenant directions for the POS financial projections and
   // immutable buyer snapshot relationship, not only tenant-A -> tenant-B.
@@ -2527,6 +2559,12 @@ class PosTest {
   assertThatThrownBy(()->update(
     "INSERT INTO pos_drawer_tenders(id,tenant_id,branch_id,session_id,order_reference,cash_received,change_given) VALUES('v48-cross-session-reverse',2,2,?,?,100,0)",
     session,orderBId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "UPDATE pos_drawer_tenders SET order_reference=? WHERE tenant_id=1 AND order_reference=?",
+    orderBId,orderAId)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update(
+    "UPDATE pos_drawer_tenders SET order_reference=? WHERE tenant_id=2 AND order_reference=?",
+    orderAId,orderBId)).isInstanceOf(RuntimeException.class);
   assertThatThrownBy(()->update(
     "INSERT INTO pos_cash_movements(id,tenant_id,branch_id,cashier,session_id,movement_type,amount,reason,idempotency_key) VALUES('v48-cash-movement-a-cross',1,1,'alice',?,'CASH_IN',1,'Cross tenant test','v48-cash-a')",
     sessionB)).isInstanceOf(RuntimeException.class);

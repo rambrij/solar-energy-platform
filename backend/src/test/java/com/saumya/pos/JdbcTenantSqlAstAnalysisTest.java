@@ -152,7 +152,7 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(tenantPredicate("SELECT * FROM vendor_roles WHERE tenant_id=? AND id=?")).isTrue();
         assertThat(tenantInsert("INSERT INTO vendor_roles(id,role_key) VALUES(?,?)")).isFalse();
         assertThat(tenantInsert("INSERT INTO vendor_roles(tenant_id,role_key) VALUES(?,?)")).isTrue();
-        assertThat(hasTrustedTenantArgument("request.getTenantId()")).isTrue();
+        assertThat(hasTrustedTenantArgument("request.getTenantId()")).isFalse();
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();
     }
 }

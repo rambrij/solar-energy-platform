@@ -2568,6 +2568,11 @@ class PosTest {
     INSERT INTO pos_cash_refund_items(tenant_id,refund_id,return_id,order_id,product_id,name,quantity,net,tax,amount)
     VALUES(1,'p2-cross-refund-a',?,?,1,'Panel',1,?,?,?)
     """,returnA,orderA,netA,taxA,totalA);
+  db.update("""
+    INSERT INTO inventory_return_dispositions(tenant_id,branch_id,return_id,product_id,quantity,
+      disposition,received_condition,actor,created_at)
+    VALUES(1,1,?,1,1,'QUARANTINE','DAMAGED','alice',CURRENT_TIMESTAMP)
+    """,returnA);
 
   // Cross-tenant parents must be rejected even when the child tenant, branch,
   // cashier, session, or one of the other parent references is otherwise valid.
@@ -2615,6 +2620,17 @@ class PosTest {
       disposition,received_condition,actor,created_at)
     VALUES(1,1,?,2,1,'QUARANTINE','DAMAGED','alice',CURRENT_TIMESTAMP)
     """,returnB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  // UPDATE paths must be guarded as strictly as INSERT paths.
+  assertThatThrownBy(()->db.update("UPDATE vendor_invoices SET tenant_id=2 WHERE tenant_id=1 AND order_id=?",orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE vendor_payment_attempts SET tenant_id=2 WHERE id='p2-cross-payment-a'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE receipt_document_audit SET tenant_id=2 WHERE id='p2-cross-receipt-a'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE inventory_receipts SET product_id=2 WHERE id='p2-cross-stock-a'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_returns SET order_id=? WHERE tenant_id=1 AND id=?",orderB,returnA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_return_items SET order_id=? WHERE tenant_id=1 AND return_id=?",orderB,returnA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_return_events SET tenant_id=2 WHERE id='p2-cross-event-a'")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_cash_refunds SET order_id=? WHERE tenant_id=1 AND id='p2-cross-refund-a'",orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE pos_cash_refund_items SET order_id=? WHERE tenant_id=1 AND refund_id='p2-cross-refund-a'",orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("UPDATE inventory_return_dispositions SET tenant_id=2 WHERE tenant_id=1 AND return_id=?",returnA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
 
   // Financial/commercial history is retained: parent deletion is blocked by
   // its dependent invoice, payment, return, receipt, refund and audit records.
@@ -2650,7 +2666,7 @@ class PosTest {
     throw new IllegalStateException("Inject failure after payment, stock consume and receipt writes");
   }))).isInstanceOf(IllegalStateException.class).hasMessageContaining("Inject failure");
   assertThat(db.queryForObject("SELECT status FROM orders WHERE tenant_id=1 AND id=?",String.class,draft.id())).isEqualTo("DRAFT");
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM payment_attempts WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
   assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(ledgerBefore);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
  }

@@ -2530,7 +2530,8 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_events WHERE tenant_id=1 AND subscription_id=?",Integer.class,subscriptionA)).isEqualTo(1);
   update("INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(2,?,'ACTIVE','bob','same tenant event')",subscriptionB);
   assertThatThrownBy(()->update("INSERT INTO subscription_events(tenant_id,subscription_id,new_status,actor_username,reason) VALUES(2,?,'ACTIVE','bob','cross tenant event')",subscriptionA)).isInstanceOf(RuntimeException.class);
-  assertThatThrownBy(()->update("UPDATE subscription_events SET tenant_id=2,subscription_id=? WHERE tenant_id=1 AND subscription_id=?",subscriptionB,subscriptionA)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update("UPDATE subscription_events SET subscription_id=? WHERE tenant_id=1 AND subscription_id=?",subscriptionB,subscriptionA)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->update("UPDATE subscription_events SET subscription_id=? WHERE tenant_id=2 AND subscription_id=?",subscriptionA,subscriptionB)).isInstanceOf(RuntimeException.class);
 
   // Platform subscription invoices and payments are financial child records.
   db.update("""

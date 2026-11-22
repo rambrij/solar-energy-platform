@@ -335,13 +335,13 @@ class JdbcTenantSqlAstAnalysisTest {
 
         try(var files=Files.walk(sourceRoot())){
             List<Path> branchCallers=files.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java"))
-                .filter(p->{try{return Pattern.compile("\\\\.createInitialBranch\\\\s*\\\\(").matcher(Files.readString(p)).find();}catch(Exception e){throw new RuntimeException(e);}})
+                .filter(p->{try{return Pattern.compile("\\.createInitialBranch\\s*\\(").matcher(Files.readString(p)).find();}catch(Exception e){throw new RuntimeException(e);}})
                 .toList();
             assertThat(branchCallers).containsExactly(platformPath);
         }
         try(var files=Files.walk(sourceRoot())){
             List<Path> membershipCallers=files.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java"))
-                .filter(p->{try{return Pattern.compile("\\\\.provisionInitialVendorAdmin\\\\s*\\\\(").matcher(Files.readString(p)).find();}catch(Exception e){throw new RuntimeException(e);}})
+                .filter(p->{try{return Pattern.compile("\\.provisionInitialVendorAdmin\\s*\\(").matcher(Files.readString(p)).find();}catch(Exception e){throw new RuntimeException(e);}})
                 .toList();
             assertThat(membershipCallers).containsExactly(platformPath);
         }

@@ -161,7 +161,29 @@ const tabIds=uniqueIds(actionRegistry.tabs);
 if(JSON.stringify(tabIds)!==JSON.stringify(Object.keys(registry.frontendPlatformPages).sort()))throw new Error('Platform tab registry diverges from canonical platform page permissions');
 const menuItems=actionRegistry.menus.flatMap(menu=>menu.items);
 if(new Set(menuItems).size!==menuItems.length||JSON.stringify([...menuItems].sort())!==JSON.stringify(routeIds.concat(tabIds).sort()))throw new Error('Every route and platform tab must appear exactly once in a menu registry');
-for(const submenu of actionRegistry.submenus)if(!submenu.items.length||submenu.items.some(id=>!routeIds.includes(id)))throw new Error('Unknown/empty submenu '+submenu.id);
+for(const menu of actionRegistry.menus){
+ for(const id of menu.items){
+  const route=actionRegistry.routes.find(item=>item.id===id);
+  const tab=actionRegistry.tabs.find(item=>item.id===id);
+  const actor=tab?'PLATFORM':route?.path.startsWith('/marketplace/')?'CUSTOMER':route?.path.startsWith('/vendor/')?'VENDOR':null;
+  if(!actor||menu.actor!==actor)throw new Error('Menu actor does not match route/tab actor: '+menu.id+' -> '+id);
+ }
+}
+const submenuItems=actionRegistry.submenus.flatMap(item=>item.items);
+if(new Set(submenuItems).size!==submenuItems.length||JSON.stringify([...submenuItems].sort())!==JSON.stringify(routeIds))throw new Error('Every workspace route must appear in exactly one submenu');
+for(const submenu of actionRegistry.submenus){
+ if(!submenu.items.length||submenu.items.some(id=>!routeIds.includes(id)))throw new Error('Unknown/empty submenu '+submenu.id);
+ for(const id of submenu.items){
+  const route=actionRegistry.routes.find(item=>item.id===id);
+  if(!route||route.group!==submenu.label)throw new Error('Submenu group metadata mismatch: '+submenu.id+' -> '+id);
+ }
+}
+for(const tab of actionRegistry.tabs){
+ const rule=registry.frontendPlatformPages?.[tab.id];
+ const mode=rule?.allOf?'allOf':rule?.anyOf?'anyOf':null;
+ const permissions=rule?.[mode]??[];
+ if(mode!==tab.mode||JSON.stringify([...permissions].sort())!==JSON.stringify([...tab.permissions].sort()))throw new Error('Platform tab permission mapping mismatch: '+tab.id);
+}
 const actionIds=uniqueIds(actionRegistry.actions);
 
 const expectedButtonIds=actionRegistry.actions.filter(a=>a.trigger==='button'||a.trigger==='submit').map(a=>a.id).sort();
@@ -216,6 +238,11 @@ for(const action of actionRegistry.actions){
   }else{
    const expected=[...action.permissions].sort(),observed=[...new Set(actual)].sort();
    if(JSON.stringify(expected)!==JSON.stringify(observed))throw new Error('Frontend/backend permission parity mismatch for '+action.id+': frontend='+expected.join(',')+' backend='+observed.join(','));
+   if(action.permissions.length>1){
+    const expectsAny=action.permissionMode==='ANY';
+    const backendAny=/hasAnyAuthority\s*\(/.test(operation.policy);
+    if(expectsAny!==backendAny)throw new Error('Frontend/backend ANY-vs-ALL authorization mode mismatch for '+action.id);
+   }
   }
  }
 }

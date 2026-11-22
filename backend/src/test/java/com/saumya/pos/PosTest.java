@@ -2548,8 +2548,8 @@ class PosTest {
   Long receiptA=db.queryForObject("SELECT receipt_number FROM orders WHERE tenant_id=1 AND id=?",Long.class,orderA);
   db.update("INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total) VALUES(1,?,'P2-CROSS-INVOICE-A','Vendor A','A',?)",orderA,totalA);
   db.update("""
-    INSERT INTO vendor_payment_attempts(id,tenant_id,order_id,method,merchant_account,state,amount,created_at)
-    VALUES('p2-cross-payment-a',1,?,'UPI','merchant-a','PENDING',?,CURRENT_TIMESTAMP)
+    INSERT INTO vendor_payment_attempts(id,tenant_id,order_id,method,merchant_account,state,amount,created_at,idempotency_key,request_hash)
+    VALUES('p2-cross-payment-a',1,?,'UPI','merchant-a','PENDING',?,CURRENT_TIMESTAMP,'p2-cross-payment-key-a',REPEAT('a',64))
     """,orderA,totalA);
   db.update("""
     INSERT INTO receipt_document_audit(id,tenant_id,branch_id,order_id,actor,reason,content_sha256,content_length,created_at)
@@ -2581,8 +2581,8 @@ class PosTest {
     VALUES(1,?,'P2-CROSS-INVOICE-B','Vendor A','A',100)
     """,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("""
-    INSERT INTO vendor_payment_attempts(id,tenant_id,order_id,method,merchant_account,state,amount,created_at)
-    VALUES('p2-cross-payment-bad',1,?,'UPI','merchant-a','PENDING',100,CURRENT_TIMESTAMP)
+    INSERT INTO vendor_payment_attempts(id,tenant_id,order_id,method,merchant_account,state,amount,created_at,idempotency_key,request_hash)
+    VALUES('p2-cross-payment-bad',1,?,'UPI','merchant-a','PENDING',100,CURRENT_TIMESTAMP,'p2-cross-payment-key-bad',REPEAT('b',64))
     """,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
   assertThatThrownBy(()->db.update("""
     INSERT INTO receipt_document_audit(id,tenant_id,branch_id,order_id,actor,reason,content_sha256,content_length,created_at)

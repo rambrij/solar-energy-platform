@@ -2697,6 +2697,23 @@ class PosTest {
     "UPDATE order_items SET product_id=1 WHERE tenant_id=2 AND order_id=? AND product_id=2",orderB))
     .isInstanceOf(org.springframework.dao.DataAccessException.class);
 
+  // Issued-stock ledger rows must remain bound to both their order stock
+  // branch and the matching tenant/branch/product inventory tuple.
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO inventory_ledger(tenant_id,branch_id,product_id,order_id,quantity_delta)
+    VALUES(1,1,2,?,-1)
+    """,orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO inventory_ledger(tenant_id,branch_id,product_id,order_id,quantity_delta)
+    VALUES(1,1,1,?,-1)
+    """,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update(
+    "UPDATE inventory_ledger SET product_id=2 WHERE tenant_id=1 AND order_id=? AND product_id=1",orderA))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update(
+    "UPDATE inventory_ledger SET order_id=? WHERE tenant_id=1 AND order_id=? AND product_id=1",orderB,orderA))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+
   // Cross-tenant parents must be rejected even when the child tenant, branch,
   // cashier, session, or one of the other parent references is otherwise valid.
   assertThatThrownBy(()->db.update("""

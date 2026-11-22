@@ -215,6 +215,15 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(observedSources).as("all trusted direct-JDBC source inventory entries are reached by AST analysis")
             .containsExactlyInAnyOrderElementsOf(trustedSources(registry));
         assertThat(observedSqlSites).as("AST analyzer must discover direct JDBC SQL operations").isNotEmpty();
+        for(JsonNode item:registry.path("trustedTenantParameterSources")){
+            String source=item.path("source").asText();
+            Set<String> declared=new TreeSet<>();
+            item.path("methods").forEach(value->declared.add(value.asText()));
+            assertThat(declared).as("JDBC provenance methods must be explicit, not wildcard, for %s",source).doesNotContain("*");
+            assertThat(observedMethods.getOrDefault(source,Set.of()))
+                .as("method-level JDBC provenance inventory must be exhaustive for %s",source)
+                .containsExactlyInAnyOrderElementsOf(declared);
+        }
         observedMethods.forEach((source,methods)->System.out.println("P2-04_JDBC_METHODS|"+source+"|"+String.join(",",methods)));
     }
 

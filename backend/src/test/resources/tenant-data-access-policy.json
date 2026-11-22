@@ -208,7 +208,23 @@
     {
       "source": "com.saumya.pos.membership.VendorRoleService",
       "methods": [
-        "*"
+        "requireRoleDelegable",
+        "roleRow",
+        "view",
+        "roles",
+        "create",
+        "applyTemplate",
+        "update",
+        "deactivate",
+        "employees",
+        "employee",
+        "createEmployee",
+        "assignRoles",
+        "assignRegisters",
+        "updateBranch",
+        "disableEmployee",
+        "employeeRow",
+        "audit"
       ],
       "authority": "Every operation obtains AuthorizationContext.current(), requires vendor membership and derives SQL tenant parameters from that immutable context.",
       "evidence": [
@@ -220,8 +236,7 @@
     {
       "source": "com.saumya.pos.membership.TenantEntitlementPolicy",
       "methods": [
-        "permissions",
-        "requireFeature"
+        "permissions"
       ],
       "authority": "Called by MembershipService with the tenant from the persisted active EmployeeMembership; no request DTO is accepted.",
       "evidence": [
@@ -232,7 +247,9 @@
     {
       "source": "com.saumya.pos.membership.StandardRoleTemplates",
       "methods": [
-        "*"
+        "lockTenant",
+        "initialize",
+        "insert"
       ],
       "authority": "Package-private provisioning helpers receive tenant only from authenticated MembershipService or VendorRoleService actor context.",
       "evidence": [
@@ -244,7 +261,34 @@
     {
       "source": "com.saumya.pos.retail.PosService",
       "methods": [
-        "*"
+        "requireAssignedRegisterScope",
+        "requireOpenPosScope",
+        "activeSessions",
+        "sessionDetails",
+        "resume",
+        "open",
+        "reopen",
+        "requireAssignedRegister",
+        "session",
+        "requireAssignedSession",
+        "requireOpenForPaymentReview",
+        "requireOpenResourceSession",
+        "requireAssignedResourceSession",
+        "requireOpenForCustomer",
+        "lockOutlet",
+        "lockInventoryOutlet",
+        "allocateReceiptForCustomer",
+        "allocateReceiptInternal",
+        "customerDraftAudit",
+        "closeStatusInternal",
+        "close",
+        "pendingVariances",
+        "reviewVariance",
+        "cashMovement",
+        "movement",
+        "reconciliationInternal",
+        "one",
+        "audit"
       ],
       "authority": "Scope is derived from AuthorizationContext.current(); all JDBC methods use scope.tenant() or actor.tenant(), and internal scope revalidates the current actor.",
       "evidence": [
@@ -269,7 +313,7 @@
     {
       "source": "com.saumya.pos.retail.CashDrawerProjection",
       "methods": [
-        "*"
+        "record"
       ],
       "authority": "Projection writes are driven only by server-published drawer/tender domain events; tenant is copied from event aggregate metadata.",
       "evidence": [

@@ -144,4 +144,39 @@ for(const [file,source] of platformUiSources){
   if(unknown.length)throw new Error(`Unknown platform permission reference in ${file}: ${unknown.join(', ')}`);
 }
 
+
+const actionRegistry=JSON.parse(fs.readFileSync(path.join(frontend,'src/authorization-action-registry.json'),'utf8'));
+const uniqueIds=items=>{const ids=items.map(item=>item.id);if(new Set(ids).size!==ids.length)throw new Error('Duplicate authorization registry IDs');return ids.sort();};
+const routeIds=uniqueIds(actionRegistry.routes);
+if(JSON.stringify(routeIds)!==JSON.stringify(Object.keys(registry.frontendRoutes).sort()))throw new Error('Action registry routes diverge from canonical navigation permissions');
+const tabIds=uniqueIds(actionRegistry.tabs);
+if(JSON.stringify(tabIds)!==JSON.stringify(Object.keys(registry.frontendPlatformPages).sort()))throw new Error('Platform tab registry diverges from canonical platform page permissions');
+const menuItems=actionRegistry.menus.flatMap(menu=>menu.items);
+if(new Set(menuItems).size!==menuItems.length||JSON.stringify([...menuItems].sort())!==JSON.stringify(routeIds.concat(tabIds).sort()))throw new Error('Every route and platform tab must appear exactly once in a menu registry');
+for(const submenu of actionRegistry.submenus)if(!submenu.items.length||submenu.items.some(id=>!routeIds.includes(id)))throw new Error('Unknown/empty submenu '+submenu.id);
+const actionIds=uniqueIds(actionRegistry.actions);
+const validActors=new Set(['PUBLIC','CUSTOMER','VENDOR','PLATFORM']);
+for(const action of actionRegistry.actions){
+ if(!validActors.has(action.actor)||!action.component||!action.trigger||!action.method||!action.endpoint||action.backendOperation!==action.method+' '+action.endpoint)throw new Error('Incomplete frontend action mapping '+action.id);
+ for(const permission of action.permissions)if(!permissions.has(permission)&&permission!=='POS_CASH_MOVEMENT_DYNAMIC')throw new Error('Unknown action permission '+permission+' in '+action.id);
+ if(action.actor==='VENDOR'&&action.permissions.some(p=>p.startsWith('PLATFORM_')))throw new Error('Platform permission assigned to vendor action '+action.id);
+ if(!fs.existsSync(path.join(frontend,'src',action.component)))throw new Error('Missing action component '+action.component);
+}
+async function collectControllerRoutes(directory){
+ const found=[];
+ for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+  const full=path.join(directory,entry.name);
+  if(entry.isDirectory())found.push(...await collectControllerRoutes(full));
+  else if(entry.isFile()&&entry.name.endsWith('Controller.java')){
+   const source=fs.readFileSync(full,'utf8'),base=source.match(/@RequestMapping\s*\(\s*["']([^"']*)["']/)?.[1]??'';
+   const pattern=/@(Get|Post|Put|Patch|Delete)Mapping\s*(?:\(\s*["']([^"']*)["'])?/g;
+   for(const match of source.matchAll(pattern)){const suffix=match[2]??'';const endpoint=suffix.startsWith('/api/')?suffix:base+suffix;found.push({method:match[1].toUpperCase(),endpoint:normalizeActionPath(endpoint)});}
+  }
+ }
+ return found;
+}
+function normalizeActionPath(value){return value.replace(/\{[^/]+\}/g,'{}').replace(/\/+/g,'/').replace(/\/$/,'')||'/';}
+const backendOperations=await collectControllerRoutes(path.join(repo,'backend/src/main/java'));
+for(const action of actionRegistry.actions)if(!backendOperations.some(op=>op.method===action.method&&op.endpoint===normalizeActionPath(action.endpoint)))throw new Error('No backend operation for frontend action '+action.id+': '+action.backendOperation);
+
 console.log(`Authorization registry verified: ${expectedRoutes.length} frontend routes, ${names.length} backend controllers, ${sourceFiles.length} frontend source files, ${permissions.size} permission identifiers.`);

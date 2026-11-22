@@ -622,14 +622,40 @@ class P202MysqlPersistenceIntegrationTest {
                     INSERT INTO platform_audit_events(actor_username,action,resource_type,tenant_id,outcome)
                     VALUES('p2-check-actor','P2_BAD_OUTCOME','TEST',994011,'NOT_AN_OUTCOME')
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            db.update("""
+                    INSERT INTO platform_audit_events(actor_username,action,resource_type,tenant_id,outcome)
+                    VALUES('p2-check-actor','P2_GOOD_OUTCOME','TEST',994011,'SUCCESS')
+                    """);
+            Long auditCheckId=db.queryForObject("SELECT MAX(id) FROM platform_audit_events WHERE action='P2_GOOD_OUTCOME'",Long.class);
+            assertThatThrownBy(() -> db.update("UPDATE platform_audit_events SET outcome='NOT_AN_OUTCOME' WHERE id=?",auditCheckId))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO platform_support_access(tenant_id,actor_username,purpose,ticket_reference,expires_at)
                     VALUES(994011,'p2-check-actor','P2 invalid expiry','P2-EXPIRY','2000-01-01 00:00:00')
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            db.update("""
+                    INSERT INTO platform_support_access(tenant_id,actor_username,purpose,ticket_reference,granted_at,expires_at)
+                    VALUES(994011,'p2-check-actor','P2 valid expiry','P2-VALID-EXPIRY','2026-01-01 00:00:00','2026-01-02 00:00:00')
+                    """);
+            Long supportId=db.queryForObject("SELECT MAX(id) FROM platform_support_access WHERE ticket_reference='P2-VALID-EXPIRY'",Long.class);
+            assertThatThrownBy(() -> db.update("UPDATE platform_support_access SET expires_at='2025-12-31 00:00:00' WHERE id=?",supportId))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO platform_configuration(config_key,category,plain_value,secret_reference,is_sensitive,updated_by)
                     VALUES('p2-invalid-secret','SECURITY','plain-secret',NULL,TRUE,'p2-check-actor')
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            db.update("""
+                    INSERT INTO platform_configuration(config_key,category,secret_reference,is_sensitive,updated_by)
+                    VALUES('p2-valid-secret','SECURITY','vault://p2/test',TRUE,'p2-check-actor')
+                    """);
+            assertThatThrownBy(() -> db.update("UPDATE platform_configuration SET plain_value='leaked' WHERE config_key='p2-valid-secret'"))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+            db.update("""
+                    INSERT INTO platform_configuration(config_key,category,plain_value,is_sensitive,updated_by)
+                    VALUES('p2-valid-plain','GENERAL','safe value',FALSE,'p2-check-actor')
+                    """);
+            assertThatThrownBy(() -> db.update("UPDATE platform_configuration SET secret_reference='vault://unexpected' WHERE config_key='p2-valid-plain'"))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
 
             db.update("""
                     INSERT INTO subscription_plans(id,plan_key,display_name,active,current_version)
@@ -670,6 +696,8 @@ class P202MysqlPersistenceIntegrationTest {
                     (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
                     VALUES(994043,994011,994031,3,'ACTIVE','2026-02-01','2026-03-01','{}')
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("UPDATE tenant_subscriptions SET status='NOT_A_STATUS' WHERE id=994042"))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
             db.update("UPDATE tenant_subscriptions SET status='CANCELLED' WHERE id=994042");
             assertThat(db.queryForObject("SELECT active_tenant_id FROM tenant_subscriptions WHERE id=994042",Long.class))
                     .isNull();
@@ -688,6 +716,8 @@ class P202MysqlPersistenceIntegrationTest {
                            100.0000,0.0000,100.0000,'OPEN','2026-02-15 00:00:00')
                     """);
             Long invoiceId=db.queryForObject("SELECT id FROM subscription_invoices WHERE invoice_number='P2-GOOD-INVOICE'",Long.class);
+            assertThatThrownBy(() -> db.update("UPDATE subscription_invoices SET status='NOT_A_STATUS' WHERE id=?",invoiceId))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO subscription_payments
                     (tenant_id,subscription_invoice_id,provider,platform_merchant_reference,idempotency_key,
@@ -699,13 +729,26 @@ class P202MysqlPersistenceIntegrationTest {
                     INSERT INTO vendor_roles(id,tenant_id,role_key,display_name,created_by,updated_by)
                     VALUES(994051,994011,'p2-check-role','P2 Check Role','p2-check-actor','p2-check-actor')
                     """);
+            db.update("""
+                    INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+                    VALUES(994011,994051,'INVENTORY_VIEW','p2-check-actor')
+                    """);
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
                     VALUES(994011,994051,'PLATFORM_CONFIG_MANAGE','p2-check-actor')
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
             assertThatThrownBy(() -> db.update("""
+                    UPDATE vendor_role_permissions SET permission='PLATFORM_CONFIG_MANAGE'
+                    WHERE tenant_id=994011 AND role_id=994051 AND permission='INVENTORY_VIEW'
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            db.update("INSERT INTO platform_user_permissions(username,permission) VALUES('p2-check-actor','PLATFORM_TENANT_VIEW')");
+            assertThatThrownBy(() -> db.update("""
                     INSERT INTO platform_user_permissions(username,permission)
                     VALUES('p2-check-actor','NOT_A_PLATFORM_PERMISSION')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(() -> db.update("""
+                    UPDATE platform_user_permissions SET permission='NOT_A_PLATFORM_PERMISSION'
+                    WHERE username='p2-check-actor' AND permission='PLATFORM_TENANT_VIEW'
                     """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
         });
     }

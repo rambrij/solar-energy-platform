@@ -13,8 +13,8 @@ function validatePermissionReferences(source, permissions, label='frontend sourc
 
 function validateNoHardcodedRoleAuthorization(source, label='frontend source'){
   const patterns=[
-    /\\b(?:role|roleKey|roleName|userRole)\\s*(?:===|!==|==|!=)\\s*['"][A-Z][A-Z0-9_ -]*['"]/i,
-    /['"][A-Z][A-Z0-9_ -]*['"]\\s*(?:===|!==|==|!=)\\s*\\b(?:role|roleKey|roleName|userRole)\\b/i
+    /\b(?:role|roleKey|roleName|userRole)\s*(?:===|!==|==|!=)\s*['"][A-Z][A-Z0-9_ -]*['"]/i,
+    /['"][A-Z][A-Z0-9_ -]*['"]\s*(?:===|!==|==|!=)\s*\b(?:role|roleKey|roleName|userRole)\b/i
   ];
   if(patterns.some(pattern=>pattern.test(source)))
     throw new Error(`Hardcoded role-name authorization is prohibited in ${label}; authorize using server-derived permissions`);
@@ -121,7 +121,7 @@ async function collectFrontendSources(directory){
   for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
     const full=path.join(directory,entry.name);
     if(entry.isDirectory())await collectFrontendSources(full);
-    else if(entry.isFile()&&/\\.(tsx|ts)$/.test(entry.name)&&!/(\\.test|\\.spec)\\.tsx?$/.test(entry.name))
+    else if(entry.isFile()&&/\.(tsx|ts)$/.test(entry.name)&&!/(\.test|\.spec)\.tsx?$/.test(entry.name))
       sourceFiles.push(full);
   }
 }

@@ -436,7 +436,7 @@ class JdbcTenantSqlAstAnalysisTest {
             .contains("static long initialize(JdbcTemplate db, long tenant, String actor)")
             .contains("static long insert(JdbcTemplate db, long tenant, String actor");
         assertThat(roles).doesNotContain("public static void lockTenant","public static long initialize","public static long insert");
-        assertThat(roleService).contains("authorization.current()")
+        assertThat(roleService).contains("auth.current()")
             .contains("StandardRoleTemplates.lockTenant(db,actor.tenantId())")
             .contains("StandardRoleTemplates.insert(db,actor.tenantId(),actor.username()");
 

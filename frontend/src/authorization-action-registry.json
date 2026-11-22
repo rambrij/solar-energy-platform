@@ -1972,6 +1972,86 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm"
+    },
+    {
+      "id": "auth-login",
+      "component": "LoginPanel.tsx",
+      "trigger": "submit",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/login",
+      "backendOperation": "POST /api/v1/auth/login"
+    },
+    {
+      "id": "auth-register",
+      "component": "LoginPanel.tsx",
+      "trigger": "submit",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/register",
+      "backendOperation": "POST /api/v1/auth/register"
+    },
+    {
+      "id": "auth-session-refresh",
+      "component": "AuthenticationBoundary.tsx",
+      "trigger": "session-bootstrap",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/refresh",
+      "backendOperation": "POST /api/v1/auth/refresh"
+    },
+    {
+      "id": "auth-context-switch",
+      "component": "SessionControls.tsx",
+      "trigger": "button",
+      "actor": "SESSION",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/context",
+      "backendOperation": "POST /api/v1/auth/context"
+    },
+    {
+      "id": "auth-logout",
+      "component": "SessionControls.tsx",
+      "trigger": "button",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/logout",
+      "backendOperation": "POST /api/v1/auth/logout"
+    },
+    {
+      "id": "vendor-invitation-accept",
+      "component": "VendorInvitationAcceptance.tsx",
+      "trigger": "submit",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/invitations/accept",
+      "backendOperation": "POST /api/v1/auth/invitations/accept"
+    },
+    {
+      "id": "platform-mfa-enrollment-start",
+      "component": "PlatformMfaEnrollment.tsx",
+      "trigger": "button",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/platform-mfa/enrollment/start",
+      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/start"
+    },
+    {
+      "id": "platform-mfa-enrollment-complete",
+      "component": "PlatformMfaEnrollment.tsx",
+      "trigger": "button",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/platform-mfa/enrollment/complete",
+      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/complete"
     }
   ],
   "buttons": [
@@ -2364,6 +2444,48 @@
       "component": "PaymentCheckout.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm"
+    },
+    {
+      "id": "auth-login",
+      "component": "LoginPanel.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/auth/login"
+    },
+    {
+      "id": "auth-register",
+      "component": "LoginPanel.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/auth/register"
+    },
+    {
+      "id": "auth-context-switch",
+      "component": "SessionControls.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/context"
+    },
+    {
+      "id": "auth-logout",
+      "component": "SessionControls.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/logout"
+    },
+    {
+      "id": "vendor-invitation-accept",
+      "component": "VendorInvitationAcceptance.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/auth/invitations/accept"
+    },
+    {
+      "id": "platform-mfa-enrollment-start",
+      "component": "PlatformMfaEnrollment.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/start"
+    },
+    {
+      "id": "platform-mfa-enrollment-complete",
+      "component": "PlatformMfaEnrollment.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/complete"
     }
   ],
   "dynamicRouteParameters": {
@@ -2438,5 +2560,27 @@
         "vendor-role-update"
       ]
     }
-  }
+  },
+  "sessionApiOperations": [
+    {
+      "path": "/refresh",
+      "action": "auth-session-refresh"
+    },
+    {
+      "path": "/login",
+      "action": "auth-login"
+    },
+    {
+      "path": "/register",
+      "action": "auth-register"
+    },
+    {
+      "path": "/context",
+      "action": "auth-context-switch"
+    },
+    {
+      "path": "/logout",
+      "action": "auth-logout"
+    }
+  ]
 }

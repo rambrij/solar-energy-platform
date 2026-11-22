@@ -124,10 +124,21 @@ class JdbcTenantSqlAstAnalysisTest {
         for(String variable:tainted)if(java.util.regex.Pattern.compile("\\b"+java.util.regex.Pattern.quote(variable)+"\\b").matcher(expression).find())return true;
         return false;
     }
-    private static boolean hasTrustedTenantArgument(String args) {
-        if (clientOrigin(args,Set.of())) return false;
-        return java.util.regex.Pattern.compile("(?i)(?:\\btenant(?:Id)?\\b|\\b(?:auth|authorization|ctx|c|actor|scope|s|event|m|order)\\s*\\.|\\.tenant\\s*\\(|\\.tenantId\\s*\\()")
-            .matcher(args).find();
+    private static boolean hasTrustedTenantArgument(String expression) {
+        if(clientOrigin(expression,Set.of()))return false;
+        return java.util.regex.Pattern.compile("(?i)(?:\\b(?:auth|authorization|ctx|c|actor|scope|s|event|m|order)\\s*\\.|\\.tenant\\s*\\(|\\.tenantId\\s*\\()")
+            .matcher(expression).find();
+    }
+    private static boolean hasTrustedTenantArgument(String expression,String className,String methodName,JsonNode classPolicy) {
+        if(hasTrustedTenantArgument(expression))return true;
+        if(clientOrigin(expression,Set.of())||classPolicy==null)return false;
+        var bare=java.util.regex.Pattern.compile("^\\s*([a-zA-Z_$][\\w$]*)\\s*$").matcher(expression);
+        if(!bare.matches())return false;
+        String parameter=bare.group(1);
+        JsonNode declared=classPolicy.path("trustedTenantParameters").path(methodName);
+        if(!declared.isArray())return false;
+        for(JsonNode value:declared)if(value.asText().equals(parameter))return true;
+        return false;
     }
     private static Set<String> trustedSources(JsonNode policy) {
         Set<String> result=new TreeSet<>();
@@ -235,8 +246,8 @@ class JdbcTenantSqlAstAnalysisTest {
                                 assertThat(tenantArgument).as("tenant placeholder %s must bind to an explicit trusted argument in %s",tenantIndex,node).isNotNull();
                                 assertThat(clientOrigin(tenantArgument,taintedTenantVariables))
                                     .as("forged tenant value or transitive alias cannot bind a SQL tenant placeholder: %s",node).isFalse();
-                                assertThat(hasTrustedTenantArgument(tenantArgument))
-                                    .as("tenant placeholder must bind to authenticated actor, persisted membership, platform authorization or trusted domain event: %s",node).isTrue();
+                                assertThat(hasTrustedTenantArgument(tenantArgument,className,methodName,classPolicy))
+                                    .as("tenant placeholder must bind to authenticated context, trusted domain event or a parameter with an explicit caller-flow proof: %s",node).isTrue();
                             }
                         }
                         return super.visitMethodInvocation(node,unused);
@@ -373,5 +384,8 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(clientOrigin(forgedAliasArgument, Set.of("tenantAlias"))).isTrue();
         assertThat(hasTrustedTenantArgument(forgedAliasArgument)).isFalse();
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();
+        assertThat(hasTrustedTenantArgument("tenant")).isFalse();
+        assertThat(hasTrustedTenantArgument("tenantId")).isFalse();
+        assertThat(hasTrustedTenantArgument("request.tenantId()")).isFalse();
     }
 }

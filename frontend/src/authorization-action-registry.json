@@ -1960,6 +1960,18 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/pos/payments/awaiting-review"
+    },
+    {
+      "id": "customer-payment-confirm",
+      "component": "PaymentCheckout.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/checkout/drafts/{id}/payment/mock-confirm",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm"
     }
   ],
   "buttons": [
@@ -2346,6 +2358,12 @@
       "component": "WalkInCustomer.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/customer-association"
+    },
+    {
+      "id": "customer-payment-confirm",
+      "component": "PaymentCheckout.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm"
     }
   ],
   "dynamicRouteParameters": {
@@ -2383,7 +2401,8 @@
       "methodArgument": "body===undefined?'GET':'POST'",
       "actions": [
         "customer-payment-read",
-        "customer-payment-create"
+        "customer-payment-create",
+        "customer-payment-confirm"
       ]
     },
     "ProductManager.tsx:17": {

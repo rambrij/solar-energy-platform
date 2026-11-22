@@ -2681,6 +2681,22 @@ class PosTest {
     VALUES(1,1,?,1,1,'QUARANTINE','DAMAGED','alice',CURRENT_TIMESTAMP)
     """,returnA);
 
+  // Order lines are independently bound to both their order and product tenant.
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO order_items(tenant_id,order_id,product_id,name,quantity,price,tax_rate,tax,total)
+    VALUES(1,?,2,'Foreign Vendor B product',1,100,0,0,100)
+    """,orderA)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update("""
+    INSERT INTO order_items(tenant_id,order_id,product_id,name,quantity,price,tax_rate,tax,total)
+    VALUES(1,?,1,'Foreign Vendor A order',1,100,0,0,100)
+    """,orderB)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update(
+    "UPDATE order_items SET product_id=2 WHERE tenant_id=1 AND order_id=? AND product_id=1",orderA))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  assertThatThrownBy(()->db.update(
+    "UPDATE order_items SET product_id=1 WHERE tenant_id=2 AND order_id=? AND product_id=2",orderB))
+    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+
   // Cross-tenant parents must be rejected even when the child tenant, branch,
   // cashier, session, or one of the other parent references is otherwise valid.
   assertThatThrownBy(()->db.update("""

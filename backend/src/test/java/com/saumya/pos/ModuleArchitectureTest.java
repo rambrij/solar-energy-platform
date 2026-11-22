@@ -99,10 +99,18 @@ class ModuleArchitectureTest {
             "com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java"
         );
         for (var entry : tenantScopedSqlSources.entrySet()) {
-            String source = Files.readString(Path.of(entry.getValue()));
+            String source = Files.readString(resolveBackendSource(entry.getValue()));
             assertThat(source).as("approved JDBC adapter %s must bind tenant ownership in SQL", entry.getKey())
                 .contains("tenant_id");
         }
+    }
+
+    private static Path resolveBackendSource(String repositoryRelativePath) {
+        Path fromRepositoryRoot = Path.of(repositoryRelativePath);
+        if (Files.isRegularFile(fromRepositoryRoot)) return fromRepositoryRoot;
+        Path fromBackendRoot = Path.of(repositoryRelativePath.replaceFirst("^backend/", ""));
+        if (Files.isRegularFile(fromBackendRoot)) return fromBackendRoot;
+        throw new AssertionError("Approved SQL adapter source is missing: " + repositoryRelativePath);
     }
 
     @Test

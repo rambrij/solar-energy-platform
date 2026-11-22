@@ -653,7 +653,7 @@ class JdbcTenantSqlAstAnalysisTest {
                     for(Tree member:type.getMembers())if(member instanceof VariableTree field&&field.getType()!=null)
                         fieldTypes.put(field.getName().toString(),simpleTypeName(field.getType().toString()));
 
-                    new TreePathScanner<Void,Void>() {
+                    new TreeScanner<Void,Void>() {
                         String callerMethod="<initializer>";
                         Map<String,String> localTypes=new HashMap<>();
                         @Override public Void visitMethod(MethodTree method,Void unused) {

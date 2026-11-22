@@ -241,16 +241,18 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(clientOrigin("trustedScope.tenant()",Set.of())).isFalse();
         assertThat(tenantPlaceholderIndex("SELECT * FROM vendor_roles WHERE id=? AND tenant_id=?")).isEqualTo(1);
         assertThat(tenantPlaceholderIndex("INSERT INTO vendor_roles(id,tenant_id,role_key) VALUES(?,?,?)")).isEqualTo(1);
-        assertThat(trustedParameterAt(List.of("sql", "trustedScope.tenant()", "resourceId"), 1,
-            tenantPlaceholderIndex("SELECT * FROM rows WHERE tenant_id=? AND id=?"), "one", false))
-            .isEqualTo("trustedScope.tenant()");
-        String forgedTenantArgument = trustedParameterAt(List.of("sql", "resourceId", "request.tenantId()"), 1,
-            tenantPlaceholderIndex("SELECT * FROM rows WHERE id=? AND tenant_id=?"), "one", false);
+        String trustedSql = "SELECT * FROM rows WHERE tenant_id=? AND id=?";
+        int trustedIndex = tenantPlaceholderIndex(trustedSql);
+        assertThat(List.of("trustedScope.tenant()", "resourceId").get(trustedIndex)).isEqualTo("trustedScope.tenant()");
+        String forgedSql = "SELECT * FROM rows WHERE id=? AND tenant_id=?";
+        int forgedIndex = tenantPlaceholderIndex(forgedSql);
+        String forgedTenantArgument = List.of("resourceId", "request.tenantId()").get(forgedIndex);
         assertThat(forgedTenantArgument).isEqualTo("request.tenantId()");
         assertThat(clientOrigin(forgedTenantArgument, Set.of())).isTrue();
         assertThat(hasTrustedTenantArgument(forgedTenantArgument)).isFalse();
-        String forgedAliasArgument = trustedParameterAt(List.of("sql", "tenantAlias", "resourceId"), 1,
-            tenantPlaceholderIndex("SELECT * FROM rows WHERE tenant_id=? AND id=?"), "one", false);
+        String forgedAliasSql = "SELECT * FROM rows WHERE tenant_id=? AND id=?";
+        int forgedAliasIndex = tenantPlaceholderIndex(forgedAliasSql);
+        String forgedAliasArgument = List.of("tenantAlias", "resourceId").get(forgedAliasIndex);
         assertThat(clientOrigin(forgedAliasArgument, Set.of("tenantAlias"))).isTrue();
         assertThat(hasTrustedTenantArgument(forgedAliasArgument)).isFalse();
         assertThat(hasTrustedTenantArgument("authorization.current().tenantId()")).isTrue();

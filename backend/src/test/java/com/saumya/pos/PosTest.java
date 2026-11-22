@@ -829,6 +829,30 @@ class PosTest {
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(user("alice").authorities(()->"POS_SALE_CREATE",()->"POS_TENDER_EXTERNAL_RECORD")).contentType("application/json").content("{\"method\":\"UPI\",\"amount\":1}")).andExpect(status().isBadRequest());
   mvc.perform(post(path).header("Idempotency-Key","http-terminal").with(csrf()).with(bearer("alice","StaffPasswordForTests")).contentType("application/json").content("{\"method\":\"UPI\",\"appliedAmount\":110}")).andExpect(status().isOk()).andExpect(jsonPath("$.tenders[0].merchantAccount").value("vendor-upi-account")).andExpect(jsonPath("$.tenders[0].mockEnabled").value(false));
  }
+ @Test void cashSaleFailureAfterStockConsumeRollsBackEveryLocalFinancialWrite(){
+  update("UPDATE branches SET invoice_required=TRUE WHERE id=1");
+  var draft=as("alice",()->checkout.pos("alice","p2-rollback-cash-sale",posDraft()));
+  db.update("""
+    INSERT INTO vendor_invoices(tenant_id,order_id,invoice_number,seller_name,outlet_name,total)
+    VALUES(1,?,'P2-ROLLBACK-INVOICE','Vendor A','A',?)
+    """,draft.id(),draft.total());
+  Integer quantityBefore=db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+  Integer reservedBefore=db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class);
+
+  // Invoice issuance is deliberately made to fail after reservation consumption,
+  // cash tender persistence and order payment mutation have been attempted.
+  assertThatThrownBy(()->as("alice",()->checkout.finalizeCash("alice",draft.id(),new BigDecimal("120"))))
+    .isInstanceOf(RuntimeException.class);
+
+  assertThat(db.queryForObject("SELECT status FROM orders WHERE tenant_id=1 AND id=?",String.class,draft.id())).isEqualTo("DRAFT");
+  assertThat(db.queryForObject("SELECT quantity FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(quantityBefore);
+  assertThat(db.queryForObject("SELECT reserved FROM inventory WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(reservedBefore);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE tenant_id=1 AND resource_id=? AND action='SALE_COMPLETE'",Integer.class,draft.id())).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices WHERE tenant_id=1 AND order_id=?",Integer.class,draft.id())).isEqualTo(1);
+ }
+
  @Test void guestCashIsAtomicAndIdempotent(){
   var r=as("alice", () -> checkout.cashSale(a.cashier(),"checkout-1",sale(1,"120")));
   assertThat(r.get("customer_id")).isNull();assertThat(r.get("total")).isEqualTo(new BigDecimal("110.00"));assertThat(r.get("change_given")).isEqualTo(new BigDecimal("10.00"));

@@ -159,10 +159,15 @@ class P202MysqlPersistenceIntegrationTest {
                     SELECT DISTINCT table_name FROM information_schema.columns
                     WHERE table_schema=? AND column_name='tenant_id'
                     """, String.class, schema));
-            discovered.remove("platform_audit_events"); // platform-owned, optional tenant scope
-            assertThat(discovered).containsAll(expectedTenantTables);
+            // tenant_id is also an optional actor-context column on platform-owned
+            // audit and refresh-token rows. Keep those explicitly classified rather
+            // than incorrectly requiring NOT NULL on them.
+            Set<String> optionalScopeTables = Set.of("platform_audit_events", "identity_refresh_tokens");
+            Set<String> classifiedTables = new HashSet<>(expectedTenantTables);
+            classifiedTables.addAll(optionalScopeTables);
+            assertThat(discovered).containsExactlyInAnyOrderElementsOf(classifiedTables);
 
-            for (String table : discovered) {
+            for (String table : expectedTenantTables) {
                 assertThat(db.queryForObject("""
                         SELECT is_nullable FROM information_schema.columns
                         WHERE table_schema=? AND table_name=? AND column_name='tenant_id'
@@ -253,8 +258,12 @@ class P202MysqlPersistenceIntegrationTest {
             db.update("INSERT INTO tenants(id,name) VALUES(991001,'P2 generated-column tenant')");
             db.update("INSERT INTO branches(id,tenant_id,name) VALUES(991011,991001,'P2 generated-column branch')");
             db.update("""
-                    INSERT INTO employees(username,password_hash,tenant_id,branch_id,enabled)
-                    VALUES('p2-cashier','not-a-login-secret',991001,991011,TRUE)
+                    INSERT INTO users(id,username,password_hash,enabled)
+                    VALUES(991012,'p2-cashier','not-a-login-secret',TRUE)
+                    """);
+            db.update("""
+                    INSERT INTO employees(username,tenant_id,branch_id,enabled)
+                    VALUES('p2-cashier',991001,991011,TRUE)
                     """);
             db.update("INSERT INTO registers(id,tenant_id,branch_id) VALUES(991011,991001,991011)");
             db.update("""

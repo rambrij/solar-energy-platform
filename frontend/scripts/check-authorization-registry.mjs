@@ -240,7 +240,7 @@ for(const action of actionRegistry.actions){
    if(JSON.stringify(expected)!==JSON.stringify(observed))throw new Error('Frontend/backend permission parity mismatch for '+action.id+': frontend='+expected.join(',')+' backend='+observed.join(','));
    if(action.permissions.length>1){
     const expectsAny=action.permissionMode==='ANY';
-    const backendAny=/hasAnyAuthority\s*\(/.test(operation.policy);
+    const backendAny=/hasAnyAuthority\s*\(/.test(operation.policy)||/\sor\s/.test(operation.policy);
     if(expectsAny!==backendAny)throw new Error('Frontend/backend ANY-vs-ALL authorization mode mismatch for '+action.id);
    }
   }

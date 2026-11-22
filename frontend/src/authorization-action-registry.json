@@ -1399,7 +1399,7 @@
     {
       "id": "pos-receipt-pdf",
       "component": "ReceiptPdfCopy.tsx",
-      "trigger": "button",
+      "trigger": "submit",
       "method": "POST",
       "endpoint": "/api/v1/vendor/pos/receipts/{id}/document",
       "permissions": [
@@ -2098,7 +2098,7 @@
     {
       "id": "pos-receipt-pdf",
       "component": "ReceiptPdfCopy.tsx",
-      "trigger": "button",
+      "trigger": "submit",
       "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/document"
     },
     {

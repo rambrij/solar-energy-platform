@@ -326,7 +326,32 @@ for(const call of observedApiCalls){
   action.component===call.component&&action.method===call.method&&normalizeActionPath(action.endpoint)===call.endpoint);
  if(!mapped)throw new Error('Unregistered literal frontend API operation at '+call.component+':'+call.line+' '+call.method+' '+call.endpoint);
 }
-if(dynamicApiCalls.length)throw new Error('Frontend API endpoints must be literal or explicitly registered as dynamic call sites: '+dynamicApiCalls.map(x=>x.component+':'+x.line+' '+x.fn).join(', '));
+const dynamicCallSites=actionRegistry.dynamicApiCallSites??{};
+const observedDynamicCallSites=new Set();
+for(const call of dynamicApiCalls){
+ const key=call.component+':'+call.line;
+ const declaration=dynamicCallSites[key];
+ if(!declaration)throw new Error('Unregistered dynamic frontend API call site: '+key+' '+call.fn);
+ if(observedDynamicCallSites.has(key))throw new Error('Duplicate dynamic frontend API call site: '+key);
+ observedDynamicCallSites.add(key);
+ const open=sourceFiles.map(file=>({file,source:fs.readFileSync(file,'utf8')})).find(item=>path.basename(item.file)===call.component);
+ if(!open)throw new Error('Missing dynamic API source '+call.component);
+ const match=[...open.source.matchAll(/\\b(api|vendorApi|platformApi|marketplaceApi)\\s*\\(/g)].find(item=>open.source.slice(0,item.index).split('\\n').length===call.line);
+ if(!match||match[1]!==declaration.fn)throw new Error('Dynamic API call-site function mismatch: '+key);
+ const args=splitCallArguments(open.source,open.source.indexOf('(',match.index));
+ if(args[0]!==declaration.argument)throw new Error('Dynamic API endpoint expression drift: '+key);
+ if(declaration.methodArgument!==undefined&&args[1]!==declaration.methodArgument)throw new Error('Dynamic API method expression drift: '+key);
+ if(!Array.isArray(declaration.actions)||declaration.actions.length===0)throw new Error('Dynamic API call site has no explicit action mappings: '+key);
+ for(const id of declaration.actions){
+  const action=actionRegistry.actions.find(item=>item.id===id);
+  if(!action||action.component!==call.component)throw new Error('Dynamic API call-site references an unknown or foreign action: '+key+' -> '+id);
+  const endpoint=normalizeActionPath(action.endpoint);
+  observedApiCalls.push({component:call.component,method:action.method,endpoint,line:call.line,fn:call.fn});
+ }
+}
+for(const key of Object.keys(dynamicCallSites)){
+ if(!observedDynamicCallSites.has(key))throw new Error('Stale dynamic API call-site declaration: '+key);
+}
 
 
 const directHttpCalls=[];

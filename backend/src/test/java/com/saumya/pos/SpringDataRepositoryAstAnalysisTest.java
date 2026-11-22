@@ -70,8 +70,10 @@ class SpringDataRepositoryAstAnalysisTest {
             }else{
                 String indexText=bindings.group(3);
                 int index;
-                if(indexText==null||indexText.isEmpty())index=positionalIndex++;
-                else index=Integer.parseInt(indexText)-1;
+                if(indexText==null||indexText.isEmpty()){
+                    index=(int)query.substring(0,bindings.start(2)).chars().filter(ch->ch=='?').count();
+                    positionalIndex=index+1;
+                }else index=Integer.parseInt(indexText)-1;
                 if(index<0||index>=method.getParameters().size())return false;
                 Set<String> names=parameterNames(method.getParameters().get(index));
                 if(names.stream().noneMatch(SpringDataRepositoryAstAnalysisTest::scopeParameterName))return false;
@@ -199,6 +201,27 @@ class SpringDataRepositoryAstAnalysisTest {
             if(!parameters.contains(normalized))return false;
         }
         return scoped;
+    }
+
+    @Test
+    void positionalScopeBindingUsesItsActualSqlPlaceholderIndex(){
+        String query="select p from Product p where p.status=? and p.tenantId=? and p.branchId=?";
+        assertThat(positionalScopeBindingFixture(query,List.of("status","tenant","branch"))).isTrue();
+        assertThat(positionalScopeBindingFixture(query,List.of("status","branch","tenant"))).isFalse();
+    }
+
+    private static boolean positionalScopeBindingFixture(String query,List<String> parameters){
+        var matcher=java.util.regex.Pattern.compile("(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?(tenantId|tenant_id|branchId|branch_id)\\s*=\\s*\\?").matcher(query);
+        boolean found=false;
+        while(matcher.find()){
+            found=true;
+            int index=(int)query.substring(0,matcher.start()).chars().filter(ch->ch=='?').count();
+            if(index>=parameters.size())return false;
+            String field=matcher.group(1);
+            if(field.toLowerCase().contains("tenant")&&!parameters.get(index).toLowerCase().contains("tenant"))return false;
+            if(field.toLowerCase().contains("branch")&&!parameters.get(index).toLowerCase().contains("branch"))return false;
+        }
+        return found;
     }
 
     @Test

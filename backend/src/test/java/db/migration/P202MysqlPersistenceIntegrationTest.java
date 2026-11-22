@@ -586,6 +586,16 @@ class P202MysqlPersistenceIntegrationTest {
                     VALUES(994001,'p2-check-actor','not-a-login-secret',TRUE)
                     """);
             db.update("INSERT INTO tenants(id,name) VALUES(994011,'P2 check tenant')");
+            db.update("INSERT INTO customer_profiles(id,user_id) VALUES(994001,994001)");
+            db.update("""
+                    INSERT INTO carts(id,tenant_id,customer_id,state)
+                    VALUES('p2-active-cart',994011,994001,'ACTIVE')
+                    """);
+            assertThat(db.queryForObject("SELECT active_customer_id FROM carts WHERE id='p2-active-cart'",Long.class))
+                    .isEqualTo(994001L);
+            db.update("UPDATE carts SET state='ARCHIVED' WHERE id='p2-active-cart'");
+            assertThat(db.queryForObject("SELECT active_customer_id FROM carts WHERE id='p2-active-cart'",Long.class))
+                    .isNull();
             db.update("INSERT INTO branches(id,tenant_id,name) VALUES(994021,994011,'P2 check branch')");
             db.update("""
                     INSERT INTO employees(username,tenant_id,branch_id,enabled)
@@ -640,6 +650,16 @@ class P202MysqlPersistenceIntegrationTest {
                     (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
                     VALUES(994042,994011,994031,3,'ACTIVE','2026-01-01','2026-02-01','{}')
                     """);
+            assertThat(db.queryForObject("SELECT active_tenant_id FROM tenant_subscriptions WHERE id=994042",Long.class))
+                    .isEqualTo(994011L);
+            assertThatThrownBy(() -> db.update("""
+                    INSERT INTO tenant_subscriptions
+                    (id,tenant_id,plan_id,plan_version,status,billing_period_start,billing_period_end,terms_snapshot)
+                    VALUES(994043,994011,994031,3,'ACTIVE','2026-02-01','2026-03-01','{}')
+                    """)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            db.update("UPDATE tenant_subscriptions SET status='CANCELLED' WHERE id=994042");
+            assertThat(db.queryForObject("SELECT active_tenant_id FROM tenant_subscriptions WHERE id=994042",Long.class))
+                    .isNull();
             assertThatThrownBy(() -> db.update("""
                     INSERT INTO subscription_invoices
                     (tenant_id,subscription_id,invoice_number,billing_period_start,billing_period_end,currency,

@@ -290,7 +290,7 @@ class RepositoryTenantAccessAnalysisTest {
     @Test
     void clientSuppliedTenantIdentifiersCannotFlowIntoProductionServiceOrPersistenceCode() throws Exception {
         Pattern direct = Pattern.compile(
-            "(?i)\\b(?:request|body|payload|filter|criteria|query|params|dto)\\s*\\.\\s*(?:get)?tenantId\\s*\\(");
+            "(?i)\\b(?:request|body|payload|filter|criteria|query|params|dto)\\s*\\.\\s*(?:get)?tenantId\\b");
         Pattern alias = Pattern.compile(
             "(?i)\\b(?:long|Long|var)\\s+([a-zA-Z_$][\\w$]*)\\s*=\\s*(?:request|body|payload|filter|criteria|query|params|dto)\\s*\\.\\s*(?:get)?tenantId\\s*\\(");
         try (var files = Files.walk(sourceRoot())) {

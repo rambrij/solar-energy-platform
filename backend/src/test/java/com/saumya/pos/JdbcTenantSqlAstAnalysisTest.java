@@ -91,7 +91,7 @@ class JdbcTenantSqlAstAnalysisTest {
         return java.util.regex.Pattern.compile("(?is)select\\s+id\\s+from\\s+tenants\\s+where\\s+id\\s*=\\s*\\?").matcher(sql).find();
     }
     private static boolean clientOrigin(String expression,Set<String> tainted) {
-        if(java.util.regex.Pattern.compile("(?i)\\b(?:request|body|payload|dto|filter|criteria|query|params|form|input)\\s*\\.\\s*(?:get)?tenantId\\s*\\(").matcher(expression).find())return true;
+        if(java.util.regex.Pattern.compile("(?i)\\b(?:request|body|payload|dto|filter|criteria|query|params|form|input)\\s*\\.\\s*(?:get)?tenantId\\b").matcher(expression).find())return true;
         for(String variable:tainted)if(java.util.regex.Pattern.compile("\\b"+java.util.regex.Pattern.quote(variable)+"\\b").matcher(expression).find())return true;
         return false;
     }

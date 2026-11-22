@@ -62,15 +62,16 @@ class SpringDataRepositoryAstAnalysisTest {
         String masked=maskQueryLiteralsAndComments(query);
         java.util.regex.Matcher where=java.util.regex.Pattern.compile("(?i)\\bwhere\\b").matcher(masked);
         if(!where.find())return false;
-        int start=where.end(),end=masked.length(),depth=0;
+        int start=where.end(),end=masked.length(),depth=0,cursor=start;
         java.util.regex.Matcher words=java.util.regex.Pattern.compile("[A-Za-z_]+").matcher(masked);
         words.region(start,masked.length());
         boolean topLevelOr=false;
         while(words.find()){
             String word=words.group().toLowerCase(Locale.ROOT);
             int pos=words.start();
-            // Track parenthesis depth from the previous word to this token.
-            for(int i=(pos==start?start:pos-1);i<pos;i++){
+            // Track every parenthesis between SQL tokens, including opening brackets
+            // separated from the next keyword by whitespace.
+            for(int i=cursor;i<pos;i++){
                 char ch=masked.charAt(i);
                 if(ch=='(')depth++;
                 else if(ch==')')depth=Math.max(0,depth-1);
@@ -79,6 +80,7 @@ class SpringDataRepositoryAstAnalysisTest {
                 end=pos;break;
             }
             if(depth==0&&word.equals("or"))topLevelOr=true;
+            cursor=words.end();
         }
         if(topLevelOr)return false;
         String whereClause=masked.substring(start,end);

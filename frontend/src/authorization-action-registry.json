@@ -1143,6 +1143,572 @@
       ],
       "actor": "PLATFORM",
       "backendOperation": "GET /api/v1/platform/identities"
+    },
+    {
+      "id": "pos-catalogue-search",
+      "component": "PosCatalogue.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/catalogue",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/catalogue"
+    },
+    {
+      "id": "pos-catalogue-scan",
+      "component": "PosCatalogue.tsx",
+      "trigger": "submit",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/catalogue/scan",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/catalogue/scan"
+    },
+    {
+      "id": "pos-promotion-history",
+      "component": "PromotionHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/promotions/{product}/history",
+      "permissions": [
+        "POS_VIEW",
+        "CATALOG_PROMOTION_MANAGE",
+        "POS_DISCOUNT_APPROVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/promotions/{product}/history"
+    },
+    {
+      "id": "pos-sales-report",
+      "component": "SalesInsights.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/reports/sales",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/reports/sales"
+    },
+    {
+      "id": "pos-cashier-sales-report",
+      "component": "CashierSalesInsights.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/reports/cashier-sales",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_CASHIER_REPORT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/reports/cashier-sales"
+    },
+    {
+      "id": "pos-shift-history",
+      "component": "ShiftHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/sessions/history",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/sessions/history"
+    },
+    {
+      "id": "pos-tender-review-read",
+      "component": "TerminalTenderReview.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/payments/review/{id}",
+      "permissions": [
+        "POS_TENDER_MANUAL_VERIFY"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/payments/review/{id}"
+    },
+    {
+      "id": "pos-tender-review-apply",
+      "component": "TerminalTenderReview.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/payments/review/{id}",
+      "permissions": [
+        "POS_TENDER_MANUAL_VERIFY"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/payments/review/{id}"
+    },
+    {
+      "id": "pos-return-sale-lookup",
+      "component": "PosReturns.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns/sale/{orderId}",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns/sale/{orderId}"
+    },
+    {
+      "id": "pos-return-read",
+      "component": "PosReturns.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns/{id}",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns/{id}"
+    },
+    {
+      "id": "pos-return-list",
+      "component": "PosReturns.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns"
+    },
+    {
+      "id": "pos-return-create",
+      "component": "PosReturns.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/returns",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/returns"
+    },
+    {
+      "id": "pos-return-review",
+      "component": "PosReturns.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/returns/{id}/review",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_APPROVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/review"
+    },
+    {
+      "id": "pos-return-inspect",
+      "component": "PosReturns.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/returns/{id}/inspect",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_INSPECT"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/inspect"
+    },
+    {
+      "id": "pos-return-audit-events",
+      "component": "ReturnAuditTimeline.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns/{id}/events",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_AUDIT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns/{id}/events"
+    },
+    {
+      "id": "pos-sales-export",
+      "component": "ReportExport.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/reports/sales/export",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_REPORT_EXPORT"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/reports/sales/export"
+    },
+    {
+      "id": "pos-refunds-export",
+      "component": "ReportExport.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/reports/cash-refunds/export",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_REPORT_EXPORT",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/reports/cash-refunds/export"
+    },
+    {
+      "id": "pos-receipt-read",
+      "component": "SaleReceipt.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}",
+      "permissions": [
+        "POS_RECEIPT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
+    },
+    {
+      "id": "pos-receipt-reprint",
+      "component": "App.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}/reprint",
+      "permissions": [
+        "POS_RECEIPT_REPRINT"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/reprint"
+    },
+    {
+      "id": "pos-receipt-pdf",
+      "component": "ReceiptPdfCopy.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}/document",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RECEIPT_VIEW",
+        "POS_RECEIPT_REPRINT"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/document"
+    },
+    {
+      "id": "pos-discount-policy-read",
+      "component": "StoreSettings.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/discount-policy",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/discount-policy"
+    },
+    {
+      "id": "pos-discount-policy-update",
+      "component": "StoreSettings.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/discount-policy",
+      "permissions": [
+        "POS_DISCOUNT_OVERRIDE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/discount-policy"
+    },
+    {
+      "id": "pos-register-create",
+      "component": "StoreSettings.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/registers",
+      "permissions": [
+        "POS_SETTINGS_MANAGE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/registers"
+    },
+    {
+      "id": "vendor-role-list",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/roles",
+      "permissions": [
+        "ROLE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/roles"
+    },
+    {
+      "id": "vendor-role-permission-catalogue",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/roles/permissions",
+      "permissions": [
+        "ROLE_VIEW",
+        "ROLE_CREATE",
+        "ROLE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/roles/permissions"
+    },
+    {
+      "id": "vendor-role-read",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/roles/{id}",
+      "permissions": [
+        "ROLE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/roles/{id}"
+    },
+    {
+      "id": "vendor-role-create",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/roles",
+      "permissions": [
+        "ROLE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/roles"
+    },
+    {
+      "id": "vendor-role-update",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/roles/{id}",
+      "permissions": [
+        "ROLE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/roles/{id}"
+    },
+    {
+      "id": "vendor-role-deactivate",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/roles/{id}/deactivate",
+      "permissions": [
+        "ROLE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/roles/{id}/deactivate"
+    },
+    {
+      "id": "vendor-employee-list",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees",
+      "permissions": [
+        "USER_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees"
+    },
+    {
+      "id": "vendor-employee-create",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/employees",
+      "permissions": [
+        "USER_CREATE",
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/employees"
+    },
+    {
+      "id": "vendor-employee-roles-assign",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/employees/{username}/roles",
+      "permissions": [
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/employees/{username}/roles"
+    },
+    {
+      "id": "vendor-employee-registers-assign",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/employees/{username}/registers",
+      "permissions": [
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/employees/{username}/registers"
+    },
+    {
+      "id": "vendor-employee-branch-update",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/employees/{username}/branch",
+      "permissions": [
+        "USER_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/employees/{username}/branch"
+    },
+    {
+      "id": "vendor-employee-disable",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/employees/{username}/disable",
+      "permissions": [
+        "USER_DISABLE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/disable"
+    },
+    {
+      "id": "vendor-employee-effective-permissions",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees/{username}/effective-permissions",
+      "permissions": [
+        "USER_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees/{username}/effective-permissions"
+    },
+    {
+      "id": "platform-health",
+      "component": "PlatformHealthWidget.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/health",
+      "permissions": [
+        "PLATFORM_ANALYTICS_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/health"
+    },
+    {
+      "id": "platform-identity-mfa-enroll",
+      "component": "PlatformIdentityAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/identities/{username}/mfa-enrollment",
+      "permissions": [
+        "PLATFORM_IDENTITY_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/identities/{username}/mfa-enrollment"
+    },
+    {
+      "id": "customer-order-list",
+      "component": "OrderHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders"
+    },
+    {
+      "id": "customer-order-read",
+      "component": "OrderHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{id}"
+    },
+    {
+      "id": "customer-receipt-read",
+      "component": "OnlineReceipt.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{id}/receipt",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{id}/receipt"
+    },
+    {
+      "id": "customer-receipt-copy",
+      "component": "OnlineReceipt.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/orders/{id}/receipt-copy",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-copy"
+    },
+    {
+      "id": "customer-draft-list",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/checkout/drafts",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/checkout/drafts"
+    },
+    {
+      "id": "customer-draft-create",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/checkout/drafts",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts"
+    },
+    {
+      "id": "customer-draft-cancel",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/checkout/drafts/{id}/cancel",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/cancel"
     }
   ]
 }

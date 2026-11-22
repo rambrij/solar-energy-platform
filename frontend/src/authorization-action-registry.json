@@ -1253,7 +1253,8 @@
       "endpoint": "/api/v1/vendor/pos/returns/sale/{orderId}",
       "permissions": [
         "POS_VIEW",
-        "POS_RETURN_VIEW"
+        "POS_RETURN_VIEW",
+        "POS_RETURN_CREATE"
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/pos/returns/sale/{orderId}"

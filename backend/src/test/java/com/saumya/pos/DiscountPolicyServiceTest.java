@@ -36,7 +36,7 @@ class DiscountPolicyServiceTest {
   var repository=mock(DiscountPolicyRepository.class);
   var auth=mock(AuthorizationContext.class);
   org.mockito.Mockito.when(auth.current()).thenReturn(new AuthorizationContext.Context(
-   "cashier",7L,12L,"7:cashier",List.of("PRODUCT_VIEW"),false,false,true));
+   "cashier",7L,12L,"7:cashier",java.util.Set.of("PRODUCT_VIEW"),false,false,true));
   var service=new DiscountPolicyService(repository,new BillPricing(),auth);
   assertThatThrownBy(()->service.maximum(7L)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
   assertThatThrownBy(()->service.configure(7L,new BigDecimal("10"))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);

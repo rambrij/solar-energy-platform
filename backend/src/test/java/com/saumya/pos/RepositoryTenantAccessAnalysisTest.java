@@ -383,9 +383,9 @@ class RepositoryTenantAccessAnalysisTest {
 
     @Test
     void unscopedInheritedBulkRepositoryOperationsAreProhibited() throws Exception {
-        Pattern unscopedRead = Pattern.compile("\\\\.findAll\\\\s*\\\\(\\\\s*\\\\)");
-        Pattern bulkMutation = Pattern.compile("\\\\.(?:deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\\\s*\\\\(");
-        Pattern unscopedCount = Pattern.compile("\\\\.count\\\\s*\\\\(\\\\s*\\\\)");
+        Pattern unscopedRead = Pattern.compile("\\.findAll\\s*\\(\\s*\\)");
+        Pattern bulkMutation = Pattern.compile("\\.(?:deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\s*\\(");
+        Pattern unscopedCount = Pattern.compile("\\.count\\s*\\(\\s*\\)");
         try (var files = Files.walk(sourceRoot())) {
             for (Path file : files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
                 String source = Files.readString(file);
@@ -401,9 +401,9 @@ class RepositoryTenantAccessAnalysisTest {
 
     @Test
     void negativeFixturesRejectUnscopedInheritedRepositoryMethods() {
-        Pattern unscopedRead = Pattern.compile("\\\\.findAll\\\\s*\\\\(\\\\s*\\\\)");
-        Pattern bulkMutation = Pattern.compile("\\\\.(?:deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\\\s*\\\\(");
-        Pattern unscopedCount = Pattern.compile("\\\\.count\\\\s*\\\\(\\\\s*\\\\)");
+        Pattern unscopedRead = Pattern.compile("\\.findAll\\s*\\(\\s*\\)");
+        Pattern bulkMutation = Pattern.compile("\\.(?:deleteAll|deleteAllInBatch|deleteAllById|deleteById)\\s*\\(");
+        Pattern unscopedCount = Pattern.compile("\\.count\\s*\\(\\s*\\)");
         assertThat(unscopedRead.matcher("repository.findAll()").find()).isTrue();
         assertThat(bulkMutation.matcher("repository.deleteById(id)").find()).isTrue();
         assertThat(unscopedCount.matcher("repository.count()").find()).isTrue();

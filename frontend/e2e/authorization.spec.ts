@@ -89,6 +89,13 @@ test('Platform Super Admin: platform workspace works and vendor POS context is r
   await signIn(page, demo.platformAdmin.username, demo.platformAdmin.password);
   await page.goto('/platform');
   await expect(page.getByRole('link', { name: 'Platform overview' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Tenant subscriptions' })).toBeVisible();
+  await page.getByRole('button', { name: /^Tenants/ }).click();
+  await expect(page.getByRole('heading', { name: 'Tenant directory' })).toBeVisible();
+  await expect(page.getByText('Saumya Solar Rooftops', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /^Configuration/ }).click();
+  await expect(page.getByRole('heading', { name: 'Global platform configuration' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Platform identities/ })).toBeVisible();
   await page.goto('/vendor/pos');
   await expect(page.getByRole('alert')).toContainText('Access denied');
 });

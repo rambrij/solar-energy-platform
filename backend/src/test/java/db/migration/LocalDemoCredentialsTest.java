@@ -66,7 +66,11 @@ class LocalDemoCredentialsTest {
 
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM platform_user_permissions WHERE username='platform.superadmin@somya.local'", Integer.class
-        )).isEqualTo(11);
+        )).isEqualTo(14);
+        assertThat(db.queryForList(
+            "SELECT permission FROM platform_user_permissions WHERE username='platform.superadmin@somya.local'",
+            String.class
+        )).contains("PLATFORM_TENANT_VIEW", "PLATFORM_CONFIG_MANAGE", "PLATFORM_IDENTITY_MANAGE");
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM platform_user_permissions WHERE username='platform.superadmin@somya.local' " +
             "AND permission='PLATFORM_TENANT_REACTIVATE'", Integer.class

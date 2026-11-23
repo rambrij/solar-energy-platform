@@ -36,6 +36,10 @@ Follow [Clean Development Database Setup](../implementation/CLEAN_DEVELOPMENT_DA
 
 The platform identity receives platform permissions only through platform_user_permissions. It has no vendor employee membership, vendor role, commercial catalogue, POS, inventory or customer-order access. No permanent Platform Support login is seeded.
 
+On a fresh local V1 install, this login can open the tenant directory and lifecycle controls, subscription plans and tenant subscriptions, platform health and audit, support access, global configuration, and platform identities. The configuration screen stores non-sensitive values and external secret references. Provider execution and email delivery depend on the integrations implemented and configured for the deployment.
+
+If a disposable local database was seeded before the tenant-view, configuration, and identity grants were added, use the clean database reset above. The seed callback applies when Flyway installs V1 and does not rewrite permissions at every restart.
+
 ## Vendor employee credentials
 
 | Vendor | Role | Login | Password |

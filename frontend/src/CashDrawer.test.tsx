@@ -4,7 +4,7 @@ import CashDrawer from './CashDrawer';
 import { api, ApiError } from './api';
 
 vi.mock('./api', async importOriginal => ({ ...await importOriginal<typeof import('./api')>(), api: vi.fn() }));
-vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'test-user',tenantId:1,branchId:1,permissions:["POS_CASH_IN","POS_CASH_OUT","POS_SAFE_DROP"]}})}));
+vi.mock('./session',()=>({useSession:()=>({status:'authenticated',loading:false,refreshing:false,account:{username:'test-user',tenantId:1,branchId:1,membershipId:'1:test-user',permissions:["POS_CASH_IN","POS_CASH_OUT","POS_SAFE_DROP"],actorType:'VENDOR',availableActorTypes:['VENDOR']},error:null})}));
 const report = { state: 'OPEN', openingFloat: 50, cashReceived: 120, changeGiven: 10, cashIn: 100, cashOut: 25, safeDrops: 100, expectedCash: 135, movements: [] };
 const props = { session: 'shift-1', revision: 0, disabled: false, onPendingChange: vi.fn(), onBusyChange: vi.fn() };
 afterEach(() => { cleanup(); vi.resetAllMocks(); sessionStorage.clear(); });

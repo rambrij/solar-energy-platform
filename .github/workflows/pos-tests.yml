@@ -241,6 +241,19 @@ jobs:
           path: frontend/authorization-control-inventory.generated.json
           if-no-files-found: warn
           retention-days: 30
+      # TEMPORARY: package the exact checked-out source to support this branch cleanup audit.
+      - name: Package cleanup source snapshot
+        if: always()
+        working-directory: .
+        run: git archive --format=zip --output=/tmp/saumya-cleanup-source.zip HEAD
+      - name: Upload cleanup source snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-source-snapshot-${{ github.sha }}
+          path: /tmp/saumya-cleanup-source.zip
+          if-no-files-found: error
+          retention-days: 1
 
   browser-e2e:
     name: Browser E2E (Playwright / MySQL 8.4)

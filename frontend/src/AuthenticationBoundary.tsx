@@ -17,6 +17,6 @@ export default function AuthenticationBoundary({permission,mode,children}:{permi
   ?session.account.actorType!=='VENDOR'||session.account.tenantId===null
   :permission==='CUSTOMER'&&session.account.actorType!=='CUSTOMER';
  if(wrongActor||(permission&&!session.account.permissions.includes(permission)))return <Shell mode={mode}><p role="alert">Your account does not have access to this workspace. Choose an authorized account using the sign-in menu.</p></Shell>;
- const actorKey=[session.account.username,session.account.actorType,session.account.tenantId??'none'].join(':');
+ const actorKey=[session.account.username,session.account.actorType,session.account.tenantId??'none',session.account.branchId??'none',session.account.membershipId??'none'].join(':');
  return <Fragment key={actorKey}>{children}</Fragment>;
 }

@@ -11,7 +11,7 @@ const subscription={id:4,tenantId:12,tenantName:'Vendor Twelve',planId:2,planKey
 
 beforeEach(()=>{
  vi.clearAllMocks();
- vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'viewer@platform.test',tenantId:null,branchId:null,permissions:['PLATFORM_SUBSCRIPTION_VIEW']}} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'viewer@platform.test',tenantId:null,branchId:null,membershipId:null,permissions:['PLATFORM_SUBSCRIPTION_VIEW'],actorType:'CUSTOMER',availableActorTypes:['CUSTOMER']},error:null} as ReturnType<typeof useSession>);
  vi.mocked(platformApi).mockImplementation(async(path:string)=>{
   if(path==='/subscriptions')return [subscription];
   if(path==='/subscription-plans')return [];

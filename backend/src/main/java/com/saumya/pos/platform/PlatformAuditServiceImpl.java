@@ -17,6 +17,7 @@ public class PlatformAuditServiceImpl implements PlatformAuditService {
         if("TENANT_UPDATED".equals(action))return "PLATFORM_TENANT_UPDATE";
         if("TENANT_SUSPENDED".equals(action)||action.endsWith("_TO_SUSPENDED"))return "PLATFORM_TENANT_SUSPEND";
         if("TENANT_CLOSED".equals(action)||action.endsWith("_TO_CLOSED"))return "PLATFORM_TENANT_CLOSE";
+        if(action.endsWith("_TO_UNDER_REVIEW"))return "PLATFORM_TENANT_UPDATE";
         if(action.endsWith("_TO_ACTIVE"))return "PLATFORM_TENANT_REACTIVATE";
         if(action.startsWith("SUPPORT_ACCESS_"))return "PLATFORM_SUPPORT_ACCESS";
         if("PLATFORM_CONFIGURATION_UPDATED".equals(action))return "PLATFORM_CONFIG_MANAGE";

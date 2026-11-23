@@ -27,7 +27,7 @@ it('does not offer a workspace switch to Platform or single-context identities',
  const view=render(<SessionControls/>);
  expect(screen.queryByRole('button',{name:/Switch to/})).toBeNull();
  view.rerender(<SessionControls/>);
- vi.mocked(useSession).mockReturnValue({ready:true,account:{
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{
   username:'buyer@example.test',tenantId:null,branchId:null,membershipId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER',
   availableActorTypes:['CUSTOMER']
  },error:null});

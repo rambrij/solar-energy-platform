@@ -61,6 +61,11 @@
       "trustedSource": "Platform aggregate count; platform-only operation."
     },
     {
+      "operation": "TenantSubscriptionRepository#countGroupedByStatus",
+      "scope": "PLATFORM_SUBSCRIPTION_STATUS_AGGREGATE",
+      "trustedSource": "TenantSubscriptionServiceImpl.statusCounts requires the authenticated platform actor and PLATFORM_ANALYTICS_VIEW before querying. Only subscription status and row count are returned."
+    },
+    {
       "operation": "TenantRepository#search",
       "scope": "PLATFORM_TENANT_DIRECTORY",
       "trustedSource": "Platform tenant directory search; no vendor-private records are returned."

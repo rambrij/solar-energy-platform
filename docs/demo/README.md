@@ -40,6 +40,8 @@ On a fresh local V1 install, this login can open the tenant directory and lifecy
 
 In **Subscription plans**, select **Revise plan** to start from the current version and save new terms. Prior versions remain visible in the plan catalogue. In **Support access**, select **Revoke** on an active grant and enter the reason to record the revocation in the platform audit.
 
+**Overview → Subscriptions by status** shows counts across platform subscription records, including historical statuses when present. `GET /api/v1/platform/dashboard` returns these as `subscriptionStatuses` entries with `status` and `count`. The existing `PLATFORM_ANALYTICS_VIEW` grant is required. The totals contain no tenant, invoice, or payment details.
+
 If a disposable local database was seeded before the tenant-view, configuration, and identity grants were added, use the clean database reset above. The seed callback applies when Flyway installs V1 and does not rewrite permissions at every restart.
 
 ## Vendor employee credentials

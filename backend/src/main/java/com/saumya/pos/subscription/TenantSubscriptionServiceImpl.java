@@ -1,6 +1,7 @@
 package com.saumya.pos.subscription;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saumya.pos.security.PlatformAuthorization;
 import com.saumya.pos.subscription.internal.*;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import java.time.Clock;
@@ -59,6 +60,14 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
     }
     @Override @Transactional(readOnly=true) public List<SubscriptionView> forTenant(long tenantId){requireRead();tenants.get(tenantId);return subscriptions.findByTenantIdOrderByCreatedAtDescIdDesc(tenantId).stream().map(this::view).toList();}
     @Override @Transactional(readOnly=true) public List<SubscriptionView> all(){requireRead();return subscriptions.findAllByOrderByCreatedAtDescIdDesc().stream().map(this::view).toList();}
+    @Override
+    @Transactional(readOnly=true)
+    public List<StatusCount> statusCounts(){
+        PlatformAuthorization.require("PLATFORM_ANALYTICS_VIEW",null);
+        return subscriptions.countGroupedByStatus().stream()
+            .map(total->new StatusCount(total.getStatus(),total.getTotal()))
+            .toList();
+    }
     @Override @Transactional(readOnly=true) public List<SubscriptionEventView> events(long subscriptionId){
         requireRead();
         subscriptions.findById(subscriptionId).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Tenant subscription unavailable"));

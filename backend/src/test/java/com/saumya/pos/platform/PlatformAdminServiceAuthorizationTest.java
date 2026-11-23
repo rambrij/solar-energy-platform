@@ -3,6 +3,7 @@ package com.saumya.pos.platform;
 import com.saumya.pos.identity.IdentityProvisioningService;
 import com.saumya.pos.membership.MembershipService;
 import com.saumya.pos.retail.BranchProvisioningService;
+import com.saumya.pos.subscription.TenantSubscriptionService;
 import com.saumya.pos.tenant.TenantLifecycleService;
 import java.time.Clock;
 import java.util.List;
@@ -24,7 +25,8 @@ class PlatformAdminServiceAuthorizationTest {
     }
     private PlatformAdminService service(TenantLifecycleService tenants){
         return new PlatformAdminService(tenants,mock(BranchProvisioningService.class),mock(MembershipService.class),
-            mock(IdentityProvisioningService.class),mock(PlatformAuditService.class),mock(HealthEndpoint.class),Clock.systemUTC());
+            mock(IdentityProvisioningService.class),mock(PlatformAuditService.class),mock(HealthEndpoint.class),Clock.systemUTC(),
+            mock(TenantSubscriptionService.class));
     }
     @Test void onboardingIsDeniedAtApplicationServiceWithoutCreatePermission(){
         var tenants=mock(TenantLifecycleService.class);authenticate("operator@platform.test","PLATFORM_SUPPORT_ACCESS");

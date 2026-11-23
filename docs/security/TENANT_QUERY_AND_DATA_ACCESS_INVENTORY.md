@@ -112,7 +112,7 @@ All 62 repository interfaces below were reviewed. “Explicit queries” counts 
 | 55 | `subscription/internal/SubscriptionPaymentRepository` | subscription_payments | 0 | 0 |
 | 56 | `subscription/internal/SubscriptionPlanRepository` | subscription_plans | 0 | 0 |
 | 57 | `subscription/internal/SubscriptionPlanVersionRepository` | subscription_plan_versions | 0 | 0 |
-| 58 | `subscription/internal/TenantSubscriptionRepository` | tenant_subscriptions | 0 | 0 |
+| 58 | `subscription/internal/TenantSubscriptionRepository` | tenant_subscriptions | 1 | 0 |
 | 59 | `tenant/internal/TenantRepository` | tenants | 2 | 0 |
 | 60 | `tenant/internal/TenantSequenceRepository` | tenant_sequences | 1 | 0 |
 | 61 | `inventory/internal/InventoryOrderRepository` | orders (read-only ownership projection) | 0 | 0 |

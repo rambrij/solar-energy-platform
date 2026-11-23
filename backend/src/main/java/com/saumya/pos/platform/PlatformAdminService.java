@@ -3,6 +3,7 @@ package com.saumya.pos.platform;
 import com.saumya.pos.identity.IdentityProvisioningService;
 import com.saumya.pos.membership.MembershipService;
 import com.saumya.pos.retail.BranchProvisioningService;
+import com.saumya.pos.subscription.TenantSubscriptionService;
 import com.saumya.pos.tenant.*;
 import java.time.Instant;
 import java.util.List;
@@ -17,13 +18,17 @@ public class PlatformAdminService {
     private final TenantLifecycleService tenants;private final BranchProvisioningService branches;
     private final MembershipService memberships;private final IdentityProvisioningService identities;
     private final PlatformAuditService audit;private final HealthEndpoint health;private final java.time.Clock clock;
+    private final TenantSubscriptionService subscriptions;
     public PlatformAdminService(TenantLifecycleService tenants,BranchProvisioningService branches,MembershipService memberships,
-        IdentityProvisioningService identities,PlatformAuditService audit,HealthEndpoint health,java.time.Clock clock){
+        IdentityProvisioningService identities,PlatformAuditService audit,HealthEndpoint health,java.time.Clock clock,
+        TenantSubscriptionService subscriptions){
         this.tenants=tenants;this.branches=branches;this.memberships=memberships;this.identities=identities;this.audit=audit;this.health=health;this.clock=clock;
+        this.subscriptions=subscriptions;
     }
     public record OnboardingResult(TenantLifecycleService.TenantSummary tenant,long initialBranchId,String vendorAdminUsername,
                                    String invitationToken,Instant invitationExpiresAt,boolean accountAlreadyActive){}
-    public record Dashboard(List<TenantLifecycleService.StatusCount> tenantStatuses,String healthStatus,Instant checkedAt,
+    public record Dashboard(List<TenantLifecycleService.StatusCount> tenantStatuses,
+                            List<TenantSubscriptionService.StatusCount> subscriptionStatuses,String healthStatus,Instant checkedAt,
                             String platformRole,String catalogOwnership,String customerPaymentOwnership,
                             String subscriptionPaymentOwnership,String supportAccessPolicy){}
     private void require(String actor,String permission){PlatformAuthorization.require(permission,actor);}
@@ -58,7 +63,7 @@ public class PlatformAdminService {
     }
     @Transactional(readOnly=true) public Dashboard dashboard(){
         require("PLATFORM_ANALYTICS_VIEW");
-        return new Dashboard(tenants.statusCounts(),health.health().getStatus().getCode(),clock.instant(),"PLATFORM_ONLY",
+        return new Dashboard(tenants.statusCounts(),subscriptions.statusCounts(),health.health().getStatus().getCode(),clock.instant(),"PLATFORM_ONLY",
             "NO_PLATFORM_CATALOGUE","DIRECT_TO_VENDOR","PLATFORM_MERCHANT_ONLY","EXPLICIT_PURPOSED_TICKETED_MAX_4_HOURS");
     }
 }

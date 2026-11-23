@@ -14,10 +14,12 @@ public interface TenantSubscriptionService {
     record PaymentView(long id,long tenantId,long invoiceId,String provider,String providerPaymentReference,
         java.math.BigDecimal amount,String currency,String status,Instant createdAt,Instant confirmedAt) {}
     record BillingHistory(List<InvoiceView> invoices,List<PaymentView> payments) {}
+    record StatusCount(String status,long count) {}
     SubscriptionView create(SubscriptionInput input,String actor);
     SubscriptionView transition(long subscriptionId,String nextStatus,String reason,String actor);
     List<SubscriptionView> forTenant(long tenantId);
     List<SubscriptionView> all();
+    List<StatusCount> statusCounts();
     List<SubscriptionEventView> events(long subscriptionId);
     BillingHistory billingHistory(long subscriptionId);
 }

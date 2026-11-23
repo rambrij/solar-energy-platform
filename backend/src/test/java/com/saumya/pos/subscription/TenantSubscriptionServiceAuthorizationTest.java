@@ -7,6 +7,9 @@ import com.saumya.pos.tenant.TenantLifecycleService;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,6 +39,23 @@ class TenantSubscriptionServiceAuthorizationTest {
         denied(()->service.billingHistory(1L));
 
         verifyNoInteractions(subscriptions,plans,versions,events,invoices,payments,tenants);
+    }
+
+    @Test
+    void subscriptionMetricsRequirePlatformAnalyticsBeforeReadingAggregateCounts() {
+        var subscriptions=mock(TenantSubscriptionRepository.class);
+        var service=new TenantSubscriptionServiceImpl(subscriptions,null,null,null,null,null,null,null,Clock.systemUTC());
+        try {
+            for (String actor : java.util.List.of(AuthorizationContext.ACTOR_CONTEXT_VENDOR,AuthorizationContext.ACTOR_CONTEXT_PLATFORM)) {
+                SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                    "operator","n/a",java.util.List.of(new SimpleGrantedAuthority(actor),
+                    new SimpleGrantedAuthority("PLATFORM_SUBSCRIPTION_VIEW"))));
+                denied(service::statusCounts);
+            }
+            verifyNoInteractions(subscriptions);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     private static void denied(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {

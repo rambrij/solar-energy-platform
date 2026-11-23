@@ -22,6 +22,13 @@ describe('PlatformApp',()=>{
   expect(screen.queryByText('Store POS')).toBeNull();
   await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/dashboard'));
  });
+ it('shows aggregated subscription statuses on the overview',async()=>{
+  vi.mocked(platformApi).mockResolvedValue({tenantStatuses:[],subscriptionStatuses:[{status:'ACTIVE',count:3},{status:'GRACE_PERIOD',count:2}]});
+  render(<PlatformApp/>);
+  const metrics=await screen.findByRole('region',{name:'Subscriptions by status'});
+  expect(metrics.textContent).toContain('ACTIVE3');
+  expect(metrics.textContent).toContain('GRACE PERIOD2');
+ });
  it('shows tenant onboarding and submits the initial Vendor Admin details',async()=>{
   vi.mocked(platformApi).mockImplementation(async(path)=>{
    if(path.startsWith('/tenants?'))return {items:[],totalElements:0,totalPages:0,page:0};

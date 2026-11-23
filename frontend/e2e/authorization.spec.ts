@@ -89,6 +89,9 @@ test('Platform Super Admin: platform workspace works and vendor POS context is r
   await signIn(page, demo.platformAdmin.username, demo.platformAdmin.password);
   await page.goto('/platform');
   await expect(page.getByRole('link', { name: 'Platform overview' })).toBeVisible();
+  const metrics = page.getByRole('region', { name: 'Subscriptions by status' });
+  await expect(metrics.getByText('ACTIVE', { exact: true })).toBeVisible();
+  await expect(metrics.getByText('3', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Tenant subscriptions' })).toBeVisible();
   await page.getByRole('button', { name: /^Tenants/ }).click();
   await expect(page.getByRole('heading', { name: 'Tenant directory' })).toBeVisible();

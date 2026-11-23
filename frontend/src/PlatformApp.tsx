@@ -10,6 +10,8 @@ type TenantPage={items:Tenant[];totalElements:number;totalPages:number;page:numb
 type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;graceDays:number;taxMetadata:string;invoiceDescription:string;createdAt:string};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:PlanVersion[]};
 type AuditPage={items:{id:number;actor:string;action:string;resourceType:string;resourceId:string|null;tenantId:number|null;reason:string|null;occurredAt:string}[]};
+type StatusCount={status:string;count:number};
+type Dashboard={tenantStatuses:StatusCount[];subscriptionStatuses:StatusCount[]};
 type SupportGrant={id:number;tenantId:number;actor:string;purpose:string;ticketReference:string;expiresAt:string;active:boolean;revokedAt?:string|null};
 const emptyPlanForm={planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'};
 
@@ -43,7 +45,7 @@ export default function PlatformApp(){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [tenantPage,setTenantPage]=useState<TenantPage>({items:[],totalElements:0,totalPages:0,page:0});
  const [tenantSearch,setTenantSearch]=useState(''),[tenantStatus,setTenantStatus]=useState('');
- const [dashboard,setDashboard]=useState<{tenantStatuses:{status:string;count:number}[]}|null>(null);
+ const [dashboard,setDashboard]=useState<Dashboard|null>(null);
  const [plans,setPlans]=useState<Plan[]>([]);
  const [audit,setAudit]=useState<AuditPage>({items:[]});
  const [support,setSupport]=useState<SupportGrant[]>([]);
@@ -194,6 +196,12 @@ export default function PlatformApp(){
     {error&&<p className="platform-alert" role="alert">{error}</p>}{notice&&<p className="platform-notice" role="status">{notice}</p>}{busy&&<p role="status">Saving platform changes…</p>}
     {page==='dashboard'&&<section className="platform-panel"><div className="platform-panel-heading"><div><h2>Tenant lifecycle</h2><p>Aggregated platform-owned counts; no tenant-private CRM or transaction detail.</p></div><button className="secondary" onClick={()=>void load('dashboard')}>Refresh</button></div>
      <div className="platform-stat-grid">{(dashboard?.tenantStatuses??[]).map(item=><article key={item.status}><span>{item.status.replaceAll('_',' ')}</span><strong>{item.count}</strong></article>)}</div>
+     {dashboard&&<section aria-labelledby="platform-subscription-metrics">
+      <h3 id="platform-subscription-metrics">Subscriptions by status</h3>
+      {dashboard.subscriptionStatuses?.length?<div className="platform-stat-grid">
+       {dashboard.subscriptionStatuses.map(item=><article key={item.status}><span>{item.status.replaceAll('_',' ')}</span><strong>{item.count}</strong></article>)}
+      </div>:<p>No subscriptions recorded.</p>}
+     </section>}
      <div className="platform-boundary-grid"><article><h3>Commercial catalogue</h3><strong>Vendor-owned only</strong><p>There is no platform seller or platform catalogue.</p></article><article><h3>Customer purchase funds</h3><strong>Direct to vendor</strong><p>Customer order payments must use the vendor merchant context.</p></article><article><h3>SaaS subscriptions</h3><strong>Platform merchant</strong><p>Subscription billing uses independent records and credentials.</p></article><article><h3>Support access</h3><strong>Purpose-bound and time-limited</strong><p>A grant alone does not provide unrestricted tenant access.</p></article></div>
     </section>}
     {page==='tenants'&&<>

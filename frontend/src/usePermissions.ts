@@ -4,14 +4,14 @@ export interface UserPermissions {
  username:string;
  tenantId:number|null;
  branchId:number|null;
+ membershipId:string|null;
  permissions:string[];
  actorType:ActorType;
 }
 
 /**
- * Resolve the current actor from the authenticated /me endpoint.
- * The session snapshot is a consistency check, not an authorization source;
- * backend JWT and persisted-membership checks remain authoritative.
+ * Read-only permission facade over the canonical /auth/me-derived session snapshot.
+ * It deliberately performs no network access and owns no independent permission cache.
  */
 export function usePermissions():{
  permissions:UserPermissions|null;loading:boolean;error:Error|null;
@@ -23,7 +23,7 @@ export function usePermissions():{
  const session=useSession();
  const permissions:UserPermissions|null=session.account?{
   username:session.account.username,tenantId:session.account.tenantId,branchId:session.account.branchId,
-  permissions:session.account.permissions,actorType:session.account.actorType
+  membershipId:session.account.membershipId,permissions:session.account.permissions,actorType:session.account.actorType
  }:null;
  const hasPermission=(permission:string)=>permissions?.permissions.includes(permission)??false;
  const hasAnyPermission=(...perms:string[])=>!!permissions&&perms.some(p=>permissions.permissions.includes(p));

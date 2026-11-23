@@ -2,10 +2,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Shell from './Shell';
 
-const { mockAuthApi, mockUseSession, mockUsePermissions } = vi.hoisted(() => ({ mockAuthApi: vi.fn(), mockUseSession: vi.fn(), mockUsePermissions: vi.fn() }));
+const { mockAuthApi, mockUseSession } = vi.hoisted(() => ({ mockAuthApi: vi.fn(), mockUseSession: vi.fn() }));
 vi.mock('./api', () => ({ authApi: mockAuthApi }));
 vi.mock('./session', () => ({ useSession: mockUseSession, signOut: vi.fn() }));
-vi.mock('./usePermissions', async importOriginal => ({ ...(await importOriginal<typeof import('./usePermissions')>()), usePermissions: mockUsePermissions }));
 
 const posPermissions = [
   'POS_VIEW', 'POS_SESSION_OPEN', 'POS_SALE_CREATE', 'POS_REPORT_VIEW',
@@ -15,7 +14,7 @@ const posPermissions = [
   'TENANT_PROFILE_VIEW', 'POS_CASHIER_REPORT_VIEW',
 ];
 
-beforeEach(() => { mockAuthApi.mockReset(); mockUseSession.mockReturnValue({ready:true,account:null}); mockUsePermissions.mockReset(); mockUsePermissions.mockReturnValue({permissions:null,loading:true,error:null,hasPermission:()=>false,hasAnyPermission:()=>false,hasAllPermissions:()=>false,isPlatformUser:false,isCustomer:false,isVendorEmployee:false}); });
+beforeEach(() => { mockAuthApi.mockReset(); mockUseSession.mockReturnValue({ready:true,account:null}); });
 afterEach(() => { cleanup(); window.history.replaceState({}, '', '/'); });
 
 function grantPermissions(permissions: string[]) {
@@ -28,7 +27,6 @@ function grantPermissions(permissions: string[]) {
   });
   const actorType = permissions.includes('CUSTOMER') ? 'CUSTOMER' : permissions.some(p=>p.startsWith('PLATFORM_')) ? 'PLATFORM' : 'VENDOR';
   mockUseSession.mockReturnValue({ready:true,account:{username:'test-user',tenantId:actorType==='VENDOR'?1:null,branchId:actorType==='VENDOR'?10:null,permissions,actorType}});
-  mockUsePermissions.mockReturnValue({permissions:{username:'test-user',tenantId:actorType==='VENDOR'?1:null,branchId:actorType==='VENDOR'?10:null,permissions,actorType},loading:false,error:null,hasPermission:(permission:string)=>permissions.includes(permission),hasAnyPermission:(...required:string[])=>required.some(permission=>permissions.includes(permission)),hasAllPermissions:(...required:string[])=>required.every(permission=>permissions.includes(permission)),isPlatformUser:actorType==='PLATFORM',isCustomer:actorType==='CUSTOMER',isVendorEmployee:actorType==='VENDOR'});
 }
 
 it('renders route-based links, active state and navigable breadcrumbs', async () => {
@@ -54,7 +52,6 @@ it('keeps public vendor discovery available without a customer login', async () 
   window.history.replaceState({}, '', '/marketplace/vendors');
   mockAuthApi.mockRejectedValue(new Error('Not signed in'));
   mockUseSession.mockReturnValue({ready:true,account:null});
-  mockUsePermissions.mockReturnValue({permissions:null,loading:false,error:new Error('Not signed in'),hasPermission:()=>false,hasAnyPermission:()=>false,hasAllPermissions:()=>false,isPlatformUser:false,isCustomer:false,isVendorEmployee:false});
   render(<Shell mode="online"><section><h2>Public vendor directory</h2></section></Shell>);
   expect(await screen.findByText('Public vendor directory')).toBeTruthy();
 });

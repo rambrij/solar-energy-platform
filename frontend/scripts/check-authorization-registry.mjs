@@ -439,20 +439,20 @@ const requiredApiHelpers=[
 ];
 for(const helper of requiredApiHelpers)if(!apiHelperSource.includes(helper))
  throw new Error('API helper must preserve its reviewed prefix and method semantics: '+helper);
-if(/\\bacceptVendorInvitation\\b/.test(apiHelperSource))
+if(/\bacceptVendorInvitation\b/.test(apiHelperSource))
  throw new Error('Unregistered generic auth API helper remains in api.ts');
-const apiHelperExports=[...apiHelperSource.matchAll(/export function\\s+([A-Za-z_$][\\w$]*)\\s*\\(/g)].map(match=>match[1]).sort();
+const apiHelperExports=[...apiHelperSource.matchAll(/export function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(match=>match[1]).sort();
 if(JSON.stringify(apiHelperExports)!==JSON.stringify(['api','authPost','platformApi','vendorApi']))
  throw new Error('api.ts exports an unreviewed API helper: '+apiHelperExports.join(','));
-if(/authApi|\\/api\\/v1\\/auth\\/me/.test(apiHelperSource))
+if(/authApi|\/api\/v1\/auth\/me/.test(apiHelperSource))
  throw new Error('The duplicate /auth/me API helper must not exist outside the canonical session store');
 const sessionSource=fs.readFileSync(path.join(frontend,'src/session.ts'),'utf8');
-if(!/fetch\\s*\\(\\s*['"]\\/api\\/v1\\/auth\\/me['"]/.test(sessionSource)
- || [...sessionSource.matchAll(/fetch\\s*\\(\\s*['"]\\/api\\/v1\\/auth\\/me['"]/g)].length!==1)
+if(!/fetch\s*\(\s*['"]\/api\/v1\/auth\/me['"]/.test(sessionSource)
+ || [...sessionSource.matchAll(/fetch\s*\(\s*['"]\/api\/v1\/auth\/me['"]/g)].length!==1)
  throw new Error('Exactly one authoritative GET /api/v1/auth/me reader must live in session.ts');
-if(!/fetch\\s*\\(\\s*['"]\\/api\\/v1\\/auth\\/csrf['"]/.test(sessionSource)
- || !/fetch\\s*\\(\\s*['"]\\/api\\/v1\\/auth['"]\\s*\\+\\s*path\\s*,\\s*\\{\\s*method\\s*:\s*['"]POST['"]/.test(sessionSource)
- || [...sessionSource.matchAll(/\\bfetch\\s*\\(/g)].length!==4){
+if(!/fetch\s*\(\s*['"]\/api\/v1\/auth\/csrf['"]/.test(sessionSource)
+ || !/fetch\s*\(\s*['"]\/api\/v1\/auth['"]\s*\+\s*path\s*,\s*\{\s*method\s*:\s*['"]POST['"]/.test(sessionSource)
+ || [...sessionSource.matchAll(/\bfetch\s*\(/g)].length!==4){
  throw new Error('Session auth transport must use the reviewed CSRF, POST /api/v1/auth and single /auth/me path helpers');
 }
 const marketplaceHelperSource=fs.readFileSync(path.join(frontend,'src/marketplaceApi.ts'),'utf8');

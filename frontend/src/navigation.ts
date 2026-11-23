@@ -81,6 +81,9 @@ export function resolveWorkspaceRoute(mode: WorkspaceMode, pathname = window.loc
 
   const path = normalizedPathname(pathname);
   if (mode === 'online') {
+    // The purchase-association consent flow belongs to the signed-in customer
+    // purchase area; it is not public vendor discovery.
+    if (pathMatchesRoute(path, '/customer/associate')) return 'customer-purchases';
     // Storefront slugs are public route selectors, not authorization evidence.
     if (pathMatchesRoute(path, '/vendors') && path !== '/vendors') return 'storefront-products';
     if (pathMatchesRoute(path, '/marketplace/catalogue')) return 'vendor-directory';

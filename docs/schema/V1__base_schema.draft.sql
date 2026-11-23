@@ -2,43 +2,43 @@ CREATE TABLE `catalog_sequences` (
   `name` varchar(30) NOT NULL,
   `next_id` bigint NOT NULL,
   PRIMARY KEY (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `identity_sequence` (
   `id` int NOT NULL,
   `next_id` bigint NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `platform_permission_catalogue` (
   `permission` varchar(80) NOT NULL,
   PRIMARY KEY (`permission`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `retail_sequences` (
   `name` varchar(30) NOT NULL,
   `next_id` bigint NOT NULL,
   PRIMARY KEY (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `subscription_plans` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `plan_key` varchar(80) NOT NULL,
   `display_name` varchar(120) NOT NULL,
-  `active` tinyint(1) NOT NULL DEFAULT '1',
+  `active` BOOLEAN NOT NULL DEFAULT 1,
   `current_version` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `version` bigint NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `plan_key` (`plan_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `tenant_sequences` (
   `id` int NOT NULL,
   `next_id` bigint NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `tenants` (
   `id` bigint NOT NULL,
@@ -59,14 +59,14 @@ CREATE TABLE `tenants` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_tenant_slug` (`slug`),
   KEY `fk_vendor_online_branch` (`id`,`online_branch_id`),
-  CONSTRAINT `chk_tenant_lifecycle` CHECK ((`lifecycle_status` in (_utf8mb4'PENDING',_utf8mb4'UNDER_REVIEW',_utf8mb4'ACTIVE',_utf8mb4'SUSPENDED',_utf8mb4'CLOSED')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_tenant_lifecycle` CHECK ((`lifecycle_status` in ('PENDING','UNDER_REVIEW','ACTIVE','SUSPENDED','CLOSED')))
+);
 
 CREATE TABLE `users` (
   `id` bigint NOT NULL,
   `username` varchar(100) NOT NULL,
   `password_hash` varchar(200) NOT NULL,
-  `enabled` tinyint(1) NOT NULL,
+  `enabled` BOOLEAN NOT NULL,
   `platform_mfa_secret_enc` varchar(512) DEFAULT NULL,
   `platform_mfa_enrolled_at` timestamp NULL DEFAULT NULL,
   `platform_mfa_last_counter` bigint NOT NULL DEFAULT '-1',
@@ -74,47 +74,47 @@ CREATE TABLE `users` (
   `platform_mfa_locked_until` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `vendor_permission_catalogue` (
   `permission` varchar(80) NOT NULL,
   PRIMARY KEY (`permission`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `branches` (
   `id` bigint NOT NULL,
   `tenant_id` bigint NOT NULL,
   `name` varchar(160) NOT NULL,
-  `invoice_required` tinyint(1) NOT NULL DEFAULT '0',
+  `invoice_required` BOOLEAN NOT NULL DEFAULT 0,
   `receipt_sequence` bigint NOT NULL DEFAULT '0',
   `pos_return_window_days` int NOT NULL DEFAULT '0',
-  `cash_refunds_enabled` tinyint(1) NOT NULL DEFAULT '0',
-  `manual_tender_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `cash_refunds_enabled` BOOLEAN NOT NULL DEFAULT 0,
+  `manual_tender_enabled` BOOLEAN NOT NULL DEFAULT 0,
   `upi_merchant_reference` varchar(80) DEFAULT NULL,
   `card_merchant_reference` varchar(80) DEFAULT NULL,
-  `split_tender_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `split_tender_enabled` BOOLEAN NOT NULL DEFAULT 0,
   `settings_version` bigint NOT NULL DEFAULT '0',
   `currency` varchar(3) NOT NULL DEFAULT 'INR',
-  `buyer_details_required` tinyint(1) NOT NULL DEFAULT '0',
-  `credit_notes_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `buyer_details_required` BOOLEAN NOT NULL DEFAULT 0,
+  `credit_notes_enabled` BOOLEAN NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `tenant_id` (`tenant_id`,`id`),
   CONSTRAINT `branches_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `branches_chk_1` CHECK (((`pos_return_window_days` >= 0) and (`pos_return_window_days` <= 365)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `catalog_categories` (
   `id` bigint NOT NULL,
   `tenant_id` bigint NOT NULL,
   `name` varchar(120) NOT NULL,
   `slug` varchar(100) NOT NULL,
-  `active` tinyint(1) NOT NULL DEFAULT '1',
+  `active` BOOLEAN NOT NULL DEFAULT 1,
   `version` bigint NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`id`),
+  UNIQUE KEY `catalog_categories_tenant_id` (`tenant_id`,`id`),
   UNIQUE KEY `tenant_id_2` (`tenant_id`,`slug`),
   CONSTRAINT `catalog_categories_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `catalog_change_events` (
   `id` varchar(36) NOT NULL,
@@ -127,9 +127,9 @@ CREATE TABLE `catalog_change_events` (
   `after_state` text NOT NULL,
   `created_at` timestamp NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `tenant_id` (`tenant_id`),
+  KEY `catalog_change_events_tenant_id` (`tenant_id`),
   CONSTRAINT `catalog_change_events_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `catalog_discount_policy` (
   `tenant_id` bigint NOT NULL,
@@ -137,7 +137,7 @@ CREATE TABLE `catalog_discount_policy` (
   PRIMARY KEY (`tenant_id`),
   CONSTRAINT `catalog_discount_policy_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `catalog_discount_policy_chk_1` CHECK (((`maximum_percent` >= 0) and (`maximum_percent` <= 100)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `customer_profiles` (
   `id` bigint NOT NULL,
@@ -145,7 +145,7 @@ CREATE TABLE `customer_profiles` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   CONSTRAINT `customer_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `identity_invitations` (
   `token_hash` varchar(64) NOT NULL,
@@ -156,7 +156,7 @@ CREATE TABLE `identity_invitations` (
   PRIMARY KEY (`token_hash`),
   KEY `ix_invitation_user` (`username`,`expires_at`),
   CONSTRAINT `fk_invitation_user` FOREIGN KEY (`username`) REFERENCES `users` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `identity_refresh_tokens` (
   `token_hash` varchar(64) NOT NULL,
@@ -164,8 +164,8 @@ CREATE TABLE `identity_refresh_tokens` (
   `family` varchar(36) NOT NULL,
   `expires_at` timestamp NOT NULL,
   `used_at` timestamp NULL DEFAULT NULL,
-  `revoked` tinyint(1) NOT NULL DEFAULT '0',
-  `mfa_verified` tinyint(1) NOT NULL DEFAULT '0',
+  `revoked` BOOLEAN NOT NULL DEFAULT 0,
+  `mfa_verified` BOOLEAN NOT NULL DEFAULT 0,
   `actor_type` varchar(16) NOT NULL DEFAULT 'UNKNOWN',
   `tenant_id` bigint DEFAULT NULL,
   `membership_id` varchar(220) DEFAULT NULL,
@@ -173,7 +173,7 @@ CREATE TABLE `identity_refresh_tokens` (
   KEY `ix_refresh_family` (`family`,`revoked`),
   KEY `ix_refresh_actor_scope` (`username`,`actor_type`,`tenant_id`,`membership_id`,`revoked`),
   CONSTRAINT `identity_refresh_tokens_ibfk_1` FOREIGN KEY (`username`) REFERENCES `users` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `platform_audit_events` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -192,15 +192,15 @@ CREATE TABLE `platform_audit_events` (
   KEY `ix_platform_audit_tenant_time` (`tenant_id`,`occurred_at` DESC,`id` DESC),
   CONSTRAINT `fk_platform_audit_actor` FOREIGN KEY (`actor_username`) REFERENCES `users` (`username`),
   CONSTRAINT `fk_platform_audit_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
-  CONSTRAINT `chk_platform_audit_outcome` CHECK ((`outcome` in (_utf8mb4'SUCCESS',_utf8mb4'DENIED',_utf8mb4'FAILURE')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_platform_audit_outcome` CHECK ((`outcome` in ('SUCCESS','DENIED','FAILURE')))
+);
 
 CREATE TABLE `platform_configuration` (
   `config_key` varchar(100) NOT NULL,
   `category` varchar(60) NOT NULL,
   `plain_value` text,
   `secret_reference` varchar(255) DEFAULT NULL,
-  `is_sensitive` tinyint(1) NOT NULL DEFAULT '0',
+  `is_sensitive` BOOLEAN NOT NULL DEFAULT 0,
   `updated_by` varchar(100) NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `version` bigint NOT NULL DEFAULT '0',
@@ -208,7 +208,7 @@ CREATE TABLE `platform_configuration` (
   KEY `fk_platform_config_actor` (`updated_by`),
   CONSTRAINT `fk_platform_config_actor` FOREIGN KEY (`updated_by`) REFERENCES `users` (`username`),
   CONSTRAINT `chk_platform_config_secret` CHECK ((((`is_sensitive` = true) and (`plain_value` is null) and (`secret_reference` is not null)) or ((`is_sensitive` = false) and (`secret_reference` is null))))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `platform_mfa_enrollment_tokens` (
   `token_hash` varchar(64) NOT NULL,
@@ -220,7 +220,7 @@ CREATE TABLE `platform_mfa_enrollment_tokens` (
   PRIMARY KEY (`token_hash`),
   KEY `ix_platform_mfa_token_user` (`username`,`expires_at`),
   CONSTRAINT `fk_platform_mfa_token_user` FOREIGN KEY (`username`) REFERENCES `users` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `platform_support_access` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -240,7 +240,7 @@ CREATE TABLE `platform_support_access` (
   CONSTRAINT `fk_support_revoker` FOREIGN KEY (`revoked_by`) REFERENCES `users` (`username`),
   CONSTRAINT `fk_support_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `chk_support_expiry` CHECK ((`expires_at` > `granted_at`))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `platform_user_permissions` (
   `username` varchar(100) NOT NULL,
@@ -249,8 +249,8 @@ CREATE TABLE `platform_user_permissions` (
   KEY `fk_pup_permission_catalog` (`permission`),
   CONSTRAINT `fk_pup_permission_catalog` FOREIGN KEY (`permission`) REFERENCES `platform_permission_catalogue` (`permission`),
   CONSTRAINT `platform_user_permissions_ibfk_1` FOREIGN KEY (`username`) REFERENCES `users` (`username`),
-  CONSTRAINT `chk_platform_permissions_v47` CHECK ((`permission` in (_utf8mb4'PLATFORM_TENANT_VIEW',_utf8mb4'PLATFORM_TENANT_CREATE',_utf8mb4'PLATFORM_TENANT_UPDATE',_utf8mb4'PLATFORM_TENANT_REACTIVATE',_utf8mb4'PLATFORM_TENANT_SUSPEND',_utf8mb4'PLATFORM_TENANT_CLOSE',_utf8mb4'PLATFORM_PLAN_MANAGE',_utf8mb4'PLATFORM_SUBSCRIPTION_VIEW',_utf8mb4'PLATFORM_SUBSCRIPTION_ADJUST',_utf8mb4'PLATFORM_ANALYTICS_VIEW',_utf8mb4'PLATFORM_AUDIT_VIEW',_utf8mb4'PLATFORM_SUPPORT_ACCESS',_utf8mb4'PLATFORM_CONFIG_MANAGE',_utf8mb4'PLATFORM_IDENTITY_MANAGE')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_platform_permissions_v47` CHECK ((`permission` in ('PLATFORM_TENANT_VIEW','PLATFORM_TENANT_CREATE','PLATFORM_TENANT_UPDATE','PLATFORM_TENANT_REACTIVATE','PLATFORM_TENANT_SUSPEND','PLATFORM_TENANT_CLOSE','PLATFORM_PLAN_MANAGE','PLATFORM_SUBSCRIPTION_VIEW','PLATFORM_SUBSCRIPTION_ADJUST','PLATFORM_ANALYTICS_VIEW','PLATFORM_AUDIT_VIEW','PLATFORM_SUPPORT_ACCESS','PLATFORM_CONFIG_MANAGE','PLATFORM_IDENTITY_MANAGE')))
+);
 
 CREATE TABLE `pos_audit` (
   `id` varchar(36) NOT NULL,
@@ -260,9 +260,9 @@ CREATE TABLE `pos_audit` (
   `resource_id` varchar(36) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `tenant_id` (`tenant_id`),
+  KEY `pos_audit_tenant_id` (`tenant_id`),
   CONSTRAINT `pos_audit_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `products` (
   `id` bigint NOT NULL,
@@ -272,17 +272,17 @@ CREATE TABLE `products` (
   `name` varchar(160) NOT NULL,
   `price` decimal(19,2) NOT NULL,
   `tax_rate` decimal(5,2) NOT NULL,
-  `published` tinyint(1) NOT NULL,
+  `published` BOOLEAN NOT NULL,
   `version` bigint NOT NULL DEFAULT '0',
   `brand` varchar(120) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`id`),
-  UNIQUE KEY `tenant_id_2` (`tenant_id`,`sku`),
+  UNIQUE KEY `products_tenant_id` (`tenant_id`,`id`),
+  UNIQUE KEY `products_tenant_id_2` (`tenant_id`,`sku`),
   UNIQUE KEY `products_tenant_barcode` (`tenant_id`,`barcode`),
   CONSTRAINT `products_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `products_chk_1` CHECK ((`price` >= 0)),
   CONSTRAINT `products_chk_2` CHECK (((`tax_rate` >= 0) and (`tax_rate` <= 100)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `subscription_plan_versions` (
   `plan_id` bigint NOT NULL,
@@ -304,9 +304,9 @@ CREATE TABLE `subscription_plan_versions` (
   KEY `fk_plan_version_actor` (`created_by`),
   CONSTRAINT `fk_plan_version_actor` FOREIGN KEY (`created_by`) REFERENCES `users` (`username`),
   CONSTRAINT `fk_plan_version_plan` FOREIGN KEY (`plan_id`) REFERENCES `subscription_plans` (`id`),
-  CONSTRAINT `chk_plan_interval` CHECK ((`billing_interval` in (_utf8mb4'MONTHLY',_utf8mb4'QUARTERLY',_utf8mb4'YEARLY'))),
+  CONSTRAINT `chk_plan_interval` CHECK ((`billing_interval` in ('MONTHLY','QUARTERLY','YEARLY'))),
   CONSTRAINT `chk_plan_limits` CHECK (((`price` >= 0) and (`max_users` > 0) and (`max_storage_mb` >= 0) and (`max_branches` > 0) and (`max_warehouses` >= 0) and (`grace_days` >= 0)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `branch_settings_events` (
   `id` varchar(36) NOT NULL,
@@ -318,25 +318,25 @@ CREATE TABLE `branch_settings_events` (
   `after_state` text NOT NULL,
   `created_at` timestamp NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `tenant_id` (`tenant_id`,`branch_id`),
+  KEY `branch_settings_events_tenant_id` (`tenant_id`,`branch_id`),
   CONSTRAINT `branch_settings_events_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `branches` (`tenant_id`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `carts` (
   `id` varchar(36) NOT NULL,
   `tenant_id` bigint NOT NULL,
   `customer_id` bigint NOT NULL,
   `state` varchar(16) NOT NULL,
-  `active_customer_id` bigint GENERATED ALWAYS AS ((case when (`state` = _utf8mb4'ACTIVE') then `customer_id` else NULL end)) VIRTUAL,
+  `active_customer_id` bigint GENERATED ALWAYS AS ((case when (`state` = 'ACTIVE') then `customer_id` else NULL end)),
   `version` bigint NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`id`),
+  UNIQUE KEY `carts_tenant_id` (`tenant_id`,`id`),
   UNIQUE KEY `active_customer_id` (`active_customer_id`),
   KEY `customer_id` (`customer_id`),
   CONSTRAINT `carts_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `carts_ibfk_2` FOREIGN KEY (`customer_id`) REFERENCES `customer_profiles` (`id`),
-  CONSTRAINT `carts_chk_1` CHECK ((`state` in (_utf8mb4'ACTIVE',_utf8mb4'ARCHIVED')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `carts_chk_1` CHECK ((`state` in ('ACTIVE','ARCHIVED')))
+);
 
 CREATE TABLE `catalog_promotion_audit` (
   `id` varchar(36) NOT NULL,
@@ -350,7 +350,7 @@ CREATE TABLE `catalog_promotion_audit` (
   PRIMARY KEY (`id`),
   KEY `ix_promotion_history` (`tenant_id`,`product_id`,`created_at`,`id`),
   CONSTRAINT `catalog_promotion_audit_ibfk_1` FOREIGN KEY (`tenant_id`, `product_id`) REFERENCES `products` (`tenant_id`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `catalog_promotions` (
   `tenant_id` bigint NOT NULL,
@@ -362,19 +362,19 @@ CREATE TABLE `catalog_promotions` (
   PRIMARY KEY (`tenant_id`,`product_id`),
   CONSTRAINT `catalog_promotions_ibfk_1` FOREIGN KEY (`tenant_id`, `product_id`) REFERENCES `products` (`tenant_id`, `id`),
   CONSTRAINT `catalog_promotions_chk_1` CHECK (((`percent` >= 0) and (`percent` <= 100)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `employees` (
   `username` varchar(100) NOT NULL,
   `tenant_id` bigint NOT NULL,
   `branch_id` bigint NOT NULL,
-  `enabled` tinyint(1) NOT NULL,
+  `enabled` BOOLEAN NOT NULL,
   PRIMARY KEY (`username`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`branch_id`,`username`),
+  UNIQUE KEY `employees_tenant_id` (`tenant_id`,`branch_id`,`username`),
   UNIQUE KEY `uk_employee_tenant_username` (`tenant_id`,`username`),
   CONSTRAINT `employees_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `branches` (`tenant_id`, `id`),
   CONSTRAINT `fk_employee_global_identity` FOREIGN KEY (`username`) REFERENCES `users` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_stock_locations` (
   `tenant_id` bigint NOT NULL,
@@ -382,24 +382,24 @@ CREATE TABLE `pos_stock_locations` (
   `stock_location_id` bigint NOT NULL,
   `location_code` varchar(40) NOT NULL,
   `display_name` varchar(160) NOT NULL,
-  `active` tinyint(1) NOT NULL DEFAULT '1',
+  `active` BOOLEAN NOT NULL DEFAULT 1,
   PRIMARY KEY (`tenant_id`,`branch_id`),
   UNIQUE KEY `stock_location_id` (`stock_location_id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`branch_id`,`stock_location_id`),
+  UNIQUE KEY `pos_stock_locations_tenant_id` (`tenant_id`,`branch_id`,`stock_location_id`),
   CONSTRAINT `fk_pos_stock_location_branch` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `branches` (`tenant_id`, `id`),
   CONSTRAINT `chk_pos_stock_location_branch_key` CHECK ((`stock_location_id` = `branch_id`)),
-  CONSTRAINT `chk_pos_stock_location_code` CHECK ((`location_code` = _utf8mb4'POS_DEFAULT'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_pos_stock_location_code` CHECK ((`location_code` = 'POS_DEFAULT'))
+);
 
 CREATE TABLE `product_categories` (
   `tenant_id` bigint NOT NULL,
   `product_id` bigint NOT NULL,
   `category_id` bigint NOT NULL,
   PRIMARY KEY (`tenant_id`,`product_id`),
-  KEY `tenant_id` (`tenant_id`,`category_id`),
+  KEY `product_categories_tenant_id` (`tenant_id`,`category_id`),
   CONSTRAINT `product_categories_ibfk_1` FOREIGN KEY (`tenant_id`, `product_id`) REFERENCES `products` (`tenant_id`, `id`),
   CONSTRAINT `product_categories_ibfk_2` FOREIGN KEY (`tenant_id`, `category_id`) REFERENCES `catalog_categories` (`tenant_id`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `tenant_customers` (
   `id` varchar(36) NOT NULL,
@@ -408,12 +408,12 @@ CREATE TABLE `tenant_customers` (
   `consent_at` timestamp NOT NULL,
   `provenance` varchar(40) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`customer_id`),
-  UNIQUE KEY `tenant_id_2` (`tenant_id`,`id`),
-  KEY `customer_id` (`customer_id`),
+  UNIQUE KEY `tenant_customers_tenant_id` (`tenant_id`,`customer_id`),
+  UNIQUE KEY `tenant_customers_tenant_id_2` (`tenant_id`,`id`),
+  KEY `tenant_customers_customer_id` (`customer_id`),
   CONSTRAINT `tenant_customers_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `tenant_customers_ibfk_2` FOREIGN KEY (`customer_id`) REFERENCES `customer_profiles` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `tenant_subscriptions` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -428,7 +428,7 @@ CREATE TABLE `tenant_subscriptions` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `version` bigint NOT NULL DEFAULT '0',
-  `active_tenant_id` bigint GENERATED ALWAYS AS ((case when (`status` in (_utf8mb4'PENDING',_utf8mb4'ACTIVE',_utf8mb4'PAST_DUE',_utf8mb4'GRACE_PERIOD',_utf8mb4'SUSPENDED',_utf8mb4'CANCEL_AT_PERIOD_END')) then `tenant_id` else NULL end)) VIRTUAL,
+  `active_tenant_id` bigint GENERATED ALWAYS AS ((case when (`status` in ('PENDING','ACTIVE','PAST_DUE','GRACE_PERIOD','SUSPENDED','CANCEL_AT_PERIOD_END')) then `tenant_id` else NULL end)),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_tenant_subscription_tenant_id` (`tenant_id`,`id`),
   UNIQUE KEY `uk_tenant_effective_subscription` (`active_tenant_id`),
@@ -436,8 +436,8 @@ CREATE TABLE `tenant_subscriptions` (
   KEY `ix_subscription_tenant_history` (`tenant_id`,`created_at` DESC,`id` DESC),
   CONSTRAINT `fk_subscription_plan_version` FOREIGN KEY (`plan_id`, `plan_version`) REFERENCES `subscription_plan_versions` (`plan_id`, `version`),
   CONSTRAINT `fk_subscription_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
-  CONSTRAINT `chk_subscription_status` CHECK ((`status` in (_utf8mb4'PENDING',_utf8mb4'ACTIVE',_utf8mb4'PAST_DUE',_utf8mb4'GRACE_PERIOD',_utf8mb4'SUSPENDED',_utf8mb4'CANCEL_AT_PERIOD_END',_utf8mb4'CANCELLED',_utf8mb4'EXPIRED')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_subscription_status` CHECK ((`status` in ('PENDING','ACTIVE','PAST_DUE','GRACE_PERIOD','SUSPENDED','CANCEL_AT_PERIOD_END','CANCELLED','EXPIRED')))
+);
 
 CREATE TABLE `cart_items` (
   `tenant_id` bigint NOT NULL,
@@ -445,11 +445,11 @@ CREATE TABLE `cart_items` (
   `product_id` bigint NOT NULL,
   `quantity` int NOT NULL,
   PRIMARY KEY (`tenant_id`,`cart_id`,`product_id`),
-  KEY `tenant_id` (`tenant_id`,`product_id`),
+  KEY `cart_items_tenant_id` (`tenant_id`,`product_id`),
   CONSTRAINT `cart_items_ibfk_1` FOREIGN KEY (`tenant_id`, `cart_id`) REFERENCES `carts` (`tenant_id`, `id`),
   CONSTRAINT `cart_items_ibfk_2` FOREIGN KEY (`tenant_id`, `product_id`) REFERENCES `products` (`tenant_id`, `id`),
   CONSTRAINT `cart_items_chk_1` CHECK (((`quantity` > 0) and (`quantity` <= 10000)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `catalog_stock` (
   `tenant_id` bigint NOT NULL,
@@ -457,13 +457,13 @@ CREATE TABLE `catalog_stock` (
   `product_id` bigint NOT NULL,
   `available` int NOT NULL,
   PRIMARY KEY (`tenant_id`,`branch_id`,`product_id`),
-  KEY `tenant_id` (`tenant_id`,`product_id`),
+  KEY `catalog_stock_tenant_id` (`tenant_id`,`product_id`),
   KEY `ix_catalog_stock_available` (`tenant_id`,`branch_id`,`available`),
   CONSTRAINT `catalog_stock_ibfk_1` FOREIGN KEY (`tenant_id`, `product_id`) REFERENCES `products` (`tenant_id`, `id`),
   CONSTRAINT `catalog_stock_ibfk_2` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `branches` (`tenant_id`, `id`),
   CONSTRAINT `fk_catalog_stock_pos_stock_location` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `pos_stock_locations` (`tenant_id`, `branch_id`),
   CONSTRAINT `catalog_stock_chk_1` CHECK ((`available` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `inventory` (
   `tenant_id` bigint NOT NULL,
@@ -472,13 +472,13 @@ CREATE TABLE `inventory` (
   `quantity` int NOT NULL,
   `reserved` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`tenant_id`,`branch_id`,`product_id`),
-  KEY `tenant_id` (`tenant_id`,`product_id`),
+  KEY `inventory_tenant_id` (`tenant_id`,`product_id`),
   CONSTRAINT `fk_inventory_pos_stock_location` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `pos_stock_locations` (`tenant_id`, `branch_id`),
   CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `branches` (`tenant_id`, `id`),
   CONSTRAINT `inventory_ibfk_2` FOREIGN KEY (`tenant_id`, `product_id`) REFERENCES `products` (`tenant_id`, `id`),
   CONSTRAINT `chk_reserved_stock` CHECK (((`reserved` >= 0) and (`reserved` <= `quantity`))),
   CONSTRAINT `inventory_chk_1` CHECK ((`quantity` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `inventory_receipts` (
   `id` varchar(36) NOT NULL,
@@ -492,25 +492,25 @@ CREATE TABLE `inventory_receipts` (
   `available_after` int NOT NULL,
   `created_at` timestamp NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`branch_id`,`command_key`),
-  KEY `tenant_id_2` (`tenant_id`,`product_id`),
+  UNIQUE KEY `inventory_receipts_tenant_id` (`tenant_id`,`branch_id`,`command_key`),
+  KEY `inventory_receipts_tenant_id_2` (`tenant_id`,`product_id`),
   KEY `inventory_receipts_history` (`tenant_id`,`branch_id`,`created_at`,`id`),
   CONSTRAINT `fk_inventory_receipts_pos_stock_location` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `pos_stock_locations` (`tenant_id`, `branch_id`),
   CONSTRAINT `inventory_receipts_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `branches` (`tenant_id`, `id`),
   CONSTRAINT `inventory_receipts_ibfk_2` FOREIGN KEY (`tenant_id`, `product_id`) REFERENCES `products` (`tenant_id`, `id`),
   CONSTRAINT `inventory_receipts_chk_1` CHECK ((`quantity` > 0)),
   CONSTRAINT `inventory_receipts_chk_2` CHECK ((`available_after` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `registers` (
   `id` bigint NOT NULL,
   `tenant_id` bigint NOT NULL,
   `branch_id` bigint NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`branch_id`,`id`),
+  UNIQUE KEY `registers_tenant_id` (`tenant_id`,`branch_id`,`id`),
   CONSTRAINT `fk_registers_pos_stock_location` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `pos_stock_locations` (`tenant_id`, `branch_id`),
   CONSTRAINT `registers_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `branches` (`tenant_id`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `report_export_audit` (
   `id` varchar(36) NOT NULL,
@@ -526,14 +526,14 @@ CREATE TABLE `report_export_audit` (
   `reason` varchar(250) NOT NULL,
   `created_at` timestamp NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `tenant_id` (`tenant_id`,`branch_id`,`actor`),
+  KEY `report_export_audit_tenant_id` (`tenant_id`,`branch_id`,`actor`),
   KEY `ix_report_export_scope` (`tenant_id`,`branch_id`,`created_at`,`id`),
   CONSTRAINT `report_export_audit_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`, `actor`) REFERENCES `employees` (`tenant_id`, `branch_id`, `username`),
-  CONSTRAINT `report_export_audit_chk_1` CHECK ((`report_kind` in (_utf8mb4'SALES',_utf8mb4'CASH_REFUNDS'))),
-  CONSTRAINT `report_export_audit_chk_2` CHECK ((`channel` in (_utf8mb4'ALL',_utf8mb4'ONLINE',_utf8mb4'IN_STORE',_utf8mb4'CASH_ONLY'))),
+  CONSTRAINT `report_export_audit_chk_1` CHECK ((`report_kind` in ('SALES','CASH_REFUNDS'))),
+  CONSTRAINT `report_export_audit_chk_2` CHECK ((`channel` in ('ALL','ONLINE','IN_STORE','CASH_ONLY'))),
   CONSTRAINT `report_export_audit_chk_3` CHECK (((`row_count` > 0) and (`row_count` <= 5000))),
   CONSTRAINT `report_export_audit_chk_4` CHECK ((`from_date` <= `to_date`))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `subscription_events` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -552,7 +552,7 @@ CREATE TABLE `subscription_events` (
   CONSTRAINT `fk_sub_event_subscription` FOREIGN KEY (`subscription_id`) REFERENCES `tenant_subscriptions` (`id`),
   CONSTRAINT `fk_sub_event_subscription_owner` FOREIGN KEY (`tenant_id`, `subscription_id`) REFERENCES `tenant_subscriptions` (`tenant_id`, `id`),
   CONSTRAINT `fk_sub_event_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `subscription_invoices` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -578,8 +578,8 @@ CREATE TABLE `subscription_invoices` (
   CONSTRAINT `fk_sub_invoice_subscription` FOREIGN KEY (`subscription_id`) REFERENCES `tenant_subscriptions` (`id`),
   CONSTRAINT `fk_sub_invoice_subscription_owner` FOREIGN KEY (`tenant_id`, `subscription_id`) REFERENCES `tenant_subscriptions` (`tenant_id`, `id`),
   CONSTRAINT `fk_sub_invoice_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
-  CONSTRAINT `chk_sub_invoice_status` CHECK ((`status` in (_utf8mb4'OPEN',_utf8mb4'PAID',_utf8mb4'VOID',_utf8mb4'UNCOLLECTIBLE')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_sub_invoice_status` CHECK ((`status` in ('OPEN','PAID','VOID','UNCOLLECTIBLE')))
+);
 
 CREATE TABLE `vendor_access_audit_events` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -599,14 +599,14 @@ CREATE TABLE `vendor_access_audit_events` (
   CONSTRAINT `fk_vendor_access_audit_actor` FOREIGN KEY (`tenant_id`, `actor_username`) REFERENCES `employees` (`tenant_id`, `username`),
   CONSTRAINT `fk_vendor_access_audit_subject` FOREIGN KEY (`tenant_id`, `subject_username`) REFERENCES `employees` (`tenant_id`, `username`),
   CONSTRAINT `fk_vendor_access_audit_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `vendor_roles` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `tenant_id` bigint NOT NULL,
   `role_key` varchar(120) NOT NULL,
   `display_name` varchar(120) NOT NULL,
-  `active` tinyint(1) NOT NULL DEFAULT '1',
+  `active` BOOLEAN NOT NULL DEFAULT 1,
   `created_by` varchar(100) NOT NULL,
   `updated_by` varchar(100) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -623,14 +623,14 @@ CREATE TABLE `vendor_roles` (
   CONSTRAINT `fk_vendor_role_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `fk_vendor_role_updated_by` FOREIGN KEY (`tenant_id`, `updated_by`) REFERENCES `employees` (`tenant_id`, `username`),
   CONSTRAINT `chk_role_template_origin` CHECK ((((`template_key` is null) and (`template_version` is null)) or ((`template_key` is not null) and (`template_version` is not null) and (`template_version` > 0))))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `employee_register_assignments` (
   `tenant_id` bigint NOT NULL,
   `branch_id` bigint NOT NULL,
   `username` varchar(100) NOT NULL,
   `register_id` bigint NOT NULL,
-  `active` tinyint(1) NOT NULL DEFAULT '1',
+  `active` BOOLEAN NOT NULL DEFAULT 1,
   `assigned_by` varchar(100) NOT NULL,
   `assigned_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `revoked_by` varchar(100) DEFAULT NULL,
@@ -644,14 +644,14 @@ CREATE TABLE `employee_register_assignments` (
   CONSTRAINT `fk_employee_register_employee` FOREIGN KEY (`tenant_id`, `branch_id`, `username`) REFERENCES `employees` (`tenant_id`, `branch_id`, `username`),
   CONSTRAINT `fk_employee_register_register` FOREIGN KEY (`tenant_id`, `branch_id`, `register_id`) REFERENCES `registers` (`tenant_id`, `branch_id`, `id`),
   CONSTRAINT `fk_employee_register_revoked_by` FOREIGN KEY (`tenant_id`, `revoked_by`) REFERENCES `employees` (`tenant_id`, `username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `employee_role_assignments` (
   `tenant_id` bigint NOT NULL,
   `branch_id` bigint NOT NULL,
   `username` varchar(100) NOT NULL,
   `role_id` bigint NOT NULL,
-  `active` tinyint(1) NOT NULL DEFAULT '1',
+  `active` BOOLEAN NOT NULL DEFAULT 1,
   `assigned_by` varchar(100) NOT NULL,
   `assigned_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `revoked_by` varchar(100) DEFAULT NULL,
@@ -666,7 +666,7 @@ CREATE TABLE `employee_role_assignments` (
   CONSTRAINT `fk_employee_role_employee` FOREIGN KEY (`tenant_id`, `branch_id`, `username`) REFERENCES `employees` (`tenant_id`, `branch_id`, `username`),
   CONSTRAINT `fk_employee_role_revoked_by` FOREIGN KEY (`tenant_id`, `revoked_by`) REFERENCES `employees` (`tenant_id`, `username`),
   CONSTRAINT `fk_employee_role_role` FOREIGN KEY (`tenant_id`, `role_id`) REFERENCES `vendor_roles` (`tenant_id`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_sessions` (
   `id` varchar(36) NOT NULL,
@@ -676,7 +676,7 @@ CREATE TABLE `pos_sessions` (
   `register_id` bigint NOT NULL,
   `state` varchar(16) NOT NULL,
   `opening_float` decimal(19,2) NOT NULL,
-  `active_register` bigint GENERATED ALWAYS AS ((case when (`state` = _utf8mb4'OPEN') then `register_id` else NULL end)) VIRTUAL,
+  `active_register` bigint GENERATED ALWAYS AS ((case when (`state` = 'OPEN') then `register_id` else NULL end)),
   `expected_cash` decimal(19,2) DEFAULT NULL,
   `counted_cash` decimal(19,2) DEFAULT NULL,
   `closed_at` timestamp NULL DEFAULT NULL,
@@ -687,11 +687,11 @@ CREATE TABLE `pos_sessions` (
   `reviewed_by` varchar(100) DEFAULT NULL,
   `review_reason` varchar(250) DEFAULT NULL,
   `reviewed_at` timestamp NULL DEFAULT NULL,
-  `active_register_guard` bigint GENERATED ALWAYS AS ((case when (`state` in (_utf8mb4'OPEN',_utf8mb4'CLOSING')) then `register_id` else NULL end)) VIRTUAL,
+  `active_register_guard` bigint GENERATED ALWAYS AS ((case when (`state` in ('OPEN','CLOSING')) then `register_id` else NULL end)),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id_2` (`tenant_id`,`branch_id`,`cashier`,`id`),
+  UNIQUE KEY `pos_sessions_tenant_id_2` (`tenant_id`,`branch_id`,`cashier`,`id`),
   UNIQUE KEY `uk_pos_session_tenant_branch_id` (`tenant_id`,`branch_id`,`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`active_register`),
+  UNIQUE KEY `pos_sessions_tenant_id` (`tenant_id`,`active_register`),
   UNIQUE KEY `uk_session_open_closing_register` (`tenant_id`,`active_register_guard`),
   KEY `fk_session_reviewer` (`tenant_id`,`branch_id`,`reviewed_by`),
   KEY `ix_own_closed_shift` (`tenant_id`,`branch_id`,`cashier`,`state`,`closed_at`,`id`),
@@ -702,7 +702,7 @@ CREATE TABLE `pos_sessions` (
   CONSTRAINT `pos_sessions_ibfk_2` FOREIGN KEY (`tenant_id`, `branch_id`, `register_id`) REFERENCES `registers` (`tenant_id`, `branch_id`, `id`),
   CONSTRAINT `chk_session_independent_review` CHECK (((`reviewed_by` is null) or (`reviewed_by` <> `cashier`))),
   CONSTRAINT `pos_sessions_chk_1` CHECK ((`opening_float` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `subscription_payments` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -725,8 +725,8 @@ CREATE TABLE `subscription_payments` (
   CONSTRAINT `fk_sub_payment_invoice` FOREIGN KEY (`subscription_invoice_id`) REFERENCES `subscription_invoices` (`id`),
   CONSTRAINT `fk_sub_payment_invoice_owner` FOREIGN KEY (`tenant_id`, `subscription_invoice_id`) REFERENCES `subscription_invoices` (`tenant_id`, `id`),
   CONSTRAINT `fk_sub_payment_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
-  CONSTRAINT `chk_sub_payment_status` CHECK ((`status` in (_utf8mb4'CREATED',_utf8mb4'PENDING',_utf8mb4'SUCCEEDED',_utf8mb4'FAILED',_utf8mb4'CANCELLED',_utf8mb4'REFUNDED')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_sub_payment_status` CHECK ((`status` in ('CREATED','PENDING','SUCCEEDED','FAILED','CANCELLED','REFUNDED')))
+);
 
 CREATE TABLE `vendor_role_permissions` (
   `tenant_id` bigint NOT NULL,
@@ -740,8 +740,8 @@ CREATE TABLE `vendor_role_permissions` (
   CONSTRAINT `fk_vendor_role_permission_actor` FOREIGN KEY (`tenant_id`, `created_by`) REFERENCES `employees` (`tenant_id`, `username`),
   CONSTRAINT `fk_vendor_role_permission_role` FOREIGN KEY (`tenant_id`, `role_id`) REFERENCES `vendor_roles` (`tenant_id`, `id`),
   CONSTRAINT `fk_vrp_permission_catalog` FOREIGN KEY (`permission`) REFERENCES `vendor_permission_catalogue` (`permission`),
-  CONSTRAINT `chk_vendor_role_permission_no_platform` CHECK ((not((`permission` like _utf8mb4'PLATFORM_%'))))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_vendor_role_permission_no_platform` CHECK ((not((`permission` like 'PLATFORM_%'))))
+);
 
 CREATE TABLE `orders` (
   `id` varchar(36) NOT NULL,
@@ -757,13 +757,13 @@ CREATE TABLE `orders` (
   `cash_received` decimal(19,2) DEFAULT NULL,
   `change_given` decimal(19,2) DEFAULT NULL,
   `receipt_number` bigint DEFAULT NULL,
-  `tax_invoice` tinyint(1) NOT NULL,
+  `tax_invoice` BOOLEAN NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `status` varchar(24) NOT NULL DEFAULT 'PAID',
   `expires_at` timestamp NULL DEFAULT NULL,
   `stock_branch_id` bigint DEFAULT NULL,
   `draft_owner` varchar(80) DEFAULT NULL,
-  `invoice_requested` tinyint(1) NOT NULL DEFAULT '0',
+  `invoice_requested` BOOLEAN NOT NULL DEFAULT 0,
   `cancellation_reason` varchar(250) DEFAULT NULL,
   `status_changed_at` timestamp(6) NULL DEFAULT NULL,
   `receipt_seller_name` varchar(160) DEFAULT NULL,
@@ -772,8 +772,8 @@ CREATE TABLE `orders` (
   `payment_reference` varchar(80) DEFAULT NULL,
   `discount_reason` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`id`),
-  UNIQUE KEY `tenant_id_2` (`tenant_id`,`idempotency_key`),
+  UNIQUE KEY `orders_tenant_id` (`tenant_id`,`id`),
+  UNIQUE KEY `orders_tenant_id_2` (`tenant_id`,`idempotency_key`),
   UNIQUE KEY `tenant_id_3` (`tenant_id`,`branch_id`,`receipt_number`),
   UNIQUE KEY `uk_active_draft_owner` (`tenant_id`,`draft_owner`),
   UNIQUE KEY `uk_customer_order_key` (`customer_id`,`idempotency_key`),
@@ -789,13 +789,13 @@ CREATE TABLE `orders` (
   CONSTRAINT `fk_orders_inventory_stock_location` FOREIGN KEY (`tenant_id`, `stock_branch_id`) REFERENCES `pos_stock_locations` (`tenant_id`, `branch_id`),
   CONSTRAINT `fk_orders_pos_branch_stock_location` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `pos_stock_locations` (`tenant_id`, `branch_id`),
   CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`, `cashier`, `session_id`) REFERENCES `pos_sessions` (`tenant_id`, `branch_id`, `cashier`, `id`),
-  CONSTRAINT `chk_order_channel_context` CHECK ((((`sales_channel` = _utf8mb4'ONLINE') and (`customer_id` is not null) and (`branch_id` is null) and (`cashier` is null) and (`session_id` is null) and (`cash_received` is null) and (`change_given` is null) and (`receipt_number` is null)) or ((`sales_channel` = _utf8mb4'IN_STORE') and (`branch_id` is not null) and (`cashier` is not null) and (`session_id` is not null) and ((`status` <> _utf8mb4'PAID') or ((`cash_received` is not null) and (`change_given` is not null) and (`receipt_number` is not null)))))),
-  CONSTRAINT `chk_order_draft_state` CHECK ((`status` in (_utf8mb4'DRAFT',_utf8mb4'PAID',_utf8mb4'CANCELLED',_utf8mb4'EXPIRED'))),
-  CONSTRAINT `chk_pos_order_uses_its_branch_stock` CHECK (((`sales_channel` <> _utf8mb4'IN_STORE') or ((`stock_branch_id` is not null) and (`branch_id` = `stock_branch_id`)))),
-  CONSTRAINT `chk_sale_cash_amount` CHECK (((`status` <> _utf8mb4'PAID') or (`sales_channel` = _utf8mb4'ONLINE') or ((`payment_method` = _utf8mb4'CASH') and ((`cash_received` - `change_given`) = `total`)) or ((`payment_method` in (_utf8mb4'UPI',_utf8mb4'CARD')) and (`cash_received` = 0) and (`change_given` = 0)) or ((`payment_method` = _utf8mb4'SPLIT') and (`cash_received` >= `change_given`) and ((`cash_received` - `change_given`) <= `total`)))),
-  CONSTRAINT `chk_sale_payment_method` CHECK ((`payment_method` in (_utf8mb4'CASH',_utf8mb4'MOCK_UPI',_utf8mb4'MOCK_CARD',_utf8mb4'UPI',_utf8mb4'CARD',_utf8mb4'SPLIT'))),
-  CONSTRAINT `chk_terminal_receipt_reference` CHECK (((`payment_method` not in (_utf8mb4'UPI',_utf8mb4'CARD')) or ((`sales_channel` = _utf8mb4'IN_STORE') and (`payment_reference` is not null))))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_order_channel_context` CHECK ((((`sales_channel` = 'ONLINE') and (`customer_id` is not null) and (`branch_id` is null) and (`cashier` is null) and (`session_id` is null) and (`cash_received` is null) and (`change_given` is null) and (`receipt_number` is null)) or ((`sales_channel` = 'IN_STORE') and (`branch_id` is not null) and (`cashier` is not null) and (`session_id` is not null) and ((`status` <> 'PAID') or ((`cash_received` is not null) and (`change_given` is not null) and (`receipt_number` is not null)))))),
+  CONSTRAINT `chk_order_draft_state` CHECK ((`status` in ('DRAFT','PAID','CANCELLED','EXPIRED'))),
+  CONSTRAINT `chk_pos_order_uses_its_branch_stock` CHECK (((`sales_channel` <> 'IN_STORE') or ((`stock_branch_id` is not null) and (`branch_id` = `stock_branch_id`)))),
+  CONSTRAINT `chk_sale_cash_amount` CHECK (((`status` <> 'PAID') or (`sales_channel` = 'ONLINE') or ((`payment_method` = 'CASH') and ((`cash_received` - `change_given`) = `total`)) or ((`payment_method` in ('UPI','CARD')) and (`cash_received` = 0) and (`change_given` = 0)) or ((`payment_method` = 'SPLIT') and (`cash_received` >= `change_given`) and ((`cash_received` - `change_given`) <= `total`)))),
+  CONSTRAINT `chk_sale_payment_method` CHECK ((`payment_method` in ('CASH','MOCK_UPI','MOCK_CARD','UPI','CARD','SPLIT'))),
+  CONSTRAINT `chk_terminal_receipt_reference` CHECK (((`payment_method` not in ('UPI','CARD')) or ((`sales_channel` = 'IN_STORE') and (`payment_reference` is not null))))
+);
 
 CREATE TABLE `pos_cash_movements` (
   `id` varchar(36) NOT NULL,
@@ -809,13 +809,13 @@ CREATE TABLE `pos_cash_movements` (
   `idempotency_key` varchar(80) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`session_id`,`idempotency_key`),
+  UNIQUE KEY `pos_cash_movements_tenant_id` (`tenant_id`,`session_id`,`idempotency_key`),
   KEY `fk_cash_movement_session` (`tenant_id`,`branch_id`,`cashier`,`session_id`),
   CONSTRAINT `fk_cash_movement_session` FOREIGN KEY (`tenant_id`, `branch_id`, `cashier`, `session_id`) REFERENCES `pos_sessions` (`tenant_id`, `branch_id`, `cashier`, `id`),
   CONSTRAINT `chk_cash_movement_amount` CHECK ((`amount` > 0)),
   CONSTRAINT `chk_cash_movement_reason` CHECK ((char_length(trim(`reason`)) > 0)),
-  CONSTRAINT `chk_cash_movement_type` CHECK ((`movement_type` in (_utf8mb4'CASH_IN',_utf8mb4'CASH_OUT',_utf8mb4'SAFE_DROP')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_cash_movement_type` CHECK ((`movement_type` in ('CASH_IN','CASH_OUT','SAFE_DROP')))
+);
 
 CREATE TABLE `pos_shift_reviews` (
   `id` varchar(36) NOT NULL,
@@ -833,15 +833,15 @@ CREATE TABLE `pos_shift_reviews` (
   `cash_variance` decimal(19,2) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`session_id`,`close_request_id`),
-  KEY `tenant_id_2` (`tenant_id`,`branch_id`,`cashier`,`session_id`),
-  KEY `tenant_id_3` (`tenant_id`,`branch_id`,`reviewer`),
+  UNIQUE KEY `pos_shift_reviews_tenant_id` (`tenant_id`,`session_id`,`close_request_id`),
+  KEY `pos_shift_reviews_tenant_id_2` (`tenant_id`,`branch_id`,`cashier`,`session_id`),
+  KEY `pos_shift_reviews_tenant_id_3` (`tenant_id`,`branch_id`,`reviewer`),
   CONSTRAINT `pos_shift_reviews_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`, `cashier`, `session_id`) REFERENCES `pos_sessions` (`tenant_id`, `branch_id`, `cashier`, `id`),
   CONSTRAINT `pos_shift_reviews_ibfk_2` FOREIGN KEY (`tenant_id`, `branch_id`, `reviewer`) REFERENCES `employees` (`tenant_id`, `branch_id`, `username`),
-  CONSTRAINT `pos_shift_reviews_chk_1` CHECK ((`decision` in (_utf8mb4'APPROVE',_utf8mb4'RETURN_FOR_CORRECTION'))),
+  CONSTRAINT `pos_shift_reviews_chk_1` CHECK ((`decision` in ('APPROVE','RETURN_FOR_CORRECTION'))),
   CONSTRAINT `pos_shift_reviews_chk_2` CHECK ((char_length(trim(`reason`)) > 0)),
   CONSTRAINT `pos_shift_reviews_chk_3` CHECK ((`reviewer` <> `cashier`))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `inventory_ledger` (
   `tenant_id` bigint NOT NULL,
@@ -856,7 +856,7 @@ CREATE TABLE `inventory_ledger` (
   CONSTRAINT `fk_inventory_ledger_pos_stock_location` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `pos_stock_locations` (`tenant_id`, `branch_id`),
   CONSTRAINT `inventory_ledger_ibfk_1` FOREIGN KEY (`tenant_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `id`),
   CONSTRAINT `inventory_ledger_ibfk_2` FOREIGN KEY (`tenant_id`, `branch_id`, `product_id`) REFERENCES `inventory` (`tenant_id`, `branch_id`, `product_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `order_buyer_snapshots` (
   `tenant_id` bigint NOT NULL,
@@ -868,7 +868,7 @@ CREATE TABLE `order_buyer_snapshots` (
   `captured_at` timestamp NOT NULL,
   PRIMARY KEY (`tenant_id`,`order_id`),
   CONSTRAINT `order_buyer_snapshots_ibfk_1` FOREIGN KEY (`tenant_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `order_items` (
   `tenant_id` bigint NOT NULL,
@@ -885,13 +885,13 @@ CREATE TABLE `order_items` (
   `discount_percent` decimal(5,2) NOT NULL DEFAULT '0.00',
   `manual_discount` decimal(19,2) NOT NULL DEFAULT '0.00',
   PRIMARY KEY (`tenant_id`,`order_id`,`product_id`),
-  KEY `tenant_id` (`tenant_id`,`product_id`),
+  KEY `order_items_tenant_id` (`tenant_id`,`product_id`),
   CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`tenant_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `id`),
   CONSTRAINT `order_items_ibfk_2` FOREIGN KEY (`tenant_id`, `product_id`) REFERENCES `products` (`tenant_id`, `id`),
   CONSTRAINT `chk_order_discount` CHECK (((`list_price` >= `price`) and (`discount` >= 0) and (`discount` = (((`list_price` - `price`) * `quantity`) + `manual_discount`)) and (`manual_discount` <= (`price` * `quantity`)) and (`discount_percent` >= 0) and (`discount_percent` <= 100))),
   CONSTRAINT `order_items_chk_1` CHECK ((`quantity` > 0)),
   CONSTRAINT `order_items_chk_2` CHECK ((`manual_discount` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_active_drafts` (
   `tenant_id` bigint NOT NULL,
@@ -904,7 +904,7 @@ CREATE TABLE `pos_active_drafts` (
   KEY `fk_pos_active_draft_order` (`tenant_id`,`branch_id`,`cashier`,`session_id`,`order_reference`),
   CONSTRAINT `fk_pos_active_draft_order` FOREIGN KEY (`tenant_id`, `branch_id`, `cashier`, `session_id`, `order_reference`) REFERENCES `orders` (`tenant_id`, `branch_id`, `cashier`, `session_id`, `id`),
   CONSTRAINT `pos_active_drafts_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`, `cashier`, `session_id`) REFERENCES `pos_sessions` (`tenant_id`, `branch_id`, `cashier`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_customer_challenges` (
   `token_hash` varchar(64) NOT NULL,
@@ -917,7 +917,7 @@ CREATE TABLE `pos_customer_challenges` (
   KEY `ix_customer_challenge_order` (`tenant_id`,`order_id`),
   CONSTRAINT `pos_customer_challenges_ibfk_1` FOREIGN KEY (`tenant_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `id`),
   CONSTRAINT `pos_customer_challenges_ibfk_2` FOREIGN KEY (`approved_customer_id`) REFERENCES `customer_profiles` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_drawer_tenders` (
   `id` varchar(80) NOT NULL,
@@ -935,7 +935,7 @@ CREATE TABLE `pos_drawer_tenders` (
   CONSTRAINT `fk_pos_drawer_tender_session` FOREIGN KEY (`tenant_id`, `branch_id`, `session_id`) REFERENCES `pos_sessions` (`tenant_id`, `branch_id`, `id`),
   CONSTRAINT `pos_drawer_tenders_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `pos_drawer_tenders_chk_1` CHECK (((`cash_received` >= 0) and (`change_given` >= 0) and (`change_given` <= `cash_received`)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_returns` (
   `id` varchar(36) NOT NULL,
@@ -958,9 +958,9 @@ CREATE TABLE `pos_returns` (
   `inspection_hash` varchar(64) DEFAULT NULL,
   `inspected_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`id`),
-  UNIQUE KEY `tenant_id_2` (`tenant_id`,`branch_id`,`id`),
-  UNIQUE KEY `tenant_id_3` (`tenant_id`,`id`,`order_id`),
+  UNIQUE KEY `pos_returns_tenant_id` (`tenant_id`,`id`),
+  UNIQUE KEY `pos_returns_tenant_id_2` (`tenant_id`,`branch_id`,`id`),
+  UNIQUE KEY `pos_returns_tenant_id_3` (`tenant_id`,`id`,`order_id`),
   UNIQUE KEY `tenant_id_4` (`tenant_id`,`idempotency_key`),
   KEY `tenant_id_5` (`tenant_id`,`branch_id`,`order_id`),
   KEY `tenant_id_6` (`tenant_id`,`branch_id`,`requester`,`session_id`),
@@ -968,12 +968,12 @@ CREATE TABLE `pos_returns` (
   KEY `ix_return_queue` (`tenant_id`,`branch_id`,`created_at`,`id`),
   CONSTRAINT `pos_returns_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `branch_id`, `id`),
   CONSTRAINT `pos_returns_ibfk_2` FOREIGN KEY (`tenant_id`, `branch_id`, `requester`, `session_id`) REFERENCES `pos_sessions` (`tenant_id`, `branch_id`, `cashier`, `id`),
-  CONSTRAINT `pos_returns_chk_1` CHECK ((`proof` in (_utf8mb4'ORIGINAL_RECEIPT',_utf8mb4'ORDER_AND_ITEM_VERIFIED'))),
-  CONSTRAINT `pos_returns_chk_2` CHECK ((`state` in (_utf8mb4'REQUESTED',_utf8mb4'APPROVED',_utf8mb4'REJECTED',_utf8mb4'INSPECTED'))),
+  CONSTRAINT `pos_returns_chk_1` CHECK ((`proof` in ('ORIGINAL_RECEIPT','ORDER_AND_ITEM_VERIFIED'))),
+  CONSTRAINT `pos_returns_chk_2` CHECK ((`state` in ('REQUESTED','APPROVED','REJECTED','INSPECTED'))),
   CONSTRAINT `pos_returns_chk_3` CHECK (((`reviewed_by` is null) or (`reviewed_by` <> `requester`))),
   CONSTRAINT `pos_returns_chk_4` CHECK (((`inspected_by` is null) or (`inspected_by` <> `requester`))),
-  CONSTRAINT `pos_returns_chk_5` CHECK ((((`state` = _utf8mb4'REQUESTED') and (`reviewed_by` is null) and (`inspected_by` is null)) or ((`state` in (_utf8mb4'APPROVED',_utf8mb4'REJECTED')) and (`reviewed_by` is not null) and (`review_reason` is not null) and (`reviewed_at` is not null) and (`inspected_by` is null)) or ((`state` = _utf8mb4'INSPECTED') and (`reviewed_by` is not null) and (`inspected_by` is not null) and (`inspection_hash` is not null) and (`inspected_at` is not null))))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `pos_returns_chk_5` CHECK ((((`state` = 'REQUESTED') and (`reviewed_by` is null) and (`inspected_by` is null)) or ((`state` in ('APPROVED','REJECTED')) and (`reviewed_by` is not null) and (`review_reason` is not null) and (`reviewed_at` is not null) and (`inspected_by` is null)) or ((`state` = 'INSPECTED') and (`reviewed_by` is not null) and (`inspected_by` is not null) and (`inspection_hash` is not null) and (`inspected_at` is not null))))
+);
 
 CREATE TABLE `receipt_document_audit` (
   `id` varchar(36) NOT NULL,
@@ -986,12 +986,12 @@ CREATE TABLE `receipt_document_audit` (
   `content_length` int NOT NULL,
   `created_at` timestamp(6) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `tenant_id_2` (`tenant_id`,`branch_id`,`actor`),
+  KEY `receipt_document_audit_tenant_id_2` (`tenant_id`,`branch_id`,`actor`),
   KEY `ix_receipt_document_scope` (`tenant_id`,`branch_id`,`order_id`,`created_at`,`id`),
   CONSTRAINT `receipt_document_audit_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `branch_id`, `id`),
   CONSTRAINT `receipt_document_audit_ibfk_2` FOREIGN KEY (`tenant_id`, `branch_id`, `actor`) REFERENCES `employees` (`tenant_id`, `branch_id`, `username`),
   CONSTRAINT `receipt_document_audit_chk_1` CHECK (((`content_length` > 0) and (`content_length` <= 2000000)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `stock_reservations` (
   `tenant_id` bigint NOT NULL,
@@ -1009,8 +1009,8 @@ CREATE TABLE `stock_reservations` (
   CONSTRAINT `stock_reservations_ibfk_1` FOREIGN KEY (`tenant_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `id`),
   CONSTRAINT `stock_reservations_ibfk_2` FOREIGN KEY (`tenant_id`, `branch_id`, `product_id`) REFERENCES `inventory` (`tenant_id`, `branch_id`, `product_id`),
   CONSTRAINT `stock_reservations_chk_1` CHECK ((`quantity` > 0)),
-  CONSTRAINT `stock_reservations_chk_2` CHECK ((`state` in (_utf8mb4'HELD',_utf8mb4'RELEASED',_utf8mb4'CONSUMED')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `stock_reservations_chk_2` CHECK ((`state` in ('HELD','RELEASED','CONSUMED')))
+);
 
 CREATE TABLE `vendor_invoices` (
   `tenant_id` bigint NOT NULL,
@@ -1021,9 +1021,9 @@ CREATE TABLE `vendor_invoices` (
   `total` decimal(19,2) NOT NULL,
   `issued_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tenant_id`,`order_id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`invoice_number`),
+  UNIQUE KEY `vendor_invoices_tenant_id` (`tenant_id`,`invoice_number`),
   CONSTRAINT `vendor_invoices_ibfk_1` FOREIGN KEY (`tenant_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `vendor_payment_attempts` (
   `id` varchar(36) NOT NULL,
@@ -1050,13 +1050,13 @@ CREATE TABLE `vendor_payment_attempts` (
   KEY `ix_terminal_review` (`tenant_id`,`origin`,`state`,`created_at`),
   KEY `ix_tenders_order` (`tenant_id`,`order_id`),
   CONSTRAINT `vendor_payment_attempts_ibfk_1` FOREIGN KEY (`tenant_id`, `order_id`) REFERENCES `orders` (`tenant_id`, `id`),
-  CONSTRAINT `chk_cash_tender` CHECK (((`origin` <> _utf8mb4'POS_CASH') or ((`method` = _utf8mb4'CASH') and (`state` = _utf8mb4'CONFIRMED') and (`cash_received` >= `amount`) and (`change_given` >= 0) and ((`cash_received` - `change_given`) = `amount`)))),
-  CONSTRAINT `chk_tender_method` CHECK ((`method` in (_utf8mb4'UPI',_utf8mb4'CARD',_utf8mb4'CASH'))),
-  CONSTRAINT `chk_tender_origin` CHECK ((`origin` in (_utf8mb4'ONLINE_MOCK',_utf8mb4'POS_TERMINAL',_utf8mb4'POS_CASH'))),
-  CONSTRAINT `chk_tender_state` CHECK ((`state` in (_utf8mb4'PENDING',_utf8mb4'PENDING_VERIFICATION',_utf8mb4'CONFIRMED',_utf8mb4'FAILED',_utf8mb4'UNKNOWN_RECONCILIATION_REQUIRED'))),
-  CONSTRAINT `chk_terminal_evidence` CHECK (((`origin` <> _utf8mb4'POS_TERMINAL') or (`state` not in (_utf8mb4'CONFIRMED',_utf8mb4'FAILED')) or ((`reviewed_by` is not null) and (`reviewed_at` is not null) and (`provider_reference` is not null) and (`evidence_reference` is not null) and (`review_reason` is not null)))),
+  CONSTRAINT `chk_cash_tender` CHECK (((`origin` <> 'POS_CASH') or ((`method` = 'CASH') and (`state` = 'CONFIRMED') and (`cash_received` >= `amount`) and (`change_given` >= 0) and ((`cash_received` - `change_given`) = `amount`)))),
+  CONSTRAINT `chk_tender_method` CHECK ((`method` in ('UPI','CARD','CASH'))),
+  CONSTRAINT `chk_tender_origin` CHECK ((`origin` in ('ONLINE_MOCK','POS_TERMINAL','POS_CASH'))),
+  CONSTRAINT `chk_tender_state` CHECK ((`state` in ('PENDING','PENDING_VERIFICATION','CONFIRMED','FAILED','UNKNOWN_RECONCILIATION_REQUIRED'))),
+  CONSTRAINT `chk_terminal_evidence` CHECK (((`origin` <> 'POS_TERMINAL') or (`state` not in ('CONFIRMED','FAILED')) or ((`reviewed_by` is not null) and (`reviewed_at` is not null) and (`provider_reference` is not null) and (`evidence_reference` is not null) and (`review_reason` is not null)))),
   CONSTRAINT `vendor_payment_attempts_chk_3` CHECK ((`amount` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_cash_refunds` (
   `id` varchar(36) NOT NULL,
@@ -1075,12 +1075,12 @@ CREATE TABLE `pos_cash_refunds` (
   `reason` varchar(250) NOT NULL,
   `paid_at` timestamp NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_id` (`tenant_id`,`id`),
-  UNIQUE KEY `tenant_id_2` (`tenant_id`,`id`,`order_id`),
-  UNIQUE KEY `tenant_id_3` (`tenant_id`,`return_id`),
-  UNIQUE KEY `tenant_id_4` (`tenant_id`,`idempotency_key`),
-  KEY `tenant_id_5` (`tenant_id`,`branch_id`,`return_id`),
-  KEY `tenant_id_6` (`tenant_id`,`branch_id`,`order_id`),
+  UNIQUE KEY `pos_cash_refunds_tenant_id` (`tenant_id`,`id`),
+  UNIQUE KEY `pos_cash_refunds_tenant_id_2` (`tenant_id`,`id`,`order_id`),
+  UNIQUE KEY `pos_cash_refunds_tenant_id_3` (`tenant_id`,`return_id`),
+  UNIQUE KEY `pos_cash_refunds_tenant_id_4` (`tenant_id`,`idempotency_key`),
+  KEY `pos_cash_refunds_tenant_id_5` (`tenant_id`,`branch_id`,`return_id`),
+  KEY `pos_cash_refunds_tenant_id_6` (`tenant_id`,`branch_id`,`order_id`),
   KEY `tenant_id_7` (`tenant_id`,`branch_id`,`cashier`,`session_id`),
   KEY `ix_refund_drawer` (`tenant_id`,`session_id`),
   KEY `ix_refund_branch_paid` (`tenant_id`,`branch_id`,`paid_at`,`id`),
@@ -1089,7 +1089,7 @@ CREATE TABLE `pos_cash_refunds` (
   CONSTRAINT `pos_cash_refunds_ibfk_3` FOREIGN KEY (`tenant_id`, `branch_id`, `cashier`, `session_id`) REFERENCES `pos_sessions` (`tenant_id`, `branch_id`, `cashier`, `id`),
   CONSTRAINT `pos_cash_refunds_chk_1` CHECK ((`amount` > 0)),
   CONSTRAINT `pos_cash_refunds_chk_2` CHECK ((`cashier` <> `return_requester`))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_return_events` (
   `id` varchar(36) NOT NULL,
@@ -1102,7 +1102,7 @@ CREATE TABLE `pos_return_events` (
   PRIMARY KEY (`id`),
   KEY `ix_return_event_timeline` (`tenant_id`,`return_id`,`created_at`,`id`),
   CONSTRAINT `pos_return_events_ibfk_1` FOREIGN KEY (`tenant_id`, `return_id`) REFERENCES `pos_returns` (`tenant_id`, `id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 CREATE TABLE `pos_return_items` (
   `tenant_id` bigint NOT NULL,
@@ -1115,13 +1115,13 @@ CREATE TABLE `pos_return_items` (
   `disposition` varchar(16) DEFAULT NULL,
   `inspection_note` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`tenant_id`,`return_id`,`product_id`),
-  KEY `tenant_id` (`tenant_id`,`return_id`,`order_id`),
+  KEY `pos_return_items_tenant_id` (`tenant_id`,`return_id`,`order_id`),
   KEY `ix_original_return_items` (`tenant_id`,`order_id`,`product_id`),
   CONSTRAINT `pos_return_items_ibfk_1` FOREIGN KEY (`tenant_id`, `return_id`, `order_id`) REFERENCES `pos_returns` (`tenant_id`, `id`, `order_id`),
   CONSTRAINT `pos_return_items_ibfk_2` FOREIGN KEY (`tenant_id`, `order_id`, `product_id`) REFERENCES `order_items` (`tenant_id`, `order_id`, `product_id`),
   CONSTRAINT `pos_return_items_chk_1` CHECK ((`quantity` > 0)),
-  CONSTRAINT `pos_return_items_chk_2` CHECK ((((`received_condition` is null) and (`disposition` is null)) or ((`received_condition` in (_utf8mb4'SELLABLE',_utf8mb4'DAMAGED',_utf8mb4'INCOMPLETE')) and (`disposition` in (_utf8mb4'RESTOCK',_utf8mb4'QUARANTINE')) and (`inspection_note` is not null) and ((`disposition` <> _utf8mb4'RESTOCK') or (`received_condition` = _utf8mb4'SELLABLE')))))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `pos_return_items_chk_2` CHECK ((((`received_condition` is null) and (`disposition` is null)) or ((`received_condition` in ('SELLABLE','DAMAGED','INCOMPLETE')) and (`disposition` in ('RESTOCK','QUARANTINE')) and (`inspection_note` is not null) and ((`disposition` <> 'RESTOCK') or (`received_condition` = 'SELLABLE')))))
+);
 
 CREATE TABLE `inventory_return_dispositions` (
   `tenant_id` bigint NOT NULL,
@@ -1134,17 +1134,17 @@ CREATE TABLE `inventory_return_dispositions` (
   `actor` varchar(100) NOT NULL,
   `created_at` timestamp NOT NULL,
   PRIMARY KEY (`tenant_id`,`return_id`,`product_id`),
-  KEY `tenant_id` (`tenant_id`,`branch_id`,`return_id`),
+  KEY `inventory_return_dispositions_tenant_id` (`tenant_id`,`branch_id`,`return_id`),
   KEY `ix_return_dispositions_location_owner` (`tenant_id`,`branch_id`,`product_id`),
   CONSTRAINT `fk_return_dispositions_pos_stock_location` FOREIGN KEY (`tenant_id`, `branch_id`) REFERENCES `pos_stock_locations` (`tenant_id`, `branch_id`),
   CONSTRAINT `inventory_return_dispositions_ibfk_1` FOREIGN KEY (`tenant_id`, `branch_id`, `return_id`) REFERENCES `pos_returns` (`tenant_id`, `branch_id`, `id`),
   CONSTRAINT `inventory_return_dispositions_ibfk_2` FOREIGN KEY (`tenant_id`, `return_id`, `product_id`) REFERENCES `pos_return_items` (`tenant_id`, `return_id`, `product_id`),
   CONSTRAINT `inventory_return_dispositions_ibfk_3` FOREIGN KEY (`tenant_id`, `branch_id`, `product_id`) REFERENCES `inventory` (`tenant_id`, `branch_id`, `product_id`),
   CONSTRAINT `inventory_return_dispositions_chk_1` CHECK ((`quantity` > 0)),
-  CONSTRAINT `inventory_return_dispositions_chk_2` CHECK ((`disposition` in (_utf8mb4'RESTOCK',_utf8mb4'QUARANTINE'))),
-  CONSTRAINT `inventory_return_dispositions_chk_3` CHECK ((`received_condition` in (_utf8mb4'SELLABLE',_utf8mb4'DAMAGED',_utf8mb4'INCOMPLETE'))),
-  CONSTRAINT `inventory_return_dispositions_chk_4` CHECK (((`disposition` <> _utf8mb4'RESTOCK') or (`received_condition` = _utf8mb4'SELLABLE')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `inventory_return_dispositions_chk_2` CHECK ((`disposition` in ('RESTOCK','QUARANTINE'))),
+  CONSTRAINT `inventory_return_dispositions_chk_3` CHECK ((`received_condition` in ('SELLABLE','DAMAGED','INCOMPLETE'))),
+  CONSTRAINT `inventory_return_dispositions_chk_4` CHECK (((`disposition` <> 'RESTOCK') or (`received_condition` = 'SELLABLE')))
+);
 
 CREATE TABLE `pos_cash_refund_items` (
   `tenant_id` bigint NOT NULL,
@@ -1158,8 +1158,8 @@ CREATE TABLE `pos_cash_refund_items` (
   `tax` decimal(19,2) NOT NULL,
   `amount` decimal(19,2) NOT NULL,
   PRIMARY KEY (`tenant_id`,`refund_id`,`product_id`),
-  KEY `tenant_id` (`tenant_id`,`refund_id`,`order_id`),
-  KEY `tenant_id_2` (`tenant_id`,`return_id`,`product_id`),
+  KEY `pos_cash_refund_items_tenant_id` (`tenant_id`,`refund_id`,`order_id`),
+  KEY `pos_cash_refund_items_tenant_id_2` (`tenant_id`,`return_id`,`product_id`),
   KEY `ix_refund_original_items` (`tenant_id`,`order_id`,`product_id`),
   CONSTRAINT `pos_cash_refund_items_ibfk_1` FOREIGN KEY (`tenant_id`, `refund_id`, `order_id`) REFERENCES `pos_cash_refunds` (`tenant_id`, `id`, `order_id`),
   CONSTRAINT `pos_cash_refund_items_ibfk_2` FOREIGN KEY (`tenant_id`, `return_id`, `product_id`) REFERENCES `pos_return_items` (`tenant_id`, `return_id`, `product_id`),
@@ -1168,7 +1168,7 @@ CREATE TABLE `pos_cash_refund_items` (
   CONSTRAINT `pos_cash_refund_items_chk_2` CHECK ((`net` >= 0)),
   CONSTRAINT `pos_cash_refund_items_chk_3` CHECK ((`tax` >= 0)),
   CONSTRAINT `pos_cash_refund_items_chk_4` CHECK ((`amount` = (`net` + `tax`)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 ALTER TABLE tenants ADD CONSTRAINT `fk_vendor_online_branch` FOREIGN KEY (`id`, `online_branch_id`) REFERENCES `branches` (`tenant_id`, `id`);
 
@@ -1246,6 +1246,6 @@ INSERT INTO tenant_sequences (id, next_id) VALUES (1, 1);
 
 INSERT INTO identity_sequence (id, next_id) VALUES (1, 1);
 
-CREATE TRIGGER `trg_platform_audit_no_update` BEFORE UPDATE ON `platform_audit_events` FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Platform audit events are immutable';
+/*!80000 CREATE TRIGGER `trg_platform_audit_no_update` BEFORE UPDATE ON `platform_audit_events` FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Platform audit events are immutable' */;
 
-CREATE TRIGGER `trg_platform_audit_no_delete` BEFORE DELETE ON `platform_audit_events` FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Platform audit events cannot be deleted';
+/*!80000 CREATE TRIGGER `trg_platform_audit_no_delete` BEFORE DELETE ON `platform_audit_events` FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Platform audit events cannot be deleted' */;

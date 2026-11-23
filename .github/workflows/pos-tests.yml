@@ -11,7 +11,7 @@ jobs:
         database: [h2, mysql]
     services:
       mysql:
-        image: mysql:8.4
+        image: ${{ matrix.database == 'mysql' && 'mysql:8.4' || '' }}
         env:
           MYSQL_ROOT_PASSWORD: disposable-test-password
           MYSQL_DATABASE: solar_test
@@ -200,13 +200,14 @@ jobs:
         run: mvn -B -f backend/pom.xml test
       - name: Export clean MySQL 8.4 final schema for baseline consolidation
         if: matrix.database == 'mysql'
+        env:
+          MYSQL_CONTAINER_ID: ${{ job.services.mysql.id }}
         shell: bash
         run: |
           set -euo pipefail
-          container_id="$(docker ps --filter 'ancestor=mysql:8.4' --format '{{.ID}}' | head -n 1)"
-          test -n "$container_id"
+          test -n "$MYSQL_CONTAINER_ID"
           mkdir -p backend/target/schema-baseline
-          docker exec "$container_id" sh -lc "mysqldump --no-data --triggers --skip-comments --compact --skip-add-drop-table --skip-add-locks --skip-set-charset --no-tablespaces -uroot -pdisposable-test-password solar_test" > backend/target/schema-baseline/mysql-8.4-final-schema.sql
+          docker exec "$MYSQL_CONTAINER_ID" sh -lc "mysqldump --no-data --triggers --skip-comments --compact --skip-add-drop-table --skip-add-locks --skip-set-charset --no-tablespaces -uroot -pdisposable-test-password solar_test" > backend/target/schema-baseline/mysql-8.4-final-schema.sql
           test -s backend/target/schema-baseline/mysql-8.4-final-schema.sql
       - name: Upload MySQL 8.4 final schema snapshot
         if: matrix.database == 'mysql'

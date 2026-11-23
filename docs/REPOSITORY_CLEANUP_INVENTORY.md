@@ -113,6 +113,8 @@ CI currently uses Temurin Java 21, Node 22, MySQL 8.4, Maven cache, npm cache, P
 
 ### Workflow optimization applied in this branch
 
+The backend matrix previously provisioned MySQL 8.4 for both lanes. Now only the MySQL lane pulls the image and waits for database readiness. The schema export uses the container ID assigned by GitHub Actions, and the H2 lane runs without a MySQL service.
+
 The frontend job previously ran two focused Vitest commands before the complete suite. Both focused commands used the same configuration and environment as the full suite. Their eight distinct test files are all discovered by `npm test`, which now runs Vitest once and then verifies the authorization registry. TypeScript and Vite still run in the frontend build step. Playwright continues to run as a separate job against the Compose stack.
 
 The P0-02 selector previously repeated ServiceBoundaryMethodInventoryTest, AuthorizationPolicyMatrixTest and AuthorizationPolicyRegistryTest, already executed by the earlier P2-04 gate, and P004TenantIsolationTest, executed again in the dedicated P0-04 gate. The P0-06 selector also repeated RuntimeAuthorizationEndpointInventoryTest, AuthorizationPolicyMatrixTest and AuthorizationPolicyRegistryTest from P2-04. These repeated selections have been removed from later P0-02/P0-06 commands. The exact tests remain in their earlier mandatory P2-04 and/or dedicated P0-04 gates. No test class, assertion, database lane or workflow job is removed. All other focused authorization, tenant, POS, financial, migration, frontend and browser gates remain.

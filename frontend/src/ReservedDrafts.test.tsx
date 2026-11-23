@@ -7,7 +7,7 @@ import { marketplaceApi } from './marketplaceApi';
 vi.mock('./api', async original => ({ ...await original<typeof import('./api')>(), api: vi.fn() }));
 vi.mock('./marketplaceApi', async original => ({ ...await original<typeof import('./marketplaceApi')>(), marketplaceApi: vi.fn() }));
 vi.mock('./session',()=>({useSession:vi.fn()}));
-const vendorSession={ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_VIEW','POS_SALE_CREATE','POS_SALE_CANCEL','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD','POS_RECEIPT_VIEW']}};
+const vendorSession={status:'authenticated',loading:false,refreshing:false,account:{username:'cashier',tenantId:1,branchId:10,membershipId:'1:cashier',actorType:'VENDOR',permissions:['POS_VIEW','POS_SALE_CREATE','POS_SALE_CANCEL','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD','POS_RECEIPT_VIEW'],availableActorTypes:['VENDOR']},error:null};
 beforeEach(()=>{vi.mocked(useSession).mockReturnValue(vendorSession as ReturnType<typeof useSession>);});
 const draft = { id: 'd1', vendorName: 'Vendor A', channel: 'IN_STORE', sessionId:'s1', status: 'DRAFT', total: 110, expiresAt: '2030-01-01T00:00:00Z', message: 'Unpaid reservation', items: [{ productId: 1, name: 'Panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }] };
 afterEach(() => { cleanup(); vi.resetAllMocks(); sessionStorage.clear(); });
@@ -113,7 +113,7 @@ it('explains an empty Held bills tab and offers no tabs for online drafts', asyn
 
 
 it('hides POS draft mutations and online payment fallback without tender grants',async()=>{
- vi.mocked(useSession).mockReturnValue({ready:true,account:{...vendorSession.account,permissions:['POS_VIEW']}} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{membershipId:'null:test-user',...vendorSession.account,permissions:['POS_VIEW'],actorType:'VENDOR',availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);
  vi.mocked(api).mockResolvedValue([draft]);
  render(<ReservedDrafts mode="pos" session="s1" items={[{productId:1,quantity:1}]}/>);
  await screen.findByText('Vendor A · DRAFT');

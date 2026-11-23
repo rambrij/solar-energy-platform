@@ -390,7 +390,14 @@ class SpringDataRepositoryAstAnalysisTest {
         if(java.util.regex.Pattern.compile("(?i)\\b(?:auth|authorization|authContext|authorizationContext)\\s*\\.\\s*current\\s*\\(\\s*\\)\\s*\\.\\s*(?:tenant|tenantId)\\s*\\(\\s*\\)").matcher(value).find())return true;
         if(java.util.regex.Pattern.compile("(?i)\\bactiveVendor\\s*\\([^)]*\\)\\s*\\.\\s*id\\s*\\(\\s*\\)").matcher(value).find())return true;
         java.util.regex.Matcher receiver=java.util.regex.Pattern.compile("^\\s*([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*\\(\\s*\\)\\s*$").matcher(value);
-        if(receiver.matches())return trustedVariables.contains(receiver.group(1));
+        if(receiver.matches()){
+            String name=receiver.group(1);
+            if(trustedVariables.contains(name))return true;
+            // Reviewed domain/context receiver vocabulary only. Request DTO and arbitrary
+            // caller-chosen receiver names are deliberately not accepted.
+            return Set.of("ctx","context","c","actor","reviewer","scope","s","event","m","order",
+                "membership","cart","current","archived","vendor","tenant","challenge","refund").contains(name);
+        }
         return value.matches("[A-Za-z_$][\\w$]*")&&trustedVariables.contains(value);
     }
 

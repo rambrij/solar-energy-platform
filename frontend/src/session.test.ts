@@ -170,7 +170,13 @@ describe('canonical authenticated session snapshot',()=>{
   fetchMock.mockResolvedValueOnce(response({token:'csrf-second-login'}))
    .mockResolvedValueOnce(response({accessToken:'second-access-token',account:secondAccount}))
    .mockResolvedValueOnce(authMe(secondAccount));
-  await signIn('second@example.test','another-safe-password');
+  const secondLogin=signIn('second@example.test','another-safe-password');
+  await Promise.resolve();
+  // The new login must not race the cookie rotation started by the old refresh.
+  expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/auth/csrf')).toHaveLength(2);
+  releaseOldRefresh(response({accessToken:'stale-refresh-token',account:account()}));
+  await expect(oldRefresh).resolves.toBe(false);
+  await secondLogin;
 
   fetchMock.mockResolvedValueOnce(response({token:'csrf-current-refresh'}))
    .mockResolvedValueOnce(response({accessToken:'current-refresh-token',account:secondAccount}))
@@ -178,9 +184,6 @@ describe('canonical authenticated session snapshot',()=>{
   const currentRefresh=restoreSession();
   expect(currentRefresh).not.toBe(oldRefresh);
   await expect(currentRefresh).resolves.toBe(true);
-
-  releaseOldRefresh(response({accessToken:'stale-refresh-token',account:account()}));
-  await expect(oldRefresh).resolves.toBe(false);
   expect(useSessionSnapshot()?.username).toBe('second@example.test');
   expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/auth/me')).toHaveLength(3);
  });

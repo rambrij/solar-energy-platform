@@ -20,7 +20,7 @@ it('offers Customer/Vendor switching only when both contexts were server-resolve
 });
 
 it('does not offer a workspace switch to Platform or single-context identities',()=>{
- vi.mocked(useSession).mockReturnValue({ready:true,account:{
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{
   username:'platform@example.test',tenantId:null,branchId:null,membershipId:null,permissions:['PLATFORM_SUPPORT_ACCESS'],actorType:'PLATFORM',
   availableActorTypes:['PLATFORM']
  },error:null});

@@ -751,7 +751,28 @@ class SpringDataRepositoryAstAnalysisTest {
         }
         try(StandardJavaFileManager manager=compiler.getStandardFileManager(null,null,null)){
             JavacTask task=(JavacTask)compiler.getTask(null,manager,null,List.of("-proc:none"),null,manager.getJavaFileObjectsFromPaths(javaFiles));
-            for(CompilationUnitTree unit:task.parse()){
+            List<CompilationUnitTree> units=new ArrayList<>();
+            task.parse().forEach(units::add);
+            // Collect named-query declarations before resolving createNamedQuery call sites;
+            // Java source ordering must not affect the inventory.
+            for(CompilationUnitTree unit:units){
+                new TreePathScanner<Void,Void>(){
+                    @Override public Void visitAnnotation(AnnotationTree annotation,Void unused){
+                        String annotationName=annotation.getAnnotationType().toString();
+                        if(annotationName.endsWith("NamedQuery")||annotationName.endsWith("NamedNativeQuery")){
+                            for(ExpressionTree argument:annotation.getArguments()){
+                                if(argument instanceof AssignmentTree assignment
+                                    &&assignment.getVariable().toString().equals("name")){
+                                    String name=literal(assignment.getExpression());
+                                    if(name!=null)discoveredNamedQueries.add(name);
+                                }
+                            }
+                        }
+                        return super.visitAnnotation(annotation,unused);
+                    }
+                }.scan(unit,null);
+            }
+            for(CompilationUnitTree unit:units){
                 String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
                 for(Tree declaration:unit.getTypeDecls()){
                     if(!(declaration instanceof ClassTree type))continue;
@@ -813,7 +834,7 @@ class SpringDataRepositoryAstAnalysisTest {
                                 assertThat(node.getArguments()).as("JPA named query call has a name argument: %s",node).isNotEmpty();
                                 String name=literal(node.getArguments().getFirst());
                                 assertThat(name).as("JPA named query name must be a static literal: %s",node).isNotNull();
-                                assertThat(discoveredNamedQueries.stream().anyMatch(key->key.endsWith("#"+name)))
+                                assertThat(discoveredNamedQueries.contains(name)||discoveredNamedQueries.stream().anyMatch(key->key.endsWith("#"+name)))
                                     .as("JPA named query call must resolve to a declared @NamedQuery/@NamedNativeQuery: %s",name).isTrue();
                             }
                             return super.visitMethodInvocation(node,unused);

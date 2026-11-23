@@ -979,7 +979,7 @@
     },
     {
       "id": "platform-plan-revise",
-      "component": "PlatformSubscriptions.tsx",
+      "component": "PlatformApp.tsx",
       "trigger": "submit",
       "method": "PUT",
       "endpoint": "/api/v1/platform/subscription-plans/{id}/versions",
@@ -1040,7 +1040,7 @@
     {
       "id": "platform-support-revoke",
       "component": "PlatformApp.tsx",
-      "trigger": "button",
+      "trigger": "submit",
       "method": "POST",
       "endpoint": "/api/v1/platform/support-access/{id}/revoke",
       "permissions": [
@@ -2235,7 +2235,7 @@
     },
     {
       "id": "platform-plan-revise",
-      "component": "PlatformSubscriptions.tsx",
+      "component": "PlatformApp.tsx",
       "trigger": "submit",
       "backendOperation": "PUT /api/v1/platform/subscription-plans/{id}/versions"
     },
@@ -2254,7 +2254,7 @@
     {
       "id": "platform-support-revoke",
       "component": "PlatformApp.tsx",
-      "trigger": "button",
+      "trigger": "submit",
       "backendOperation": "POST /api/v1/platform/support-access/{id}/revoke"
     },
     {

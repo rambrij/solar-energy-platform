@@ -44,6 +44,30 @@ describe('PlatformApp',()=>{
   expect(await screen.findByText('v2 · INR 999 · MONTHLY')).toBeTruthy();
   expect(screen.getByText('v1 · INR 799 · MONTHLY')).toBeTruthy();
  });
+ it('prefills the current plan and submits a new version to the revision endpoint',async()=>{
+  const current={version:2,price:'999',currency:'INR',billingInterval:'MONTHLY',maxUsers:5,maxStorageMb:1024,maxBranches:1,maxWarehouses:0,entitlements:'{"features":{"POS":true}}',graceDays:7,taxMetadata:'{}',invoiceDescription:'Starter subscription'};
+  vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?
+   [{id:1,planKey:'starter',displayName:'Starter',active:true,currentVersion:2,versions:[current]}]:{tenantStatuses:[]});
+  render(<PlatformApp/>);
+  fireEvent.click(screen.getByRole('button',{name:/subscription plans/i}));
+  fireEvent.click(await screen.findByRole('button',{name:'Revise plan'}));
+  expect(screen.getByRole('heading',{name:'Revise subscription plan'})).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Price'),{target:{value:'1099'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save plan version'}));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/subscription-plans/1/versions','PUT',
+   expect.objectContaining({planKey:'starter',price:1099,entitlements:current.entitlements})));
+ });
+ it('requires a reason and revokes the selected active support grant',async()=>{
+  vi.mocked(platformApi).mockImplementation(async(path)=>path==='/support-access'?
+   [{id:7,tenantId:1,actor:account.username,purpose:'Investigation',ticketReference:'T-7',expiresAt:'2026-12-01T12:00:00Z',active:true}]:{tenantStatuses:[]});
+  render(<PlatformApp/>);
+  fireEvent.click(screen.getByRole('button',{name:/support access/i}));
+  fireEvent.click(await screen.findByRole('button',{name:'Revoke'}));
+  fireEvent.change(screen.getByLabelText('Revocation reason'),{target:{value:'  Investigation complete  '}});
+  fireEvent.click(screen.getByRole('button',{name:'Revoke support grant'}));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/support-access/7/revoke','POST',{reason:'Investigation complete'}));
+  expect(await screen.findByText('Support grant revoked.')).toBeTruthy();
+ });
  it('hides tenant creation and plan mutation forms from view-only platform roles',async()=>{
   vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{...account,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_SUBSCRIPTION_VIEW']},error:null} as ReturnType<typeof useSession>);
   vi.mocked(platformApi).mockImplementation(async(path)=>path.includes('/tenants?')?{items:[],totalElements:0,totalPages:0,page:0}:path.endsWith('/subscription-plans')?[]:{tenantStatuses:[]});

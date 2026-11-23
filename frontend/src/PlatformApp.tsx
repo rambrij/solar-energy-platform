@@ -10,6 +10,8 @@ type TenantPage={items:Tenant[];totalElements:number;totalPages:number;page:numb
 type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;graceDays:number;taxMetadata:string;invoiceDescription:string;createdAt:string};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:PlanVersion[]};
 type AuditPage={items:{id:number;actor:string;action:string;resourceType:string;resourceId:string|null;tenantId:number|null;reason:string|null;occurredAt:string}[]};
+type SupportGrant={id:number;tenantId:number;actor:string;purpose:string;ticketReference:string;expiresAt:string;active:boolean;revokedAt?:string|null};
+const emptyPlanForm={planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'};
 
 const pages:{id:Page;label:string;description:string}[]=[
  {id:'dashboard',label:'Overview',description:'Platform-level tenant and operating context'},
@@ -44,11 +46,14 @@ export default function PlatformApp(){
  const [dashboard,setDashboard]=useState<{tenantStatuses:{status:string;count:number}[]}|null>(null);
  const [plans,setPlans]=useState<Plan[]>([]);
  const [audit,setAudit]=useState<AuditPage>({items:[]});
- const [support,setSupport]=useState<any[]>([]);
+ const [support,setSupport]=useState<SupportGrant[]>([]);
  const [settings,setSettings]=useState<any[]>([]);
  const [reason,setReason]=useState(''),[invite,setInvite]=useState('');
  const [tenantForm,setTenantForm]=useState({slug:'',name:'',legalName:'',contactEmail:'',contactPhone:'',taxIdentifier:'',address:'',initialVendorAdminUsername:''});
- const [planForm,setPlanForm]=useState({planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'});
+ const [planForm,setPlanForm]=useState(emptyPlanForm);
+ const [editingPlan,setEditingPlan]=useState<number|null>(null);
+ const [revokingGrant,setRevokingGrant]=useState<SupportGrant|null>(null);
+ const [revokeReason,setRevokeReason]=useState('');
  const [supportForm,setSupportForm]=useState({tenantId:'',purpose:'',ticketReference:'',expiresAt:''});
  const [configForm,setConfigForm]=useState({key:'',category:'INTEGRATION',value:'',sensitive:false,secretReference:''});
 
@@ -110,14 +115,50 @@ export default function PlatformApp(){
   await run(()=>platformApi(`/tenants/${tenant.id}/lifecycle`,'POST',{status:target,reason:why}),`Tenant ${tenant.slug} moved to ${target}.`);
   setReason('');
  }
- async function createPlan(event:FormEvent){
+ function editPlan(plan:Plan){
+  const version=plan.versions.find(item=>item.version===plan.currentVersion);
+  if(!version)return;
+  setEditingPlan(plan.id);
+  setPlanForm({
+   planKey:plan.planKey,displayName:plan.displayName,price:String(version.price),
+   currency:version.currency,billingInterval:version.billingInterval,maxUsers:String(version.maxUsers),
+   maxStorageMb:String(version.maxStorageMb),maxBranches:String(version.maxBranches),
+   maxWarehouses:String(version.maxWarehouses),entitlements:version.entitlements,
+   graceDays:String(version.graceDays),taxMetadata:version.taxMetadata,invoiceDescription:version.invoiceDescription,
+  });
+ }
+ function cancelPlanEdit(){
+  setEditingPlan(null);
+  setPlanForm(emptyPlanForm);
+ }
+ async function savePlan(event:FormEvent){
   event.preventDefault();
-  await run(()=>platformApi('/subscription-plans','POST',{...planForm,price:Number(planForm.price),maxUsers:Number(planForm.maxUsers),maxStorageMb:Number(planForm.maxStorageMb),maxBranches:Number(planForm.maxBranches),maxWarehouses:Number(planForm.maxWarehouses),graceDays:Number(planForm.graceDays)}),'A new plan version has been saved.');
-  setPlanForm(value=>({...value,planKey:'',displayName:'',price:''}));
+  if(!can('PLATFORM_PLAN_MANAGE'))return;
+  const body={...planForm,price:Number(planForm.price),maxUsers:Number(planForm.maxUsers),maxStorageMb:Number(planForm.maxStorageMb),maxBranches:Number(planForm.maxBranches),maxWarehouses:Number(planForm.maxWarehouses),graceDays:Number(planForm.graceDays)};
+  await run(async()=>{
+   if(editingPlan===null)await platformApi('/subscription-plans','POST',body);
+   else await platformApi(`/subscription-plans/${editingPlan}/versions`,'PUT',body);
+   cancelPlanEdit();
+  },'A new plan version has been saved.');
  }
  async function createSupport(event:FormEvent){
   event.preventDefault();
   await run(()=>platformApi('/support-access','POST',{...supportForm,tenantId:Number(supportForm.tenantId),expiresAt:new Date(supportForm.expiresAt).toISOString()}),'A support-access grant was recorded. It does not create an automatic tenant-data bypass.');
+ }
+ function selectSupportGrant(grant:SupportGrant|null){
+  setRevokingGrant(grant);
+  setRevokeReason('');
+ }
+ async function revokeSupport(event:FormEvent){
+  event.preventDefault();
+  if(!can('PLATFORM_SUPPORT_ACCESS')||!revokingGrant)return;
+  const reason=revokeReason.trim();
+  if(!reason){setError('Enter a reason before revoking the support grant.');return;}
+  const id=revokingGrant.id;
+  await run(async()=>{
+   await platformApi(`/support-access/${id}/revoke`,'POST',{reason});
+   selectSupportGrant(null);
+  },'Support grant revoked.');
  }
  async function saveConfig(event:FormEvent){
   event.preventDefault();
@@ -179,9 +220,9 @@ export default function PlatformApp(){
      {!can('PLATFORM_TENANT_VIEW')&&!can('PLATFORM_TENANT_CREATE')&&<p role="status">No tenant-management permissions are available.</p>}
     </>}
     {page==='plans'&&<>
-     {can('PLATFORM_PLAN_MANAGE')&&<section className="platform-panel"><h2>Create subscription plan</h2><p>Each saved change creates a new immutable plan version. Existing invoices and subscription snapshots are not rewritten.</p>
-      <form className="platform-form-grid" onSubmit={createPlan}>
-       <label>Plan key<input required value={planForm.planKey} onChange={e=>setPlanForm({...planForm,planKey:e.target.value})}/></label><label>Display name<input required value={planForm.displayName} onChange={e=>setPlanForm({...planForm,displayName:e.target.value})}/></label>
+     {can('PLATFORM_PLAN_MANAGE')&&<section className="platform-panel"><h2>{editingPlan===null?"Create subscription plan":"Revise subscription plan"}</h2><p>Each saved change creates a new immutable plan version. Existing invoices and subscription snapshots are not rewritten.</p>
+      <form className="platform-form-grid" onSubmit={savePlan}>
+       <label>Plan key<input required readOnly={editingPlan!==null} value={planForm.planKey} onChange={e=>setPlanForm({...planForm,planKey:e.target.value})}/></label><label>Display name<input required value={planForm.displayName} onChange={e=>setPlanForm({...planForm,displayName:e.target.value})}/></label>
        <label>Price<input required type="number" min="0" step="0.0001" value={planForm.price} onChange={e=>setPlanForm({...planForm,price:e.target.value})}/></label><label>Currency<input required maxLength={3} value={planForm.currency} onChange={e=>setPlanForm({...planForm,currency:e.target.value.toUpperCase()})}/></label>
        <label>Billing interval<select value={planForm.billingInterval} onChange={e=>setPlanForm({...planForm,billingInterval:e.target.value})}><option>MONTHLY</option><option>QUARTERLY</option><option>YEARLY</option></select></label>
        <label>Included users<input type="number" min="1" value={planForm.maxUsers} onChange={e=>setPlanForm({...planForm,maxUsers:e.target.value})}/></label>
@@ -192,11 +233,11 @@ export default function PlatformApp(){
        <label className="platform-wide">Entitlements JSON<textarea required value={planForm.entitlements} onChange={e=>setPlanForm({...planForm,entitlements:e.target.value})}/><small>Use a features object with boolean flags such as POS, CATALOG, INVENTORY, ADMINISTRATION, CRM, ORDERS, FINANCE, RETURNS and REPORTING. Omitted or false features are denied.</small></label>
        <label className="platform-wide">Tax metadata JSON<textarea required value={planForm.taxMetadata} onChange={e=>setPlanForm({...planForm,taxMetadata:e.target.value})}/></label>
        <label className="platform-wide">Invoice description<input required value={planForm.invoiceDescription} onChange={e=>setPlanForm({...planForm,invoiceDescription:e.target.value})}/></label>
-       <div className="platform-form-actions"><button disabled={busy}>Save plan version</button></div>
+       <div className="platform-form-actions"><button disabled={busy}>Save plan version</button>{editingPlan!==null&&<button type="button" className="secondary" onClick={cancelPlanEdit}>Cancel revision</button>}</div>
       </form>
      </section>}
      {(can('PLATFORM_PLAN_MANAGE')||can('PLATFORM_SUBSCRIPTION_VIEW'))&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Plan catalogue</h2><button className="secondary" onClick={()=>void load('plans')}>Refresh</button></div>
-      {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><span key={v.version}>v{v.version} · {v.currency} {v.price} · {v.billingInterval}</span>)}</div>{can('PLATFORM_PLAN_MANAGE')&&<button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button>}</article>)}
+      {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><span key={v.version}>v{v.version} · {v.currency} {v.price} · {v.billingInterval}</span>)}</div>{can('PLATFORM_PLAN_MANAGE')&&<><button type="button" className="secondary" disabled={busy} onClick={()=>editPlan(plan)}>Revise plan</button><button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button></>}</article>)}
      </section>}
     </>}
     {page==='audit'&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Immutable platform audit events</h2><button className="secondary" onClick={()=>void load('audit')}>Refresh</button></div><div className="platform-table-wrap"><table><thead><tr><th>Occurred</th><th>Actor</th><th>Action</th><th>Resource</th><th>Tenant</th><th>Reason</th></tr></thead><tbody>{audit.items.map(row=><tr key={row.id}><td>{new Date(row.occurredAt).toLocaleString()}</td><td>{row.actor}</td><td>{row.action}</td><td>{row.resourceType} {row.resourceId}</td><td>{row.tenantId??'Platform'}</td><td>{row.reason??'—'}</td></tr>)}</tbody></table></div></section>}
@@ -206,7 +247,15 @@ export default function PlatformApp(){
       <label>Expiry<input required type="datetime-local" value={supportForm.expiresAt} onChange={e=>setSupportForm({...supportForm,expiresAt:e.target.value})}/></label>
       <label className="platform-wide">Purpose / reason<textarea required value={supportForm.purpose} onChange={e=>setSupportForm({...supportForm,purpose:e.target.value})}/></label>
       <div className="platform-form-actions"><button disabled={busy}>Record support grant</button></div></form></section>
-     <section className="platform-panel"><h2>Recent support grants</h2><div className="platform-table-wrap"><table><thead><tr><th>Tenant</th><th>Actor</th><th>Purpose</th><th>Ticket</th><th>Expiry</th><th>Status</th></tr></thead><tbody>{support.map(s=><tr key={s.id}><td>{s.tenantId}</td><td>{s.actor}</td><td>{s.purpose}</td><td>{s.ticketReference}</td><td>{new Date(s.expiresAt).toLocaleString()}</td><td>{s.active?'Active':s.revokedAt?'Revoked':'Expired'}</td></tr>)}</tbody></table></div></section></>}
+     <section className="platform-panel"><h2>Recent support grants</h2><div className="platform-table-wrap"><table><thead><tr><th>Tenant</th><th>Actor</th><th>Purpose</th><th>Ticket</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>{support.map(s=><tr key={s.id}><td>{s.tenantId}</td><td>{s.actor}</td><td>{s.purpose}</td><td>{s.ticketReference}</td><td>{new Date(s.expiresAt).toLocaleString()}</td><td>{s.active?'Active':s.revokedAt?'Revoked':'Expired'}</td><td>{s.active&&can('PLATFORM_SUPPORT_ACCESS')&&<button type="button" className="secondary" disabled={busy} onClick={()=>selectSupportGrant(s)}>Revoke</button>}</td></tr>)}</tbody></table></div></section>
+     {revokingGrant&&can('PLATFORM_SUPPORT_ACCESS')&&<section className="platform-panel">
+      <h2>Revoke support grant #{revokingGrant.id}</h2>
+      <form className="platform-form-grid" onSubmit={revokeSupport}>
+       <label className="platform-wide">Revocation reason<textarea required maxLength={500} value={revokeReason} onChange={e=>setRevokeReason(e.target.value)}/></label>
+       <div className="platform-form-actions"><button disabled={busy}>Revoke support grant</button><button type="button" className="secondary" onClick={()=>selectSupportGrant(null)}>Cancel revocation</button></div>
+      </form>
+     </section>}
+    </>}
     {page==='identities'&&<PlatformIdentityAdmin/>}
     {page==='configuration'&&<><section className="platform-panel"><h2>Global platform configuration</h2><p>Secret values are never accepted. Sensitive settings require a reference to an external secret manager.</p><form className="platform-form-grid" onSubmit={saveConfig}>
       <label>Configuration key<input required value={configForm.key} onChange={e=>setConfigForm({...configForm,key:e.target.value.toUpperCase()})}/></label>

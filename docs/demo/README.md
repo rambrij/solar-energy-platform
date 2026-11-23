@@ -38,6 +38,8 @@ The platform identity receives platform permissions only through platform_user_p
 
 On a fresh local V1 install, this login can open the tenant directory and lifecycle controls, subscription plans and tenant subscriptions, platform health and audit, support access, global configuration, and platform identities. The configuration screen stores non-sensitive values and external secret references. Provider execution and email delivery depend on the integrations implemented and configured for the deployment.
 
+In **Subscription plans**, select **Revise plan** to start from the current version and save new terms. Prior versions remain visible in the plan catalogue. In **Support access**, select **Revoke** on an active grant and enter the reason to record the revocation in the platform audit.
+
 If a disposable local database was seeded before the tenant-view, configuration, and identity grants were added, use the clean database reset above. The seed callback applies when Flyway installs V1 and does not rewrite permissions at every restart.
 
 ## Vendor employee credentials

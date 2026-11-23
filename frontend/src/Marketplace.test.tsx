@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Marketplace from './Marketplace';
 import { marketplaceApi, MarketplaceError } from './marketplaceApi';
 vi.mock('./marketplaceApi', async original => ({ ...await original<typeof import('./marketplaceApi')>(), marketplaceApi: vi.fn() }));
-vi.mock('./session',()=>({useSession:()=>({status:'authenticated',loading:false,refreshing:false,account:{username:'customer@test.local',tenantId:null,branchId:null,membershipId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER',availableActorTypes:['CUSTOMER']},error:null})}));
+vi.mock('./session',()=>({useSession:()=>({status:'authenticated',loading:false,refreshing:false,account:{username:'customer@test.local',tenantId:null,branchId:null,membershipId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER',availableActorTypes:['CUSTOMER']},error:null}),signOut:vi.fn(),switchActorContext:vi.fn()}));
 const vendors = [{ id: 1, slug: 'vendor-1', name: 'Vendor A' }, { id: 2, slug: 'vendor-2', name: 'Vendor B' }];
 const products = [{ id: 1, sku: 'P1', name: 'Solar Panel', price: 100, taxRate: 10, inStock: true }];
 const gate = 'Online payment is not configured. No paid order was created.';

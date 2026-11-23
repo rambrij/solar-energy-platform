@@ -6,7 +6,10 @@ function response(body:unknown,status=200){
  return {ok:status>=200&&status<300,status,json:vi.fn().mockResolvedValue(body)} as unknown as Response;
 }
 const account=(actorType:'PLATFORM'|'VENDOR'|'CUSTOMER'='VENDOR',permissions=['POS_VIEW'],tenantId:number|null=actorType==='VENDOR'?8:null)=>({
- username:'actor@example.test',tenantId,branchId:actorType==='VENDOR'?80:null,permissions,actorType
+ username:'actor@example.test',tenantId,branchId:actorType==='VENDOR'?80:null,
+ membershipId:actorType==='VENDOR'?`${tenantId}:actor@example.test`:null,
+ permissions,actorType,
+ availableActorTypes:[actorType]
 });
 function authMe(value=account()){
  return response(value);
@@ -21,12 +24,18 @@ describe('canonical authenticated session snapshot',()=>{
  beforeEach(()=>{vi.stubGlobal('fetch',vi.fn());});
  afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 
- it('loads exactly one authoritative /auth/me snapshot after sign-in',async()=>{
-  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+ it('uses the exact backend Account record from /auth/me, not the login payload, and loads it once',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  const loginAccount=account('VENDOR',['POS_VIEW']);
+  const authoritativeAccount=account('VENDOR',['POS_VIEW','PRODUCT_VIEW']);
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-login'}))
+   .mockResolvedValueOnce(response({accessToken:'access-token',account:loginAccount}))
+   .mockResolvedValueOnce(authMe(authoritativeAccount));
   await signIn('actor@example.test','safe-test-password');
   const {result}=renderHook(()=>useSession());
   expect(result.current.status).toBe('authenticated');
-  expect(result.current.account).toEqual({...account(),availableActorTypes:['VENDOR']});
+  expect(result.current.account).toEqual(authoritativeAccount);
+  expect(result.current.account?.permissions).toEqual(['POS_VIEW','PRODUCT_VIEW']);
   expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/auth/me')).toHaveLength(1);
  });
 
@@ -104,8 +113,8 @@ describe('canonical authenticated session snapshot',()=>{
 
  it('replaces the complete Customer snapshot with Vendor context and never mixes grants',async()=>{
   const fetchMock=vi.mocked(fetch);
-  const customer=account('CUSTOMER',['CUSTOMER'],null);
-  const vendor=account('VENDOR',['PRODUCT_VIEW'],8);
+  const customer={...account('CUSTOMER',['CUSTOMER'],null),availableActorTypes:['CUSTOMER','VENDOR'] as const};
+  const vendor={...account('VENDOR',['PRODUCT_VIEW'],8),availableActorTypes:['CUSTOMER','VENDOR'] as const};
   loginSequence(fetchMock,customer);
   fetchMock.mockResolvedValueOnce(response({token:'csrf-switch'}))
    .mockResolvedValueOnce(response({accessToken:'vendor-access-token',account:vendor}))
@@ -121,8 +130,8 @@ describe('canonical authenticated session snapshot',()=>{
 
  it('replaces Vendor context with Customer context and clears tenant scope',async()=>{
   const fetchMock=vi.mocked(fetch);
-  const vendor=account('VENDOR',['PRODUCT_VIEW'],8);
-  const customer=account('CUSTOMER',['CUSTOMER'],null);
+  const vendor={...account('VENDOR',['PRODUCT_VIEW'],8),availableActorTypes:['CUSTOMER','VENDOR'] as const};
+  const customer={...account('CUSTOMER',['CUSTOMER'],null),availableActorTypes:['CUSTOMER','VENDOR'] as const};
   loginSequence(fetchMock,vendor);
   fetchMock.mockResolvedValueOnce(response({token:'csrf-switch'}))
    .mockResolvedValueOnce(response({accessToken:'customer-access-token',account:customer}))
@@ -138,8 +147,9 @@ describe('canonical authenticated session snapshot',()=>{
 
  it('rejects mixed Platform/Vendor/Customer grants from /auth/me',async()=>{
   const fetchMock=vi.mocked(fetch);
-  loginSequence(fetchMock,account('VENDOR',['POS_VIEW']));
-  fetchMock.mockResolvedValueOnce(response({username:'actor@example.test',tenantId:8,branchId:80,actorType:'VENDOR',permissions:['POS_VIEW','PLATFORM_ANALYTICS_VIEW','CUSTOMER']},200));
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-login'}))
+   .mockResolvedValueOnce(response({accessToken:'access-token',account:account()}))
+   .mockResolvedValueOnce(response({...account(),permissions:['POS_VIEW','PLATFORM_ANALYTICS_VIEW','CUSTOMER']}));
   await expect(signIn('actor@example.test','safe-test-password')).rejects.toThrow();
   expect(useSessionSnapshot()).toBeNull();
  });

@@ -30,7 +30,7 @@ export function usePermissions():{
  const hasAllPermission=(...perms:string[])=>!!permissions&&perms.every(p=>permissions.permissions.includes(p));
  return {
   permissions,loading:session.loading,error:session.error,
-  hasPermission,hasAnyPermission,hasAllPermission,
+  hasPermission,hasAnyPermission,hasAllPermissions:hasAllPermission,
   isPlatformUser:session.account?.actorType==='PLATFORM',
   isCustomer:session.account?.actorType==='CUSTOMER',
   isVendorEmployee:session.account?.actorType==='VENDOR'

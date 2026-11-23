@@ -113,6 +113,8 @@ CI currently uses Temurin Java 21, Node 22, MySQL 8.4, Maven cache, npm cache, P
 
 ### Workflow optimization applied in this branch
 
+Backend CI now runs two Maven invocations per database lane, down from 15 on H2 and 17 on MySQL. Each lane runs its full Surefire suite and explicitly runs `PlatformSupportRuntimeAuthorizationAcceptance`, which Surefire's default naming patterns do not discover. The MySQL support acceptance still uses its own schema for immutable audit history. The full-suite logs from run 45231464105 showed results for every class selected by the 28 removed invocations on its applicable lane, including the MySQL clean-install and local seed tests. Both database lanes, the authorization artifacts, and Playwright remain in the workflow.
+
 The backend matrix previously provisioned MySQL 8.4 for both lanes. Now only the MySQL lane pulls the image and waits for database readiness. The schema export uses the container ID assigned by GitHub Actions, and the H2 lane runs without a MySQL service.
 
 The frontend job previously ran two focused Vitest commands before the complete suite. Both focused commands used the same configuration and environment as the full suite. Their eight distinct test files are all discovered by `npm test`, which now runs Vitest once and then verifies the authorization registry. TypeScript and Vite still run in the frontend build step. Playwright continues to run as a separate job against the Compose stack.

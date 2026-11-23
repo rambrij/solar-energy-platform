@@ -202,9 +202,11 @@ test('P3-01: mobile navigation supports keyboard dismissal, focus restoration an
   await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Catalogue & Inventory')).toBeVisible();
 
-  const toggle = page.getByRole('button', { name: 'Open workspace menu' });
+  const toggle = page.locator('.workspace-menu-toggle');
+  await expect(toggle).toHaveAccessibleName('Open workspace menu');
   await toggle.focus();
   await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAccessibleName('Close workspace menu');
   const close = page.getByRole('button', { name: 'Close workspace navigation' });
   await expect(close).toBeFocused();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');

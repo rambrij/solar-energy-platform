@@ -335,6 +335,9 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   const suffix = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
   const customerUsername = 'p3-02.customer.' + suffix + '@example.test';
   const customerPassword = 'P3-02-browser-context-' + suffix + '!A';
+  // page.evaluate uses same-origin fetches below; establish the configured
+  // application origin first because a fresh Playwright page starts at about:blank.
+  await page.goto('/');
   const registration = await page.evaluate(async credentials => {
     const csrfResponse = await fetch('/api/v1/auth/csrf', { credentials: 'same-origin', cache: 'no-store' });
     const csrf = csrfResponse.ok ? (await csrfResponse.json()).token as string : '';

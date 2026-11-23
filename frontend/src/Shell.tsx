@@ -1,5 +1,5 @@
 import SessionControls from './SessionControls';
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import {
   availableNavigation,
   navigationItems,
@@ -22,35 +22,83 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
   const jumpToggle = useRef<HTMLButtonElement>(null);
   const jumpRoot = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
+  const navigationRef = useRef<HTMLElement>(null);
+  const mainContentRef = useRef<HTMLElement>(null);
+  const previousRoute = useRef(route);
+  const navigationId = useId();
 
-  // Get user permissions from backend
+  // /auth/me supplies the effective grants and active actor context. The
+  // session snapshot is revalidated by usePermissions; all failures deny UI access.
   const { permissions, loading } = usePermissions();
-
-  // Filter navigation items based on user permissions
   const allItems = navigationItems(mode);
   const featureFlaggedItems = availableNavigation(
     mode,
     new Set(availableIds ?? allItems.map(item => item.id))
   );
-
-  // Apply permission-based filtering
-  const items = loading
+  const expectedActor = mode === 'pos' ? 'VENDOR' : 'CUSTOMER';
+  const actorMatchesWorkspace = permissions?.actorType === expectedActor;
+  const items = loading || !actorMatchesWorkspace
     ? []
     : featureFlaggedItems.filter(item =>
-        hasNavigationPermission(item.id, permissions?.permissions || [])
+        hasNavigationPermission(item.id, permissions?.permissions ?? [])
       );
 
-  // Vendor discovery and storefronts are public; every other deep link needs an explicit permission.
+  // Vendor directory and storefront discovery remain public. Customer cart and
+  // purchase navigation, and every POS entry, require their matching actor.
   const publicRoute = mode === 'online' && ['vendor-directory', 'storefront-products'].includes(route);
-  const routeAllowed = !loading && (publicRoute || items.some(item => item.id === route));
+  const routeAllowed = !loading && (publicRoute || (actorMatchesWorkspace && items.some(item => item.id === route)));
   const selected = routeAllowed ? selectedNavigation(items, route) : undefined;
   const groups = Array.from(new Set(items.map(item => item.group)));
   const homePath = mode === 'pos' ? '/vendor/pos' : '/vendors';
 
-  useEffect(() => {
+  function closeMobileMenu(restoreToggleFocus = false) {
     setOpen(false);
-    setJumpOpen(false);
+    if (restoreToggleFocus) toggle.current?.focus();
+  }
+
+  useEffect(() => {
+    if (previousRoute.current !== route) {
+      closeMobileMenu();
+      setJumpOpen(false);
+      mainContentRef.current?.focus();
+      previousRoute.current = route;
+    }
   }, [route]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    // Put keyboard focus inside the drawer immediately. Keep Tab navigation
+    // inside while it is open, and restore the menu button on Escape/close.
+    const closeButton = navigationRef.current?.querySelector<HTMLButtonElement>('.workspace-drawer-close');
+    (closeButton ?? navigationRef.current?.querySelector<HTMLElement>('a[href]'))?.focus();
+
+    function onDocumentKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMobileMenu(true);
+        return;
+      }
+      if (event.key !== 'Tab' || !navigationRef.current) return;
+      const focusable = Array.from(
+        navigationRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === toggle.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', onDocumentKeyDown);
+    return () => document.removeEventListener('keydown', onDocumentKeyDown);
+  }, [open]);
 
   useEffect(() => {
     if (!jumpOpen) return;
@@ -65,8 +113,9 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     navigateWorkspace(mode, id);
-    setOpen(false);
+    closeMobileMenu();
     setJumpOpen(false);
+    mainContentRef.current?.focus();
   }
 
   return (
@@ -92,7 +141,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
               {groups.map(group => <div role="group" aria-label={group} key={group}>
                 <span className="quick-jump-group" aria-hidden="true">{group}</span>
                 {items.filter(item => item.group === group).map(item => (
-                  <button type="button" role="menuitem" key={item.id} aria-current={selected?.id === item.id ? 'page' : undefined} onClick={() => { navigateWorkspace(mode, item.id); setJumpOpen(false); }}>{item.label}</button>
+                  <button type="button" role="menuitem" key={item.id} aria-current={selected?.id === item.id ? 'page' : undefined} onClick={() => { navigateWorkspace(mode, item.id); setJumpOpen(false); mainContentRef.current?.focus(); }}>{item.label}</button>
                 ))}
               </div>)}
             </div>}
@@ -108,28 +157,32 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
       </div>
 
       <div className="workspace-layout">
-        <aside className={`workspace-menu ${open ? 'menu-open' : ''}`} aria-label="Workspace menu" onKeyDown={event => {
-          if (event.key === 'Escape' && open) { setOpen(false); toggle.current?.focus(); }
-        }}>
-          <div className="workspace-menu-heading">
-            <span className="workspace-menu-kicker">WORKSPACE</span>
-            <strong>{mode === 'pos' ? 'Store operations' : 'Marketplace'}</strong>
-            <span>{mode === 'pos' ? 'Sales, stock and service' : 'Browse and manage purchases'}</span>
-          </div>
-          <button type="button" ref={toggle} className="workspace-menu-toggle" aria-expanded={open} aria-controls="workspace-navigation" onClick={() => setOpen(value => !value)}>
-            <span aria-hidden="true">☰</span> {open ? 'Close workspace menu' : 'Open workspace menu'}
+        <aside className={`workspace-menu ${open ? 'menu-open' : ''}`} aria-label="Workspace menu">
+          {open && <div className="workspace-menu-backdrop" aria-hidden="true" onClick={() => closeMobileMenu(true)} />}
+          <button type="button" ref={toggle} className="workspace-menu-toggle" aria-label={open ? 'Close workspace menu' : 'Open workspace menu'} aria-expanded={open} aria-controls={navigationId} onClick={() => setOpen(value => !value)}>
+            <span aria-hidden="true">{open ? '×' : '☰'}</span> {open ? 'Close workspace menu' : 'Open workspace menu'}
           </button>
-          <nav id="workspace-navigation" className="workspace-navigation" aria-label="Workspace sections">
-            {groups.map(group => <div className="workspace-menu-group" key={group}>
-              <h2>{group}</h2>
+          <nav ref={navigationRef} id={navigationId} className="workspace-navigation" aria-label="Workspace sections">
+            <div className="workspace-drawer-header">
+              <span>{mode === 'pos' ? 'Store operations' : 'Marketplace'} navigation</span>
+              <button type="button" className="workspace-drawer-close" aria-label="Close workspace navigation" onClick={() => closeMobileMenu(true)}>×</button>
+            </div>
+            <div className="workspace-menu-heading">
+              <span className="workspace-menu-kicker">WORKSPACE</span>
+              <strong>{mode === 'pos' ? 'Store operations' : 'Marketplace'}</strong>
+              <span>{mode === 'pos' ? 'Sales, stock and service' : 'Browse and manage purchases'}</span>
+            </div>
+            {groups.map(group => <div className={`workspace-menu-group ${selected?.group === group ? 'is-active' : ''}`} key={group}>
+              <h2>{group}{selected?.group === group && <span className="workspace-current-section">Current section</span>}</h2>
               <ul>{items.filter(item => item.group === group).map(item => <li key={item.id}>
                 <a href={navigationPath(mode, item.id)} aria-current={selected?.id === item.id ? 'page' : undefined} onClick={event => navigate(event, item.id)}>
-                  <span>{item.label}</span>{selected?.id === item.id && <span className="navigation-active-mark" aria-hidden="true" />}
+                  <span>{item.label}</span>
+                  {selected?.id === item.id && <><span className="navigation-active-mark" aria-hidden="true" /><span className="navigation-current-text">Current page</span></>}
                 </a>
               </li>)}</ul>
             </div>)}
+            <div className="workspace-menu-foot"><span className="status-dot" /> Your workspace is connected</div>
           </nav>
-          <div className="workspace-menu-foot"><span className="status-dot" /> Your workspace is connected</div>
         </aside>
 
         <div className="workspace-content">
@@ -139,7 +192,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
                 <li><a href={homePath}>{mode === 'pos' ? 'Store POS' : 'Marketplace'}</a></li>
                 {selected && <>
                   <li><a href={navigationPath(mode, items.find(item => item.group === selected.group)?.id ?? selected.id)}>{selected.group}</a></li>
-                  <li aria-current="page">{selected.label}</li>
+                  <li aria-current="page"><span>{selected.label}</span></li>
                 </>}
               </ol>
             </nav>
@@ -149,7 +202,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
             <div><h1>{selected.label}</h1><p>{selected.description}</p></div>
             <span className="workspace-page-group">{selected.group}</span>
           </div>}
-          <main tabIndex={-1} id="main-content" className={`workspace ${mode === 'pos' ? 'pos-workspace' : 'marketplace-workspace'} workspace-page-${route}`}>
+          <main ref={mainContentRef} tabIndex={-1} id="main-content" className={`workspace ${mode === 'pos' ? 'pos-workspace' : 'marketplace-workspace'} workspace-page-${route}`}>
             {loading
               ? <p role="status">Checking your workspace access…</p>
               : routeAllowed

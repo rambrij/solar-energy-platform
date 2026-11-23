@@ -70,3 +70,68 @@ it('allows a vendor employee with a narrow page grant to enter without POS_VIEW'
   await waitFor(() => expect(screen.getByText('Product catalogue access')).toBeTruthy());
   expect(screen.queryByRole('alert')).toBeNull();
 });
+
+
+it('keeps the parent navigation item active for nested direct routes and refresh URLs', async () => {
+  window.history.replaceState({}, '', '/vendor/pos/products/SKU-204/details?tab=stock');
+  grantPermissions(posPermissions);
+  render(<Shell mode="pos"><section><h2>Nested product details</h2></section></Shell>);
+  const current = await screen.findByRole('link', { name: 'Manage Products' });
+  expect(current.getAttribute('aria-current')).toBe('page');
+  expect(screen.getByText('Current section')).toBeTruthy();
+  expect(screen.getByText('Current page')).toBeTruthy();
+  const breadcrumbs = within(screen.getByRole('navigation', { name: 'Breadcrumb' }));
+  expect(breadcrumbs.getByText('Store POS')).toBeTruthy();
+  expect(breadcrumbs.getByRole('link', { name: 'Catalogue & Inventory' }).getAttribute('href')).toBe('/vendor/pos/categories');
+  expect(breadcrumbs.getByText('Manage Products').closest('li')?.getAttribute('aria-current')).toBe('page');
+});
+
+it('moves focus into the mobile drawer, traps tab navigation and restores focus on Escape', async () => {
+  window.history.replaceState({}, '', '/marketplace/vendors');
+  grantPermissions(['CUSTOMER']);
+  render(<Shell mode="online"><section><h2>Vendor directory content</h2></section></Shell>);
+  const toggle = screen.getByRole('button', { name: 'Open workspace menu' });
+  fireEvent.click(toggle);
+  const close = screen.getByRole('button', { name: 'Close workspace navigation' });
+  expect(close.getAttribute('aria-expanded')).toBeNull();
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  expect(document.activeElement).toBe(close);
+
+  fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+  expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Your Purchases' }));
+  fireEvent.keyDown(document, { key: 'Tab' });
+  expect(document.activeElement).toBe(close);
+
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(document.activeElement).toBe(toggle);
+  expect(screen.getByText('Vendor directory content')).toBeTruthy();
+});
+
+it('closes the mobile drawer after navigation and focuses the destination content', async () => {
+  grantPermissions(['CUSTOMER']);
+  render(<Shell mode="online"><section><h2>Marketplace content remains mounted</h2></section></Shell>);
+  const toggle = screen.getByRole('button', { name: 'Open workspace menu' });
+  fireEvent.click(toggle);
+  fireEvent.click(screen.getByRole('link', { name: 'My Single-Vendor Cart' }));
+  await waitFor(() => expect(window.location.pathname).toBe('/marketplace/cart'));
+  expect(screen.getByRole('button', { name: 'Open workspace menu' }).getAttribute('aria-expanded')).toBe('false');
+  expect(document.activeElement).toBe(document.getElementById('main-content'));
+  expect(screen.getByText('Marketplace content remains mounted')).toBeTruthy();
+});
+
+it('keeps platform and vendor/customer navigation actor contexts separate', async () => {
+  window.history.replaceState({}, '', '/vendor/pos');
+  grantPermissions(['PLATFORM_ANALYTICS_VIEW']);
+  render(<Shell mode="pos"><section><h2>Platform must not enter POS</h2></section></Shell>);
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Access denied'));
+  expect(screen.queryByRole('link', { name: 'Cashier Session' })).toBeNull();
+});
+
+it('does not mark a default first menu item active for an unknown deep link', async () => {
+  window.history.replaceState({}, '', '/vendor/pos/not-a-route');
+  grantPermissions(posPermissions);
+  render(<Shell mode="pos"><section><h2>Unknown route content</h2></section></Shell>);
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Access denied'));
+  expect(screen.queryByRole('link', { name: 'Cashier Session' })?.getAttribute('aria-current')).toBeNull();
+});

@@ -26,3 +26,19 @@ it('keeps navigation paths stable for the current vendor storefront', () => {
   expect(resolveWorkspaceRoute('online', '/marketplace/vendors', '')).toBe('vendor-directory');
   expect(selectedNavigation(navigationItems('pos'), 'cash-refunds')?.label).toBe('Cash Refunds');
 });
+
+
+it('matches nested pages to their deepest registered navigation parent', () => {
+  expect(resolveWorkspaceRoute('pos', '/vendor/pos/products/SKU-204/details', '')).toBe('product-management');
+  expect(resolveWorkspaceRoute('pos', '/vendor/pos/held-bills/RES-9/', '')).toBe('reserved-pos-checkout');
+  expect(resolveWorkspaceRoute('online', '/marketplace/cart/review/ORDER-9', '')).toBe('customer-cart');
+  expect(resolveWorkspaceRoute('online', '/vendors/solar-partner/products/panel-1', '')).toBe('storefront-products');
+  expect(resolveWorkspaceRoute('pos', '/vendor/pos/products-old', '')).toBe('not-found');
+  expect(resolveWorkspaceRoute('online', '/marketplace/cartography', '')).toBe('not-found');
+});
+
+it('normalizes trailing slashes and never selects the first menu item for unknown routes', () => {
+  expect(resolveWorkspaceRoute('pos', '/vendor/pos/products/', '')).toBe('product-management');
+  expect(resolveWorkspaceRoute('online', '/marketplace/cart/', '')).toBe('customer-cart');
+  expect(selectedNavigation(navigationItems('pos'), 'not-found')).toBeUndefined();
+});

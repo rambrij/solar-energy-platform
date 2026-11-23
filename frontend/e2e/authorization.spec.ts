@@ -192,3 +192,67 @@ test('Vendor Admin: direct Platform workspace URL is rejected by the platform ac
   await page.goto('/platform');
   await expect(page.getByRole('alert')).toContainText('Platform access denied');
 });
+
+
+test('P3-01: mobile navigation supports keyboard dismissal, focus restoration and drawer navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
+  await page.goto('/vendor/pos/products/SKU-204/details?tab=stock');
+  await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
+  const active = page.getByRole('link', { name: 'Manage Products' });
+  await expect(active).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Catalogue & Inventory')).toBeVisible();
+
+  const toggle = page.getByRole('button', { name: 'Open workspace menu' });
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  const close = page.getByRole('button', { name: 'Close workspace navigation' });
+  await expect(close).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#' + await toggle.getAttribute('aria-controls'))).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  await toggle.click();
+  await expect(close).toBeFocused();
+  await page.getByRole('link', { name: 'Sales History' }).click();
+  await expect(page).toHaveURL(/sales-history/);
+  await expect(page.getByRole('button', { name: 'Open workspace menu' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('heading', { name: 'Sales History', level: 1 })).toBeVisible();
+});
+
+test('P3-01: responsive workspace layouts do not create horizontal page overflow', async ({ page }) => {
+  await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1280, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/vendor/pos/products');
+    await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(overflow, `horizontal overflow at ${viewport.width}x${viewport.height}`).toBe(false);
+  }
+});
+
+test('P3-01: permission revocation removes navigation and denies a direct deep link after refresh', async ({ page }) => {
+  const adminToken = await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
+  await ensureCustomSalesRole(page, adminToken);
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signIn(page, demo.salesExecutive.username, demo.salesExecutive.password);
+  await page.goto('/vendor/pos/products');
+  await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
+  const salesLink = page.getByRole('link', { name: 'Manage Products' });
+  await expect(salesLink).toHaveAttribute('aria-current', 'page');
+
+  const adminContext = await page.context().browser()!.newContext();
+  try {
+    const adminPage = await adminContext.newPage();
+    const freshAdminToken = await signIn(adminPage, demo.vendorAdmin.username, demo.vendorAdmin.password);
+    const revoked = await apiAs(adminPage, freshAdminToken, '/api/v1/vendor/employees/' + encodeURIComponent(demo.salesExecutive.username) + '/roles', 'PUT', { roleIds: [], reason: 'P3-01 navigation revocation regression' });
+    expect(revoked.status).toBe(200);
+  } finally {
+    await adminContext.close();
+  }
+  await page.reload();
+  await expect(page.getByRole('alert')).toContainText('Access denied');
+  await expect(page.getByRole('link', { name: 'Manage Products' })).toHaveCount(0);
+});

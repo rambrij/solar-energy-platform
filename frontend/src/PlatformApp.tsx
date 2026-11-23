@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState,type FormEvent} from 'react';
+import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
 import {platformApi,ApiError} from './api';
 import PlatformIdentityAdmin from './PlatformIdentityAdmin';
 import {signOut,useSession} from './session';
@@ -26,8 +26,17 @@ export default function PlatformApp(){
  const permissions=account?.permissions??[];
  const can=(permission:string)=>permissions.includes(permission);
  const canPage=(id:Page)=>hasPlatformPagePermission(id,permissions);
- const initialPage=pages.find(item=>canPage(item.id))?.id??'dashboard';
+ const initialPage=pages.find(item=>item.id===window.location.hash.slice(1)&&canPage(item.id))?.id??pages.find(item=>canPage(item.id))?.id??'dashboard';
  const [page,setPage]=useState<Page>(initialPage);
+ const contentRef=useRef<HTMLElement>(null);
+ const permissionKey=permissions.join('|');
+ function selectPage(target:Page){
+  if(!canPage(target))return;
+  setPage(target);
+  const nextUrl=`${window.location.pathname}${window.location.search}#${target}`;
+  if(window.location.hash!==`#${target}`)window.history.pushState({platformPage:target},'',nextUrl);
+  contentRef.current?.focus();
+ }
  const visiblePages=pages.filter(item=>canPage(item.id));
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [tenantPage,setTenantPage]=useState<TenantPage>({items:[],totalElements:0,totalPages:0,page:0});
@@ -56,13 +65,30 @@ export default function PlatformApp(){
   }catch(e){setError((e as Error).message);}
  },[tenantSearch,tenantStatus,account?.permissions.join('|')]);
  useEffect(()=>{
+  function syncLocation(){
+   const requested=pages.find(item=>item.id===window.location.hash.slice(1)&&canPage(item.id))?.id;
+   const next=requested??pages.find(item=>canPage(item.id))?.id;
+   if(!next)return;
+   setPage(next);
+   if(window.location.hash!==`#${next}`){
+    window.history.replaceState({platformPage:next},'',`${window.location.pathname}${window.location.search}#${next}`);
+   }
+  }
+  window.addEventListener('popstate',syncLocation);
+  window.addEventListener('hashchange',syncLocation);
+  syncLocation();
+  return ()=>{
+   window.removeEventListener('popstate',syncLocation);
+   window.removeEventListener('hashchange',syncLocation);
+  };
+ },[permissionKey]);
+ useEffect(()=>{
   if(!canPage(page)){
    const next=pages.find(item=>canPage(item.id));
-   if(next)setPage(next.id);
-   return;
+   if(next){setPage(next.id);return;}
   }
   void load(page);
- },[page,load,account?.permissions.join('|')]);
+ },[page,load,permissionKey]);
 
  async function run(action:()=>Promise<unknown>,success:string){
   setBusy(true);setError('');setNotice('');
@@ -118,10 +144,11 @@ export default function PlatformApp(){
   </header>
   <div className="platform-frame">
    <aside className="platform-sidebar"><span className="platform-kicker">SAAS CONTROL PLANE</span>
-    <nav aria-label="Platform navigation">{visiblePages.map(item=><button type="button" key={item.id} className={page===item.id?'active':''} onClick={()=>setPage(item.id)}><span>{item.label}</span><small>{item.description}</small></button>)}</nav>
+    <nav aria-label="Platform navigation">{visiblePages.map(item=><button type="button" key={item.id} className={page===item.id?'active':''} aria-current={page===item.id?'page':undefined} onClick={()=>selectPage(item.id)}><span>{item.label}</span><small>{item.description}</small></button>)}</nav>
     <p className="platform-sidebar-note">Commercial vendor operations are available only through a separate vendor tenant identity.</p>
    </aside>
-   <main className="platform-content">
+   <main ref={contentRef} tabIndex={-1} className="platform-content">
+    <nav className="platform-breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/platform">Platform workspace</a></li><li>{canPage('dashboard')?<a href="#dashboard" onClick={event=>{event.preventDefault();selectPage('dashboard');}}>Operations</a>:<span>Operations</span>}</li><li aria-current="page">{visiblePages.find(item=>item.id===page)?.label}</li></ol></nav>
     <div className="platform-page-heading"><div><span className="platform-kicker">PLATFORM / {page.toUpperCase()}</span><h1>{visiblePages.find(p=>p.id===page)?.label}</h1><p>{visiblePages.find(p=>p.id===page)?.description}</p></div><span className="platform-scope">Platform scope only</span></div>
     {error&&<p className="platform-alert" role="alert">{error}</p>}{notice&&<p className="platform-notice" role="status">{notice}</p>}{busy&&<p role="status">Saving platform changes…</p>}
     {page==='dashboard'&&<section className="platform-panel"><div className="platform-panel-heading"><div><h2>Tenant lifecycle</h2><p>Aggregated platform-owned counts; no tenant-private CRM or transaction detail.</p></div><button className="secondary" onClick={()=>void load('dashboard')}>Refresh</button></div>

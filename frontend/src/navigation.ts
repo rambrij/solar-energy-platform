@@ -46,9 +46,9 @@ export function availableNavigation(mode: WorkspaceMode, ids: ReadonlySet<string
   return navigationItems(mode).filter(item => ids.has(item.id));
 }
 
-export function selectedNavigation(items: NavigationItem[], routeId: string) {
+export function selectedNavigation(items: NavigationItem[], routeId: string): NavigationItem | undefined {
   const id = routeId.replace(/^#/, '');
-  return items.find(item => item.id === id) ?? items[0];
+  return items.find(item => item.id === id);
 }
 
 export function navigationPath(mode: WorkspaceMode, id: string, currentPath = window.location.pathname) {
@@ -60,15 +60,43 @@ export function navigationPath(mode: WorkspaceMode, id: string, currentPath = wi
   return item.path;
 }
 
+function normalizedPathname(pathname: string) {
+  const pathOnly = pathname.split(/[?#]/, 1)[0] || '/';
+  if (pathOnly === '/') return '/';
+  let normalized = pathOnly;
+  while (normalized.length > 1 && normalized.endsWith('/')) normalized = normalized.slice(0, -1);
+  return normalized;
+}
+
+function pathMatchesRoute(pathname: string, routePath: string) {
+  const path = normalizedPathname(pathname);
+  const route = normalizedPathname(routePath);
+  return path === route || path.startsWith(route + '/');
+}
+
 export function resolveWorkspaceRoute(mode: WorkspaceMode, pathname = window.location.pathname, hash = window.location.hash) {
+  const items = navigationItems(mode);
   const legacyId = hash.replace(/^#/, '');
-  if (legacyId && navigationItems(mode).some(item => item.id === legacyId)) return legacyId;
-  if (mode === 'pos') {
-    return navigationItems(mode).find(item => item.path === pathname)?.id ?? 'checkout';
+  if (legacyId && items.some(item => item.id === legacyId)) return legacyId;
+
+  const path = normalizedPathname(pathname);
+  if (mode === 'online') {
+    // Storefront slugs are public route selectors, not authorization evidence.
+    if (pathMatchesRoute(path, '/vendors') && path !== '/vendors') return 'storefront-products';
+    if (pathMatchesRoute(path, '/marketplace/catalogue')) return 'vendor-directory';
   }
-  if (pathname.startsWith('/vendors/')) return 'storefront-products';
-  if (pathname === '/marketplace/catalogue') return 'vendor-directory';
-  return navigationItems(mode).find(item => item.path === pathname)?.id ?? 'vendor-directory';
+
+  // Prefer the most specific registered route so details below a page retain
+  // the same parent navigation item. Segment boundaries prevent false prefixes.
+  const match = items
+    .filter(item => pathMatchesRoute(path, item.path))
+    .sort((a, b) => normalizedPathname(b.path).length - normalizedPathname(a.path).length)[0];
+  if (match) return match.id;
+
+  if (path === '/' || (mode === 'online' && path === '/marketplace')) {
+    return mode === 'pos' ? 'checkout' : 'vendor-directory';
+  }
+  return 'not-found';
 }
 
 export function navigateWorkspace(mode: WorkspaceMode, id: string, currentPath = window.location.pathname) {

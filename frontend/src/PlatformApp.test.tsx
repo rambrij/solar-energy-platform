@@ -13,7 +13,7 @@ beforeEach(()=>{
  vi.mocked(useSession).mockReturnValue({ready:true,account} as ReturnType<typeof useSession>);
  vi.mocked(platformApi).mockResolvedValue({tenantStatuses:[]});
 });
-afterEach(()=>{cleanup();vi.restoreAllMocks();});
+afterEach(()=>{cleanup();vi.restoreAllMocks();window.history.replaceState({},'','/platform');});
 
 describe('PlatformApp',()=>{
  it('renders a platform-only control plane',async()=>{
@@ -55,4 +55,39 @@ describe('PlatformApp',()=>{
   expect(screen.queryByText('Save plan version')).toBeNull();
  });
 
+});
+
+
+it('restores direct platform page fragments and exposes the active page accessibly', async()=>{
+ window.history.replaceState({},'','/platform#audit');
+ render(<PlatformApp/>);
+ const audit=screen.getByRole('button',{name:/platform audit/i});
+ expect(audit.getAttribute('aria-current')).toBe('page');
+ await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/audit?page=0&size=50'));
+ expect(screen.getByRole('navigation',{name:'Breadcrumb'}).querySelector('[aria-current="page"]')?.textContent).toBe('Platform audit');
+});
+
+it('updates the platform location and follows browser back navigation without exposing forbidden pages', async()=>{
+ window.history.replaceState({},'','/platform');
+ render(<PlatformApp/>);
+ const overview=screen.getByRole('button',{name:/overview/i});
+ await waitFor(()=>expect(overview.getAttribute('aria-current')).toBe('page'));
+ fireEvent.click(screen.getAllByRole('button',{name:/tenants/i})[0]);
+ expect(window.location.hash).toBe('#tenants');
+ expect(screen.getAllByRole('button',{name:/tenants/i})[0].getAttribute('aria-current')).toBe('page');
+ fireEvent.click(screen.getAllByRole('button',{name:/subscription plans/i})[0]);
+ expect(window.location.hash).toBe('#plans');
+ window.history.back();
+ await waitFor(()=>expect(window.location.hash).toBe('#tenants'));
+ await waitFor(()=>expect(screen.getAllByRole('button',{name:/tenants/i})[0].getAttribute('aria-current')).toBe('page'));
+});
+
+it('repairs a direct URL to an inaccessible platform page using only authorized navigation', async()=>{
+ vi.mocked(useSession).mockReturnValue({ready:true,account:{...account,permissions:['PLATFORM_ANALYTICS_VIEW']}} as ReturnType<typeof useSession>);
+ window.history.replaceState({},'','/platform#identities');
+ render(<PlatformApp/>);
+ const overview=screen.getByRole('button',{name:/overview/i});
+ await waitFor(()=>expect(overview.getAttribute('aria-current')).toBe('page'));
+ expect(window.location.hash).toBe('#dashboard');
+ expect(screen.queryByRole('button',{name:/platform identities/i})).toBeNull();
 });

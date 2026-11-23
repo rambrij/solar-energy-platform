@@ -19,7 +19,7 @@ describe('PlatformBoundary page permission gates',()=>{
   vi.mocked(useSession).mockReturnValue({ready:true,account:account(['PLATFORM_SUBSCRIPTION_VIEW'])} as ReturnType<typeof useSession>);
   window.history.replaceState({},'','/platform/subscriptions');
   render(<PlatformBoundary/>);
-  expect(screen.getByRole('link',{name:'Tenant subscriptions'})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Tenant subscriptions'}).getAttribute('aria-current')).toBe('page');
   expect(screen.getByText('Subscription screen')).toBeTruthy();
   expect(screen.queryByText('Platform health widget')).toBeNull();
  });

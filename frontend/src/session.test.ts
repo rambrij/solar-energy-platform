@@ -193,13 +193,23 @@ describe('canonical authenticated session snapshot',()=>{
   expect(useSessionSnapshot()).toBeNull();
  });
 
- it('clears the canonical snapshot on logout',async()=>{
+ it('clears the canonical snapshot on logout before a different actor signs in',async()=>{
   const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
   fetchMock.mockResolvedValueOnce(response({token:'csrf-logout'}))
    .mockResolvedValueOnce(response({}));
   await signIn('actor@example.test','safe-test-password');
   await signOut();
   expect(useSessionSnapshot()).toBeNull();
+
+  const nextActor={...account('CUSTOMER',['CUSTOMER'],null),username:'next-customer@example.test'};
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-next-login'}))
+   .mockResolvedValueOnce(response({accessToken:'customer-access-token',account:nextActor}))
+   .mockResolvedValueOnce(authMe(nextActor));
+  await signIn('next-customer@example.test','another-safe-password',false,undefined,'CUSTOMER');
+  const active=useSessionSnapshot();
+  expect(active?.username).toBe('next-customer@example.test');
+  expect(active?.actorType).toBe('CUSTOMER');
+  expect(active?.permissions).toEqual(['CUSTOMER']);
  });
 
  it('does not store access or refresh tokens in localStorage',async()=>{

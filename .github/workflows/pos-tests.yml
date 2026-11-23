@@ -269,7 +269,7 @@ jobs:
           while IFS= read -r source_file; do
             sudo sed -i 's#http://azure.archive.ubuntu.com#https://archive.ubuntu.com#g; s#https://azure.archive.ubuntu.com#https://archive.ubuntu.com#g' "$source_file"
           done < <(sudo grep -RIl 'azure.archive.ubuntu.com' /etc/apt 2>/dev/null || true)
-          printf '%s\\n' \
+          printf '%s\n' \
             'Acquire::Retries "2";' \
             'Acquire::http::Timeout "20";' \
             'Acquire::https::Timeout "20";' \

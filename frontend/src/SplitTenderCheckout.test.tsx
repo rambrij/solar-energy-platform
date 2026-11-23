@@ -5,7 +5,7 @@ import SplitTenderCheckout from './SplitTenderCheckout';
 import {api} from './api';
 vi.mock('./api',()=>({api:vi.fn(),ApiError:class extends Error{constructor(public status:number){super('Rejected');}}}));
 vi.mock('./session',()=>({useSession:vi.fn()}));
-beforeEach(()=>{vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_SALE_CREATE','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD']}} as ReturnType<typeof useSession>);});
+beforeEach(()=>{vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'cashier',tenantId:1,branchId:10,membershipId:'1:cashier',actorType:'VENDOR',permissions:['POS_SALE_CREATE','POS_TENDER_CASH_RECORD','POS_TENDER_EXTERNAL_RECORD'],availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);});
 afterEach(()=>{cleanup();sessionStorage.clear();vi.resetAllMocks();});
 const balance={orderId:'sale-1',orderStatus:'DRAFT',total:110,confirmed:0,remaining:110,splitEnabled:true,tenders:[]};
 it('records partial cash with change and keeps sale unpaid',async()=>{
@@ -31,7 +31,7 @@ it('keeps an expired unpaid bill disabled after checking the saved balance',asyn
 
 
 it('does not expose tender methods or retry without the matching operation permission',async()=>{
- vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_SALE_CREATE']}} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'cashier',tenantId:1,branchId:10,membershipId:'1:cashier',actorType:'VENDOR',permissions:['POS_SALE_CREATE'],availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);
  sessionStorage.setItem('pos-tender-command-v1:sale-1',JSON.stringify({key:'saved',body:{method:'CASH',appliedAmount:'110',cashReceived:'110'}}));
  vi.mocked(api).mockResolvedValue(balance);
  render(<SplitTenderCheckout orderId="sale-1" onComplete={vi.fn()} onBusyChange={vi.fn()}/>);

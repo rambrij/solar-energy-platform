@@ -113,7 +113,7 @@ it('explains an empty Held bills tab and offers no tabs for online drafts', asyn
 
 
 it('hides POS draft mutations and online payment fallback without tender grants',async()=>{
- vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{membershipId:'null:test-user',...vendorSession.account,permissions:['POS_VIEW'],actorType:'VENDOR',availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{...vendorSession.account,permissions:['POS_VIEW']},error:null} as ReturnType<typeof useSession>);
  vi.mocked(api).mockResolvedValue([draft]);
  render(<ReservedDrafts mode="pos" session="s1" items={[{productId:1,quantity:1}]}/>);
  await screen.findByText('Vendor A · DRAFT');

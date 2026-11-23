@@ -719,3 +719,10 @@ The exact-commit Playwright run verified mobile keyboard/drawer navigation, WCAG
 - Browser E2E result: 16 of 17 journeys passed. The sole failure was the dual Customer/Vendor context-switching journey at `frontend/e2e/authorization.spec.ts:436`: its assertion expected the obsolete phrase `does not have access`, while the existing route guard rendered `effective permission required for this page` after the CUSTOMER snapshot was active.
 - Corrected only the Playwright assertion to match the established route-guard message. Actor-context switching, `/auth/me` snapshot checks, unauthorized route denial, and the assertion that vendor-only POS UI is absent remain in place. No production authorization or business behavior was changed.
 - P3-02 remains **IN PROGRESS** until the follow-up workflow passes all jobs on the new exact branch-head commit.
+
+## P3-02 Chromium dependency-install CI follow-up — 2026-11-23
+
+- Exact-head workflow [#45166363299](https://github.com/rambrij/solar-energy-platform/actions/runs/45166363299) ran on commit `6ae45dffa0890bb935224a1df40cd1bb024027f2`. Frontend, backend H2, and backend MySQL 8.4 jobs passed. The Browser E2E job failed before starting the application or Playwright: `Install Chromium system dependencies` timed out after 10 minutes.
+- Job logs show Ubuntu 24.04 APT using `http://us-east-2.ec2.archive.ubuntu.com/ubuntu` from `/etc/apt/apt-mirrors.txt`. The earlier workflow rewrite only covered `azure.archive.ubuntu.com`, so it left the active region-specific EC2 mirror unchanged.
+- Updated mirror normalization to rewrite any runner-region `*.archive.ubuntu.com/ubuntu` HTTP/HTTPS endpoint to the canonical HTTPS archive, including the EC2 mirror-list file; added a fail-fast assertion that no EC2 archive endpoint remains. Playwright dependency installation, browser installation, executable verification, and the full E2E suite remain mandatory.
+- The Playwright assertion correction from the preceding commit has not yet been re-exercised because this workflow attempt timed out before browser setup. P3-02 remains **IN PROGRESS** pending a complete exact-head run including all browser journeys.

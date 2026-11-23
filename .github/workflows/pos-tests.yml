@@ -266,16 +266,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Ubuntu 24.04 hosted runners expose their main archive through
+          # /etc/apt/apt-mirrors.txt. Its hostname is runner-region-specific
+          # (for example us-east-2.ec2.archive.ubuntu.com), so replacing only
+          # azure.archive.ubuntu.com leaves the active HTTP mirror unchanged.
+          mirror_pattern='https?://[^/[:space:]]*archive\.ubuntu\.com/ubuntu'
           while IFS= read -r source_file; do
-            sudo sed -i 's#http://azure.archive.ubuntu.com#https://archive.ubuntu.com#g; s#https://azure.archive.ubuntu.com#https://archive.ubuntu.com#g' "$source_file"
-          done < <(sudo grep -RIl 'azure.archive.ubuntu.com' /etc/apt 2>/dev/null || true)
+            sudo sed -i -E 's#https?://[^/[:space:]]*archive\.ubuntu\.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' "$source_file"
+          done < <(sudo grep -RIlE "$mirror_pattern" /etc/apt 2>/dev/null || true)
+
+          echo "Effective Ubuntu mirror list:"
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo cat /etc/apt/apt-mirrors.txt
+          fi
+          if sudo grep -RIE 'https?://[^/[:space:]]*\.ec2\.archive\.ubuntu\.com/ubuntu' /etc/apt 2>/dev/null; then
+            echo "A runner-specific EC2 Ubuntu archive mirror remains configured." >&2
+            exit 1
+          fi
+
           printf '%s\n' \
             'Acquire::Retries "2";' \
             'Acquire::http::Timeout "20";' \
             'Acquire::https::Timeout "20";' \
             | sudo tee /etc/apt/apt.conf.d/80-github-actions-network-retries >/dev/null
-          echo "Effective Ubuntu mirror references:"
-          sudo grep -R 'azure.archive.ubuntu.com' /etc/apt || true
       - name: Cache Playwright Chromium
         id: playwright-browser-cache
         uses: actions/cache@v4

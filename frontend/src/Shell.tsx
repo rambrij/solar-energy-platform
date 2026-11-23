@@ -177,7 +177,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
               <ul>{items.filter(item => item.group === group).map(item => <li key={item.id}>
                 <a href={navigationPath(mode, item.id)} aria-current={selected?.id === item.id ? 'page' : undefined} onClick={event => navigate(event, item.id)}>
                   <span>{item.label}</span>
-                  {selected?.id === item.id && <><span className="navigation-active-mark" aria-hidden="true" /><span className="navigation-current-text">Current page</span></>}
+                  {selected?.id === item.id && <><span className="navigation-active-mark" aria-hidden="true" /><span className="navigation-current-text" aria-hidden="true">Current page</span></>}
                 </a>
               </li>)}</ul>
             </div>)}

@@ -1,101 +1,89 @@
-import {renderHook,waitFor} from '@testing-library/react';
+import {renderHook} from '@testing-library/react';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import {usePermissions,hasNavigationPermission,NAVIGATION_PERMISSIONS,type UserPermissions,PLATFORM_PAGE_PERMISSIONS,hasPlatformPagePermission} from './usePermissions';
 import {navigationItems} from './navigation';
 
-const {mockAuthApi,mockUseSession}=vi.hoisted(()=>({mockAuthApi:vi.fn(),mockUseSession:vi.fn()}));
-vi.mock('./api',()=>({authApi:mockAuthApi}));
+const {mockUseSession}=vi.hoisted(()=>({mockUseSession:vi.fn()}));
 vi.mock('./session',()=>({useSession:mockUseSession}));
 
 const vendorAccount:UserPermissions={username:'cashier@vendor.com',tenantId:1,branchId:10,permissions:['POS_VIEW','POS_SALE_CREATE'],actorType:'VENDOR'};
 const customerAccount:UserPermissions={username:'customer@example.com',tenantId:null,branchId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER'};
 const platformAccount:UserPermissions={username:'admin@platform.com',tenantId:null,branchId:null,permissions:['PLATFORM_SUPER_ADMIN'],actorType:'PLATFORM'};
+function snapshot(account:UserPermissions|null,status:'loading'|'authenticated'|'anonymous'|'error'='authenticated',error:Error|null=null){
+ return {status,loading:status==='loading',refreshing:false,account,error};
+}
 
-describe('usePermissions',()=>{
- beforeEach(()=>{vi.clearAllMocks();mockUseSession.mockReturnValue({ready:true,account:vendorAccount});});
- function response(account=vendorAccount){return {...account};}
- it('fetches permissions from /auth/me and verifies the active actor context',async()=>{
-  mockAuthApi.mockResolvedValue(response());
+describe('usePermissions canonical session adapter',()=>{
+ beforeEach(()=>{vi.clearAllMocks();mockUseSession.mockReturnValue(snapshot(vendorAccount));});
+ it('exposes the one session-derived permission snapshot without making another request',()=>{
+  const fetchSpy=vi.spyOn(globalThis,'fetch');
   const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.loading).toBe(false));
-  expect(mockAuthApi).toHaveBeenCalledWith('/api/v1/auth/me');
-  expect(result.current.permissions?.username).toBe(vendorAccount.username);
-  expect(result.current.permissions?.tenantId).toBe(1);
-  expect(result.current.permissions?.branchId).toBe(10);
-  expect(result.current.permissions?.permissions).toEqual(vendorAccount.permissions);
-  expect(result.current.permissions?.actorType).toBe('VENDOR');
- });
- it('hasPermission returns true only for granted permissions',async()=>{
-  mockAuthApi.mockResolvedValue(response());
-  const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.loading).toBe(false));
+  expect(result.current.permissions).toEqual(vendorAccount);
+  expect(result.current.loading).toBe(false);
+  expect(result.current.error).toBeNull();
   expect(result.current.hasPermission('POS_VIEW')).toBe(true);
   expect(result.current.hasPermission('POS_REFUND_APPROVE')).toBe(false);
+  expect(fetchSpy).not.toHaveBeenCalled();
+  expect(mockUseSession).toHaveBeenCalled();
+  fetchSpy.mockRestore();
  });
- it('hasAnyPermission and hasAllPermissions use server-resolved grants',async()=>{
-  mockAuthApi.mockResolvedValue(response());
+ it('evaluates any-of and all-of permissions only against the canonical grant set',()=>{
   const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.loading).toBe(false));
   expect(result.current.hasAnyPermission('POS_VIEW','POS_REFUND_APPROVE')).toBe(true);
   expect(result.current.hasAllPermissions('POS_VIEW','POS_SALE_CREATE')).toBe(true);
   expect(result.current.hasAllPermissions('POS_VIEW','POS_REFUND_APPROVE')).toBe(false);
  });
- it('identifies vendor employees using explicit actor type',async()=>{
-  mockAuthApi.mockResolvedValue(response());
-  const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.isVendorEmployee).toBe(true));
-  expect(result.current.isCustomer).toBe(false);
-  expect(result.current.isPlatformUser).toBe(false);
+ it('identifies Vendor, Customer and Platform only from the explicit active actor context',()=>{
+  const vendor=renderHook(()=>usePermissions());
+  expect(vendor.result.current.isVendorEmployee).toBe(true);
+  expect(vendor.result.current.isCustomer).toBe(false);
+  expect(vendor.result.current.isPlatformUser).toBe(false);
+  vendor.unmount();
+
+  mockUseSession.mockReturnValue(snapshot(customerAccount));
+  const customer=renderHook(()=>usePermissions());
+  expect(customer.result.current.isCustomer).toBe(true);
+  expect(customer.result.current.isVendorEmployee).toBe(false);
+  expect(customer.result.current.isPlatformUser).toBe(false);
+  customer.unmount();
+
+  mockUseSession.mockReturnValue(snapshot(platformAccount));
+  const platform=renderHook(()=>usePermissions());
+  expect(platform.result.current.isPlatformUser).toBe(true);
+  expect(platform.result.current.isCustomer).toBe(false);
+  expect(platform.result.current.isVendorEmployee).toBe(false);
  });
- it('identifies customers using explicit actor type',async()=>{
-  mockUseSession.mockReturnValue({ready:true,account:customerAccount});
-  mockAuthApi.mockResolvedValue(response(customerAccount));
+ it('has no permissions while session restoration is pending',()=>{
+  mockUseSession.mockReturnValue(snapshot(null,'loading'));
   const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.isCustomer).toBe(true));
-  expect(result.current.isVendorEmployee).toBe(false);
-  expect(result.current.isPlatformUser).toBe(false);
- });
- it('identifies platform users using explicit actor type',async()=>{
-  mockUseSession.mockReturnValue({ready:true,account:platformAccount});
-  mockAuthApi.mockResolvedValue(response(platformAccount));
-  const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.isPlatformUser).toBe(true));
-  expect(result.current.isCustomer).toBe(false);
-  expect(result.current.isVendorEmployee).toBe(false);
- });
- it('fails closed when /auth/me differs from the active account snapshot',async()=>{
-  mockAuthApi.mockResolvedValue(response(customerAccount));
-  const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.loading).toBe(false));
+  expect(result.current.loading).toBe(true);
   expect(result.current.permissions).toBeNull();
-  expect(result.current.error?.message).toContain('actor context changed');
+  expect(result.current.hasPermission('POS_VIEW')).toBe(false);
+  expect(result.current.hasAnyPermission('POS_VIEW','PRODUCT_VIEW')).toBe(false);
  });
- it('still resolves server identity when the client session snapshot is not hydrated yet',async()=>{
-  mockUseSession.mockReturnValue({ready:false,account:null});
-  mockAuthApi.mockResolvedValue(response(customerAccount));
+ it('exposes canonical session validation errors without resolving permissions independently',()=>{
+  const validationError=new Error('The active actor context could not be verified.');
+  mockUseSession.mockReturnValue(snapshot(null,'error',validationError));
   const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.isCustomer).toBe(true));
-  expect(mockAuthApi).toHaveBeenCalledWith('/api/v1/auth/me');
+  expect(result.current.loading).toBe(false);
+  expect(result.current.permissions).toBeNull();
+  expect(result.current.error).toBe(validationError);
+  expect(result.current.hasPermission('POS_VIEW')).toBe(false);
  });
- it('removes a permission from the effective UI snapshot after session refresh',async()=>{
-  mockAuthApi.mockResolvedValue(response(vendorAccount));
+ it('removes permissions immediately when the canonical snapshot is replaced after refresh',()=>{
   const {result,rerender}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.hasPermission('POS_SALE_CREATE')).toBe(true));
-  const revoked={...vendorAccount,permissions:['POS_VIEW']};
-  mockUseSession.mockReturnValue({ready:true,account:revoked});
-  mockAuthApi.mockResolvedValue(response(revoked));
+  expect(result.current.hasPermission('POS_SALE_CREATE')).toBe(true);
+  mockUseSession.mockReturnValue(snapshot({...vendorAccount,permissions:['POS_VIEW']}));
   rerender();
-  await waitFor(()=>{
-   expect(result.current.hasPermission('POS_SALE_CREATE')).toBe(false);
-   expect(result.current.hasPermission('POS_VIEW')).toBe(true);
-  });
+  expect(result.current.hasPermission('POS_SALE_CREATE')).toBe(false);
+  expect(result.current.hasPermission('POS_VIEW')).toBe(true);
  });
- it('handles API errors gracefully',async()=>{
-  mockAuthApi.mockRejectedValue(new Error('Network error'));
+ it('removes all permission access when every role has been revoked',()=>{
+  mockUseSession.mockReturnValue(snapshot({...vendorAccount,permissions:[]}));
   const {result}=renderHook(()=>usePermissions());
-  await waitFor(()=>expect(result.current.loading).toBe(false));
-  expect(result.current.permissions).toBeNull();
-  expect(result.current.error?.message).toBe('Network error');
+  expect(result.current.permissions?.permissions).toEqual([]);
+  expect(result.current.hasPermission('POS_VIEW')).toBe(false);
+  expect(result.current.hasAnyPermission('POS_VIEW','PRODUCT_VIEW')).toBe(false);
  });
 });
 

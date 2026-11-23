@@ -361,9 +361,6 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   const form = page.getByRole('form', { name: 'Sign in' });
-  if (!(await form.isVisible().catch(() => false))) {
-    await page.getByRole('button', { name: 'Sign in / Register' }).click();
-  }
   await expect(form).toBeVisible();
   await page.getByLabel('Email or username').fill(demo.customer.username);
   await page.getByLabel('Password').fill(demo.customer.password);

@@ -200,8 +200,6 @@ test('P3-01: mobile navigation supports keyboard dismissal, focus restoration an
   await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
   await page.goto('/vendor/pos/products/SKU-204/details?tab=stock');
   await expect(page.getByRole('heading', { name: 'Manage Products', level: 1 })).toBeVisible();
-  const active = page.getByRole('link', { name: 'Manage Products' });
-  await expect(active).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Catalogue & Inventory')).toBeVisible();
 
   const toggle = page.getByRole('button', { name: 'Open workspace menu' });
@@ -212,6 +210,9 @@ test('P3-01: mobile navigation supports keyboard dismissal, focus restoration an
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const navigation = page.locator('#' + await toggle.getAttribute('aria-controls'));
   await expect(navigation).toBeVisible();
+  const active = navigation.getByRole('link', { name: 'Manage Products' });
+  await expect(active).toHaveAttribute('aria-current', 'page');
+  await expect(active.locator('.navigation-current-text')).toHaveText('Current page');
   await page.keyboard.press('Shift+Tab');
   await expect(navigation.getByRole('link', { name: 'Employees' })).toBeFocused();
   await page.keyboard.press('Tab');
@@ -237,7 +238,12 @@ test('P3-01: workspace navigation meets automated WCAG 2.2 AA checks', async ({ 
     .include('.workspace-menu')
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();
-  expect(mobileResults.violations.map(v => ({ id: v.id, impact: v.impact, targets: v.nodes.map(n => n.target) }))).toEqual([]);
+  expect(mobileResults.violations.map(v => ({
+    id: v.id,
+    impact: v.impact,
+    help: v.help,
+    nodes: v.nodes.map(n => ({ target: n.target, failureSummary: n.failureSummary })),
+  }))).toEqual([]);
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
@@ -245,7 +251,12 @@ test('P3-01: workspace navigation meets automated WCAG 2.2 AA checks', async ({ 
     .include('.workspace-menu')
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();
-  expect(desktopResults.violations.map(v => ({ id: v.id, impact: v.impact, targets: v.nodes.map(n => n.target) }))).toEqual([]);
+  expect(desktopResults.violations.map(v => ({
+    id: v.id,
+    impact: v.impact,
+    help: v.help,
+    nodes: v.nodes.map(n => ({ target: n.target, failureSummary: n.failureSummary })),
+  }))).toEqual([]);
 });
 
 test('P3-01: marketplace customer navigation remains responsive and has no horizontal overflow', async ({ page }) => {
@@ -259,12 +270,13 @@ test('P3-01: marketplace customer navigation remains responsive and has no horiz
     await page.goto('/marketplace/purchases');
     await expect(page.getByRole('heading', { name: 'My orders' })).toBeVisible();
     const toggle = page.getByRole('button', { name: 'Open workspace menu' });
-    const navigation = page.getByRole('navigation', { name: 'Workspace sections' });
+    const navigation = page.locator('.workspace-navigation');
     if (viewport.width <= 760) {
       await expect(toggle).toBeVisible();
       await expect(toggle).toHaveAttribute('aria-controls', await navigation.getAttribute('id'));
       await expect(navigation).toBeHidden();
       await toggle.click();
+      await expect(page.getByRole('navigation', { name: 'Workspace sections' })).toBeVisible();
       await expect(navigation.getByRole('link', { name: 'Your Purchases' })).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(toggle).toHaveAttribute('aria-expanded', 'false');

@@ -1471,12 +1471,12 @@ p { line-height: 1.65; }
 .workspace-layout { grid-template-columns: 248px minmax(0,1fr); max-width: 1760px; gap: clamp(20px,2.4vw,36px); padding: 0 clamp(18px,3vw,42px); align-items: stretch; }
 .workspace-menu { position: sticky; top: 104px; align-self: start; margin: 24px 0 28px; border: 1px solid #e1e8ee; border-radius: 17px; background: #fff; box-shadow: 0 8px 24px rgb(18 48 75 / 5%); }
 .workspace-menu-heading { display: grid; gap: 5px; padding: 20px 18px 16px; border-bottom: 1px solid #edf1f4; }
-.workspace-menu-kicker { color: #8795a2; font-size: .61rem; font-weight: 800; letter-spacing: .14em; }
+.workspace-menu-kicker { color: #596f82; font-size: .61rem; font-weight: 800; letter-spacing: .14em; }
 .workspace-menu-heading strong { color: #173d5c; font-size: .97rem; letter-spacing: -.02em; }
-.workspace-menu-heading > span:last-child { color: #8493a0; font-size: .69rem; }
+.workspace-menu-heading > span:last-child { color: #596f82; font-size: .69rem; }
 .workspace-navigation { padding: 10px 10px 14px; max-height: calc(100dvh - 245px); overflow-y: auto; scrollbar-width: thin; }
 .workspace-menu-group + .workspace-menu-group { margin-top: 7px; padding-top: 10px; border-top: 1px solid #edf1f4; }
-.workspace-menu-group h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 10px 7px; color: #8997a4; font-size: .61rem; font-weight: 800; letter-spacing: .13em; }
+.workspace-menu-group h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 10px 7px; color: #596f82; font-size: .61rem; font-weight: 800; letter-spacing: .13em; }
 .workspace-menu-group.is-active h2 { color: #173d5c; }
 .workspace-current-section { flex: 0 0 auto; padding: 3px 6px; border-radius: 5px; background: #eef4f8; color: #36566f; font-size: .56rem; letter-spacing: .04em; }
 .workspace-menu-group a[aria-current=page] { border-color: #f0e2b9; border-left-color: #dfa91f; background: #fff9e9; color: #674c0b; font-weight: 800; }

@@ -657,41 +657,42 @@ The P0-06 report on both database lanes records 146 live endpoint rows, 41/41 ac
 
 ## P3-01 responsive navigation implementation and validation — 2026-11-23
 
-**Status: IN PROGRESS — final Playwright validation pending.** Implementation is on `feature/develop-authorization-gap-analysis`; latest source/test commit under validation: `5ce7e37ac83664ba3349e645edd3e79dca468fa1`. The authoritative Version 2.0 requirements and SRS/HLD were reviewed before changes. No backend API, permission catalogue, authorization rule, database schema, business route or business behavior was changed.
+**Status: COMPLETE — VERIFIED.** The final implementation and test commit is `5ce7e37ac83664ba3349e645edd3e79dca468fa1` on `feature/develop-authorization-gap-analysis`. Exact-commit GitHub Actions run [#45121686114](https://github.com/rambrij/solar-energy-platform/actions/runs/45121686114) completed successfully: frontend, backend H2, backend MySQL 8.4 and Playwright browser E2E jobs all passed. Documentation was updated after this successful run. The Version 2.0 requirements and SRS/HLD were reviewed as authoritative sources before implementation. No backend API, permission catalogue, authorization rule, database schema, business route or business behavior was changed.
 
-### Acceptance criteria and evidence
+### Acceptance criteria and verified evidence
 
-| Acceptance criterion | Status | Implementation evidence | Test evidence / remaining gate |
+| Acceptance criterion | Status | Implementation evidence | Test evidence |
 |---|---|---|---|
-| Responsive navigation (desktop, tablet, mobile; close after navigation; preserve page state; no horizontal overflow) | PARTIAL — implementation fixed; final exact-commit browser run pending | Existing grouped sidebar retained. Mobile drawer is used at 760px and below. Added a tablet override for 761–1100px because the previous cascade hid both sidebar and toggle. Route changes close the drawer without remounting workspace children. | RTL preserves mounted form state. Playwright marketplace viewport test covers 360, 390, 760, 761, 768, 1024 and 1280px; POS overflow test covers 360, 390, 768, 1024 and 1280px. On parent commit `41ab611a22da49d08a2fd23549b82b55ed150232`, 15 browser tests passed; the only failure was the mobile test's changing accessible-name locator, corrected in `5ce7e37`. Exact-commit rerun pending. |
-| Active location (direct/nested routes, deep links, refresh, parent section, browser history; non-colour indication) | PARTIAL — unit tests pass; exact-commit browser rerun pending | Deepest registered route matching uses segment boundaries and trailing-slash normalization. Parent group and selected page expose “Current section” and “Current page” text in addition to visual styling. | Vitest/RTL covers nested routes, prefix boundaries, direct URLs, unknown routes and parent/page state. Playwright nested-route/active-link assertion is included; exact-commit rerun pending. |
-| Breadcrumbs (Workspace → Section → Page; correct route; navigable parents; no unauthorized locations) | PARTIAL — unit tests pass; exact-commit browser rerun pending | Breadcrumb hierarchy derives from selected route; public discovery routes use public hierarchy without exposing customer-only navigation. Platform breadcrumbs are permission-filtered and URL/hash-backed. | RTL covers public discovery breadcrumbs, permission filtering and platform fragment/history state. Playwright nested route and breadcrumb assertions are included; exact-commit rerun pending. |
-| Accessibility (keyboard order, visible focus, Escape, focus entry/containment/restoration, ARIA/landmarks/labels, WCAG 2.2 AA) | PARTIAL — axe scan passed on prior source commit; exact-commit browser rerun pending | Drawer is a labelled modal dialog with `aria-modal`; focus enters the drawer, Tab is contained, Escape closes it and restores focus, and navigation transfers focus to main content. Muted kicker/subtitle/group-heading colours were darkened to meet contrast. Active state is not colour-only. | RTL covers focus entry, containment, Escape and restoration. Playwright includes mobile focus loop and axe-core WCAG 2.2 AA scans on mobile and desktop. On parent commit `41ab611`, the axe scan passed; final mobile interaction test was blocked only by its selector, fixed in `5ce7e37`. Exact-commit rerun pending. |
-| Permission-aware navigation (effective grants, actor separation, custom roles, fail-closed, revocation, unauthorized absence) | PARTIAL — frontend regression gates pass; exact-commit browser rerun pending | Existing `/auth/me` effective permission flow retained; navigation additionally checks explicit VENDOR/CUSTOMER actor context. Public vendor discovery remains public. Platform boundary requires PLATFORM actor context and platform grant. | Focused tests: 6 files / 55 tests passed. Full frontend: 62 files / 330 tests passed. Tests cover loading/error denial, actor changes, public routes, platform separation and filtered navigation. Playwright includes custom-role permission revocation and unauthorized-route absence; exact-commit rerun pending. |
+| Responsive navigation (desktop, tablet, mobile; close after navigation; preserve page state; no horizontal overflow) | PASS | Existing grouped sidebar retained. Mobile drawer at 760px and below; grouped sidebar remains visible on desktop/tablet. Fixed the 761–1100px CSS cascade that previously hid both sidebar and toggle. Route changes close the drawer without remounting workspace children. | RTL confirms mounted form/page state is preserved. Playwright passed at marketplace widths 360, 390, 760, 761, 768, 1024 and 1280px and POS widths 360, 390, 768, 1024 and 1280px; no horizontal overflow. Mobile drawer navigation and close-after-navigation passed. |
+| Active location (direct/nested routes, deep links, refresh, parent section, browser history; non-colour indication) | PASS | Deepest registered route matching uses segment boundaries and trailing-slash normalization. Parent group and selected page expose “Current section” and “Current page” text in addition to visual styling. | Vitest/RTL route tests passed. Playwright route refresh/history, nested deep-link active-page and parent-section assertions passed. |
+| Breadcrumbs (Workspace → Section → Page; correct route; navigable parents; no unauthorized locations) | PASS | Breadcrumb hierarchy derives from selected route; public discovery routes use public hierarchy without exposing customer-only navigation. Platform breadcrumbs are permission-filtered and URL/hash-backed. | RTL public storefront and platform breadcrumb/history tests passed. Playwright nested route and breadcrumb assertions passed. |
+| Accessibility (keyboard order, visible focus, Escape, focus entry/containment/restoration, ARIA/landmarks/labels, WCAG 2.2 AA) | PASS | Drawer is a labelled modal dialog with `aria-modal`; focus enters the drawer, Tab is contained, Escape closes it and restores focus, and navigation transfers focus to main content. Active state is not colour-only. Drawer kicker/subtitle/group-heading contrast was corrected from axe-core findings. | RTL keyboard/focus tests passed. Playwright mobile focus-loop, Escape and restoration tests passed. Axe-core WCAG 2.2 AA scan passed on both mobile and desktop workspace navigation. This is automated navigation-region evidence, not a whole-application accessibility certification. |
+| Permission-aware navigation (effective grants, actor separation, custom roles, fail-closed, revocation, unauthorized absence) | PASS | Existing `/auth/me` effective permission flow retained; navigation additionally checks explicit VENDOR/CUSTOMER actor context. Public vendor discovery remains public. Platform boundary requires PLATFORM actor context and platform grant. | Focused tests passed for loading/error denial, actor changes, public routes, platform separation and filtered navigation. Playwright custom Sales role, permission revocation, unauthorized route absence, Customer/POS separation and Platform/Vendor separation tests passed. |
 
-### Existing implementation preserved and verified
+### Existing implementation preserved
 
 - Retained `Shell.tsx`, `navigation.ts`, `RouteOutlet.tsx`, `usePermissions.ts`, `PlatformBoundary.tsx` and `PlatformApp.tsx`; no replacement navigation architecture was introduced.
 - Retained existing route IDs, permission IDs, actor contexts and backend authorization.
-- Tablet CSS now explicitly restores the grouped sidebar from 761px through 1100px; phones at 760px and below use the drawer.
+- Tablet CSS explicitly restores the grouped sidebar from 761px through 1100px; phones at 760px and below use the drawer.
 - Drawer contrast was corrected based on axe-core's reported `color-contrast` nodes.
-- The Playwright toggle locator now uses the stable `.workspace-menu-toggle` element because the accessible name intentionally changes from “Open workspace menu” to “Close workspace menu” while open. The test continues to assert both accessible names and `aria-expanded`.
+- The Playwright toggle locator uses the stable `.workspace-menu-toggle` element and asserts the changing accessible name and `aria-expanded` state.
 
-### Validation evidence
+### Final validation results
 
 | Gate | Result |
 |---|---|
 | Focused P3-01 navigation/permission tests | PASS — 6 files, 55 tests |
 | Full frontend Vitest suite | PASS — 62 files, 330 tests |
-| P1-04 frontend permission-regression subset | PASS — focused Shell, navigation, usePermissions, PlatformBoundary, PlatformApp and SessionControls tests; full frontend suite also green |
+| P1-04 frontend permission-regression subset | PASS — focused Shell, navigation, usePermissions, PlatformBoundary, PlatformApp and SessionControls tests |
 | P2-04 frontend authorization registry | PASS — 445 controls inventoried; 27 frontend routes, 41 backend controllers, 74 frontend source files and 63 permission identifiers verified |
-| TypeScript validation | PASS — `npm run build` runs `tsc --noEmit && vite build` |
+| TypeScript validation | PASS — `npm run build` executes `tsc --noEmit && vite build` |
 | Vite production build | PASS |
-| Backend H2 full suite | PASS — 737 tests, 0 failures, 0 errors, 14 skipped; P2-04 static gate passed |
-| Backend MySQL 8.4 full suite | PENDING in exact-commit workflow |
-| Playwright browser suite | PENDING in exact-commit workflow; prior run on parent `41ab611` had 15 passed / 1 failed, solely due to the now-corrected dynamic accessible-name locator |
-| WCAG 2.2 AA axe scan | PASS on parent `41ab611`; exact-commit rerun pending |
+| Backend H2 full suite | PASS — 737 tests, 0 failures, 0 errors, 14 skipped |
+| Backend MySQL 8.4 full suite | PASS — 737 tests, 0 failures, 0 errors, 0 skipped |
+| P2-04 architecture/static authorization gates | PASS — H2 and MySQL 8.4 |
+| Playwright browser suite | PASS — 16/16 Chromium journeys |
+| WCAG 2.2 AA axe scan | PASS — mobile and desktop workspace navigation |
 
-The latest workflow for source/test commit `5ce7e37ac83664ba3349e645edd3e79dca468fa1` is run [#45121686114](https://github.com/rambrij/solar-energy-platform/actions/runs/45121686114). Frontend and H2 jobs have passed; MySQL is still running and Playwright is gated on backend completion.
+The exact-commit Playwright run verified mobile keyboard/drawer navigation, WCAG scan, marketplace and POS responsive overflow, nested deep links, active location, permission revocation, custom-role authorization, Customer/Vendor/Platform separation and existing POS/customer business journeys. The full workflow run [#45121686114](https://github.com/rambrij/solar-energy-platform/actions/runs/45121686114) is green.
 
-**Exit decision:** P3-01 remains **IN PROGRESS**. Do not mark COMPLETE until the Playwright run for the final source/test commit passes mobile keyboard/focus, responsive tablet/desktop/mobile layouts, active route/breadcrumbs, permission revocation and WCAG 2.2 AA scans. No backend or database changes were made, so no backend behavior was introduced by P3-01.
+**Exit decision: P3-01 COMPLETE — VERIFIED.** All applicable P3-01 acceptance criteria passed on source/test commit `5ce7e37ac83664ba3349e645edd3e79dca468fa1`. No backend or database changes were required. P3-02 permission-state consolidation and broader UI action/permission parity remain separate work and are not claimed complete by P3-01.

@@ -394,7 +394,10 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   await page.getByRole('button', { name: 'Sign in securely' }).click();
   expect((await ambiguousLogin).status()).toBe(409);
   await expect(page.getByRole('group', { name: 'Actor context' })).toBeVisible();
-  await page.getByRole('radio', { name: 'Vendor employee' }).check();
+  // The radio input is visually hidden by the styled actor-context control;
+  // click its visible label so the browser follows the real user interaction.
+  await page.locator('label').filter({ hasText: 'Vendor employee' }).click();
+  await expect(page.getByRole('radio', { name: 'Vendor employee' })).toBeChecked();
 
   const vendorLogin = page.waitForResponse(response =>
     response.url().endsWith('/api/v1/auth/login') && response.request().method() === 'POST'

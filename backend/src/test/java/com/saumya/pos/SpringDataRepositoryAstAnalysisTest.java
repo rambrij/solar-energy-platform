@@ -390,13 +390,14 @@ class SpringDataRepositoryAstAnalysisTest {
         if(java.util.regex.Pattern.compile("(?i)\\b(?:auth|authorization|authContext|authorizationContext)\\s*\\.\\s*current\\s*\\(\\s*\\)\\s*\\.\\s*(?:tenant|tenantId)\\s*\\(\\s*\\)").matcher(value).find())return true;
         if(java.util.regex.Pattern.compile("(?i)\\bactiveVendor\\s*\\([^)]*\\)\\s*\\.\\s*id\\s*\\(\\s*\\)").matcher(value).find())return true;
         java.util.regex.Matcher receiver=java.util.regex.Pattern.compile("^\\s*([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*\\(\\s*\\)\\s*$").matcher(value);
-        return receiver.matches()&&trustedVariables.contains(receiver.group(1));
+        if(receiver.matches())return trustedVariables.contains(receiver.group(1));
+        return value.matches("[A-Za-z_$][\\w$]*")&&trustedVariables.contains(value);
     }
 
     private static boolean trustedTenantGuardInvocation(String invocation,Set<String> verifiedLocalGuards){
         String value=invocation.trim();
         String simple=value.substring(value.lastIndexOf('.')+1);
-        if(!simple.equals("requireTenant"))return false;
+        if(!Set.of("requireTenant","requireCustomer").contains(simple))return false;
         if(verifiedLocalGuards.contains(simple))return true;
         return value.matches("(?i)(?:auth|authorization|authContext|authorizationContext)\\.current\\(\\)\\.requireTenant");
     }
@@ -422,9 +423,10 @@ class SpringDataRepositoryAstAnalysisTest {
             Set<String> guards=new HashSet<>();
             for(Tree member:type.getMembers())if(member instanceof MethodTree helper&&helper.getBody()!=null){
                 String body=helper.getBody().toString();
-                if(body.contains("requireTenant(")
-                    &&(body.contains("authorization.current()")||body.contains("auth.current()")
-                        ||body.contains("context.requireTenant(")||body.contains("actor.requireTenant(")))
+                if((body.contains("requireTenant(")||helper.getName().contentEquals("requireCustomer"))
+                    &&(body.contains("authorization.current()")||body.contains("auth.current()"))
+                    &&(!helper.getName().contentEquals("requireCustomer")
+                        ||(body.contains("customers.resolve")&&body.contains("context.username()"))))
                     guards.add(helper.getName().toString());
             }
             for(Tree member:type.getMembers())if(member instanceof MethodTree method)
@@ -458,9 +460,16 @@ class SpringDataRepositoryAstAnalysisTest {
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
                         String invoked=node.getMethodSelect() instanceof MemberSelectTree select
                             ?select.getIdentifier().toString():node.getMethodSelect().toString();
-                        if((trustedTenantGuardInvocation(node.getMethodSelect().toString(),ref.tenantGuardMethods()))
-                            &&!node.getArguments().isEmpty()
-                            &&node.getArguments().get(0) instanceof IdentifierTree id)variables.add(id.getName().toString());
+                        if(trustedTenantGuardInvocation(node.getMethodSelect().toString(),ref.tenantGuardMethods())
+                            &&!node.getArguments().isEmpty()){
+                            ExpressionTree guarded=node.getArguments().get(0);
+                            if(guarded instanceof IdentifierTree id)variables.add(id.getName().toString());
+                            if(invoked.equals("requireCustomer")&&guarded instanceof MethodInvocationTree accessor
+                                &&accessor.getMethodSelect() instanceof MemberSelectTree select
+                                &&select.getIdentifier().contentEquals("customerId")
+                                &&select.getExpression() instanceof IdentifierTree owner)
+                                variables.add(owner.getName().toString());
+                        }
                         if(invoked.equals("requirePlatform")||invoked.equals("requireRead")){
                             variables.add("__platformAuthorizedTenantTarget");
                             for(VariableTree parameter:method.getParameters())
@@ -567,9 +576,10 @@ class SpringDataRepositoryAstAnalysisTest {
                 Set<String> trustedTenantGuardMethods=new HashSet<>();
                 for(Tree member:type.getMembers())if(member instanceof MethodTree helper&&helper.getBody()!=null){
                     String body=helper.getBody().toString();
-                    if(body.contains("requireTenant(")
-                        &&(body.contains("authorization.current()")||body.contains("auth.current()")
-                            ||body.contains("context.requireTenant(")||body.contains("actor.requireTenant(")))
+                    if((body.contains("requireTenant(")||helper.getName().contentEquals("requireCustomer"))
+                        &&(body.contains("authorization.current()")||body.contains("auth.current()"))
+                        &&(!helper.getName().contentEquals("requireCustomer")
+                            ||(body.contains("customers.resolve")&&body.contains("context.username()"))))
                         trustedTenantGuardMethods.add(helper.getName().toString());
                 }
                 new TreeScanner<Void,Void>(){
@@ -603,10 +613,17 @@ class SpringDataRepositoryAstAnalysisTest {
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
                         String invokedName=node.getMethodSelect() instanceof MemberSelectTree selected
                             ?selected.getIdentifier().toString():node.getMethodSelect().toString();
-                        if((trustedTenantGuardInvocation(node.getMethodSelect().toString(),trustedTenantGuardMethods))
-                            &&!node.getArguments().isEmpty()
-                            &&node.getArguments().get(0) instanceof IdentifierTree tenantArgument)
-                            trustedVariables.add(tenantArgument.getName().toString());
+                        if(trustedTenantGuardInvocation(node.getMethodSelect().toString(),trustedTenantGuardMethods)
+                            &&!node.getArguments().isEmpty()){
+                            ExpressionTree guarded=node.getArguments().get(0);
+                            if(guarded instanceof IdentifierTree tenantArgument)
+                                trustedVariables.add(tenantArgument.getName().toString());
+                            if(invokedName.equals("requireCustomer")&&guarded instanceof MethodInvocationTree accessor
+                                &&accessor.getMethodSelect() instanceof MemberSelectTree select
+                                &&select.getIdentifier().contentEquals("customerId")
+                                &&select.getExpression() instanceof IdentifierTree owner)
+                                trustedVariables.add(owner.getName().toString());
+                        }
                         String invocationText=node.getMethodSelect().toString();
                         if(invokedName.equals("requirePlatform")||invokedName.equals("requireRead")
                             ||invocationText.endsWith("PlatformAuthorization.require")){

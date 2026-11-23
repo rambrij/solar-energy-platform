@@ -42,6 +42,8 @@ In **Subscription plans**, select **Revise plan** to start from the current vers
 
 **Overview → Subscriptions by status** shows counts across platform subscription records, including historical statuses when present. `GET /api/v1/platform/dashboard` returns these as `subscriptionStatuses` entries with `status` and `count`. The existing `PLATFORM_ANALYTICS_VIEW` grant is required. The totals contain no tenant, invoice, or payment details.
 
+In **Configuration**, use **Email templates** to save a plain-text subject and body, or choose **Edit template** beside a saved template. Template editing does not send email. Use **Payment providers** to record vendor and subscription provider names separately and to store a reference for the platform subscription credential. The API redacts the credential reference on reads. These settings do not enable a gateway or change the checkout adapter. The vendor mock adapter is controlled by the existing local/test deployment flag.
+
 If a disposable local database was seeded before the tenant-view, configuration, and identity grants were added, use the clean database reset above. The seed callback applies when Flyway installs V1 and does not rewrite permissions at every restart.
 
 ## Vendor employee credentials

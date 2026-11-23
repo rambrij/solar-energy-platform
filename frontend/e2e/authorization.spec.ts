@@ -98,6 +98,14 @@ test('Platform Super Admin: platform workspace works and vendor POS context is r
   await expect(page.getByText('Saumya Solar Rooftops', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^Configuration/ }).click();
   await expect(page.getByRole('heading', { name: 'Global platform configuration' })).toBeVisible();
+  await page.getByLabel('Category').selectOption('EMAIL_TEMPLATE');
+  await page.getByLabel('Template key').fill('E2E_NOTICE');
+  await page.getByLabel('Email subject').fill('Platform notice');
+  await page.getByLabel('Email body').fill('Platform maintenance notice.');
+  await page.getByRole('button', { name: 'Save configuration' }).click();
+  await expect(page.getByText('EMAIL_TEMPLATE.E2E_NOTICE', { exact: true })).toBeVisible();
+  await page.getByRole('row').filter({ hasText: 'EMAIL_TEMPLATE.E2E_NOTICE' }).getByRole('button', { name: 'Edit template' }).click();
+  await expect(page.getByLabel('Email subject')).toHaveValue('Platform notice');
   await expect(page.getByRole('button', { name: /^Platform identities/ })).toBeVisible();
   await page.goto('/vendor/pos');
   await expect(page.getByRole('alert')).toContainText('Access denied');

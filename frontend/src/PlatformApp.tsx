@@ -12,6 +12,10 @@ type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVer
 type AuditPage={items:{id:number;actor:string;action:string;resourceType:string;resourceId:string|null;tenantId:number|null;reason:string|null;occurredAt:string}[]};
 type StatusCount={status:string;count:number};
 type Dashboard={tenantStatuses:StatusCount[];subscriptionStatuses:StatusCount[]};
+type PlatformSetting={key:string;category:string;value:string|null;sensitive:boolean;secretConfigured:boolean;updatedBy:string;updatedAt:string};
+const emptyConfigForm={key:'',category:'INTEGRATION',value:'',sensitive:false,secretReference:''};
+const emailTemplatePrefix='EMAIL_TEMPLATE.';
+const subscriptionCredentialKey='PAYMENT_PROVIDER.SUBSCRIPTION.CREDENTIAL_REFERENCE';
 type SupportGrant={id:number;tenantId:number;actor:string;purpose:string;ticketReference:string;expiresAt:string;active:boolean;revokedAt?:string|null};
 const emptyPlanForm={planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'};
 
@@ -49,7 +53,7 @@ export default function PlatformApp(){
  const [plans,setPlans]=useState<Plan[]>([]);
  const [audit,setAudit]=useState<AuditPage>({items:[]});
  const [support,setSupport]=useState<SupportGrant[]>([]);
- const [settings,setSettings]=useState<any[]>([]);
+ const [settings,setSettings]=useState<PlatformSetting[]>([]);
  const [reason,setReason]=useState(''),[invite,setInvite]=useState('');
  const [tenantForm,setTenantForm]=useState({slug:'',name:'',legalName:'',contactEmail:'',contactPhone:'',taxIdentifier:'',address:'',initialVendorAdminUsername:''});
  const [planForm,setPlanForm]=useState(emptyPlanForm);
@@ -57,7 +61,8 @@ export default function PlatformApp(){
  const [revokingGrant,setRevokingGrant]=useState<SupportGrant|null>(null);
  const [revokeReason,setRevokeReason]=useState('');
  const [supportForm,setSupportForm]=useState({tenantId:'',purpose:'',ticketReference:'',expiresAt:''});
- const [configForm,setConfigForm]=useState({key:'',category:'INTEGRATION',value:'',sensitive:false,secretReference:''});
+ const [configForm,setConfigForm]=useState(emptyConfigForm);
+ const [emailTemplate,setEmailTemplate]=useState({subject:'',body:''});
 
  const load=useCallback(async(target:Page)=>{
   setError('');
@@ -164,8 +169,23 @@ export default function PlatformApp(){
  }
  async function saveConfig(event:FormEvent){
   event.preventDefault();
-  await run(()=>platformApi('/configuration','PUT',configForm),'Global configuration reference saved.');
-  setConfigForm({key:'',category:'INTEGRATION',value:'',sensitive:false,secretReference:''});
+  if(!can('PLATFORM_CONFIG_MANAGE'))return;
+  const body=configForm.category==='EMAIL_TEMPLATE'
+   ?{...configForm,key:emailTemplatePrefix+configForm.key,value:JSON.stringify(emailTemplate)}
+   :configForm;
+  await run(async()=>{
+   await platformApi('/configuration','PUT',body);
+   setConfigForm(emptyConfigForm);
+   setEmailTemplate({subject:'',body:''});
+  },'Global configuration saved.');
+ }
+ function editEmailTemplate(setting:PlatformSetting){
+  try{
+   const {subject,body}=JSON.parse(setting.value??'null');
+   if(typeof subject!=='string'||typeof body!=='string')throw new Error();
+   setEmailTemplate({subject,body});
+   setConfigForm({...emptyConfigForm,key:setting.key.slice(emailTemplatePrefix.length),category:'EMAIL_TEMPLATE'});
+  }catch{setError('The saved email template could not be opened.');}
  }
  const lifecycleActions=(tenant:Tenant)=>{
   const actions=tenant.lifecycleStatus==='PENDING'?['UNDER_REVIEW','CLOSED']:
@@ -266,12 +286,32 @@ export default function PlatformApp(){
     </>}
     {page==='identities'&&<PlatformIdentityAdmin/>}
     {page==='configuration'&&<><section className="platform-panel"><h2>Global platform configuration</h2><p>Secret values are never accepted. Sensitive settings require a reference to an external secret manager.</p><form className="platform-form-grid" onSubmit={saveConfig}>
-      <label>Configuration key<input required value={configForm.key} onChange={e=>setConfigForm({...configForm,key:e.target.value.toUpperCase()})}/></label>
-      <label>Category<select value={configForm.category} onChange={e=>setConfigForm({...configForm,category:e.target.value})}><option>INTEGRATION</option><option>EMAIL</option><option>PAYMENT</option><option>PLATFORM</option></select></label>
-      <label><input type="checkbox" checked={configForm.sensitive} onChange={e=>setConfigForm({...configForm,sensitive:e.target.checked,value:''})}/> Sensitive secret reference</label>
-      {configForm.sensitive?<label>Secret manager reference<input required value={configForm.secretReference} onChange={e=>setConfigForm({...configForm,secretReference:e.target.value})} placeholder="vault://path/to/secret"/></label>:<label className="platform-wide">Non-sensitive value<textarea required value={configForm.value} onChange={e=>setConfigForm({...configForm,value:e.target.value})}/></label>}
+      <label>Category<select value={configForm.category} onChange={e=>setConfigForm({...emptyConfigForm,category:e.target.value})}>
+       <option value="PLATFORM">Global technical settings</option><option value="INTEGRATION">Integration adapter settings</option>
+       <option value="EMAIL_TEMPLATE">Email templates</option><option value="PAYMENT_PROVIDER">Payment providers</option>
+       <option value="EMAIL">Email delivery settings</option><option value="PAYMENT">General payment settings</option>
+      </select></label>
+      {configForm.category==='EMAIL_TEMPLATE'?<>
+       <label>Template key<input required maxLength={80} pattern="[A-Z][A-Z0-9_-]{1,79}" value={configForm.key} onChange={e=>setConfigForm({...configForm,key:e.target.value.toUpperCase()})}/></label>
+       <label>Email subject<input required maxLength={200} value={emailTemplate.subject} onChange={e=>setEmailTemplate({...emailTemplate,subject:e.target.value})}/></label>
+       <label className="platform-wide">Email body<textarea required maxLength={6000} value={emailTemplate.body} onChange={e=>setEmailTemplate({...emailTemplate,body:e.target.value})}/></label>
+      </>:<>
+       {configForm.category==='PAYMENT_PROVIDER'?<>
+        <label>Payment setting<select required value={configForm.key} onChange={e=>setConfigForm({...emptyConfigForm,category:'PAYMENT_PROVIDER',key:e.target.value,sensitive:e.target.value===subscriptionCredentialKey})}>
+         <option value="">Choose a setting</option>
+         <option value="PAYMENT_PROVIDER.VENDOR.NAME">Vendor payment provider name</option>
+         <option value="PAYMENT_PROVIDER.SUBSCRIPTION.NAME">Subscription payment provider name</option>
+         <option value={subscriptionCredentialKey}>Subscription payment credential reference</option>
+        </select></label>
+        <p className="platform-wide">Saved payment settings do not activate payment processing. Vendor merchant credentials are tenant-owned.</p>
+       </>:<>
+        <label>Configuration key<input required value={configForm.key} onChange={e=>setConfigForm({...configForm,key:e.target.value.toUpperCase()})}/></label>
+        <label><input type="checkbox" checked={configForm.sensitive} onChange={e=>setConfigForm({...configForm,sensitive:e.target.checked,value:'',secretReference:''})}/> Sensitive secret reference</label>
+       </>}
+       {configForm.sensitive?<label>Secret manager reference<input required value={configForm.secretReference} onChange={e=>setConfigForm({...configForm,secretReference:e.target.value})} placeholder="vault://path/to/secret"/></label>:<label className="platform-wide">Non-sensitive value<textarea required value={configForm.value} onChange={e=>setConfigForm({...configForm,value:e.target.value})}/></label>}
+      </>}
       <div className="platform-form-actions"><button disabled={busy}>Save configuration</button></div></form></section>
-     <section className="platform-panel"><h2>Saved configuration</h2><div className="platform-table-wrap"><table><thead><tr><th>Key</th><th>Category</th><th>Value</th><th>Updated by</th><th>Updated</th></tr></thead><tbody>{settings.map(s=><tr key={s.key}><td>{s.key}</td><td>{s.category}</td><td>{s.sensitive?(s.secretConfigured?'Configured secret reference':'Not configured'):(s.value??'—')}</td><td>{s.updatedBy}</td><td>{new Date(s.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div></section></>}
+     <section className="platform-panel"><h2>Saved configuration</h2><div className="platform-table-wrap"><table><thead><tr><th>Key</th><th>Category</th><th>Value</th><th>Updated by</th><th>Updated</th><th>Actions</th></tr></thead><tbody>{settings.map(s=><tr key={s.key}><td>{s.key}</td><td>{s.category}</td><td>{s.sensitive?(s.secretConfigured?'Configured secret reference':'Not configured'):(s.value??'—')}</td><td>{s.updatedBy}</td><td>{new Date(s.updatedAt).toLocaleString()}</td><td>{s.category==='EMAIL_TEMPLATE'&&<button type="button" className="secondary" onClick={()=>editEmailTemplate(s)}>Edit template</button>}</td></tr>)}</tbody></table></div></section></>}
    </main>
   </div>
  </div>;

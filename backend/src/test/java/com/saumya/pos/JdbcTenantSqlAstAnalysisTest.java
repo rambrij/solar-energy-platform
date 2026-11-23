@@ -70,6 +70,44 @@ class JdbcTenantSqlAstAnalysisTest {
         String masked=maskSqlLiteralsAndComments(sql.substring(0,Math.min(before,sql.length())));
         return (int)masked.chars().filter(ch->ch=='?').count();
     }
+    private static boolean hasConjunctiveTenantScope(String sql) {
+        String masked=maskSqlLiteralsAndComments(sql);
+        java.util.regex.Matcher where=java.util.regex.Pattern.compile("(?i)\bwhere\b").matcher(masked);
+        if(!where.find())return false;
+        int start=where.end(),end=masked.length(),depth=0,cursor=start;
+        java.util.regex.Matcher words=java.util.regex.Pattern.compile("[A-Za-z_]+").matcher(masked);
+        words.region(start,masked.length());
+        boolean topLevelOr=false;
+        while(words.find()){
+            String word=words.group().toLowerCase(java.util.Locale.ROOT);
+            int position=words.start();
+            for(int i=cursor;i<position;i++){
+                char ch=masked.charAt(i);
+                if(ch=='(')depth++;
+                else if(ch==')')depth=Math.max(0,depth-1);
+            }
+            if(depth==0&&java.util.Set.of("group","order","having","limit","offset","fetch","returning","for").contains(word)){
+                end=position;break;
+            }
+            if(depth==0&&word.equals("or"))topLevelOr=true;
+            cursor=words.end();
+        }
+        if(topLevelOr)return false;
+        String whereClause=masked.substring(start,end);
+        java.util.regex.Matcher scopes=java.util.regex.Pattern.compile(
+            "(?i)(?:\b[a-z_][a-z0-9_]*\.)?tenant_id\s*=\s*\?")
+            .matcher(whereClause);
+        while(scopes.find()){
+            int localDepth=0;
+            for(int i=0;i<scopes.start();i++){
+                char ch=whereClause.charAt(i);
+                if(ch=='(')localDepth++;
+                else if(ch==')')localDepth=Math.max(0,localDepth-1);
+            }
+            if(localDepth==0)return true;
+        }
+        return false;
+    }
     private static boolean tenantPredicate(String sql) {
         String searchable=maskSqlLiteralsAndComments(sql);
         return java.util.regex.Pattern.compile("(?is)(?:where|and|on)\\s+(?:[a-z_][a-z0-9_]*\\.)?tenant_id\\s*=\\s*\\?")
@@ -291,7 +329,7 @@ class JdbcTenantSqlAstAnalysisTest {
                             assertThat(sql).as("JDBC SQL must be a literal or constant expression, never runtime concatenation: %s",node).isNotNull();
                             String normalized=sql.replaceAll("\\s+"," ").trim();
                             observedSqlSites.add(className+"#"+methodName+" "+Integer.toHexString(normalized.hashCode()));
-                            boolean scoped=tenantPredicate(sql)||tenantInsert(sql);
+                            boolean scoped=hasConjunctiveTenantScope(sql)||tenantInsert(sql);
                             if(!scoped) {
                                 assertThat(platformTenantSelector(sql))
                                     .as("unscoped JDBC SQL requires an explicitly platform-owned tenant-directory selector: %s",node).isTrue();
@@ -536,6 +574,16 @@ class JdbcTenantSqlAstAnalysisTest {
         assertThat(jdbcReceiverNames("void run(NamedParameterJdbcTemplate tenantSql){}")).contains("tenantSql");
         assertThat(jdbcReceiverNames("JdbcOperations operations;")).contains("operations");
         assertThat(jdbcReceiverNames("String queryClient;")).doesNotContain("queryClient");
+    }
+
+    @Test
+    void jdbcSqlScopeMustRemainConjunctiveAndCannotBeBypassedByOrBranches() {
+        assertThat(hasConjunctiveTenantScope("SELECT * FROM rows WHERE tenant_id=? AND status=?")).isTrue();
+        assertThat(hasConjunctiveTenantScope("SELECT * FROM rows WHERE tenant_id=? OR status='PUBLIC'")).isFalse();
+        assertThat(hasConjunctiveTenantScope("SELECT * FROM rows WHERE (tenant_id=? AND status=?) OR is_public=1")).isFalse();
+        assertThat(hasConjunctiveTenantScope("SELECT * FROM rows WHERE tenant_id=? AND (name LIKE ? OR sku LIKE ?)")).isTrue();
+        assertThat(hasConjunctiveTenantScope("SELECT * FROM rows WHERE note='tenant_id=?' AND status=?")).isFalse();
+        assertThat(hasConjunctiveTenantScope("SELECT * FROM rows WHERE status=? /* OR tenant_id=? */")).isFalse();
     }
 
     @Test

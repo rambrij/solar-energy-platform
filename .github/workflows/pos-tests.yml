@@ -198,6 +198,24 @@ jobs:
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
         run: mvn -B -f backend/pom.xml test
+      - name: Export clean MySQL 8.4 final schema for baseline consolidation
+        if: matrix.database == 'mysql'
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_id="$(docker ps --filter 'ancestor=mysql:8.4' --format '{{.ID}}' | head -n 1)"
+          test -n "$container_id"
+          mkdir -p backend/target/schema-baseline
+          docker exec "$container_id" sh -lc "mysqldump --no-data --triggers --skip-comments --compact --skip-add-drop-table --skip-add-locks --skip-set-charset --no-tablespaces -uroot -pdisposable-test-password solar_test" > backend/target/schema-baseline/mysql-8.4-final-schema.sql
+          test -s backend/target/schema-baseline/mysql-8.4-final-schema.sql
+      - name: Upload MySQL 8.4 final schema snapshot
+        if: matrix.database == 'mysql'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mysql-8.4-final-schema-snapshot
+          path: backend/target/schema-baseline/mysql-8.4-final-schema.sql
+          if-no-files-found: error
+          retention-days: 1
       - name: Generate complete P0-06 endpoint and actor report
         if: always()
         run: python backend/scripts/generate-p0-06-runtime-report.py

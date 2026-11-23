@@ -44,6 +44,8 @@ public class CartService {
     public Cart cart(long customer){requireCustomer(customer);customers.lock(customer);return view(active(customer));}
     private Cart view(ShoppingCart cart){
         if(cart==null)return new Cart(null,null,null,List.of(),BigDecimal.ZERO,false,PAYMENT_GATE);
+        // Revalidate ownership at the helper boundary before using the persisted cart tenant.
+        requireCustomer(cart.customerId());
         requireFeature(cart.tenantId(),"CATALOG",false);
         var vendor=catalogue.vendor(cart.tenantId());var lines=new ArrayList<CartLine>();BigDecimal total=BigDecimal.ZERO;
         for(var item:items.items(cart.tenantId(),cart.id())){

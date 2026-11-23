@@ -1,9 +1,19 @@
-import {authenticatedFetch} from './session';
+import {authenticatedFetch, sessionGeneration} from './session';
 import {jsonRequestOptions, readJsonResponse} from './jsonRequest';
-let csrf='';
 export class ApiError extends Error {constructor(public status:number,public code?:string,detail?:string){super(detail??`Request failed (${status}).`);}}
+
+async function requestCsrfToken(): Promise<string> {
+ const response=await authenticatedFetch('/api/v1/auth/csrf',{credentials:'same-origin',cache:'no-store'});
+ if(!response.ok)throw new ApiError(response.status);
+ const value=await response.json();
+ if(typeof value?.token!=='string'||!value.token)throw new Error('The CSRF token response was invalid.');
+ return value.token;
+}
+
 async function request(url:string,method:string,body?:unknown,key?:string){
- if(body!==undefined&&!csrf){const response=await authenticatedFetch('/api/v1/auth/csrf',{credentials:'same-origin'});if(!response.ok)throw new ApiError(response.status);csrf=(await response.json()).token;}
+ const current=sessionGeneration();
+ const csrf=/^(GET|HEAD|OPTIONS|TRACE)$/i.test(method)?undefined:await requestCsrfToken();
+ if(current!==sessionGeneration())throw new Error('The session changed before the request could be sent.');
  const response=await authenticatedFetch(url,{method,...jsonRequestOptions(body,csrf,key)});
  return readJsonResponse(response,ApiError,true);
 }

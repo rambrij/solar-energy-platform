@@ -41,6 +41,7 @@ function publish(status:SessionStatus,account:Account|null=null,error:Error|null
 }
 function subscribe(listener:()=>void){listeners.add(listener);return()=>{listeners.delete(listener);};}
 export function useSession(){return useSyncExternalStore(subscribe,()=>snapshot,()=>snapshot);}
+export function sessionGeneration(){return generation;}
 
 function asError(value:unknown,fallback='The authenticated session could not be verified.'){
  return value instanceof Error?value:new Error(fallback);

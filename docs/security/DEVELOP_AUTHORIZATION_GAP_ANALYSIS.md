@@ -24,7 +24,7 @@ The main gap is not the absence of RBAC primitives. It is the absence of complet
 2. Tenant ownership is enforced in several high-risk paths (POS, checkout, product administration and customer order history), but the reviewed evidence does not establish that every tenant-owned service, repository, native query, report, export, cache, document and background path is consistently scoped.
 3. POS branch/register assignment and V50 designated stock-room constraints are implemented. Run #44154621853 passed focused P0-05/P0-04 H2/MySQL and frontend but full suites failed on stale fixtures. Commit `a83e8f566a341790c30c4d0b51e45dd00110af45` corrected missing branch register/open-session setup and closed-session retry expectations. Commit `91c8c38c6cc29a6c0a869b8d451b2e732d92788f` corrected method inventory; run #44765691433 passed focused P0-05, focused P0-04, service-boundary and frontend tests on both lanes. Both full backend suites ran 591 tests with zero assertion failures and one error, caused by duplicate register ID 3 in the refund-report test fixture after `refundSession` had already created it. The fixture now uses register ID 4; rerun required before completion.
 4. **P0-04 current status: PASS for all currently implemented resource families.** The current branch-head workflow [#1650](https://github.com/rambrij/solar-energy-platform/actions/runs/45032670785) on `2929fd19db0055f36d2d79dd5fc572a0d4c34760` completed successfully: H2 backend, MySQL 8.4 backend, frontend and Playwright/MySQL browser E2E jobs all succeeded. The workflow executes `P004TenantIsolationTest` independently on H2 and MySQL before the full suites. The focused fixture and existing PosTest API/database coverage remain the evidence base. This supersedes the earlier pending/unverified note above; future/unimplemented resource domains remain NOT APPLICABLE until introduced.
-5. Browser-level direct-route and action-permission coverage is not established. The frontend uses Vitest and a permission-aware shell; Playwright is not in the frontend package dependencies.
+5. Browser-level authorization coverage is now present: the final Playwright/MySQL 8.4 workflow ran 11 browser journeys successfully. This is browser regression evidence for the implemented journeys, not a substitute for the generated all-protected-endpoint runtime authorization report or the frontend control/action registry.
 6. **Resolved:** legacy employee grants are no longer a runtime source. Membership permissions come exclusively from active tenant role assignments; V49 removes the obsolete table and V45-generated synthetic roles.
 
 No implementation requirement is marked PASS merely because a corresponding class, route, entity or migration exists. PASS is reserved for a complete validated implementation path; the statuses below are conservative. P0-04 is verified on the current branch head by workflow #45032670785 (H2, MySQL 8.4, frontend and Playwright jobs all successful); see §6.1 and the P0-04 implementation plan for the bounded resource-family scope.
@@ -591,3 +591,34 @@ The latest implementation adds JDK AST parsing for declared Spring Data queries 
 Focused P2-04 H2 and MySQL 8.4 gates passed on commit `e715b70f8aeddb0b89a80273270caa0bb82b9a22`. Later frontend changes address the mismatches found by the API-action scanner and are still undergoing CI verification.
 
 **Decision: IN PROGRESS.** Full H2/MySQL suites, the newest frontend test/build, P0/P1 regression gates, Playwright authorization tests, full interprocedural provenance and exhaustive local/delegated UI-control inventory are still required before acceptance.
+
+
+## 2026-11-23 — Final authorization/static-analysis acceptance update
+
+**Final tested code snapshot:** `f429125f8e3f20c712e5a6b921687069e032c016` on `feature/develop-authorization-gap-analysis`. GitHub Actions [#45108345529](https://github.com/rambrij/solar-energy-platform/actions/runs/45108345529) completed with overall conclusion **SUCCESS**. This dated update supersedes the earlier P2-04 entries above that describe implementation or validation as pending; those entries are retained as historical progress records.
+
+### P2-04 — COMPLETE for the current repository inventory
+
+- Operation-level authorization policy registry, architecture rules, service-method inventory and their negative fixtures passed.
+- Trusted tenant provenance and JDBC SQL AST analysis passed (10/10 focused tests on H2 and 10/10 on MySQL 8.4). Repository access analysis passed 14/14 and Spring Data/JPA AST analysis passed 11/11 on both database lanes. These checks cover the current discovered repository/query inventory, declared `@Query` value/countQuery, derived query rules, scope parameter binding, top-level Boolean bypasses, dynamic query guardrails, inherited unsafe bulk methods, `findById` call sites and trusted tenant-binding flows.
+- Frontend generated inventory: 443 controls — 239 LOCAL_ONLY, 21 DELEGATED_HELPER, 154 BACKEND_ACTION and 29 DELEGATED_CALLBACK. The API action registry contains 140 action records and 72 backend-facing button/form triggers, alongside 3 menus, 9 submenu groups, 27 workspace routes and 8 platform tabs. CI verified route/controller/permission parity across 74 frontend source files, 41 backend controllers and 63 permission identifiers.
+- Negative fixtures for forged/client-origin tenant values and aliases, unsafe SQL shapes/dynamic construction, repository query scope bypasses and frontend authorization classification/parity failures passed their focused gates.
+- Exact-commit CI: H2 737 tests (0 failures/errors; 14 skipped); MySQL 8.4 737 tests (0 failures/errors/skips); frontend 62 test files / 315 tests; TypeScript/Vite production build passed; Playwright browser authorization journeys 11/11 passed. Focused P2-04 and P0-02 gates passed on both database lanes.
+
+### Current status disposition
+
+| Area | Status at tested commit | Notes |
+|---|---|---|
+| P0-04 tenant/customer isolation | PASS for currently implemented resource families | Future/unimplemented resource families remain outside current scope until introduced. |
+| P0-05 POS branch/register/session scope | Regression gates PASS for current implemented POS paths | Keep assignment/session tests in the required suite. |
+| P0-06 runtime authorization matrix | PASS for current live protected endpoint inventory | 146 live endpoint rows; 41/41 actor scenarios; 18/18 actor-context cases; 130 missing-permission checks; 131 anonymous checks; 66 VIEW-only mutation denials; zero protected routes without persisted matching-actor evidence; one explicitly NOT APPLICABLE resource row. |
+| P0-07 actor-context separation | PASS | 18/18 actor-context acceptance cases passed on H2 and MySQL 8.4. |
+| P1-03 permission catalogue/SRS parity | PASS | Latest full workflow reran the permission registry and DB parity gates. |
+| P1-04 frontend route/action permission parity | PASS for the current registered frontend surface | 443-control inventory and action-to-backend registry checks passed. |
+| P2-01 Playwright browser authorization | PASS | 11 browser journeys passed against MySQL 8.4. |
+| P2-03 documents/exports/background paths | PASS for currently implemented runtime paths | Absent cache/object-store/outbox/queue infrastructure remains NOT APPLICABLE, not implemented. |
+| P2-04 architecture/static authorization | COMPLETE — VERIFIED | Evidence and current-inventory scope are recorded above and in the implementation plan. |
+| P0-02 service-boundary authorization | IN PROGRESS — NOT ACCEPTANCE-COMPLETE | Expanded gate passed, but INV-SVC-008's uniform direct-denial/no-side-effect coverage for every remaining public service method remains open; see `SERVICE_BOUNDARY_AUTHORIZATION_INVENTORY.md`. Do not promote P0-02 to PASS until its explicit criteria close. |
+| P2-02 exhaustive schema/migration contracts | IN PROGRESS | Earlier assessment still has open exhaustive schema-derived tenant table/constraint inventory, UTC/optimistic-lock and branch-protection verification. The green general workflow does not itself close those independent checks. |
+
+**Important scope limit:** P2-04 acceptance is for the code and inventories present on the tested commit. AST/static analyzers are regression guards over discovered and explicitly inventoried constructs; they are not a mathematical proof for arbitrary future Java call graphs, SQL builders or UI controls. New repositories, SQL/JPA query paths, JDBC consumers, helper/service boundaries and frontend controls must extend the inventories and negative fixtures. A successful configured CI run does not erase separately tracked acceptance blockers such as INV-SVC-008 or P2-02.

@@ -35,18 +35,18 @@ class SpringDataRepositoryAstAnalysisTest {
         char quote=0;boolean lineComment=false,blockComment=false,escaped=false;
         for(int i=0;i<query.length();i++){
             char ch=query.charAt(i),next=i+1<query.length()?query.charAt(i+1):0;
-            if(lineComment){masked.append(ch=='\\n'||ch=='\\r'?ch:' ');if(ch=='\\n'||ch=='\\r')lineComment=false;continue;}
-            if(blockComment){masked.append(ch=='\\n'||ch=='\\r'?ch:' ');if(ch=='*'&&next=='/'){masked.append(' ');i++;blockComment=false;}continue;}
+            if(lineComment){masked.append(ch=='\n'||ch=='\r'?ch:' ');if(ch=='\n'||ch=='\r')lineComment=false;continue;}
+            if(blockComment){masked.append(ch=='\n'||ch=='\r'?ch:' ');if(ch=='*'&&next=='/'){masked.append(' ');i++;blockComment=false;}continue;}
             if(quote!=0){
-                masked.append(ch=='\\n'||ch=='\\r'?ch:' ');
+                masked.append(ch=='\n'||ch=='\r'?ch:' ');
                 if(escaped){escaped=false;continue;}
-                if(ch=='\\\\'){escaped=true;continue;}
+                if(ch=='\\'){escaped=true;continue;}
                 if(ch==quote){if(next==quote){masked.append(' ');i++;}else quote=0;}
                 continue;
             }
             if(ch=='-'&&next=='-'){masked.append("  ");i++;lineComment=true;continue;}
             if(ch=='/'&&next=='*'){masked.append("  ");i++;blockComment=true;continue;}
-            if(ch=='\\''||ch=='"'||ch=='`'){quote=ch;masked.append(' ');continue;}
+            if(ch=='\''||ch=='"'||ch==((char)96)){quote=ch;masked.append(' ');continue;}
             masked.append(ch);
         }
         return masked.toString();

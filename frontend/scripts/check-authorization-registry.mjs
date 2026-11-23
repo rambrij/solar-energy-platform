@@ -198,7 +198,7 @@ for(const button of actionRegistry.buttons){
 }
 
 const backendControlHelpers=new Set([
- 'api','vendorApi','platformApi','marketplaceApi','authPost','authApi','authenticatedFetch','fetch',
+ 'api','vendorApi','platformApi','marketplaceApi','authPost','authenticatedFetch','fetch',
  'signIn','switchActorContext','signOut'
 ]);
 const localControlHelpers=new Set([

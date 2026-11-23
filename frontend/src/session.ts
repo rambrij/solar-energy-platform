@@ -5,6 +5,7 @@ export type Account={
  username:string;
  tenantId:number|null;
  branchId:number|null;
+ membershipId:string|null;
  permissions:string[];
  actorType:ActorType;
  availableActorTypes?:ActorType[];
@@ -98,7 +99,7 @@ function authorizedHeaders(source?:HeadersInit){
  * Login/refresh/context responses contribute only a short-lived token and
  * non-authorizing context-switch display metadata.
  */
-async function loadAuthoritativeAccount(availableActorTypes?:ActorType[]):Promise<Account>{
+async function loadAuthoritativeAccount():Promise<Account>{
  const response=await fetch('/api/v1/auth/me',{
   method:'GET',credentials:'same-origin',cache:'no-store',
   headers:authorizedHeaders()
@@ -112,27 +113,26 @@ async function loadAuthoritativeAccount(availableActorTypes?:ActorType[]):Promis
  const permissions=[...new Set(value.permissions as string[])];
  const tenantId=value.tenantId==null?null:Number(value.tenantId);
  const branchId=value.branchId==null?null:Number(value.branchId);
+ const membershipId=value.membershipId==null?null:String(value.membershipId);
  if((tenantId!==null&&!Number.isSafeInteger(tenantId))||(branchId!==null&&!Number.isSafeInteger(branchId))){
   throw new AuthError(403,'The server returned invalid actor scope.');
  }
 
  // Reject mixed actor grants and malformed scope instead of trying to infer or repair it.
- if(value.actorType==='PLATFORM'&&(tenantId!==null||branchId!==null||permissions.some(p=>!p.startsWith('PLATFORM_')))){
+ if(value.actorType==='PLATFORM'&&(tenantId!==null||branchId!==null||membershipId!==null||permissions.some(p=>!p.startsWith('PLATFORM_')))){
   throw new AuthError(403,'Platform permissions and scope must remain isolated.');
  }
- if(value.actorType==='VENDOR'&&(tenantId===null||permissions.some(p=>p==='CUSTOMER'||p.startsWith('PLATFORM_')))){
+ if(value.actorType==='VENDOR'&&(tenantId===null||membershipId===null||membershipId.length===0||permissions.some(p=>p==='CUSTOMER'||p.startsWith('PLATFORM_')))){
   throw new AuthError(403,'Vendor permissions require one active vendor tenant context.');
  }
- if(value.actorType==='CUSTOMER'&&(tenantId!==null||branchId!==null||!permissions.includes('CUSTOMER')||
-    permissions.some(p=>p.startsWith('PLATFORM_')))){
+ if(value.actorType==='CUSTOMER'&&(tenantId!==null||branchId!==null||membershipId!==null||permissions.length!==1||permissions[0]!=='CUSTOMER')){
   throw new AuthError(403,'Customer permissions and scope must remain isolated.');
  }
 
- const suppliedActors=Array.isArray(value.availableActorTypes)?value.availableActorTypes:availableActorTypes;
- const validActors=Array.isArray(suppliedActors)?suppliedActors.filter(validActorType):[];
+ const validActors=Array.isArray(value.availableActorTypes)?value.availableActorTypes.filter(validActorType):[];
  if(!validActors.includes(value.actorType))validActors.push(value.actorType);
  return {
-  username:value.username,tenantId,branchId,permissions,actorType:value.actorType,
+  username:value.username,tenantId,branchId,membershipId,permissions,actorType:value.actorType,
   availableActorTypes:[...new Set(validActors)]
  };
 }
@@ -156,8 +156,7 @@ export function restoreSession(){
    if(current!==generation)return false;
    if(typeof value.accessToken!=='string'||!value.accessToken)throw new Error('The refresh response did not contain an access token.');
    token=value.accessToken;
-   const availableActors=value.account?.availableActorTypes as ActorType[]|undefined;
-   const account=await loadAuthoritativeAccount(availableActors);
+   const account=await loadAuthoritativeAccount();
    if(current!==generation)return false;
    publish('authenticated',account);
    return true;

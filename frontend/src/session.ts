@@ -8,7 +8,7 @@ export type Account={
  membershipId:string|null;
  permissions:string[];
  actorType:ActorType;
- availableActorTypes?:ActorType[];
+ availableActorTypes:ActorType[];
 };
 export type SessionStatus='loading'|'authenticated'|'anonymous'|'error';
 export type SessionSnapshot={
@@ -191,8 +191,7 @@ export async function signIn(
   if(current!==generation)throw Error('Sign-in superseded');
   if(typeof value.accessToken!=='string'||!value.accessToken)throw new Error('The sign-in response did not contain an access token.');
   token=value.accessToken;
-  const availableActors=value.account?.availableActorTypes as ActorType[]|undefined;
-  const account=await loadAuthoritativeAccount(availableActors);
+  const account=await loadAuthoritativeAccount();
   if(current!==generation)throw Error('Sign-in superseded');
   publish('authenticated',account);
  }catch(error){
@@ -211,8 +210,7 @@ export async function switchActorContext(actorType:Exclude<ActorType,'PLATFORM'>
   if(current!==generation)throw Error('Context switch superseded');
   if(typeof value.accessToken!=='string'||!value.accessToken)throw new Error('The context-switch response did not contain an access token.');
   token=value.accessToken;
-  const availableActors=value.account?.availableActorTypes as ActorType[]|undefined;
-  const account=await loadAuthoritativeAccount(availableActors);
+  const account=await loadAuthoritativeAccount();
   if(current!==generation)throw Error('Context switch superseded');
   if(account.actorType!==actorType)throw new AuthError(403,'The server did not activate the requested actor context.');
   publish('authenticated',account);

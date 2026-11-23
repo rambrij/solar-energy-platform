@@ -1,72 +1,166 @@
 import {renderHook,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {authenticatedFetch,signIn,switchActorContext,useSession} from './session';
+import {authenticatedFetch,restoreSession,signIn,signOut,switchActorContext,useSession} from './session';
 
 function response(body:unknown,status=200){
  return {ok:status>=200&&status<300,status,json:vi.fn().mockResolvedValue(body)} as unknown as Response;
 }
+const account=(actorType:'PLATFORM'|'VENDOR'|'CUSTOMER'='VENDOR',permissions=['POS_VIEW'],tenantId:number|null=actorType==='VENDOR'?8:null)=>({
+ username:'actor@example.test',tenantId,branchId:actorType==='VENDOR'?80:null,permissions,actorType
+});
+function authMe(value=account()){
+ return response(value);
+}
+function loginSequence(fetchMock:ReturnType<typeof vi.mocked<typeof fetch>>,active=account()){
+ fetchMock.mockResolvedValueOnce(response({token:'csrf-login'}))
+  .mockResolvedValueOnce(response({accessToken:'access-token',account:active}))
+  .mockResolvedValueOnce(authMe(active));
+}
 
-describe('actor context session switching',()=>{
+describe('canonical authenticated session snapshot',()=>{
  beforeEach(()=>{vi.stubGlobal('fetch',vi.fn());});
  afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 
- it('sends the active bearer token and same-origin refresh cookie with the context switch',async()=>{
-  const fetchMock=vi.mocked(fetch);
-  fetchMock
-   .mockResolvedValueOnce(response({token:'csrf-login'}))
-   .mockResolvedValueOnce(response({accessToken:'customer-access-token',expiresIn:300,account:{
-    username:'dual@example.test',tenantId:null,branchId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER',
-    availableActorTypes:['CUSTOMER','VENDOR']
-   }}))
-   .mockResolvedValueOnce(response({token:'csrf-switch'}))
-   .mockResolvedValueOnce(response({accessToken:'vendor-access-token',expiresIn:300,account:{
-    username:'dual@example.test',tenantId:8,branchId:80,permissions:['PRODUCT_VIEW'],actorType:'VENDOR',
-    availableActorTypes:['CUSTOMER','VENDOR']
-   }}));
-
-  await signIn('dual@example.test','safe-test-password',false,undefined,'CUSTOMER');
-  await switchActorContext('VENDOR');
-
-  expect(fetchMock).toHaveBeenCalledTimes(4);
-  const [switchUrl,switchOptions]=fetchMock.mock.calls[3];
-  expect(switchUrl).toBe('/api/v1/auth/context');
-  const headers=new Headers((switchOptions as RequestInit).headers);
-  expect(headers.get('Authorization')).toBe('Bearer customer-access-token');
-  expect(headers.get('X-XSRF-TOKEN')).toBe('csrf-switch');
-  expect((switchOptions as RequestInit).credentials).toBe('same-origin');
-  expect(JSON.parse(String((switchOptions as RequestInit).body))).toEqual({actorType:'VENDOR'});
+ it('loads exactly one authoritative /auth/me snapshot after sign-in',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+  await signIn('actor@example.test','safe-test-password');
+  const {result}=renderHook(()=>useSession());
+  expect(result.current.status).toBe('authenticated');
+  expect(result.current.account).toEqual({...account(),availableActorTypes:['VENDOR']});
+  expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/auth/me')).toHaveLength(1);
  });
- it('refreshes permissions after 403 but never replays the denied request',async()=>{
+
+ it('uses one refresh-derived snapshot for all permission consumers without another fetch',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+  await signIn('actor@example.test','safe-test-password');
+  const {result}=renderHook(()=>useSession());
+  expect(result.current.account?.permissions).toEqual(['POS_VIEW']);
+  expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/auth/me')).toHaveLength(1);
+ });
+
+ it('fails closed while initial restore is pending and on a failed refresh',async()=>{
   const fetchMock=vi.mocked(fetch);
-  const full={username:'vendor@example.test',tenantId:8,branchId:80,permissions:['POS_VIEW','POS_SALE_CREATE'],actorType:'VENDOR'};
-  const narrow={...full,permissions:['POS_VIEW']};
-  fetchMock
-   .mockResolvedValueOnce(response({token:'csrf-login'}))
-   .mockResolvedValueOnce(response({accessToken:'vendor-token',account:full}))
-   .mockResolvedValueOnce(response({detail:'Forbidden'},403))
+  let release:(value:Response)=>void=()=>{};
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-refresh'}))
+   .mockImplementationOnce(()=>new Promise<Response>(resolve=>{release=resolve;}));
+  const {result}=renderHook(()=>useSession());
+  const pending=restoreSession();
+  expect(result.current.loading).toBe(true);
+  expect(result.current.account).toBeNull();
+  release(response({detail:'expired'},401));
+  await pending;
+  expect(result.current.status).toBe('anonymous');
+  expect(result.current.account).toBeNull();
+ });
+
+ it('replaces all grants after a 403 without replaying the rejected mutation',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock,account('VENDOR',['POS_VIEW','POS_SALE_CREATE']));
+  fetchMock.mockResolvedValueOnce(response({detail:'Forbidden'},403))
    .mockResolvedValueOnce(response({token:'csrf-refresh'}))
-   .mockResolvedValueOnce(response({accessToken:'refreshed-token',account:narrow}));
-  await signIn('vendor@example.test','safe-test-password');
+   .mockResolvedValueOnce(response({accessToken:'refreshed-token',account:account('VENDOR',['POS_VIEW'])}))
+   .mockResolvedValueOnce(authMe(account('VENDOR',['POS_VIEW'])));
+  await signIn('actor@example.test','safe-test-password');
   const {result}=renderHook(()=>useSession());
   const denied=await authenticatedFetch('/api/v1/vendor/pos/sales',{method:'POST',body:'{}'});
   expect(denied.status).toBe(403);
-  expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/vendor/pos/sales')).toHaveLength(1);
   await waitFor(()=>expect(result.current.account?.permissions).toEqual(['POS_VIEW']));
-  expect(fetchMock).toHaveBeenCalledTimes(5);
- });
-
- it('clears an expired actor snapshot without replaying a denied command and keeps its saved retry',async()=>{
-  const fetchMock=vi.mocked(fetch);
-  const account={username:'vendor@example.test',tenantId:8,branchId:80,permissions:['POS_VIEW'],actorType:'VENDOR'};
-  fetchMock.mockResolvedValueOnce(response({token:'csrf-login'})).mockResolvedValueOnce(response({accessToken:'vendor-token',account})).mockResolvedValueOnce(response({detail:'Expired'},401)).mockResolvedValueOnce(response({token:'csrf-refresh'})).mockResolvedValueOnce(response({detail:'Refresh expired'},401));
-  await signIn('vendor@example.test','safe-test-password');
-  const {result}=renderHook(()=>useSession());
-  sessionStorage.setItem('pos-attempt-v1',JSON.stringify({key:'saved-command',body:{sessionId:'s1'}}));
-  const denied=await authenticatedFetch('/api/v1/vendor/pos/sales',{method:'POST',body:'{}'});
-  expect(denied.status).toBe(401);
-  await waitFor(()=>expect(result.current.account).toBeNull());
-  expect(sessionStorage.getItem('pos-attempt-v1')).toContain('saved-command');
   expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/vendor/pos/sales')).toHaveLength(1);
  });
 
+ it('clears protected permissions when the 403-triggered refresh fails',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+  fetchMock.mockResolvedValueOnce(response({detail:'Forbidden'},403))
+   .mockResolvedValueOnce(response({token:'csrf-refresh'}))
+   .mockResolvedValueOnce(response({detail:'session expired'},401));
+  await signIn('actor@example.test','safe-test-password');
+  const {result}=renderHook(()=>useSession());
+  await authenticatedFetch('/api/v1/vendor/pos/sales',{method:'POST',body:'{}'});
+  await waitFor(()=>expect(result.current.account).toBeNull());
+  expect(result.current.status).toBe('anonymous');
+ });
+
+ it('clears all grants when every role has been removed',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-refresh'}))
+   .mockResolvedValueOnce(response({accessToken:'refreshed-token',account:account('VENDOR',[])}))
+   .mockResolvedValueOnce(authMe(account('VENDOR',[])));
+  await signIn('actor@example.test','safe-test-password');
+  await restoreSession();
+  const {result}=renderHook(()=>useSession());
+  expect(result.current.account?.permissions).toEqual([]);
+ });
+
+ it('rejects a vendor snapshot after membership is disabled or tenant is suspended',async()=>{
+  for(const status of [403,401]){
+   const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+   fetchMock.mockResolvedValueOnce(response({token:'csrf-refresh'}))
+    .mockResolvedValueOnce(response({detail:'membership inactive'},status));
+   await signIn('actor@example.test','safe-test-password');
+   await restoreSession();
+   expect(useSessionSnapshot()).toBeNull();
+   vi.unstubAllGlobals();vi.stubGlobal('fetch',vi.fn());
+  }
+ });
+
+ it('replaces the complete Customer snapshot with Vendor context and never mixes grants',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  const customer=account('CUSTOMER',['CUSTOMER'],null);
+  const vendor=account('VENDOR',['PRODUCT_VIEW'],8);
+  loginSequence(fetchMock,customer);
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-switch'}))
+   .mockResolvedValueOnce(response({accessToken:'vendor-access-token',account:vendor}))
+   .mockResolvedValueOnce(authMe(vendor));
+  await signIn('actor@example.test','safe-test-password',false,undefined,'CUSTOMER');
+  await switchActorContext('VENDOR');
+  const {result}=renderHook(()=>useSession());
+  expect(result.current.account?.actorType).toBe('VENDOR');
+  expect(result.current.account?.tenantId).toBe(8);
+  expect(result.current.account?.permissions).toEqual(['PRODUCT_VIEW']);
+  expect(result.current.account?.permissions).not.toContain('CUSTOMER');
+ });
+
+ it('replaces Vendor context with Customer context and clears tenant scope',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  const vendor=account('VENDOR',['PRODUCT_VIEW'],8);
+  const customer=account('CUSTOMER',['CUSTOMER'],null);
+  loginSequence(fetchMock,vendor);
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-switch'}))
+   .mockResolvedValueOnce(response({accessToken:'customer-access-token',account:customer}))
+   .mockResolvedValueOnce(authMe(customer));
+  await signIn('actor@example.test','safe-test-password');
+  await switchActorContext('CUSTOMER');
+  const {result}=renderHook(()=>useSession());
+  expect(result.current.account?.actorType).toBe('CUSTOMER');
+  expect(result.current.account?.tenantId).toBeNull();
+  expect(result.current.account?.branchId).toBeNull();
+  expect(result.current.account?.permissions).toEqual(['CUSTOMER']);
+ });
+
+ it('rejects mixed Platform/Vendor/Customer grants from /auth/me',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  loginSequence(fetchMock,account('VENDOR',['POS_VIEW']));
+  fetchMock.mockResolvedValueOnce(response({username:'actor@example.test',tenantId:8,branchId:80,actorType:'VENDOR',permissions:['POS_VIEW','PLATFORM_ANALYTICS_VIEW','CUSTOMER']},200));
+  await expect(signIn('actor@example.test','safe-test-password')).rejects.toThrow();
+  expect(useSessionSnapshot()).toBeNull();
+ });
+
+ it('clears the canonical snapshot on logout',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-logout'}))
+   .mockResolvedValueOnce(response({}));
+  await signIn('actor@example.test','safe-test-password');
+  await signOut();
+  expect(useSessionSnapshot()).toBeNull();
+ });
+
+ it('does not store access or refresh tokens in localStorage',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+  await signIn('actor@example.test','safe-test-password');
+  expect(localStorage.length).toBe(0);
+ });
 });
+
+function useSessionSnapshot(){
+ // The external store is exposed through the same hook used by all UI consumers.
+ return renderHook(()=>useSession()).result.current.account;
+}

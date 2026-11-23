@@ -9,7 +9,7 @@ vi.mock('./api',async original=>({...await original<typeof import('./api')>(),ap
 const quote={returnId:'return-1',orderId:'order-1',originalReceipt:'1/7',sessionId:'shift-1',amount:110,drawerCash:200,enoughCash:true,quoteHash:'a'.repeat(64),items:[{productId:1,name:'Panel',quantity:1,net:100,tax:10,amount:110}],message:'Original discounted sale values'};
 const paid:CashRefundView={...quote,id:'refund-1',branchId:'1',cashier:'manager',reason:'Goods returned',paidAt:'2026-11-13T09:00:00Z',method:'CASH',status:'PAID',copy:false};
 const props={session:'shift-1',sessionState:'OPEN',disabled:false,onPendingChange:vi.fn(),onBusyChange:vi.fn(),onRecorded:vi.fn()};
-beforeEach(()=>{vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'test-user',tenantId:1,branchId:1,actorType:'VENDOR',permissions:['POS_REFUND_VIEW','POS_REFUND_APPROVE','POS_REFUND_CASH_RECORD','POS_REFUND_PRINT']}} as ReturnType<typeof useSession>);});
+beforeEach(()=>{vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'test-user',tenantId:1,branchId:1,membershipId:'1:test-user',actorType:'VENDOR',permissions:['POS_REFUND_VIEW','POS_REFUND_APPROVE','POS_REFUND_CASH_RECORD','POS_REFUND_PRINT'],availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);});
 afterEach(()=>{cleanup();vi.resetAllMocks();sessionStorage.clear();});
 async function review(){fireEvent.change(screen.getByLabelText('Inspected return ID'),{target:{value:'return-1'}});fireEvent.click(screen.getByText('Calculate cash refund'));await screen.findByText('Review original receipt 1/7');fireEvent.change(screen.getByLabelText('Cash refund reason'),{target:{value:'Goods returned'}});}
 it('requires exact server quote and independent cash confirmation before posting',async()=>{
@@ -51,14 +51,14 @@ it('opening a matching journal acknowledgement does not clear an uncertain hando
 
 
 it('separates refund-view recovery from refund approval and cash-record grants',()=>{
- vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'viewer',tenantId:1,branchId:1,actorType:'VENDOR',permissions:['POS_REFUND_VIEW']}} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'viewer',tenantId:1,branchId:1,membershipId:'1:viewer',actorType:'VENDOR',permissions:['POS_REFUND_VIEW'],availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);
  render(<CashRefunds {...props}/>);
  expect(screen.getByText('Recover paid refund')).toBeTruthy();
  expect(screen.queryByText('Calculate cash refund')).toBeNull();
  expect(screen.queryByText('Approve & record cash handover')).toBeNull();
 });
 it('does not expose paid-refund recovery without POS_REFUND_VIEW',()=>{
- vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:1,actorType:'VENDOR',permissions:['POS_REFUND_APPROVE','POS_REFUND_CASH_RECORD']}} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'cashier',tenantId:1,branchId:1,membershipId:'1:cashier',actorType:'VENDOR',permissions:['POS_REFUND_APPROVE','POS_REFUND_CASH_RECORD'],availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);
  render(<CashRefunds {...props}/>);
  expect(screen.getByText('Calculate cash refund')).toBeTruthy();
  expect(screen.queryByText('Recover paid refund')).toBeNull();

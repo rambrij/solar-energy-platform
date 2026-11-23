@@ -223,7 +223,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - name: P3-01 focused navigation and permission regression tests
+      - name: P3-02 focused canonical session and permission-state tests
+        run: npx vitest run src/session.test.ts src/usePermissions.test.ts src/AuthenticationBoundary.test.tsx src/PlatformBoundary.test.tsx src/SessionControls.test.tsx
+      - name: P1-04 and P3-01 focused navigation/action permission regression tests
         run: npx vitest run src/Shell.test.tsx src/navigation.test.ts src/usePermissions.test.ts src/PlatformBoundary.test.tsx src/PlatformApp.test.tsx src/SessionControls.test.tsx
       - run: npm test
       - run: npm run build

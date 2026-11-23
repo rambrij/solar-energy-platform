@@ -10,11 +10,11 @@ vi.mock('./api',()=>({
 vi.mock('./session',()=>({useSession:mockUseSession}));
 
 const role={id:7,key:'sales',displayName:'Sales role',active:true,version:2,permissions:['PRODUCT_VIEW']};
-const account={username:'admin@vendor.test',tenantId:7,branchId:12,actorType:'VENDOR',permissions:['ROLE_VIEW','ROLE_CREATE','ROLE_UPDATE','PRODUCT_VIEW','POS_VIEW']};
+const account={username:'admin@vendor.test',tenantId:7,branchId:12,membershipId:'7:admin@vendor.test',actorType:'VENDOR',availableActorTypes:['VENDOR'],permissions:['ROLE_VIEW','ROLE_CREATE','ROLE_UPDATE','PRODUCT_VIEW','POS_VIEW']};
 
 beforeEach(()=>{
  vi.clearAllMocks();
- mockUseSession.mockReturnValue({ready:true,account});
+ mockUseSession.mockReturnValue({status:'authenticated',loading:false,refreshing:false,account,error:null});
  mockVendorApi.mockImplementation(async(path:string,method='GET')=>{
   if(path==='/roles')return [role];
   if(path==='/roles/permissions')return {permissions:['PRODUCT_VIEW','POS_VIEW','PLATFORM_TENANT_CREATE']};
@@ -98,10 +98,10 @@ describe('VendorAccessAdmin role editor',()=>{
  });
 
  it('refreshes employee effective permissions after role assignment succeeds',async()=>{
-  mockUseSession.mockReturnValue({ready:true,account:{
-   username:'admin@vendor.test',tenantId:7,branchId:12,actorType:'VENDOR',
+  mockUseSession.mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{
+   username:'admin@vendor.test',tenantId:7,branchId:12,membershipId:'7:admin@vendor.test',actorType:'VENDOR',availableActorTypes:['VENDOR'],
    permissions:['ROLE_VIEW','ROLE_ASSIGN','USER_VIEW']
-  }});
+  },error:null});
   mockVendorApi.mockImplementation(async(path:string,method='GET')=>{
    if(path==='/roles')return [role];
    if(path==='/roles/permissions')return {permissions:['ROLE_VIEW']};

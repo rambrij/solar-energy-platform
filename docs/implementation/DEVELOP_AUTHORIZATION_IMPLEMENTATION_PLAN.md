@@ -417,6 +417,19 @@ Additional fail-closed analysis has been added:
 - **Dependencies:** P1-04, P2-01.
 - **Acceptance criteria:** One consistent permission snapshot is used; loading/error states deny protected content; server remains authoritative.
 
+#### Implementation update — 2026-11-23 (verification pending)
+
+- Replaced the session's login/refresh permission authority with a canonical session store. Login and refresh tokens are held in module memory only; active identity, actor type, tenant/branch scope and effective permissions are accepted only from the authenticated `GET /api/v1/auth/me` response.
+- `usePermissions()` is now a read-only adapter over `useSession()`; it no longer fetches `/auth/me`, owns permission state, or independently resolves actor context. The dedicated `authApi('/api/v1/auth/me')` reader was removed.
+- Session state now distinguishes `loading`, `authenticated`, `anonymous` and `error`. Refresh/context-switch starts by clearing the old snapshot. A failed refresh or invalid server actor/scope response leaves no protected account state.
+- The canonical reader validates actor/scope consistency and rejects mixed Platform/Vendor/Customer permission sets rather than inferring actor type from grants.
+- The authentication and platform boundaries now hold protected rendering during loading and deny it on session validation errors. Existing `Shell`, `App`, `PlatformApp`, navigation and page/action consumers read the canonical session snapshot; P3-01 navigation markup/behavior was not changed.
+- A 403 reconciles the session through refresh and returns the original denied response. The rejected operation is not replayed. Existing 401 recovery behavior remains distinct.
+- Customer↔Vendor switching obtains a new token and then replaces the entire permission snapshot from `/auth/me`; logout clears the canonical snapshot.
+- Added focused session tests for single `/auth/me` load, refresh, fail-closed behavior, 403 non-replay, refresh failure, empty permissions, actor switching, actor isolation and logout.
+- **Not yet verified:** This change was committed incrementally through GitHub's repository API; no local checkout/runtime is available in this execution. TypeScript, Vitest, registry, build, P1-04, P3-01 and Playwright results have not been run on the resulting head. The existing session/boundary test fixtures and integration journeys still require adjustment/validation against the new `/auth/me` fetch sequence. Do not mark P3-02 COMPLETE until the full requested suite passes on the exact final commit.
+
+
 ## 7. Dependency sequence
 
 ```mermaid

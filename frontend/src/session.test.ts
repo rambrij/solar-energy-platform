@@ -11,7 +11,7 @@ const account=(actorType:'PLATFORM'|'VENDOR'|'CUSTOMER'='VENDOR',permissions=['P
 function authMe(value=account()){
  return response(value);
 }
-function loginSequence(fetchMock:ReturnType<typeof vi.mocked<typeof fetch>>,active=account()){
+function loginSequence(fetchMock:ReturnType<typeof vi.fn>,active=account()){
  fetchMock.mockResolvedValueOnce(response({token:'csrf-login'}))
   .mockResolvedValueOnce(response({accessToken:'access-token',account:active}))
   .mockResolvedValueOnce(authMe(active));

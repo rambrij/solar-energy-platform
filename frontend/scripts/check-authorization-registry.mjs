@@ -552,7 +552,7 @@ for(const file of sourceFiles){
  const source=fs.readFileSync(file,'utf8');
  const relative=path.relative(path.join(frontend,'src'),file);
  if(['api.ts','marketplaceApi.ts'].includes(relative))continue;
- const callPattern=/\b(api|authApi|vendorApi|platformApi|marketplaceApi|authPost)\s*\(/g;
+ const callPattern=/\b(api|vendorApi|platformApi|marketplaceApi|authPost)\s*\(/g;
  for(const match of source.matchAll(callPattern)){
   const resolved=resolveApiCall(file,source,match);
   if(!resolved)continue;

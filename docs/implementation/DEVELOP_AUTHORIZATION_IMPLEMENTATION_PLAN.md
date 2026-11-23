@@ -655,29 +655,43 @@ The P0-06 report on both database lanes records 146 live endpoint rows, 41/41 ac
 **Do not interpret the green workflow as closing every program-level item.** P2-04 is accepted for the current source and inventory; P0-02 remains open under INV-SVC-008 and P2-02 remains independently open. Keep those statuses until their own exit criteria are evidenced on a final tested commit.
 
 
-## P3-01 responsive navigation implementation — 2026-11-23
+## P3-01 responsive navigation implementation and validation — 2026-11-23
 
-**Status: IN PROGRESS — NOT ACCEPTANCE-COMPLETE.** Implementation changes are committed on `feature/develop-authorization-gap-analysis` at `4e4bf6df2f3a3b234d37b1854e3f02dc1b604fe6`. No backend API, permission catalogue, authorization rule or database schema was changed.
+**Status: IN PROGRESS — final Playwright validation pending.** Implementation is on `feature/develop-authorization-gap-analysis`; latest source/test commit under validation: `5ce7e37ac83664ba3349e645edd3e79dca468fa1`. The authoritative Version 2.0 requirements and SRS/HLD were reviewed before changes. No backend API, permission catalogue, authorization rule, database schema, business route or business behavior was changed.
 
-### Verified implementation changes
+### Acceptance criteria and evidence
 
-- Preserved and refined the existing `Shell.tsx`, `navigation.ts`, `RouteOutlet.tsx` and `usePermissions.ts` architecture.
-- Route resolution now chooses the deepest registered path using segment-boundary matching, normalizes trailing slashes, retains the storefront slug route, and returns an explicit unknown-route result instead of silently selecting the first menu item.
-- Navigation visibility now also requires the workspace's explicit actor type (VENDOR for POS, CUSTOMER for marketplace customer navigation); public vendor directory/storefront discovery remains public. Existing `/auth/me` effective permissions and fail-closed loading/error behavior remain in force.
-- Mobile navigation is a responsive drawer at 760px and below; tablet/desktop retain the grouped sidebar. The drawer includes a labelled close control, backdrop, initial focus, Tab containment, Escape dismissal, focus restoration, and focus transfer to main content after navigation. Route changes close the drawer without remounting workspace children.
-- Active page and parent group are both visually and semantically indicated; the parent group receives a non-colour-only “Current section” label and the selected page a visually hidden “Current page” label.
-- Platform administration now persists selected pages in the URL hash, restores direct fragment entry and browser back/forward, filters inaccessible pages, exposes `aria-current`, and displays a navigable breadcrumb hierarchy. Platform subscriptions remain separate from vendor/customer workspace navigation.
+| Acceptance criterion | Status | Implementation evidence | Test evidence / remaining gate |
+|---|---|---|---|
+| Responsive navigation (desktop, tablet, mobile; close after navigation; preserve page state; no horizontal overflow) | PARTIAL — implementation fixed; final exact-commit browser run pending | Existing grouped sidebar retained. Mobile drawer is used at 760px and below. Added a tablet override for 761–1100px because the previous cascade hid both sidebar and toggle. Route changes close the drawer without remounting workspace children. | RTL preserves mounted form state. Playwright marketplace viewport test covers 360, 390, 760, 761, 768, 1024 and 1280px; POS overflow test covers 360, 390, 768, 1024 and 1280px. On parent commit `41ab611a22da49d08a2fd23549b82b55ed150232`, 15 browser tests passed; the only failure was the mobile test's changing accessible-name locator, corrected in `5ce7e37`. Exact-commit rerun pending. |
+| Active location (direct/nested routes, deep links, refresh, parent section, browser history; non-colour indication) | PARTIAL — unit tests pass; exact-commit browser rerun pending | Deepest registered route matching uses segment boundaries and trailing-slash normalization. Parent group and selected page expose “Current section” and “Current page” text in addition to visual styling. | Vitest/RTL covers nested routes, prefix boundaries, direct URLs, unknown routes and parent/page state. Playwright nested-route/active-link assertion is included; exact-commit rerun pending. |
+| Breadcrumbs (Workspace → Section → Page; correct route; navigable parents; no unauthorized locations) | PARTIAL — unit tests pass; exact-commit browser rerun pending | Breadcrumb hierarchy derives from selected route; public discovery routes use public hierarchy without exposing customer-only navigation. Platform breadcrumbs are permission-filtered and URL/hash-backed. | RTL covers public discovery breadcrumbs, permission filtering and platform fragment/history state. Playwright nested route and breadcrumb assertions are included; exact-commit rerun pending. |
+| Accessibility (keyboard order, visible focus, Escape, focus entry/containment/restoration, ARIA/landmarks/labels, WCAG 2.2 AA) | PARTIAL — axe scan passed on prior source commit; exact-commit browser rerun pending | Drawer is a labelled modal dialog with `aria-modal`; focus enters the drawer, Tab is contained, Escape closes it and restores focus, and navigation transfers focus to main content. Muted kicker/subtitle/group-heading colours were darkened to meet contrast. Active state is not colour-only. | RTL covers focus entry, containment, Escape and restoration. Playwright includes mobile focus loop and axe-core WCAG 2.2 AA scans on mobile and desktop. On parent commit `41ab611`, the axe scan passed; final mobile interaction test was blocked only by its selector, fixed in `5ce7e37`. Exact-commit rerun pending. |
+| Permission-aware navigation (effective grants, actor separation, custom roles, fail-closed, revocation, unauthorized absence) | PARTIAL — frontend regression gates pass; exact-commit browser rerun pending | Existing `/auth/me` effective permission flow retained; navigation additionally checks explicit VENDOR/CUSTOMER actor context. Public vendor discovery remains public. Platform boundary requires PLATFORM actor context and platform grant. | Focused tests: 6 files / 55 tests passed. Full frontend: 62 files / 330 tests passed. Tests cover loading/error denial, actor changes, public routes, platform separation and filtered navigation. Playwright includes custom-role permission revocation and unauthorized-route absence; exact-commit rerun pending. |
 
-### Tests added/updated
+### Existing implementation preserved and verified
 
-- Vitest/RTL: nested direct routes, trailing slash and prefix boundaries, unknown deep links, active parent/page semantics, mobile focus entry, Tab containment, Escape and focus restoration, close-after-navigation, actor-domain isolation, platform direct fragment navigation, browser history and permission-restricted page filtering.
-- Playwright: mobile keyboard/drawer flow, nested deep-link route/breadcrumb state, viewport overflow checks at 360/390/768/1024/1280 widths, and permission revocation followed by reload.
-- Existing permission registry and authorization tests were not weakened.
+- Retained `Shell.tsx`, `navigation.ts`, `RouteOutlet.tsx`, `usePermissions.ts`, `PlatformBoundary.tsx` and `PlatformApp.tsx`; no replacement navigation architecture was introduced.
+- Retained existing route IDs, permission IDs, actor contexts and backend authorization.
+- Tablet CSS now explicitly restores the grouped sidebar from 761px through 1100px; phones at 760px and below use the drawer.
+- Drawer contrast was corrected based on axe-core's reported `color-contrast` nodes.
+- The Playwright toggle locator now uses the stable `.workspace-menu-toggle` element because the accessible name intentionally changes from “Open workspace menu” to “Close workspace menu” while open. The test continues to assert both accessible names and `aria-expanded`.
 
-### Validation evidence and remaining gates
+### Validation evidence
 
-- GitHub branch update succeeded at commit `4e4bf6df2f3a3b234d37b1854e3f02dc1b604fe6`.
-- The execution environment could not clone the repository because outbound DNS/network access to github.com is unavailable. No local `npm ci`, Vitest, TypeScript, Vite build, Playwright, or P2-04/P1-04 regression command has been executed in this session.
-- The GitHub Actions workflow run/status lookup did not yet return a run or check for this commit at documentation time. Treat CI as PENDING until the workflow reports terminal results.
-- The new tests and production changes have not yet been executed in CI. Potential test/runtime defects must be fixed from the actual CI results before acceptance.
-- P3-01 must remain IN PROGRESS until focused and full frontend tests, TypeScript check, Vite build, Playwright keyboard/focus/viewport/deep-link/revocation coverage, and P1-04/P2-04 regression checks pass on the same final commit. No COMPLETE claim is made.
+| Gate | Result |
+|---|---|
+| Focused P3-01 navigation/permission tests | PASS — 6 files, 55 tests |
+| Full frontend Vitest suite | PASS — 62 files, 330 tests |
+| P1-04 frontend permission-regression subset | PASS — focused Shell, navigation, usePermissions, PlatformBoundary, PlatformApp and SessionControls tests; full frontend suite also green |
+| P2-04 frontend authorization registry | PASS — 445 controls inventoried; 27 frontend routes, 41 backend controllers, 74 frontend source files and 63 permission identifiers verified |
+| TypeScript validation | PASS — `npm run build` runs `tsc --noEmit && vite build` |
+| Vite production build | PASS |
+| Backend H2 full suite | PASS — 737 tests, 0 failures, 0 errors, 14 skipped; P2-04 static gate passed |
+| Backend MySQL 8.4 full suite | PENDING in exact-commit workflow |
+| Playwright browser suite | PENDING in exact-commit workflow; prior run on parent `41ab611` had 15 passed / 1 failed, solely due to the now-corrected dynamic accessible-name locator |
+| WCAG 2.2 AA axe scan | PASS on parent `41ab611`; exact-commit rerun pending |
+
+The latest workflow for source/test commit `5ce7e37ac83664ba3349e645edd3e79dca468fa1` is run [#45121686114](https://github.com/rambrij/solar-energy-platform/actions/runs/45121686114). Frontend and H2 jobs have passed; MySQL is still running and Playwright is gated on backend completion.
+
+**Exit decision:** P3-01 remains **IN PROGRESS**. Do not mark COMPLETE until the Playwright run for the final source/test commit passes mobile keyboard/focus, responsive tablet/desktop/mobile layouts, active route/breadcrumbs, permission revocation and WCAG 2.2 AA scans. No backend or database changes were made, so no backend behavior was introduced by P3-01.

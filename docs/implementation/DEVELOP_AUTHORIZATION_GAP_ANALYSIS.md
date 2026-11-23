@@ -36,6 +36,7 @@
 - Refresh and context switching publish a loading snapshot with the prior account removed before network work begins.
 - Successful refresh validates `/auth/me` and atomically publishes a complete new snapshot.
 - Refresh tasks are bound to the current login/context generation. An earlier in-flight refresh cannot be reused by or overwrite a newer login/context.
+- Login, actor switching and logout wait for any pending refresh response (including its HttpOnly cookie rotation) before issuing their own session-changing request. This closes the race where a late refresh response could overwrite the cookie belonging to a newer actor.
 - Authentication rejection or malformed actor data clears protected account state. Non-authentication refresh errors remain an explicit error state. Both states deny protected UI.
 - A 403 triggers canonical refresh and returns the original 403. The rejected mutation is never replayed.
 - Role revocation is reflected in the refreshed permission set; an empty grant set remains empty. Disabled membership/inactive tenant refresh rejection clears Vendor access.

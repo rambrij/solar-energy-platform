@@ -194,6 +194,21 @@ class SpringDataRepositoryAstAnalysisTest {
             default -> false;
         };
     }
+    private static String derivedScopeKind(String property){
+        String value=property.replace("_","").toLowerCase(Locale.ROOT);
+        if(value.contains("tenant"))return "tenant";
+        if(value.contains("customer"))return "customer";
+        if(value.contains("branch"))return "branch";
+        if(value.contains("register"))return "register";
+        if(value.contains("owner"))return "owner";
+        if(value.contains("username"))return "username";
+        if(value.contains("token")||value.equals("hash"))return "token";
+        if(value.contains("family"))return "family";
+        if(value.contains("subscription"))return "subscription";
+        if(value.contains("invoice"))return "invoice";
+        if(value.contains("plan"))return "plan";
+        return null;
+    }
     private static boolean hasDerivedScopeParameters(MethodTree method){
         String name=method.getName().toString();
         int by=name.indexOf("By");
@@ -203,18 +218,26 @@ class SpringDataRepositoryAstAnalysisTest {
         if(order>=0)predicate=predicate.substring(0,order);
         Set<String> parameters=new HashSet<>();
         for(VariableTree parameter:method.getParameters())parameters.addAll(parameterNames(parameter));
-        String[] parts=predicate.split("And(?=[A-Z])|Or(?=[A-Z])");
-        boolean scoped=false;
-        for(String part:parts){
-            String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|NotNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
-            if(property.isEmpty())continue;
-            if(property.startsWith("Id")&&property.length()>2)property=property.substring(2);
-            String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
-            if(!scopeParameterName(normalized))continue;
-            scoped=true;
-            if(!derivedParameterMatches(normalized,parameters))return false;
+        String[] branches=predicate.split("Or(?=[A-Z])");
+        Set<String> commonScopeKinds=null;
+        for(String branch:branches){
+            Set<String> branchScopeKinds=new HashSet<>();
+            for(String part:branch.split("And(?=[A-Z])")){
+                String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|NotNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
+                if(property.isEmpty())continue;
+                if(property.startsWith("Id")&&property.length()>2)property=property.substring(2);
+                String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
+                String kind=derivedScopeKind(normalized);
+                if(kind==null)continue;
+                branchScopeKinds.add(kind);
+                if(!derivedParameterMatches(normalized,parameters))return false;
+            }
+            if(branchScopeKinds.isEmpty())return false;
+            if(commonScopeKinds==null)commonScopeKinds=new HashSet<>(branchScopeKinds);
+            else commonScopeKinds.retainAll(branchScopeKinds);
+            if(commonScopeKinds.isEmpty())return false;
         }
-        return scoped;
+        return commonScopeKinds!=null&&!commonScopeKinds.isEmpty();
     }
     private static boolean hasScopeParameter(MethodTree method){
         for(VariableTree parameter:method.getParameters()){
@@ -640,16 +663,25 @@ class SpringDataRepositoryAstAnalysisTest {
     private static boolean derivedScopeBindingFixture(String methodName,Set<String> parameters){
         String predicate=methodName.substring(methodName.indexOf("By")+2);
         int order=predicate.indexOf("OrderBy");if(order>=0)predicate=predicate.substring(0,order);
-        boolean scoped=false;
-        for(String part:predicate.split("And(?=[A-Z])|Or(?=[A-Z])")){
-            String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
-            if(property.isEmpty())continue;
-            if(property.startsWith("Id")&&property.length()>2)property=property.substring(2);
-            String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
-            if(!scopeParameterName(normalized))continue;scoped=true;
-            if(!derivedParameterMatches(normalized,parameters))return false;
+        Set<String> commonScopeKinds=null;
+        for(String branch:predicate.split("Or(?=[A-Z])")){
+            Set<String> branchScopeKinds=new HashSet<>();
+            for(String part:branch.split("And(?=[A-Z])")){
+                String property=part.replaceFirst("(IsNotNull|NotNull|IsNull|IsTrue|True|IsFalse|False|IgnoreCase|StartingWith|EndingWith|Containing|Contains|Like|NotLike|GreaterThanEqual|GreaterThan|LessThanEqual|LessThan|Between|In|NotIn|IsNot|Not|Is)$","");
+                if(property.isEmpty())continue;
+                if(property.startsWith("Id")&&property.length()>2)property=property.substring(2);
+                String normalized=Character.toLowerCase(property.charAt(0))+property.substring(1);
+                String kind=derivedScopeKind(normalized);
+                if(kind==null)continue;
+                branchScopeKinds.add(kind);
+                if(!derivedParameterMatches(normalized,parameters))return false;
+            }
+            if(branchScopeKinds.isEmpty())return false;
+            if(commonScopeKinds==null)commonScopeKinds=new HashSet<>(branchScopeKinds);
+            else commonScopeKinds.retainAll(branchScopeKinds);
+            if(commonScopeKinds.isEmpty())return false;
         }
-        return scoped;
+        return commonScopeKinds!=null&&!commonScopeKinds.isEmpty();
     }
 
     @Test
@@ -685,7 +717,9 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(derivedScopeBindingFixture("findByUsernameIgnoreCase",Set.of("username"))).isTrue();
         assertThat(derivedScopeBindingFixture("existsByTenantIdAndDraftOwner",Set.of("tenant","owner"))).isTrue();
         assertThat(derivedScopeBindingFixture("existsByTenantIdAndDraftOwner",Set.of("tenant","requestOwner"))).isFalse();
-        assertThat(derivedScopeBindingFixture("findByTenantIdOrOwnerId",Set.of("tenant","owner"))).isTrue();
+        assertThat(derivedScopeBindingFixture("findByTenantIdOrOwnerId",Set.of("tenant","owner"))).isFalse();
+        assertThat(derivedScopeBindingFixture("findByTenantIdAndStatusOrTenantIdAndArchived",Set.of("tenant","status","archived"))).isTrue();
+        assertThat(derivedScopeBindingFixture("findByTenantIdAndStatusOrStatus",Set.of("tenant","status"))).isFalse();
         assertThat(derivedScopeBindingFixture("findByTenantIdOrOwnerId",Set.of("tenant","customer"))).isFalse();
     }
 

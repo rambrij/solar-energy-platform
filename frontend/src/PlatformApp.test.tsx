@@ -7,10 +7,10 @@ import {platformApi} from './api';
 vi.mock('./api',()=>({platformApi:vi.fn()}));
 vi.mock('./session',()=>({useSession:vi.fn(),signOut:vi.fn()}));
 
-const account={username:'admin@platform.test',tenantId:null,branchId:null,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_TENANT_CREATE','PLATFORM_TENANT_UPDATE','PLATFORM_TENANT_SUSPEND','PLATFORM_TENANT_CLOSE','PLATFORM_PLAN_MANAGE','PLATFORM_SUBSCRIPTION_VIEW','PLATFORM_SUBSCRIPTION_ADJUST','PLATFORM_ANALYTICS_VIEW','PLATFORM_AUDIT_VIEW','PLATFORM_SUPPORT_ACCESS','PLATFORM_CONFIG_MANAGE']};
+const account={username:'admin@platform.test',tenantId:null,branchId:null,membershipId:null,availableActorTypes:['PLATFORM'],actorType:'PLATFORM' as const,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_TENANT_CREATE','PLATFORM_TENANT_UPDATE','PLATFORM_TENANT_SUSPEND','PLATFORM_TENANT_CLOSE','PLATFORM_PLAN_MANAGE','PLATFORM_SUBSCRIPTION_VIEW','PLATFORM_SUBSCRIPTION_ADJUST','PLATFORM_ANALYTICS_VIEW','PLATFORM_AUDIT_VIEW','PLATFORM_SUPPORT_ACCESS','PLATFORM_CONFIG_MANAGE']};
 beforeEach(()=>{
  vi.clearAllMocks();
- vi.mocked(useSession).mockReturnValue({ready:true,account} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account,error:null} as ReturnType<typeof useSession>);
  vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?[]:path.startsWith('/audit')?{items:[]}:path.startsWith('/tenants?')?{items:[],totalElements:0,totalPages:0,page:0}:path==='/support-access'?[]:path==='/configuration'?[]:{tenantStatuses:[]});
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();window.history.replaceState({},'','/platform');});
@@ -45,7 +45,7 @@ describe('PlatformApp',()=>{
   expect(screen.getByText('v1 · INR 799 · MONTHLY')).toBeTruthy();
  });
  it('hides tenant creation and plan mutation forms from view-only platform roles',async()=>{
-  vi.mocked(useSession).mockReturnValue({ready:true,account:{...account,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_SUBSCRIPTION_VIEW']}} as ReturnType<typeof useSession>);
+  vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{...account,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_SUBSCRIPTION_VIEW']},error:null} as ReturnType<typeof useSession>);
   vi.mocked(platformApi).mockImplementation(async(path)=>path.includes('/tenants?')?{items:[],totalElements:0,totalPages:0,page:0}:path.endsWith('/subscription-plans')?[]:{tenantStatuses:[]});
   render(<PlatformApp/>);
   await waitFor(()=>expect(platformApi).toHaveBeenCalledWith(expect.stringContaining('/tenants?')));
@@ -83,7 +83,7 @@ it('updates the platform location and follows browser back navigation without ex
 });
 
 it('repairs a direct URL to an inaccessible platform page using only authorized navigation', async()=>{
- vi.mocked(useSession).mockReturnValue({ready:true,account:{...account,permissions:['PLATFORM_ANALYTICS_VIEW']}} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{...account,permissions:['PLATFORM_ANALYTICS_VIEW']},error:null} as ReturnType<typeof useSession>);
  window.history.replaceState({},'','/platform#identities');
  render(<PlatformApp/>);
  const overview=screen.getByRole('button',{name:/overview/i});

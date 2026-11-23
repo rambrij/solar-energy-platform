@@ -393,15 +393,14 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   const customerSwitchResponse = page.waitForResponse(response =>
     response.url().endsWith('/api/v1/auth/context') && response.request().method() === 'POST'
   );
-  await page.getByRole('button', { name: 'Switch to Customer workspace' }).click();
-  const customerSwitch = await customerSwitchResponse;
-  expect(customerSwitch.status()).toBe(200);
   const customerMeResponse = page.waitForResponse(response =>
     response.url().endsWith('/api/v1/auth/me') && response.request().method() === 'GET'
   );
-  // The /auth/me request follows the context exchange and is the UI permission source.
+  await page.getByRole('button', { name: 'Switch to Customer workspace' }).click();
+  const [customerSwitch, customerMe] = await Promise.all([customerSwitchResponse, customerMeResponse]);
+  expect(customerSwitch.status()).toBe(200);
+  // The /auth/me request after the context exchange is the UI permission source.
   await expect(page.getByLabel('Active actor context')).toContainText('Customer');
-  const customerMe = await customerMeResponse;
   expect(customerMe.status()).toBe(200);
   const customerSnapshot = await customerMe.json() as { actorType: string; tenantId: number | null; membershipId: string | null; permissions: string[] };
   expect(customerSnapshot.actorType).toBe('CUSTOMER');
@@ -415,14 +414,13 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   const vendorSwitchResponse = page.waitForResponse(response =>
     response.url().endsWith('/api/v1/auth/context') && response.request().method() === 'POST'
   );
-  await page.getByRole('button', { name: 'Switch to Vendor workspace' }).click();
-  const vendorSwitch = await vendorSwitchResponse;
-  expect(vendorSwitch.status()).toBe(200);
-  const vendorMePromise = page.waitForResponse(response =>
+  const vendorMeResponse = page.waitForResponse(response =>
     response.url().endsWith('/api/v1/auth/me') && response.request().method() === 'GET'
   );
+  await page.getByRole('button', { name: 'Switch to Vendor workspace' }).click();
+  const [vendorSwitch, vendorMe] = await Promise.all([vendorSwitchResponse, vendorMeResponse]);
+  expect(vendorSwitch.status()).toBe(200);
   await expect(page.getByLabel('Active actor context')).toContainText('Vendor');
-  const vendorMe = await vendorMePromise;
   expect(vendorMe.status()).toBe(200);
   const vendorSnapshot = await vendorMe.json() as { actorType: string; tenantId: number | null; membershipId: string | null; permissions: string[] };
   expect(vendorSnapshot.actorType).toBe('VENDOR');

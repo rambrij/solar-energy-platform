@@ -104,6 +104,8 @@ Tests:
 - `frontend/src/StoreSettings.test.tsx`
 - `frontend/src/VendorAccessAdmin.test.tsx`
 - `frontend/e2e/authorization.spec.ts`
+- `backend/src/main/java/com/saumya/pos/platform/PlatformAuditServiceImpl.java` (verified lifecycle audit action mapping defect)
+- `backend/src/test/java/com/saumya/pos/platform/PlatformAuditServiceTest.java` (regression coverage for `TENANT_PENDING_TO_UNDER_REVIEW`)
 
 Documentation:
 
@@ -112,9 +114,16 @@ Documentation:
 
 ### Actual execution results and verification boundary
 
-**No test/build result is currently available.** The branch's `.github/workflows/pos-tests.yml` workflow was triggered by the pushed commits and the GitHub API reports the relevant jobs as `queued`; no job has started or completed at the latest poll. The local runtime is unavailable in this execution, so no local commands could be run.
+Run [#45134524716](https://github.com/rambrij/solar-energy-platform/actions/runs/45134524716) on commit `ebeed07284190dcf85f5f81f8bb399f5e510e7ba` completed with:
 
-The workflow is configured to run the applicable P2-04 architecture/registry checks, full backend H2/MySQL lanes, frontend focused Vitest tests, full frontend Vitest suite, TypeScript/Vite production build and Playwright journeys. Those are not PASS results until the workflow actually completes on the final branch head.
+- Backend H2: PASS.
+- Backend MySQL 8.4: PASS.
+- Frontend: PASS — focused P3-02, P1-04/P3-01, 62 Vitest files / 342 tests, authorization registry, TypeScript and Vite production build.
+- Playwright: 16 journeys passed; the new dual-context journey failed during setup because the backend audit allowlist rejected the valid lifecycle action `TENANT_PENDING_TO_UNDER_REVIEW` with `Unsupported platform audit action`.
+
+Inspection confirmed `TenantLifecycleService` supports the PENDING→UNDER_REVIEW transition and the controller maps it to `PLATFORM_TENANT_UPDATE`, but `PlatformAuditServiceImpl.writePermission()` did not map the corresponding audit action. This is the verified blocker; it is not caused by frontend permission state. The targeted fix maps transitions ending in `_TO_UNDER_REVIEW` to the existing `PLATFORM_TENANT_UPDATE` permission. A backend unit regression test verifies the audit event still requires that exact Platform permission and retains actor/resource/tenant/reason details. No permission grant, lifecycle transition rule or business workflow has been loosened.
+
+The follow-up run [#45136924042](https://github.com/rambrij/solar-energy-platform/actions/runs/45136924042) is executing on the fix commit. Its results are pending at the time of this documentation update. The backend change was limited to a verified audit allowlist omission and its unit test; no schema or migration changes were introduced.
 
 ### Remaining gates
 
@@ -124,4 +133,4 @@ The workflow is configured to run the applicable P2-04 architecture/registry che
 4. Verify the new dual-context Playwright onboarding fixture passes alongside expired-session, revocation, platform isolation and existing POS/customer journeys.
 5. Update this report with the completed run ID, exact commit SHA and per-job results. Until then do not mark P3-02 COMPLETE.
 
-No backend or database source was changed. P3-02 remains **IN PROGRESS** because its required verification evidence has not yet completed.
+A narrow backend audit-service correction and a unit regression test were added for the verified lifecycle audit omission; no database/schema changes were made. P3-02 remains **IN PROGRESS** until the follow-up workflow passes on the exact final branch head.

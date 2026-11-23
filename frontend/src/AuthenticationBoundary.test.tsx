@@ -5,7 +5,7 @@ import AuthenticationBoundary from './AuthenticationBoundary';
 import {useSession} from './session';
 
 vi.mock('./session',()=>({useSession:vi.fn(),restoreSession:vi.fn()}));
-const session=(account:any,status:'loading'|'authenticated'|'anonymous'|'error'='authenticated')=>({status,loading:status==='loading',refreshing:false,account,error:null});
+const session=(account:any,status:'loading'|'authenticated'|'anonymous'|'error'='authenticated',error:Error|null=null)=>({status,loading:status==='loading',refreshing:false,account,error});
 vi.mock('./Shell',()=>({default:({children}:{children:import('react').ReactNode})=><div>{children}</div>}));
 afterEach(()=>{cleanup();vi.resetAllMocks();});
 

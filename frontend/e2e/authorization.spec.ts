@@ -328,10 +328,28 @@ test('P3-01: permission revocation removes navigation and denies a direct deep l
 
 
 test('P3-02: dual Customer/Vendor browser context switching replaces the complete server snapshot', async ({ page }) => {
-  // Reuse a seeded global Customer identity and provision a normal Vendor
-  // membership through the Platform onboarding flow (RC-01 permits coexistence).
+  // Register a fresh Customer identity for every attempt. Playwright retries
+  // must not reuse an identity already provisioned as a Vendor Admin by the
+  // previous attempt; the customer/vendor coexistence assertion is then tested
+  // against this same newly provisioned identity.
+  const suffix = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
+  const customerUsername = 'p3-02.customer.' + suffix + '@example.test';
+  const customerPassword = 'P3-02-browser-context-' + suffix + '!A';
+  const registration = await page.evaluate(async credentials => {
+    const csrfResponse = await fetch('/api/v1/auth/csrf', { credentials: 'same-origin', cache: 'no-store' });
+    const csrf = csrfResponse.ok ? (await csrfResponse.json()).token as string : '';
+    const response = await fetch('/api/v1/auth/register', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-XSRF-TOKEN': csrf } : {}) },
+      body: JSON.stringify({ username: credentials.username, password: credentials.password }),
+    });
+    let body: any = null;
+    try { body = await response.json(); } catch { /* empty response */ }
+    return { status: response.status, body };
+  }, { username: customerUsername, password: customerPassword });
+  expect(registration.status, JSON.stringify(registration.body)).toBe(200);
+
   const platformToken = await signIn(page, demo.platformAdmin.username, demo.platformAdmin.password);
-  const suffix = Date.now().toString();
   const created = await apiAs(page, platformToken, '/api/v1/platform/tenants', 'POST', {
     slug: 'dual-context-' + suffix,
     name: 'Dual Context Browser Tenant',
@@ -340,12 +358,12 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
     contactPhone: '',
     taxIdentifier: '',
     address: '',
-    initialVendorAdminUsername: demo.customer.username,
+    initialVendorAdminUsername: customerUsername,
   });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   const tenantId = Number(created.body.tenant.id);
   expect(tenantId).toBeGreaterThan(0);
-  expect(created.body.vendorAdminUsername).toBe(demo.customer.username);
+  expect(created.body.vendorAdminUsername).toBe(customerUsername);
   expect(created.body.accountAlreadyActive).toBe(true);
 
   const review = await apiAs(page, platformToken, `/api/v1/platform/tenants/${tenantId}/lifecycle`, 'POST', {
@@ -365,8 +383,8 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   await signInButton.click();
   const form = page.getByRole('form', { name: 'Sign in' });
   await expect(form).toBeVisible();
-  await page.getByLabel('Email or username').fill(demo.customer.username);
-  await page.getByLabel('Password').fill(demo.customer.password);
+  await page.getByLabel('Email or username').fill(customerUsername);
+  await page.getByLabel('Password').fill(customerPassword);
   const ambiguousLogin = page.waitForResponse(response =>
     response.url().endsWith('/api/v1/auth/login') && response.request().method() === 'POST'
   );

@@ -31,7 +31,8 @@ class LocalDemoFlywaySeedMySqlTest {
    assertThat(count(db,"SELECT COUNT(*) FROM employee_role_assignments WHERE active=TRUE")).isEqualTo(15);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_register_assignments WHERE active=TRUE")).isEqualTo(9);
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_access_audit_events")).isGreaterThanOrEqualTo(39);
-   assertThat(count(db,"SELECT COUNT(*) FROM platform_user_permissions")).isEqualTo(10);
+   assertThat(count(db,"SELECT COUNT(*) FROM platform_user_permissions")).isEqualTo(11);
+   assertThat(count(db,"SELECT COUNT(*) FROM platform_user_permissions WHERE permission='PLATFORM_TENANT_REACTIVATE'")).isEqualTo(1);
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions WHERE permission LIKE 'PLATFORM_%'")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='employee_permissions'")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_roles WHERE template_key IS NULL OR template_version<>1")).isZero();

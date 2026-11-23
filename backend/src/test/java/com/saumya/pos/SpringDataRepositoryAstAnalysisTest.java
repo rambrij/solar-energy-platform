@@ -393,6 +393,14 @@ class SpringDataRepositoryAstAnalysisTest {
         return receiver.matches()&&trustedVariables.contains(receiver.group(1));
     }
 
+    private static boolean trustedTenantGuardInvocation(String invocation,Set<String> verifiedLocalGuards){
+        String value=invocation.trim();
+        String simple=value.substring(value.lastIndexOf('.')+1);
+        if(!simple.equals("requireTenant"))return false;
+        if(verifiedLocalGuards.contains(simple))return true;
+        return value.matches("(?i)(?:auth|authorization|authContext|authorizationContext)\\.current\\(\\)\\.requireTenant");
+    }
+
     private record ServiceMethodRef(String className,String simpleName,MethodTree method,Map<String,String> fieldTypes,
                                     Set<String> tenantGuardMethods) {}
     private static String simpleTypeName(String type){
@@ -450,7 +458,7 @@ class SpringDataRepositoryAstAnalysisTest {
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
                         String invoked=node.getMethodSelect() instanceof MemberSelectTree select
                             ?select.getIdentifier().toString():node.getMethodSelect().toString();
-                        if((invoked.equals("requireTenant")||ref.tenantGuardMethods().contains(invoked))
+                        if((trustedTenantGuardInvocation(node.getMethodSelect().toString(),ref.tenantGuardMethods()))
                             &&!node.getArguments().isEmpty()
                             &&node.getArguments().get(0) instanceof IdentifierTree id)variables.add(id.getName().toString());
                         if(invoked.equals("requirePlatform")||invoked.equals("requireRead")){
@@ -595,7 +603,7 @@ class SpringDataRepositoryAstAnalysisTest {
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
                         String invokedName=node.getMethodSelect() instanceof MemberSelectTree selected
                             ?selected.getIdentifier().toString():node.getMethodSelect().toString();
-                        if((invokedName.equals("requireTenant")||trustedTenantGuardMethods.contains(invokedName))
+                        if((trustedTenantGuardInvocation(node.getMethodSelect().toString(),trustedTenantGuardMethods))
                             &&!node.getArguments().isEmpty()
                             &&node.getArguments().get(0) instanceof IdentifierTree tenantArgument)
                             trustedVariables.add(tenantArgument.getName().toString());
@@ -636,6 +644,15 @@ class SpringDataRepositoryAstAnalysisTest {
             assertThat(untrusted).as("every tenant-scoped Spring Data call must receive a server-derived tenant argument; add an explicit trusted helper flow when it crosses a method boundary")
                 .isEmpty();
         }
+    }
+
+    @Test
+    void tenantGuardCallsMustResolveToAReviewedAuthorizationGuard(){
+        assertThat(trustedTenantGuardInvocation("requireTenant",Set.of())).isFalse();
+        assertThat(trustedTenantGuardInvocation("request.requireTenant",Set.of())).isFalse();
+        assertThat(trustedTenantGuardInvocation("auth.current().requireTenant",Set.of())).isTrue();
+        assertThat(trustedTenantGuardInvocation("authorization.current().requireTenant",Set.of())).isTrue();
+        assertThat(trustedTenantGuardInvocation("requireTenant",Set.of("requireTenant"))).isTrue();
     }
 
     @Test

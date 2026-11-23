@@ -159,10 +159,12 @@ describe('canonical authenticated session snapshot',()=>{
   await signIn('actor@example.test','safe-test-password');
 
   let releaseOldRefresh:(value:Response)=>void=()=>{};
+  let signalOldRefreshStarted!:()=>void;
+  const oldRefreshStarted=new Promise<void>(resolve=>{signalOldRefreshStarted=resolve;});
   fetchMock.mockResolvedValueOnce(response({token:'csrf-old-refresh'}))
-   .mockImplementationOnce(()=>new Promise<Response>(resolve=>{releaseOldRefresh=resolve;}));
+   .mockImplementationOnce(()=>new Promise<Response>(resolve=>{signalOldRefreshStarted();releaseOldRefresh=resolve;}));
   const oldRefresh=restoreSession();
-  await waitFor(()=>expect(releaseOldRefresh).toBeTypeOf('function'));
+  await oldRefreshStarted;
 
   const secondAccount={...account(),username:'second@example.test'};
   fetchMock.mockResolvedValueOnce(response({token:'csrf-second-login'}))

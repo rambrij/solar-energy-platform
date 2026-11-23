@@ -325,3 +325,114 @@ test('P3-01: permission revocation removes navigation and denies a direct deep l
   await expect(page.getByRole('alert')).toContainText('Access denied');
   await expect(page.getByRole('link', { name: 'Manage Products' })).toHaveCount(0);
 });
+
+
+test('P3-02: dual Customer/Vendor browser context switching replaces the complete server snapshot', async ({ page }) => {
+  // Reuse a seeded global Customer identity and provision a normal Vendor
+  // membership through the Platform onboarding flow (RC-01 permits coexistence).
+  const platformToken = await signIn(page, demo.platformAdmin.username, demo.platformAdmin.password);
+  const suffix = Date.now().toString();
+  const created = await apiAs(page, platformToken, '/api/v1/platform/tenants', 'POST', {
+    slug: 'dual-context-' + suffix,
+    name: 'Dual Context Browser Tenant',
+    legalName: 'Dual Context Browser Tenant Ltd',
+    contactEmail: 'dual-context@example.test',
+    contactPhone: '',
+    taxIdentifier: '',
+    address: '',
+    initialVendorAdminUsername: demo.customer.username,
+  });
+  expect(created.status, JSON.stringify(created.body)).toBe(201);
+  const tenantId = Number(created.body.tenant.id);
+  expect(tenantId).toBeGreaterThan(0);
+  expect(created.body.vendorAdminUsername).toBe(demo.customer.username);
+  expect(created.body.accountAlreadyActive).toBe(true);
+
+  const review = await apiAs(page, platformToken, `/api/v1/platform/tenants/${tenantId}/lifecycle`, 'POST', {
+    status: 'UNDER_REVIEW',
+    reason: 'P3-02 browser actor-context fixture onboarding review',
+  });
+  expect(review.status, JSON.stringify(review.body)).toBe(200);
+  const activate = await apiAs(page, platformToken, `/api/v1/platform/tenants/${tenantId}/lifecycle`, 'POST', {
+    status: 'ACTIVE',
+    reason: 'P3-02 browser actor-context fixture activated',
+  });
+  expect(activate.status, JSON.stringify(activate.body)).toBe(200);
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  const form = page.getByRole('form', { name: 'Sign in' });
+  if (!(await form.isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: 'Sign in / Register' }).click();
+  }
+  await expect(form).toBeVisible();
+  await page.getByLabel('Email or username').fill(demo.customer.username);
+  await page.getByLabel('Password').fill(demo.customer.password);
+  const ambiguousLogin = page.waitForResponse(response =>
+    response.url().endsWith('/api/v1/auth/login') && response.request().method() === 'POST'
+  );
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  expect((await ambiguousLogin).status()).toBe(409);
+  await expect(page.getByRole('group', { name: 'Actor context' })).toBeVisible();
+  await page.getByRole('radio', { name: 'Vendor employee' }).check();
+
+  const vendorLogin = page.waitForResponse(response =>
+    response.url().endsWith('/api/v1/auth/login') && response.request().method() === 'POST'
+  );
+  await page.getByRole('button', { name: 'Continue in selected workspace' }).click();
+  const vendorLoginResponse = await vendorLogin;
+  expect(vendorLoginResponse.status()).toBe(200);
+  const vendorLoginBody = await vendorLoginResponse.json() as { accessToken: string };
+  expect(vendorLoginBody.accessToken).toBeTruthy();
+
+  // Reload in a Vendor route so the page boundary and all navigation/actions
+  // initialise from the cookie-backed active Vendor context.
+  await page.goto('/vendor/pos');
+  await expect(page.getByLabel('Active actor context')).toContainText('Vendor');
+  await expect(page.getByRole('button', { name: 'Switch to Customer workspace' })).toBeVisible();
+
+  const customerSwitchResponse = page.waitForResponse(response =>
+    response.url().endsWith('/api/v1/auth/context') && response.request().method() === 'POST'
+  );
+  await page.getByRole('button', { name: 'Switch to Customer workspace' }).click();
+  const customerSwitch = await customerSwitchResponse;
+  expect(customerSwitch.status()).toBe(200);
+  const customerMeResponse = page.waitForResponse(response =>
+    response.url().endsWith('/api/v1/auth/me') && response.request().method() === 'GET'
+  );
+  // The /auth/me request follows the context exchange and is the UI permission source.
+  await expect(page.getByLabel('Active actor context')).toContainText('Customer');
+  const customerMe = await customerMeResponse;
+  expect(customerMe.status()).toBe(200);
+  const customerSnapshot = await customerMe.json() as { actorType: string; tenantId: number | null; membershipId: string | null; permissions: string[] };
+  expect(customerSnapshot.actorType).toBe('CUSTOMER');
+  expect(customerSnapshot.tenantId).toBeNull();
+  expect(customerSnapshot.membershipId).toBeNull();
+  expect(customerSnapshot.permissions).toEqual(['CUSTOMER']);
+  await expect(page.getByRole('alert')).toContainText('does not have access');
+  await expect(page.getByRole('heading', { name: 'Open cashier session' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Switch to Vendor workspace' })).toBeVisible();
+
+  const vendorSwitchResponse = page.waitForResponse(response =>
+    response.url().endsWith('/api/v1/auth/context') && response.request().method() === 'POST'
+  );
+  await page.getByRole('button', { name: 'Switch to Vendor workspace' }).click();
+  const vendorSwitch = await vendorSwitchResponse;
+  expect(vendorSwitch.status()).toBe(200);
+  const vendorMePromise = page.waitForResponse(response =>
+    response.url().endsWith('/api/v1/auth/me') && response.request().method() === 'GET'
+  );
+  await expect(page.getByLabel('Active actor context')).toContainText('Vendor');
+  const vendorMe = await vendorMePromise;
+  expect(vendorMe.status()).toBe(200);
+  const vendorSnapshot = await vendorMe.json() as { actorType: string; tenantId: number | null; membershipId: string | null; permissions: string[] };
+  expect(vendorSnapshot.actorType).toBe('VENDOR');
+  expect(vendorSnapshot.tenantId).toBe(tenantId);
+  expect(vendorSnapshot.membershipId).toBeTruthy();
+  expect(vendorSnapshot.membershipId).not.toBeNull();
+  expect(vendorSnapshot.permissions).not.toContain('CUSTOMER');
+  expect(vendorSnapshot.permissions.every(permission => !permission.startsWith('PLATFORM_'))).toBe(true);
+
+  // Access with the pre-switch Vendor token must not outlive its rotated family.
+  const staleVendor = await apiAs(page, vendorLoginBody.accessToken, '/api/v1/vendor/pos/sessions/active');
+  expect([401, 403]).toContain(staleVendor.status);
+});

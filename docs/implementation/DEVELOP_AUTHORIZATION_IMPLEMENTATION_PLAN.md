@@ -408,8 +408,8 @@ Additional fail-closed analysis has been added:
 ### P3-02 — Consolidate frontend permission state
 
 - **Requirement:** A single consistent server-derived effective permission context drives menus, routes and actions.
-- **Current gap:** Session state and `usePermissions()` both retrieve/hold permission data; duplicated resolution can drift or issue repeated requests.
-- **Proposed implementation:** Consolidate permission access around the authenticated session snapshot or a shared query cache, while preserving server refresh and revocation semantics.
+- **Resolved pre-implementation gap:** Session state and `usePermissions()` previously retrieved/held separate permission data, creating duplicate resolution and request lifecycles.
+- **Implemented approach:** One module-owned `SessionSnapshot` in `session.ts` is the only authenticated permission-state owner. `usePermissions()` is a read-only adapter; refresh and revocation publish only complete server-validated snapshots.
 - **Backend changes:** Keep `/auth/me` as the authoritative effective-permission source.
 - **Frontend changes:** Remove duplicated fetch paths only after tests prove no stale permission window; fail closed while loading/errors.
 - **Database/schema changes:** None.
@@ -417,7 +417,7 @@ Additional fail-closed analysis has been added:
 - **Dependencies:** P1-04, P2-01.
 - **Acceptance criteria:** One consistent permission snapshot is used; loading/error states deny protected content; server remains authoritative.
 
-#### Implementation update — 2026-11-23 (source changes pushed; CI evidence pending)
+#### Implementation update — 2026-11-23 (P3-02 implemented and verified)
 
 - Replaced the session's login/refresh permission authority with a canonical session store. Access tokens are held in module memory only. Login/refresh/context responses supply a token; the full active identity, actor type, tenant/branch scope, membership ID, available actor contexts and effective permissions are read from authenticated `GET /api/v1/auth/me`.
 - `usePermissions()` is a read-only adapter over `useSession()`; it no longer fetches `/auth/me`, owns permission state, or independently resolves actor context. The separate `authApi('/api/v1/auth/me')` reader was removed from `api.ts`.
@@ -429,7 +429,7 @@ Additional fail-closed analysis has been added:
 - Customer↔Vendor switching obtains a new token and atomically publishes the complete replacement `/auth/me` snapshot. Platform cannot switch into either commercial context. Logout clears the canonical account and token; a later login cannot inherit old actor grants.
 - Updated component/session fixtures to the canonical snapshot, removed obsolete `authApi` test mocks, and added tests for one authoritative `/auth/me` read, no hook-owned network fetch, failed refresh, 403 non-replay, refresh-generation races, empty permission sets, disabled membership/tenant denial, strict account shape, both Customer↔Vendor directions, logout then a different actor login, and fail-closed boundary behavior.
 - Added a Playwright dual-context journey that provisions a Vendor membership for a seeded Customer through the approved platform onboarding flow, requires explicit actor selection at login, verifies Customer and Vendor `/auth/me` snapshots after both switches, and checks that the original Vendor token is rejected after refresh-family rotation. Existing expired-session, revoked-role, P1-04 and P3-01 journeys remain in the same workflow.
-- **Verification status (2026-11-23):** GitHub Actions run [#45134524716](https://github.com/rambrij/solar-energy-platform/actions/runs/45134524716) confirmed both backend H2/MySQL jobs and the frontend job pass. The frontend passed focused P3-02, P1-04/P3-01, all 342 Vitest tests, the authorization registry and TypeScript/Vite production build. The only failed job was Playwright: the new dual-context setup hit `Unsupported platform audit action` for the valid `TENANT_PENDING_TO_UNDER_REVIEW` transition. This exposed a real missing action-to-permission mapping in `PlatformAuditServiceImpl`, not a client permission failure. The mapping is now added to require `PLATFORM_TENANT_UPDATE`, with a regression test in `PlatformAuditServiceTest`. This is a narrow backend audit-compatibility correction; no authorization rule has been relaxed. New exact-head H2/MySQL/frontend/Playwright verification is running; do not mark P3-02 COMPLETE until all jobs pass on the same final branch head.
+- **Final verification status (2026-11-23): PASS.** Exact branch-head commit `cadb6c9a67832fddf38d25f3ed8198e8afc9dce6` completed GitHub Actions run [#45174516883](https://github.com/rambrij/solar-energy-platform/actions/runs/45174516883) with frontend, backend H2, backend MySQL 8.4 and Browser E2E jobs all green. Focused P3-02: 5 files / 46 tests passed. P1-04/P3-01: 6 files / 54 tests passed. Full frontend: 62 files / 342 tests passed; P2-04 registry: 445 controls, 27 routes, 41 backend controllers, 74 frontend TS/TSX files and 63 permission IDs verified. `npm run build` passed (`tsc --noEmit` and Vite production build). Playwright/MySQL 8.4: 17/17 journeys passed, including actor switching, revocation, expired session, Platform separation and P3-01 navigation/accessibility. The detailed 20-point evidence matrix is recorded in `docs/implementation/DEVELOP_AUTHORIZATION_GAP_ANALYSIS.md`.
 
 
 ## 7. Dependency sequence
@@ -713,16 +713,21 @@ The exact-commit Playwright run verified mobile keyboard/drawer navigation, WCAG
 **Exit decision: P3-01 COMPLETE — VERIFIED.** All applicable P3-01 acceptance criteria passed on source/test commit `5ce7e37ac83664ba3349e645edd3e79dca468fa1`. No backend or database changes were required. P3-02 permission-state consolidation and broader UI action/permission parity remain separate work and are not claimed complete by P3-01.
 
 
-## P3-02 browser CI follow-up — 2026-11-23
 
-- Exact-head workflow [#45163306115](https://github.com/rambrij/solar-energy-platform/actions/runs/45163306115) ran on commit `6a1d5331c79046a7ef9e27dec0df31aba9913c74`. Frontend tests/build, backend H2 and backend MySQL 8.4 all passed; Chromium system dependencies and browser installation also passed.
-- Browser E2E result: 16 of 17 journeys passed. The sole failure was the dual Customer/Vendor context-switching journey at `frontend/e2e/authorization.spec.ts:436`: its assertion expected the obsolete phrase `does not have access`, while the existing route guard rendered `effective permission required for this page` after the CUSTOMER snapshot was active.
-- Corrected only the Playwright assertion to match the established route-guard message. Actor-context switching, `/auth/me` snapshot checks, unauthorized route denial, and the assertion that vendor-only POS UI is absent remain in place. No production authorization or business behavior was changed.
-- P3-02 remains **IN PROGRESS** until the follow-up workflow passes all jobs on the new exact branch-head commit.
+## P3-02 final verification — 2026-11-23
 
-## P3-02 Chromium dependency-install CI follow-up — 2026-11-23
+**Status: COMPLETE — VERIFIED.** This final exact-head result supersedes the earlier failed/timed-out CI attempts recorded during implementation.
 
-- Exact-head workflow [#45166363299](https://github.com/rambrij/solar-energy-platform/actions/runs/45166363299) ran on commit `6ae45dffa0890bb935224a1df40cd1bb024027f2`. Frontend, backend H2, and backend MySQL 8.4 jobs passed. The Browser E2E job failed before starting the application or Playwright: `Install Chromium system dependencies` timed out after 10 minutes.
-- Job logs show Ubuntu 24.04 APT using `http://us-east-2.ec2.archive.ubuntu.com/ubuntu` from `/etc/apt/apt-mirrors.txt`. The earlier workflow rewrite only covered `azure.archive.ubuntu.com`, so it left the active region-specific EC2 mirror unchanged.
-- Updated mirror normalization to rewrite any runner-region `*.archive.ubuntu.com/ubuntu` HTTP/HTTPS endpoint to the canonical HTTPS archive, including the EC2 mirror-list file; added a fail-fast assertion that no EC2 archive endpoint remains. Playwright dependency installation, browser installation, executable verification, and the full E2E suite remain mandatory.
-- The Playwright assertion correction from the preceding commit has not yet been re-exercised because this workflow attempt timed out before browser setup. P3-02 remains **IN PROGRESS** pending a complete exact-head run including all browser journeys.
+- **Branch / commit:** `feature/develop-authorization-gap-analysis` / `cadb6c9a67832fddf38d25f3ed8198e8afc9dce6`.
+- **Workflow:** [#45174516883](https://github.com/rambrij/solar-energy-platform/actions/runs/45174516883) — frontend, backend H2, backend MySQL 8.4 and Browser E2E jobs all `success`.
+- **P3-02 focused:** `npx vitest run src/session.test.ts src/usePermissions.test.ts src/AuthenticationBoundary.test.tsx src/PlatformBoundary.test.tsx src/SessionControls.test.tsx` — 5 files, 46 tests passed.
+- **P1-04 / P3-01 regression:** Shell, navigation, usePermissions, PlatformBoundary, PlatformApp and SessionControls — 6 files, 54 tests passed.
+- **Full frontend:** `npm test` — 62 files, 342 tests passed; the authorization registry verified 445 controls, 27 frontend routes, 41 backend controllers, 74 frontend source files and 63 permission identifiers.
+- **TypeScript / production build:** `npm run build` — `tsc --noEmit` and `vite build` passed.
+- **P2-04:** Frontend registry check and backend architecture/static authorization gates passed in the H2 and MySQL 8.4 jobs.
+- **P0-07:** Actor-context regression checks passed in H2 and MySQL 8.4; the browser journey verified Customer→Vendor and Vendor→Customer complete `/auth/me` snapshots.
+- **Playwright:** `npm run test:e2e` — 17/17 Chromium journeys passed on MySQL 8.4. This includes expired refresh, revoked roles, direct protected routes, Platform/Vendor separation, dual Customer/Vendor switching, the old-token rejection assertion, and P3-01 responsive navigation and WCAG checks.
+
+The canonical state path is `session.ts` → `useSession()` → read-only `usePermissions()` / direct `useSession()` consumers → navigation, route boundaries, page/tab/action controls. `/api/v1/auth/me` is the sole permission/actor/scope read. API requests continue to treat backend 401/403 as authoritative; 403 triggers a canonical refresh but the rejected request is not replayed. No database schema, backend authorization policy, permission ID, actor-context semantics, API contract or P3-01 navigation behavior was changed by this P3-02 consolidation.
+
+Detailed criterion-by-criterion implementation, file, test, result and gap/fix evidence is maintained in the companion gap analysis. P3-02 exit criteria are met; no unresolved P3-02 test gate remains.

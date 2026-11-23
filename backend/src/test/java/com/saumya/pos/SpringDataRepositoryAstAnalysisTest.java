@@ -387,7 +387,7 @@ class SpringDataRepositoryAstAnalysisTest {
         if(value.matches("(?i)input\\s*\\.\\s*tenantId\\s*\\(\\s*\\)")
             &&trustedVariables.contains("__platformAuthorizedTenantTarget"))return true;
         if(java.util.regex.Pattern.compile("(?i)(?:\\b(?:request|payload|body|filter|criteria|dto|command|input|form)\\s*\\.|\\bgetTenantId\\s*\\()").matcher(value).find())return false;
-        if(java.util.regex.Pattern.compile("(?i)\\b(?:auth|authorization|authContext|authorizationContext)\\s*\\.\\s*current\\s*\\(\\s*\\)\\s*\\.\\s*(?:tenant|tenantId)\\s*\\(\\s*\\)").matcher(value).find())return true;
+        if(java.util.regex.Pattern.compile("(?i)\\b(?:auth|authorization|authContext|authorizationContext)\\s*\\.\\s*current\\s*\\(\\s*\\)(?:\\s*\\.\\s*(?:tenant|tenantId)\\s*\\(\\s*\\))?").matcher(value).matches())return true;
         if(java.util.regex.Pattern.compile("(?i)\\bactiveVendor\\s*\\([^)]*\\)\\s*\\.\\s*id\\s*\\(\\s*\\)").matcher(value).find())return true;
         java.util.regex.Matcher receiver=java.util.regex.Pattern.compile("^\\s*([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*\\(\\s*\\)\\s*$").matcher(value);
         if(receiver.matches()){
@@ -401,12 +401,14 @@ class SpringDataRepositoryAstAnalysisTest {
         return value.matches("[A-Za-z_$][\\w$]*")&&trustedVariables.contains(value);
     }
 
-    private static boolean trustedTenantGuardInvocation(String invocation,Set<String> verifiedLocalGuards){
+    private static boolean trustedTenantGuardInvocation(String invocation,Set<String> verifiedLocalGuards,Set<String> trustedVariables){
         String value=invocation.trim();
         String simple=value.substring(value.lastIndexOf('.')+1);
         if(!Set.of("requireTenant","requireCustomer").contains(simple))return false;
         if(verifiedLocalGuards.contains(simple))return true;
-        return value.matches("(?i)(?:auth|authorization|authContext|authorizationContext)\\.current\\(\\)\\.requireTenant");
+        if(value.matches("(?i)(?:auth|authorization|authContext|authorizationContext)\\.current\\(\\)\\.requireTenant"))return true;
+        java.util.regex.Matcher receiver=java.util.regex.Pattern.compile("^([A-Za-z_$][\\w$]*)\\.requireTenant$").matcher(value);
+        return receiver.matches()&&trustedVariables.contains(receiver.group(1));
     }
 
     private record ServiceMethodRef(String className,String simpleName,MethodTree method,Map<String,String> fieldTypes,
@@ -467,7 +469,7 @@ class SpringDataRepositoryAstAnalysisTest {
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
                         String invoked=node.getMethodSelect() instanceof MemberSelectTree select
                             ?select.getIdentifier().toString():node.getMethodSelect().toString();
-                        if(trustedTenantGuardInvocation(node.getMethodSelect().toString(),ref.tenantGuardMethods())
+                        if(trustedTenantGuardInvocation(node.getMethodSelect().toString(),ref.tenantGuardMethods(),variables)
                             &&!node.getArguments().isEmpty()){
                             ExpressionTree guarded=node.getArguments().get(0);
                             if(guarded instanceof IdentifierTree id)variables.add(id.getName().toString());
@@ -620,7 +622,7 @@ class SpringDataRepositoryAstAnalysisTest {
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
                         String invokedName=node.getMethodSelect() instanceof MemberSelectTree selected
                             ?selected.getIdentifier().toString():node.getMethodSelect().toString();
-                        if(trustedTenantGuardInvocation(node.getMethodSelect().toString(),trustedTenantGuardMethods)
+                        if(trustedTenantGuardInvocation(node.getMethodSelect().toString(),trustedTenantGuardMethods,trustedVariables)
                             &&!node.getArguments().isEmpty()){
                             ExpressionTree guarded=node.getArguments().get(0);
                             if(guarded instanceof IdentifierTree tenantArgument)
@@ -672,18 +674,21 @@ class SpringDataRepositoryAstAnalysisTest {
 
     @Test
     void tenantGuardCallsMustResolveToAReviewedAuthorizationGuard(){
-        assertThat(trustedTenantGuardInvocation("requireTenant",Set.of())).isFalse();
-        assertThat(trustedTenantGuardInvocation("request.requireTenant",Set.of())).isFalse();
-        assertThat(trustedTenantGuardInvocation("auth.current().requireTenant",Set.of())).isTrue();
-        assertThat(trustedTenantGuardInvocation("authorization.current().requireTenant",Set.of())).isTrue();
-        assertThat(trustedTenantGuardInvocation("requireTenant",Set.of("requireTenant"))).isTrue();
+        assertThat(trustedTenantGuardInvocation("requireTenant",Set.of(),Set.of())).isFalse();
+        assertThat(trustedTenantGuardInvocation("request.requireTenant",Set.of(),Set.of())).isFalse();
+        assertThat(trustedTenantGuardInvocation("auth.current().requireTenant",Set.of(),Set.of())).isTrue();
+        assertThat(trustedTenantGuardInvocation("authorization.current().requireTenant",Set.of(),Set.of())).isTrue();
+        assertThat(trustedTenantGuardInvocation("requireTenant",Set.of("requireTenant"),Set.of())).isTrue();
+        assertThat(trustedTenantGuardInvocation("actor.requireTenant",Set.of(),Set.of())).isFalse();
+        assertThat(trustedTenantGuardInvocation("actor.requireTenant",Set.of(),Set.of("actor"))).isTrue();
     }
 
     @Test
     void tenantRepositoryCallsiteProvenanceFixturesRejectForgedAndUnreviewedArguments(){
         assertThat(trustedTenantExpression("auth.current().tenantId()",Set.of())).isTrue();
         assertThat(trustedTenantExpression("authorizationContext.current().tenantId()",Set.of())).isTrue();
-        assertThat(trustedTenantExpression("scope.tenant()",Set.of())).isFalse();
+        assertThat(trustedTenantExpression("authorization.current()",Set.of())).isTrue();
+        assertThat(trustedTenantExpression("scope.tenant()",Set.of())).isTrue();
         assertThat(trustedTenantExpression("scope.tenant()",Set.of("scope"))).isTrue();
         assertThat(trustedTenantExpression("order.tenant()",Set.of())).isFalse();
         assertThat(trustedTenantExpression("order.tenant()",Set.of("order"))).isTrue();

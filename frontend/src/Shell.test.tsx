@@ -2,12 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Shell from './Shell';
 
-const { mockUseSession, mockUsePermissions } = vi.hoisted(() => ({ mockUseSession: vi.fn(), mockUsePermissions: vi.fn() }));
+const { mockUseSession } = vi.hoisted(() => ({ mockUseSession: vi.fn() }));
 vi.mock('./session', () => ({ useSession: mockUseSession, signOut: vi.fn() }));
-vi.mock('./usePermissions', async importOriginal => ({
-  ...(await importOriginal<typeof import('./usePermissions')>()),
-  usePermissions: mockUsePermissions,
-}));
 
 const posPermissions = [
   'POS_VIEW', 'POS_SESSION_OPEN', 'POS_SALE_CREATE', 'POS_REPORT_VIEW',
@@ -18,13 +14,7 @@ const posPermissions = [
 ];
 
 beforeEach(() => {
-  mockUseSession.mockReturnValue({ready:true,account:null});
-  mockUsePermissions.mockReset();
-  mockUsePermissions.mockReturnValue({
-    permissions:null,loading:false,error:null,
-    hasPermission:()=>false,hasAnyPermission:()=>false,hasAllPermissions:()=>false,
-    isPlatformUser:false,isCustomer:false,isVendorEmployee:false,
-  });
+  mockUseSession.mockReturnValue({status:'anonymous',loading:false,refreshing:false,account:null,error:null});
 });
 afterEach(() => { cleanup(); window.history.replaceState({}, '', '/'); });
 
@@ -32,17 +22,9 @@ function grantPermissions(permissions: string[]) {
   const actorType = permissions.includes('CUSTOMER') ? 'CUSTOMER' : permissions.some(p=>p.startsWith('PLATFORM_')) ? 'PLATFORM' : 'VENDOR';
   const tenantId = actorType === 'VENDOR' ? 1 : null;
   const branchId = actorType === 'VENDOR' ? 10 : null;
-  mockUseSession.mockReturnValue({ready:true,account:{username:'test-user',tenantId,branchId,permissions,actorType}});
-  mockUsePermissions.mockReturnValue({
-    permissions:{username:'test-user',tenantId,branchId,permissions,actorType},
-    loading:false,error:null,
-    hasPermission:(permission:string)=>permissions.includes(permission),
-    hasAnyPermission:(...required:string[])=>required.some(permission=>permissions.includes(permission)),
-    hasAllPermissions:(...required:string[])=>required.every(permission=>permissions.includes(permission)),
-    isPlatformUser:actorType==='PLATFORM',
-    isCustomer:actorType==='CUSTOMER',
-    isVendorEmployee:actorType==='VENDOR',
-  });
+  const membershipId=actorType==='VENDOR'?String(tenantId)+':test-user':null;
+  mockUseSession.mockReturnValue({status:'authenticated',loading:false,refreshing:false,
+    account:{username:'test-user',tenantId,branchId,membershipId,permissions,actorType},error:null});
 }
 
 it('renders route-based links, active state and navigable breadcrumbs', async () => {
@@ -66,7 +48,7 @@ it('blocks direct navigation to a POS page without its exact permission', async 
 
 it('keeps public vendor discovery available without a customer login', async () => {
   window.history.replaceState({}, '', '/marketplace/vendors');
-  mockUseSession.mockReturnValue({ready:true,account:null});
+  mockUseSession.mockReturnValue({status:'anonymous',loading:false,refreshing:false,account:null,error:null});
   render(<Shell mode="online"><section><h2>Public vendor directory</h2></section></Shell>);
   expect(await screen.findByText('Public vendor directory')).toBeTruthy();
 });
@@ -86,24 +68,24 @@ it('keeps public discovery breadcrumbs aligned with the route without exposing c
 
 it('fails closed while permissions are loading and after an unresolved permission error', async () => {
   window.history.replaceState({}, '', '/vendor/pos/products');
-  mockUsePermissions.mockReturnValue({
-    permissions:null,loading:true,error:null,
-    hasPermission:()=>false,hasAnyPermission:()=>false,hasAllPermissions:()=>false,
-    isPlatformUser:false,isCustomer:false,isVendorEmployee:false,
-  });
+  mockUseSession.mockReturnValue({status:'loading',loading:true,refreshing:true,account:null,error:null});
   const view = render(<Shell mode="pos"><section><h2>Protected product content</h2></section></Shell>);
   expect(screen.getByRole('status').textContent).toContain('Checking your workspace access');
   expect(screen.queryByText('Protected product content')).toBeNull();
   expect(screen.queryByRole('link', { name: 'Manage Products' })).toBeNull();
-  mockUsePermissions.mockReturnValue({
-    permissions:null,loading:false,error:new Error('Permission endpoint unavailable'),
-    hasPermission:()=>false,hasAnyPermission:()=>false,hasAllPermissions:()=>false,
-    isPlatformUser:false,isCustomer:false,isVendorEmployee:false,
-  });
+  mockUseSession.mockReturnValue({status:'error',loading:false,refreshing:false,account:null,error:new Error('Session endpoint unavailable')});
   view.rerender(<Shell mode="pos"><section><h2>Protected product content</h2></section></Shell>);
   expect(screen.getByRole('alert').textContent).toContain('Access denied');
   expect(screen.queryByText('Protected product content')).toBeNull();
   expect(screen.queryByRole('link', { name: 'Manage Products' })).toBeNull();
+});
+
+it('keeps public marketplace discovery visible while session restoration is pending',()=>{
+  window.history.replaceState({}, '', '/marketplace/vendors');
+  mockUseSession.mockReturnValue({status:'loading',loading:true,refreshing:true,account:null,error:null});
+  render(<Shell mode="online"><section><h2>Public discovery while restoring session</h2></section></Shell>);
+  expect(screen.getByText('Public discovery while restoring session')).toBeTruthy();
+  expect(screen.queryByRole('link',{name:'My Single-Vendor Cart'})).toBeNull();
 });
 
 it('preserves mounted page state when the mobile navigation is opened and closed', () => {

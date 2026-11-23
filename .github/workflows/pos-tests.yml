@@ -262,9 +262,39 @@ jobs:
       - name: Install pinned Playwright and accessibility runners
         working-directory: frontend
         run: npm install --no-save --package-lock=false @playwright/test@1.52.0 @axe-core/playwright@4.14.0
-      - name: Install Chromium
+      - name: Prefer reachable HTTPS Ubuntu package mirrors
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r source_file; do
+            sudo sed -i 's#http://azure.archive.ubuntu.com#https://archive.ubuntu.com#g; s#https://azure.archive.ubuntu.com#https://archive.ubuntu.com#g' "$source_file"
+          done < <(sudo grep -RIl 'azure.archive.ubuntu.com' /etc/apt 2>/dev/null || true)
+          printf '%s\\n' \
+            'Acquire::Retries "2";' \
+            'Acquire::http::Timeout "20";' \
+            'Acquire::https::Timeout "20";' \
+            | sudo tee /etc/apt/apt.conf.d/80-github-actions-network-retries >/dev/null
+          echo "Effective Ubuntu mirror references:"
+          sudo grep -R 'azure.archive.ubuntu.com' /etc/apt || true
+      - name: Cache Playwright Chromium
+        id: playwright-browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-chromium-1.52.0
+      - name: Install Chromium system dependencies
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 10
+        run: npx playwright install-deps chromium
+      - name: Install Chromium browser
+        if: steps.playwright-browser-cache.outputs.cache-hit != 'true'
+        working-directory: frontend
+        timeout-minutes: 8
+        run: npx playwright install chromium
+      - name: Verify Chromium installation
+        working-directory: frontend
+        run: |
+          node -e "const fs=require('node:fs'); const {chromium}=require('@playwright/test'); const executable=chromium.executablePath(); if(!fs.existsSync(executable)) throw new Error('Chromium executable is missing: '+executable); console.log('Chromium executable ready:', executable);"
       - name: Start clean local-profile MySQL 8.4 stack
         run: docker compose -p solar-e2e up -d --build
       - name: Wait for seeded application readiness

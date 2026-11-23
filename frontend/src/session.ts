@@ -30,6 +30,7 @@ let snapshot:SessionSnapshot={
 };
 const listeners=new Set<()=>void>();
 let refreshTask:Promise<boolean>|undefined;
+let refreshTaskGeneration:number|undefined;
 
 function publish(status:SessionStatus,account:Account|null=null,error:Error|null=null,refreshing=false){
  snapshot=Object.freeze({
@@ -150,12 +151,15 @@ function publishFailure(error:unknown,current:number){
 }
 
 export function restoreSession(){
- if(refreshTask)return refreshTask;
  const current=generation;
+ // Coalesce only refreshes that belong to the same login/context generation.
+ // A new login or context switch must never await an obsolete actor refresh.
+ if(refreshTask&&refreshTaskGeneration===current)return refreshTask;
  // Remove the old grants before any refresh request starts. Protected UI can
  // never continue rendering an actor snapshot while it is being revalidated.
  publish('loading',null,null,true);
- refreshTask=(async()=>{
+ let task:Promise<boolean>;
+ task=(async()=>{
   try{
    const value=await authRequest('/refresh',{});
    if(current!==generation)return false;
@@ -169,10 +173,15 @@ export function restoreSession(){
    publishFailure(error,current);
    return false;
   }finally{
-   refreshTask=undefined;
+   if(refreshTask===task){
+    refreshTask=undefined;
+    refreshTaskGeneration=undefined;
+   }
   }
  })();
- return refreshTask;
+ refreshTask=task;
+ refreshTaskGeneration=current;
+ return task;
 }
 
 export async function signIn(

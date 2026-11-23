@@ -38,6 +38,14 @@ it('clears page-local state when the active tenant context changes',()=>{
  expect(screen.getByText('1')).toBeTruthy();
 });
 
+
+it('fails closed when the canonical session snapshot is in an error state',()=>{
+ vi.mocked(useSession).mockReturnValue(session(null,'error',new Error('The active actor context could not be verified.')));
+ render(<AuthenticationBoundary permission="POS_VIEW" mode="pos"><p>Protected POS content</p></AuthenticationBoundary>);
+ expect(screen.getByRole('alert').textContent).toContain('could not be verified');
+ expect(screen.queryByText('Protected POS content')).toBeNull();
+});
+
 function ActorScopedState(){
  const [count,setCount]=useState(1);
  return <button onClick={()=>setCount(x=>x+1)}>{count}</button>;

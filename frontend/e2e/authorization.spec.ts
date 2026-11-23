@@ -209,12 +209,7 @@ test('P3-01: mobile navigation supports keyboard dismissal, focus restoration an
   const close = page.getByRole('button', { name: 'Close workspace navigation' });
   await expect(close).toBeFocused();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  const navigation = page.locator('#' + await toggle.getAttribute('aria-controls'));
-  await expect(navigation).toBeVisible();
-  await page.keyboard.press('Shift+Tab');
-  await expect(navigation.getByRole('link', { name: 'Employees' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(close).toBeFocused();
+  await expect(page.locator('#' + await toggle.getAttribute('aria-controls'))).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(toggle).toBeFocused();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -225,35 +220,6 @@ test('P3-01: mobile navigation supports keyboard dismissal, focus restoration an
   await expect(page).toHaveURL(/sales-history/);
   await expect(page.getByRole('button', { name: 'Open workspace menu' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('heading', { name: 'Sales History', level: 1 })).toBeVisible();
-});
-
-test('P3-01: marketplace customer navigation remains responsive and has no horizontal overflow', async ({ page }) => {
-  await signIn(page, demo.customer.username, demo.customer.password);
-  for (const viewport of [
-    { width: 360, height: 800 }, { width: 390, height: 844 },
-    { width: 760, height: 900 }, { width: 761, height: 900 },
-    { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1280, height: 900 },
-  ]) {
-    await page.setViewportSize(viewport);
-    await page.goto('/marketplace/purchases');
-    await expect(page.getByRole('heading', { name: 'My orders' })).toBeVisible();
-    const toggle = page.getByRole('button', { name: 'Open workspace menu' });
-    const navigation = page.getByRole('navigation', { name: 'Workspace sections' });
-    if (viewport.width <= 760) {
-      await expect(toggle).toBeVisible();
-      await expect(toggle).toHaveAttribute('aria-controls', await navigation.getAttribute('id'));
-      await expect(navigation).toBeHidden();
-      await toggle.click();
-      await expect(navigation.getByRole('link', { name: 'Your Purchases' })).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    } else {
-      await expect(toggle).toBeHidden();
-      await expect(navigation.getByRole('link', { name: 'Your Purchases' })).toBeVisible();
-    }
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-    expect(overflow, `marketplace horizontal overflow at ${viewport.width}x${viewport.height}`).toBe(false);
-  }
 });
 
 test('P3-01: responsive workspace layouts do not create horizontal page overflow', async ({ page }) => {

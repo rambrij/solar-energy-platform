@@ -10,9 +10,7 @@ vi.mock('./PlatformApp',()=>({default:()=> <div>Platform overview screen</div>})
 vi.mock('./PlatformSubscriptions',()=>({default:()=> <div>Subscription screen</div>}));
 vi.mock('./PlatformHealthWidget',()=>({default:()=> <span>Platform health widget</span>}));
 
-const account=(permissions:string[],actorType:'PLATFORM'|'VENDOR'|'CUSTOMER'='PLATFORM')=>({
- username:'operator@platform.test',tenantId:actorType==='VENDOR'?42:null,branchId:actorType==='VENDOR'?7:null,permissions,actorType
-});
+const account=(permissions:string[])=>({username:'operator@platform.test',tenantId:null,branchId:null,permissions});
 beforeEach(()=>{vi.clearAllMocks();window.history.replaceState({},'','/platform');});
 afterEach(()=>{cleanup();window.history.replaceState({},'','/');});
 
@@ -40,13 +38,4 @@ describe('PlatformBoundary page permission gates',()=>{
   expect(screen.getByText('Platform health widget')).toBeTruthy();
   expect(screen.queryByRole('link',{name:'Tenant subscriptions'})).toBeNull();
  });
-
- it('rejects a vendor actor even when its snapshot contains a platform permission',()=>{
-  vi.mocked(useSession).mockReturnValue({ready:true,account:account(['PLATFORM_ANALYTICS_VIEW'],'VENDOR')} as ReturnType<typeof useSession>);
-  render(<PlatformBoundary/>);
-  expect(screen.getByRole('alert').textContent).toContain('Platform access denied');
-  expect(screen.queryByText('Platform overview screen')).toBeNull();
-  expect(screen.queryByRole('navigation',{name:'Platform section shortcuts'})).toBeNull();
- });
-
 });

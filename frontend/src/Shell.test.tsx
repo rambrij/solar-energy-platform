@@ -171,6 +171,7 @@ it('moves focus into the mobile drawer, traps tab navigation and restores focus 
   const toggle = screen.getByRole('button', { name: 'Open workspace menu' });
   fireEvent.click(toggle);
   const close = screen.getByRole('button', { name: 'Close workspace navigation' });
+  expect(screen.getByRole('dialog', { name: 'Workspace menu' }).getAttribute('aria-modal')).toBe('true');
   expect(close.getAttribute('aria-expanded')).toBeNull();
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
   expect(document.activeElement).toBe(close);

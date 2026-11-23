@@ -160,7 +160,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
       </div>
 
       <div className="workspace-layout">
-        <aside className={`workspace-menu ${open ? 'menu-open' : ''}`} aria-label="Workspace menu">
+        <aside className={`workspace-menu ${open ? 'menu-open' : ''}`} role={open ? 'dialog' : undefined} aria-modal={open ? true : undefined} aria-label="Workspace menu">
           {open && <div className="workspace-menu-backdrop" aria-hidden="true" onClick={() => closeMobileMenu(true)} />}
           <button type="button" ref={toggle} className="workspace-menu-toggle" aria-label={open ? 'Close workspace menu' : 'Open workspace menu'} aria-expanded={open} aria-controls={navigationId} onClick={() => setOpen(value => !value)}>
             <span aria-hidden="true">{open ? '×' : '☰'}</span> {open ? 'Close workspace menu' : 'Open workspace menu'}

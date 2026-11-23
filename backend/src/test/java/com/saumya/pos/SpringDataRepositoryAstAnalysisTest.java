@@ -733,4 +733,98 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("tenant"))).isTrue();
         assertThat(namedScopeBindingsMatch("select p from Product p where p.tenantId=:tenant",Set.of("customerId"))).isFalse();
     }
+
+    @Test
+    void everyJpaQueryConstructionAndNamedQueryHasStaticTenantScopeOrReviewedGlobalException() throws Exception {
+        JsonNode root=policy();
+        Map<String,String> globalMethods=entries(root,"globalJpaQueryMethods");
+        Map<String,String> globalNamedQueries=entries(root,"globalNamedQueries");
+        Set<String> discoveredNamedQueries=new TreeSet<>();
+        Set<String> observedGlobalMethods=new TreeSet<>();
+        Set<String> observedGlobalNamedQueries=new TreeSet<>();
+        Set<String> observedJpaCalls=new TreeSet<>();
+        JavaCompiler compiler=ToolProvider.getSystemJavaCompiler();
+        assertThat(compiler).as("JDK compiler is required for JPA query AST analysis").isNotNull();
+        List<Path> javaFiles;
+        try(var stream=Files.walk(sourceRoot())){
+            javaFiles=stream.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".java")).sorted().toList();
+        }
+        try(StandardJavaFileManager manager=compiler.getStandardFileManager(null,null,null)){
+            JavacTask task=(JavacTask)compiler.getTask(null,manager,null,List.of("-proc:none"),null,manager.getJavaFileObjectsFromPaths(javaFiles));
+            for(CompilationUnitTree unit:task.parse()){
+                String packageName=unit.getPackageName()==null?"":unit.getPackageName().toString()+".";
+                for(Tree declaration:unit.getTypeDecls()){
+                    if(!(declaration instanceof ClassTree type))continue;
+                    String className=packageName+type.getSimpleName();
+                    new TreePathScanner<Void,Void>(){
+                        String methodName="<initializer>";
+                        MethodTree currentMethod;
+                        @Override public Void visitMethod(MethodTree node,Void unused){
+                            String previousName=methodName;MethodTree previousMethod=currentMethod;
+                            methodName=node.getName().toString();currentMethod=node;
+                            try{return super.visitMethod(node,unused);}
+                            finally{methodName=previousName;currentMethod=previousMethod;}
+                        }
+                        @Override public Void visitAnnotation(AnnotationTree annotation,Void unused){
+                            String annotationName=annotation.getAnnotationType().toString();
+                            if(annotationName.endsWith("NamedQuery")||annotationName.endsWith("NamedNativeQuery")){
+                                String queryName=null,queryText=null;
+                                for(ExpressionTree argument:annotation.getArguments()){
+                                    if(!(argument instanceof AssignmentTree assignment))continue;
+                                    String key=assignment.getVariable().toString();
+                                    if(key.equals("name"))queryName=literal(assignment.getExpression());
+                                    if(key.equals("query"))queryText=literal(assignment.getExpression());
+                                }
+                                assertThat(queryName).as("JPA named query name must be a static literal in %s: %s",className,annotation).isNotBlank();
+                                assertThat(queryText).as("JPA named query SQL/JPQL must be a static literal in %s#%s: %s",className,methodName,annotation).isNotNull();
+                                String key=className+"#"+queryName;
+                                discoveredNamedQueries.add(key);
+                                if(queryScoped(queryText)){
+                                    assertThat(hasTopLevelConjunctiveScope(queryText))
+                                        .as("JPA named query %s must keep tenant/customer/owner scope conjunctive",key).isTrue();
+                                }else{
+                                    assertThat(globalNamedQueries).as("unscoped JPA named query requires an explicit reviewed global exception: %s",key).containsKey(key);
+                                    observedGlobalNamedQueries.add(key);
+                                }
+                            }
+                            return super.visitAnnotation(annotation,unused);
+                        }
+                        @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){
+                            String invoked=node.getMethodSelect() instanceof MemberSelectTree select
+                                ?select.getIdentifier().toString():node.getMethodSelect().toString();
+                            if(Set.of("createQuery","createNativeQuery").contains(invoked)){
+                                assertThat(node.getArguments()).as("JPA query construction has a query argument: %s",node).isNotEmpty();
+                                String query=literal(node.getArguments().getFirst());
+                                assertThat(query).as("JPA query construction must use a static literal/constant expression, not runtime SQL concatenation: %s",node).isNotNull();
+                                String operation=className+"#"+methodName;
+                                observedJpaCalls.add(operation);
+                                if(queryScoped(query)){
+                                    assertThat(hasTopLevelConjunctiveScope(query))
+                                        .as("JPA query %s must keep tenant/customer/owner scope conjunctive",operation).isTrue();
+                                    assertThat(currentMethod).as("scoped JPA query must be constructed in a method with explicit bind parameters: %s",operation).isNotNull();
+                                    assertThat(hasBoundScopeParameter(query,currentMethod))
+                                        .as("scoped JPA query must bind the matching tenant/customer/owner parameter: %s",operation).isTrue();
+                                }else{
+                                    assertThat(globalMethods).as("unscoped JPA query requires an explicit reviewed global exception: %s",operation).containsKey(operation);
+                                    observedGlobalMethods.add(operation);
+                                }
+                            }
+                            if(invoked.equals("createNamedQuery")){
+                                assertThat(node.getArguments()).as("JPA named query call has a name argument: %s",node).isNotEmpty();
+                                String name=literal(node.getArguments().getFirst());
+                                assertThat(name).as("JPA named query name must be a static literal: %s",node).isNotNull();
+                                assertThat(discoveredNamedQueries).as("JPA named query call must resolve to a declared @NamedQuery/@NamedNativeQuery: %s",name)
+                                    .contains(className+"#"+name);
+                            }
+                            return super.visitMethodInvocation(node,unused);
+                        }
+                    }.scan(unit,null);
+                }
+            }
+        }
+        assertThat(discoveredNamedQueries).as("all discovered named queries are analyzed").doesNotContainNull();
+        assertThat(observedGlobalMethods).containsExactlyInAnyOrderElementsOf(globalMethods.keySet());
+        assertThat(observedGlobalNamedQueries).containsExactlyInAnyOrderElementsOf(globalNamedQueries.keySet());
+    }
+
 }

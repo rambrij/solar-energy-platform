@@ -602,3 +602,33 @@ See the companion gap analysis section **REQUIRES CLARIFICATION register** for t
 - Current workflow for commit `81ad4173d6cdb03cde347eabe6ba7b7f25a03b40`: [#45035989194](https://github.com/rambrij/solar-energy-platform/actions/runs/45035989194), still running at documentation time; no passing test result is claimed.
 - Remaining acceptance blockers: true per-operation metadata (the current actor/scope/assignment values are inherited from the controller-family matrix); repository method/query tenant-scope analysis beyond direct JDBC class allow-list; SQL AST/query-level validation; complete frontend menu/submenu/tab/button/action registries and backend parity; forged tenant and unsafe SQL/JDBC negative fixtures; and passing P0-02/P0-06/P1-03/P1-04, full H2/MySQL, frontend and Playwright suites.
 - P2-04 remains **IN PROGRESS — NOT COMPLETE**. The JDBC allow-list and string checks for `tenant_id` are only coarse guardrails, not proof that every executed query is tenant-scoped.
+
+
+### P2-04 final acceptance update — 2026-11-23
+
+**Status: COMPLETE — VERIFIED on the final implementation code snapshot.** The tested code commit is `f429125f8e3f20c712e5a6b921687069e032c016` on `feature/develop-authorization-gap-analysis`. GitHub Actions workflow [#45108345529](https://github.com/rambrij/solar-energy-platform/actions/runs/45108345529) completed with overall conclusion **SUCCESS**. This record supersedes the earlier P2-04 entries above that say implementation, inventory or CI validation is pending; those entries remain as dated development history.
+
+**Accepted implementation and verification**
+
+- **Trusted tenant provenance:** the JDK AST JDBC analysis now checks discovered JDBC call sites and exact tenant-binding arguments, including local aliases and helper/service boundaries represented by the trusted-source/flow inventory. Interface-typed service dependencies are resolved to implementations for provenance tracing. The focused `JdbcTenantSqlAstAnalysisTest` passed 10/10 on H2 and MySQL 8.4.
+- **Spring Data/JPA/query analysis:** the repository analysis covers discovered repository interfaces, derived query methods, declared `@Query` value/countQuery definitions, tenant/customer/owner scope parameters, unsafe top-level Boolean bypasses, JPA dynamic-query construction guardrails, inherited unscoped bulk operations and reviewed `findById` call sites. `RepositoryTenantAccessAnalysisTest` passed 14/14 and `SpringDataRepositoryAstAnalysisTest` passed 11/11 on both database lanes.
+- **Frontend inventory and parity:** the generated inventory records 443 controls: 239 LOCAL_ONLY, 21 DELEGATED_HELPER, 154 BACKEND_ACTION and 29 DELEGATED_CALLBACK. The canonical registry contains 140 API action records and 72 backend-facing button/form triggers, with 3 menus, 9 submenu groups, 27 workspace routes and 8 platform tabs. The CI checker verified 27 frontend routes, 41 backend controllers, 74 frontend source files and 63 permission identifiers, including action-to-controller operation and permission-mode parity.
+- **Negative fixtures:** the passing static gates exercise forged/client-origin tenant values and aliases, unsafe/unscoped SQL shapes, dynamic JDBC SQL construction, repository/query scope bypasses including top-level `OR`, and frontend permission/role/parity classification failures. The fixtures are regression checks for the analyzer rules; runtime tenant-isolation and authorization tests remain separate mandatory evidence.
+- **Architecture and service inventory:** operation policy registry, module architecture, and public service method inventory gates passed. The focused `AuthorizationPolicyRegistryTest` passed 6/6 and `ServiceBoundaryMethodInventoryTest` passed 2/2 on both database lanes.
+
+**Exact-commit CI results**
+
+| Gate | Result |
+|---|---|
+| Backend H2 full suite | 737 tests; 0 failures; 0 errors; 14 skipped — PASS |
+| Backend MySQL 8.4 full suite | 737 tests; 0 failures; 0 errors; 0 skipped — PASS |
+| Frontend | 62 test files; 315 tests — PASS |
+| Frontend TypeScript/Vite production build | PASS |
+| Playwright browser authorization journeys against MySQL 8.4 | 11 passed — PASS |
+| P2-04 focused static/AST gate | H2 and MySQL 8.4 — PASS |
+| P0-02 focused service-boundary gate | H2 and MySQL 8.4 — PASS |
+| P0-06 runtime authorization report | H2 and MySQL 8.4 — PASS |
+
+The P0-06 report on both database lanes records 146 live endpoint rows, 41/41 actor scenarios, 18/18 actor-context cases, 130/130 missing-permission HTTP checks, 131 anonymous route checks and 66/66 VIEW-only mutation denials. It reports zero protected routes without persisted matching-actor authorization evidence; one resource row is explicitly NOT APPLICABLE.
+
+**Scope and status boundary:** P2-04 is accepted for the current branch inventory and the tests described above. Static AST/source analysis is a maintained regression guard, not a proof over arbitrary future Java or SQL constructs; new repositories, query builders, JDBC consumers, helper/service flows or UI actions must extend the canonical inventories and negative fixtures. The separate P0-02 service-boundary completion record remains governed by INV-SVC-007/008 in `docs/security/SERVICE_BOUNDARY_AUTHORIZATION_INVENTORY.md`; passing the focused P0-02 CI step does not by itself close those broader method-by-method acceptance criteria.

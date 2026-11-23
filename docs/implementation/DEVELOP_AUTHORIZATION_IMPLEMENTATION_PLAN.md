@@ -653,3 +653,31 @@ The P0-06 report on both database lanes records 146 live endpoint rows, 41/41 ac
 **Full regression evidence on the exact tested workflow:** H2 737 tests (0 failures/errors; 14 skipped); MySQL 8.4 737 tests (0 failures/errors/skips); frontend 62 test files / 315 tests; TypeScript/Vite production build passed; Playwright 11/11 passed. P2-04, P0-02 focused service-boundary, P0-06 and P0-07 focused gates passed on their applicable H2 and MySQL 8.4 lanes.
 
 **Do not interpret the green workflow as closing every program-level item.** P2-04 is accepted for the current source and inventory; P0-02 remains open under INV-SVC-008 and P2-02 remains independently open. Keep those statuses until their own exit criteria are evidenced on a final tested commit.
+
+
+## P3-01 responsive navigation implementation — 2026-11-23
+
+**Status: IN PROGRESS — NOT ACCEPTANCE-COMPLETE.** Implementation changes are committed on `feature/develop-authorization-gap-analysis` at `4e4bf6df2f3a3b234d37b1854e3f02dc1b604fe6`. No backend API, permission catalogue, authorization rule or database schema was changed.
+
+### Verified implementation changes
+
+- Preserved and refined the existing `Shell.tsx`, `navigation.ts`, `RouteOutlet.tsx` and `usePermissions.ts` architecture.
+- Route resolution now chooses the deepest registered path using segment-boundary matching, normalizes trailing slashes, retains the storefront slug route, and returns an explicit unknown-route result instead of silently selecting the first menu item.
+- Navigation visibility now also requires the workspace's explicit actor type (VENDOR for POS, CUSTOMER for marketplace customer navigation); public vendor directory/storefront discovery remains public. Existing `/auth/me` effective permissions and fail-closed loading/error behavior remain in force.
+- Mobile navigation is a responsive drawer at 760px and below; tablet/desktop retain the grouped sidebar. The drawer includes a labelled close control, backdrop, initial focus, Tab containment, Escape dismissal, focus restoration, and focus transfer to main content after navigation. Route changes close the drawer without remounting workspace children.
+- Active page and parent group are both visually and semantically indicated; the parent group receives a non-colour-only “Current section” label and the selected page a visually hidden “Current page” label.
+- Platform administration now persists selected pages in the URL hash, restores direct fragment entry and browser back/forward, filters inaccessible pages, exposes `aria-current`, and displays a navigable breadcrumb hierarchy. Platform subscriptions remain separate from vendor/customer workspace navigation.
+
+### Tests added/updated
+
+- Vitest/RTL: nested direct routes, trailing slash and prefix boundaries, unknown deep links, active parent/page semantics, mobile focus entry, Tab containment, Escape and focus restoration, close-after-navigation, actor-domain isolation, platform direct fragment navigation, browser history and permission-restricted page filtering.
+- Playwright: mobile keyboard/drawer flow, nested deep-link route/breadcrumb state, viewport overflow checks at 360/390/768/1024/1280 widths, and permission revocation followed by reload.
+- Existing permission registry and authorization tests were not weakened.
+
+### Validation evidence and remaining gates
+
+- GitHub branch update succeeded at commit `4e4bf6df2f3a3b234d37b1854e3f02dc1b604fe6`.
+- The execution environment could not clone the repository because outbound DNS/network access to github.com is unavailable. No local `npm ci`, Vitest, TypeScript, Vite build, Playwright, or P2-04/P1-04 regression command has been executed in this session.
+- The GitHub Actions workflow run/status lookup did not yet return a run or check for this commit at documentation time. Treat CI as PENDING until the workflow reports terminal results.
+- The new tests and production changes have not yet been executed in CI. Potential test/runtime defects must be fixed from the actual CI results before acceptance.
+- P3-01 must remain IN PROGRESS until focused and full frontend tests, TypeScript check, Vite build, Playwright keyboard/focus/viewport/deep-link/revocation coverage, and P1-04/P2-04 regression checks pass on the same final commit. No COMPLETE claim is made.

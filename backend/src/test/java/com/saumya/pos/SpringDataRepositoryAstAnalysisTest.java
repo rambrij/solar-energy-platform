@@ -137,6 +137,19 @@ class SpringDataRepositoryAstAnalysisTest {
         }
         return found;
     }
+    private static Set<String> namedQueryParameterNames(String query){
+        Set<String> names=new HashSet<>();
+        String masked=maskQueryLiteralsAndComments(query);
+        java.util.regex.Matcher parameters=java.util.regex.Pattern.compile("(?<!:):([a-z][a-zA-Z0-9_]*)").matcher(masked);
+        while(parameters.find())names.add(parameters.group(1));
+        return names;
+    }
+    private static boolean namedQueryScopeParameterNamesMatch(String query){
+        String masked=maskQueryLiteralsAndComments(query);
+        if(!java.util.regex.Pattern.compile("(?i)(?:tenantId|tenant_id|tenant|customerId|customer_id|customer|ownerId|owner_id|owner|branchId|branch_id|branch|registerId|register_id|register)\\s*=\\s*:").matcher(masked).find())
+            return true; // Positional bindings are checked by query construction; no named binding to compare.
+        return namedScopeBindingsMatch(masked,namedQueryParameterNames(query));
+    }
     private static boolean scopeParameterName(String name){
         return name.matches("(?i).*(tenant|customer|owner|branch|register|username|reviewer|cashier|actor|token|hash|family|subscription|invoice|plan).*");
     }
@@ -658,6 +671,11 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(namedScopeBindingsMatch("select p from Product p where p.customerId=:tenant",Set.of("tenant"))).isFalse();
         assertThat(namedScopeBindingsMatch("select p from Product p where p.branchId=:tenant",Set.of("tenant"))).isFalse();
         assertThat(namedScopeBindingsMatch("select p from Product p where p.ownerId=:owner",Set.of("owner"))).isTrue();
+        assertThat(namedQueryScopeParameterNamesMatch("select p from Product p where p.tenantId=:tenant")).isTrue();
+        assertThat(namedQueryScopeParameterNamesMatch("select p from Product p where p.tenantId=:customer")).isFalse();
+        assertThat(namedQueryScopeParameterNamesMatch("select p from Product p where p.customerId=:tenant")).isFalse();
+        assertThat(namedQueryScopeParameterNamesMatch("select p from Product p where p.tenant_id=?1")).isTrue();
+        assertThat(namedQueryScopeParameterNamesMatch("select p from Product p where p.note='tenantId=:customer' and p.status=:status")).isTrue();
     }
 
     private static boolean derivedScopeBindingFixture(String methodName,Set<String> parameters){
@@ -803,6 +821,8 @@ class SpringDataRepositoryAstAnalysisTest {
                                 if(queryScoped(queryText)){
                                     assertThat(hasTopLevelConjunctiveScope(queryText))
                                         .as("JPA named query %s must keep tenant/customer/owner scope conjunctive",key).isTrue();
+                                    assertThat(namedQueryScopeParameterNamesMatch(queryText))
+                                        .as("JPA named query %s must bind each named tenant/customer/owner predicate to a semantically matching parameter",key).isTrue();
                                 }else{
                                     assertThat(globalNamedQueries).as("unscoped JPA named query requires an explicit reviewed global exception: %s",key).containsKey(key);
                                     observedGlobalNamedQueries.add(key);

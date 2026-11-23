@@ -4,7 +4,7 @@ import SessionStart from './SessionStart';
 import { api, ApiError } from './api';
 
 vi.mock('./api', async importOriginal => ({ ...await importOriginal<typeof import('./api')>(), api: vi.fn() }));
-vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'test-user',tenantId:1,branchId:1,permissions:["POS_VIEW","POS_SESSION_OPEN"]}})}));
+vi.mock('./session',()=>({useSession:()=>({status:'authenticated',loading:false,refreshing:false,account:{username:'test-user',tenantId:1,branchId:1,membershipId:'1:test-user',permissions:["POS_VIEW","POS_SESSION_OPEN"],actorType:'VENDOR',availableActorTypes:['VENDOR']},error:null})}));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 const openShift = { id: 'own-shift', registerId: 900001, openingFloat: 50, state: 'OPEN' };
 

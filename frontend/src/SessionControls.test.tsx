@@ -8,10 +8,10 @@ vi.mock('./LoginPanel',()=>({default:()=>null}));
 afterEach(()=>{cleanup();vi.resetAllMocks();});
 
 it('offers Customer/Vendor switching only when both contexts were server-resolved',async()=>{
- vi.mocked(useSession).mockReturnValue({ready:true,account:{
-  username:'dual@example.test',tenantId:55,branchId:8,permissions:['PRODUCT_VIEW'],actorType:'VENDOR',
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{
+  username:'dual@example.test',tenantId:55,branchId:8,membershipId:'55:dual@example.test',permissions:['PRODUCT_VIEW'],actorType:'VENDOR',
   availableActorTypes:['CUSTOMER','VENDOR']
- }});
+ },error:null});
  vi.mocked(switchActorContext).mockResolvedValue();
  render(<SessionControls/>);
  expect(screen.getByLabelText('Active actor context').textContent).toContain('Vendor');
@@ -21,16 +21,16 @@ it('offers Customer/Vendor switching only when both contexts were server-resolve
 
 it('does not offer a workspace switch to Platform or single-context identities',()=>{
  vi.mocked(useSession).mockReturnValue({ready:true,account:{
-  username:'platform@example.test',tenantId:null,branchId:null,permissions:['PLATFORM_SUPPORT_ACCESS'],actorType:'PLATFORM',
+  username:'platform@example.test',tenantId:null,branchId:null,membershipId:null,permissions:['PLATFORM_SUPPORT_ACCESS'],actorType:'PLATFORM',
   availableActorTypes:['PLATFORM']
- }});
+ },error:null});
  const view=render(<SessionControls/>);
  expect(screen.queryByRole('button',{name:/Switch to/})).toBeNull();
  view.rerender(<SessionControls/>);
  vi.mocked(useSession).mockReturnValue({ready:true,account:{
-  username:'buyer@example.test',tenantId:null,branchId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER',
+  username:'buyer@example.test',tenantId:null,branchId:null,membershipId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER',
   availableActorTypes:['CUSTOMER']
- }});
+ },error:null});
  view.rerender(<SessionControls/>);
  expect(screen.queryByRole('button',{name:/Switch to/})).toBeNull();
 });

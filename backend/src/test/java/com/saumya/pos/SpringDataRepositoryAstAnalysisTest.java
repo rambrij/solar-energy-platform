@@ -387,10 +387,10 @@ class SpringDataRepositoryAstAnalysisTest {
         if(value.matches("(?i)input\\s*\\.\\s*tenantId\\s*\\(\\s*\\)")
             &&trustedVariables.contains("__platformAuthorizedTenantTarget"))return true;
         if(java.util.regex.Pattern.compile("(?i)(?:\\b(?:request|payload|body|filter|criteria|dto|command|input|form)\\s*\\.|\\bgetTenantId\\s*\\()").matcher(value).find())return false;
-        if(java.util.regex.Pattern.compile("(?i)(?:\\b(?:auth|authorization)\\s*\\.\\s*current\\s*\\(\\s*\\)\\s*\\.\\s*tenantId\\s*\\(\\s*\\)|"
-            +"\\b(?:ctx|context|c|actor|reviewer|scope|s|event|m|order|membership|cart|current|archived|vendor|tenant|challenge|refund)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*(?:\\(\\s*\\))?|"
-            +"\\bactiveVendor\\s*\\([^)]*\\)\\s*\\.\\s*id\\s*\\(\\s*\\))").matcher(value).find())return true;
-        return value.matches("[A-Za-z_$][\\w$]*")&&trustedVariables.contains(value);
+        if(java.util.regex.Pattern.compile("(?i)\\b(?:auth|authorization|authContext|authorizationContext)\\s*\\.\\s*current\\s*\\(\\s*\\)\\s*\\.\\s*(?:tenant|tenantId)\\s*\\(\\s*\\)").matcher(value).find())return true;
+        if(java.util.regex.Pattern.compile("(?i)\\bactiveVendor\\s*\\([^)]*\\)\\s*\\.\\s*id\\s*\\(\\s*\\)").matcher(value).find())return true;
+        java.util.regex.Matcher receiver=java.util.regex.Pattern.compile("^\\s*([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:tenant|tenantId|id)\\s*\\(\\s*\\)\\s*$").matcher(value);
+        return receiver.matches()&&trustedVariables.contains(receiver.group(1));
     }
 
     private record ServiceMethodRef(String className,String simpleName,MethodTree method,Map<String,String> fieldTypes,
@@ -640,8 +640,14 @@ class SpringDataRepositoryAstAnalysisTest {
 
     @Test
     void tenantRepositoryCallsiteProvenanceFixturesRejectForgedAndUnreviewedArguments(){
-        assertThat(trustedTenantExpression("scope.tenant()",Set.of())).isTrue();
-        assertThat(trustedTenantExpression("order.tenant()",Set.of())).isTrue();
+        assertThat(trustedTenantExpression("auth.current().tenantId()",Set.of())).isTrue();
+        assertThat(trustedTenantExpression("authorizationContext.current().tenantId()",Set.of())).isTrue();
+        assertThat(trustedTenantExpression("scope.tenant()",Set.of())).isFalse();
+        assertThat(trustedTenantExpression("scope.tenant()",Set.of("scope"))).isTrue();
+        assertThat(trustedTenantExpression("order.tenant()",Set.of())).isFalse();
+        assertThat(trustedTenantExpression("order.tenant()",Set.of("order"))).isTrue();
+        assertThat(trustedTenantExpression("requestContext.tenant()",Set.of())).isFalse();
+        assertThat(trustedTenantExpression("dto.tenantId()",Set.of("dto"))).isFalse();
         assertThat(trustedTenantExpression("request.tenantId()",Set.of())).isFalse();
         assertThat(trustedTenantExpression("payload.tenant()",Set.of())).isFalse();
         assertThat(trustedTenantExpression("tenant",Set.of())).isFalse();

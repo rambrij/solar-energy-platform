@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import SalesInsights from './SalesInsights';
 import { api } from './api';
 import {requestReportExport} from './reportExportApi';
-vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'report-user',tenantId:1,branchId:1,permissions:['POS_VIEW','POS_REPORT_VIEW','POS_REPORT_EXPORT']}})}));
+vi.mock('./session',()=>({useSession:()=>({status:'authenticated',loading:false,refreshing:false,account:{username:'report-user',tenantId:1,branchId:1,membershipId:'1:report-user',permissions:['POS_VIEW','POS_REPORT_VIEW','POS_REPORT_EXPORT'],actorType:'VENDOR',availableActorTypes:['VENDOR']},error:null})}));
 vi.mock('./reportExportApi',()=>({requestReportExport:vi.fn(),downloadReportCsv:vi.fn()}));
 vi.mock('./api', () => ({ api: vi.fn() }));
 const totals = { paidOrders: 1, sales: 110, tax: 10, beforeTax: 100, cashReceived: 120, changeGiven: 10, cashApplied: 110, units: 1, invoices: 1, unpaidOrders: 2, unpaidAmount: 500, cancelledOrders: 3, expiredOrders: 4 };

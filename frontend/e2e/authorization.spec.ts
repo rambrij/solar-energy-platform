@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { apiAs, demo, ensureCustomSalesRole, signIn } from './helpers';
 
 test('Vendor Admin: route refresh, browser history, mobile navigation and cross-tenant resistance', async ({ page, browser }) => {
@@ -225,6 +226,26 @@ test('P3-01: mobile navigation supports keyboard dismissal, focus restoration an
   await expect(page).toHaveURL(/sales-history/);
   await expect(page.getByRole('button', { name: 'Open workspace menu' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('heading', { name: 'Sales History', level: 1 })).toBeVisible();
+});
+
+test('P3-01: workspace navigation meets automated WCAG 2.2 AA checks', async ({ page }) => {
+  await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/vendor/pos/products');
+  await page.getByRole('button', { name: 'Open workspace menu' }).click();
+  const mobileResults = await new AxeBuilder({ page })
+    .include('.workspace-menu')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  expect(mobileResults.violations.map(v => ({ id: v.id, impact: v.impact, targets: v.nodes.map(n => n.target) }))).toEqual([]);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  const desktopResults = await new AxeBuilder({ page })
+    .include('.workspace-menu')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  expect(desktopResults.violations.map(v => ({ id: v.id, impact: v.impact, targets: v.nodes.map(n => n.target) }))).toEqual([]);
 });
 
 test('P3-01: marketplace customer navigation remains responsive and has no horizontal overflow', async ({ page }) => {

@@ -46,7 +46,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
   // Vendor directory and storefront discovery remain public. Customer cart and
   // purchase navigation, and every POS entry, require their matching actor.
   const publicRoute = mode === 'online' && ['vendor-directory', 'storefront-products'].includes(route);
-  const routeAllowed = !loading && (publicRoute || (actorMatchesWorkspace && items.some(item => item.id === route)));
+  const routeAllowed = publicRoute || (!loading && actorMatchesWorkspace && items.some(item => item.id === route));
   // Public discovery routes still have a meaningful location hierarchy even
   // when no customer actor is signed in. Keep their entries out of the menu.
   const breadcrumbItems = publicRoute ? allItems : items;

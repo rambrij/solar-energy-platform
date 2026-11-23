@@ -452,7 +452,7 @@ if(!/fetch\s*\(\s*['"]\/api\/v1\/auth\/me['"]/.test(sessionSource)
  throw new Error('Exactly one authoritative GET /api/v1/auth/me reader must live in session.ts');
 if(!/fetch\s*\(\s*['"]\/api\/v1\/auth\/csrf['"]/.test(sessionSource)
  || !/fetch\s*\(\s*['"]\/api\/v1\/auth['"]\s*\+\s*path\s*,\s*\{\s*method\s*:\s*['"]POST['"]/.test(sessionSource)
- || [...sessionSource.matchAll(/\bfetch\s*\(/g)].length!==4){
+ || [...sessionSource.matchAll(/\bfetch\s*\(/g)].length!==5){
  throw new Error('Session auth transport must use the reviewed CSRF, POST /api/v1/auth and single /auth/me path helpers');
 }
 const marketplaceHelperSource=fs.readFileSync(path.join(frontend,'src/marketplaceApi.ts'),'utf8');

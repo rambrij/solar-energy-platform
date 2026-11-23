@@ -190,9 +190,13 @@ export async function signIn(
  actorType?:Exclude<ActorType,'PLATFORM'>
 ){
  const current=++generation;
+ const pendingRefresh=refreshTask;
  token=undefined;
  publish('loading');
  try{
+  // Let any earlier refresh finish cookie rotation before issuing a new login.
+  if(pendingRefresh)await pendingRefresh;
+  if(current!==generation)throw Error('Sign-in superseded');
   const value=await authRequest(register?'/register':'/login',{
    username,password,
    ...(!register&&totpCode?{totpCode}:{}),
@@ -213,9 +217,13 @@ export async function signIn(
 export async function switchActorContext(actorType:Exclude<ActorType,'PLATFORM'>){
  const current=++generation;
  if(!token)throw new AuthError(401,'Sign in before switching workspace context.');
+ const pendingRefresh=refreshTask;
  // Keep the bearer only for the context-switch request; publish no old grants.
  publish('loading',null,null,true);
  try{
+  // Wait for a refresh-cookie rotation already in flight before context exchange.
+  if(pendingRefresh)await pendingRefresh;
+  if(current!==generation)throw Error('Context switch superseded');
   const value=await authRequest('/context',{actorType},true);
   if(current!==generation)throw Error('Context switch superseded');
   if(typeof value.accessToken!=='string'||!value.accessToken)throw new Error('The context-switch response did not contain an access token.');
@@ -232,9 +240,14 @@ export async function switchActorContext(actorType:Exclude<ActorType,'PLATFORM'>
 
 export async function signOut(){
  const current=++generation;
+ const pendingRefresh=refreshTask;
  publish('loading',null,null,true);
  let failure:unknown;
- try{await authRequest('/logout',{},true);}
+ try{
+  // Logout using the current refresh cookie, after a pending rotation is settled.
+  if(pendingRefresh)await pendingRefresh;
+  if(current===generation)await authRequest('/logout',{},true);
+ }
  catch(error){failure=error;}
  finally{
   if(current===generation){

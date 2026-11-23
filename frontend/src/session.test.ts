@@ -114,7 +114,7 @@ describe('canonical authenticated session snapshot',()=>{
  it('replaces the complete Customer snapshot with Vendor context and never mixes grants',async()=>{
   const fetchMock=vi.mocked(fetch);
   const customer={...account('CUSTOMER',['CUSTOMER'],null),availableActorTypes:['CUSTOMER','VENDOR'] as ActorType[]};
-  const vendor={...account('VENDOR',['PRODUCT_VIEW'],8),availableActorTypes:['CUSTOMER','VENDOR'] as const};
+  const vendor={...account('VENDOR',['PRODUCT_VIEW'],8),availableActorTypes:['CUSTOMER','VENDOR'] as ActorType[]};
   loginSequence(fetchMock,customer);
   fetchMock.mockResolvedValueOnce(response({token:'csrf-switch'}))
    .mockResolvedValueOnce(response({accessToken:'vendor-access-token',account:vendor}))
@@ -130,8 +130,8 @@ describe('canonical authenticated session snapshot',()=>{
 
  it('replaces Vendor context with Customer context and clears tenant scope',async()=>{
   const fetchMock=vi.mocked(fetch);
-  const vendor={...account('VENDOR',['PRODUCT_VIEW'],8),availableActorTypes:['CUSTOMER','VENDOR'] as const};
-  const customer={...account('CUSTOMER',['CUSTOMER'],null),availableActorTypes:['CUSTOMER','VENDOR'] as const};
+  const vendor={...account('VENDOR',['PRODUCT_VIEW'],8),availableActorTypes:['CUSTOMER','VENDOR'] as ActorType[]};
+  const customer={...account('CUSTOMER',['CUSTOMER'],null),availableActorTypes:['CUSTOMER','VENDOR'] as ActorType[]};
   loginSequence(fetchMock,vendor);
   fetchMock.mockResolvedValueOnce(response({token:'csrf-switch'}))
    .mockResolvedValueOnce(response({accessToken:'customer-access-token',account:customer}))

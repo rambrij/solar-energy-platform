@@ -515,6 +515,18 @@
       ]
     },
     {
+      "source": "com/saumya/pos/platform/LocalPlatformMfaMail.java",
+      "repository": "PlatformConfigurationRepository#findById",
+      "scope": "LOCAL_MFA_NOTIFICATION_TEMPLATE_AND_ADAPTER",
+      "authority": "The local-only notification port is invoked after authorized MFA issuance or verified enrollment completion. Its reads are limited to a fixed adapter key and activity-enum template keys and ignore sensitive rows.",
+      "evidence": [
+        "settings.findById(key)",
+        "setting(ADAPTER_KEY",
+        "activity.name()",
+        "!entry.sensitive()"
+      ]
+    },
+    {
       "source": "com/saumya/pos/platform/PlatformSupportServiceImpl.java",
       "repository": "PlatformSupportRepository#findById",
       "scope": "PLATFORM_SUPPORT_GRANT_RESOURCE",

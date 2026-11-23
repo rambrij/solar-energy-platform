@@ -10,7 +10,6 @@ import com.saumya.pos.identity.internal.PlatformGrantRepository;
 import com.saumya.pos.security.VendorMembershipAccess;
 import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.shared.PlatformAuditPort;
-import com.saumya.pos.shared.PlatformAuditPort;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -18,8 +17,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Map;
-import java.util.UUID;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,11 +31,14 @@ public class PlatformMfaService {
     private final CustomerRepository customers;private final VendorMembershipAccess memberships;
     private final PlatformMfaCrypto crypto;private final PlatformTotp totp;private final Clock clock;
     private final AuthorizationContext authorization;private final PlatformAuditPort audit;
+    private final Optional<PlatformMfaNotifications> notifications;
     public PlatformMfaService(GlobalUserRepository users,PlatformGrantRepository grants,PlatformMfaEnrollmentRepository enrollmentTokens,
         RefreshSessionRepository sessions,CustomerRepository customers,VendorMembershipAccess memberships,
-        PlatformMfaCrypto crypto,PlatformTotp totp,Clock clock,AuthorizationContext authorization,PlatformAuditPort audit){
+        PlatformMfaCrypto crypto,PlatformTotp totp,Clock clock,AuthorizationContext authorization,PlatformAuditPort audit,
+        Optional<PlatformMfaNotifications> notifications){
         this.users=users;this.grants=grants;this.enrollmentTokens=enrollmentTokens;this.sessions=sessions;this.customers=customers;
         this.memberships=memberships;this.crypto=crypto;this.totp=totp;this.clock=clock;this.authorization=authorization;this.audit=audit;
+        this.notifications=notifications;
     }
     public record Enrollment(String username,String secret,String otpauthUri,String expiresAt){}
     public record EnrollmentStatus(boolean enrolled){}
@@ -62,6 +63,7 @@ public class PlatformMfaService {
         Instant expiry=clock.instant().plus(Duration.ofMinutes(30));
         enrollmentTokens.saveAndFlush(new PlatformMfaEnrollmentToken(hashToken(token),target,expiry,clock.instant()));
         audit.record(actor.username(),"PLATFORM_MFA_ENROLLMENT_ISSUED","PLATFORM_IDENTITY",target,null,why,null);
+        notifications.ifPresent(sender->sender.afterCommit(target,PlatformMfaNotifications.Activity.ENROLLMENT_ISSUED));
         return new IssuedEnrollment(target,token,expiry.toString());
     }
     public Enrollment start(String token) {
@@ -94,6 +96,7 @@ public class PlatformMfaService {
         if(counter<0)throw new ResponseStatusException(UNAUTHORIZED,"Invalid MFA verification code");
         user.enrollPlatformMfa(crypto.encrypt(secret),clock.instant(),counter);
         enrollmentTokens.delete(row);
+        notifications.ifPresent(sender->sender.afterCommit(username,PlatformMfaNotifications.Activity.ENROLLMENT_COMPLETED));
         return new EnrollmentStatus(true);
     }
     public EnrollmentStatus status(String username) {

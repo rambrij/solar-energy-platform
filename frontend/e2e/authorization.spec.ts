@@ -85,7 +85,7 @@ test('Accountant: reporting is available but inventory receipt access is denied'
   expect(denied.status).toBe(403);
 });
 
-test('Platform Super Admin: platform workspace works and vendor POS context is rejected', async ({ page }) => {
+test('Platform Super Admin: platform workspace works and vendor POS context is rejected', async ({ page, request }) => {
   await signIn(page, demo.platformAdmin.username, demo.platformAdmin.password);
   await page.goto('/platform');
   await expect(page.getByRole('link', { name: 'Platform overview' })).toBeVisible();
@@ -106,6 +106,17 @@ test('Platform Super Admin: platform workspace works and vendor POS context is r
   await expect(page.getByText('EMAIL_TEMPLATE.E2E_NOTICE', { exact: true })).toBeVisible();
   await page.getByRole('row').filter({ hasText: 'EMAIL_TEMPLATE.E2E_NOTICE' }).getByRole('button', { name: 'Edit template' }).click();
   await expect(page.getByLabel('Email subject')).toHaveValue('Platform notice');
+  await page.getByLabel('Category').selectOption('INTEGRATION');
+  await page.getByRole('button', { name: 'Configure MFA mail adapter' }).click();
+  await page.getByLabel('MFA mail adapter').selectOption('DISABLED');
+  await page.getByRole('button', { name: 'Save configuration' }).click();
+  const adapter = page.getByRole('row').filter({ hasText: 'INTEGRATION.PLATFORM_MFA_MAIL.ADAPTER' });
+  await expect(adapter.getByText('DISABLED', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Configure MFA mail adapter' }).click();
+  await page.getByLabel('MFA mail adapter').selectOption('SMTP');
+  await page.getByRole('button', { name: 'Save configuration' }).click();
+  await expect(adapter.getByText('SMTP', { exact: true })).toBeVisible();
+  expect((await request.get('http://127.0.0.1:8025/api/v1/messages')).ok()).toBeTruthy();
   await expect(page.getByRole('button', { name: /^Platform identities/ })).toBeVisible();
   await page.goto('/vendor/pos');
   await expect(page.getByRole('alert')).toContainText('Access denied');

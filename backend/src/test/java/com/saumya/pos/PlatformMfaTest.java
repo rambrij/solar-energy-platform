@@ -71,7 +71,7 @@ class PlatformMfaTest {
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "vendor@example.test",7L,12L,"7:vendor@example.test",Set.of("POS_VIEW"),false,false,true));
         var service=new PlatformMfaService(users,grants,tokens,sessions,customers,memberships,
-            crypto,totp,Clock.systemUTC(),authorization,audit);
+            crypto,totp,Clock.systemUTC(),authorization,audit,java.util.Optional.empty());
 
         assertThatThrownBy(()->service.issueEnrollment("operator@platform.test","P0-02 direct-call denial"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
@@ -96,7 +96,7 @@ class PlatformMfaTest {
         var authorization=mock(AuthorizationContext.class);
         var audit=mock(PlatformAuditPort.class);
         var service=new PlatformMfaService(users,grants,tokens,sessions,customers,memberships,
-            crypto,totp,Clock.systemUTC(),authorization,audit);
+            crypto,totp,Clock.systemUTC(),authorization,audit,java.util.Optional.empty());
 
         assertThatThrownBy(()->service.start("not-a-valid-enrollment-token"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);

@@ -16,6 +16,7 @@ type PlatformSetting={key:string;category:string;value:string|null;sensitive:boo
 const emptyConfigForm={key:'',category:'INTEGRATION',value:'',sensitive:false,secretReference:''};
 const emailTemplatePrefix='EMAIL_TEMPLATE.';
 const subscriptionCredentialKey='PAYMENT_PROVIDER.SUBSCRIPTION.CREDENTIAL_REFERENCE';
+const mfaMailAdapterKey='INTEGRATION.PLATFORM_MFA_MAIL.ADAPTER';
 type SupportGrant={id:number;tenantId:number;actor:string;purpose:string;ticketReference:string;expiresAt:string;active:boolean;revokedAt?:string|null};
 const emptyPlanForm={planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'};
 
@@ -306,9 +307,12 @@ export default function PlatformApp(){
         <p className="platform-wide">Saved payment settings do not activate payment processing. Vendor merchant credentials are tenant-owned.</p>
        </>:<>
         <label>Configuration key<input required value={configForm.key} onChange={e=>setConfigForm({...configForm,key:e.target.value.toUpperCase()})}/></label>
-        <label><input type="checkbox" checked={configForm.sensitive} onChange={e=>setConfigForm({...configForm,sensitive:e.target.checked,value:'',secretReference:''})}/> Sensitive secret reference</label>
+        {configForm.category==='INTEGRATION'&&<button type="button" className="secondary" onClick={()=>setConfigForm({
+         ...emptyConfigForm,key:mfaMailAdapterKey,value:settings.find(setting=>setting.key===mfaMailAdapterKey)?.value??'SMTP',
+        })}>Configure MFA mail adapter</button>}
+        {configForm.key!==mfaMailAdapterKey&&<label><input type="checkbox" checked={configForm.sensitive} onChange={e=>setConfigForm({...configForm,sensitive:e.target.checked,value:'',secretReference:''})}/> Sensitive secret reference</label>}
        </>}
-       {configForm.sensitive?<label>Secret manager reference<input required value={configForm.secretReference} onChange={e=>setConfigForm({...configForm,secretReference:e.target.value})} placeholder="vault://path/to/secret"/></label>:<label className="platform-wide">Non-sensitive value<textarea required value={configForm.value} onChange={e=>setConfigForm({...configForm,value:e.target.value})}/></label>}
+       {configForm.key===mfaMailAdapterKey?<label>MFA mail adapter<select required value={configForm.value} onChange={e=>setConfigForm({...configForm,sensitive:false,secretReference:'',value:e.target.value})}><option value="">Choose an adapter</option><option value="SMTP">Local Mailpit SMTP</option><option value="DISABLED">Disabled</option></select></label>:configForm.sensitive?<label>Secret manager reference<input required value={configForm.secretReference} onChange={e=>setConfigForm({...configForm,secretReference:e.target.value})} placeholder="vault://path/to/secret"/></label>:<label className="platform-wide">Non-sensitive value<textarea required value={configForm.value} onChange={e=>setConfigForm({...configForm,value:e.target.value})}/></label>}
       </>}
       <div className="platform-form-actions"><button disabled={busy}>Save configuration</button></div></form></section>
      <section className="platform-panel"><h2>Saved configuration</h2><div className="platform-table-wrap"><table><thead><tr><th>Key</th><th>Category</th><th>Value</th><th>Updated by</th><th>Updated</th><th>Actions</th></tr></thead><tbody>{settings.map(s=><tr key={s.key}><td>{s.key}</td><td>{s.category}</td><td>{s.sensitive?(s.secretConfigured?'Configured secret reference':'Not configured'):(s.value??'—')}</td><td>{s.updatedBy}</td><td>{new Date(s.updatedAt).toLocaleString()}</td><td>{s.category==='EMAIL_TEMPLATE'&&<button type="button" className="secondary" onClick={()=>editEmailTemplate(s)}>Edit template</button>}</td></tr>)}</tbody></table></div></section></>}

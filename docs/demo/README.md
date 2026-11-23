@@ -1,5 +1,7 @@
 # Local demo accounts, tenant roles and permissions
 
+For onboarding, subscriptions, support, MFA, Mailpit, and mock payment steps, see the [Platform Super Admin demo walkthrough](platform-super-admin.md).
+
 > **Local/test only.** Fixture credentials are public development credentials. Never use them in production or expose the local environment publicly.
 
 ## Provisioning model

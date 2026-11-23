@@ -1,3 +1,10 @@
 spring:
+  mail:
+    host: ${MAILPIT_HOST:127.0.0.1}
+    port: ${MAILPIT_SMTP_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 2000
+      mail.smtp.timeout: 2000
+      mail.smtp.writetimeout: 2000
   flyway:
     locations: classpath:db/migration,classpath:db/local-migration

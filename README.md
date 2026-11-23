@@ -72,7 +72,15 @@ The checked-in Compose stack contains three services:
 
 The backend health endpoint is /actuator/health on the backend service. Compose does not publish a separate host port for the backend actuator. The browser-facing authentication/CSRF endpoint is available through the frontend proxy at http://localhost:8080/api/v1/auth/csrf.
 
-Mailpit, Redis, MinIO/S3, a message broker and an asynchronous worker are **not** included in the current Compose stack. Do not expect a local mail inbox or storage/queue service.
+Mailpit captures local Platform MFA notifications at http://localhost:8025. The backend uses SMTP port 1025. Compose publishes both Mailpit ports only on localhost. Redis, MinIO/S3, a message broker and an asynchronous worker are not part of this stack.
+
+### Open Platform Overview
+
+1. Set `SPRING_PROFILES_ACTIVE=local` in `.env` and run `docker compose up --build -d`.
+2. Open [Platform Overview](http://localhost:8080/platform) and sign in as `platform.superadmin@somya.local` with the local-only password in the demo matrix below. For Vite, open http://localhost:5173/platform.
+3. Use the sidebar for tenant onboarding and lifecycle, plan versions, audit, support access, configuration, and platform identities. Use the top **Tenant subscriptions** link for subscription lifecycle and billing history.
+
+See the [Platform Super Admin demo walkthrough](docs/demo/platform-super-admin.md) for the complete flows, Mailpit activity notifications, and mock payment setup.
 
 ## Clean local start with Docker Compose
 

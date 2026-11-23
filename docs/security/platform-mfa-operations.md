@@ -28,6 +28,8 @@ Production platform login is denied until the account has a verified TOTP enroll
 
 After bootstrap, use **Platform identities and MFA** in the authenticated Platform Super Admin workspace. It requires `PLATFORM_IDENTITY_MANAGE`, does not permit self-reset, revokes that identity's refresh sessions, and issues a 30-minute one-time token for another platform identity. The raw token is returned once and the database stores only its hash.
 
+With the local profile, the Mailpit adapter captures issuance/reset and completion notices after commit. See the [demo walkthrough](../demo/platform-super-admin.md#platform-mfa-and-mailpit) for adapter switching and template keys. Mailpit is an activity inbox. Deliver the token through the approved secure channel and continue to verify enrollment with a TOTP authenticator.
+
 ## Runtime controls
 
 - TOTP is RFC 6238 compatible with a 30-second step and a narrow ±1-step clock tolerance.

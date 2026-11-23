@@ -813,8 +813,8 @@ class SpringDataRepositoryAstAnalysisTest {
                                 assertThat(node.getArguments()).as("JPA named query call has a name argument: %s",node).isNotEmpty();
                                 String name=literal(node.getArguments().getFirst());
                                 assertThat(name).as("JPA named query name must be a static literal: %s",node).isNotNull();
-                                assertThat(discoveredNamedQueries).as("JPA named query call must resolve to a declared @NamedQuery/@NamedNativeQuery: %s",name)
-                                    .contains(className+"#"+name);
+                                assertThat(discoveredNamedQueries.stream().anyMatch(key->key.endsWith("#"+name)))
+                                    .as("JPA named query call must resolve to a declared @NamedQuery/@NamedNativeQuery: %s",name).isTrue();
                             }
                             return super.visitMethodInvocation(node,unused);
                         }

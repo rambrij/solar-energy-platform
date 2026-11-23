@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import ShiftClose from './ShiftClose';
 import { api } from './api';
 vi.mock('./api', async original => ({ ...await original<typeof import('./api')>(), api: vi.fn() }));
-vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'test-user',tenantId:1,branchId:1,permissions:["POS_SESSION_CLOSE"]}})}));
+vi.mock('./session',()=>({useSession:()=>({status:'authenticated',loading:false,refreshing:false,account:{username:'test-user',tenantId:1,branchId:1,membershipId:'1:test-user',permissions:["POS_SESSION_CLOSE"],actorType:'VENDOR',availableActorTypes:['VENDOR']},error:null})}));
 const props = { session: 's1', disabled: false, onStateChange: vi.fn(), onPendingChange: vi.fn(), onBusyChange: vi.fn() };
 afterEach(() => { cleanup(); vi.resetAllMocks(); sessionStorage.clear(); });
 it('submits zero count with a reason and displays the frozen variance', async () => {

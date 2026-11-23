@@ -71,6 +71,65 @@ it('keeps public vendor discovery available without a customer login', async () 
   expect(await screen.findByText('Public vendor directory')).toBeTruthy();
 });
 
+it('keeps public discovery breadcrumbs aligned with the route without exposing customer navigation', async () => {
+  window.history.replaceState({}, '', '/vendors/solar-partner');
+  mockUseSession.mockReturnValue({ready:true,account:null});
+  render(<Shell mode="online"><section><h2>Public storefront content</h2></section></Shell>);
+  expect(await screen.findByText('Public storefront content')).toBeTruthy();
+  const breadcrumbs = within(screen.getByRole('navigation', { name: 'Breadcrumb' }));
+  expect(breadcrumbs.getByRole('link', { name: 'Marketplace' })).toBeTruthy();
+  expect(breadcrumbs.getByRole('link', { name: 'Shop' }).getAttribute('href')).toBe('/marketplace/vendors');
+  expect(breadcrumbs.getByText('Vendor Catalogue')).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'My Single-Vendor Cart' })).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Vendor Catalogue', level: 1 })).toBeTruthy();
+});
+
+it('fails closed while permissions are loading and after an unresolved permission error', async () => {
+  window.history.replaceState({}, '', '/vendor/pos/products');
+  mockUsePermissions.mockReturnValue({
+    permissions:null,loading:true,error:null,
+    hasPermission:()=>false,hasAnyPermission:()=>false,hasAllPermissions:()=>false,
+    isPlatformUser:false,isCustomer:false,isVendorEmployee:false,
+  });
+  const view = render(<Shell mode="pos"><section><h2>Protected product content</h2></section></Shell>);
+  expect(screen.getByRole('status').textContent).toContain('Checking your workspace access');
+  expect(screen.queryByText('Protected product content')).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Manage Products' })).toBeNull();
+  mockUsePermissions.mockReturnValue({
+    permissions:null,loading:false,error:new Error('Permission endpoint unavailable'),
+    hasPermission:()=>false,hasAnyPermission:()=>false,hasAllPermissions:()=>false,
+    isPlatformUser:false,isCustomer:false,isVendorEmployee:false,
+  });
+  view.rerender(<Shell mode="pos"><section><h2>Protected product content</h2></section></Shell>);
+  expect(screen.getByRole('alert').textContent).toContain('Access denied');
+  expect(screen.queryByText('Protected product content')).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Manage Products' })).toBeNull();
+});
+
+it('preserves mounted page state when the mobile navigation is opened and closed', () => {
+  grantPermissions(posPermissions);
+  render(<Shell mode="pos"><label>Draft note<input aria-label="Draft note" defaultValue="unsaved value" /></label></Shell>);
+  const field = screen.getByRole('textbox', { name: 'Draft note' });
+  fireEvent.change(field, { target: { value: 'changed but not saved' } });
+  const toggle = screen.getByRole('button', { name: 'Open workspace menu' });
+  fireEvent.click(toggle);
+  fireEvent.click(screen.getByRole('button', { name: 'Close workspace navigation' }));
+  expect(screen.getByRole('textbox', { name: 'Draft note' })).toBe(field);
+  expect((screen.getByRole('textbox', { name: 'Draft note' }) as HTMLInputElement).value).toBe('changed but not saved');
+});
+
+it('removes vendor navigation immediately when the active actor changes to CUSTOMER', async () => {
+  window.history.replaceState({}, '', '/vendor/pos/products');
+  grantPermissions(posPermissions);
+  const view = render(<Shell mode="pos"><section><h2>Vendor-only product area</h2></section></Shell>);
+  expect(await screen.findByRole('link', { name: 'Manage Products' })).toBeTruthy();
+  grantPermissions(['CUSTOMER']);
+  view.rerender(<Shell mode="pos"><section><h2>Vendor-only product area</h2></section></Shell>);
+  expect(screen.getByRole('alert').textContent).toContain('Access denied');
+  expect(screen.queryByRole('link', { name: 'Manage Products' })).toBeNull();
+  expect(screen.queryByText('Vendor-only product area')).toBeNull();
+});
+
 it('updates the URL and selected workspace using sidebar navigation', async () => {
   grantPermissions(['CUSTOMER']);
   render(<Shell mode="online"><section><h2>Marketplace page</h2></section></Shell>);

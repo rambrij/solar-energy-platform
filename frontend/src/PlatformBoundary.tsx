@@ -12,7 +12,7 @@ export default function PlatformBoundary(){
  const session=useSession();
  if(!session.ready)return <main className="platform-login"><p role="status">Restoring your secure platform session…</p></main>;
  if(!session.account)return <main className="platform-login"><LoginPanel/><PlatformMfaEnrollment/></main>;
- if(!session.account.permissions.some(p=>p.startsWith('PLATFORM_'))||session.account.permissions.includes('CUSTOMER')||session.account.tenantId!==null){
+ if(session.account.actorType!=='PLATFORM'||!session.account.permissions.some(p=>p.startsWith('PLATFORM_'))||session.account.permissions.includes('CUSTOMER')||session.account.tenantId!==null){
   return <main className="platform-login"><section role="alert"><h1>Platform access denied</h1><p>This workspace is separate from vendor and customer accounts. Sign in with an authorized Platform Super Admin identity.</p></section></main>;
  }
  const isSubscriptions=window.location.pathname.startsWith('/platform/subscriptions');

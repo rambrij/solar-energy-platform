@@ -47,7 +47,10 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
   // purchase navigation, and every POS entry, require their matching actor.
   const publicRoute = mode === 'online' && ['vendor-directory', 'storefront-products'].includes(route);
   const routeAllowed = !loading && (publicRoute || (actorMatchesWorkspace && items.some(item => item.id === route)));
-  const selected = routeAllowed ? selectedNavigation(items, route) : undefined;
+  // Public discovery routes still have a meaningful location hierarchy even
+  // when no customer actor is signed in. Keep their entries out of the menu.
+  const breadcrumbItems = publicRoute ? allItems : items;
+  const selected = routeAllowed ? selectedNavigation(breadcrumbItems, route) : undefined;
   const groups = Array.from(new Set(items.map(item => item.group)));
   const homePath = mode === 'pos' ? '/vendor/pos' : '/vendors';
 
@@ -191,7 +194,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
               <ol>
                 <li><a href={homePath}>{mode === 'pos' ? 'Store POS' : 'Marketplace'}</a></li>
                 {selected && <>
-                  <li><a href={navigationPath(mode, items.find(item => item.group === selected.group)?.id ?? selected.id)}>{selected.group}</a></li>
+                  <li><a href={navigationPath(mode, breadcrumbItems.find(item => item.group === selected.group)?.id ?? selected.id)}>{selected.group}</a></li>
                   <li aria-current="page"><span>{selected.label}</span></li>
                 </>}
               </ol>

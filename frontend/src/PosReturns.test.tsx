@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, expect, it, vi } from 'vitest';
 import PosReturns from './PosReturns';
 import { api, ApiError } from './api';
-vi.mock('./session',()=>({useSession:()=>({ready:true,account:{username:'test-user',tenantId:1,branchId:1,permissions:["POS_VIEW","POS_RETURN_VIEW","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT","POS_RETURN_AUDIT_VIEW"]}})}));
+vi.mock('./session',()=>({useSession:()=>({status:'authenticated',loading:false,refreshing:false,account:{username:'test-user',tenantId:1,branchId:1,membershipId:'1:test-user',permissions:["POS_VIEW","POS_RETURN_VIEW","POS_RETURN_CREATE","POS_RETURN_APPROVE","POS_RETURN_INSPECT","POS_RETURN_AUDIT_VIEW"],actorType:'VENDOR',availableActorTypes:['VENDOR']},error:null})}));
 vi.mock('./api', async original=>({...await original<typeof import('./api')>(),api:vi.fn()}));
 const sale={orderId:'order-1',paidAt:'2026-11-13T09:00:00Z',windowDays:30,eligibleUntil:'2099-01-01T00:00:00Z',eligible:true,message:'Proof required. No refund initiated.',items:[{productId:1,name:'Panel',sold:2,remaining:2}]};
 const returned={id:'return-1',orderId:'order-1',state:'REQUESTED',requester:'alice',reason:'Buyer returned item',proof:'ORIGINAL_RECEIPT',proofNote:'Receipt and item checked',createdAt:'2026-11-13T10:00:00Z',reviewedBy:null,reviewReason:null,inspectedBy:null,refundStatus:'NOT_INITIATED',items:[{productId:1,name:'Panel',quantity:1,condition:null,disposition:null,note:null}]};

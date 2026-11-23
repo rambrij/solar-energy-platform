@@ -24,7 +24,7 @@ function grantPermissions(permissions: string[]) {
   const branchId = actorType === 'VENDOR' ? 10 : null;
   const membershipId=actorType==='VENDOR'?String(tenantId)+':test-user':null;
   mockUseSession.mockReturnValue({status:'authenticated',loading:false,refreshing:false,
-    account:{username:'test-user',tenantId,branchId,membershipId,permissions,actorType},error:null});
+    account:{username:'test-user',tenantId,branchId,membershipId,permissions,actorType,availableActorTypes:[actorType]},error:null});
 }
 
 it('renders route-based links, active state and navigable breadcrumbs', async () => {
@@ -55,7 +55,7 @@ it('keeps public vendor discovery available without a customer login', async () 
 
 it('keeps public discovery breadcrumbs aligned with the route without exposing customer navigation', async () => {
   window.history.replaceState({}, '', '/vendors/solar-partner');
-  mockUseSession.mockReturnValue({ready:true,account:null});
+  mockUseSession.mockReturnValue({status:'anonymous',loading:false,refreshing:false,account:null,error:null});
   render(<Shell mode="online"><section><h2>Public storefront content</h2></section></Shell>);
   expect(await screen.findByText('Public storefront content')).toBeTruthy();
   const breadcrumbs = within(screen.getByRole('navigation', { name: 'Breadcrumb' }));

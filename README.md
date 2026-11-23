@@ -214,18 +214,20 @@ CI is defined in [pos-tests.yml](.github/workflows/pos-tests.yml). It runs backe
 
 All credentials are **public local-development fixtures only**. Never deploy the local profile or these accounts to a public environment. Exact passwords for every seeded identity, including deferred identities, are maintained in [docs/demo/README.md](docs/demo/README.md).
 
-| Scope / tenant | Actor / role | Example login | Accessible area (subject to resource assignments and backend policy) |
-|---|---|---|---|
-| Platform (global) | PLATFORM_SUPER_ADMIN | platform.superadmin@somya.local | Platform administration and platform-authorized operations only; no vendor POS/catalogue/customer grants. |
-| Saumya Solar Rooftops (tenant 910001) | VENDOR_ADMIN | saumya.admin@somya.local | Implemented tenant catalogue, role/employee administration, POS operations, inventory and reports. Branch/register/session restrictions still apply. |
-| Saumya Solar Rooftops (tenant 910001) | POS_CASHIER | saumya.pos.cashier@somya.local | Assigned-register POS session, sale/tender and receipt operations; no role administration or inventory receiving. |
-| Saumya Solar Rooftops (tenant 910001) | SALES_MANAGER | saumya.sales.manager@somya.local | POS/report read scope; no implied mutation rights. |
-| Saumya Solar Rooftops (tenant 910001) | INVENTORY_MANAGER | saumya.inventory.manager@somya.local | Product/inventory read and inventory receiving within tenant/branch rules. |
-| Saumya Solar Rooftops (tenant 910001) | ACCOUNTANT | saumya.accountant@somya.local | POS financial reports and permitted refund viewing; not inventory receiving. |
-| Helio Rural Energy (tenant 920001) | Same five supported vendor roles | helio.admin@somya.local, helio.pos.cashier@somya.local, etc. | Same role definitions but only within Helio's tenant and explicit branch/register/session assignment. |
-| Lumina Solar Lighting (tenant 930001) | Same five supported vendor roles | lumina.admin@somya.local, lumina.pos.cashier@somya.local, etc. | Same role definitions but only within Lumina's tenant and explicit branch/register/session assignment. |
-| Global customer | CUSTOMER | customer.asha@somya.local | Own customer cart, orders and paid receipts; no access to another customer's data. |
-| Global customer | CUSTOMER | customer.rahul@somya.local | Own customer resources; the seeded vendor relationship is Helio Rural Energy only. |
+| Scope / tenant | Actor / role | Login | Local-only password | Accessible area (subject to resource assignments and backend policy) |
+|---|---|---|---|---|
+| Platform (global) | PLATFORM_SUPER_ADMIN | platform.superadmin@somya.local | Somya-Platform-2026! | Platform administration and platform-authorized operations only; no vendor POS/catalogue/customer grants. |
+| Saumya Solar Rooftops (tenant 910001) | VENDOR_ADMIN | saumya.admin@somya.local | Somya-Saumya-ADM-2026! | Implemented tenant catalogue, role/employee administration, POS operations, inventory and reports. Branch/register/session restrictions still apply. |
+| Saumya Solar Rooftops (tenant 910001) | POS_CASHIER | saumya.pos.cashier@somya.local | Somya-Saumya-POS-2026! | Assigned-register POS session, sale/tender and receipt operations; no role administration or inventory receiving. |
+| Saumya Solar Rooftops (tenant 910001) | SALES_MANAGER | saumya.sales.manager@somya.local | Somya-Saumya-SM-2026! | POS/report read scope; no implied mutation rights. |
+| Saumya Solar Rooftops (tenant 910001) | INVENTORY_MANAGER | saumya.inventory.manager@somya.local | Somya-Saumya-IM-2026! | Product/inventory read and inventory receiving within tenant/branch rules. |
+| Saumya Solar Rooftops (tenant 910001) | ACCOUNTANT | saumya.accountant@somya.local | Somya-Saumya-ACC-2026! | POS financial reports and permitted refund viewing; not inventory receiving. |
+| Helio Rural Energy (tenant 920001) | VENDOR_ADMIN | helio.admin@somya.local | Somya-Helio-ADM-2026! | Tenant-local catalogue, role/employee administration, POS and reports. |
+| Helio Rural Energy (tenant 920001) | POS_CASHIER | helio.pos.cashier@somya.local | Somya-Helio-POS-2026! | Assigned-register POS session and sale operations only. |
+| Lumina Solar Lighting (tenant 930001) | VENDOR_ADMIN | lumina.admin@somya.local | Somya-Lumina-ADM-2026! | Tenant-local catalogue, role/employee administration, POS and reports. |
+| Lumina Solar Lighting (tenant 930001) | POS_CASHIER | lumina.pos.cashier@somya.local | Somya-Lumina-POS-2026! | Assigned-register POS session and sale operations only. |
+| Global customer | CUSTOMER | customer.asha@somya.local | Somya-Asha-Buyer-2026! | Own customer cart, orders and paid receipts; no access to another customer's data. |
+| Global customer | CUSTOMER | customer.rahul@somya.local | Somya-Rahul-Buyer-2026! | Own customer resources; the seeded vendor relationship is Helio Rural Energy only. |
 
 The same user may have Customer and Vendor identity records only when explicitly provisioned for both. Login must select one actor context; permissions are never merged. A Platform identity is separate and cannot switch into Vendor or Customer context. The local seed does not create a permanent Platform Support login. Sales Executive, Operations Manager, Service Manager, Service Engineer and Content Manager identities are deferred fixtures with **no active role assignment and no effective vendor permissions**.
 

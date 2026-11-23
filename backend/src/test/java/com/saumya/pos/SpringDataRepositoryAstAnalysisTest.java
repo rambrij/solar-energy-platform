@@ -405,7 +405,7 @@ class SpringDataRepositoryAstAnalysisTest {
         String value=invocation.trim();
         String simple=value.substring(value.lastIndexOf('.')+1);
         if(!Set.of("requireTenant","requireCustomer").contains(simple))return false;
-        if(verifiedLocalGuards.contains(simple))return true;
+        if((value.equals(simple)||value.equals("this."+simple))&&verifiedLocalGuards.contains(simple))return true;
         if(value.matches("(?i)(?:auth|authorization|authContext|authorizationContext)\\.current\\(\\)\\.requireTenant"))return true;
         java.util.regex.Matcher receiver=java.util.regex.Pattern.compile("^([A-Za-z_$][\\w$]*)\\.requireTenant$").matcher(value);
         return receiver.matches()&&trustedVariables.contains(receiver.group(1));
@@ -676,6 +676,8 @@ class SpringDataRepositoryAstAnalysisTest {
     void tenantGuardCallsMustResolveToAReviewedAuthorizationGuard(){
         assertThat(trustedTenantGuardInvocation("requireTenant",Set.of(),Set.of())).isFalse();
         assertThat(trustedTenantGuardInvocation("request.requireTenant",Set.of(),Set.of())).isFalse();
+        assertThat(trustedTenantGuardInvocation("request.requireCustomer",Set.of("requireCustomer"),Set.of())).isFalse();
+        assertThat(trustedTenantGuardInvocation("this.requireCustomer",Set.of("requireCustomer"),Set.of())).isTrue();
         assertThat(trustedTenantGuardInvocation("auth.current().requireTenant",Set.of(),Set.of())).isTrue();
         assertThat(trustedTenantGuardInvocation("authorization.current().requireTenant",Set.of(),Set.of())).isTrue();
         assertThat(trustedTenantGuardInvocation("requireTenant",Set.of("requireTenant"),Set.of())).isTrue();

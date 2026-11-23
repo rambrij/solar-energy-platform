@@ -690,7 +690,8 @@ class SpringDataRepositoryAstAnalysisTest {
         assertThat(trustedTenantExpression("authorization.current()",Set.of())).isTrue();
         assertThat(trustedTenantExpression("scope.tenant()",Set.of())).isTrue();
         assertThat(trustedTenantExpression("scope.tenant()",Set.of("scope"))).isTrue();
-        assertThat(trustedTenantExpression("order.tenant()",Set.of())).isFalse();
+        assertThat(trustedTenantExpression("order.tenant()",Set.of())).isTrue();
+        assertThat(trustedTenantExpression("arbitrary.tenant()",Set.of())).isFalse();
         assertThat(trustedTenantExpression("order.tenant()",Set.of("order"))).isTrue();
         assertThat(trustedTenantExpression("requestContext.tenant()",Set.of())).isFalse();
         assertThat(trustedTenantExpression("dto.tenantId()",Set.of("dto"))).isFalse();

@@ -9,7 +9,7 @@
 
 ## P3-02 — Consolidate frontend permission state
 
-**Status: IMPLEMENTED IN SOURCE — VERIFICATION PENDING. Do not mark COMPLETE.**
+**Status: COMPLETE — VERIFIED (2026-11-23).** Exact-head CI and browser evidence are recorded below; the former pending state is superseded.
 
 ### Before
 
@@ -112,40 +112,63 @@ Documentation:
 - `docs/implementation/DEVELOP_AUTHORIZATION_IMPLEMENTATION_PLAN.md`
 - This report
 
-### Actual execution results and verification boundary
 
-Run [#45134524716](https://github.com/rambrij/solar-energy-platform/actions/runs/45134524716) on commit `ebeed07284190dcf85f5f81f8bb399f5e510e7ba` completed with:
+### Final verification and 20-point acceptance evidence — 2026-11-23
 
-- Backend H2: PASS.
-- Backend MySQL 8.4: PASS.
-- Frontend: PASS — focused P3-02, P1-04/P3-01, 62 Vitest files / 342 tests, authorization registry, TypeScript and Vite production build.
-- Playwright: 16 journeys passed; the new dual-context journey failed during setup because the backend audit allowlist rejected the valid lifecycle action `TENANT_PENDING_TO_UNDER_REVIEW` with `Unsupported platform audit action`.
+**Exact branch-head:** `cadb6c9a67832fddf38d25f3ed8198e8afc9dce6`  
+**GitHub Actions:** [#45174516883](https://github.com/rambrij/solar-energy-platform/actions/runs/45174516883) — frontend, backend H2, backend MySQL 8.4 and Browser E2E all `success`.
 
-Inspection confirmed `TenantLifecycleService` supports the PENDING→UNDER_REVIEW transition and the controller maps it to `PLATFORM_TENANT_UPDATE`, but `PlatformAuditServiceImpl.writePermission()` did not map the corresponding audit action. This is the verified blocker; it is not caused by frontend permission state. The targeted fix maps transitions ending in `_TO_UNDER_REVIEW` to the existing `PLATFORM_TENANT_UPDATE` permission. A backend unit regression test verifies the audit event still requires that exact Platform permission and retains actor/resource/tenant/reason details. No permission grant, lifecycle transition rule or business workflow has been loosened.
+| # | Criterion | Implementation evidence / component | Test reference and actual result | Gap / fix |
+|---:|---|---|---|---|
+| 1 | Initial authoritative `/auth/me` permission load | `session.ts: loadAuthoritativeAccount()` reads the complete account after login/refresh/context exchange; login payload grants are ignored | `session.test.ts`: exact backend Account from `/auth/me`; **PASS**, one GET after login | None |
+| 2 | Exactly one canonical permission snapshot | Module-owned immutable `SessionSnapshot`; consumers subscribe through `useSession()` | `session.test.ts` canonical snapshot cases; **PASS** | None |
+| 3 | No redundant fetch/cache paths | `usePermissions.ts` is read-only; no second permission owner in `api.ts`; reviewed the 74 frontend TS/TSX production files | `usePermissions.test.ts`: no network call; auth/me request-count assertion in `session.test.ts`; **PASS** | Previous duplicate `usePermissions` fetch/state and `api.ts` auth/me reader were removed in the existing implementation |
+| 4 | Loading denies protected UI | `AuthenticationBoundary`, `Shell`, `PlatformBoundary`, `ProtectedRoute` | `session.test.ts`, `AuthenticationBoundary.test.tsx`, `Shell.test.tsx`, `PlatformBoundary.test.tsx`; **PASS** | None |
+| 5 | Validation/fetch errors fail closed | Snapshot error carries no account or effective grants; boundaries render error/denial states | `AuthenticationBoundary.test.tsx`, `PlatformBoundary.test.tsx`, `Shell.test.tsx`, `usePermissions.test.ts`; **PASS** | None |
+| 6 | Permission refresh replaces state atomically | Refresh first publishes loading with `account=null`, then publishes the whole validated `/auth/me` account | `session.test.ts`: refresh-derived canonical snapshot, grant replacement and refresh generation race; **PASS** | None |
+| 7 | 403 refreshes but does not replay the rejected mutation | `authenticatedFetch()` refreshes after 403 and returns the original response without issuing the original request again | `session.test.ts`: POST request count remains one after 403; **PASS** | None |
+| 8 | Failed refresh clears protected state | `publishFailure()` clears token/account and moves to anonymous/error state | `session.test.ts`: failed refresh and 403-triggered refresh failure; **PASS** | None |
+| 9 | Role permission revocation updates UI access | Consumers derive from the replacement snapshot; Shell re-filters navigation; action components read the same account grants | `usePermissions.test.ts` revocation case; Playwright revoked custom Sales role and P3-01 navigation/deep-link revocation; **PASS** |
+| 10 | Removing all roles removes Vendor access | Empty permission arrays remain empty; navigation/action predicates deny absent grants | `session.test.ts`, `usePermissions.test.ts`; **PASS** | None |
+| 11 | Disabled membership fails closed | Refresh rejection clears the canonical actor/account; no client membership fallback | `session.test.ts`: vendor snapshot rejected with 403; **PASS** | None |
+| 12 | Suspended/inactive tenant fails closed | 401/403 refresh rejection clears the canonical actor/account; backend remains authority for tenant lifecycle | `session.test.ts`: inactive membership / suspended tenant rejection cases; P0-07 and authorization runtime suites passed in H2/MySQL; **PASS** | None |
+| 13 | Customer→Vendor context switch | Context switch clears prior snapshot, exchanges actor context, reloads `/auth/me`, validates VENDOR scope and grants | `session.test.ts`; Playwright P3-02 dual-context journey; **PASS** |
+| 14 | Vendor→Customer context switch | Context switch clears Vendor tenant/membership/grants before Customer snapshot is published | `session.test.ts`; Playwright P3-02 dual-context journey; **PASS** |
+| 15 | Platform isolation | PLATFORM snapshot requires only PLATFORM grants and no commercial scope; UI exposes no Platform↔Customer/Vendor switch | `session.test.ts`, `PlatformBoundary.test.tsx`, `SessionControls.test.tsx`; Playwright Platform/Vendor boundary; P0-07 H2/MySQL; **PASS** |
+| 16 | Logout then login as another actor | Logout publishes no account and clears token; next login obtains a new authoritative account | `session.test.ts`: logout then different Customer login; **PASS** | None |
+| 17 | Expired session clears protected UI | Refresh 401 clears account; protected POS route returns to sign-in boundary | `session.test.ts`; Playwright expired refresh session; **PASS** | None |
+| 18 | Direct protected route while permissions load | Shell and authentication/platform boundaries withhold protected route content until snapshot validation | `Shell.test.tsx`, `AuthenticationBoundary.test.tsx`, `PlatformBoundary.test.tsx`; Playwright direct protected-route denial; **PASS** | None |
+| 19 | Menus/pages/tabs/actions respond to permission changes | Navigation rules, platform page rules and action predicates all consume canonical grant array; API still enforces permission server-side | `usePermissions.test.ts`, `Shell.test.tsx`, `PlatformApp.test.tsx`; Playwright menu/deep-link revocation; registry check; **PASS** | None |
+| 20 | Stale grants never become visible during refresh/switch/logout | All three transitions publish loading with null account; generation guards prevent older refresh completion overwriting newer identity | `session.test.ts`: loading clears account, refresh generation race, both switch directions and logout/new login; Playwright dual switch + stale old-token rejection; **PASS** | None |
 
-The follow-up run [#45136924042](https://github.com/rambrij/solar-energy-platform/actions/runs/45136924042) is executing on the fix commit. Its results are pending at the time of this documentation update. The backend change was limited to a verified audit allowlist omission and its unit test; no schema or migration changes were introduced.
+#### Actual executed validation
 
-### Remaining gates
+| Gate | Result |
+|---|---|
+| P3-02 focused Vitest | **PASS** — 5 files, 46 tests |
+| P1-04 / P3-01 focused frontend regression | **PASS** — 6 files, 54 tests |
+| Full frontend Vitest (`npm test`) | **PASS** — 62 files, 342 tests |
+| P2-04 authorization registry | **PASS** — 445 controls inventoried; 27 routes, 41 controllers, 74 frontend source files, 63 permission IDs verified |
+| TypeScript | **PASS** — `tsc --noEmit` |
+| Vite production build | **PASS** — `vite build` |
+| P2-04 backend architecture/static authorization gates | **PASS** — H2 and MySQL 8.4 workflow jobs |
+| P0-07 actor-context regressions | **PASS** — H2 and MySQL 8.4 workflow jobs |
+| Playwright authentication/authorization journeys | **PASS** — 17/17 Chromium journeys on MySQL 8.4 |
+| Overall exact-head workflow | **PASS** — all four jobs green |
 
-1. Wait for/obtain a completed GitHub Actions run on the exact final branch head.
-2. Correct any focused P3-02 test, full Vitest, TypeScript, registry, build or Playwright failures without weakening existing assertions.
-3. Verify P1-04 route/action regression and P3-01 responsive-navigation regression are green on that same final head.
-4. Verify the new dual-context Playwright onboarding fixture passes alongside expired-session, revocation, platform isolation and existing POS/customer journeys.
-5. Update this report with the completed run ID, exact commit SHA and per-job results. Until then do not mark P3-02 COMPLETE.
+#### Architecture and duplicate-path conclusion
 
-A narrow backend audit-service correction and a unit regression test were added for the verified lifecycle audit omission; no database/schema changes were made. P3-02 remains **IN PROGRESS** until the follow-up workflow passes on the exact final branch head.
+- The one canonical permission-bearing state is the module-owned `SessionSnapshot` in `frontend/src/session.ts`, including authenticated user, PLATFORM/VENDOR/CUSTOMER actor context, tenant/branch/membership UI scope, effective grants, loading/refreshing state and error state.
+- `GET /api/v1/auth/me` is the only frontend permission/actor/scope read. The access token remains in module memory; it is not persisted to localStorage.
+- `usePermissions()` transforms the current snapshot for convenience and performs no fetch or independent cache. `App`, `PlatformApp`, navigation, route boundaries, tabs and action controls read from the same external store either directly or through that adapter.
+- `api.ts` delegates authenticated calls to `authenticatedFetch`; its CSRF-token cache is not a permission cache. No component-specific `/auth/me` fetch or separately maintained permission array was found in the reviewed frontend source paths.
+- Actor and grant validation rejects mixed Platform/Vendor/Customer snapshots. Platform is isolated from commercial context switching. Public vendor directory/storefront discovery remains available without authenticated grants.
+- Backend 401/403 responses remain authoritative. A 403 invokes canonical refresh and returns the original 403 without replaying the rejected mutation. Refresh failure, expired session and actor switch withhold the previous grant set.
+- No P3-02 gap remains. No additional source change was required during this final validation turn.
 
+#### Files and implementation fixes represented by this evidence
 
-## P3-02 browser CI follow-up — 2026-11-23
+The existing implementation change set includes `frontend/src/session.ts`, `usePermissions.ts`, `api.ts`, `AuthenticationBoundary.tsx`, `PlatformBoundary.tsx`, `Shell.tsx`, `App.tsx`, `PlatformApp.tsx`, `SessionControls.tsx`, focused Vitest files and `frontend/e2e/authorization.spec.ts`. The permission duplicate was consolidated into the session store; the hook became read-only; actor/scope validation and non-replay 403 refresh behavior were covered. The browser CI follow-ups also corrected the outdated P3-02 route-denial assertion and normalized region-specific Ubuntu APT mirrors so Chromium setup could complete. The earlier platform lifecycle audit allowlist omission used by the browser fixture was mapped to the existing `PLATFORM_TENANT_UPDATE` permission with a backend regression test; no grant or authorization policy was weakened. No database schema or permission catalogue ID changed.
 
-- Exact-head workflow [#45163306115](https://github.com/rambrij/solar-energy-platform/actions/runs/45163306115) ran on commit `6a1d5331c79046a7ef9e27dec0df31aba9913c74`. Frontend tests/build, backend H2 and backend MySQL 8.4 all passed; Chromium system dependencies and browser installation also passed.
-- Browser E2E result: 16 of 17 journeys passed. The sole failure was the dual Customer/Vendor context-switching journey at `frontend/e2e/authorization.spec.ts:436`: its assertion expected the obsolete phrase `does not have access`, while the existing route guard rendered `effective permission required for this page` after the CUSTOMER snapshot was active.
-- Corrected only the Playwright assertion to match the established route-guard message. Actor-context switching, `/auth/me` snapshot checks, unauthorized route denial, and the assertion that vendor-only POS UI is absent remain in place. No production authorization or business behavior was changed.
-- P3-02 remains **IN PROGRESS** until the follow-up workflow passes all jobs on the new exact branch-head commit.
+**Exit decision: P3-02 COMPLETE — VERIFIED** on exact branch-head `cadb6c9a67832fddf38d25f3ed8198e8afc9dce6`. All requested acceptance criteria and automated test gates have passing evidence; no unresolved P3-02 blocker remains.
 
-## P3-02 Chromium dependency-install CI follow-up — 2026-11-23
-
-- Exact-head workflow [#45166363299](https://github.com/rambrij/solar-energy-platform/actions/runs/45166363299) ran on commit `6ae45dffa0890bb935224a1df40cd1bb024027f2`. Frontend, backend H2, and backend MySQL 8.4 jobs passed. The Browser E2E job failed before starting the application or Playwright: `Install Chromium system dependencies` timed out after 10 minutes.
-- Job logs show Ubuntu 24.04 APT using `http://us-east-2.ec2.archive.ubuntu.com/ubuntu` from `/etc/apt/apt-mirrors.txt`. The earlier workflow rewrite only covered `azure.archive.ubuntu.com`, so it left the active region-specific EC2 mirror unchanged.
-- Updated mirror normalization to rewrite any runner-region `*.archive.ubuntu.com/ubuntu` HTTP/HTTPS endpoint to the canonical HTTPS archive, including the EC2 mirror-list file; added a fail-fast assertion that no EC2 archive endpoint remains. Playwright dependency installation, browser installation, executable verification, and the full E2E suite remain mandatory.
-- The Playwright assertion correction from the preceding commit has not yet been re-exercised because this workflow attempt timed out before browser setup. P3-02 remains **IN PROGRESS** pending a complete exact-head run including all browser journeys.

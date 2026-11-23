@@ -11,7 +11,7 @@ const account={username:'admin@platform.test',tenantId:null,branchId:null,permis
 beforeEach(()=>{
  vi.clearAllMocks();
  vi.mocked(useSession).mockReturnValue({ready:true,account} as ReturnType<typeof useSession>);
- vi.mocked(platformApi).mockResolvedValue({tenantStatuses:[]});
+ vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?[]:path.startsWith('/audit')?{items:[]}:path.startsWith('/tenants?')?{items:[],totalElements:0,totalPages:0,page:0}:path==='/support-access'?[]:path==='/configuration'?[]:{tenantStatuses:[]});
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();window.history.replaceState({},'','/platform');});
 

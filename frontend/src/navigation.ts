@@ -89,7 +89,11 @@ export function resolveWorkspaceRoute(mode: WorkspaceMode, pathname = window.loc
   // Prefer the most specific registered route so details below a page retain
   // the same parent navigation item. Segment boundaries prevent false prefixes.
   const match = items
-    .filter(item => pathMatchesRoute(path, item.path))
+    .filter(item => {
+      // The workspace root is a landing page, not a wildcard for every child URL.
+      const routePath = normalizedPathname(item.path);
+      return routePath === path || (routePath !== '/vendor/pos' && pathMatchesRoute(path, routePath));
+    })
     .sort((a, b) => normalizedPathname(b.path).length - normalizedPathname(a.path).length)[0];
   if (match) return match.id;
 

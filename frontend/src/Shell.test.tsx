@@ -2,8 +2,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Shell from './Shell';
 
-const { mockAuthApi } = vi.hoisted(() => ({ mockAuthApi: vi.fn() }));
+const { mockAuthApi, mockUseSession } = vi.hoisted(() => ({ mockAuthApi: vi.fn(), mockUseSession: vi.fn() }));
 vi.mock('./api', () => ({ authApi: mockAuthApi }));
+vi.mock('./session', () => ({ useSession: mockUseSession, signOut: vi.fn() }));
 
 const posPermissions = [
   'POS_VIEW', 'POS_SESSION_OPEN', 'POS_SALE_CREATE', 'POS_REPORT_VIEW',
@@ -13,7 +14,7 @@ const posPermissions = [
   'TENANT_PROFILE_VIEW', 'POS_CASHIER_REPORT_VIEW',
 ];
 
-beforeEach(() => { mockAuthApi.mockReset(); });
+beforeEach(() => { mockAuthApi.mockReset(); mockUseSession.mockReturnValue({ready:true,account:null}); });
 afterEach(() => { cleanup(); window.history.replaceState({}, '', '/'); });
 
 function grantPermissions(permissions: string[]) {
@@ -24,6 +25,8 @@ function grantPermissions(permissions: string[]) {
     permissions,
     actorType: permissions.includes('CUSTOMER') ? 'CUSTOMER' : permissions.some(p=>p.startsWith('PLATFORM_')) ? 'PLATFORM' : 'VENDOR',
   });
+  const actorType = permissions.includes('CUSTOMER') ? 'CUSTOMER' : permissions.some(p=>p.startsWith('PLATFORM_')) ? 'PLATFORM' : 'VENDOR';
+  mockUseSession.mockReturnValue({ready:true,account:{username:'test-user',tenantId:actorType==='VENDOR'?1:null,branchId:actorType==='VENDOR'?10:null,permissions,actorType}});
 }
 
 it('renders route-based links, active state and navigable breadcrumbs', async () => {
@@ -48,6 +51,7 @@ it('blocks direct navigation to a POS page without its exact permission', async 
 it('keeps public vendor discovery available without a customer login', async () => {
   window.history.replaceState({}, '', '/marketplace/vendors');
   mockAuthApi.mockRejectedValue(new Error('Not signed in'));
+  mockUseSession.mockReturnValue({ready:true,account:null});
   render(<Shell mode="online"><section><h2>Public vendor directory</h2></section></Shell>);
   expect(await screen.findByText('Public vendor directory')).toBeTruthy();
 });

@@ -72,7 +72,7 @@ class JdbcTenantSqlAstAnalysisTest {
     }
     private static boolean hasConjunctiveTenantScope(String sql) {
         String masked=maskSqlLiteralsAndComments(sql);
-        java.util.regex.Matcher where=java.util.regex.Pattern.compile("(?i)\bwhere\b").matcher(masked);
+        java.util.regex.Matcher where=java.util.regex.Pattern.compile("(?i)\\bwhere\\b").matcher(masked);
         if(!where.find())return false;
         int start=where.end(),end=masked.length(),depth=0,cursor=start;
         java.util.regex.Matcher words=java.util.regex.Pattern.compile("[A-Za-z_]+").matcher(masked);
@@ -95,7 +95,7 @@ class JdbcTenantSqlAstAnalysisTest {
         if(topLevelOr)return false;
         String whereClause=masked.substring(start,end);
         java.util.regex.Matcher scopes=java.util.regex.Pattern.compile(
-            "(?i)(?:\b[a-z_][a-z0-9_]*\.)?tenant_id\s*=\s*\?")
+            "(?i)(?:\\b[a-z_][a-z0-9_]*\\.)?tenant_id\\s*=\\s*\\?")
             .matcher(whereClause);
         while(scopes.find()){
             int localDepth=0;

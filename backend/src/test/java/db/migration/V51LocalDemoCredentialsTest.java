@@ -21,7 +21,7 @@ class V51LocalDemoCredentialsTest {
 
         String seed = new ClassPathResource("db/local-migration/afterMigrateApplied__local_demo.sql").getContentAsString(StandardCharsets.UTF_8);
         String identities = seed.substring(seed.indexOf("CREATE TEMPORARY TABLE demo_v51_accounts"),
-            seed.indexOf("INSERT INTO subscription_plans"));
+            seed.indexOf("INSERT INTO subscription_plans")).replace("DROP TEMPORARY TABLE", "DROP TABLE");
         new ResourceDatabasePopulator(new ByteArrayResource(identities.getBytes(StandardCharsets.UTF_8))).execute(source);
 
         assertThat(db.queryForObject(

@@ -12,18 +12,18 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.StreamUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class V50LocalDemoRoleAssignmentsTest {
+class LocalDemoRoleTemplateParityTest {
  @Test void localDemoPermissionsExactlyMatchSupportedStandardTemplateSnapshots() throws Exception {
   String sql;
   try(var in=new ClassPathResource("db/local-migration/afterMigrateApplied__local_demo.sql").getInputStream()){
    sql=StreamUtils.copyToString(in,StandardCharsets.UTF_8);
   }
-  assertThat(sql).contains("standard:", "employee_role_assignments", "demo_v51_standard_permissions", "vendor_access_audit_events");
-  assertThat(sql).doesNotContain("demo_v51_role_grants","employee_permissions","legacy-");
-  String v51Permissions=sql.substring(sql.indexOf("INSERT INTO demo_v51_standard_permissions VALUES"),
-      sql.indexOf(";",sql.indexOf("INSERT INTO demo_v51_standard_permissions VALUES")));
+  assertThat(sql).contains("standard:", "employee_role_assignments", "demo_local_standard_permissions", "vendor_access_audit_events");
+  assertThat(sql).doesNotContain("demo_local_role_grants","employee_permissions","legacy-");
+  String seedPermissions=sql.substring(sql.indexOf("INSERT INTO demo_local_standard_permissions VALUES"),
+      sql.indexOf(";",sql.indexOf("INSERT INTO demo_local_standard_permissions VALUES")));
   Map<String,Set<String>> actual=new HashMap<>();
-  var matcher=Pattern.compile("\\('([A-Z_]+)','([A-Z_]+)'\\)").matcher(v51Permissions);
+  var matcher=Pattern.compile("\\('([A-Z_]+)','([A-Z_]+)'\\)").matcher(seedPermissions);
   while(matcher.find()) actual.computeIfAbsent(matcher.group(1),ignored->new HashSet<>()).add(matcher.group(2));
   Map<String,Set<String>> expected=new HashMap<>();
   for(var definition:StandardRoleTemplates.ALL) if(definition.supported())

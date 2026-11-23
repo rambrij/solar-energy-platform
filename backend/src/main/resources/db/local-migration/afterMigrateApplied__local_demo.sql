@@ -113,11 +113,11 @@ DROP TEMPORARY TABLE demo_vendors;
 
 DROP TEMPORARY TABLE demo_check;
 
-CREATE TEMPORARY TABLE demo_v51_accounts (
+CREATE TEMPORARY TABLE demo_local_accounts (
  id BIGINT PRIMARY KEY, username VARCHAR(100) NOT NULL, password_hash VARCHAR(200) NOT NULL,
  tenant_id BIGINT NULL, branch_id BIGINT NULL, role_name VARCHAR(40) NOT NULL
 );
-INSERT INTO demo_v51_accounts VALUES
+INSERT INTO demo_local_accounts VALUES
 (941001,'platform.superadmin@somya.local','$2a$10$QultlCCf5KV.7j6TMwt2PuTHFqVjetwnyVoSPNGq3CP4DnDP3XF.W',NULL,NULL,'PLATFORM_SUPER_ADMIN'),
 (911101,'saumya.admin@somya.local','$2a$10$6d2PfzezJINOR3aAFdD3C.H3WcnDPZRtsvBD8ZNq6mv6dT/lcjKye',910001,910001,'VENDOR_ADMIN'),
 (911102,'saumya.sales.manager@somya.local','$2a$10$7Ga7ah7nYdCa6PR/3BRt/uDzUJ2ptTZeD.93JlbNcZ22mrywql8NG',910001,910001,'SALES_MANAGER'),
@@ -153,19 +153,19 @@ INSERT INTO demo_v51_accounts VALUES
 (949012,'customer.rahul@somya.local','$2a$10$TC8Vd0L9/yKYXHVY4vPPGeLyLcNGc/bOzK6YJmmhlWRC6JJYpkWs6',NULL,NULL,'CUSTOMER');
 
 INSERT INTO users(id,username,password_hash,enabled)
-SELECT id,username,password_hash,TRUE FROM demo_v51_accounts;
+SELECT id,username,password_hash,TRUE FROM demo_local_accounts;
 INSERT INTO employees(username,tenant_id,branch_id,enabled)
-SELECT username,tenant_id,branch_id,TRUE FROM demo_v51_accounts WHERE tenant_id IS NOT NULL;
+SELECT username,tenant_id,branch_id,TRUE FROM demo_local_accounts WHERE tenant_id IS NOT NULL;
 INSERT INTO customer_profiles(id,user_id)
-SELECT id,id FROM demo_v51_accounts WHERE role_name='CUSTOMER';
+SELECT id,id FROM demo_local_accounts WHERE role_name='CUSTOMER';
 
 -- Materialize only supported v1 standard templates as tenant-owned roles.
 -- Deferred role definitions receive no grants or assignments until their APIs exist.
-CREATE TEMPORARY TABLE demo_v51_standard_permissions (
+CREATE TEMPORARY TABLE demo_local_standard_permissions (
  role_name VARCHAR(40) NOT NULL, permission VARCHAR(80) NOT NULL,
  PRIMARY KEY(role_name,permission)
 );
-INSERT INTO demo_v51_standard_permissions VALUES
+INSERT INTO demo_local_standard_permissions VALUES
 ('VENDOR_ADMIN','CATALOG_PROMOTION_MANAGE'),('VENDOR_ADMIN','INVENTORY_RECEIVE'),('VENDOR_ADMIN','INVENTORY_VIEW'),
 ('VENDOR_ADMIN','POS_CASHIER_REPORT_VIEW'),('VENDOR_ADMIN','POS_CASH_IN'),('VENDOR_ADMIN','POS_CASH_OUT'),
 ('VENDOR_ADMIN','POS_DISCOUNT_APPLY'),('VENDOR_ADMIN','POS_DISCOUNT_APPROVE'),('VENDOR_ADMIN','POS_DISCOUNT_OVERRIDE'),
@@ -190,19 +190,19 @@ INSERT INTO demo_v51_standard_permissions VALUES
 INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by,template_key,template_version)
 SELECT DISTINCT e.tenant_id,CONCAT('standard:',p.role_name),p.role_name,TRUE,admin.username,admin.username,p.role_name,1
 FROM employees e
-JOIN (SELECT DISTINCT role_name FROM demo_v51_standard_permissions) p
+JOIN (SELECT DISTINCT role_name FROM demo_local_standard_permissions) p
 JOIN employees admin ON admin.tenant_id=e.tenant_id AND admin.username LIKE '%.admin@somya.local'
 WHERE NOT EXISTS(SELECT 1 FROM vendor_roles r WHERE r.tenant_id=e.tenant_id AND r.role_key=CONCAT('standard:',p.role_name));
 
 INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
 SELECT r.tenant_id,r.id,p.permission,admin.username
-FROM vendor_roles r JOIN demo_v51_standard_permissions p ON r.role_key=CONCAT('standard:',p.role_name)
+FROM vendor_roles r JOIN demo_local_standard_permissions p ON r.role_key=CONCAT('standard:',p.role_name)
 JOIN employees admin ON admin.tenant_id=r.tenant_id AND admin.username LIKE '%.admin@somya.local'
 WHERE NOT EXISTS(SELECT 1 FROM vendor_role_permissions rp WHERE rp.tenant_id=r.tenant_id AND rp.role_id=r.id AND rp.permission=p.permission);
 
 INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by)
 SELECT a.tenant_id,a.branch_id,a.username,r.id,TRUE,admin.username
-FROM demo_v51_accounts a
+FROM demo_local_accounts a
 JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.role_key=CONCAT('standard:',a.role_name)
 JOIN employees admin ON admin.tenant_id=a.tenant_id AND admin.username LIKE '%.admin@somya.local'
 WHERE a.tenant_id IS NOT NULL
@@ -218,7 +218,7 @@ INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username
 SELECT a.tenant_id,a.assigned_by,a.username,'ROLE_ASSIGNMENT',CAST(a.role_id AS CHAR),'ROLE_ASSIGNED',
        'Initial local demo employee role assignment'
 FROM employee_role_assignments a
-JOIN demo_v51_accounts d ON d.username=a.username AND d.tenant_id=a.tenant_id
+JOIN demo_local_accounts d ON d.username=a.username AND d.tenant_id=a.tenant_id
 WHERE a.active=TRUE AND a.role_id IN (
  SELECT r.id FROM vendor_roles r WHERE r.tenant_id=a.tenant_id AND r.role_key LIKE 'standard:%'
 );
@@ -231,7 +231,7 @@ SELECT a.tenant_id,a.branch_id,a.username,
                         WHEN 'ACCOUNTANT' THEN a.tenant_id+11
                         WHEN 'VENDOR_ADMIN' THEN a.tenant_id+12 END,
        TRUE,a.username
-FROM demo_v51_accounts a
+FROM demo_local_accounts a
 WHERE a.tenant_id IS NOT NULL
   AND a.role_name IN ('POS_CASHIER','ACCOUNTANT','VENDOR_ADMIN')
   AND EXISTS(
@@ -246,12 +246,12 @@ INSERT INTO vendor_access_audit_events(tenant_id,actor_username,subject_username
 SELECT a.tenant_id,a.assigned_by,a.username,'REGISTER_ASSIGNMENT',CAST(a.register_id AS CHAR),'REGISTER_ASSIGNED',
        'Initial local demo register assignment'
 FROM employee_register_assignments a
-JOIN demo_v51_accounts d ON d.username=a.username AND d.tenant_id=a.tenant_id
+JOIN demo_local_accounts d ON d.username=a.username AND d.tenant_id=a.tenant_id
 WHERE a.active=TRUE;
 
 INSERT INTO platform_user_permissions(username,permission)
 SELECT a.username,p.permission
-FROM demo_v51_accounts a
+FROM demo_local_accounts a
 CROSS JOIN (
  SELECT 'PLATFORM_TENANT_CREATE' AS permission
  UNION ALL SELECT 'PLATFORM_TENANT_REACTIVATE' AS permission
@@ -276,8 +276,8 @@ INSERT INTO tenant_customers(id,tenant_id,customer_id,consent_at,provenance)
 SELECT 'local-v51-rahul-920001',920001,949012,CURRENT_TIMESTAMP,'DEMO_EXPLICIT_CONSENT'
 WHERE NOT EXISTS(SELECT 1 FROM tenant_customers c WHERE c.tenant_id=920001 AND c.customer_id=949012);
 
-DROP TEMPORARY TABLE demo_v51_standard_permissions;
-DROP TEMPORARY TABLE demo_v51_accounts;
+DROP TEMPORARY TABLE demo_local_standard_permissions;
+DROP TEMPORARY TABLE demo_local_accounts;
 
 INSERT INTO subscription_plans(plan_key,display_name,active,current_version)
 SELECT 'local-demo-unlimited','Local Demo Unlimited',TRUE,1

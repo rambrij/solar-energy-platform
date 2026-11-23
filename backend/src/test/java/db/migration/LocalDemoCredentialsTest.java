@@ -11,7 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class V51LocalDemoCredentialsTest {
+class LocalDemoCredentialsTest {
     @Test void provisionsFreshDemoIdentitiesWithExplicitTenantOwnedRoleAssignments() throws Exception {
         var source = new DriverManagerDataSource(
             "jdbc:h2:mem:v51-" + java.util.UUID.randomUUID() + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
@@ -20,7 +20,7 @@ class V51LocalDemoCredentialsTest {
         createSchema(db);
 
         String seed = new ClassPathResource("db/local-migration/afterMigrateApplied__local_demo.sql").getContentAsString(StandardCharsets.UTF_8);
-        String identities = seed.substring(seed.indexOf("CREATE TEMPORARY TABLE demo_v51_accounts"),
+        String identities = seed.substring(seed.indexOf("CREATE TEMPORARY TABLE demo_local_accounts"),
             seed.indexOf("INSERT INTO subscription_plans")).replace("DROP TEMPORARY TABLE", "DROP TABLE");
         new ResourceDatabasePopulator(new ByteArrayResource(identities.getBytes(StandardCharsets.UTF_8))).execute(source);
 

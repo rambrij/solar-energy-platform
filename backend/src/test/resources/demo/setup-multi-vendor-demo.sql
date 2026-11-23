@@ -1,6 +1,6 @@
--- OPT-IN LOCAL/TEST DATA ONLY. Apply Flyway V50+ first so POS stock-location ownership is enforced. Never run on production.
+-- OPT-IN LOCAL/TEST DATA ONLY. Apply the V1 schema first so POS stock-location ownership is enforced. Never run on production.
 -- Select the local database in Workbench first. no database name is hardcoded here.
--- Public demo credentials and exact permission presets: docs/demo/multi-vendor-testing.md.
+-- Public demo credentials and exact permission presets: docs/demo/README.md.
 -- Run while the application is stopped. this script does not reset operational data.
 DELIMITER $$
 DROP PROCEDURE IF EXISTS setup_multi_vendor_demo$$
@@ -18,7 +18,7 @@ BEGIN
     NOT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='platform_user_permissions') OR
     NOT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='pos_stock_locations') OR
     NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='products' AND column_name='brand') THEN
-  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Demo seed requires Flyway V50 (POS stock-location ownership). Rebuild/start updated backend on this database, then stop it and rerun seed.';
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Demo seed requires the V1 schema and POS stock-location ownership. Rebuild/start updated backend on this database, then stop it and rerun seed.';
  END IF;
  SELECT GET_LOCK('solar_multi_vendor_demo',10) INTO seed_lock;
  IF seed_lock IS NULL OR seed_lock<>1 THEN

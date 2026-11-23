@@ -1,4 +1,4 @@
--- Optional LOCAL demo catalogue, after Flyway V40+ and the initial tenant lifecycle setup.
+-- Optional LOCAL demo catalogue, after the V1 schema and initial tenant setup.
 -- Select the existing solar schema in Workbench and run the entire script.
 -- Prices are illustrative amounts; zero tax is demonstration data, not statutory tax advice.
 -- Adds 18 products only to tenant/branch 900001. Safe to repeat after successful completion.

@@ -26,7 +26,7 @@ The following employee identities are deny-by-default fixtures. Their templates 
 
 ## Fresh local setup
 
-Follow [Clean Development Database Setup](../implementation/CLEAN_DEVELOPMENT_DATABASE.md). The procedure resets the disposable Compose MySQL volume before the clean Flyway install. V39, V51, V53 and V54 then run automatically with SPRING_PROFILES_ACTIVE=local.
+Follow [Clean Development Database Setup](../implementation/CLEAN_DEVELOPMENT_DATABASE.md). The procedure resets the disposable Compose MySQL volume before the clean Flyway install. With `SPRING_PROFILES_ACTIVE=local`, the demo callback runs automatically after Flyway applies V1.
 
 ## Platform account
 

@@ -208,7 +208,7 @@ Start the Compose application with a disposable local database before the browse
 6. Confirm Docker service health, the auth/CSRF endpoint, permitted/denied actor journeys and application logs.
 7. Review the P0-06 evidence report and uploaded CI artifacts.
 
-CI is defined in [pos-tests.yml](.github/workflows/pos-tests.yml). It runs backend H2 and MySQL 8.4 matrices, focused security/schema gates, frontend tests/build and a dependent Playwright/MySQL 8.4 browser job. A local run does not replace branch-protection or GitHub Actions required-check verification.
+CI is defined in [pos-tests.yml](.github/workflows/pos-tests.yml). It runs the full backend suites and explicit Platform Support acceptance on H2 and MySQL 8.4, frontend tests and production build, and Playwright against a clean MySQL 8.4 stack. A local run does not replace branch-protection or GitHub Actions required-check verification.
 
 ## Local demo users and actor matrix
 

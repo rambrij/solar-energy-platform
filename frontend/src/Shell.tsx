@@ -206,7 +206,7 @@ export default function Shell({ mode, children, availableIds }: { mode: Workspac
             <span className="workspace-page-group">{selected.group}</span>
           </div>}
           <main ref={mainContentRef} tabIndex={-1} id="main-content" className={`workspace ${mode === 'pos' ? 'pos-workspace' : 'marketplace-workspace'} workspace-page-${route}`}>
-            {loading
+            {loading && !publicRoute
               ? <p role="status">Checking your workspace access…</p>
               : routeAllowed
                 ? children

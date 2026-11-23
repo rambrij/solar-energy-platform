@@ -6,8 +6,8 @@ import {navigationItems} from './navigation';
 const {mockUseSession}=vi.hoisted(()=>({mockUseSession:vi.fn()}));
 vi.mock('./session',()=>({useSession:mockUseSession}));
 
-const vendorAccount:UserPermissions={username:'cashier@vendor.com',tenantId:1,branchId:10,permissions:['POS_VIEW','POS_SALE_CREATE'],actorType:'VENDOR'};
-const customerAccount:UserPermissions={username:'customer@example.com',tenantId:null,branchId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER'};
+const vendorAccount:UserPermissions={username:'cashier@vendor.com',tenantId:1,branchId:10,membershipId:'1:cashier@vendor.com',permissions:['POS_VIEW','POS_SALE_CREATE'],actorType:'VENDOR'};
+const customerAccount:UserPermissions={username:'customer@example.com',tenantId:null,branchId:null,membershipId:null,permissions:['CUSTOMER'],actorType:'CUSTOMER'};
 const platformAccount:UserPermissions={username:'admin@platform.com',tenantId:null,branchId:null,permissions:['PLATFORM_SUPER_ADMIN'],actorType:'PLATFORM'};
 function snapshot(account:UserPermissions|null,status:'loading'|'authenticated'|'anonymous'|'error'='authenticated',error:Error|null=null){
  return {status,loading:status==='loading',refreshing:false,account,error};

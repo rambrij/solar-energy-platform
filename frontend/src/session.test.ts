@@ -154,6 +154,45 @@ describe('canonical authenticated session snapshot',()=>{
   expect(useSessionSnapshot()).toBeNull();
  });
 
+ it('does not reuse an in-flight refresh from an earlier login generation',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+  await signIn('actor@example.test','safe-test-password');
+
+  let releaseOldRefresh:(value:Response)=>void=()=>{};
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-old-refresh'}))
+   .mockImplementationOnce(()=>new Promise<Response>(resolve=>{releaseOldRefresh=resolve;}));
+  const oldRefresh=restoreSession();
+  await waitFor(()=>expect(releaseOldRefresh).toBeTypeOf('function'));
+
+  const secondAccount={...account(),username:'second@example.test'};
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-second-login'}))
+   .mockResolvedValueOnce(response({accessToken:'second-access-token',account:secondAccount}))
+   .mockResolvedValueOnce(authMe(secondAccount));
+  await signIn('second@example.test','another-safe-password');
+
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-current-refresh'}))
+   .mockResolvedValueOnce(response({accessToken:'current-refresh-token',account:secondAccount}))
+   .mockResolvedValueOnce(authMe(secondAccount));
+  const currentRefresh=restoreSession();
+  expect(currentRefresh).not.toBe(oldRefresh);
+  await expect(currentRefresh).resolves.toBe(true);
+
+  releaseOldRefresh(response({accessToken:'stale-refresh-token',account:account()}));
+  await expect(oldRefresh).resolves.toBe(false);
+  expect(useSessionSnapshot()?.username).toBe('second@example.test');
+  expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/auth/me')).toHaveLength(3);
+ });
+
+ it('rejects incomplete /auth/me records instead of inferring missing actor scope',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  const {membershipId:omittedMembership,...incomplete}=account('CUSTOMER',['CUSTOMER'],null);
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-login'}))
+   .mockResolvedValueOnce(response({accessToken:'access-token',account:account('CUSTOMER',['CUSTOMER'],null)}))
+   .mockResolvedValueOnce(authMe(incomplete));
+  await expect(signIn('actor@example.test','safe-test-password',false,undefined,'CUSTOMER')).rejects.toThrow();
+  expect(useSessionSnapshot()).toBeNull();
+ });
+
  it('clears the canonical snapshot on logout',async()=>{
   const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
   fetchMock.mockResolvedValueOnce(response({token:'csrf-logout'}))
@@ -172,5 +211,8 @@ describe('canonical authenticated session snapshot',()=>{
 
 function useSessionSnapshot(){
  // The external store is exposed through the same hook used by all UI consumers.
- return renderHook(()=>useSession()).result.current.account;
+ const {result,unmount}=renderHook(()=>useSession());
+ const accountSnapshot=result.current.account;
+ unmount();
+ return accountSnapshot;
 }

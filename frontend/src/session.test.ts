@@ -217,6 +217,31 @@ describe('canonical authenticated session snapshot',()=>{
   expect(active?.permissions).toEqual(['CUSTOMER']);
  });
 
+ it('waits for pending refresh cookie rotation before logout',async()=>{
+  const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
+  await signIn('actor@example.test','safe-test-password');
+
+  let releaseRefresh:(value:Response)=>void=()=>{};
+  let signalRefreshStarted!:()=>void;
+  const refreshStarted=new Promise<void>(resolve=>{signalRefreshStarted=resolve;});
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-pending-refresh'}))
+   .mockImplementationOnce(()=>new Promise<Response>(resolve=>{signalRefreshStarted();releaseRefresh=resolve;}));
+  const pendingRefresh=restoreSession();
+  await refreshStarted;
+
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-logout'}))
+   .mockResolvedValueOnce(response({loggedOut:true}));
+  const logout=signOut();
+  await Promise.resolve();
+  // /logout must wait until the pending refresh has returned and rotated its cookie.
+  expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/auth/csrf')).toHaveLength(2);
+  releaseRefresh(response({accessToken:'rotated-refresh-token',account:account()}));
+  await expect(pendingRefresh).resolves.toBe(false);
+  await logout;
+  expect(fetchMock.mock.calls.at(-1)?.[0]).toBe('/api/v1/auth/logout');
+  expect(useSessionSnapshot()).toBeNull();
+ });
+
  it('does not store access or refresh tokens in localStorage',async()=>{
   const fetchMock=vi.mocked(fetch);loginSequence(fetchMock);
   await signIn('actor@example.test','safe-test-password');

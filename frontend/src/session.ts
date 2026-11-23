@@ -107,23 +107,22 @@ async function loadAuthoritativeAccount():Promise<Account>{
  });
  if(!response.ok)throw new AuthError(response.status,'The active actor context could not be verified.');
  const value=await response.json();
- if(typeof value.username!=='string'||!validActorType(value.actorType)||!Array.isArray(value.permissions)||
-    !value.permissions.every((permission:unknown)=>typeof permission==='string')){
+ const requiredFields=['username','tenantId','branchId','permissions','actorType','membershipId','availableActorTypes'];
+ if(!requiredFields.every(field=>Object.prototype.hasOwnProperty.call(value,field))||
+    typeof value.username!=='string'||!value.username.trim()||!validActorType(value.actorType)||
+    !Array.isArray(value.permissions)||!value.permissions.every((permission:unknown)=>typeof permission==='string')||
+    !(value.tenantId===null||(typeof value.tenantId==='number'&&Number.isSafeInteger(value.tenantId)))||
+    !(value.branchId===null||(typeof value.branchId==='number'&&Number.isSafeInteger(value.branchId)))||
+    !(value.membershipId===null||typeof value.membershipId==='string')){
   throw new AuthError(403,'The server returned an invalid authenticated-session snapshot.');
  }
  const permissions=[...new Set(value.permissions as string[])];
- const tenantId=value.tenantId==null?null:Number(value.tenantId);
- const branchId=value.branchId==null?null:Number(value.branchId);
- if(value.membershipId!==null&&value.membershipId!==undefined&&typeof value.membershipId!=='string'){
-  throw new AuthError(403,'The server returned invalid actor membership scope.');
- }
- const membershipId=value.membershipId??null;
- if((tenantId!==null&&!Number.isSafeInteger(tenantId))||(branchId!==null&&!Number.isSafeInteger(branchId))){
-  throw new AuthError(403,'The server returned invalid actor scope.');
- }
+ const tenantId=value.tenantId as number|null;
+ const branchId=value.branchId as number|null;
+ const membershipId=value.membershipId as string|null;
 
  // Reject mixed actor grants and malformed scope instead of trying to infer or repair it.
- if(value.actorType==='PLATFORM'&&(tenantId!==null||branchId!==null||membershipId!==null||permissions.some(p=>!p.startsWith('PLATFORM_')))){
+ if(value.actorType==='PLATFORM'&&(tenantId!==null||branchId!==null||membershipId!==null||permissions.length===0||permissions.some(p=>!p.startsWith('PLATFORM_')))){
   throw new AuthError(403,'Platform permissions and scope must remain isolated.');
  }
  if(value.actorType==='VENDOR'&&(tenantId===null||membershipId===null||membershipId.length===0||permissions.some(p=>p==='CUSTOMER'||p.startsWith('PLATFORM_')))){
@@ -133,7 +132,9 @@ async function loadAuthoritativeAccount():Promise<Account>{
   throw new AuthError(403,'Customer permissions and scope must remain isolated.');
  }
 
- if(!Array.isArray(value.availableActorTypes)||!value.availableActorTypes.every(validActorType)||!value.availableActorTypes.includes(value.actorType)){
+ if(!Array.isArray(value.availableActorTypes)||!value.availableActorTypes.every(validActorType)||!value.availableActorTypes.includes(value.actorType)||
+    (value.actorType==='PLATFORM'&&(value.availableActorTypes.length!==1||value.availableActorTypes[0]!=='PLATFORM'))||
+    (value.actorType!=='PLATFORM'&&value.availableActorTypes.includes('PLATFORM'))){
   throw new AuthError(403,'The server returned an invalid actor-context list.');
  }
  const validActors=[...new Set(value.availableActorTypes as ActorType[])];

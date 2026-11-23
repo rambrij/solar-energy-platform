@@ -113,7 +113,10 @@ async function loadAuthoritativeAccount():Promise<Account>{
  const permissions=[...new Set(value.permissions as string[])];
  const tenantId=value.tenantId==null?null:Number(value.tenantId);
  const branchId=value.branchId==null?null:Number(value.branchId);
- const membershipId=value.membershipId==null?null:String(value.membershipId);
+ if(value.membershipId!==null&&value.membershipId!==undefined&&typeof value.membershipId!=='string'){
+  throw new AuthError(403,'The server returned invalid actor membership scope.');
+ }
+ const membershipId=value.membershipId??null;
  if((tenantId!==null&&!Number.isSafeInteger(tenantId))||(branchId!==null&&!Number.isSafeInteger(branchId))){
   throw new AuthError(403,'The server returned invalid actor scope.');
  }
@@ -129,8 +132,10 @@ async function loadAuthoritativeAccount():Promise<Account>{
   throw new AuthError(403,'Customer permissions and scope must remain isolated.');
  }
 
- const validActors=Array.isArray(value.availableActorTypes)?value.availableActorTypes.filter(validActorType):[];
- if(!validActors.includes(value.actorType))validActors.push(value.actorType);
+ if(!Array.isArray(value.availableActorTypes)||!value.availableActorTypes.every(validActorType)||!value.availableActorTypes.includes(value.actorType)){
+  throw new AuthError(403,'The server returned an invalid actor-context list.');
+ }
+ const validActors=[...new Set(value.availableActorTypes as ActorType[])];
  return {
   username:value.username,tenantId,branchId,membershipId,permissions,actorType:value.actorType,
   availableActorTypes:[...new Set(validActors)]

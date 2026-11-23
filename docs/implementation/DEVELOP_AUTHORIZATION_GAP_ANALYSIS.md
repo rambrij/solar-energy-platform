@@ -134,3 +134,11 @@ The follow-up run [#45136924042](https://github.com/rambrij/solar-energy-platfor
 5. Update this report with the completed run ID, exact commit SHA and per-job results. Until then do not mark P3-02 COMPLETE.
 
 A narrow backend audit-service correction and a unit regression test were added for the verified lifecycle audit omission; no database/schema changes were made. P3-02 remains **IN PROGRESS** until the follow-up workflow passes on the exact final branch head.
+
+
+## P3-02 browser CI follow-up — 2026-11-23
+
+- Exact-head workflow [#45163306115](https://github.com/rambrij/solar-energy-platform/actions/runs/45163306115) ran on commit `6a1d5331c79046a7ef9e27dec0df31aba9913c74`. Frontend tests/build, backend H2 and backend MySQL 8.4 all passed; Chromium system dependencies and browser installation also passed.
+- Browser E2E result: 16 of 17 journeys passed. The sole failure was the dual Customer/Vendor context-switching journey at `frontend/e2e/authorization.spec.ts:436`: its assertion expected the obsolete phrase `does not have access`, while the existing route guard rendered `effective permission required for this page` after the CUSTOMER snapshot was active.
+- Corrected only the Playwright assertion to match the established route-guard message. Actor-context switching, `/auth/me` snapshot checks, unauthorized route denial, and the assertion that vendor-only POS UI is absent remain in place. No production authorization or business behavior was changed.
+- P3-02 remains **IN PROGRESS** until the follow-up workflow passes all jobs on the new exact branch-head commit.

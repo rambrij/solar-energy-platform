@@ -711,3 +711,11 @@ The P0-06 report on both database lanes records 146 live endpoint rows, 41/41 ac
 The exact-commit Playwright run verified mobile keyboard/drawer navigation, WCAG scan, marketplace and POS responsive overflow, nested deep links, active location, permission revocation, custom-role authorization, Customer/Vendor/Platform separation and existing POS/customer business journeys. The full workflow run [#45121686114](https://github.com/rambrij/solar-energy-platform/actions/runs/45121686114) is green.
 
 **Exit decision: P3-01 COMPLETE — VERIFIED.** All applicable P3-01 acceptance criteria passed on source/test commit `5ce7e37ac83664ba3349e645edd3e79dca468fa1`. No backend or database changes were required. P3-02 permission-state consolidation and broader UI action/permission parity remain separate work and are not claimed complete by P3-01.
+
+
+## P3-02 browser CI follow-up — 2026-11-23
+
+- Exact-head workflow [#45163306115](https://github.com/rambrij/solar-energy-platform/actions/runs/45163306115) ran on commit `6a1d5331c79046a7ef9e27dec0df31aba9913c74`. Frontend tests/build, backend H2 and backend MySQL 8.4 all passed; Chromium system dependencies and browser installation also passed.
+- Browser E2E result: 16 of 17 journeys passed. The sole failure was the dual Customer/Vendor context-switching journey at `frontend/e2e/authorization.spec.ts:436`: its assertion expected the obsolete phrase `does not have access`, while the existing route guard rendered `effective permission required for this page` after the CUSTOMER snapshot was active.
+- Corrected only the Playwright assertion to match the established route-guard message. Actor-context switching, `/auth/me` snapshot checks, unauthorized route denial, and the assertion that vendor-only POS UI is absent remain in place. No production authorization or business behavior was changed.
+- P3-02 remains **IN PROGRESS** until the follow-up workflow passes all jobs on the new exact branch-head commit.

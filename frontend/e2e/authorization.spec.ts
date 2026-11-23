@@ -433,7 +433,7 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   expect(customerSnapshot.tenantId).toBeNull();
   expect(customerSnapshot.membershipId).toBeNull();
   expect(customerSnapshot.permissions).toEqual(['CUSTOMER']);
-  await expect(page.getByRole('alert')).toContainText('does not have access');
+  await expect(page.getByRole('alert')).toContainText('effective permission required for this page');
   await expect(page.getByRole('heading', { name: 'Open cashier session' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Switch to Vendor workspace' })).toBeVisible();
 

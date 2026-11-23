@@ -7,7 +7,7 @@ import { marketplaceApi } from './marketplaceApi';
 vi.mock('./api', () => ({ api: vi.fn() }));
 vi.mock('./marketplaceApi', () => ({ marketplaceApi: vi.fn() }));
 vi.mock('./session',()=>({useSession:vi.fn()}));
-beforeEach(()=>{vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_VIEW','POS_RECEIPT_VIEW','POS_RETURN_CREATE']}} as ReturnType<typeof useSession>);});
+beforeEach(()=>{vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'cashier',tenantId:1,branchId:10,membershipId:'1:cashier',actorType:'VENDOR',permissions:['POS_VIEW','POS_RECEIPT_VIEW','POS_RETURN_CREATE'],availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);});
 const order = { id: '12345678-abcd-4321-abcd-123456789000', vendorName: 'Solar Partner', channel: 'IN_STORE', status: 'PAID', createdAt: '2026-11-13T09:00:00Z', expiresAt: null, total: 110, receiptNumber: 4, taxInvoice: true };
 const page = { items: [order], page: 0, size: 10, totalElements: 11, totalPages: 2 };
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
@@ -70,7 +70,7 @@ it('reports receipt permission failures without discarding history', async () =>
 
 
 it('hides return and receipt actions without their exact POS grants',async()=>{
- vi.mocked(useSession).mockReturnValue({ready:true,account:{username:'cashier',tenantId:1,branchId:10,actorType:'VENDOR',permissions:['POS_VIEW']}} as ReturnType<typeof useSession>);
+ vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'cashier',tenantId:1,branchId:10,membershipId:'1:cashier',actorType:'VENDOR',permissions:['POS_VIEW'],availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);
  vi.mocked(api).mockResolvedValue(page);
  render(<OrderHistory mode="pos" onReceipt={vi.fn()} onReturn={vi.fn()}/>);
  fireEvent.click(screen.getByText('Load order history'));

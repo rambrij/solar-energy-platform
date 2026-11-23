@@ -1,6 +1,6 @@
 import {renderHook,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {authenticatedFetch,restoreSession,signIn,signOut,switchActorContext,useSession} from './session';
+import {authenticatedFetch,restoreSession,signIn,signOut,switchActorContext,useSession,type ActorType} from './session';
 
 function response(body:unknown,status=200){
  return {ok:status>=200&&status<300,status,json:vi.fn().mockResolvedValue(body)} as unknown as Response;
@@ -113,7 +113,7 @@ describe('canonical authenticated session snapshot',()=>{
 
  it('replaces the complete Customer snapshot with Vendor context and never mixes grants',async()=>{
   const fetchMock=vi.mocked(fetch);
-  const customer={...account('CUSTOMER',['CUSTOMER'],null),availableActorTypes:['CUSTOMER','VENDOR'] as const};
+  const customer={...account('CUSTOMER',['CUSTOMER'],null),availableActorTypes:['CUSTOMER','VENDOR'] as ActorType[]};
   const vendor={...account('VENDOR',['PRODUCT_VIEW'],8),availableActorTypes:['CUSTOMER','VENDOR'] as const};
   loginSequence(fetchMock,customer);
   fetchMock.mockResolvedValueOnce(response({token:'csrf-switch'}))
@@ -188,7 +188,7 @@ describe('canonical authenticated session snapshot',()=>{
   const {membershipId:omittedMembership,...incomplete}=account('CUSTOMER',['CUSTOMER'],null);
   fetchMock.mockResolvedValueOnce(response({token:'csrf-login'}))
    .mockResolvedValueOnce(response({accessToken:'access-token',account:account('CUSTOMER',['CUSTOMER'],null)}))
-   .mockResolvedValueOnce(authMe(incomplete));
+   .mockResolvedValueOnce(response(incomplete));
   await expect(signIn('actor@example.test','safe-test-password',false,undefined,'CUSTOMER')).rejects.toThrow();
   expect(useSessionSnapshot()).toBeNull();
  });

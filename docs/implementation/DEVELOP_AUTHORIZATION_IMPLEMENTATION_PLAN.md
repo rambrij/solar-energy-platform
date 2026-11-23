@@ -455,14 +455,14 @@ flowchart TD
 - [ ] Every new/changed endpoint has controller and service authorization.
 - [ ] Every tenant-owned lookup includes tenant/customer ownership.
 - [ ] Every POS operation checks assignment and session state.
-- [ ] Role × endpoint matrix includes missing-grant negative cases.
+- [x] Role × endpoint matrix includes missing-grant negative cases for the current protected endpoint inventory (final report: 146 live rows; zero protected routes without persisted matching-actor evidence; 130 missing-permission checks).
 - [x] Cross-tenant and cross-customer negative cases run on MySQL 8.4 (run #1006; focused isolation and full suite passed).
 - [x] Flyway clean-install and supported V47-to-V55 upgrade tests pass on MySQL 8.4 (run #44997794980); exhaustive ownership/constraint coverage remains tracked under P2-02.
-- [ ] Frontend route/action tests and browser E2E pass.
-- [ ] Existing POS, checkout, refund, receipt, inventory and subscription behavior remains covered.
-- [x] CI passes on backend H2/MySQL and frontend test/build jobs (run #1006).
+- [x] Frontend route/action tests and browser E2E pass (run #45108345529; 315 frontend tests and 11 Playwright journeys).
+- [x] Existing POS, checkout, refund, receipt, inventory and subscription behavior remains covered by the passing H2/MySQL 8.4 full suites and focused acceptance gates (run #45108345529).
+- [x] CI passes on backend H2/MySQL, frontend test/build and Playwright jobs on the exact final code snapshot (run #45108345529).
 - [ ] No mock provider is enabled in production.
-- [ ] Remaining clarification items are explicitly recorded and excluded from implementation until approved.
+- [x] Remaining clarification items are explicitly recorded and excluded from implementation until approved (including RC-06 semantic conflict).
 
 ## 10. Required product/security decisions
 
@@ -632,3 +632,24 @@ See the companion gap analysis section **REQUIRES CLARIFICATION register** for t
 The P0-06 report on both database lanes records 146 live endpoint rows, 41/41 actor scenarios, 18/18 actor-context cases, 130/130 missing-permission HTTP checks, 131 anonymous route checks and 66/66 VIEW-only mutation denials. It reports zero protected routes without persisted matching-actor authorization evidence; one resource row is explicitly NOT APPLICABLE.
 
 **Scope and status boundary:** P2-04 is accepted for the current branch inventory and the tests described above. Static AST/source analysis is a maintained regression guard, not a proof over arbitrary future Java or SQL constructs; new repositories, query builders, JDBC consumers, helper/service flows or UI actions must extend the canonical inventories and negative fixtures. The separate P0-02 service-boundary completion record remains governed by INV-SVC-007/008 in `docs/security/SERVICE_BOUNDARY_AUTHORIZATION_INVENTORY.md`; passing the focused P0-02 CI step does not by itself close those broader method-by-method acceptance criteria.
+
+
+## 11. Final acceptance status update — 2026-11-23
+
+**Tested implementation commit:** `f429125f8e3f20c712e5a6b921687069e032c016` on `feature/develop-authorization-gap-analysis`. Workflow [#45108345529](https://github.com/rambrij/solar-energy-platform/actions/runs/45108345529) completed **SUCCESS**. This update supersedes earlier pending P2-04 validation notes in this plan; historical dated notes remain for traceability.
+
+| Acceptance area | Current status | Exact evidence / qualification |
+|---|---|---|
+| P2-04 architecture, trusted tenant provenance, repository/JPA/JDBC query analysis, frontend control inventory, backend permission parity and negative fixtures | **COMPLETE — VERIFIED** | Focused H2/MySQL AST and architecture gates passed; frontend registry/control inventory passed. Details and scope boundaries are in §5 P2-04 and the companion gap analysis. |
+| P0-06 runtime authorization matrix | **PASS for current live protected endpoint inventory** | H2 and MySQL reports: 146 live endpoint rows; 41/41 actor scenarios; 18/18 actor-context cases; 130 missing-permission checks; 131 anonymous checks; 66 VIEW-only mutation denials; zero protected routes without persisted matching-actor evidence; one resource explicitly NOT APPLICABLE. |
+| P0-07 actor-context separation | **PASS** | 18/18 actor-context acceptance cases on H2 and MySQL 8.4. |
+| P1-03 permission catalogue/SRS parity | **PASS** | Focused catalogue, SRS and database parity gates reran successfully. |
+| P1-04 frontend route/action parity | **PASS for current registered surface** | 443 controls inventoried; 140 API action records; 72 backend-facing button/form triggers; 27 routes; 8 platform tabs; 41 backend controllers; 63 permission identifiers. |
+| P2-01 browser authorization | **PASS** | 11 Playwright journeys passed against MySQL 8.4. |
+| P2-03 document/export/background ownership | **PASS for current implemented paths** | Absent cache/object-storage/outbox/queue infrastructure remains NOT APPLICABLE. |
+| P0-02 service-boundary authorization | **IN PROGRESS — NOT ACCEPTANCE-COMPLETE** | Dedicated H2/MySQL gate passed, but INV-SVC-008 still requires uniform direct-denial/no-side-effect coverage or explicit caller-backed classification for every remaining public service method. See `docs/security/SERVICE_BOUNDARY_AUTHORIZATION_INVENTORY.md`. |
+| P2-02 exhaustive schema/migration contracts | **IN PROGRESS** | The separate schema-derived tenant-table/constraint inventory, UTC/optimistic-lock coverage and branch-protection verification remain open as recorded in the gap analysis. |
+
+**Full regression evidence on the exact tested workflow:** H2 737 tests (0 failures/errors; 14 skipped); MySQL 8.4 737 tests (0 failures/errors/skips); frontend 62 test files / 315 tests; TypeScript/Vite production build passed; Playwright 11/11 passed. P2-04, P0-02 focused service-boundary, P0-06 and P0-07 focused gates passed on their applicable H2 and MySQL 8.4 lanes.
+
+**Do not interpret the green workflow as closing every program-level item.** P2-04 is accepted for the current source and inventory; P0-02 remains open under INV-SVC-008 and P2-02 remains independently open. Keep those statuses until their own exit criteria are evidenced on a final tested commit.

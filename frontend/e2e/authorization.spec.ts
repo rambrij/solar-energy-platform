@@ -360,6 +360,9 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   expect(activate.status, JSON.stringify(activate.body)).toBe(200);
 
   await page.getByRole('button', { name: 'Sign out' }).click();
+  const signInButton = page.getByRole('button', { name: 'Sign in / Register' });
+  await expect(signInButton).toBeVisible();
+  await signInButton.click();
   const form = page.getByRole('form', { name: 'Sign in' });
   await expect(form).toBeVisible();
   await page.getByLabel('Email or username').fill(demo.customer.username);

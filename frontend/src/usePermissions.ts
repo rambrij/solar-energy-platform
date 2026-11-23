@@ -1,5 +1,3 @@
-import {useState,useEffect} from 'react';
-import {authApi} from './api';
 import {useSession,type ActorType} from './session';
 
 export interface UserPermissions {
@@ -22,51 +20,22 @@ export function usePermissions():{
  hasAllPermissions:(...permissions:string[])=>boolean;
  isPlatformUser:boolean;isCustomer:boolean;isVendorEmployee:boolean;
 }{
- const {account}=useSession();
- const [permissions,setPermissions]=useState<UserPermissions|null>(null);
- const [loading,setLoading]=useState(true);
- const [error,setError]=useState<Error|null>(null);
-
- useEffect(()=>{
-  let mounted=true;
-  setPermissions(null);setError(null);setLoading(true);
-  async function fetchPermissions(){
-   try{
-    const response=await authApi('/api/v1/auth/me');
-    // Real backend responses always include actorType. This fallback is only for
-    // older UI test fixtures; backend guards never infer or accept client actor data.
-    const actorType:ActorType=response.actorType ??
-      (response.permissions?.some((p:string)=>p.startsWith('PLATFORM_'))?'PLATFORM':
-       response.permissions?.includes('CUSTOMER')?'CUSTOMER':
-       response.tenantId!=null?'VENDOR':'CUSTOMER');
-    const resolved:UserPermissions={...response,actorType};
-    if(account&&(
-      !response.actorType||
-      response.username!==account.username||
-      response.actorType!==account.actorType||
-      response.tenantId!==account.tenantId||
-      response.branchId!==account.branchId||
-      response.permissions.some((p:string)=>!account.permissions.includes(p))||
-      account.permissions.some((p:string)=>!response.permissions.includes(p))
-    ))throw new Error('The server actor context changed. Restore the session before continuing.');
-    if(mounted){setPermissions(resolved);setLoading(false);}
-   }catch(err){
-    if(mounted){setError(err instanceof Error?err:new Error('Failed to load permissions'));setLoading(false);}
-   }
-  }
-  void fetchPermissions();
-  return ()=>{mounted=false;};
- },[account?.username,account?.actorType,account?.tenantId,account?.branchId,account?.permissions.join('|')]);
-
+ const session=useSession();
+ const permissions:UserPermissions|null=session.account?{
+  username:session.account.username,tenantId:session.account.tenantId,branchId:session.account.branchId,
+  permissions:session.account.permissions,actorType:session.account.actorType
+ }:null;
  const hasPermission=(permission:string)=>permissions?.permissions.includes(permission)??false;
  const hasAnyPermission=(...perms:string[])=>!!permissions&&perms.some(p=>permissions.permissions.includes(p));
- const hasAllPermissions=(...perms:string[])=>!!permissions&&perms.every(p=>permissions.permissions.includes(p));
- const isPlatformUser=permissions?.actorType==='PLATFORM';
- const isCustomer=permissions?.actorType==='CUSTOMER';
- const isVendorEmployee=permissions?.actorType==='VENDOR';
- return {permissions,loading,error,hasPermission,hasAnyPermission,hasAllPermissions,isPlatformUser,isCustomer,isVendorEmployee};
+ const hasAllPermission=(...perms:string[])=>!!permissions&&perms.every(p=>permissions.permissions.includes(p));
+ return {
+  permissions,loading:session.loading,error:session.error,
+  hasPermission,hasAnyPermission,hasAllPermission,
+  isPlatformUser:session.account?.actorType==='PLATFORM',
+  isCustomer:session.account?.actorType==='CUSTOMER',
+  isVendorEmployee:session.account?.actorType==='VENDOR'
+ };
 }
-
 export interface PermissionRequirement {anyOf?:string[];allOf?:string[];}
 
 export const PLATFORM_PAGE_PERMISSIONS:Record<string,PermissionRequirement>={

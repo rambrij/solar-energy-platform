@@ -1,4 +1,4 @@
-import {renderHook,waitFor} from '@testing-library/react';
+import {act,renderHook,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {authenticatedFetch,restoreSession,signIn,signOut,switchActorContext,useSession,type ActorType} from './session';
 
@@ -50,14 +50,18 @@ describe('canonical authenticated session snapshot',()=>{
  it('fails closed while initial restore is pending and on a failed refresh',async()=>{
   const fetchMock=vi.mocked(fetch);
   let release:(value:Response)=>void=()=>{};
+  let signalRefreshStarted!:()=>void;
+  const refreshStarted=new Promise<void>(resolve=>{signalRefreshStarted=resolve;});
   fetchMock.mockResolvedValueOnce(response({token:'csrf-refresh'}))
-   .mockImplementationOnce(()=>new Promise<Response>(resolve=>{release=resolve;}));
+   .mockImplementationOnce(()=>new Promise<Response>(resolve=>{release=resolve;signalRefreshStarted();}));
   const {result}=renderHook(()=>useSession());
-  const pending=restoreSession();
+  let pending!:Promise<boolean>;
+  act(()=>{pending=restoreSession();});
+  await refreshStarted;
   expect(result.current.loading).toBe(true);
   expect(result.current.account).toBeNull();
   release(response({detail:'expired'},401));
-  await pending;
+  await act(async()=>{await pending;});
   expect(result.current.status).toBe('anonymous');
   expect(result.current.account).toBeNull();
  });

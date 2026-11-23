@@ -34,6 +34,22 @@ class PlatformAuditServiceTest {
         assertThat(event.reason()).isEqualTo("Risk review");assertThat(event.correlationId()).isEqualTo("trace-12");
         assertThat(event.outcome()).isEqualTo("SUCCESS");assertThat(event.occurredAt()).isEqualTo(now);
     }
+
+    @Test void tenantUnderReviewTransitionRequiresTenantUpdatePermissionAndIsAudited(){
+        var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
+        when(repository.saveAndFlush(any())).thenAnswer(inv->inv.getArgument(0));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@example.test","n/a",
+            java.util.List.of(new SimpleGrantedAuthority("PLATFORM_TENANT_UPDATE"),
+                new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
+        service.record("platform@example.test","TENANT_PENDING_TO_UNDER_REVIEW","TENANT","910002",910002L,
+            "Tenant onboarding review","trace-tenant-review");
+        var captor=ArgumentCaptor.forClass(PlatformAuditEvent.class);
+        verify(repository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().action()).isEqualTo("TENANT_PENDING_TO_UNDER_REVIEW");
+        assertThat(captor.getValue().tenantId()).isEqualTo(910002L);
+        assertThat(captor.getValue().reason()).isEqualTo("Tenant onboarding review");
+    }
+
     @Test void directAuditWriteRequiresMatchingPlatformActorAndActionPermission(){
         var service=new PlatformAuditServiceImpl(repository,Clock.systemUTC());
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",

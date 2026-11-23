@@ -159,7 +159,7 @@ export function restoreSession(){
  // Remove the old grants before any refresh request starts. Protected UI can
  // never continue rendering an actor snapshot while it is being revalidated.
  publish('loading',null,null,true);
- let task:Promise<boolean>;
+ let task!:Promise<boolean>;
  task=(async()=>{
   try{
    const value=await authRequest('/refresh',{});

@@ -1361,26 +1361,6 @@ class PosTest {
   mvc.perform(post(path).with(csrf()).with(user("manager").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content("{\"requestId\":\"x\",\"reason\":\" \"}")).andExpect(status().isBadRequest());
   mvc.perform(post(path).with(csrf()).with(user("manager").authorities(() -> "POS_SHIFT_VARIANCE_APPROVE")).contentType("application/json").content(body)).andExpect(status().isOk());
  }
- @Test void varianceMigrationPreservesPreviouslyClosedSessions(){
-  String url="jdbc:h2:mem:upgrade-"+UUID.randomUUID()+";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
-  org.flywaydb.core.Flyway.configure().dataSource(url,"sa","").locations("classpath:db/migration").target("4").load().migrate();
-  var legacy=new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(url,"sa",""));
-  legacy.update("INSERT INTO tenants(id,name,active) VALUES(1,'Legacy',TRUE)");
-  legacy.update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'Legacy')");
-  legacy.update("INSERT INTO employees VALUES('legacy','unused',1,1,TRUE)");
-  legacy.update("INSERT INTO registers VALUES(1,1,1)");
-  legacy.update("INSERT INTO pos_sessions(id,tenant_id,branch_id,cashier,register_id,state,opening_float,expected_cash,counted_cash,closed_at) VALUES('legacy',1,1,'legacy',1,'CLOSED',50,50,50,CURRENT_TIMESTAMP)");
-  legacy.update("INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published) VALUES(1,1,'OLD',NULL,'Legacy panel',100,10,TRUE)");
-  legacy.update("INSERT INTO orders(id,tenant_id,branch_id,cashier,session_id,sales_channel,idempotency_key,request_hash,total,cash_received,change_given,receipt_number,tax_invoice) VALUES('legacy-order',1,1,'legacy','legacy','IN_STORE','legacy-key','hash',110,120,10,1,FALSE)");
-  legacy.update("INSERT INTO order_items VALUES(1,'legacy-order',1,'Legacy panel',1,100,10,10,110)");
-  org.flywaydb.core.Flyway.configure().dataSource(url,"sa","").locations("classpath:db/migration").load().migrate();
-  assertThat(legacy.queryForObject("SELECT list_price FROM order_items",BigDecimal.class)).isEqualByComparingTo("100");
-  assertThat(legacy.queryForObject("SELECT discount FROM order_items",BigDecimal.class)).isEqualByComparingTo("0");
-  assertThat(legacy.queryForObject("SELECT cash_variance FROM pos_sessions",BigDecimal.class)).isEqualByComparingTo("0");
-  assertThat(legacy.queryForObject("SELECT close_request_id FROM pos_sessions",String.class)).isEqualTo("legacy");
-  assertThat(legacy.queryForObject("SELECT state FROM pos_sessions",String.class)).isEqualTo("CLOSED");
-  assertThat(legacy.queryForObject("SELECT cash_received-change_given FROM pos_drawer_tenders",BigDecimal.class)).isEqualByComparingTo("110");
- }
  @Test void httpCloseRequiresVarianceReasonAndPreservesClientRetryIdentity() throws Exception {
   String path="/api/v1/vendor/pos/sessions/"+session+"/close",key=UUID.randomUUID().toString();
   mvc.perform(post(path).with(csrf()).with(user("alice").authorities(()->"POS_SESSION_CLOSE")).contentType("application/json").content("{\"countedCash\":0}"))

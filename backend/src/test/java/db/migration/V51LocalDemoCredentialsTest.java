@@ -1,6 +1,8 @@
 package db.migration;
 
 import org.junit.jupiter.api.Test;
+import java.nio.charset.StandardCharsets;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -10,16 +12,17 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class V51LocalDemoCredentialsTest {
-    @Test void provisionsFreshDemoIdentitiesWithExplicitTenantOwnedRoleAssignments() {
+    @Test void provisionsFreshDemoIdentitiesWithExplicitTenantOwnedRoleAssignments() throws Exception {
         var source = new DriverManagerDataSource(
             "jdbc:h2:mem:v51-" + java.util.UUID.randomUUID() + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
             "sa", "");
         var db = new JdbcTemplate(source);
         createSchema(db);
 
-        new ResourceDatabasePopulator(
-            new ClassPathResource("db/local-migration/V51__refresh_local_demo_credentials.sql")
-        ).execute(source);
+        String seed = new ClassPathResource("db/local-migration/afterMigrateApplied__local_demo.sql").getContentAsString(StandardCharsets.UTF_8);
+        String identities = seed.substring(seed.indexOf("CREATE TEMPORARY TABLE demo_v51_accounts"),
+            seed.indexOf("INSERT INTO subscription_plans"));
+        new ResourceDatabasePopulator(new ByteArrayResource(identities.getBytes(StandardCharsets.UTF_8))).execute(source);
 
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM users WHERE username LIKE '%@somya.local' AND enabled=TRUE", Integer.class

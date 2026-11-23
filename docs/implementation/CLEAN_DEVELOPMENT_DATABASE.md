@@ -4,7 +4,7 @@
 
 This repository is still in development. Authorization migrations and local seed scripts are maintained as a clean-install baseline; backward compatibility with earlier development databases is intentionally not supported.
 
-Use this procedure when switching to the current RBAC implementation or when an earlier Flyway run left a failed/inconsistent schema. It deletes the local Compose database volume and rebuilds the schema from the current Flyway chain.
+Use this procedure when switching to the current RBAC implementation or when an earlier Flyway run left a failed/inconsistent schema. It deletes the local Compose database volume and rebuilds the schema from the single Flyway V1 baseline.
 
 > **Destructive operation:** the reset permanently deletes every database, tenant, employee, role, permission, product, inventory row, order, payment, audit record and other data stored in this Compose MySQL volume. Confirm that the selected Compose project is only your disposable local development environment. Do not use this procedure against production, staging or any database containing data you need.
 
@@ -14,8 +14,8 @@ Run from the repository root in PowerShell:
 
 ```powershell
 git fetch origin
-git switch feature/develop-authorization-gap-analysis
-git pull --ff-only origin feature/develop-authorization-gap-analysis
+git switch refactor/development-baseline-cleanup
+git pull --ff-only origin refactor/development-baseline-cleanup
 ```
 
 Confirm that the current checkout is the intended repository and branch:
@@ -66,19 +66,13 @@ docker compose logs --tail 200 mysql
 docker compose logs -f backend
 ```
 
-The Compose MySQL command includes log-bin-trust-function-creators=ON for the V43 append-only platform audit triggers when binary logging is enabled. A newly created container receives this setting. Flyway then creates the schema from the repository's current migrations. Wait for the backend's successful Spring Boot startup before opening the application at http://localhost:8080.
+The Compose MySQL command includes log-bin-trust-function-creators=ON for the append-only platform audit triggers when binary logging is enabled. A newly created container receives this setting. Flyway then creates the schema from the repository's V1 migration. Wait for the backend's successful Spring Boot startup before opening the application at http://localhost:8080.
 
 If startup fails, stop and inspect the first Flyway or Spring exception. Do not run flyway repair, manually delete flyway_schema_history rows, or manually edit checksums as a workaround for this clean-install workflow.
 
 ## 5. Expected authorization and local seed sequence
 
-The main migration chain creates the schema and persisted RBAC structures. In particular:
-
-- V1 does not create a direct employee_permissions table. V45 creates tenant-owned roles, role permissions, explicit employee-role assignments, register assignments and vendor access audit records. It does not copy employee grants into synthetic roles.
-- V54 adds the standard-template origin fields and check constraint to vendor_roles.
-- Local V39 creates tenant, branch, register, catalogue and inventory demo fixtures only; it does not create obsolete demo employee identities or permission grants.
-- Local V51 creates current demo identities and provisions only supported tenant-owned standard-role snapshots with explicit assignments. Deferred role identities remain unassigned and have no effective vendor permissions.
-- Local V53 provisions demo subscription entitlements.
+V1 creates the schema, the tenant-owned role and assignment tables, both permission catalogues, and append-only platform audit triggers. The local callback seeds the demo tenants, branch stock locations, catalogue, inventory, identities, role assignments, and subscription entitlements. Supported role snapshots carry their template origin when inserted. Deferred demo roles remain unassigned.
 
 Platform authority remains separate from vendor RBAC. No vendor role may contain PLATFORM_* permissions. Vendor effective permissions are resolved from active persisted tenant role assignments and role permission rows, filtered by the tenant entitlement policy and then constrained by authenticated tenant, branch, register and session assignments.
 
@@ -116,7 +110,7 @@ WHERE (template_key IS NULL) <> (template_version IS NULL)
 
 Expected results:
 
-- Flyway migrations all have success=1.
+- Flyway history contains exactly one successful versioned migration, V1.
 - Supported standard role rows have template_key populated and template_version=1.
 - Only VENDOR_ADMIN, POS_CASHIER, SALES_MANAGER, INVENTORY_MANAGER and ACCOUNTANT receive demo role assignments.
 - Deferred demo employee identities have no active employee_role_assignments.

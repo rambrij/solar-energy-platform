@@ -8,7 +8,7 @@ A modular-monolith application for the solar marketplace, tenant-owned catalogue
 - **Technology:** Java 21, Spring Boot 3.5, Maven, React 19, TypeScript, Vite, Node.js 22, MySQL 8.4, JPA/JDBC, and Flyway.
 - **Authorization:** backend-enforced, actor-separated authorization. Frontend permissions are an additional navigation/usability boundary only.
 - **Development data:** the local Spring profile applies local-only demo seed migrations. Never enable this profile in production.
-- **Database baseline:** the checked-in production schema currently uses 51 versioned Flyway migrations (40 SQL and 11 Java migrations) plus three local-only migrations. It is **not yet** the requested single V1__base_schema.sql baseline. Do not assume the migration chain has been consolidated. That work requires translation and MySQL 8.4 verification of Java migration behavior, ownership constraints, audit triggers, canonical permission data and local-profile seed boundaries before older migrations can be removed.
+- **Database baseline:** Flyway installs the schema and canonical authorization catalogues through `V1__base_schema.sql`. The local profile adds demo data after the migration.
 
 P0-02 service-boundary completeness and P2-02 exhaustive schema/UTC/optimistic-lock/branch-protection work remain separately tracked as open. A green regression workflow does not close those independent acceptance items.
 
@@ -108,9 +108,9 @@ MySQL must become healthy before the backend starts. The backend applies Flyway 
 
 ### Flyway and database reset
 
-The current production migration locations contain 51 versioned migrations: 40 SQL resources in backend/src/main/resources/db/migration and 11 Java migrations in backend/src/main/java/db/migration. The local profile adds three local-only SQL migrations under backend/src/main/resources/db/local-migration (V39, V51 and V53). The local seed creates the three vendor fixtures, current demo identities and supported tenant-owned role assignments.
+Flyway applies `backend/src/main/resources/db/migration/V1__base_schema.sql` to an empty MySQL 8.4 database. The local profile runs `afterMigrateApplied__local_demo.sql` after V1 is applied. A second startup on the same history applies zero migrations and does not rerun the seed.
 
-This is the current migration state, not the requested single-V1 end state. Until a one-file baseline is implemented and verified on an empty MySQL 8.4 database, use the checked-in chain. Do not run flyway repair, edit migration checksums, delete migration sources or manually alter flyway_schema_history. See [Clean Development Database Setup](docs/implementation/CLEAN_DEVELOPMENT_DATABASE.md) for the existing chain's reset and seed details.
+Existing development databases using the previous migration history require a disposable local reset with `docker compose down -v` before startup. See [Clean Development Database Setup](docs/implementation/CLEAN_DEVELOPMENT_DATABASE.md).
 
 ## Run backend and frontend directly
 
@@ -250,7 +250,7 @@ The same user may have Customer and Vendor identity records only when explicitly
 | MySQL says access denied after editing .env | MySQL initialization variables apply only to a new data volume. Existing users keep their existing passwords. |
 | Port 8080 or 3307 is already allocated | Stop the conflicting local service or change the host-side port mapping and use the new URL. |
 | Platform login is denied | Platform credentials are local-only. Confirm the local profile is active. Outside local/test, platform access requires the approved MFA configuration. |
-| Demo accounts are absent | Confirm SPRING_PROFILES_ACTIVE=local and inspect the local Flyway migrations. The local seed runs only on a fresh migration history. |
+| Demo accounts are absent | Confirm SPRING_PROFILES_ACTIVE=local and inspect the local Flyway seed callback. The local seed runs only on a fresh migration history. |
 | A cashier cannot open a register | Check the exact tenant/branch/register assignment and whether the register is occupied by an existing session. Resume the owning cashier's open session instead of deleting it. |
 | A customer/vendor identity asks for actor context | This is expected for a dual identity. Select exactly one explicit context; the application does not merge grants. |
 

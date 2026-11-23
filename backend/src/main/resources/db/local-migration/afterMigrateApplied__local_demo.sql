@@ -1,4 +1,4 @@
--- Draft local-only fixture for the single V1 schema.
+-- Local development only. Seed a database immediately after V1 is applied.
 START TRANSACTION;
 
 DROP TEMPORARY TABLE IF EXISTS demo_check;

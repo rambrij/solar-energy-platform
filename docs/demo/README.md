@@ -4,7 +4,7 @@
 
 ## Provisioning model
 
-The local Spring profile loads local-only Flyway migrations. V39 creates the three tenant, branch, register, catalogue and inventory fixtures. V51 creates current demo identities, materializes the five supported version-1 standard role definitions once per tenant, and explicitly assigns employees to those persisted roles. V54 stamps each standard role with template_key and template_version.
+The local Spring profile runs a Flyway callback after V1 is applied. The callback creates the three tenant fixtures and current demo identities, materializes the five supported version-1 standard roles per tenant, and explicitly assigns employees to their persisted roles.
 
 Authorization resolves active employee_role_assignments joined to active tenant-owned vendor_roles and vendor_role_permissions, then applies tenant entitlements and branch/register/session restrictions. Platform permissions remain in the separate global platform-authority store and are never inserted into vendor roles.
 

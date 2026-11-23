@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class V50LocalDemoRoleAssignmentsTest {
  @Test void localDemoPermissionsExactlyMatchSupportedStandardTemplateSnapshots() throws Exception {
   String sql;
-  try(var in=new ClassPathResource("db/local-migration/V51__refresh_local_demo_credentials.sql").getInputStream()){
+  try(var in=new ClassPathResource("db/local-migration/afterMigrateApplied__local_demo.sql").getInputStream()){
    sql=StreamUtils.copyToString(in,StandardCharsets.UTF_8);
   }
   assertThat(sql).contains("standard:", "employee_role_assignments", "demo_v51_standard_permissions", "vendor_access_audit_events");
@@ -51,22 +51,5 @@ class V50LocalDemoRoleAssignmentsTest {
   assertThat(actual).isEqualTo(expected);
  }
 
- @Test void v54StampsTemplateOriginForLocalStandardRoleSnapshots() throws Exception {
-  String sql;
-  try(var in=new ClassPathResource("db/migration/V54__tenant_role_template_origin.sql").getInputStream()){
-   sql=StreamUtils.copyToString(in,StandardCharsets.UTF_8);
-  }
-  assertThat(sql).contains("template_key=SUBSTRING(role_key,10)","template_version=1","role_key LIKE 'standard:%'");
- }
- @Test void v39SeedsTenantBusinessFixturesWithoutObsoleteEmployeeOrGrantRows() throws Exception {
-  String sql;
-  try(var in=new ClassPathResource("db/local-migration/V39__local_multi_vendor_demo_seed.sql").getInputStream()){
-   sql=StreamUtils.copyToString(in,StandardCharsets.UTF_8);
-  }
-  assertThat(sql).contains("demo_vendors","demo_products","demo_registers");
-  assertThat(sql).doesNotContain("demo_accounts","demo_new_accounts","employee_permissions",
-      "local_demo_role_permission_seed","INSERT INTO users","INSERT INTO employees",
-      "INSERT INTO vendor_role_permissions","INSERT INTO employee_role_assignments");
- }
 
 }

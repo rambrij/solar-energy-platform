@@ -9,7 +9,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
-import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -23,72 +22,34 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * same MySQL service as the backend CI matrix; H2 is not accepted as evidence.
  */
 class P202MysqlPersistenceIntegrationTest {
-    private static final String BASELINE = "47";
-    private static final String LATEST = "55";
 
     @Test
-    void cleanInstallHasOrderedUniqueValidatedMigrationsAndRepeatableStartup() throws Exception {
+    void cleanInstallAppliesExactlyV1AndRepeatStartupIsANoOp() throws Exception {
         withSchema((url, user, password, schema) -> {
-            Flyway flyway = flyway(url, user, password, schema, null);
+            Flyway flyway = flyway(url, user, password, schema);
             flyway.migrate();
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).isNotEmpty();
-            assertThat(applied).allMatch(migration -> migration.getState().isApplied());
-            var versions = applied.stream()
-                    .map(migration -> migration.getVersion().getVersion())
-                    .toList();
-            assertThat(new HashSet<>(versions)).hasSameSizeAs(versions);
-            assertThat(applied.stream().map(m -> m.getVersion()).toList())
-                    .isSortedAccordingTo(MigrationVersion::compareTo);
-            assertThat(versions).contains(LATEST);
+            assertThat(applied).hasSize(1);
+            assertThat(applied.getFirst().getScript()).isEqualTo("V1__base_schema.sql");
+            assertThat(applied.getFirst().getVersion().getVersion()).isEqualTo("1");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
-            flyway.migrate();
+            assertThat(flyway.migrate().migrationsExecuted).isZero();
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactlyElementsOf(versions);
+                    .containsExactly("1");
         });
     }
 
-    @Test
-    void supportedV47BaselineUpgradesToLatestAndRetainsTenantAndBranchData() throws Exception {
-        withSchema((url, user, password, schema) -> {
-            Flyway baseline = flyway(url, user, password, schema, BASELINE);
-            baseline.migrate();
-            JdbcTemplate db = jdbc(url, user, password);
-
-            // V47 is the explicitly supported pre-ownership-hardening schema.
-            // The records are deliberately present before V48/V50 are applied.
-            db.update("INSERT INTO tenants(id,name) VALUES(990001,'P2-02 retained tenant')");
-            db.update("INSERT INTO branches(id,tenant_id,name) VALUES(990011,990001,'P2-02 retained branch')");
-
-            Flyway upgraded = flyway(url, user, password, schema, null);
-            upgraded.migrate();
-            upgraded.validate();
-
-            assertThat(db.queryForObject("SELECT name FROM tenants WHERE id=990001", String.class))
-                    .isEqualTo("P2-02 retained tenant");
-            assertThat(db.queryForObject("SELECT name FROM branches WHERE tenant_id=990001 AND id=990011",
-                    String.class)).isEqualTo("P2-02 retained branch");
-            assertThat(db.queryForObject("""
-                    SELECT COUNT(*) FROM pos_stock_locations
-                    WHERE tenant_id=990001 AND branch_id=990011
-                      AND stock_location_id=990011 AND location_code='POS_DEFAULT'
-                    """, Integer.class)).isEqualTo(1);
-            assertThat(Arrays.stream(upgraded.info().applied())
-                    .map(migration -> migration.getVersion().getVersion()).toList())
-                    .contains(LATEST);
-        });
-    }
 
     @Test
     void mysqlSchemaEnforcesCoreTenantOwnershipChecksGeneratedColumnsAndFinancialPrecision() throws Exception {
         withSchema((url, user, password, schema) -> {
-            Flyway flyway = flyway(url, user, password, schema, null);
+            Flyway flyway = flyway(url, user, password, schema);
             flyway.migrate();
             JdbcTemplate db = jdbc(url, user, password);
 
@@ -132,7 +93,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void tenantOwnedTableInventoryAndCompositeParentKeysAreAssertedOnMysql() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             JdbcTemplate db = jdbc(url, user, password);
 
             // Explicit ownership classification for every table containing tenant_id
@@ -256,7 +217,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void v40ThroughV47ChecksCompositeRelationshipsAndGeneratedColumnsArePresent() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             JdbcTemplate db = jdbc(url, user, password);
 
             assertConstraint(db, schema, "tenants", "chk_tenant_lifecycle", "CHECK");
@@ -347,7 +308,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void generatedPosSessionColumnAndMysqlStockLocationCheckBehaveAsDeclared() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             JdbcTemplate db = jdbc(url, user, password);
             db.update("INSERT INTO tenants(id,name) VALUES(991001,'P2 generated-column tenant')");
             db.update("INSERT INTO branches(id,tenant_id,name) VALUES(991011,991001,'P2 generated-column branch')");
@@ -389,7 +350,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void platformAuditIsAppendOnlyAndFinancialHistoryRejectsParentDeletion() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             JdbcTemplate db = jdbc(url, user, password);
 
             db.update("""
@@ -540,7 +501,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void mysqlUtcTimestampRoundTripPreservesTheExactInstant() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             try (Connection connection = DriverManager.getConnection(url, user, password);
                  Statement statement = connection.createStatement()) {
                 statement.execute("SET time_zone = '+00:00'");
@@ -573,7 +534,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void versionColumnsSupportCompareAndSwapWithoutStaleOverwrite() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             JdbcTemplate db = jdbc(url, user, password);
             db.update("INSERT INTO tenants(id,name) VALUES(992001,'P2 optimistic tenant')");
             assertThat(db.update("""
@@ -592,7 +553,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void v40ToV47CheckConstraintsRejectInvalidTenantPlatformBillingAndRoleRowsOnMysql() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             JdbcTemplate db = jdbc(url, user, password);
             db.update("""
                     INSERT INTO users(id,username,password_hash,enabled)
@@ -777,7 +738,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void v45TenantRoleAndResourceCompositeForeignKeysRejectCrossTenantInsertAndUpdateOnMysql() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             JdbcTemplate db = jdbc(url, user, password);
 
             db.update("INSERT INTO tenants(id,name) VALUES(996001,'P2 composite tenant A'),(996002,'P2 composite tenant B')");
@@ -978,7 +939,7 @@ class P202MysqlPersistenceIntegrationTest {
     @Test
     void v40PlanLimitsCheckRejectsEveryInvalidLimitOnMysql() throws Exception {
         withSchema((url, user, password, schema) -> {
-            flyway(url, user, password, schema, null).migrate();
+            flyway(url, user, password, schema).migrate();
             JdbcTemplate db = jdbc(url, user, password);
             db.update("""
                     INSERT INTO users(id,username,password_hash,enabled)
@@ -1092,39 +1053,6 @@ class P202MysqlPersistenceIntegrationTest {
                 .isGreaterThan(0);
     }
 
-    @Test
-    void v48PreflightRejectsInvalidCrossTenantDataWithoutDeletingItOnMysql() throws Exception {
-        withSchema((url, user, password, schema) -> {
-            JdbcTemplate db = jdbc(url, user, password);
-            db.execute("CREATE TABLE branches(tenant_id BIGINT NOT NULL,id BIGINT NOT NULL,PRIMARY KEY(tenant_id,id))");
-            db.execute("CREATE TABLE pos_sessions(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,id VARCHAR(36) NOT NULL,PRIMARY KEY(tenant_id,branch_id,id))");
-            db.execute("CREATE TABLE orders(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,cashier VARCHAR(100) NOT NULL,session_id VARCHAR(36) NOT NULL,id VARCHAR(36) NOT NULL,sales_channel VARCHAR(16) NOT NULL,status VARCHAR(24) NOT NULL,PRIMARY KEY(tenant_id,id))");
-            db.execute("CREATE TABLE pos_drawer_tenders(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,session_id VARCHAR(36) NOT NULL,order_reference VARCHAR(36) NOT NULL)");
-            db.execute("CREATE TABLE pos_active_drafts(tenant_id BIGINT NOT NULL,branch_id BIGINT NOT NULL,cashier VARCHAR(100) NOT NULL,session_id VARCHAR(36) NOT NULL,order_reference VARCHAR(36) NOT NULL)");
-            db.execute("CREATE TABLE tenant_subscriptions(tenant_id BIGINT NOT NULL,id BIGINT NOT NULL,PRIMARY KEY(tenant_id,id))");
-            db.execute("CREATE TABLE subscription_events(tenant_id BIGINT NOT NULL,subscription_id BIGINT NOT NULL)");
-            db.update("INSERT INTO branches VALUES(1,10),(2,20)");
-            db.update("INSERT INTO pos_sessions VALUES(1,10,'session-a'),(2,20,'session-b')");
-            db.update("INSERT INTO orders VALUES(1,10,'alice','session-a','order-a','IN_STORE','DRAFT'),(2,20,'bob','session-b','order-b','IN_STORE','DRAFT')");
-            db.update("INSERT INTO tenant_subscriptions VALUES(1,100),(2,200)");
-            db.update("INSERT INTO pos_drawer_tenders VALUES(1,10,'session-a','order-b')");
-            db.update("INSERT INTO pos_active_drafts VALUES(1,10,'alice','session-a','order-b')");
-            db.update("INSERT INTO subscription_events VALUES(1,200)");
-
-            assertThatThrownBy(() -> {
-                try (Connection connection = db.getDataSource().getConnection()) {
-                    V48__tenant_child_ownership_constraints.validateExistingData(connection);
-                }
-            }).isInstanceOf(java.sql.SQLException.class)
-                    .hasMessageContaining("pos_drawer_tenders=1")
-                    .hasMessageContaining("pos_active_drafts=1")
-                    .hasMessageContaining("subscription_events=1");
-
-            assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_drawer_tenders", Integer.class)).isEqualTo(1);
-            assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_active_drafts", Integer.class)).isEqualTo(1);
-            assertThat(db.queryForObject("SELECT COUNT(*) FROM subscription_events", Integer.class)).isEqualTo(1);
-        });
-    }
 
     private static long constraintCount(JdbcTemplate db, String schema, String table, String name) {
         return db.queryForObject("""
@@ -1140,7 +1068,7 @@ class P202MysqlPersistenceIntegrationTest {
                 """, Integer.class, schema, table, column) > 0;
     }
 
-    private static Flyway flyway(String url, String user, String password, String schema, String target) {
+    private static Flyway flyway(String url, String user, String password, String schema) {
         var configuration = Flyway.configure()
                 .dataSource(url, user, password)
                 .locations("classpath:db/migration")
@@ -1148,9 +1076,6 @@ class P202MysqlPersistenceIntegrationTest {
                 .defaultSchema(schema)
                 .createSchemas(false)
                 .cleanDisabled(true);
-        if (target != null) {
-            configuration.target(target);
-        }
         return configuration.load();
     }
 

@@ -69,32 +69,8 @@ The authorization inventory was reported as 443 controls in the P2-04 record and
 
 ## 4. Database and Flyway inventory
 
-The production Flyway locations contain **51 versioned migrations**: 40 SQL resources in backend/src/main/resources/db/migration and 11 Java migrations in backend/src/main/java/db/migration. The local profile adds three SQL scripts in backend/src/main/resources/db/local-migration:
+Production Flyway now discovers only `V1__base_schema.sql`. The local profile adds an `afterMigrateApplied` seed callback. V1 includes the final table definitions, constraints, generated columns, MySQL platform audit triggers, identity and business ID sequences, and the authorization catalogues. Reset disposable databases that used the prior migration history. The governing documents retain dated evidence from earlier implementation increments.
 
-- V39__local_multi_vendor_demo_seed.sql
-- V51__refresh_local_demo_credentials.sql
-- V53__local_demo_subscription_entitlements.sql
-
-There are no repeatable migrations in the tree. The Java migration set includes behavior that cannot be safely flattened by concatenating SQL:
-
-- V43 creates MySQL append-only triggers for platform audit events.
-- V47 changes the platform permission CHECK and conditionally seeds selected grants.
-- V48 validates existing tenant/parent relationships before adding same-tenant composite ownership constraints. Its preflights run before DDL because MySQL ALTER TABLE can commit.
-- V55 reads authorization-policy-registry.json, creates vendor/platform permission catalogues, removes out-of-catalogue grants and adds catalogue foreign keys.
-- V8 and V23–V28 also contain Java-based schema/data changes that must be translated and tested deliberately.
-
-The P2-02 test currently identifies V47 as a supported upgrade baseline and V55 as the latest production migration, while clean install applies the full production chain.
-
-### Required V1 consolidation: REQUIRES_DECISION / NOT IMPLEMENTED
-
-The requested V1__base_schema.sql has **not** been created in this cleanup pass. The existing migration chain is being retained because:
-
-1. A SQL-only V1 must preserve Java migration side effects and preflight behavior, as well as DDL, generated columns, indexes, restrictive delete behavior, permission catalogue data, local seeds and audit triggers.
-2. The current MySQL integration test verifies clean install, repeatable startup and V47-to-V55 behavior, but it does not prove the requested one-file V1 schema contract.
-3. P2-02 explicitly leaves exhaustive ownership/constraint behavior and MySQL UTC/optimistic locking open.
-4. A destructive volume reset is authorized only for a disposable local database; no shared or production database may be reset.
-
-**Safe interim behavior:** retain the current migration chain, do not run flyway repair, do not change checksums, and do not delete migration sources until a generated V1 is tested against an empty MySQL 8.4 schema and every schema/seed/authorization regression is shown equivalent. README and clean-install instructions must describe the actual current chain, not claim a V1 exists.
 
 ## 5. Local development, Docker and CI
 

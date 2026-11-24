@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SubscriptionPaymentRepository extends JpaRepository<SubscriptionPaymentRecord,Long> {
     List<SubscriptionPaymentRecord> findByTenantIdOrderByCreatedAtDescIdDesc(long tenantId);
     List<SubscriptionPaymentRecord> findByInvoiceIdOrderByCreatedAtDescIdDesc(long invoiceId);
+    long countByTenantIdAndInvoiceIdAndProvider(long tenantId,long invoiceId,String provider);
 }

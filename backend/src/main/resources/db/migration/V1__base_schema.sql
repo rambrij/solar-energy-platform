@@ -424,6 +424,7 @@ CREATE TABLE `tenant_subscriptions` (
   `billing_period_start` date NOT NULL,
   `billing_period_end` date NOT NULL,
   `grace_until` timestamp NULL DEFAULT NULL,
+  `billing_anchor` date DEFAULT NULL,
   `terms_snapshot` json NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -435,6 +436,7 @@ CREATE TABLE `tenant_subscriptions` (
   KEY `fk_subscription_plan_version` (`plan_id`,`plan_version`),
   KEY `ix_subscription_tenant_history` (`tenant_id`,`created_at` DESC,`id` DESC),
   KEY `ix_subscription_grace_expiry` (`status`,`grace_until`,`id`),
+  KEY `ix_subscription_mock_renewal` (`status`,`billing_period_end`,`id`),
   CONSTRAINT `fk_subscription_plan_version` FOREIGN KEY (`plan_id`, `plan_version`) REFERENCES `subscription_plan_versions` (`plan_id`, `version`),
   CONSTRAINT `fk_subscription_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `chk_subscription_status` CHECK ((`status` in ('PENDING','ACTIVE','PAST_DUE','GRACE_PERIOD','SUSPENDED','CANCEL_AT_PERIOD_END','CANCELLED','EXPIRED')))
@@ -570,11 +572,13 @@ CREATE TABLE `subscription_invoices` (
   `status` varchar(20) NOT NULL,
   `due_at` timestamp NOT NULL,
   `issued_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `mock_next_attempt_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `invoice_number` (`invoice_number`),
   UNIQUE KEY `uk_sub_invoice_tenant_id` (`tenant_id`,`id`),
   KEY `fk_sub_invoice_subscription` (`subscription_id`),
   KEY `ix_sub_invoice_tenant_date` (`tenant_id`,`issued_at` DESC,`id` DESC),
+  KEY `ix_sub_invoice_mock_retry` (`mock_next_attempt_at`,`subscription_id`),
   KEY `fk_sub_invoice_subscription_owner` (`tenant_id`,`subscription_id`),
   CONSTRAINT `fk_sub_invoice_subscription` FOREIGN KEY (`subscription_id`) REFERENCES `tenant_subscriptions` (`id`),
   CONSTRAINT `fk_sub_invoice_subscription_owner` FOREIGN KEY (`tenant_id`, `subscription_id`) REFERENCES `tenant_subscriptions` (`tenant_id`, `id`),
@@ -1249,7 +1253,8 @@ INSERT INTO identity_sequence (id, next_id) VALUES (1, 1);
 
 -- Non-login system identity preserves the existing subscription audit actor foreign key.
 INSERT INTO users (id, username, password_hash, enabled)
-VALUES (0, 'system:subscription-grace-expiry', '!', FALSE);
+VALUES (0, 'system:subscription-grace-expiry', '!', FALSE),
+       (-1, 'system:subscription-mock-billing', '!', FALSE);
 
 /*!80000 CREATE TRIGGER `trg_platform_audit_no_update` BEFORE UPDATE ON `platform_audit_events` FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Platform audit events are immutable' */;
 

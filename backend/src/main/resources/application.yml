@@ -24,6 +24,12 @@ checkout:
   cleanup-delay-ms: 60000
 payments:
   mock-enabled: ${PAYMENTS_MOCK_ENABLED:false}
+subscriptions:
+  mock:
+    enabled: ${SUBSCRIPTIONS_MOCK_BILLING_ENABLED:false}
+    outcome: ${SUBSCRIPTIONS_MOCK_BILLING_OUTCOME:}
+    max-attempts: ${SUBSCRIPTIONS_MOCK_BILLING_MAX_ATTEMPTS:0}
+    retry-seconds: ${SUBSCRIPTIONS_MOCK_BILLING_RETRY_SECONDS:0}
 auth:
   jwt-secret: ${AUTH_JWT_SECRET:}
 management:

@@ -120,7 +120,9 @@ Flyway applies `backend/src/main/resources/db/migration/V1__base_schema.sql` to 
 
 Existing development databases using the previous migration history require a disposable local reset with `docker compose down -v` before startup. See [Clean Development Database Setup](docs/implementation/CLEAN_DEVELOPMENT_DATABASE.md).
 
-The grace-expiry worker adds an index and disabled audit identity to V1. An existing disposable database initialized with the earlier V1 checksum also requires a reset before running this build. Preserve any database you need to keep.
+The subscription workers add billing fields, indexes, and disabled audit identities to V1. An existing disposable database initialized with an earlier V1 checksum requires a reset before running this build. Preserve any database you need to keep.
+
+Platform subscription collection uses a separate, opt-in local/test mock. See the [subscription billing simulation](docs/demo/platform-super-admin.md#simulate-subscription-invoicing-retries-and-reactivation) for the outcome, retry, and reminder setup.
 
 ## Run backend and frontend directly
 

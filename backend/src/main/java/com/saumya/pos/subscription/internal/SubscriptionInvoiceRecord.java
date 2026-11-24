@@ -21,6 +21,17 @@ public class SubscriptionInvoiceRecord {
     @Column(nullable=false,length=20) private String status;
     @Column(name="due_at",nullable=false) private Instant dueAt;
     @Column(name="issued_at",nullable=false) private Instant issuedAt;
+    @Column(name="mock_next_attempt_at") private Instant mockNextAttemptAt;
     protected SubscriptionInvoiceRecord(){}
+    public SubscriptionInvoiceRecord(long tenantId,long subscriptionId,String number,LocalDate start,LocalDate end,
+                                     String currency,String snapshot,BigDecimal amount,Instant now){
+        this.tenantId=tenantId;this.subscriptionId=subscriptionId;this.invoiceNumber=number;
+        this.periodStart=start;this.periodEnd=end;this.currency=currency;this.planSnapshot=snapshot;
+        this.subtotal=amount;this.taxAmount=BigDecimal.ZERO;this.total=amount;this.status="OPEN";
+        this.dueAt=now;this.issuedAt=now;this.mockNextAttemptAt=now;
+    }
+    public void scheduleMockRetry(Instant next){mockNextAttemptAt=next;}
+    public void markMockPaid(){status="PAID";mockNextAttemptAt=null;}
+    public Instant mockNextAttemptAt(){return mockNextAttemptAt;}
     public long id(){return id;}public long tenantId(){return tenantId;}public long subscriptionId(){return subscriptionId;}public String invoiceNumber(){return invoiceNumber;}public LocalDate periodStart(){return periodStart;}public LocalDate periodEnd(){return periodEnd;}public String currency(){return currency;}public BigDecimal subtotal(){return subtotal;}public BigDecimal taxAmount(){return taxAmount;}public BigDecimal total(){return total;}public String status(){return status;}public Instant dueAt(){return dueAt;}public Instant issuedAt(){return issuedAt;}
 }

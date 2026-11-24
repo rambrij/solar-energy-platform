@@ -19,5 +19,13 @@ public class SubscriptionPaymentRecord {
     @Column(name="created_at",nullable=false) private Instant createdAt;
     @Column(name="confirmed_at") private Instant confirmedAt;
     protected SubscriptionPaymentRecord(){}
+    public SubscriptionPaymentRecord(long tenantId,long invoiceId,String attemptKey,BigDecimal amount,
+                                     String currency,boolean success,Instant now){
+        this.tenantId=tenantId;this.invoiceId=invoiceId;this.provider="MOCK_SUBSCRIPTION";
+        this.platformMerchantReference="LOCAL_PLATFORM_SIMULATION";
+        this.providerPaymentReference=attemptKey;this.idempotencyKey=attemptKey;
+        this.amount=amount;this.currency=currency;this.status=success?"SUCCEEDED":"FAILED";
+        this.createdAt=now;this.confirmedAt=success?now:null;
+    }
     public long id(){return id;}public long tenantId(){return tenantId;}public long invoiceId(){return invoiceId;}public String provider(){return provider;}public String platformMerchantReference(){return platformMerchantReference;}public String providerPaymentReference(){return providerPaymentReference;}public BigDecimal amount(){return amount;}public String currency(){return currency;}public String status(){return status;}public Instant createdAt(){return createdAt;}public Instant confirmedAt(){return confirmedAt;}
 }

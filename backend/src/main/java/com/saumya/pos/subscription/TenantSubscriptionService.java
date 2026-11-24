@@ -12,7 +12,8 @@ public interface TenantSubscriptionService {
         List<String> allowedAdministrativeTransitions) {}
     record SubscriptionEventView(long id,String oldStatus,String newStatus,String actor,String reason,Instant occurredAt) {}
     record InvoiceView(long id,long tenantId,long subscriptionId,String invoiceNumber,LocalDate periodStart,LocalDate periodEnd,
-        String currency,String status,java.math.BigDecimal subtotal,java.math.BigDecimal taxAmount,java.math.BigDecimal total,Instant dueAt,Instant issuedAt) {}
+        String currency,String status,java.math.BigDecimal subtotal,java.math.BigDecimal taxAmount,java.math.BigDecimal total,Instant dueAt,Instant issuedAt,
+        Instant mockNextAttemptAt) {}
     record PaymentView(long id,long tenantId,long invoiceId,String provider,String providerPaymentReference,
         java.math.BigDecimal amount,String currency,String status,Instant createdAt,Instant confirmedAt) {}
     record BillingHistory(List<InvoiceView> invoices,List<PaymentView> payments) {}

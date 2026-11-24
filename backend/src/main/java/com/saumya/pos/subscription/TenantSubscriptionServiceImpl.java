@@ -82,7 +82,7 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
         requireRead();
         subscriptions.findById(subscriptionId).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Tenant subscription unavailable"));
         var rows=invoices.findBySubscriptionIdOrderByIssuedAtDescIdDesc(subscriptionId);
-        var invoiceViews=rows.stream().map(i->new InvoiceView(i.id(),i.tenantId(),i.subscriptionId(),i.invoiceNumber(),i.periodStart(),i.periodEnd(),i.currency(),i.status(),i.subtotal(),i.taxAmount(),i.total(),i.dueAt(),i.issuedAt())).toList();
+        var invoiceViews=rows.stream().map(i->new InvoiceView(i.id(),i.tenantId(),i.subscriptionId(),i.invoiceNumber(),i.periodStart(),i.periodEnd(),i.currency(),i.status(),i.subtotal(),i.taxAmount(),i.total(),i.dueAt(),i.issuedAt(),i.mockNextAttemptAt())).toList();
         var paymentViews=rows.stream().flatMap(i->payments.findByInvoiceIdOrderByCreatedAtDescIdDesc(i.id()).stream())
             .map(p->new PaymentView(p.id(),p.tenantId(),p.invoiceId(),p.provider(),p.providerPaymentReference(),p.amount(),p.currency(),p.status(),p.createdAt(),p.confirmedAt())).toList();
         return new BillingHistory(invoiceViews,paymentViews);

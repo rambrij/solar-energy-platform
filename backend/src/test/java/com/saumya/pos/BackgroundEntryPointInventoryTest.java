@@ -40,7 +40,8 @@ class BackgroundEntryPointInventoryTest {
                 }
             }
         }
-        assertThat(scheduled).containsExactly("DraftExpiryJob#scheduledCleanup","SubscriptionGraceExpiryJob#expireGrace");
+        assertThat(scheduled).containsExactly("DraftExpiryJob#scheduledCleanup",
+            "MockSubscriptionBillingJob#runDueBilling","SubscriptionGraceExpiryJob#expireGrace");
         assertThat(events).containsExactly("CashDrawerProjection#record","CatalogAvailabilityService#changed","DraftSessionProjection#changed");
         assertThat(async).isEmpty();
         assertThat(messages).isEmpty();

@@ -45,7 +45,7 @@ Tenant activation and subscription activation are separate. The Platform actor h
 
 1. In **Subscription plans**, enter the price, currency, billing period, limits, and feature entitlements. Save the first version.
 2. Use **Revise plan** to edit the current terms and save a new version. Older terms remain in the catalogue and existing subscription records keep their version. Use **Enable plan** or **Disable plan** to manage availability for new subscriptions.
-3. Use the top **Tenant subscriptions** link. Choose a tenant, plan, start date, and reason. **Use plan interval** calculates the end from the selected monthly, quarterly, or yearly plan version. Dates that do not exist in the target month use that month's last day. Choose **Enter end date** for an explicit period. Open **Billing and events** for history and permitted transitions. Activation requires a verified platform payment event. The vendor checkout mock does not activate platform subscriptions.
+3. Use the top **Tenant subscriptions** link. Choose a tenant, plan, start date, and reason. **Use plan interval** calculates the end from the selected monthly, quarterly, or yearly plan version. Dates that do not exist in the target month use that month's last day. Choose **Enter end date** for an explicit period. Open **Billing and events** for history and permitted transitions. The local subscription mock can activate or reactivate eligible subscriptions. The vendor checkout mock is separate.
 4. A subscription in **Grace period** shows its deadline. Once that deadline passes, vendor writes lose their grace entitlement and the background worker records **Suspended** in billing events. The worker leaves the vendor's tenant lifecycle and existing records intact.
 5. In **Billing and events**, choose one of the transitions available for the current status and enter a reason. The page refreshes the status and history after saving. If the subscription changed after you opened it, refresh before trying again.
 
@@ -81,3 +81,22 @@ Use a disposable local environment. Set `PAYMENTS_MOCK_ENABLED=true` with `SPRIN
 3. Choose **Simulate successful payment** for the selected method. The application verifies the attempt and completes its normal order, stock, and receipt flow with a mock reference. Reload or query status before retrying an uncertain outcome.
 
 This simulates successful vendor payment confirmation. No network provider is contacted and no funds move. Terminal tenders and platform subscription payments use separate flows. Disable the flag when the demo is finished.
+
+## Simulate subscription invoicing, retries, and reactivation
+
+Use a disposable database and the local profile. The examples below are test settings. Set them in `.env` and run `docker compose up --build -d`.
+
+```dotenv
+SPRING_PROFILES_ACTIVE=local
+SUBSCRIPTIONS_MOCK_BILLING_ENABLED=true
+SUBSCRIPTIONS_MOCK_BILLING_OUTCOME=FAIL
+SUBSCRIPTIONS_MOCK_BILLING_MAX_ATTEMPTS=3
+SUBSCRIPTIONS_MOCK_BILLING_RETRY_SECONDS=120
+```
+
+1. Onboard and activate a test tenant, then assign a plan whose billing period has started. The job checks due subscriptions every minute and creates a `MOCK-SUB-` invoice for the first period or a due renewal. It uses the subscription's immutable plan version and stored billing anchor. Each period gets one mock invoice.
+2. With `FAIL`, the first failed attempt moves the subscription through **Past due** to **Grace period**. If a contact email or initial Vendor Admin email is available, a grace notice is sent to [Mailpit](http://localhost:8025). The local mail send is best effort. Open **Billing and events** for payment attempts and the next retry time.
+3. Set the outcome to `SUCCESS` and run `docker compose up -d backend` before retries are exhausted. The next due attempt marks the simulated invoice paid, advances the billing period, and activates or reactivates the subscription if the tenant is still active. A separately suspended tenant is skipped.
+4. Retries use doubling delays from the configured base and stop at the configured attempt limit. Disable the flag when finished. The worker refuses to enable outside local/test or when a production profile is active.
+
+Mock invoices use zero tax for the simulation, charge no funds, and are unsuitable for statutory or customer billing use. Production tax, retry, and provider settings still require approval.

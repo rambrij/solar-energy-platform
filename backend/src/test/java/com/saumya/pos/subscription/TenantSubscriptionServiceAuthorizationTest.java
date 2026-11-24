@@ -32,7 +32,7 @@ class TenantSubscriptionServiceAuthorizationTest {
         ReflectionTestUtils.setField(service,"authorization",authorization);
 
         denied(()->service.create(null,"vendor"));
-        denied(()->service.transition(1L,"CANCELLED","reason","vendor"));
+        denied(()->service.transition(1L,"CANCELLED","reason","vendor",0L));
         denied(()->service.forTenant(7L));
         denied(service::all);
         denied(()->service.events(1L));
@@ -56,6 +56,27 @@ class TenantSubscriptionServiceAuthorizationTest {
         } finally {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    @Test
+    void staleSubscriptionVersionCannotChangeStatusOrWriteHistory() {
+        var subscriptions=mock(TenantSubscriptionRepository.class);
+        var subscription=mock(TenantSubscription.class);
+        var events=mock(SubscriptionEventRepository.class);
+        var authorization=mock(AuthorizationContext.class);
+        when(authorization.current()).thenReturn(new AuthorizationContext.Context("platform",null,null,null,
+            java.util.Set.of("PLATFORM_SUBSCRIPTION_ADJUST"),true,false,false));
+        when(subscriptions.findById(1L)).thenReturn(java.util.Optional.of(subscription));
+        when(subscription.version()).thenReturn(3L);
+        var service=new TenantSubscriptionServiceImpl(subscriptions,null,null,events,null,null,null,null,Clock.systemUTC());
+        ReflectionTestUtils.setField(service,"authorization",authorization);
+
+        assertThatThrownBy(()->service.transition(1L,"SUSPENDED","reason","platform",2L))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("status",HttpStatus.CONFLICT);
+        verify(subscription).version();
+        verifyNoMoreInteractions(subscription);
+        verifyNoInteractions(events);
     }
 
     private static void denied(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {

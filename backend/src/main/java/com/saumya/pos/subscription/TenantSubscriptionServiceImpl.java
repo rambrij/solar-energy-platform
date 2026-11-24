@@ -48,12 +48,14 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
         events.saveAndFlush(new SubscriptionEvent(input.tenantId(),entity.id(),null,"PENDING",actor,required(input.reason()),now));
         return view(entity);
     }
-    @Override public SubscriptionView transition(long id,String target,String reason,String actor){
+    @Override public SubscriptionView transition(long id,String target,String reason,String actor,Long expectedVersion){
         requirePlatform(actor,"PLATFORM_SUBSCRIPTION_ADJUST");
         var entity=subscriptions.findById(id).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Tenant subscription unavailable"));
+        if(expectedVersion!=null&&entity.version()!=expectedVersion)
+            throw new ResponseStatusException(CONFLICT,"Subscription changed. Reload before applying a transition.");
         String old=entity.status(),next=target==null?"":target.strip().toUpperCase(Locale.ROOT);
-        if(!allowed(old,next))throw new ResponseStatusException(CONFLICT,"Invalid subscription transition: "+old+" -> "+next);
         if("ACTIVE".equals(next))throw new ResponseStatusException(CONFLICT,"Subscription reactivation requires a verified platform payment event; manual status changes cannot mark an invoice paid");
+        if(!administrativeTransitions(old).contains(next))throw new ResponseStatusException(CONFLICT,"Invalid subscription transition: "+old+" -> "+next);
         int grace=planVersion(entity.planId(),entity.planVersion()).graceDays();var now=clock.instant();
         entity.transition(next,now,grace);events.saveAndFlush(new SubscriptionEvent(entity.tenantId(),entity.id(),old,next,actor,required(reason),now));
         return view(entity);
@@ -83,20 +85,20 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
         return new BillingHistory(invoiceViews,paymentViews);
     }
     private SubscriptionPlanVersion planVersion(long planId,int version){var key=new SubscriptionPlanVersion.Key();key.planId=planId;key.version=version;return versions.findById(key).orElseThrow(()->new ResponseStatusException(CONFLICT,"Historical subscription plan version unavailable"));}
-    private SubscriptionView view(TenantSubscription s){var tenant=tenants.get(s.tenantId());var p=plans.findById(s.planId()).orElse(null);return new SubscriptionView(s.id(),s.tenantId(),tenant.name(),s.planId(),p==null?"":p.planKey(),p==null?"":p.displayName(),s.planVersion(),s.status(),s.periodStart(),s.periodEnd(),s.graceUntil(),s.termsSnapshot(),s.createdAt(),s.version());}
+    private SubscriptionView view(TenantSubscription s){var tenant=tenants.get(s.tenantId());var p=plans.findById(s.planId()).orElse(null);return new SubscriptionView(s.id(),s.tenantId(),tenant.name(),s.planId(),p==null?"":p.planKey(),p==null?"":p.displayName(),s.planVersion(),s.status(),s.periodStart(),s.periodEnd(),s.graceUntil(),s.termsSnapshot(),s.createdAt(),s.version(),administrativeTransitions(s.status()));}
     private String snapshot(SubscriptionPlanVersion v){
         try{
             Map<String,Object> values=new LinkedHashMap<>();values.put("planVersion",v.version());values.put("price",v.price());values.put("currency",v.currency());values.put("billingInterval",v.billingInterval());values.put("maxUsers",v.maxUsers());values.put("maxStorageMb",v.maxStorageMb());values.put("maxBranches",v.maxBranches());values.put("maxWarehouses",v.maxWarehouses());values.put("entitlements",json.readTree(v.entitlements()));values.put("graceDays",v.graceDays());values.put("taxMetadata",json.readTree(v.taxMetadata()));values.put("invoiceDescription",v.invoiceDescription());return json.writeValueAsString(values);
         }catch(Exception e){throw new IllegalStateException("Plan snapshot could not be serialized",e);}
     }
-    private static boolean allowed(String old,String next){return switch(old){
-        case "PENDING"->Set.of("PAST_DUE","CANCELLED").contains(next);
-        case "ACTIVE"->Set.of("PAST_DUE","CANCEL_AT_PERIOD_END","CANCELLED","EXPIRED","SUSPENDED").contains(next);
-        case "PAST_DUE"->Set.of("GRACE_PERIOD","SUSPENDED","CANCELLED").contains(next);
-        case "GRACE_PERIOD"->Set.of("SUSPENDED","CANCELLED").contains(next);
-        case "SUSPENDED"->Set.of("CANCELLED").contains(next);
-        case "CANCEL_AT_PERIOD_END"->Set.of("CANCELLED","EXPIRED").contains(next);
-        default->false;
+    private static List<String> administrativeTransitions(String status){return switch(status){
+        case "PENDING"->List.of("PAST_DUE","CANCELLED");
+        case "ACTIVE"->List.of("PAST_DUE","CANCEL_AT_PERIOD_END","CANCELLED","EXPIRED","SUSPENDED");
+        case "PAST_DUE"->List.of("GRACE_PERIOD","SUSPENDED","CANCELLED");
+        case "GRACE_PERIOD"->List.of("SUSPENDED","CANCELLED");
+        case "SUSPENDED"->List.of("CANCELLED");
+        case "CANCEL_AT_PERIOD_END"->List.of("CANCELLED","EXPIRED");
+        default->List.of();
     };}
     private static String required(String value){if(value==null||value.isBlank()||value.strip().length()>500)throw new ResponseStatusException(BAD_REQUEST,"A subscription change reason is required");return value.strip();}
 }

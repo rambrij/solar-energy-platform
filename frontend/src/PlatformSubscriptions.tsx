@@ -5,13 +5,19 @@ import {downloadFile} from './fileDownload';
 
 type Subscription={id:number;tenantId:number;tenantName:string;planId:number;planKey:string;planName:string;planVersion:number;status:string;periodStart:string;periodEnd:string;graceUntil:string|null;createdAt:string;version:number;allowedAdministrativeTransitions:string[]};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:{version:number;billingInterval:string}[]};
+type Invoice={id:number;invoiceNumber:string;currency:string;total:number|string;status:string;mockNextAttemptAt:string|null};
+type Payment={id:number;invoiceId:number;provider:string;providerPaymentReference:string|null;amount:number|string;
+ currency:string;status:string;createdAt:string;confirmedAt:string|null};
+type BillingHistory={invoices:Invoice[];payments:Payment[]};
+type SubscriptionEvent={id:number;oldStatus:string|null;newStatus:string;actor:string;reason:string;occurredAt:string};
+
 export default function PlatformSubscriptions(){
  const {account}=useSession();
  const canAdjust=account?.permissions.includes('PLATFORM_SUBSCRIPTION_ADJUST')??false;
  const [rows,setRows]=useState<Subscription[]>([]),[plans,setPlans]=useState<Plan[]>([]);
  const [tenantId,setTenantId]=useState(''),[planId,setPlanId]=useState(''),[start,setStart]=useState(''),[end,setEnd]=useState(''),[reason,setReason]=useState('Initial plan assignment');
  const [usePlanInterval,setUsePlanInterval]=useState(true);
- const [selected,setSelected]=useState<number|null>(null),[billing,setBilling]=useState<any>(null),[events,setEvents]=useState<any[]>([]);
+ const [selected,setSelected]=useState<number|null>(null),[billing,setBilling]=useState<BillingHistory|null>(null),[events,setEvents]=useState<SubscriptionEvent[]>([]);
  const [statusReason,setStatusReason]=useState(''),[target,setTarget]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const detailRequest=useRef(0);
  const current=rows.find(row=>row.id===selected);
@@ -97,9 +103,42 @@ export default function PlatformSubscriptions(){
     <label>Transition reason<input required maxLength={500} value={statusReason} onChange={e=>setStatusReason(e.target.value)}/></label>
     <div className="platform-form-actions"><button disabled={busy||!selectedTransition||!statusReason.trim()} onClick={()=>void change()}>Apply status transition</button></div></>:<p>No administrative transitions are available for this subscription.</p>}
    </div><p>Activation requires a verified payment outcome. The local mock billing job can reactivate eligible subscriptions.</p></>}
-   <div className="platform-boundary-grid"><article><h3>Invoices</h3>{billing?.invoices?.length?billing.invoices.map((i:any)=><p key={i.id}>{i.invoiceNumber} · {i.currency} {i.total} · {i.status}{i.mockNextAttemptAt&&<> · Test retry <time dateTime={i.mockNextAttemptAt}>{new Date(i.mockNextAttemptAt).toLocaleString()}</time></>}{i.invoiceNumber.startsWith('MOCK-SUB-')&&
-    <button type="button" className="secondary" onClick={()=>void downloadInvoice(selected,i.id)}>Download mock invoice PDF</button>}</p>):<p>No subscription invoices recorded yet.</p>}</article><article><h3>Subscription payments</h3>{billing?.payments?.length?billing.payments.map((p:any)=><p key={p.id}>{p.provider} · {p.amount} {p.currency} · {p.status}</p>):<p>No subscription payments recorded yet.</p>}</article></div>
+   <article><h3>Invoices</h3>{billing?.invoices?.length?billing.invoices.map(i=><p key={i.id}>{i.invoiceNumber} · {i.currency} {i.total} · {i.status}{i.mockNextAttemptAt&&<> · Test retry <time dateTime={i.mockNextAttemptAt}>{new Date(i.mockNextAttemptAt).toLocaleString()}</time></>}{i.invoiceNumber.startsWith('MOCK-SUB-')&&
+    <button type="button" className="secondary" onClick={()=>void downloadInvoice(selected,i.id)}>Download mock invoice PDF</button>}</p>):<p>No subscription invoices recorded yet.</p>}</article>
+   {billing&&<SubscriptionPayments key={selected} billing={billing}/>}
    <h3>Subscription events</h3><div className="platform-table-wrap"><table><thead><tr><th>Time</th><th>From</th><th>To</th><th>Actor</th><th>Reason</th></tr></thead><tbody>{events.map(e=><tr key={e.id}><td>{new Date(e.occurredAt).toLocaleString()}</td><td>{e.oldStatus??'—'}</td><td>{e.newStatus}</td><td>{e.actor}</td><td>{e.reason}</td></tr>)}</tbody></table></div>
   </section>}
  </div>;
+}
+
+function SubscriptionPayments({billing}:{billing:BillingHistory}){
+ const [invoiceFilter,setInvoiceFilter]=useState('');
+ const invoices=new Map(billing.invoices.map(invoice=>[invoice.id,invoice.invoiceNumber]));
+ const selectedInvoice=billing.invoices.find(invoice=>String(invoice.id)===invoiceFilter);
+ const payments=selectedInvoice?billing.payments.filter(payment=>payment.invoiceId===selectedInvoice.id):billing.payments;
+
+ return <article>
+  <h3>Subscription payment attempts</h3>
+  {billing.invoices.length>0&&<label>Filter payment attempts by invoice
+   <select value={selectedInvoice?invoiceFilter:''} onChange={event=>setInvoiceFilter(event.target.value)}>
+    <option value="">All invoices</option>
+    {billing.invoices.map(invoice=><option key={invoice.id} value={invoice.id}>{invoice.invoiceNumber}</option>)}
+   </select>
+  </label>}
+  {payments.length===0?<p>{selectedInvoice?'No payment attempts for this invoice.':'No subscription payments recorded yet.'}</p>:
+   <div className="platform-table-wrap">
+    <table aria-label="Subscription payment attempts">
+     <thead><tr><th>Invoice</th><th>Provider</th><th>Reference</th><th>Amount</th><th>Status</th><th>Attempted</th><th>Confirmed</th></tr></thead>
+     <tbody>{payments.map(payment=><tr key={payment.id}>
+      <td>{invoices.get(payment.invoiceId)??`Invoice #${payment.invoiceId}`}</td>
+      <td>{payment.provider==='MOCK_SUBSCRIPTION'?'Mock subscription':payment.provider}</td>
+      <td>{payment.providerPaymentReference??'—'}</td>
+      <td>{payment.currency} {payment.amount}</td>
+      <td>{payment.status}</td>
+      <td><time dateTime={payment.createdAt}>{new Date(payment.createdAt).toLocaleString()}</time></td>
+      <td>{payment.confirmedAt?<time dateTime={payment.confirmedAt}>{new Date(payment.confirmedAt).toLocaleString()}</time>:'—'}</td>
+     </tr>)}</tbody>
+    </table>
+   </div>}
+ </article>;
 }

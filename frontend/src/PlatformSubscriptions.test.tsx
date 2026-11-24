@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import PlatformSubscriptions from './PlatformSubscriptions';
 import {platformApi} from './api';
@@ -46,6 +46,36 @@ describe('PlatformSubscriptions permission boundaries',()=>{
    blob,filename:'mock-subscription-invoice-9.pdf',
   }));
   expect(authenticatedFetch).toHaveBeenCalledWith('/api/v1/platform/subscriptions/4/invoices/9/document');
+ });
+ it('matches payment attempts to invoices and filters without mixing retry histories',async()=>{
+  const invoice=(id:number,invoiceNumber:string)=>({id,invoiceNumber,currency:'INR',total:'19.50',status:'OPEN'});
+  const attempt={invoiceId:9,provider:'MOCK_SUBSCRIPTION',currency:'INR',amount:'19.50',
+   createdAt:'2026-11-01T10:00:00Z',confirmedAt:null};
+  vi.mocked(platformApi).mockImplementation(async(path:string)=>{
+   if(path==='/subscriptions')return [subscription];
+   if(path.endsWith('/billing-history'))return {
+    invoices:[invoice(9,'MOCK-SUB-4-2026-11-01'),invoice(10,'MOCK-SUB-4-2026-12-01'),invoice(11,'MOCK-SUB-4-2027-01-01')],
+    payments:[
+     {...attempt,id:1,providerPaymentReference:'attempt-failed',status:'FAILED'},
+     {...attempt,id:2,providerPaymentReference:'attempt-paid',status:'SUCCEEDED',confirmedAt:'2026-11-01T10:01:00Z'},
+     {...attempt,id:3,invoiceId:10,providerPaymentReference:'other-invoice-attempt',status:'FAILED'},
+    ],
+   };
+   return [];
+  });
+
+  render(<PlatformSubscriptions/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Billing and events'}));
+  const table=await screen.findByRole('table',{name:'Subscription payment attempts'});
+  expect(within(table).getAllByRole('row')).toHaveLength(4);
+  expect(within(table).getByText('attempt-paid').closest('tr')?.textContent).toContain('MOCK-SUB-4-2026-11-01');
+  const filter=screen.getByLabelText('Filter payment attempts by invoice');
+  fireEvent.change(filter,{target:{value:'9'}});
+  expect(within(table).getByText('attempt-failed')).toBeTruthy();
+  expect(within(table).getByText('attempt-paid')).toBeTruthy();
+  expect(within(table).queryByText('other-invoice-attempt')).toBeNull();
+  fireEvent.change(filter,{target:{value:'11'}});
+  expect(screen.getByText('No payment attempts for this invoice.')).toBeTruthy();
  });
  it('allows subscription reads without exposing subscription mutations',async()=>{
   render(<PlatformSubscriptions/>);

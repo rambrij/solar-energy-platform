@@ -65,6 +65,10 @@ describe('VendorAccessAdmin role editor',()=>{
   fireEvent.change(within(form).getByLabelText('Updated role name'),{target:{value:'Sales role updated'}});
   fireEvent.click(within(form).getByRole('checkbox',{name:'PRODUCT_VIEW'}));
   fireEvent.click(within(form).getByRole('checkbox',{name:'POS_VIEW'}));
+  const changes=within(form).getByRole('region',{name:'Permission changes'});
+  expect(within(changes).getByText('1 added, 1 removed, 0 retained.')).toBeTruthy();
+  expect(within(changes).getByText('POS_VIEW')).toBeTruthy();
+  expect(within(changes).getByText('PRODUCT_VIEW')).toBeTruthy();
   fireEvent.change(within(form).getByLabelText('Audit reason'),{target:{value:'Replace least privilege grant'}});
   fireEvent.click(within(form).getByRole('button',{name:'Save role changes'}));
   await screen.findByText('Sales role updated');

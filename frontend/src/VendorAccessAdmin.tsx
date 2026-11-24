@@ -137,6 +137,11 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   &&(accountStatus==='all'||employee.enabled===(accountStatus==='enabled'))
   &&(!canRoleView||!roleFilter||employee.roleIds.includes(Number(roleFilter)))
  );
+ const savedPermissions=new Set(editingRole?.permissions??[]);
+ const selectedPermissionSet=new Set(editPermissions);
+ const addedPermissions=editPermissions.filter(permission=>!savedPermissions.has(permission));
+ const removedPermissions=[...savedPermissions].filter(permission=>!selectedPermissionSet.has(permission));
+ const retainedPermissionCount=editPermissions.length-addedPermissions.length;
  const roleNames=new Map(roles.map(role=>[role.id,role.displayName]));
 
  return <section className="vendor-access-admin">
@@ -178,6 +183,12 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
      {permissionOptions.map(permission=><label key={permission}><input type="checkbox" aria-label={permission} checked={editPermissions.includes(permission)} onChange={()=>togglePermission(permission,editPermissions,setEditPermissions)}/>{permission}</label>)}
     </fieldset>
     <label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+    <section aria-label="Permission changes">
+     <h4>Permission changes</h4>
+     <p aria-live="polite">{addedPermissions.length} added, {removedPermissions.length} removed, {retainedPermissionCount} retained.</p>
+     {addedPermissions.length>0&&<><h5>Will be added</h5><ul>{addedPermissions.map(permission=><li key={permission}>{permission}</li>)}</ul></>}
+     {removedPermissions.length>0&&<><h5>Will be removed</h5><ul>{removedPermissions.map(permission=><li key={permission}>{permission}</li>)}</ul></>}
+    </section>
     <button disabled={busy||!editPermissions.length}>Save role changes</button>
     <button type="button" className="secondary" disabled={busy} onClick={()=>setEditingRole(null)}>Cancel</button>
    </form>}

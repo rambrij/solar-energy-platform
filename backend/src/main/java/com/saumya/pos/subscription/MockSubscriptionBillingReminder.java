@@ -15,9 +15,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class MockSubscriptionBillingReminder {
     private final ObjectProvider<JavaMailSender> mail;
     private final boolean local;
+    private final GraceReminderTemplate template;
 
-    MockSubscriptionBillingReminder(ObjectProvider<JavaMailSender> mail,Environment environment){
+    MockSubscriptionBillingReminder(ObjectProvider<JavaMailSender> mail,Environment environment,GraceReminderTemplate template){
         this.mail=mail;
+        this.template=template;
         local=environment.acceptsProfiles(Profiles.of("local & !prod & !production"));
     }
 
@@ -32,8 +34,9 @@ class MockSubscriptionBillingReminder {
                     var message=new SimpleMailMessage();
                     message.setFrom("platform-billing@somya.local");
                     message.setTo(recipient);
-                    message.setSubject("Test subscription payment failed");
-                    message.setText("Mock invoice "+invoice+" is unpaid. The local test grace period ends "+graceUntil+
+                    var wording=template.load();
+                    message.setSubject(wording.subject());
+                    message.setText(wording.body()+"\n\nMock invoice "+invoice+" is unpaid. The local test grace period ends "+graceUntil+
                         ". This is a simulation and no funds were collected.");
                     sender.send(message);
                 }catch(RuntimeException ex){

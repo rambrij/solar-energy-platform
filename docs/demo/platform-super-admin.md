@@ -100,3 +100,7 @@ SUBSCRIPTIONS_MOCK_BILLING_RETRY_SECONDS=120
 4. Retries use doubling delays from the configured base and stop at the configured attempt limit. Disable the flag when finished. The worker refuses to enable outside local/test or when a production profile is active.
 
 Mock invoices use zero tax for the simulation, charge no funds, and are unsuitable for statutory or customer billing use. Production tax, retry, and provider settings still require approval.
+
+### Customize the mock grace reminder
+
+In **Configuration**, choose **Email templates**, enter the key `MOCK_SUBSCRIPTION_GRACE`, and save a subject and plain-text body. The next grace notice uses the saved wording without a backend restart. If no usable template exists, the application uses its default wording. It always appends the mock invoice reference, grace deadline, and simulation notice. Open Mailpit to see the result after a new subscription's first failed mock attempt.

@@ -113,6 +113,17 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   setSelectedRoles(row?.roleIds??[]);setRegisterIds(row?.registerIds.join(',')??'');
   if(row)setEmployeeBranch(String(row.branchId));setEffective([]);
  };
+ const [employeeQuery,setEmployeeQuery]=useState('');
+ const [accountStatus,setAccountStatus]=useState('all');
+ const [roleFilter,setRoleFilter]=useState('');
+ const query=employeeQuery.trim().toLowerCase();
+ const visibleEmployees=employees.filter(employee=>
+  employee.username.toLowerCase().includes(query)
+  &&(accountStatus==='all'||employee.enabled===(accountStatus==='enabled'))
+  &&(!canRoleView||!roleFilter||employee.roleIds.includes(Number(roleFilter)))
+ );
+ const roleNames=new Map(roles.map(role=>[role.id,role.displayName]));
+
  return <section className="vendor-access-admin">
   <header><h2>{mode==='roles'?'Roles & permissions':'Employee administration'}</h2><p>Access is resolved from the signed-in tenant membership, active role assignments and current resource assignments. Platform permissions cannot be assigned here.</p></header>
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
@@ -166,8 +177,23 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     <button disabled={busy||!employeeRole}>Create employee invitation</button>
     {invitation&&<p role="status">Invitation for {invitation.username}: {invitation.invitationToken??'This identity already has an active account; no invitation token issued.'}</p>}
    </form>}
-   {canUserView&&<div className="vendor-access-list"><h3>Employees</h3>{employees.map(e=><article key={e.username}>
-    <div><strong>{e.username}</strong><small>Branch {e.branchId} Â· {e.enabled?'Enabled':'Disabled'}</small><p>Roles: {e.roleIds.join(', ')||'None'} Â· Registers: {e.registerIds.join(', ')||'None'}</p></div>
+   {canUserView&&<div className="vendor-access-list">
+    <h3>Employees</h3>
+    <div className="vendor-access-form" role="group" aria-label="Employee directory filters">
+     <label>Search employee email<input type="search" value={employeeQuery}
+      onChange={event=>setEmployeeQuery(event.target.value)}/></label>
+     <label>Account status<select value={accountStatus} onChange={event=>setAccountStatus(event.target.value)}>
+      <option value="all">All accounts</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option>
+     </select></label>
+     {canRoleView&&roles.length>0&&<label>Filter by role<select value={roleFilter} onChange={event=>setRoleFilter(event.target.value)}>
+      <option value="">All roles</option>
+      {roles.map(role=><option key={role.id} value={role.id}>{role.displayName}{!role.active?' (inactive)':''}</option>)}
+     </select></label>}
+    </div>
+    <p aria-live="polite">Showing {visibleEmployees.length} of {employees.length} employees.</p>
+    {visibleEmployees.length===0&&<p>No employees match the current filters.</p>}
+    {visibleEmployees.map(e=><article key={e.username}>
+    <div><strong>{e.username}</strong><small>Branch {e.branchId} Â· {e.enabled?'Enabled':'Disabled'}</small><p>Roles: {e.roleIds.map(id=>roleNames.get(id)??`#${id}`).join(', ')||'None'} Â· Registers: {e.registerIds.join(', ')||'None'}</p></div>
     <div className="vendor-access-actions"><button type="button" className="secondary" onClick={()=>chooseEmployee(e.username)}>Manage</button>{canUserDisable&&e.enabled&&<button type="button" className="secondary" disabled={busy} onClick={()=>void disableEmployee(e.username)}>Disable</button>}</div>
    </article>)}</div>}
    {subject&&<div className="vendor-access-form">

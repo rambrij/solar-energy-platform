@@ -118,3 +118,27 @@ describe('VendorAccessAdmin role editor',()=>{
   expect(mockVendorApi).toHaveBeenCalledWith('/employees/staff%40vendor.test/effective-permissions');
  });
 });
+
+it('combines email, status, and role filters within the authorized employee directory',async()=>{
+ mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','ROLE_VIEW']}});
+ mockVendorApi.mockImplementation(async(path:string)=>{
+  if(path==='/roles')return [role,{...role,id:8,displayName:'Inventory role'}];
+  if(path==='/employees')return [
+   {username:'sales.enabled@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]},
+   {username:'sales.disabled@vendor.test',branchId:12,enabled:false,roleIds:[7],registerIds:[]},
+   {username:'inventory.enabled@vendor.test',branchId:12,enabled:true,roleIds:[8],registerIds:[]},
+  ];
+  return {permissions:[]};
+ });
+ render(<VendorAccessAdmin mode="employees"/>);
+ await screen.findByText('Showing 3 of 3 employees.');
+ fireEvent.change(screen.getByLabelText('Filter by role'),{target:{value:'7'}});
+ expect(screen.getByText('Showing 2 of 3 employees.')).toBeTruthy();
+ expect(screen.queryByText('inventory.enabled@vendor.test')).toBeNull();
+ fireEvent.change(screen.getByLabelText('Account status'),{target:{value:'disabled'}});
+ expect(screen.getByText('sales.disabled@vendor.test')).toBeTruthy();
+ expect(screen.queryByText('sales.enabled@vendor.test')).toBeNull();
+ fireEvent.change(screen.getByLabelText('Search employee email'),{target:{value:' ENABLED '}});
+ expect(screen.getByText('No employees match the current filters.')).toBeTruthy();
+ expect(mockVendorApi.mock.calls.filter(([url])=>url==='/employees')).toHaveLength(1);
+});

@@ -48,7 +48,7 @@ The stock receipt shows availability immediately after that receipt. Subsequent 
 
 1. Open **Roles & Permissions** to inspect the seeded roles. To create a limited role, enter a role key, display name, only the needed permissions, and an audit reason. For example, a stock history viewer can use `INVENTORY_VIEW` without `INVENTORY_RECEIVE`.
 2. Open **Employees → Invite employee**. Enter a fresh demo email, your fixture branch ID, an active initial role, and an audit reason. A new identity receives a one-time invitation token. Share it through an approved secure channel. An already active identity may use its existing credentials.
-3. In **Employees → Manage**, review the person’s assignments. **Save role assignments** saves the selected set, so include every role the employee should retain. Save POS register assignments separately where needed.
+3. In **Employees**, filter the directory by email, account status, or role where available. Choose **Manage** on the matching employee to review their assignments. **Save role assignments** saves the selected set, so include every role the employee should retain. Save POS register assignments separately where needed.
 4. Use **Preview effective permissions**, then sign in as the employee in a separate browser session. Confirm the pages and actions match the assigned role. If you remove access, verify the affected operation is denied by the backend.
 5. Use **Disable** with an audit reason on a disposable employee if you want to demonstrate revocation. Keep at least one working administrator for the tenant.
 

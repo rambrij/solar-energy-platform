@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState,type FormEvent} from 'react';
+import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
 import {vendorApi,ApiError} from './api';
 import {useSession} from './session';
 
@@ -27,7 +27,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const [editingRole,setEditingRole]=useState<Role|null>(null),[editDisplayName,setEditDisplayName]=useState(''),[editPermissions,setEditPermissions]=useState<string[]>([]);
  const [reason,setReason]=useState(''),[employeeEmail,setEmployeeEmail]=useState(''),[employeeBranch,setEmployeeBranch]=useState(String(account?.branchId??'')),[employeeRole,setEmployeeRole]=useState('');
  const [subject,setSubject]=useState(''),[selectedRoles,setSelectedRoles]=useState<number[]>([]),[registerIds,setRegisterIds]=useState('');
- const [effective,setEffective]=useState<string[]>([]),[invitation,setInvitation]=useState<Invitation|null>(null);
+ const [effective,setEffective]=useState<{username:string;permissions:string[]}|null>(null),[invitation,setInvitation]=useState<Invitation|null>(null);
  const canRoleView=rights.has('ROLE_VIEW'),canRoleCreate=rights.has('ROLE_CREATE'),canRoleUpdate=rights.has('ROLE_UPDATE'),canRoleAssign=rights.has('ROLE_ASSIGN');
  const canUserView=rights.has('USER_VIEW'),canUserCreate=rights.has('USER_CREATE'),canUserUpdate=rights.has('USER_UPDATE'),canUserDisable=rights.has('USER_DISABLE');
  const permissionOptions=[...new Set(delegablePermissions)]
@@ -86,11 +86,18 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   if(value)setInvitation(value);
  }
  async function refreshEffectivePermissions(){
-  if(!subject||!canUserView)return;
+  if(!subject||!canUserView||subject!==selectedEmployee.current)return;
+  const request=++permissionRequest.current;
+  setEffective(null);
+  setCheckingPermissions(true);
   try{
    const value=await vendorApi('/employees/'+encodeURIComponent(subject)+'/effective-permissions');
-   setEffective(value.permissions??[]);
-  }catch(e){setEffective([]);setError(errorMessage(e));}
+   if(request===permissionRequest.current)setEffective({username:subject,permissions:value.permissions??[]});
+  }catch(e){
+   if(request===permissionRequest.current)setError(errorMessage(e));
+  }finally{
+   if(request===permissionRequest.current)setCheckingPermissions(false);
+  }
  }
  async function assignRoles(){
   const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/roles','PUT',{roleIds:selectedRoles,reason}),'Employee roles updated and audited.');
@@ -111,8 +118,16 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const chooseEmployee=(username:string)=>{
   setSubject(username);const row=employees.find(e=>e.username===username);
   setSelectedRoles(row?.roleIds??[]);setRegisterIds(row?.registerIds.join(',')??'');
-  if(row)setEmployeeBranch(String(row.branchId));setEffective([]);
+  if(row)setEmployeeBranch(String(row.branchId));
+  selectedEmployee.current=username;
+  permissionRequest.current++;
+  setEffective(null);
+  setCheckingPermissions(false);
  };
+ const permissionRequest=useRef(0);
+ const selectedEmployee=useRef('');
+ const [checkingPermissions,setCheckingPermissions]=useState(false);
+ const savedEmployee=employees.find(employee=>employee.username===subject);
  const [employeeQuery,setEmployeeQuery]=useState('');
  const [accountStatus,setAccountStatus]=useState('all');
  const [roleFilter,setRoleFilter]=useState('');
@@ -198,12 +213,16 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
    </article>)}</div>}
    {subject&&<div className="vendor-access-form">
     <h3>Manage {subject}</h3>
+    {savedEmployee&&<p>Saved branch #{savedEmployee.branchId} · {savedEmployee.enabled?'Enabled':'Disabled'}
+     {' · Registers '}{savedEmployee.registerIds.join(', ')||'none assigned'}</p>}
     {(canRoleAssign||canUserUpdate||canUserDisable)&&<label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
     {canRoleAssign&&<><label>Role assignments<select multiple value={selectedRoles.map(String)} onChange={e=>setSelectedRoles(Array.from(e.target.selectedOptions).map(x=>Number(x.value)))}>{roles.filter(r=>r.active).map(r=><option key={r.id} value={r.id}>{r.displayName}</option>)}</select></label><button type="button" disabled={busy} onClick={()=>void assignRoles()}>Save role assignments</button></>}
     {canRoleAssign&&<><label>Assigned register IDs (comma separated)<input value={registerIds} onChange={e=>setRegisterIds(e.target.value)}/></label><button type="button" disabled={busy} onClick={()=>void assignRegisters()}>Save register assignments</button></>}
     {canUserUpdate&&<><label>New branch ID<input type="number" min="1" value={employeeBranch} onChange={e=>setEmployeeBranch(e.target.value)}/></label><button type="button" className="secondary" disabled={busy} onClick={()=>void changeBranch()}>Change branch</button></>}
-    {canUserView&&<button type="button" className="secondary" disabled={busy} onClick={()=>void preview()}>Preview effective permissions</button>}
-    {effective.length>0&&<p>Effective permissions: {effective.join(', ')}</p>}
+    {canUserView&&<button type="button" className="secondary" disabled={busy||checkingPermissions} onClick={()=>void preview()}>Preview effective permissions</button>}
+    {checkingPermissions&&<p role="status">Checking effective permissions…</p>}
+    {canUserView&&effective?.username===subject&&
+     <p role="status">{effective.permissions.length>0?`Effective permissions: ${effective.permissions.join(', ')}`:'No effective permissions.'}</p>}
    </div>}
   </>}
  </section>;

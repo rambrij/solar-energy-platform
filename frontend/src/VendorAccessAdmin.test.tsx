@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import VendorAccessAdmin from './VendorAccessAdmin';
 
@@ -141,4 +141,30 @@ it('combines email, status, and role filters within the authorized employee dire
  fireEvent.change(screen.getByLabelText('Search employee email'),{target:{value:' ENABLED '}});
  expect(screen.getByText('No employees match the current filters.')).toBeTruthy();
  expect(mockVendorApi.mock.calls.filter(([url])=>url==='/employees')).toHaveLength(1);
+});
+
+it('shows empty effective access and ignores a response for a previously selected employee',async()=>{
+ mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW']}});
+ let finishFirst:(result:{permissions:string[]})=>void=()=>{};
+ mockVendorApi.mockImplementation(async(path:string)=>{
+  if(path==='/employees')return [
+   {username:'first@vendor.test',branchId:12,enabled:true,roleIds:[],registerIds:[19]},
+   {username:'second@vendor.test',branchId:13,enabled:false,roleIds:[],registerIds:[]},
+  ];
+  if(path.includes('first%40'))return new Promise(resolve=>{finishFirst=resolve;});
+  return {permissions:[]};
+ });
+ render(<VendorAccessAdmin mode="employees"/>);
+ const first=await screen.findByText('first@vendor.test');
+ fireEvent.click(within(first.closest('article')!).getByRole('button',{name:'Manage'}));
+ fireEvent.click(screen.getByRole('button',{name:'Preview effective permissions'}));
+ expect(screen.getByText(/Checking effective permissions/)).toBeTruthy();
+ const second=screen.getByText('second@vendor.test');
+ fireEvent.click(within(second.closest('article')!).getByRole('button',{name:'Manage'}));
+ fireEvent.click(screen.getByRole('button',{name:'Preview effective permissions'}));
+ expect(await screen.findByText('No effective permissions.')).toBeTruthy();
+ expect(screen.getByText(/Saved branch #13.*Disabled.*none assigned/)).toBeTruthy();
+ await act(async()=>{finishFirst({permissions:['POS_VIEW']});});
+ expect(screen.queryByText('Effective permissions: POS_VIEW')).toBeNull();
+ expect(screen.getByText('No effective permissions.')).toBeTruthy();
 });

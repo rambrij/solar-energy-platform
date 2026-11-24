@@ -98,8 +98,8 @@ class SubscriptionGraceExpiryPersistenceTest {
             """);
         var tenants=mock(TenantLifecycleService.class);
         when(tenants.lockActive(987610)).thenReturn(true);
-        var tenant=mock(TenantLifecycleService.TenantSummary.class);
-        when(tenant.contactEmail()).thenReturn("billing@somya.local");
+        var tenant=new TenantLifecycleService.TenantSummary(987610,"renewal","Renewal tenant","Renewal tenant",
+            "billing@somya.local",null,null,null,"ACTIVE",null,null,due,due,0,null);
         when(tenants.get(987610)).thenReturn(tenant);
         var mail=mock(MockSubscriptionBillingReminder.class);
 

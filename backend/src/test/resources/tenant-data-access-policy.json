@@ -588,6 +588,18 @@
   ],
   "trustedTenantParameterFlows": [
     {
+      "callee": "com.saumya.pos.subscription.MockSubscriptionBillingJob#process",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.subscription.MockSubscriptionBillingJob#runDueBilling",
+          "expression": "subscription.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
       "callee": "com.saumya.pos.membership.MembershipService#effectiveVendorPermissions",
       "parameter": "tenant",
       "callers": [

@@ -69,12 +69,12 @@ class MockSubscriptionBillingJob {
         var today=LocalDate.ofInstant(now,ZoneOffset.UTC);
         var due=subscriptions.lockMockBillingCandidates(TenantStatus.ACTIVE,today,now,PageRequest.of(0,50));
         for(var subscription:due){
-            if(tenants.lockActive(subscription.tenantId())) process(subscription,today,now);
+            if(tenants.lockActive(subscription.tenantId())) process(subscription.tenantId(),subscription,today,now);
         }
     }
 
-    private void process(TenantSubscription subscription, LocalDate today, Instant now){
-        long tenantId=subscription.tenantId(),subscriptionId=subscription.id();
+    private void process(long tenantId,TenantSubscription subscription, LocalDate today, Instant now){
+        long subscriptionId=subscription.id();
         var existing=invoices.findFirstByTenantIdAndSubscriptionIdAndStatusAndMockNextAttemptAtLessThanEqualOrderByIdAsc(
             tenantId,subscriptionId,"OPEN",now);
         boolean initial="PENDING".equals(subscription.status());

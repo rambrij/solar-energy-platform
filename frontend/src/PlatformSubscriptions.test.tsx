@@ -77,6 +77,26 @@ describe('PlatformSubscriptions permission boundaries',()=>{
   fireEvent.change(filter,{target:{value:'11'}});
   expect(screen.getByText('No payment attempts for this invoice.')).toBeTruthy();
  });
+ it('shows the assigned subscription snapshot independently of the current plan',async()=>{
+  vi.mocked(platformApi).mockImplementation(async(path:string)=>{
+   if(path==='/subscriptions')return [{...subscription,termsSnapshot:JSON.stringify({
+    currency:'INR',price:799,billingInterval:'MONTHLY',maxUsers:5,graceDays:7,trialEligible:false,
+    invoiceDescription:'Original subscription terms',
+   })}];
+   if(path==='/subscription-plans')return [{id:2,currentVersion:2,versions:[{version:2,price:999}]}];
+   if(path.endsWith('/billing-history'))return {invoices:[],payments:[]};
+   return [];
+  });
+  render(<PlatformSubscriptions/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Billing and events'}));
+  const summary=screen.getByText(/Saved subscription terms.*v1/);
+  fireEvent.click(summary);
+  const terms=within(summary.closest('details')!);
+  expect(terms.getByText('INR 799')).toBeTruthy();
+  expect(terms.getByText('Original subscription terms')).toBeTruthy();
+  expect(terms.getByText('No')).toBeTruthy();
+  expect(terms.queryByText('INR 999')).toBeNull();
+ });
  it('allows subscription reads without exposing subscription mutations',async()=>{
   render(<PlatformSubscriptions/>);
   expect(await screen.findByText('Tenant subscriptions')).toBeTruthy();

@@ -3,7 +3,7 @@ import {ApiError,platformApi} from './api';
 import {authenticatedFetch,useSession} from './session';
 import {downloadFile} from './fileDownload';
 
-type Subscription={id:number;tenantId:number;tenantName:string;planId:number;planKey:string;planName:string;planVersion:number;status:string;periodStart:string;periodEnd:string;graceUntil:string|null;createdAt:string;version:number;allowedAdministrativeTransitions:string[]};
+type Subscription={id:number;tenantId:number;tenantName:string;planId:number;planKey:string;planName:string;planVersion:number;termsSnapshot:string;status:string;periodStart:string;periodEnd:string;graceUntil:string|null;createdAt:string;version:number;allowedAdministrativeTransitions:string[]};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:{version:number;billingInterval:string}[]};
 type Invoice={id:number;invoiceNumber:string;currency:string;total:number|string;status:string;mockNextAttemptAt:string|null};
 type Payment={id:number;invoiceId:number;provider:string;providerPaymentReference:string|null;amount:number|string;
@@ -98,7 +98,9 @@ export default function PlatformSubscriptions(){
    </form>
   </section>}
   <section className="platform-panel"><h2>Subscription history</h2><div className="platform-table-wrap"><table><thead><tr><th>Tenant</th><th>Plan / version</th><th>Status</th><th>Period</th><th>History</th></tr></thead><tbody>{rows.map(s=><tr key={s.id}><td>{s.tenantName} · #{s.tenantId}</td><td>{s.planName} · v{s.planVersion}</td><td>{s.status}{s.graceUntil&&<div>Grace ends <time dateTime={s.graceUntil}>{new Date(s.graceUntil).toLocaleString()}</time></div>}</td><td>{s.periodStart} – {s.periodEnd}</td><td><button className="secondary" disabled={busy} onClick={()=>void show(s.id)}>Billing and events</button></td></tr>)}</tbody></table></div></section>
-  {selected!==null&&<section className="platform-panel"><h2>Subscription #{selected}</h2>{canAdjust&&<><div className="platform-form-grid">
+  {selected!==null&&<section className="platform-panel"><h2>Subscription #{selected}</h2>
+   {current&&<SavedSubscriptionTerms version={current.planVersion} snapshot={current.termsSnapshot}/>}
+   {canAdjust&&<><div className="platform-form-grid">
     {transitions.length>0?<><label>Permitted administrative transition<select value={selectedTransition} onChange={e=>setTarget(e.target.value)}><option value="">Choose a transition</option>{transitions.map(status=><option key={status} value={status}>{status.replaceAll('_',' ')}</option>)}</select></label>
     <label>Transition reason<input required maxLength={500} value={statusReason} onChange={e=>setStatusReason(e.target.value)}/></label>
     <div className="platform-form-actions"><button disabled={busy||!selectedTransition||!statusReason.trim()} onClick={()=>void change()}>Apply status transition</button></div></>:<p>No administrative transitions are available for this subscription.</p>}
@@ -141,4 +143,40 @@ function SubscriptionPayments({billing}:{billing:BillingHistory}){
     </table>
    </div>}
  </article>;
+}
+
+function readSavedTerms(snapshot:string):Record<string,unknown>|null{
+ try{
+  const value:unknown=JSON.parse(snapshot);
+  return value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:null;
+ }catch{
+  return null;
+ }
+}
+
+function SavedSubscriptionTerms({version,snapshot}:{version:number;snapshot:string}){
+ const terms=readSavedTerms(snapshot);
+ const fields=[
+  {label:'Price',value:typeof terms?.currency==='string'&&typeof terms.price==='number'
+   ?`${terms.currency} ${terms.price}`:null},
+  {label:'Billing interval',value:terms?.billingInterval},
+  {label:'Users',value:terms?.maxUsers},
+  {label:'Storage (MB)',value:terms?.maxStorageMb},
+  {label:'Branches',value:terms?.maxBranches},
+  {label:'Warehouses',value:terms?.maxWarehouses},
+  {label:'Grace period (days)',value:terms?.graceDays},
+  {label:'Trial eligible',value:typeof terms?.trialEligible==='boolean'?(terms.trialEligible?'Yes':'No'):null},
+  {label:'Invoice description',value:terms?.invoiceDescription},
+ ];
+ const recordedFields=fields.filter(field=>typeof field.value==='string'||typeof field.value==='number');
+
+ return <details className="platform-plan-version">
+  <summary>Saved subscription terms · v{version}</summary>
+  {recordedFields.length>0&&<dl>{recordedFields.map(field=><div key={field.label}>
+   <dt>{field.label}</dt><dd>{String(field.value)}</dd>
+  </div>)}</dl>}
+  {!recordedFields.length&&<p>{terms?.local_demo===true?'This local demo subscription has a limited snapshot.':'No plan terms were recorded in this snapshot.'}</p>}
+  {terms?.entitlements!=null&&<details><summary>Saved feature entitlements</summary><pre>{JSON.stringify(terms.entitlements,null,2)}</pre></details>}
+  {terms?.taxMetadata!=null&&<details><summary>Saved tax metadata</summary><pre>{JSON.stringify(terms.taxMetadata,null,2)}</pre></details>}
+ </details>;
 }

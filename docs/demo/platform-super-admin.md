@@ -53,7 +53,7 @@ The platform subscription API returns `allowedAdministrativeTransitions` and `ve
 
 For plan assignment, `POST /api/v1/platform/tenants/{tenantId}/subscription` accepts `periodStart` and either `usePlanInterval: true` with no `periodEnd`, or an explicit `periodEnd`. The console sends `expectedPlanVersion`. If that plan changed, the API returns HTTP 409 and leaves the subscription uncreated.
 
-**Overview** shows platform health, tenant lifecycle totals, and subscription counts by status. Use **Platform audit** for administrative events. The dashboard counts do not include tenant-private transaction details.
+**Overview** shows platform health, tenant lifecycle totals, and subscription counts by status. Use **Platform audit** for administrative events, newest first. Enter a tenant ID and choose **Filter audit events** to narrow the results. Use **Previous page** and **Next page** to browse history, and use the correlation ID to match an event to the associated request. **Clear filter** returns to all platform audit events. The dashboard counts do not include tenant-private transaction details.
 
 ## Global configuration and supported adapters
 

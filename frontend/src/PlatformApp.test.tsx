@@ -11,7 +11,7 @@ const account={username:'admin@platform.test',tenantId:null,branchId:null,member
 beforeEach(()=>{
  vi.clearAllMocks();
  vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account,error:null} as ReturnType<typeof useSession>);
- vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?[]:path.startsWith('/audit')?{items:[]}:path.startsWith('/tenants?')?{items:[],totalElements:0,totalPages:0,page:0}:path==='/support-access'?[]:path==='/configuration'?[]:{tenantStatuses:[]});
+ vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?[]:path.startsWith('/audit')?{items:[],totalElements:0,totalPages:0,page:0}:path.startsWith('/tenants?')?{items:[],totalElements:0,totalPages:0,page:0}:path==='/support-access'?[]:path==='/configuration'?[]:{tenantStatuses:[]});
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();window.history.replaceState({},'','/platform');});
 
@@ -28,6 +28,32 @@ describe('PlatformApp',()=>{
   const metrics=await screen.findByRole('region',{name:'Subscriptions by status'});
   expect(metrics.textContent).toContain('ACTIVE3');
   expect(metrics.textContent).toContain('GRACE PERIOD2');
+ });
+ it('filters platform audit events and browses older pages with request metadata',async()=>{
+  const entry={id:7,actor:account.username,action:'TENANT_UPDATED',resourceType:'TENANT',
+   resourceId:'12',tenantId:12,reason:'Profile reviewed',outcome:'SUCCESS',
+   correlationId:'request-123',occurredAt:'2026-11-01T12:00:00Z'};
+  vi.mocked(platformApi).mockImplementation(async(path)=>{
+   const params=new URLSearchParams(path.split('?')[1]);
+   const page=Number(params.get('page'));
+   return {items:params.has('tenantId')?[entry]:[],page,totalPages:2,totalElements:51};
+  });
+  window.history.replaceState({},'','/platform#audit');
+  render(<PlatformApp/>);
+  await screen.findByText('No audit events on this page.');
+  fireEvent.click(screen.getByRole('button',{name:'Next page'}));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/audit?page=1&size=50'));
+  fireEvent.change(screen.getByLabelText('Tenant ID'),{target:{value:'12'}});
+  fireEvent.click(screen.getByRole('button',{name:'Filter audit events'}));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/audit?page=0&size=50&tenantId=12'));
+  expect(await screen.findByText('request-123')).toBeTruthy();
+  expect(screen.getByText('SUCCESS')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Next page'}));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/audit?page=1&size=50&tenantId=12'));
+  await screen.findByText('Page 2 of 2');
+  fireEvent.click(screen.getByRole('button',{name:'Clear filter'}));
+  await screen.findByText('No audit events on this page.');
+  expect(platformApi).toHaveBeenLastCalledWith('/audit?page=0&size=50');
  });
  it('shows tenant onboarding and submits the initial Vendor Admin details',async()=>{
   vi.mocked(platformApi).mockImplementation(async(path)=>{

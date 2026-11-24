@@ -10,7 +10,6 @@ const emptyTenantForm={slug:'',name:'',legalName:'',contactEmail:'',contactPhone
 type TenantPage={items:Tenant[];totalElements:number;totalPages:number;page:number};
 type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;graceDays:number;taxMetadata:string;invoiceDescription:string;createdAt:string};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:PlanVersion[]};
-type AuditPage={items:{id:number;actor:string;action:string;resourceType:string;resourceId:string|null;tenantId:number|null;reason:string|null;occurredAt:string}[]};
 type StatusCount={status:string;count:number};
 type Dashboard={tenantStatuses:StatusCount[];subscriptionStatuses:StatusCount[]};
 type PlatformSetting={key:string;category:string;value:string|null;sensitive:boolean;secretConfigured:boolean;updatedBy:string;updatedAt:string};
@@ -53,7 +52,6 @@ export default function PlatformApp(){
  const [tenantSearch,setTenantSearch]=useState(''),[tenantStatus,setTenantStatus]=useState('');
  const [dashboard,setDashboard]=useState<Dashboard|null>(null);
  const [plans,setPlans]=useState<Plan[]>([]);
- const [audit,setAudit]=useState<AuditPage>({items:[]});
  const [support,setSupport]=useState<SupportGrant[]>([]);
  const [settings,setSettings]=useState<PlatformSetting[]>([]);
  const [reason,setReason]=useState(''),[invite,setInvite]=useState('');
@@ -74,7 +72,6 @@ export default function PlatformApp(){
    if(target==='dashboard'&&can('PLATFORM_ANALYTICS_VIEW'))setDashboard(await platformApi('/dashboard'));
    if(target==='tenants'&&can('PLATFORM_TENANT_VIEW'))setTenantPage(await platformApi(`/tenants?page=0&size=50${tenantStatus?'&status='+tenantStatus:''}${tenantSearch?'&q='+encodeURIComponent(tenantSearch):''}`));
    if(target==='plans'&&(can('PLATFORM_PLAN_MANAGE')||can('PLATFORM_SUBSCRIPTION_VIEW')))setPlans(await platformApi('/subscription-plans'));
-   if(target==='audit'&&can('PLATFORM_AUDIT_VIEW'))setAudit(await platformApi('/audit?page=0&size=50'));
    if(target==='support'&&can('PLATFORM_SUPPORT_ACCESS'))setSupport(await platformApi('/support-access'));
    if(target==='configuration'&&can('PLATFORM_CONFIG_MANAGE'))setSettings(await platformApi('/configuration'));
   }catch(e){setError((e as Error).message);}
@@ -296,7 +293,7 @@ export default function PlatformApp(){
       {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><span key={v.version}>v{v.version} · {v.currency} {v.price} · {v.billingInterval}</span>)}</div>{can('PLATFORM_PLAN_MANAGE')&&<><button type="button" className="secondary" disabled={busy} onClick={()=>editPlan(plan)}>Revise plan</button><button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button></>}</article>)}
      </section>}
     </>}
-    {page==='audit'&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Immutable platform audit events</h2><button className="secondary" onClick={()=>void load('audit')}>Refresh</button></div><div className="platform-table-wrap"><table><thead><tr><th>Occurred</th><th>Actor</th><th>Action</th><th>Resource</th><th>Tenant</th><th>Reason</th></tr></thead><tbody>{audit.items.map(row=><tr key={row.id}><td>{new Date(row.occurredAt).toLocaleString()}</td><td>{row.actor}</td><td>{row.action}</td><td>{row.resourceType} {row.resourceId}</td><td>{row.tenantId??'Platform'}</td><td>{row.reason??'—'}</td></tr>)}</tbody></table></div></section>}
+    {page==='audit'&&can('PLATFORM_AUDIT_VIEW')&&<PlatformAudit/>}
     {page==='support'&&<><section className="platform-panel"><h2>Grant controlled support window</h2><p>Maximum duration is four hours. Grants are recorded and audited; no general tenant-data bypass is provided.</p><form className="platform-form-grid" onSubmit={createSupport}>
       <label>Tenant ID<input required type="number" min="1" value={supportForm.tenantId} onChange={e=>setSupportForm({...supportForm,tenantId:e.target.value})}/></label>
       <label>Ticket / reference<input required value={supportForm.ticketReference} onChange={e=>setSupportForm({...supportForm,ticketReference:e.target.value})}/></label>
@@ -346,4 +343,74 @@ export default function PlatformApp(){
    </main>
   </div>
  </div>;
+}
+
+type AuditEntry={
+ id:number;actor:string;action:string;resourceType:string;resourceId:string|null;
+ tenantId:number|null;reason:string|null;outcome:string;correlationId:string|null;occurredAt:string;
+};
+type AuditResult={items:AuditEntry[];page:number;totalPages:number;totalElements:number};
+const auditPageSize=50;
+const lastAuditPage=10000;
+
+function PlatformAudit(){
+ const [tenantInput,setTenantInput]=useState('');
+ const [query,setQuery]=useState({tenantId:'',page:0,revision:0});
+ const [result,setResult]=useState<AuditResult|null>(null);
+ const [error,setError]=useState('');
+
+ useEffect(()=>{
+  let current=true;
+  const params=new URLSearchParams({page:String(query.page),size:String(auditPageSize)});
+  if(query.tenantId)params.set('tenantId',query.tenantId);
+  platformApi(`/audit?${params}`).then(
+   (data:AuditResult)=>{if(current)setResult(data);},
+   (reason:Error)=>{if(current)setError(reason.message);}
+  );
+  return ()=>{current=false;};
+ },[query]);
+
+ function search(tenantId:string,page:number){
+  setResult(null);
+  setError('');
+  setQuery(previous=>({tenantId,page,revision:previous.revision+1}));
+ }
+
+ return <section className="platform-panel">
+  <div className="platform-panel-heading">
+   <h2>Immutable platform audit events</h2>
+   <button className="secondary" onClick={()=>search(query.tenantId,query.page)}>Refresh</button>
+  </div>
+  <form className="platform-form-grid" onSubmit={event=>{
+   event.preventDefault();
+   search(tenantInput.trim(),0);
+  }}>
+   <label>Tenant ID<input inputMode="numeric" pattern="[1-9][0-9]{0,18}" value={tenantInput}
+    onChange={event=>setTenantInput(event.target.value)}/></label>
+   <button type="submit">Filter audit events</button>
+   <button type="button" className="secondary" onClick={()=>{setTenantInput('');search('',0);}}>Clear filter</button>
+  </form>
+  {error&&<p role="alert">{error}</p>}
+  {!result&&!error&&<p role="status">Loading audit events…</p>}
+  {result&&<>
+   <p role="status">{result.totalElements} audit events{query.tenantId&&` for tenant ${query.tenantId}`}.</p>
+   {result.items.length===0?<p>No audit events on this page.</p>:
+    <div className="platform-table-wrap"><table>
+     <thead><tr><th>Occurred</th><th>Actor</th><th>Action</th><th>Resource</th><th>Tenant</th>
+      <th>Outcome</th><th>Correlation ID</th><th>Reason</th></tr></thead>
+     <tbody>{result.items.map(row=><tr key={row.id}>
+      <td>{new Date(row.occurredAt).toLocaleString()}</td><td>{row.actor}</td><td>{row.action}</td>
+      <td>{row.resourceType} {row.resourceId}</td><td>{row.tenantId??'Platform'}</td><td>{row.outcome}</td>
+      <td>{row.correlationId??'—'}</td><td>{row.reason??'—'}</td>
+     </tr>)}</tbody>
+    </table></div>}
+   {result.totalPages>1&&<nav aria-label="Platform audit pages">
+    <button className="secondary" disabled={result.page===0}
+     onClick={()=>search(query.tenantId,result.page-1)}>Previous page</button>
+    <span> Page {result.page+1} of {Math.min(result.totalPages,lastAuditPage+1)} </span>
+    <button className="secondary" disabled={result.page>=lastAuditPage||result.page+1>=result.totalPages}
+     onClick={()=>search(query.tenantId,result.page+1)}>Next page</button>
+   </nav>}
+  </>}
+ </section>;
 }

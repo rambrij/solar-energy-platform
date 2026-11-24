@@ -6,10 +6,10 @@ import java.util.List;
 
 public interface SubscriptionPlanService {
     record PlanInput(String planKey,String displayName,BigDecimal price,String currency,String billingInterval,
-        int maxUsers,long maxStorageMb,int maxBranches,int maxWarehouses,String entitlements,int graceDays,
+        int maxUsers,long maxStorageMb,int maxBranches,int maxWarehouses,String entitlements,boolean trialEligible,int graceDays,
         String taxMetadata,String invoiceDescription) {}
     record PlanVersionView(int version,BigDecimal price,String currency,String billingInterval,int maxUsers,
-        long maxStorageMb,int maxBranches,int maxWarehouses,String entitlements,int graceDays,String taxMetadata,
+        long maxStorageMb,int maxBranches,int maxWarehouses,String entitlements,boolean trialEligible,int graceDays,String taxMetadata,
         String invoiceDescription,String createdBy,Instant createdAt) {}
     record PlanView(long id,String planKey,String displayName,boolean active,int currentVersion,
         Instant createdAt,Instant updatedAt,List<PlanVersionView> versions) {}

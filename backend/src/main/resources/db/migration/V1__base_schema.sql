@@ -295,6 +295,7 @@ CREATE TABLE `subscription_plan_versions` (
   `max_branches` int NOT NULL,
   `max_warehouses` int NOT NULL,
   `entitlements` json NOT NULL,
+  `trial_eligible` boolean NOT NULL DEFAULT FALSE,
   `grace_days` int NOT NULL,
   `tax_metadata` json NOT NULL,
   `invoice_description` varchar(500) NOT NULL,
@@ -305,6 +306,7 @@ CREATE TABLE `subscription_plan_versions` (
   CONSTRAINT `fk_plan_version_actor` FOREIGN KEY (`created_by`) REFERENCES `users` (`username`),
   CONSTRAINT `fk_plan_version_plan` FOREIGN KEY (`plan_id`) REFERENCES `subscription_plans` (`id`),
   CONSTRAINT `chk_plan_interval` CHECK ((`billing_interval` in ('MONTHLY','QUARTERLY','YEARLY'))),
+  CONSTRAINT `chk_plan_trial_eligible` CHECK (`trial_eligible` IN (FALSE, TRUE)),
   CONSTRAINT `chk_plan_limits` CHECK (((`price` >= 0) and (`max_users` > 0) and (`max_storage_mb` >= 0) and (`max_branches` > 0) and (`max_warehouses` >= 0) and (`grace_days` >= 0)))
 );
 

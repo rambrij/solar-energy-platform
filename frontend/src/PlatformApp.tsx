@@ -8,7 +8,7 @@ type Page='dashboard'|'tenants'|'plans'|'audit'|'support'|'configuration'|'ident
 type Tenant={id:number;slug:string;name:string;legalName:string;lifecycleStatus:string;contactEmail?:string|null;contactPhone?:string|null;taxIdentifier?:string|null;address?:string|null;initialVendorAdminUsername?:string|null;termsAcceptedAt?:string|null;createdAt:string;onlineBranchId?:number|null};
 const emptyTenantForm={slug:'',name:'',legalName:'',contactEmail:'',contactPhone:'',taxIdentifier:'',address:'',initialVendorAdminUsername:'',termsAccepted:false};
 type TenantPage={items:Tenant[];totalElements:number;totalPages:number;page:number};
-type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;graceDays:number;taxMetadata:string;invoiceDescription:string;createdAt:string};
+type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;trialEligible:boolean;graceDays:number;taxMetadata:string;invoiceDescription:string;createdAt:string};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:PlanVersion[]};
 type StatusCount={status:string;count:number};
 type Dashboard={tenantStatuses:StatusCount[];subscriptionStatuses:StatusCount[]};
@@ -18,7 +18,7 @@ const emailTemplatePrefix='EMAIL_TEMPLATE.';
 const subscriptionCredentialKey='PAYMENT_PROVIDER.SUBSCRIPTION.CREDENTIAL_REFERENCE';
 const mfaMailAdapterKey='INTEGRATION.PLATFORM_MFA_MAIL.ADAPTER';
 type SupportGrant={id:number;tenantId:number;actor:string;purpose:string;ticketReference:string;expiresAt:string;active:boolean;revokedAt?:string|null};
-const emptyPlanForm={planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'};
+const emptyPlanForm={planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',trialEligible:false,graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'};
 
 const pages:{id:Page;label:string;description:string}[]=[
  {id:'dashboard',label:'Overview',description:'Platform-level tenant and operating context'},
@@ -155,7 +155,7 @@ export default function PlatformApp(){
    currency:version.currency,billingInterval:version.billingInterval,maxUsers:String(version.maxUsers),
    maxStorageMb:String(version.maxStorageMb),maxBranches:String(version.maxBranches),
    maxWarehouses:String(version.maxWarehouses),entitlements:version.entitlements,
-   graceDays:String(version.graceDays),taxMetadata:version.taxMetadata,invoiceDescription:version.invoiceDescription,
+   trialEligible:version.trialEligible??false,graceDays:String(version.graceDays),taxMetadata:version.taxMetadata,invoiceDescription:version.invoiceDescription,
   });
  }
  function cancelPlanEdit(){
@@ -282,6 +282,7 @@ export default function PlatformApp(){
        <label>Storage (MB)<input type="number" min="0" value={planForm.maxStorageMb} onChange={e=>setPlanForm({...planForm,maxStorageMb:e.target.value})}/></label>
        <label>Branches<input type="number" min="1" value={planForm.maxBranches} onChange={e=>setPlanForm({...planForm,maxBranches:e.target.value})}/></label>
        <label>Warehouses<input type="number" min="0" value={planForm.maxWarehouses} onChange={e=>setPlanForm({...planForm,maxWarehouses:e.target.value})}/></label>
+       <label><input type="checkbox" checked={planForm.trialEligible} onChange={e=>setPlanForm({...planForm,trialEligible:e.target.checked})}/> Eligible for trial</label>
        <label>Grace days<input type="number" min="0" max="90" value={planForm.graceDays} onChange={e=>setPlanForm({...planForm,graceDays:e.target.value})}/></label>
        <label className="platform-wide">Entitlements JSON<textarea required value={planForm.entitlements} onChange={e=>setPlanForm({...planForm,entitlements:e.target.value})}/><small>Use a features object with boolean flags such as POS, CATALOG, INVENTORY, ADMINISTRATION, CRM, ORDERS, FINANCE, RETURNS and REPORTING. Omitted or false features are denied.</small></label>
        <label className="platform-wide">Tax metadata JSON<textarea required value={planForm.taxMetadata} onChange={e=>setPlanForm({...planForm,taxMetadata:e.target.value})}/></label>
@@ -290,7 +291,7 @@ export default function PlatformApp(){
       </form>
      </section>}
      {(can('PLATFORM_PLAN_MANAGE')||can('PLATFORM_SUBSCRIPTION_VIEW'))&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Plan catalogue</h2><button className="secondary" onClick={()=>void load('plans')}>Refresh</button></div>
-      {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><span key={v.version}>v{v.version} · {v.currency} {v.price} · {v.billingInterval}</span>)}</div>{can('PLATFORM_PLAN_MANAGE')&&<><button type="button" className="secondary" disabled={busy} onClick={()=>editPlan(plan)}>Revise plan</button><button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button></>}</article>)}
+      {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><span key={v.version}>v{v.version} · {v.currency} {v.price} · {v.billingInterval}{v.trialEligible&&' · Trial eligible'}</span>)}</div>{can('PLATFORM_PLAN_MANAGE')&&<><button type="button" className="secondary" disabled={busy} onClick={()=>editPlan(plan)}>Revise plan</button><button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button></>}</article>)}
      </section>}
     </>}
     {page==='audit'&&can('PLATFORM_AUDIT_VIEW')&&<PlatformAudit/>}

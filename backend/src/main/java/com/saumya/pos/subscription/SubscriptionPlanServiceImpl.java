@@ -56,7 +56,7 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
     private SubscriptionPlanVersion version(long id,int version,PlanInput p,String actor,java.time.Instant now){
         validate(p);
         return new SubscriptionPlanVersion(id,version,p.price(),p.currency().toUpperCase(Locale.ROOT),p.billingInterval().toUpperCase(Locale.ROOT),
-            p.maxUsers(),p.maxStorageMb(),p.maxBranches(),p.maxWarehouses(),normalizeJson(p.entitlements()),p.graceDays(),
+            p.maxUsers(),p.maxStorageMb(),p.maxBranches(),p.maxWarehouses(),normalizeJson(p.entitlements()),p.trialEligible(),p.graceDays(),
             normalizeJson(p.taxMetadata()),required(p.invoiceDescription(),500,"Invoice description"),actor,now);
     }
     private void validate(PlanInput p){
@@ -86,6 +86,6 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
         catch(Exception e){throw new ResponseStatusException(BAD_REQUEST,"Entitlements and tax metadata must be valid JSON objects");}
     }
     private PlanView view(SubscriptionPlan p){return new PlanView(p.id(),p.planKey(),p.displayName(),p.active(),p.currentVersion(),p.createdAt(),p.updatedAt(),
-        versions.findByPlanIdOrderByVersionDesc(p.id()).stream().map(v->new PlanVersionView(v.version(),v.price(),v.currency(),v.billingInterval(),v.maxUsers(),v.maxStorageMb(),v.maxBranches(),v.maxWarehouses(),v.entitlements(),v.graceDays(),v.taxMetadata(),v.invoiceDescription(),v.createdBy(),v.createdAt())).toList());}
+        versions.findByPlanIdOrderByVersionDesc(p.id()).stream().map(v->new PlanVersionView(v.version(),v.price(),v.currency(),v.billingInterval(),v.maxUsers(),v.maxStorageMb(),v.maxBranches(),v.maxWarehouses(),v.entitlements(),v.trialEligible(),v.graceDays(),v.taxMetadata(),v.invoiceDescription(),v.createdBy(),v.createdAt())).toList());}
     private static String required(String v,int max,String label){if(v==null||v.isBlank()||v.strip().length()>max)throw new ResponseStatusException(BAD_REQUEST,label+" is required");return v.strip();}
 }

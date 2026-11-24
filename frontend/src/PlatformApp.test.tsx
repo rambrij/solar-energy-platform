@@ -93,17 +93,20 @@ describe('PlatformApp',()=>{
   expect(screen.getByText('v1 · INR 799 · MONTHLY')).toBeTruthy();
  });
  it('prefills the current plan and submits a new version to the revision endpoint',async()=>{
-  const current={version:2,price:'999',currency:'INR',billingInterval:'MONTHLY',maxUsers:5,maxStorageMb:1024,maxBranches:1,maxWarehouses:0,entitlements:'{"features":{"POS":true}}',graceDays:7,taxMetadata:'{}',invoiceDescription:'Starter subscription'};
+  const current={version:2,price:'999',currency:'INR',billingInterval:'MONTHLY',maxUsers:5,maxStorageMb:1024,maxBranches:1,maxWarehouses:0,entitlements:'{"features":{"POS":true}}',trialEligible:true,graceDays:7,taxMetadata:'{}',invoiceDescription:'Starter subscription'};
   vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?
    [{id:1,planKey:'starter',displayName:'Starter',active:true,currentVersion:2,versions:[current]}]:{tenantStatuses:[]});
   render(<PlatformApp/>);
   fireEvent.click(screen.getByRole('button',{name:/subscription plans/i}));
   fireEvent.click(await screen.findByRole('button',{name:'Revise plan'}));
   expect(screen.getByRole('heading',{name:'Revise subscription plan'})).toBeTruthy();
+  const trial=screen.getByRole('checkbox',{name:'Eligible for trial'}) as HTMLInputElement;
+  expect(trial.checked).toBe(true);
+  fireEvent.click(trial);
   fireEvent.change(screen.getByLabelText('Price'),{target:{value:'1099'}});
   fireEvent.click(screen.getByRole('button',{name:'Save plan version'}));
   await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/subscription-plans/1/versions','PUT',
-   expect.objectContaining({planKey:'starter',price:1099,entitlements:current.entitlements})));
+   expect.objectContaining({planKey:'starter',price:1099,trialEligible:false,entitlements:current.entitlements})));
  });
  it('requires a reason and revokes the selected active support grant',async()=>{
   vi.mocked(platformApi).mockImplementation(async(path)=>path==='/support-access'?

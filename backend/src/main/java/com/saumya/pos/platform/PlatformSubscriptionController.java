@@ -16,11 +16,11 @@ public class PlatformSubscriptionController {
     public record PlanRequest(@NotBlank @Size(max=80) String planKey,@NotBlank @Size(max=120) String displayName,
         @NotNull @DecimalMin("0.00") BigDecimal price,@NotBlank @Pattern(regexp="[A-Za-z]{3}") String currency,
         @NotBlank String billingInterval,@Min(1) int maxUsers,@Min(0) long maxStorageMb,@Min(1) int maxBranches,
-        @Min(0) int maxWarehouses,@NotBlank String entitlements,@Min(0) @Max(90) int graceDays,
+        @Min(0) int maxWarehouses,@NotBlank String entitlements,boolean trialEligible,@Min(0) @Max(90) int graceDays,
         @NotBlank String taxMetadata,@NotBlank @Size(max=500) String invoiceDescription){}
     public record ActiveRequest(boolean active){}
     private String actor(String permission){var c=auth.current();if(!c.isPlatformUser())throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN);c.requirePermission(permission);return c.username();}
-    private SubscriptionPlanService.PlanInput input(PlanRequest p){return new SubscriptionPlanService.PlanInput(p.planKey(),p.displayName(),p.price(),p.currency(),p.billingInterval(),p.maxUsers(),p.maxStorageMb(),p.maxBranches(),p.maxWarehouses(),p.entitlements(),p.graceDays(),p.taxMetadata(),p.invoiceDescription());}
+    private SubscriptionPlanService.PlanInput input(PlanRequest p){return new SubscriptionPlanService.PlanInput(p.planKey(),p.displayName(),p.price(),p.currency(),p.billingInterval(),p.maxUsers(),p.maxStorageMb(),p.maxBranches(),p.maxWarehouses(),p.entitlements(),p.trialEligible(),p.graceDays(),p.taxMetadata(),p.invoiceDescription());}
     @GetMapping @PreAuthorize("hasAnyAuthority('PLATFORM_SUBSCRIPTION_VIEW','PLATFORM_PLAN_MANAGE')") public Object list(){actor("PLATFORM_SUBSCRIPTION_VIEW");return plans.list();}
     @PostMapping @PreAuthorize("hasAuthority('PLATFORM_PLAN_MANAGE')") public ResponseEntity<?> create(@Valid @RequestBody PlanRequest request,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
         String user=actor("PLATFORM_PLAN_MANAGE");var result=plans.create(input(request),user,correlation);audit.record(user,"SUBSCRIPTION_PLAN_CREATED","SUBSCRIPTION_PLAN",Long.toString(result.id()),null,"Plan version 1 created",correlation);return ResponseEntity.status(HttpStatus.CREATED).body(result);

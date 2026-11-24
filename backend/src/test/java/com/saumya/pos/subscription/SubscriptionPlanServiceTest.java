@@ -18,12 +18,12 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class SubscriptionPlanServiceTest {
     @Mock SubscriptionPlanRepository plans;@Mock SubscriptionPlanVersionRepository versions;
-    private SubscriptionPlanService.PlanInput input(String price){return new SubscriptionPlanService.PlanInput("starter","Starter",new BigDecimal(price),"INR","MONTHLY",5,1024,1,0,"{\"features\":{\"POS\":true}}",7,"{\"gstRatePercent\":0}","Starter SaaS plan");}
-    @Test void revisedPriceCreatesNewVersionWithoutChangingHistoricTerms(){
+    private SubscriptionPlanService.PlanInput input(String price){return new SubscriptionPlanService.PlanInput("starter","Starter",new BigDecimal(price),"INR","MONTHLY",5,1024,1,0,"{\"features\":{\"POS\":true}}",true,7,"{\"gstRatePercent\":0}","Starter SaaS plan");}
+    @Test void revisedPriceAndTrialEligibilityPreserveHistoricTerms(){
         var now=Instant.parse("2026-11-16T00:00:00Z");var plan=mock(SubscriptionPlan.class);
         when(plans.findById(1L)).thenReturn(Optional.of(plan));when(plan.id()).thenReturn(1L);when(plan.planKey()).thenReturn("starter");
         when(plan.currentVersion()).thenReturn(1);when(plan.displayName()).thenReturn("Starter");when(plan.active()).thenReturn(true);when(plan.createdAt()).thenReturn(now);when(plan.updatedAt()).thenReturn(now);
-        var old=new SubscriptionPlanVersion(1,1,new BigDecimal("799"),"INR","MONTHLY",5,1024,1,0,"{\"pos\":true}",7,"{}","Starter plan","admin",now);
+        var old=new SubscriptionPlanVersion(1,1,new BigDecimal("799"),"INR","MONTHLY",5,1024,1,0,"{\"pos\":true}",false,7,"{}","Starter plan","admin",now);
         var saved=new ArrayList<SubscriptionPlanVersion>();
         when(versions.saveAndFlush(any())).thenAnswer(inv->{var v=(SubscriptionPlanVersion)inv.getArgument(0);saved.add(v);return v;});
         when(versions.findByPlanIdOrderByVersionDesc(1L)).thenAnswer(inv->{var all=new ArrayList<SubscriptionPlanVersion>();all.addAll(saved);all.add(old);return all;});
@@ -33,13 +33,14 @@ class SubscriptionPlanServiceTest {
         var result=service.revise(1,input("999"),"platform-admin","corr");
         assertThat(saved).hasSize(1);assertThat(saved.getFirst().version()).isEqualTo(2);assertThat(saved.getFirst().price()).isEqualByComparingTo("999");
         assertThat(old.version()).isEqualTo(1);assertThat(old.price()).isEqualByComparingTo("799");
-        assertThat(result.versions()).extracting(SubscriptionPlanService.PlanVersionView::version).contains(1,2);
+        assertThat(result.versions()).extracting(SubscriptionPlanService.PlanVersionView::version).containsExactly(2,1);
+        assertThat(result.versions()).extracting(SubscriptionPlanService.PlanVersionView::trialEligible).containsExactly(true,false);
     }
     @Test void rejectsUnknownOrNonBooleanFeatureEntitlements(){
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
-        var unknown=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"{\"features\":{\"UNKNOWN\":true}}",7,"{}","plan");
+        var unknown=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"{\"features\":{\"UNKNOWN\":true}}",false,7,"{}","plan");
         assertThatThrownBy(()->service.create(unknown,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        var nonBoolean=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"{\"features\":{\"POS\":\"yes\"}}",7,"{}","plan");
+        var nonBoolean=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"{\"features\":{\"POS\":\"yes\"}}",false,7,"{}","plan");
         assertThatThrownBy(()->service.create(nonBoolean,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
     @Test void rejectsMalformedEntitlementOrTaxSnapshotsBeforePersisting(){
@@ -50,7 +51,7 @@ class SubscriptionPlanServiceTest {
         var service=new SubscriptionPlanServiceImpl(plans,versions,Clock.systemUTC(),new ObjectMapper());
         var auth=mock(AuthorizationContext.class);when(auth.current()).thenReturn(new AuthorizationContext.Context("admin", null, null, null, Set.of("PLATFORM_PLAN_MANAGE"), true, false, false));
         ReflectionTestUtils.setField(service,"authorization",auth);
-        var invalid=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"[]",7,"{}","plan");
+        var invalid=new SubscriptionPlanService.PlanInput("starter","Starter",BigDecimal.ONE,"INR","MONTHLY",5,100,1,0,"[]",false,7,"{}","plan");
         assertThatThrownBy(()->service.create(invalid,"admin",null)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verify(versions,never()).saveAndFlush(any());
     }

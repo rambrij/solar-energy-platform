@@ -42,6 +42,41 @@ class SubscriptionGraceExpiryPersistenceTest {
     @Autowired SubscriptionPlanVersionRepository versions;
     @Autowired SubscriptionEventRepository events;
 
+    @Autowired SubscriptionPlanRepository plans;
+
+    @Test void snapshotsTrialEligibilityFromTheSelectedPlanVersionWithoutActivatingATrial() throws Exception {
+        var now=Instant.parse("2026-11-24T00:00:00Z");
+        db.update("INSERT INTO tenants(id,name,lifecycle_status) VALUES(987620,'Trial eligibility tenant','ACTIVE')");
+        db.update("INSERT INTO subscription_plans(id,plan_key,display_name,active,current_version) VALUES(987621,'trial-test','Trial test',TRUE,1)");
+        db.update("""
+            INSERT INTO subscription_plan_versions
+            (plan_id,version,price,currency,billing_interval,max_users,max_storage_mb,max_branches,
+             max_warehouses,entitlements,trial_eligible,grace_days,tax_metadata,invoice_description,created_by)
+            VALUES(987621,1,125,'INR','MONTHLY',5,1000,2,0,'{}',TRUE,0,'{}','Test','system:subscription-mock-billing')
+            """);
+        var tenants=mock(TenantLifecycleService.class);
+        when(tenants.get(987620)).thenReturn(new TenantLifecycleService.TenantSummary(987620,"trial-test","Trial tenant",
+            "Trial tenant",null,null,null,null,"ACTIVE",null,null,now,now,0,null));
+        var json=new com.fasterxml.jackson.databind.ObjectMapper();
+        var service=new TenantSubscriptionServiceImpl(subscriptions,plans,versions,events,invoices,payments,
+            tenants,json,Clock.fixed(now,ZoneOffset.UTC));
+        var auth=mock(com.saumya.pos.security.AuthorizationContext.class);
+        when(auth.current()).thenReturn(new com.saumya.pos.security.AuthorizationContext.Context(
+            "system:subscription-mock-billing",null,null,null,java.util.Set.of("PLATFORM_SUBSCRIPTION_ADJUST"),true,false,false));
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"authorization",auth);
+
+        var result=service.create(new TenantSubscriptionService.SubscriptionInput(987620,987621,
+            java.time.LocalDate.parse("2026-11-24"),null,"Trial eligibility snapshot",true,1),"system:subscription-mock-billing");
+
+        assertThat(result.status()).isEqualTo("PENDING");
+        String stored=db.queryForObject("SELECT terms_snapshot FROM tenant_subscriptions WHERE id=?",String.class,result.id());
+        assertThat(json.readTree(result.termsSnapshot()).path("trialEligible")).isEqualTo(com.fasterxml.jackson.databind.node.BooleanNode.TRUE);
+        var persisted=json.readTree(stored);
+        // H2 stores JDBC string bindings to JSON columns as a JSON string.
+        if(persisted.isTextual())persisted=json.readTree(persisted.textValue());
+        assertThat(persisted.path("trialEligible")).isEqualTo(com.fasterxml.jackson.databind.node.BooleanNode.TRUE);
+    }
+
     @Test void changesOnlyDueSubscriptionsAndPersistsOneForeignKeyBackedAuditEvent() {
         db.update("INSERT INTO tenants(id,name,lifecycle_status) VALUES(987601,'Due Tenant','ACTIVE'),(987602,'Future Tenant','ACTIVE')");
         db.update("""

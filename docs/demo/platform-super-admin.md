@@ -43,7 +43,7 @@ Tenant activation and subscription activation are separate. The Platform actor h
 
 ## Subscription plans and tenant subscriptions
 
-1. In **Subscription plans**, enter the price, currency, billing period, limits, and feature entitlements. Save the first version.
+1. In **Subscription plans**, enter the price, currency, billing period, limits, and feature entitlements. Set **Eligible for trial** to record that the plan version can be offered as a trial. The plan API exposes the flag as `trialEligible`, and new subscription snapshots retain the selected version’s value. Trial activation and duration require an approved policy before they can change subscription access. Save the first version.
 2. Use **Revise plan** to edit the current terms and save a new version. Older terms remain in the catalogue and existing subscription records keep their version. Use **Enable plan** or **Disable plan** to manage availability for new subscriptions.
 3. Use the top **Tenant subscriptions** link. Choose a tenant, plan, start date, and reason. **Use plan interval** calculates the end from the selected monthly, quarterly, or yearly plan version. Dates that do not exist in the target month use that month's last day. Choose **Enter end date** for an explicit period. Open **Billing and events** for history and permitted transitions. The local subscription mock can activate or reactivate eligible subscriptions. The vendor checkout mock is separate.
 4. A subscription in **Grace period** shows its deadline. Once that deadline passes, vendor writes lose their grace entitlement and the background worker records **Suspended** in billing events. The worker leaves the vendor's tenant lifecycle and existing records intact.

@@ -823,6 +823,11 @@
     }
   ],
   "trustedServiceTenantParameters": {
+    "com.saumya.pos.subscription.MockSubscriptionBillingJob": {
+      "trustedTenantParameters": {
+        "process": ["tenantId"]
+      }
+    },
     "com.saumya.pos.cart.CartService": {
       "trustedTenantParameters": {
         "requireFeature": [

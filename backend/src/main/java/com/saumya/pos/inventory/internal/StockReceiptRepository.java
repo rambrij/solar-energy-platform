@@ -6,4 +6,5 @@ public interface StockReceiptRepository extends JpaRepository<StockReceipt,Strin
  @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
  Optional<StockReceipt> findByTenantAndBranchAndKey(long tenant,long branch,String key);
  Page<StockReceipt> findByTenantAndBranchOrderByCreatedDescIdDesc(long tenant,long branch,Pageable page);
+ Page<StockReceipt> findByTenantAndBranchAndProductOrderByCreatedDescIdDesc(long tenant,long branch,long product,Pageable page);
 }

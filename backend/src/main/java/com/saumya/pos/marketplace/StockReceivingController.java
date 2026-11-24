@@ -27,8 +27,9 @@ public class StockReceivingController {
  
  @GetMapping
  @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
- public Object list(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+ public Object list(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+                    @RequestParam(required = false) Long productId) {
   var scope = retail.scope();
-  return receiving.list(scope.tenant(), scope.branch(), page, size);
+  return receiving.list(scope.tenant(), scope.branch(), page, size, productId);
  }
 }

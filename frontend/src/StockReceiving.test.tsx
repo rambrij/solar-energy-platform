@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import StockReceiving from './StockReceiving';
 import {vendorApi} from './api';
@@ -17,4 +17,23 @@ it('does not expose the stock form when product lookup permission is missing',()
  expect(screen.queryByLabelText('Receiving product')).toBeNull();
  expect(screen.getByRole('status').textContent).toContain('requires PRODUCT_VIEW');
  expect(screen.getByText('Load stock receipt history')).toBeTruthy();
+});
+
+it('applies the product filter to receipt history and keeps it when paging',async()=>{
+ vi.mocked(vendorApi).mockImplementation(async(path)=>path.includes('page=1')?
+  {items:[],page:1,totalPages:2}:
+  {items:[{id:'receipt-7',productId:7,quantity:2,actor:'alice',reason:'Delivery',
+   createdAt:'2026-11-24T10:00:00Z'}],page:0,totalPages:2});
+ render(<StockReceiving/>);
+ const product=screen.getByLabelText('Filter stock receipt history by product ID');
+ fireEvent.change(product,{target:{value:'7'}});
+ fireEvent.click(screen.getByText('Load stock receipt history'));
+ await screen.findByText(/Product #7.*Receipt receipt-7/);
+ expect(vendorApi).toHaveBeenLastCalledWith('/inventory/receipts?page=0&size=20&productId=7');
+ fireEvent.change(product,{target:{value:'8'}});
+ fireEvent.click(screen.getByText('Next stock receipts'));
+ await screen.findByText('No stock receipts found for this outlet and filter.');
+ expect(vendorApi).toHaveBeenLastCalledWith('/inventory/receipts?page=1&size=20&productId=7');
+ fireEvent.click(screen.getByText('Load stock receipt history'));
+ await waitFor(()=>expect(vendorApi).toHaveBeenLastCalledWith('/inventory/receipts?page=0&size=20&productId=8'));
 });

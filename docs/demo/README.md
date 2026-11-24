@@ -130,3 +130,9 @@ WHERE permission LIKE 'PLATFORM_%';
 ```
 
 Expected: standard role rows have a non-null template key and version 1; only the five supported role names have active assignments; the direct permission table count is zero; vendor platform grant count is zero. Platform authorities are stored separately.
+
+### Filter outlet stock receipt history
+
+In the vendor workspace, open **Receive stock** and enter a product ID under **Filter stock receipt history by product ID**. Choose **Load stock receipt history**. Leave the product ID blank to include all receipts in the assigned outlet. The filter stays applied when paging.
+
+`GET /api/v1/vendor/inventory/receipts` accepts optional `productId` alongside `page` and `size`. The server requires `INVENTORY_VIEW` and resolves the vendor and branch from the signed-in actor. A product with no matching receipts in that outlet returns an empty page.

@@ -36,5 +36,18 @@ public class StockReceivingService {
   return view(receipts.saveAndFlush(new StockReceipt(tenant,branch,input.productId(),input.quantity(),actor,input.reason().strip(),key,available,clock.instant())));
  }
  @Transactional(readOnly=true) @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
- public Page list(long tenant,long branch,int page,int size){if(page<0||page>10000||size<1||size>100)throw new ResponseStatusException(BAD_REQUEST,"Bounded receipt pagination required");var context=authorization.current();context.requireVendorMembership();context.requireTenant(tenant);context.requireBranch(branch);context.requirePermission("INVENTORY_VIEW");var rows=receipts.findByTenantAndBranchOrderByCreatedDescIdDesc(tenant,branch,org.springframework.data.domain.PageRequest.of(page,size));return new Page(rows.stream().map(this::view).toList(),page,size,rows.getTotalElements(),rows.getTotalPages());}
+ public Page list(long tenant,long branch,int page,int size,Long productId){
+  if(authorization==null)throw new ResponseStatusException(UNAUTHORIZED,"Authorization context unavailable");
+  var context=authorization.current();
+  context.requireVendorMembership();
+  context.requireTenant(tenant);
+  context.requireBranch(branch);
+  context.requirePermission("INVENTORY_VIEW");
+  if(page<0||page>10000||size<1||size>100)throw new ResponseStatusException(BAD_REQUEST,"Bounded receipt pagination required");
+  if(productId!=null&&productId<1)throw new ResponseStatusException(BAD_REQUEST,"Product ID must be positive");
+  var pageable=org.springframework.data.domain.PageRequest.of(page,size);
+  var rows=productId==null?receipts.findByTenantAndBranchOrderByCreatedDescIdDesc(tenant,branch,pageable)
+   :receipts.findByTenantAndBranchAndProductOrderByCreatedDescIdDesc(tenant,branch,productId,pageable);
+  return new Page(rows.stream().map(this::view).toList(),page,size,rows.getTotalElements(),rows.getTotalPages());
+ }
 }

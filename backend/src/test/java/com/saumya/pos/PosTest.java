@@ -345,6 +345,14 @@ class PosTest {
   mvc.perform(post(path).header("Idempotency-Key","stock-key").with(csrf()).with(user("alice").authorities(()->"INVENTORY_RECEIVE")).contentType("application/json").content(body.replace("quantity\":2","quantity\":3"))).andExpect(status().isConflict());
   mvc.perform(get(path).with(user("bob").authorities(()->"INVENTORY_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
   mvc.perform(get(path).with(user("alice").authorities(()->"INVENTORY_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].actor").value("alice"));
+  mvc.perform(get(path).param("productId","1").with(user("alice").authorities(()->"INVENTORY_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].productId").value(1));
+  mvc.perform(get(path).param("productId","1").with(user("bob").authorities(()->"INVENTORY_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("productId","2").with(user("alice").authorities(()->"INVENTORY_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("productId","0").with(user("alice").authorities(()->"INVENTORY_VIEW")))
+   .andExpect(status().isBadRequest());
   assertThat(as("alice",()->stock.atBranch(1,1,1))).isEqualTo(3);assertThat(as("bob", () -> stock.atBranch(2,2,2))).isEqualTo(1);assertThat(db.queryForObject("SELECT available FROM catalog_stock WHERE tenant_id=1 AND branch_id=1 AND product_id=1",Integer.class)).isEqualTo(3);
  }
  @Test void concurrentStockReceiptRetriesCreateOneBalanceAndOneReceipt()throws Exception{

@@ -10,7 +10,7 @@ import static org.mockito.Mockito.*;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 class StockReceivingServiceTest {
- @Test void rejectsMalformedCommandsBeforeTouchingInventory(){var service=new StockReceivingService(null,null,Clock.systemUTC());assertThatThrownBy(()->service.receive(1,1,"actor","short",new StockReceivingService.Input(1,1,"Approved"))).hasMessageContaining("Valid product");assertThatThrownBy(()->service.receive(1,1,"actor","valid-key",new StockReceivingService.Input(1,0,"Approved"))).hasMessageContaining("Valid product");assertThatThrownBy(()->service.list(1,1,0,101)).hasMessageContaining("pagination");}
+ @Test void rejectsMalformedCommandsBeforeTouchingInventory(){var service=new StockReceivingService(null,null,Clock.systemUTC());assertThatThrownBy(()->service.receive(1,1,"actor","short",new StockReceivingService.Input(1,1,"Approved"))).hasMessageContaining("Valid product");assertThatThrownBy(()->service.receive(1,1,"actor","valid-key",new StockReceivingService.Input(1,0,"Approved"))).hasMessageContaining("Valid product");authorize(service);assertThatThrownBy(()->service.list(1,1,0,101,null)).hasMessageContaining("pagination");}
  private void authorize(StockReceivingService service){
   var context=mock(AuthorizationContext.class);
   when(context.current()).thenReturn(new AuthorizationContext.Context("actor", 1L, 1L, String.valueOf(1L) + ":" + ("actor"), Set.of("INVENTORY_RECEIVE","INVENTORY_VIEW"), false, false, true));

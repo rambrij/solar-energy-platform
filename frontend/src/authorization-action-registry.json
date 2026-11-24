@@ -2563,9 +2563,9 @@
         "pos-product-create"
       ]
     },
-    "StockReceiving.tsx:13": {
+    "StockReceiving.tsx:14": {
       "fn": "vendorApi",
-      "argument": "kind==='products'?`/products?page=${page}&size=20`:`/inventory/receipts?page=${page}&size=20`",
+      "argument": "kind==='products'?`/products?page=${page}&size=20`:`/inventory/receipts?page=${page}&size=20${productFilter?`&productId=${encodeURIComponent(productFilter)}`: ''}`",
       "actions": [
         "pos-stock-products-list",
         "pos-stock-list"

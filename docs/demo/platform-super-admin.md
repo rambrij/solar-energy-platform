@@ -70,7 +70,7 @@ For plan assignment, `POST /api/v1/platform/tenants/{tenantId}/subscription` acc
 
 ## Controlled support access
 
-In **Support access**, enter the tenant ID, ticket, purpose, and an expiry up to four hours away. Choose **Record support grant**. An active grant can be revoked with **Revoke** and a reason. The grant and revocation are audited. The grant alone does not give unrestricted tenant access.
+In **Support access**, enter the tenant ID, ticket, purpose, and an expiry up to four hours away. Choose **Record support grant**. An active grant can be revoked with **Revoke** and a reason. **Recent support grants** shows when grants were issued and who revoked them and when. The grant and first revocation are audited. Retrying a completed revocation returns the original record. An expired grant returns HTTP 409. The grant alone does not give unrestricted tenant access.
 
 ## Simulate a vendor payment
 

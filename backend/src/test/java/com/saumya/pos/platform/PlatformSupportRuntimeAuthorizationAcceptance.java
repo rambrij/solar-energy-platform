@@ -98,6 +98,12 @@ class PlatformSupportRuntimeAuthorizationAcceptance {
                 .contentType(MediaType.APPLICATION_JSON).content(revokeBody))
             .andExpect(status().isOk());
 
+        var repeat = mvc.perform(post("/api/v1/platform/support-access/" + grantId + "/revoke")
+                .header("Authorization", "Bearer " + token).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(revokeBody))
+            .andExpect(status().isOk()).andReturn().getResponse();
+        assertThat(json.readTree(repeat.getContentAsString()).path("revokedBy").asText()).isEqualTo(username);
+
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM platform_support_access WHERE id=? AND revoked_at IS NOT NULL AND revoked_by=?",
             Integer.class, grantId, username)).isEqualTo(1);

@@ -5,7 +5,7 @@ import java.util.List;
 
 public interface PlatformSupportService {
     record SupportAccess(long id,long tenantId,String actor,String purpose,String ticketReference,
-                         Instant grantedAt,Instant expiresAt,Instant revokedAt,boolean active) {}
+                         Instant grantedAt,Instant expiresAt,Instant revokedAt,String revokedBy,boolean active) {}
     SupportAccess grant(long tenantId,String actor,String purpose,String ticketReference,Instant expiresAt,String correlationId);
     SupportAccess revoke(long id,String actor,String reason,String correlationId);
     List<SupportAccess> recent();

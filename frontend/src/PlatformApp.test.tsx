@@ -136,8 +136,15 @@ describe('PlatformApp',()=>{
    expect.objectContaining({planKey:'starter',price:1099,trialEligible:false,entitlements:current.entitlements})));
  });
  it('requires a reason and revokes the selected active support grant',async()=>{
-  vi.mocked(platformApi).mockImplementation(async(path)=>path==='/support-access'?
-   [{id:7,tenantId:1,actor:account.username,purpose:'Investigation',ticketReference:'T-7',expiresAt:'2026-12-01T12:00:00Z',active:true}]:{tenantStatuses:[]});
+  const grant={id:7,tenantId:1,actor:account.username,purpose:'Investigation',ticketReference:'T-7',
+   grantedAt:'2026-12-01T10:00:00Z',expiresAt:'2026-12-01T12:00:00Z',active:true};
+  let revoked=false;
+  vi.mocked(platformApi).mockImplementation(async(path)=>{
+   if(path==='/support-access/7/revoke'){revoked=true;return {};}
+   if(path==='/support-access')return [revoked?{...grant,active:false,
+    revokedAt:'2026-12-01T11:00:00Z',revokedBy:'support@platform.test'}:grant];
+   return {tenantStatuses:[]};
+  });
   render(<PlatformApp/>);
   fireEvent.click(screen.getByRole('button',{name:/support access/i}));
   fireEvent.click(await screen.findByRole('button',{name:'Revoke'}));
@@ -145,6 +152,9 @@ describe('PlatformApp',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Revoke support grant'}));
   await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/support-access/7/revoke','POST',{reason:'Investigation complete'}));
   expect(await screen.findByText('Support grant revoked.')).toBeTruthy();
+  expect(await screen.findByText('support@platform.test')).toBeTruthy();
+  expect(screen.getByText('Revoked')).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'Revoke'})).toBeNull();
  });
  it('hides tenant creation and plan mutation forms from view-only platform roles',async()=>{
   vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{...account,permissions:['PLATFORM_TENANT_VIEW','PLATFORM_SUBSCRIPTION_VIEW']},error:null} as ReturnType<typeof useSession>);

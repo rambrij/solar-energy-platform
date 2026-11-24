@@ -36,6 +36,23 @@ class PlatformSupportServiceTest {
         verify(repository,times(1)).saveAndFlush(any());
     }
 
+    @Test void expiredGrantCannotBeRevokedOrAudited(){
+        Instant now=Instant.parse("2026-11-16T00:00:00Z");
+        var grant=new PlatformSupportGrant(10,"grantor","Investigation","SUP-99",
+            now.minus(Duration.ofHours(1)),now);
+        when(repository.findById(1L)).thenReturn(java.util.Optional.of(grant));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("operator","n/a",
+            List.of(new SimpleGrantedAuthority("PLATFORM_SUPPORT_ACCESS"),
+                new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));
+        var service=new PlatformSupportServiceImpl(repository,tenants,audit,Clock.fixed(now,ZoneOffset.UTC));
+
+        assertThatThrownBy(()->service.revoke(1,"operator","Completed","trace"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                error->assertThat(error.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT));
+        assertThat(grant.revokedAt()).isNull();
+        verifyNoInteractions(audit);
+    }
+
     @Test void supportGrantRevokeAndReadRequirePlatformAuthorityBeforePersistenceOrTenantLookup(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
             List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))));

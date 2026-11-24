@@ -18,7 +18,7 @@ public class PlatformSupportGrant {
     public PlatformSupportGrant(long tenantId,String actor,String purpose,String ticket,Instant grantedAt,Instant expiresAt){
         this.tenantId=tenantId;this.actor=actor;this.purpose=purpose;this.ticketReference=ticket;this.grantedAt=grantedAt;this.expiresAt=expiresAt;
     }
-    public long id(){return id;} public long tenantId(){return tenantId;} public String actor(){return actor;} public String purpose(){return purpose;} public String ticketReference(){return ticketReference;} public Instant grantedAt(){return grantedAt;} public Instant expiresAt(){return expiresAt;} public Instant revokedAt(){return revokedAt;}
+    public long id(){return id;} public long tenantId(){return tenantId;} public String actor(){return actor;} public String purpose(){return purpose;} public String ticketReference(){return ticketReference;} public Instant grantedAt(){return grantedAt;} public Instant expiresAt(){return expiresAt;} public Instant revokedAt(){return revokedAt;} public String revokedBy(){return revokedBy;}
     public void revoke(String actor,Instant now){if(revokedAt!=null)return;revokedAt=now;revokedBy=actor;}
     public boolean activeAt(Instant now){return revokedAt==null&&expiresAt.isAfter(now);}
 }

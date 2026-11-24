@@ -96,6 +96,11 @@
       "trustedSource": "Platform audit endpoint guarded by PLATFORM_AUDIT_VIEW."
     },
     {
+      "operation": "PlatformSupportRepository#findById",
+      "scope": "PLATFORM_SUPPORT_GRANT_RESOURCE",
+      "trustedSource": "Only the platform support revocation service uses this row lock, after verifying the platform actor and PLATFORM_SUPPORT_ACCESS. Tenant scope comes from the saved grant."
+    },
+    {
       "operation": "PlatformSupportRepository#findTop100ByOrderByGrantedAtDesc",
       "scope": "PLATFORM_SUPPORT_DIRECTORY",
       "trustedSource": "Platform support administration endpoint guarded by PLATFORM_SUPPORT_ACCESS."

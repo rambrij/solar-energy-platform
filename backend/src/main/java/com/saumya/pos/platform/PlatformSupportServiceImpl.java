@@ -32,14 +32,19 @@ public class PlatformSupportServiceImpl implements PlatformSupportService {
     }
     @Override public SupportAccess revoke(long id,String actor,String reason,String correlation){
         requirePlatform(actor,"PLATFORM_SUPPORT_ACCESS");
+        String why=required(reason,500,"Reason");
         var row=repository.findById(id).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Support access unavailable"));
-        row.revoke(actor,clock.instant());audit.record(actor,"SUPPORT_ACCESS_REVOKED","SUPPORT_ACCESS",Long.toString(id),row.tenantId(),required(reason,500,"Reason"),correlation);
-        return view(row,clock.instant());
+        Instant now=clock.instant();
+        if(row.revokedAt()!=null)return view(row,now);
+        if(!row.activeAt(now))throw new ResponseStatusException(CONFLICT,"Support access has expired");
+        row.revoke(actor,now);
+        audit.record(actor,"SUPPORT_ACCESS_REVOKED","SUPPORT_ACCESS",Long.toString(id),row.tenantId(),why,correlation);
+        return view(row,now);
     }
     @Override @Transactional(readOnly=true) public List<SupportAccess> recent(){
         PlatformAuthorization.require("PLATFORM_SUPPORT_ACCESS",null);
         Instant now=clock.instant();return repository.findTop100ByOrderByGrantedAtDesc().stream().map(row->view(row,now)).toList();
     }
-    private static SupportAccess view(PlatformSupportGrant row,Instant now){return new SupportAccess(row.id(),row.tenantId(),row.actor(),row.purpose(),row.ticketReference(),row.grantedAt(),row.expiresAt(),row.revokedAt(),row.activeAt(now));}
+    private static SupportAccess view(PlatformSupportGrant row,Instant now){return new SupportAccess(row.id(),row.tenantId(),row.actor(),row.purpose(),row.ticketReference(),row.grantedAt(),row.expiresAt(),row.revokedAt(),row.revokedBy(),row.activeAt(now));}
     private static String required(String v,int max,String label){if(v==null||v.isBlank()||v.strip().length()>max)throw new ResponseStatusException(BAD_REQUEST,label+" is required");return v.strip();}
 }

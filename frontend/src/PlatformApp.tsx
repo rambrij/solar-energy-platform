@@ -20,7 +20,7 @@ const mailAdapters=[
  {key:'INTEGRATION.PLATFORM_MFA_MAIL.ADAPTER',label:'MFA mail adapter'},
  {key:'INTEGRATION.MOCK_SUBSCRIPTION_MAIL.ADAPTER',label:'Mock subscription reminder adapter'},
 ];
-type SupportGrant={id:number;tenantId:number;actor:string;purpose:string;ticketReference:string;expiresAt:string;active:boolean;revokedAt?:string|null};
+type SupportGrant={id:number;tenantId:number;actor:string;purpose:string;ticketReference:string;grantedAt:string;expiresAt:string;active:boolean;revokedAt:string|null;revokedBy:string|null};
 const emptyPlanForm={planKey:'',displayName:'',price:'',currency:'INR',billingInterval:'MONTHLY',maxUsers:'5',maxStorageMb:'1024',maxBranches:'1',maxWarehouses:'0',entitlements:'{"features":{}}',trialEligible:false,graceDays:'7',taxMetadata:'{}',invoiceDescription:'SaaS subscription'};
 
 const pages:{id:Page;label:string;description:string}[]=[
@@ -320,7 +320,10 @@ export default function PlatformApp(){
       <label>Expiry<input required type="datetime-local" value={supportForm.expiresAt} onChange={e=>setSupportForm({...supportForm,expiresAt:e.target.value})}/></label>
       <label className="platform-wide">Purpose / reason<textarea required value={supportForm.purpose} onChange={e=>setSupportForm({...supportForm,purpose:e.target.value})}/></label>
       <div className="platform-form-actions"><button disabled={busy}>Record support grant</button></div></form></section>
-     <section className="platform-panel"><h2>Recent support grants</h2><div className="platform-table-wrap"><table><thead><tr><th>Tenant</th><th>Actor</th><th>Purpose</th><th>Ticket</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>{support.map(s=><tr key={s.id}><td>{s.tenantId}</td><td>{s.actor}</td><td>{s.purpose}</td><td>{s.ticketReference}</td><td>{new Date(s.expiresAt).toLocaleString()}</td><td>{s.active?'Active':s.revokedAt?'Revoked':'Expired'}</td><td>{s.active&&can('PLATFORM_SUPPORT_ACCESS')&&<button type="button" className="secondary" disabled={busy} onClick={()=>selectSupportGrant(s)}>Revoke</button>}</td></tr>)}</tbody></table></div></section>
+     <section className="platform-panel"><h2>Recent support grants</h2><div className="platform-table-wrap"><table><thead><tr><th>Tenant</th><th>Actor</th><th>Purpose</th><th>Ticket</th><th>Granted</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>{support.map(s=><tr key={s.id}><td>{s.tenantId}</td><td>{s.actor}</td><td>{s.purpose}</td><td>{s.ticketReference}</td><td>{s.grantedAt&&<time dateTime={s.grantedAt}>{new Date(s.grantedAt).toLocaleString()}</time>}</td>
+      <td><time dateTime={s.expiresAt}>{new Date(s.expiresAt).toLocaleString()}</time></td>
+      <td>{s.active?'Active':s.revokedAt?<><span>Revoked</span>{s.revokedBy&&<div>{s.revokedBy}</div>}
+       <time dateTime={s.revokedAt}>{new Date(s.revokedAt).toLocaleString()}</time></>:'Expired'}</td><td>{s.active&&can('PLATFORM_SUPPORT_ACCESS')&&<button type="button" className="secondary" disabled={busy} onClick={()=>selectSupportGrant(s)}>Revoke</button>}</td></tr>)}</tbody></table></div></section>
      {revokingGrant&&can('PLATFORM_SUPPORT_ACCESS')&&<section className="platform-panel">
       <h2>Revoke support grant #{revokingGrant.id}</h2>
       <form className="platform-form-grid" onSubmit={revokeSupport}>

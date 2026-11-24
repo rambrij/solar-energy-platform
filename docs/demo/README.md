@@ -2,6 +2,8 @@
 
 For onboarding, subscriptions, support, MFA, Mailpit, and mock payment steps, see the [Platform Super Admin demo walkthrough](platform-super-admin.md).
 
+For catalogue, inventory, POS, and employee administration, see the [Vendor Admin demo walkthrough](vendor-admin.md).
+
 > **Local/test only.** Fixture credentials are public development credentials. Never use them in production or expose the local environment publicly.
 
 ## Provisioning model

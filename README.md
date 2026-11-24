@@ -82,6 +82,8 @@ Mailpit captures local Platform MFA notifications at http://localhost:8025. The 
 
 See the [Platform Super Admin demo walkthrough](docs/demo/platform-super-admin.md) for the complete flows, Mailpit activity notifications, and mock payment setup.
 
+See the [Vendor Admin demo walkthrough](docs/demo/vendor-admin.md) for catalogue, stock, POS, reports, and employee access flows.
+
 ## Clean local start with Docker Compose
 
 > **Destructive reset:** docker compose down -v deletes the current Compose project's named MySQL volume, including tenants, identities, products, orders, financial/audit history and demo data. Use it only when the selected Compose project is a disposable local database. Never run it against staging, production, shared or valuable data.

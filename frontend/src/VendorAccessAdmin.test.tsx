@@ -172,3 +172,24 @@ it('shows empty effective access and ignores a response for a previously selecte
  expect(screen.queryByText('Effective permissions: POS_VIEW')).toBeNull();
  expect(screen.getByText('No effective permissions.')).toBeTruthy();
 });
+
+it('shows the invitation expiry and a token-free activation page link',async()=>{
+ mockUseSession.mockReturnValue({account:{...account,permissions:['ROLE_VIEW','USER_CREATE']}});
+ mockVendorApi.mockImplementation(async(path:string,method='GET')=>{
+  if(path==='/roles')return [role];
+  if(path==='/employees'&&method==='POST')return {username:'new@vendor.test',invitationToken:'one-time-token',
+   expiresAt:'2026-11-25T10:00:00Z',accountAlreadyActive:false};
+  return {permissions:[]};
+ });
+ render(<VendorAccessAdmin mode="employees"/>);
+ const initialRole=await screen.findByLabelText('Initial role');
+ await screen.findByRole('option',{name:'Sales role'});
+ fireEvent.change(screen.getByLabelText('Employee email'),{target:{value:'new@vendor.test'}});
+ fireEvent.change(initialRole,{target:{value:'7'}});
+ fireEvent.change(screen.getByLabelText('Audit reason'),{target:{value:'Onboard staff'}});
+ fireEvent.click(screen.getByRole('button',{name:'Create employee invitation'}));
+ const result=await screen.findByRole('region',{name:'Employee invitation result'});
+ expect(within(result).getByText('one-time-token')).toBeTruthy();
+ expect(within(result).getByRole('link',{name:'vendor activation page'}).getAttribute('href')).toBe('/vendor/invitation');
+ expect(result.querySelector('time')?.dateTime).toBe('2026-11-25T10:00:00Z');
+});

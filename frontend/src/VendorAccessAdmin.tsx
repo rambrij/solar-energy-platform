@@ -201,7 +201,14 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     <label>Initial role<select required value={employeeRole} onChange={e=>setEmployeeRole(e.target.value)}><option value="">Select role</option>{roles.filter(r=>r.active).map(r=><option key={r.id} value={r.id}>{r.displayName}</option>)}</select></label>
     <label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>
     <button disabled={busy||!employeeRole}>Create employee invitation</button>
-    {invitation&&<p role="status">Invitation for {invitation.username}: {invitation.invitationToken??'This identity already has an active account; no invitation token issued.'}</p>}
+    {invitation&&<section aria-label="Employee invitation result">
+     <p role="status">Invitation result for {invitation.username}</p>
+     {invitation.invitationToken?<>
+      <p>Share the one-time token securely. The employee enters it on the <a href="/vendor/invitation" target="_blank" rel="noreferrer">vendor activation page</a>.</p>
+      <p><code>{invitation.invitationToken}</code></p>
+      {invitation.expiresAt&&<p>Expires <time dateTime={invitation.expiresAt}>{new Date(invitation.expiresAt).toLocaleString()}</time>.</p>}
+     </>:<p>This identity already has an active account and can sign in with its existing credentials.</p>}
+    </section>}
    </form>}
    {canUserView&&<div className="vendor-access-list">
     <h3>Employees</h3>

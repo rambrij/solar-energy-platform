@@ -40,9 +40,24 @@ describe('PlatformApp',()=>{
   fireEvent.change(screen.getByLabelText('Display name'),{target:{value:'Demo Vendor'}});
   fireEvent.change(screen.getByLabelText('Legal name'),{target:{value:'Demo Vendor Ltd'}});
   fireEvent.change(screen.getByLabelText('Initial Vendor Admin email'),{target:{value:'admin@demo.test'}});
+  fireEvent.click(screen.getByLabelText('Record confirmed vendor terms acceptance'));
   fireEvent.click(screen.getByRole('button',{name:'Create vendor tenant'}));
-  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/tenants','POST',expect.objectContaining({slug:'demo-vendor',initialVendorAdminUsername:'admin@demo.test'})));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/tenants','POST',expect.objectContaining({slug:'demo-vendor',initialVendorAdminUsername:'admin@demo.test',termsAccepted:true})));
   expect(await screen.findByText('one-time-invitation-token')).toBeTruthy();
+ });
+ it('opens an existing vendor profile and records terms via the authorized update endpoint',async()=>{
+  vi.mocked(platformApi).mockImplementation(async(path)=>path.startsWith('/tenants?')?
+   {items:[{id:12,slug:'solar',name:'Solar',legalName:'Solar Ltd',lifecycleStatus:'UNDER_REVIEW'}],totalElements:1,totalPages:1,page:0}:
+   {tenantStatuses:[]});
+  render(<PlatformApp/>);
+  fireEvent.click(screen.getByRole('button',{name:/^Tenants/}));
+  fireEvent.click(await screen.findByRole('button',{name:'Edit profile'}));
+  expect(screen.getByRole('heading',{name:'Edit vendor profile'})).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Contact phone'),{target:{value:'5550100'}});
+  fireEvent.click(screen.getByLabelText('Record confirmed vendor terms acceptance'));
+  fireEvent.click(screen.getByRole('button',{name:'Save vendor profile'}));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/tenants/12','PATCH',
+   expect.objectContaining({contactPhone:'5550100',termsAccepted:true})));
  });
  it('renders historic plan versions as separate records',async()=>{
   vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?[{id:1,planKey:'starter',displayName:'Starter',active:true,currentVersion:2,versions:[{version:2,currency:'INR',price:'999',billingInterval:'MONTHLY'},{version:1,currency:'INR',price:'799',billingInterval:'MONTHLY'}]}]:{tenantStatuses:[]});

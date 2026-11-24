@@ -20,9 +20,9 @@ public class PlatformAdminController {
     }
     public record TenantCreate(@NotBlank @Size(max=100) String slug,@NotBlank @Size(max=160) String name,@NotBlank @Size(max=180) String legalName,
         @Email @Size(max=100) String contactEmail,@Size(max=30) String contactPhone,@Size(max=40) String taxIdentifier,@Size(max=500) String address,
-        @NotBlank @Email @Size(max=100) String initialVendorAdminUsername){}
+        @NotBlank @Email @Size(max=100) String initialVendorAdminUsername,boolean termsAccepted){}
     public record TenantUpdate(@NotBlank @Size(max=160) String name,@NotBlank @Size(max=180) String legalName,@Email @Size(max=100) String contactEmail,
-        @Size(max=30) String contactPhone,@Size(max=40) String taxIdentifier,@Size(max=500) String address){}
+        @Size(max=30) String contactPhone,@Size(max=40) String taxIdentifier,@Size(max=500) String address,boolean termsAccepted){}
     public record LifecycleChange(@NotNull TenantStatus status,@NotBlank @Size(max=500) String reason){}
     public record SupportRequest(@Positive long tenantId,@NotBlank @Size(max=500) String purpose,@NotBlank @Size(max=120) String ticketReference,@NotNull Instant expiresAt){}
     public record SupportRevoke(@NotBlank @Size(max=500) String reason){}
@@ -32,11 +32,11 @@ public class PlatformAdminController {
     @GetMapping("/dashboard") @PreAuthorize("hasAuthority('PLATFORM_ANALYTICS_VIEW')") public Object dashboard(){require("PLATFORM_ANALYTICS_VIEW");return admin.dashboard();}
     @GetMapping("/tenants") @PreAuthorize("hasAuthority('PLATFORM_TENANT_VIEW')") public Object tenants(@RequestParam(required=false) String q,@RequestParam(required=false) TenantStatus status,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){require("PLATFORM_TENANT_VIEW");return admin.tenants(q,status,page,size);}
     @PostMapping("/tenants") @PreAuthorize("hasAuthority('PLATFORM_TENANT_CREATE')") public ResponseEntity<?> create(@Valid @RequestBody TenantCreate body,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
-        var actor=require("PLATFORM_TENANT_CREATE");var result=admin.onboard(new TenantLifecycleService.Registration(body.slug(),body.name(),body.legalName(),body.contactEmail(),body.contactPhone(),body.taxIdentifier(),body.address(),body.initialVendorAdminUsername()),actor.username(),correlation(correlation));
+        var actor=require("PLATFORM_TENANT_CREATE");var result=admin.onboard(new TenantLifecycleService.Registration(body.slug(),body.name(),body.legalName(),body.contactEmail(),body.contactPhone(),body.taxIdentifier(),body.address(),body.initialVendorAdminUsername(),body.termsAccepted()),actor.username(),correlation(correlation));
         return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore()).body(result);
     }
     @PatchMapping("/tenants/{id}") @PreAuthorize("hasAuthority('PLATFORM_TENANT_UPDATE')") public Object update(@PathVariable long id,@Valid @RequestBody TenantUpdate body,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
-        var actor=require("PLATFORM_TENANT_UPDATE");return admin.update(id,new TenantLifecycleService.ProfileUpdate(body.name(),body.legalName(),body.contactEmail(),body.contactPhone(),body.taxIdentifier(),body.address()),actor.username(),correlation(correlation));
+        var actor=require("PLATFORM_TENANT_UPDATE");return admin.update(id,new TenantLifecycleService.ProfileUpdate(body.name(),body.legalName(),body.contactEmail(),body.contactPhone(),body.taxIdentifier(),body.address(),body.termsAccepted()),actor.username(),correlation(correlation));
     }
     @PostMapping("/tenants/{id}/lifecycle") @PreAuthorize("hasAnyAuthority('PLATFORM_TENANT_UPDATE','PLATFORM_TENANT_SUSPEND','PLATFORM_TENANT_CLOSE','PLATFORM_TENANT_REACTIVATE')") public Object lifecycle(@PathVariable long id,@Valid @RequestBody LifecycleChange body,@RequestHeader(value="X-Correlation-ID",required=false) String correlation){
         String permission=switch(body.status()){case SUSPENDED->"PLATFORM_TENANT_SUSPEND";case CLOSED->"PLATFORM_TENANT_CLOSE";case ACTIVE->"PLATFORM_TENANT_REACTIVATE";default->"PLATFORM_TENANT_UPDATE";};

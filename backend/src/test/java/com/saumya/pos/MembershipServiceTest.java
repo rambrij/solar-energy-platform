@@ -35,7 +35,7 @@ class MembershipServiceTest {
     private TenantLifecycleService activeTenant(){
         return proxy(TenantLifecycleService.class,(p,m,a)->switch(m.getName()){
             case "isActive" -> true;
-            case "get" -> new TenantLifecycleService.TenantSummary(7,"vendor-7","Vendor 7","Vendor 7",null,null,null,null,"PENDING",12L,"admin@example.com",Instant.EPOCH,Instant.EPOCH,0L);
+            case "get" -> new TenantLifecycleService.TenantSummary(7,"vendor-7","Vendor 7","Vendor 7",null,null,null,null,"PENDING",12L,"admin@example.com",Instant.EPOCH,Instant.EPOCH,0L,null);
             default -> null;
         });
     }

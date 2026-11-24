@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TenantLifecycleService {
-    record Registration(String slug,String name,String legalName,String contactEmail,String contactPhone,String taxIdentifier,String address,String initialVendorAdminUsername) {}
-    record ProfileUpdate(String name,String legalName,String contactEmail,String contactPhone,String taxIdentifier,String address) {}
-    record TenantSummary(long id,String slug,String name,String legalName,String contactEmail,String contactPhone,String taxIdentifier,String address,String lifecycleStatus,Long onlineBranchId,String initialVendorAdminUsername,Instant createdAt,Instant updatedAt,long version) {}
+    record Registration(String slug,String name,String legalName,String contactEmail,String contactPhone,String taxIdentifier,String address,String initialVendorAdminUsername,boolean termsAccepted) {}
+    record ProfileUpdate(String name,String legalName,String contactEmail,String contactPhone,String taxIdentifier,String address,boolean termsAccepted) {}
+    record TenantSummary(long id,String slug,String name,String legalName,String contactEmail,String contactPhone,String taxIdentifier,String address,String lifecycleStatus,Long onlineBranchId,String initialVendorAdminUsername,Instant createdAt,Instant updatedAt,long version,Instant termsAcceptedAt) {}
     record StatusCount(String status,long count) {}
     record DirectoryPage(String query,int page,int size,long totalElements,int totalPages,List<TenantSummary> items) {}
     record VendorCard(long id,String slug,String name) {}

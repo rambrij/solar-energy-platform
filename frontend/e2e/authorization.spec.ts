@@ -96,6 +96,13 @@ test('Platform Super Admin: platform workspace works and vendor POS context is r
   await page.getByRole('button', { name: /^Tenants/ }).click();
   await expect(page.getByRole('heading', { name: 'Tenant directory' })).toBeVisible();
   await expect(page.getByText('Saumya Solar Rooftops', { exact: true })).toBeVisible();
+  const tenant = page.getByRole('row').filter({ hasText: 'saumya-rooftops' });
+  await tenant.getByRole('button', { name: 'Edit profile' }).click();
+  await expect(page.getByRole('heading', { name: 'Edit vendor profile' })).toBeVisible();
+  await page.getByLabel('Record confirmed vendor terms acceptance').check();
+  await page.getByRole('button', { name: 'Save vendor profile' }).click();
+  await expect(page.getByText('Vendor profile updated.', { exact: true })).toBeVisible();
+  await expect(tenant.getByText('Unrecorded', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /^Configuration/ }).click();
   await expect(page.getByRole('heading', { name: 'Global platform configuration' })).toBeVisible();
   await page.getByLabel('Category').selectOption('EMAIL_TEMPLATE');

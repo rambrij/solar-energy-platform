@@ -5,7 +5,8 @@ import {signOut,useSession} from './session';
 import {hasPlatformPagePermission} from './usePermissions';
 
 type Page='dashboard'|'tenants'|'plans'|'audit'|'support'|'configuration'|'identities';
-type Tenant={id:number;slug:string;name:string;legalName:string;lifecycleStatus:string;contactEmail?:string|null;contactPhone?:string|null;initialVendorAdminUsername?:string|null;createdAt:string;onlineBranchId?:number|null};
+type Tenant={id:number;slug:string;name:string;legalName:string;lifecycleStatus:string;contactEmail?:string|null;contactPhone?:string|null;taxIdentifier?:string|null;address?:string|null;initialVendorAdminUsername?:string|null;termsAcceptedAt?:string|null;createdAt:string;onlineBranchId?:number|null};
+const emptyTenantForm={slug:'',name:'',legalName:'',contactEmail:'',contactPhone:'',taxIdentifier:'',address:'',initialVendorAdminUsername:'',termsAccepted:false};
 type TenantPage={items:Tenant[];totalElements:number;totalPages:number;page:number};
 type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;graceDays:number;taxMetadata:string;invoiceDescription:string;createdAt:string};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:PlanVersion[]};
@@ -56,7 +57,8 @@ export default function PlatformApp(){
  const [support,setSupport]=useState<SupportGrant[]>([]);
  const [settings,setSettings]=useState<PlatformSetting[]>([]);
  const [reason,setReason]=useState(''),[invite,setInvite]=useState('');
- const [tenantForm,setTenantForm]=useState({slug:'',name:'',legalName:'',contactEmail:'',contactPhone:'',taxIdentifier:'',address:'',initialVendorAdminUsername:''});
+ const [tenantForm,setTenantForm]=useState(emptyTenantForm);
+ const [editingTenant,setEditingTenant]=useState<Tenant|null>(null);
  const [planForm,setPlanForm]=useState(emptyPlanForm);
  const [editingPlan,setEditingPlan]=useState<number|null>(null);
  const [revokingGrant,setRevokingGrant]=useState<SupportGrant|null>(null);
@@ -109,13 +111,37 @@ export default function PlatformApp(){
   catch(e){setError(e instanceof ApiError?e.message:(e as Error).message);}
   finally{setBusy(false);}
  }
- async function createTenant(event:FormEvent){
+ function editTenant(tenant:Tenant){
+  setEditingTenant(tenant);
+  setInvite('');
+  setTenantForm({
+   slug:tenant.slug,name:tenant.name,legalName:tenant.legalName,contactEmail:tenant.contactEmail??'',
+   contactPhone:tenant.contactPhone??'',taxIdentifier:tenant.taxIdentifier??'',address:tenant.address??'',
+   initialVendorAdminUsername:tenant.initialVendorAdminUsername??'',termsAccepted:false,
+  });
+ }
+ function cancelTenantEdit(){
+  setEditingTenant(null);
+  setTenantForm(emptyTenantForm);
+ }
+ async function saveTenant(event:FormEvent){
   event.preventDefault();
+  if(editingTenant){
+   if(!can('PLATFORM_TENANT_UPDATE'))return;
+   const id=editingTenant.id;
+   const {name,legalName,contactEmail,contactPhone,taxIdentifier,address,termsAccepted}=tenantForm;
+   await run(async()=>{
+    await platformApi(`/tenants/${id}`,'PATCH',{name,legalName,contactEmail,contactPhone,taxIdentifier,address,termsAccepted});
+    cancelTenantEdit();
+   },'Vendor profile updated.');
+   return;
+  }
+  if(!can('PLATFORM_TENANT_CREATE'))return;
   await run(async()=>{
    const result=await platformApi('/tenants','POST',tenantForm);
    if(result?.invitationToken)setInvite(result.invitationToken);
    else setInvite('The nominated identity already has an active account; no new invitation was issued.');
-   setTenantForm({slug:'',name:'',legalName:'',contactEmail:'',contactPhone:'',taxIdentifier:'',address:'',initialVendorAdminUsername:''});
+   setTenantForm(emptyTenantForm);
   },'Tenant created with an initial branch and Vendor Admin membership.');
  }
  async function changeLifecycle(tenant:Tenant,target:string){
@@ -226,24 +252,25 @@ export default function PlatformApp(){
      <div className="platform-boundary-grid"><article><h3>Commercial catalogue</h3><strong>Vendor-owned only</strong><p>There is no platform seller or platform catalogue.</p></article><article><h3>Customer purchase funds</h3><strong>Direct to vendor</strong><p>Customer order payments must use the vendor merchant context.</p></article><article><h3>SaaS subscriptions</h3><strong>Platform merchant</strong><p>Subscription billing uses independent records and credentials.</p></article><article><h3>Support access</h3><strong>Purpose-bound and time-limited</strong><p>A grant alone does not provide unrestricted tenant access.</p></article></div>
     </section>}
     {page==='tenants'&&<>
-     {can('PLATFORM_TENANT_CREATE')&&<section className="platform-panel"><h2>Onboard a vendor tenant</h2><p>Create the tenant, initial branch and initial Vendor Admin membership. The invitation token is displayed once after creation.</p>
-      <form className="platform-form-grid" onSubmit={createTenant}>
-       <label>Store slug<input required pattern="[a-z0-9]+(-[a-z0-9]+)*" value={tenantForm.slug} onChange={e=>setTenantForm({...tenantForm,slug:e.target.value})}/></label>
+     {(editingTenant?can('PLATFORM_TENANT_UPDATE'):can('PLATFORM_TENANT_CREATE'))&&<section className="platform-panel"><h2>{editingTenant?'Edit vendor profile':'Onboard a vendor tenant'}</h2>{!editingTenant&&<p>Create the tenant, initial branch and initial Vendor Admin membership. The invitation token is displayed once after creation.</p>}
+      <form className="platform-form-grid" onSubmit={saveTenant}>
+       <label>Store slug<input required readOnly={!!editingTenant} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={tenantForm.slug} onChange={e=>setTenantForm({...tenantForm,slug:e.target.value})}/></label>
        <label>Display name<input required value={tenantForm.name} onChange={e=>setTenantForm({...tenantForm,name:e.target.value})}/></label>
        <label>Legal name<input required value={tenantForm.legalName} onChange={e=>setTenantForm({...tenantForm,legalName:e.target.value})}/></label>
-       <label>Initial Vendor Admin email<input required type="email" value={tenantForm.initialVendorAdminUsername} onChange={e=>setTenantForm({...tenantForm,initialVendorAdminUsername:e.target.value})}/></label>
+       <label>Initial Vendor Admin email<input required readOnly={!!editingTenant} type="email" value={tenantForm.initialVendorAdminUsername} onChange={e=>setTenantForm({...tenantForm,initialVendorAdminUsername:e.target.value})}/></label>
        <label>Contact email<input type="email" value={tenantForm.contactEmail} onChange={e=>setTenantForm({...tenantForm,contactEmail:e.target.value})}/></label>
        <label>Contact phone<input value={tenantForm.contactPhone} onChange={e=>setTenantForm({...tenantForm,contactPhone:e.target.value})}/></label>
        <label>Tax identifier<input value={tenantForm.taxIdentifier} onChange={e=>setTenantForm({...tenantForm,taxIdentifier:e.target.value})}/></label>
        <label>Address<input value={tenantForm.address} onChange={e=>setTenantForm({...tenantForm,address:e.target.value})}/></label>
-       <div className="platform-form-actions"><button disabled={busy}>Create vendor tenant</button></div>
+       {!editingTenant?.termsAcceptedAt&&<label className="platform-wide"><input type="checkbox" checked={tenantForm.termsAccepted} onChange={e=>setTenantForm({...tenantForm,termsAccepted:e.target.checked})}/> Record confirmed vendor terms acceptance</label>}
+       <div className="platform-form-actions"><button disabled={busy}>{editingTenant?'Save vendor profile':'Create vendor tenant'}</button>{editingTenant&&<button type="button" className="secondary" onClick={cancelTenantEdit}>Cancel profile edit</button>}</div>
       </form>
       {invite&&<div className="platform-invitation"><strong>Vendor Admin invitation token</strong><code>{invite}</code><p>Share securely with the nominated Vendor Admin. The token is not stored in the platform audit record.</p></div>}
      </section>}
      {can('PLATFORM_TENANT_VIEW')&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Tenant directory</h2><button className="secondary" onClick={()=>void load('tenants')}>Refresh</button></div>
       <div className="platform-toolbar"><input aria-label="Search tenants" placeholder="Search name, legal name or slug" value={tenantSearch} onChange={e=>setTenantSearch(e.target.value)}/><select aria-label="Filter lifecycle status" value={tenantStatus} onChange={e=>setTenantStatus(e.target.value)}><option value="">All statuses</option>{['PENDING','UNDER_REVIEW','ACTIVE','SUSPENDED','CLOSED'].map(s=><option key={s}>{s}</option>)}</select><button className="secondary" onClick={()=>void load('tenants')}>Search</button></div>
       {(can('PLATFORM_TENANT_UPDATE')||can('PLATFORM_TENANT_SUSPEND')||can('PLATFORM_TENANT_CLOSE')||can('PLATFORM_TENANT_REACTIVATE'))&&<label>Lifecycle reason for the next action<input value={reason} onChange={e=>setReason(e.target.value)} placeholder="Required for every lifecycle change"/></label>}
-      <div className="platform-table-wrap"><table><thead><tr><th>Vendor tenant</th><th>Status</th><th>Initial Vendor Admin</th><th>Storefront</th><th>Lifecycle actions</th></tr></thead><tbody>{tenantPage.items.map(t=><tr key={t.id}><td><strong>{t.name}</strong><small>{t.legalName} · #{t.id}</small></td><td><span className="platform-status">{t.lifecycleStatus}</span></td><td>{t.initialVendorAdminUsername??'—'}</td><td>{t.slug}</td><td><div className="platform-row-actions">{lifecycleActions(t).map(action=><button key={action} className="secondary" disabled={busy} onClick={()=>void changeLifecycle(t,action)}>{action.replaceAll('_',' ')}</button>)}</div></td></tr>)}</tbody></table></div>
+      <div className="platform-table-wrap"><table><thead><tr><th>Vendor tenant</th><th>Status</th><th>Initial Vendor Admin</th><th>Storefront</th><th>Terms acceptance</th><th>Actions</th></tr></thead><tbody>{tenantPage.items.map(t=><tr key={t.id}><td><strong>{t.name}</strong><small>{t.legalName} · #{t.id}</small></td><td><span className="platform-status">{t.lifecycleStatus}</span></td><td>{t.initialVendorAdminUsername??'—'}</td><td>{t.slug}</td><td>{t.termsAcceptedAt?new Date(t.termsAcceptedAt).toLocaleString():'Unrecorded'}</td><td><div className="platform-row-actions">{can('PLATFORM_TENANT_UPDATE')&&t.lifecycleStatus!=='CLOSED'&&<button type="button" className="secondary" disabled={busy} onClick={()=>editTenant(t)}>Edit profile</button>}{lifecycleActions(t).map(action=><button key={action} className="secondary" disabled={busy} onClick={()=>void changeLifecycle(t,action)}>{action.replaceAll('_',' ')}</button>)}</div></td></tr>)}</tbody></table></div>
       <p>{tenantPage.totalElements} tenants · page {tenantPage.page+1} of {tenantPage.totalPages}</p>
      </section>}
      {!can('PLATFORM_TENANT_VIEW')&&!can('PLATFORM_TENANT_CREATE')&&<p role="status">No tenant-management permissions are available.</p>}

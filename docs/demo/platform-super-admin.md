@@ -27,7 +27,7 @@
 
 Open **Tenants → Onboard a vendor tenant**. Enter a unique storefront slug, display name, legal name, and the initial Vendor Admin's email. Submission creates a pending tenant, initial branch, and Vendor Admin membership. Share a newly issued invitation token once through the approved secure channel so the nominated admin can accept the invitation. If the nominated identity is already active, use its existing credentials.
 
-In **Tenant directory**, enter a reason for each change and select the action shown on the tenant row:
+In **Tenant directory**, enter a reason for each lifecycle change and select the action shown on the tenant row.
 
 | Current state | Available transitions |
 | --- | --- |
@@ -36,6 +36,8 @@ In **Tenant directory**, enter a reason for each change and select the action sh
 | Active | Suspended or closed |
 | Suspended | Active or closed |
 | Closed | Terminal state |
+
+Use **Edit profile** to update a tenant's legal name, contact details, tax identifier, and address. When the vendor's acceptance has been confirmed, select **Record confirmed vendor terms acceptance** during onboarding or profile editing. The server records the first confirmation time and the platform audit attributes the action to the operator. Profiles without confirmation show **Unrecorded**.
 
 Tenant activation and subscription activation are separate. The Platform actor has no commercial catalogue, vendor POS, or customer-order authority.
 

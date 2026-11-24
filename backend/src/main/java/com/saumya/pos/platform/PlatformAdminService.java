@@ -39,12 +39,12 @@ public class PlatformAdminService {
         long branch=branches.createInitialBranch(tenant.id(),"Main Branch");tenants.assignOnlineBranch(tenant.id(),branch);
         var invitation=identities.issueInvitation(tenant.initialVendorAdminUsername());
         var provisioned=memberships.provisionInitialVendorAdmin(tenant.id(),branch,tenant.initialVendorAdminUsername());
-        audit.record(actor,"TENANT_CREATED","TENANT",Long.toString(tenant.id()),tenant.id(),"Tenant onboarding created; Vendor Admin membership provisioned",correlation);
+        audit.record(actor,"TENANT_CREATED","TENANT",Long.toString(tenant.id()),tenant.id(),request.termsAccepted()?"Tenant onboarding created; Vendor Admin membership provisioned; terms acceptance recorded":"Tenant onboarding created; Vendor Admin membership provisioned",correlation);
         return new OnboardingResult(tenants.get(tenant.id()),branch,provisioned.username(),invitation.token(),invitation.expiresAt(),invitation.accountAlreadyActive());
     }
     public TenantLifecycleService.TenantSummary update(long id,TenantLifecycleService.ProfileUpdate update,String actor,String correlation){
         require(actor,"PLATFORM_TENANT_UPDATE");
-        var result=tenants.updateProfile(id,update);audit.record(actor,"TENANT_UPDATED","TENANT",Long.toString(id),id,"Vendor profile updated",correlation);return result;
+        var result=tenants.updateProfile(id,update);audit.record(actor,"TENANT_UPDATED","TENANT",Long.toString(id),id,update.termsAccepted()?"Vendor profile updated; terms acceptance confirmed":"Vendor profile updated",correlation);return result;
     }
     public TenantLifecycleService.TenantSummary transition(long id,TenantStatus target,String reason,String actor,String correlation){
         String permission=switch(target){

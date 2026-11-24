@@ -6,6 +6,17 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 class TenantLifecycleTest {
+    @Test void recordsTermsAcceptanceOnceAndPreservesItAcrossProfileEdits(){
+        Instant now=Instant.parse("2026-11-16T00:00:00Z");
+        var tenant=new Tenant(8,"solar-eight","Solar Eight","Solar Eight Ltd",null,null,null,null,
+            "admin@solar.test",null,now);
+        tenant.updateProfile("Solar Eight","Solar Eight Ltd",null,null,null,null,now.plusSeconds(1));
+        assertThat(tenant.termsAcceptedAt()).isNull();
+        tenant.recordTermsAcceptance(now.plusSeconds(2));
+        tenant.recordTermsAcceptance(now.plusSeconds(3));
+        tenant.updateProfile("Solar Eight updated","Solar Eight Ltd",null,null,null,null,now.plusSeconds(4));
+        assertThat(tenant.termsAcceptedAt()).isEqualTo(now.plusSeconds(2));
+    }
     @Test void supportsReviewActivationSuspensionAndReactivationButNeverReopensClosedTenants(){
         Instant now=Instant.parse("2026-11-16T00:00:00Z");
         var tenant=new Tenant(9,"solar-nine","Solar Nine","Solar Nine Pvt Ltd",null,null,null,null,"admin@solar.test",now,now);

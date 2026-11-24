@@ -24,7 +24,7 @@ class PlatformSupportServiceTest {
     @AfterEach void clearSecurityContext(){SecurityContextHolder.clearContext();}
     @Test void grantRequiresTenantPurposeTicketAndExpiryWithinFourHours(){
         Instant now=Instant.parse("2026-11-16T00:00:00Z");
-        when(tenants.get(10L)).thenReturn(new TenantLifecycleService.TenantSummary(10,"solar","Solar","Solar Ltd",null,null,null,null,"ACTIVE",null,"admin@solar.test",now,now,0));
+        when(tenants.get(10L)).thenReturn(new TenantLifecycleService.TenantSummary(10,"solar","Solar","Solar Ltd",null,null,null,null,"ACTIVE",null,"admin@solar.test",now,now,0,null));
         when(repository.saveAndFlush(any(PlatformSupportGrant.class))).thenAnswer(inv->{var row=(PlatformSupportGrant)inv.getArgument(0);ReflectionTestUtils.setField(row,"id",1L);return row;});
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("platform@solar.test","n/a",
             List.of(new SimpleGrantedAuthority("PLATFORM_SUPPORT_ACCESS"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_PLATFORM))));

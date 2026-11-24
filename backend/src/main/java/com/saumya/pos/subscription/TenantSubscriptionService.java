@@ -5,7 +5,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface TenantSubscriptionService {
-    record SubscriptionInput(long tenantId,long planId,LocalDate periodStart,LocalDate periodEnd,String reason) {}
+    record SubscriptionInput(long tenantId,long planId,LocalDate periodStart,LocalDate periodEnd,String reason,
+        boolean usePlanInterval,Integer expectedPlanVersion) {}
     record SubscriptionView(long id,long tenantId,String tenantName,long planId,String planKey,String planName,int planVersion,
         String status,LocalDate periodStart,LocalDate periodEnd,Instant graceUntil,String termsSnapshot,Instant createdAt,long version,
         List<String> allowedAdministrativeTransitions) {}

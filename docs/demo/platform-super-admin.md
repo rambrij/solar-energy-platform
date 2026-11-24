@@ -45,11 +45,13 @@ Tenant activation and subscription activation are separate. The Platform actor h
 
 1. In **Subscription plans**, enter the price, currency, billing period, limits, and feature entitlements. Save the first version.
 2. Use **Revise plan** to edit the current terms and save a new version. Older terms remain in the catalogue and existing subscription records keep their version. Use **Enable plan** or **Disable plan** to manage availability for new subscriptions.
-3. Use the top **Tenant subscriptions** link. Choose a tenant, plan, billing dates, and reason to create a pending subscription. Open **Billing and events** to see history and permitted administrative transitions. Activation requires a verified platform payment event. The vendor checkout mock does not activate platform subscriptions.
+3. Use the top **Tenant subscriptions** link. Choose a tenant, plan, start date, and reason. **Use plan interval** calculates the end from the selected monthly, quarterly, or yearly plan version. Dates that do not exist in the target month use that month's last day. Choose **Enter end date** for an explicit period. Open **Billing and events** for history and permitted transitions. Activation requires a verified platform payment event. The vendor checkout mock does not activate platform subscriptions.
 4. A subscription in **Grace period** shows its deadline. Once that deadline passes, vendor writes lose their grace entitlement and the background worker records **Suspended** in billing events. The worker leaves the vendor's tenant lifecycle and existing records intact.
 5. In **Billing and events**, choose one of the transitions available for the current status and enter a reason. The page refreshes the status and history after saving. If the subscription changed after you opened it, refresh before trying again.
 
 The platform subscription API returns `allowedAdministrativeTransitions` and `version` for each subscription. The console sends `expectedVersion` with a status change. A stale version returns HTTP 409 without changing the subscription or writing an event.
+
+For plan assignment, `POST /api/v1/platform/tenants/{tenantId}/subscription` accepts `periodStart` and either `usePlanInterval: true` with no `periodEnd`, or an explicit `periodEnd`. The console sends `expectedPlanVersion`. If that plan changed, the API returns HTTP 409 and leaves the subscription uncreated.
 
 **Overview** shows platform health, tenant lifecycle totals, and subscription counts by status. Use **Platform audit** for administrative events. The dashboard counts do not include tenant-private transaction details.
 

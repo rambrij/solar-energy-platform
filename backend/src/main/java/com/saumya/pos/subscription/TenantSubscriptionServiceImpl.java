@@ -40,12 +40,15 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
         requirePlatform(actor,"PLATFORM_SUBSCRIPTION_ADJUST");
         var tenant=tenants.get(input.tenantId());
         if("CLOSED".equals(tenant.lifecycleStatus()))throw new ResponseStatusException(CONFLICT,"Closed tenants cannot receive subscriptions");
-        if(input.periodStart()==null||input.periodEnd()==null||!input.periodEnd().isAfter(input.periodStart()))throw new ResponseStatusException(BAD_REQUEST,"Subscription period end must be after its start");
         if(subscriptions.existsByTenantIdAndStatusIn(input.tenantId(),EFFECTIVE))throw new ResponseStatusException(CONFLICT,"Tenant already has an effective subscription");
         var plan=plans.findById(input.planId()).filter(SubscriptionPlan::active).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Active subscription plan unavailable"));
+        if(input.expectedPlanVersion()!=null&&input.expectedPlanVersion()!=plan.currentVersion())
+            throw new ResponseStatusException(CONFLICT,"Subscription plan changed. Reload before assigning it.");
         var version=planVersion(plan.id(),plan.currentVersion());var snapshot=snapshot(version);var now=clock.instant();
-        var entity=subscriptions.saveAndFlush(new TenantSubscription(input.tenantId(),plan.id(),version.version(),input.periodStart(),input.periodEnd(),snapshot,now));
-        events.saveAndFlush(new SubscriptionEvent(input.tenantId(),entity.id(),null,"PENDING",actor,required(input.reason()),now));
+        var periodEnd=BillingPeriod.end(input.periodStart(),input.periodEnd(),input.usePlanInterval(),version.billingInterval());
+        String reason=required(input.reason());
+        var entity=subscriptions.saveAndFlush(new TenantSubscription(input.tenantId(),plan.id(),version.version(),input.periodStart(),periodEnd,snapshot,now));
+        events.saveAndFlush(new SubscriptionEvent(input.tenantId(),entity.id(),null,"PENDING",actor,reason,now));
         return view(entity);
     }
     @Override public SubscriptionView transition(long id,String target,String reason,String actor,Long expectedVersion){

@@ -3,16 +3,19 @@ import {ApiError,platformApi} from './api';
 import {useSession} from './session';
 
 type Subscription={id:number;tenantId:number;tenantName:string;planId:number;planKey:string;planName:string;planVersion:number;status:string;periodStart:string;periodEnd:string;graceUntil:string|null;createdAt:string;version:number;allowedAdministrativeTransitions:string[]};
-type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number};
+type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:{version:number;billingInterval:string}[]};
 export default function PlatformSubscriptions(){
  const {account}=useSession();
  const canAdjust=account?.permissions.includes('PLATFORM_SUBSCRIPTION_ADJUST')??false;
  const [rows,setRows]=useState<Subscription[]>([]),[plans,setPlans]=useState<Plan[]>([]);
  const [tenantId,setTenantId]=useState(''),[planId,setPlanId]=useState(''),[start,setStart]=useState(''),[end,setEnd]=useState(''),[reason,setReason]=useState('Initial plan assignment');
+ const [usePlanInterval,setUsePlanInterval]=useState(true);
  const [selected,setSelected]=useState<number|null>(null),[billing,setBilling]=useState<any>(null),[events,setEvents]=useState<any[]>([]);
  const [statusReason,setStatusReason]=useState(''),[target,setTarget]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const detailRequest=useRef(0);
  const current=rows.find(row=>row.id===selected);
+ const selectedPlan=plans.find(plan=>plan.active&&plan.id===Number(planId));
+ const selectedInterval=selectedPlan?.versions.find(version=>version.version===selectedPlan.currentVersion)?.billingInterval;
  const transitions=current?.allowedAdministrativeTransitions??[];
  const selectedTransition=transitions.includes(target)?target:'';
  async function load(){setError('');try{const [s,p]=await Promise.all([platformApi('/subscriptions'),platformApi('/subscription-plans')]);setRows(s);setPlans(p);}catch(e){setError((e as Error).message);}}
@@ -27,7 +30,14 @@ export default function PlatformSubscriptions(){
   }catch(e){setError(e instanceof ApiError?e.message:(e as Error).message);}
   finally{setBusy(false);}
  }
- async function create(e:FormEvent){e.preventDefault();await action(()=>platformApi(`/tenants/${Number(tenantId)}/subscription`,'POST',{planId:Number(planId),periodStart:start,periodEnd:end,reason}),'Pending subscription recorded. No payment is marked successful.');}
+ async function create(e:FormEvent){
+  e.preventDefault();
+  if(!canAdjust||busy||!selectedPlan)return;
+  await action(()=>platformApi(`/tenants/${Number(tenantId)}/subscription`,'POST',{
+   planId:selectedPlan.id,expectedPlanVersion:selectedPlan.currentVersion,periodStart:start,
+   usePlanInterval,...(usePlanInterval?{}:{periodEnd:end}),reason,
+  }),'Pending subscription recorded. No payment is marked successful.');
+ }
  async function loadDetails(id:number){
   const request=++detailRequest.current;
   try{
@@ -60,9 +70,14 @@ export default function PlatformSubscriptions(){
     <label>Tenant ID<input required type="number" min="1" value={tenantId} onChange={e=>setTenantId(e.target.value)}/></label>
     <label>Plan<select required value={planId} onChange={e=>setPlanId(e.target.value)}><option value="">Choose plan</option>{plans.filter(p=>p.active).map(p=><option value={p.id} key={p.id}>{p.displayName} · v{p.currentVersion}</option>)}</select></label>
     <label>Billing period start<input required type="date" value={start} onChange={e=>setStart(e.target.value)}/></label>
-    <label>Billing period end<input required type="date" value={end} onChange={e=>setEnd(e.target.value)}/></label>
+    <label>Billing period<select value={usePlanInterval?'PLAN':'MANUAL'} onChange={e=>setUsePlanInterval(e.target.value==='PLAN')}>
+     <option value="PLAN">Use plan interval{selectedInterval?` (${selectedInterval.toLowerCase()})`:''}</option>
+     <option value="MANUAL">Enter end date</option>
+    </select></label>
+    {usePlanInterval?<p>The end date is calculated from the start and the selected plan version.</p>:
+     <label>Billing period end<input required type="date" value={end} onChange={e=>setEnd(e.target.value)}/></label>}
     <label className="platform-wide">Reason<input required value={reason} onChange={e=>setReason(e.target.value)}/></label>
-    <div className="platform-form-actions"><button disabled={busy||!plans.length}>Create pending subscription</button></div>
+    <div className="platform-form-actions"><button disabled={busy||!selectedPlan}>Create pending subscription</button></div>
    </form>
   </section>}
   <section className="platform-panel"><h2>Subscription history</h2><div className="platform-table-wrap"><table><thead><tr><th>Tenant</th><th>Plan / version</th><th>Status</th><th>Period</th><th>History</th></tr></thead><tbody>{rows.map(s=><tr key={s.id}><td>{s.tenantName} · #{s.tenantId}</td><td>{s.planName} · v{s.planVersion}</td><td>{s.status}{s.graceUntil&&<div>Grace ends <time dateTime={s.graceUntil}>{new Date(s.graceUntil).toLocaleString()}</time></div>}</td><td>{s.periodStart} – {s.periodEnd}</td><td><button className="secondary" disabled={busy} onClick={()=>void show(s.id)}>Billing and events</button></td></tr>)}</tbody></table></div></section>

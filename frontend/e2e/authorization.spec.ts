@@ -129,6 +129,33 @@ test('Platform Super Admin: platform workspace works and vendor POS context is r
   await expect(page.getByRole('alert')).toContainText('Access denied');
 });
 
+test('Platform subscription assignment uses the selected plan version and calendar interval', async ({ page }) => {
+  const token = await signIn(page, demo.platformAdmin.username, demo.platformAdmin.password);
+  const plans = await apiAs(page, token, '/api/v1/platform/subscription-plans');
+  expect(plans.status).toBe(200);
+  const plan = plans.body.find((item: {planKey: string}) => item.planKey === 'local-demo-unlimited');
+  expect(plan).toBeTruthy();
+
+  const slug = `e2e-billing-window-${Date.now()}`;
+  const onboarded = await apiAs(page, token, '/api/v1/platform/tenants', 'POST', {
+    slug, name: 'Billing window fixture', legalName: 'Billing window fixture',
+    initialVendorAdminUsername: `${slug}@somya.local`,
+  });
+  expect(onboarded.status).toBe(201);
+
+  const path = `/api/v1/platform/tenants/${onboarded.body.tenant.id}/subscription`;
+  const assignment = {
+    planId: plan.id, periodStart: '2028-01-31', usePlanInterval: true, reason: 'Browser billing interval verification',
+  };
+  const stale = await apiAs(page, token, path, 'POST', {...assignment,expectedPlanVersion:plan.currentVersion+1});
+  expect(stale.status).toBe(409);
+  const created = await apiAs(page, token, path, 'POST', {...assignment,expectedPlanVersion:plan.currentVersion});
+  expect(created.status).toBe(200);
+  expect(created.body).toMatchObject({
+    status:'PENDING',planVersion:plan.currentVersion,periodStart:'2028-01-31',periodEnd:'2028-02-29',
+  });
+});
+
 test('Customer: purchase history opens only in the customer marketplace context', async ({ page }) => {
   await signIn(page, demo.customer.username, demo.customer.password);
   await page.goto('/marketplace/purchases');

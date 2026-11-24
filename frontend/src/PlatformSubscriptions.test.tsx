@@ -50,4 +50,21 @@ describe('PlatformSubscriptions permission boundaries',()=>{
   await waitFor(()=>expect(vi.mocked(platformApi).mock.calls.filter(([path])=>path==='/subscriptions/4/events')).toHaveLength(2));
   expect(vi.mocked(platformApi).mock.calls.filter(([path])=>path==='/subscriptions/4/billing-history')).toHaveLength(2);
  });
+ it('requests the selected plan version and lets the server calculate the end date',async()=>{
+  const session=vi.mocked(useSession)();
+  vi.mocked(useSession).mockReturnValue({...session,account:{...session.account!,permissions:['PLATFORM_SUBSCRIPTION_VIEW','PLATFORM_SUBSCRIPTION_ADJUST']}});
+  vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?
+   [{id:2,displayName:'Starter',active:true,currentVersion:3,versions:[{version:3,billingInterval:'QUARTERLY'}]}]:[]);
+  render(<PlatformSubscriptions/>);
+  await screen.findByRole('option',{name:'Starter · v3'});
+  fireEvent.change(screen.getByLabelText('Tenant ID'),{target:{value:'12'}});
+  fireEvent.change(screen.getByLabelText('Plan'),{target:{value:'2'}});
+  fireEvent.change(screen.getByLabelText('Billing period start'),{target:{value:'2028-01-31'}});
+  expect(screen.getByRole('option',{name:'Use plan interval (quarterly)'})).toBeTruthy();
+  expect(screen.queryByLabelText('Billing period end')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Create pending subscription'}));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/tenants/12/subscription','POST',{
+   planId:2,expectedPlanVersion:3,periodStart:'2028-01-31',usePlanInterval:true,reason:'Initial plan assignment',
+  }));
+ });
 });

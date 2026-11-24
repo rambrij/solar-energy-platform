@@ -1,5 +1,6 @@
 package com.saumya.pos.platform;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.subscription.TenantSubscriptionService;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ public class PlatformTenantSubscriptionController {
     public record CreateSubscription(@Positive long planId,@NotNull LocalDate periodStart,LocalDate periodEnd,
         @NotBlank @Size(max=500) String reason,boolean usePlanInterval,@Positive Integer expectedPlanVersion){
         @AssertTrue(message="Provide a period end only for manual billing dates")
+        @JsonIgnore
         public boolean isPeriodSelectionValid(){return usePlanInterval==(periodEnd==null);}
     }
     public record ChangeStatus(@NotBlank String status,@NotBlank @Size(max=500) String reason,@PositiveOrZero Long expectedVersion){}

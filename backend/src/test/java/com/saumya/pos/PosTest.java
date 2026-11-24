@@ -3756,13 +3756,14 @@ class PosTest {
   }
   if(type==Integer.class||type==int.class){
    String n=name.toLowerCase(Locale.ROOT);
+   if(type==Integer.class&&n.equals("expectedplanversion"))return null;
    if(n.contains("expectedversion"))return 0;
    if(n.contains("days"))return 30;
    if(n.contains("max"))return 1;
    return 1;
   }
   if(type==Short.class||type==short.class)return (short)1;
-  if(type==Boolean.class||type==boolean.class)return !name.equalsIgnoreCase("sensitive");
+  if(type==Boolean.class||type==boolean.class)return !name.equalsIgnoreCase("sensitive")&&!name.equals("usePlanInterval");
   if(type==BigDecimal.class)return BigDecimal.ONE;
   if(type==java.time.LocalDate.class)return name.toLowerCase(Locale.ROOT).contains("end")?java.time.LocalDate.now().plusMonths(1):java.time.LocalDate.now();
   if(type==java.time.Instant.class)return java.time.Instant.now().plus(java.time.Duration.ofHours(2));

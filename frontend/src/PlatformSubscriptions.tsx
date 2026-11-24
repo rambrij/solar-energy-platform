@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {ApiError,platformApi} from './api';
-import {useSession} from './session';
+import {authenticatedFetch,useSession} from './session';
+import {downloadFile} from './fileDownload';
 
 type Subscription={id:number;tenantId:number;tenantName:string;planId:number;planKey:string;planName:string;planVersion:number;status:string;periodStart:string;periodEnd:string;graceUntil:string|null;createdAt:string;version:number;allowedAdministrativeTransitions:string[]};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:{version:number;billingInterval:string}[]};
@@ -52,6 +53,16 @@ export default function PlatformSubscriptions(){
   setBilling(null);setEvents([]);setStatusReason('');setTarget('');
   await loadDetails(id);
  }
+ async function downloadInvoice(subscriptionId:number,invoiceId:number){
+  setError('');
+  try{
+   const response=await authenticatedFetch(`/api/v1/platform/subscriptions/${subscriptionId}/invoices/${invoiceId}/document`);
+   if(!response.ok)throw new ApiError(response.status);
+   if(response.headers.get('Content-Type')?.split(';')[0]!=='application/pdf')throw new Error('Invalid invoice PDF response.');
+   const blob=await response.blob();
+   downloadFile({blob,filename:`mock-subscription-invoice-${invoiceId}.pdf`});
+  }catch(e){setError((e as Error).message);}
+ }
  async function change(){
   if(!canAdjust||busy||!current||!selectedTransition||!statusReason.trim())return;
   const id=current.id;
@@ -86,7 +97,8 @@ export default function PlatformSubscriptions(){
     <label>Transition reason<input required maxLength={500} value={statusReason} onChange={e=>setStatusReason(e.target.value)}/></label>
     <div className="platform-form-actions"><button disabled={busy||!selectedTransition||!statusReason.trim()} onClick={()=>void change()}>Apply status transition</button></div></>:<p>No administrative transitions are available for this subscription.</p>}
    </div><p>Activation requires a verified payment outcome. The local mock billing job can reactivate eligible subscriptions.</p></>}
-   <div className="platform-boundary-grid"><article><h3>Invoices</h3>{billing?.invoices?.length?billing.invoices.map((i:any)=><p key={i.id}>{i.invoiceNumber} · {i.currency} {i.total} · {i.status}{i.mockNextAttemptAt&&<> · Test retry <time dateTime={i.mockNextAttemptAt}>{new Date(i.mockNextAttemptAt).toLocaleString()}</time></>}</p>):<p>No subscription invoices recorded yet.</p>}</article><article><h3>Subscription payments</h3>{billing?.payments?.length?billing.payments.map((p:any)=><p key={p.id}>{p.provider} · {p.amount} {p.currency} · {p.status}</p>):<p>No subscription payments recorded yet.</p>}</article></div>
+   <div className="platform-boundary-grid"><article><h3>Invoices</h3>{billing?.invoices?.length?billing.invoices.map((i:any)=><p key={i.id}>{i.invoiceNumber} · {i.currency} {i.total} · {i.status}{i.mockNextAttemptAt&&<> · Test retry <time dateTime={i.mockNextAttemptAt}>{new Date(i.mockNextAttemptAt).toLocaleString()}</time></>}{i.invoiceNumber.startsWith('MOCK-SUB-')&&
+    <button type="button" className="secondary" onClick={()=>void downloadInvoice(selected,i.id)}>Download mock invoice PDF</button>}</p>):<p>No subscription invoices recorded yet.</p>}</article><article><h3>Subscription payments</h3>{billing?.payments?.length?billing.payments.map((p:any)=><p key={p.id}>{p.provider} · {p.amount} {p.currency} · {p.status}</p>):<p>No subscription payments recorded yet.</p>}</article></div>
    <h3>Subscription events</h3><div className="platform-table-wrap"><table><thead><tr><th>Time</th><th>From</th><th>To</th><th>Actor</th><th>Reason</th></tr></thead><tbody>{events.map(e=><tr key={e.id}><td>{new Date(e.occurredAt).toLocaleString()}</td><td>{e.oldStatus??'—'}</td><td>{e.newStatus}</td><td>{e.actor}</td><td>{e.reason}</td></tr>)}</tbody></table></div>
   </section>}
  </div>;

@@ -525,6 +525,17 @@
       ]
     },
     {
+      "source": "com/saumya/pos/platform/PlatformGraceReminderTemplate.java",
+      "repository": "PlatformConfigurationRepository#findById",
+      "scope": "LOCAL_MOCK_SUBSCRIPTION_GRACE_TEMPLATE",
+      "authority": "The mock billing reminder reads one fixed platform configuration key after commit in the local profile. It ignores sensitive entries and accepts no caller-supplied key or tenant scope.",
+      "evidence": [
+        "settings.findById(KEY)",
+        "EMAIL_TEMPLATE.MOCK_SUBSCRIPTION_GRACE",
+        "!entry.sensitive()"
+      ]
+    },
+    {
       "source": "com/saumya/pos/platform/LocalPlatformMfaMail.java",
       "repository": "PlatformConfigurationRepository#findById",
       "scope": "LOCAL_MFA_NOTIFICATION_TEMPLATE_AND_ADAPTER",
@@ -587,6 +598,18 @@
     }
   ],
   "trustedTenantParameterFlows": [
+    {
+      "callee": "com.saumya.pos.subscription.TenantSubscriptionServiceImpl#scopedMockInvoice",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.subscription.TenantSubscriptionServiceImpl#mockInvoice",
+          "expression": "subscription.tenantId()",
+          "argumentIndex": 2,
+          "expectedCallCount": 1
+        }
+      ]
+    },
     {
       "callee": "com.saumya.pos.subscription.MockSubscriptionBillingJob#process",
       "parameter": "tenantId",
@@ -823,6 +846,11 @@
     }
   ],
   "trustedServiceTenantParameters": {
+    "com.saumya.pos.subscription.TenantSubscriptionServiceImpl": {
+      "trustedTenantParameters": {
+        "scopedMockInvoice": ["tenantId"]
+      }
+    },
     "com.saumya.pos.subscription.MockSubscriptionBillingJob": {
       "trustedTenantParameters": {
         "process": ["tenantId"]

@@ -2,10 +2,12 @@ import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import PlatformSubscriptions from './PlatformSubscriptions';
 import {platformApi} from './api';
-import {useSession} from './session';
+import {authenticatedFetch,useSession} from './session';
+import {downloadFile} from './fileDownload';
 
 vi.mock('./api',()=>({platformApi:vi.fn()}));
-vi.mock('./session',()=>({useSession:vi.fn()}));
+vi.mock('./session',()=>({authenticatedFetch:vi.fn(),useSession:vi.fn()}));
+vi.mock('./fileDownload',()=>({downloadFile:vi.fn()}));
 
 const subscription={id:4,tenantId:12,tenantName:'Vendor Twelve',planId:2,planKey:'starter',planName:'Starter',planVersion:1,status:'ACTIVE',periodStart:'2026-11-01',periodEnd:'2026-12-01',graceUntil:null,createdAt:'2026-11-01',version:0,allowedAdministrativeTransitions:['PAST_DUE','SUSPENDED']};
 
@@ -24,6 +26,27 @@ beforeEach(()=>{
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 
 describe('PlatformSubscriptions permission boundaries',()=>{
+ it('downloads only mock invoices from the selected subscription',async()=>{
+  const blob=new Blob(['%PDF-1.7'],{type:'application/pdf'});
+  const response=new Response(null,{headers:{'Content-Type':'application/pdf'}});
+  vi.spyOn(response,'blob').mockResolvedValue(blob);
+  vi.mocked(authenticatedFetch).mockResolvedValue(response);
+  vi.mocked(platformApi).mockImplementation(async(path:string)=>{
+   if(path==='/subscriptions')return [subscription];
+   if(path.endsWith('/billing-history'))return {invoices:[
+    {id:9,invoiceNumber:'MOCK-SUB-4-2026-11-01',currency:'INR',total:'19.50',status:'OPEN'},
+    {id:10,invoiceNumber:'SUB-4',currency:'INR',total:'19.50',status:'OPEN'},
+   ],payments:[]};
+   return [];
+  });
+  render(<PlatformSubscriptions/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Billing and events'}));
+  fireEvent.click(await screen.findByRole('button',{name:'Download mock invoice PDF'}));
+  await waitFor(()=>expect(downloadFile).toHaveBeenCalledWith({
+   blob,filename:'mock-subscription-invoice-9.pdf',
+  }));
+  expect(authenticatedFetch).toHaveBeenCalledWith('/api/v1/platform/subscriptions/4/invoices/9/document');
+ });
  it('allows subscription reads without exposing subscription mutations',async()=>{
   render(<PlatformSubscriptions/>);
   expect(await screen.findByText('Tenant subscriptions')).toBeTruthy();

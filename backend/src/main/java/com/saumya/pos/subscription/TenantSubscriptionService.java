@@ -25,4 +25,5 @@ public interface TenantSubscriptionService {
     List<StatusCount> statusCounts();
     List<SubscriptionEventView> events(long subscriptionId);
     BillingHistory billingHistory(long subscriptionId);
+    InvoiceView mockInvoice(long subscriptionId,long invoiceId);
 }

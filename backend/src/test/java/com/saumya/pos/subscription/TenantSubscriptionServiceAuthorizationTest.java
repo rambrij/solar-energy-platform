@@ -37,8 +37,29 @@ class TenantSubscriptionServiceAuthorizationTest {
         denied(service::all);
         denied(()->service.events(1L));
         denied(()->service.billingHistory(1L));
+        denied(()->service.mockInvoice(1L,2L));
 
         verifyNoInteractions(subscriptions,plans,versions,events,invoices,payments,tenants);
+    }
+
+    @Test
+    void mockInvoiceUsesTheResolvedTenantAndReturnsNotFoundForAnUnrelatedInvoice() {
+        var subscriptions=mock(TenantSubscriptionRepository.class);
+        var invoices=mock(SubscriptionInvoiceRepository.class);
+        var subscription=mock(TenantSubscription.class);
+        when(subscriptions.findById(1L)).thenReturn(java.util.Optional.of(subscription));
+        when(subscription.id()).thenReturn(1L);
+        when(subscription.tenantId()).thenReturn(7L);
+        var authorization=mock(AuthorizationContext.class);
+        when(authorization.current()).thenReturn(new AuthorizationContext.Context(
+            "platform",null,null,null,java.util.Set.of("PLATFORM_SUBSCRIPTION_VIEW"),true,false,false));
+        var service=new TenantSubscriptionServiceImpl(subscriptions,null,null,null,invoices,null,null,null,Clock.systemUTC());
+        ReflectionTestUtils.setField(service,"authorization",authorization);
+
+        assertThatThrownBy(()->service.mockInvoice(1L,2L))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                exception->org.assertj.core.api.Assertions.assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        verify(invoices).findByIdAndSubscriptionIdAndTenantId(2L,1L,7L);
     }
 
     @Test

@@ -1134,6 +1134,17 @@
       "backendOperation": "GET /api/v1/platform/subscriptions/{id}/billing-history"
     },
     {
+      "id": "platform-subscription-invoice-document",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document",
+      "permissions": ["PLATFORM_SUBSCRIPTION_VIEW"],
+      "actor": "PLATFORM",
+      "implementationFile": "PlatformSubscriptions.tsx",
+      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document"
+    },
+    {
       "id": "platform-identity-list",
       "component": "PlatformIdentityAdmin.tsx",
       "trigger": "load",
@@ -2286,6 +2297,12 @@
       "component": "PlatformSubscriptions.tsx",
       "trigger": "button",
       "backendOperation": "GET /api/v1/platform/subscriptions/{id}/billing-history"
+    },
+    {
+      "id": "platform-subscription-invoice-document",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document"
     },
     {
       "id": "pos-catalogue-scan",

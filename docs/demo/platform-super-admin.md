@@ -104,3 +104,9 @@ Mock invoices use zero tax for the simulation, charge no funds, and are unsuitab
 ### Customize the mock grace reminder
 
 In **Configuration**, choose **Email templates**, enter the key `MOCK_SUBSCRIPTION_GRACE`, and save a subject and plain-text body. The next grace notice uses the saved wording without a backend restart. If no usable template exists, the application uses its default wording. It always appends the mock invoice reference, grace deadline, and simulation notice. Open Mailpit to see the result after a new subscription's first failed mock attempt.
+
+### Download a mock subscription invoice
+
+Open **Tenant subscriptions → Billing and events**, then choose **Download mock invoice PDF** on a `MOCK-SUB-` invoice. The PDF uses the saved billing period and amounts and identifies the status at download time. It is clearly marked as a simulation.
+
+`GET /api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document` returns an attachment with `application/pdf` and `Cache-Control: no-store`. It requires the Platform actor and `PLATFORM_SUBSCRIPTION_VIEW`. An invoice belonging to another subscription or an invoice outside the mock series returns HTTP 404.

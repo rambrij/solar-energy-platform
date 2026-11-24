@@ -82,10 +82,29 @@ public class TenantSubscriptionServiceImpl implements TenantSubscriptionService 
         requireRead();
         subscriptions.findById(subscriptionId).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Tenant subscription unavailable"));
         var rows=invoices.findBySubscriptionIdOrderByIssuedAtDescIdDesc(subscriptionId);
-        var invoiceViews=rows.stream().map(i->new InvoiceView(i.id(),i.tenantId(),i.subscriptionId(),i.invoiceNumber(),i.periodStart(),i.periodEnd(),i.currency(),i.status(),i.subtotal(),i.taxAmount(),i.total(),i.dueAt(),i.issuedAt(),i.mockNextAttemptAt())).toList();
+        var invoiceViews=rows.stream().map(this::invoiceView).toList();
         var paymentViews=rows.stream().flatMap(i->payments.findByInvoiceIdOrderByCreatedAtDescIdDesc(i.id()).stream())
             .map(p->new PaymentView(p.id(),p.tenantId(),p.invoiceId(),p.provider(),p.providerPaymentReference(),p.amount(),p.currency(),p.status(),p.createdAt(),p.confirmedAt())).toList();
         return new BillingHistory(invoiceViews,paymentViews);
+    }
+    @Override
+    @Transactional(readOnly=true)
+    public InvoiceView mockInvoice(long subscriptionId,long invoiceId){
+        requireRead();
+        var subscription=subscriptions.findById(subscriptionId)
+            .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Subscription invoice unavailable"));
+        return scopedMockInvoice(invoiceId,subscription.id(),subscription.tenantId());
+    }
+
+    private InvoiceView scopedMockInvoice(long invoiceId,long subscriptionId,long tenantId){
+        return invoices.findByIdAndSubscriptionIdAndTenantId(invoiceId,subscriptionId,tenantId)
+            .filter(invoice->invoice.invoiceNumber().startsWith("MOCK-SUB-"))
+            .map(this::invoiceView)
+            .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Subscription invoice unavailable"));
+    }
+
+    private InvoiceView invoiceView(SubscriptionInvoiceRecord i){
+        return new InvoiceView(i.id(),i.tenantId(),i.subscriptionId(),i.invoiceNumber(),i.periodStart(),i.periodEnd(),i.currency(),i.status(),i.subtotal(),i.taxAmount(),i.total(),i.dueAt(),i.issuedAt(),i.mockNextAttemptAt());
     }
     private SubscriptionPlanVersion planVersion(long planId,int version){var key=new SubscriptionPlanVersion.Key();key.planId=planId;key.version=version;return versions.findById(key).orElseThrow(()->new ResponseStatusException(CONFLICT,"Historical subscription plan version unavailable"));}
     private SubscriptionView view(TenantSubscription s){var tenant=tenants.get(s.tenantId());var p=plans.findById(s.planId()).orElse(null);return new SubscriptionView(s.id(),s.tenantId(),tenant.name(),s.planId(),p==null?"":p.planKey(),p==null?"":p.displayName(),s.planVersion(),s.status(),s.periodStart(),s.periodEnd(),s.graceUntil(),s.termsSnapshot(),s.createdAt(),s.version(),administrativeTransitions(s.status()));}

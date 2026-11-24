@@ -1,6 +1,12 @@
 package com.saumya.pos.platform;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.saumya.pos.documents.MockSubscriptionInvoicePdf;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.subscription.TenantSubscriptionService;
 import jakarta.validation.Valid;
@@ -42,4 +48,16 @@ public class PlatformTenantSubscriptionController {
     }
     @GetMapping("/subscriptions/{id}/events") @PreAuthorize("hasAuthority('PLATFORM_SUBSCRIPTION_VIEW')") public Object events(@PathVariable long id){actor("PLATFORM_SUBSCRIPTION_VIEW");return subscriptions.events(id);}
     @GetMapping("/subscriptions/{id}/billing-history") @PreAuthorize("hasAuthority('PLATFORM_SUBSCRIPTION_VIEW')") public Object billing(@PathVariable long id){actor("PLATFORM_SUBSCRIPTION_VIEW");return subscriptions.billingHistory(id);}
+    @GetMapping("/subscriptions/{id}/invoices/{invoiceId}/document")
+    @PreAuthorize("hasAuthority('PLATFORM_SUBSCRIPTION_VIEW')")
+    public ResponseEntity<byte[]> invoiceDocument(@PathVariable long id,@PathVariable long invoiceId){
+        actor("PLATFORM_SUBSCRIPTION_VIEW");
+        var invoice=subscriptions.mockInvoice(id,invoiceId);
+        return ResponseEntity.ok()
+            .cacheControl(CacheControl.noStore())
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION,ContentDisposition.attachment()
+                .filename("mock-subscription-invoice-"+invoice.id()+".pdf").build().toString())
+            .body(MockSubscriptionInvoicePdf.render(invoice));
+    }
 }

@@ -1219,6 +1219,12 @@
       "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
+    "PlatformTenantSubscriptionController#invoiceDocument": {
+      "actor": "PLATFORM",
+      "scope": "PLATFORM_SUBSCRIPTION_AND_TENANT",
+      "assignment": "PLATFORM_SUBSCRIPTION_PERMISSION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
     "ReportExportController#sales": {
       "actor": "VENDOR",
       "scope": "TENANT_BRANCH_REPORT",

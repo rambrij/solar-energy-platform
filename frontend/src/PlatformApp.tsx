@@ -8,7 +8,7 @@ type Page='dashboard'|'tenants'|'plans'|'audit'|'support'|'configuration'|'ident
 type Tenant={id:number;slug:string;name:string;legalName:string;lifecycleStatus:string;contactEmail?:string|null;contactPhone?:string|null;taxIdentifier?:string|null;address?:string|null;initialVendorAdminUsername?:string|null;termsAcceptedAt?:string|null;createdAt:string;onlineBranchId?:number|null};
 const emptyTenantForm={slug:'',name:'',legalName:'',contactEmail:'',contactPhone:'',taxIdentifier:'',address:'',initialVendorAdminUsername:'',termsAccepted:false};
 type TenantPage={items:Tenant[];totalElements:number;totalPages:number;page:number};
-type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;trialEligible:boolean;graceDays:number;taxMetadata:string;invoiceDescription:string;createdAt:string};
+type PlanVersion={version:number;price:string;currency:string;billingInterval:string;maxUsers:number;maxStorageMb:number;maxBranches:number;maxWarehouses:number;entitlements:string;trialEligible:boolean;graceDays:number;taxMetadata:string;invoiceDescription:string;createdBy:string;createdAt:string};
 type Plan={id:number;planKey:string;displayName:string;active:boolean;currentVersion:number;versions:PlanVersion[]};
 type StatusCount={status:string;count:number};
 type Dashboard={tenantStatuses:StatusCount[];subscriptionStatuses:StatusCount[]};
@@ -295,7 +295,22 @@ export default function PlatformApp(){
       </form>
      </section>}
      {(can('PLATFORM_PLAN_MANAGE')||can('PLATFORM_SUBSCRIPTION_VIEW'))&&<section className="platform-panel"><div className="platform-panel-heading"><h2>Plan catalogue</h2><button className="secondary" onClick={()=>void load('plans')}>Refresh</button></div>
-      {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><span key={v.version}>v{v.version} · {v.currency} {v.price} · {v.billingInterval}{v.trialEligible&&' · Trial eligible'}</span>)}</div>{can('PLATFORM_PLAN_MANAGE')&&<><button type="button" className="secondary" disabled={busy} onClick={()=>editPlan(plan)}>Revise plan</button><button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button></>}</article>)}
+      {plans.map(plan=><article className="platform-plan-card" key={plan.id}><div><h3>{plan.displayName} <small>({plan.planKey})</small></h3><p>{plan.active?'Available for new subscriptions':'Inactive'} · Current version {plan.currentVersion}</p></div><div className="platform-plan-versions">{plan.versions.map(v=><details key={v.version} className="platform-plan-version">
+       <summary>v{v.version} · {v.currency} {v.price} · {v.billingInterval}{v.trialEligible&&' · Trial eligible'}</summary>
+       <dl>
+        <div><dt>Users</dt><dd>{v.maxUsers}</dd></div>
+        <div><dt>Storage</dt><dd>{v.maxStorageMb} MB</dd></div>
+        <div><dt>Branches</dt><dd>{v.maxBranches}</dd></div>
+        <div><dt>Warehouses</dt><dd>{v.maxWarehouses}</dd></div>
+        <div><dt>Grace period</dt><dd>{v.graceDays} days</dd></div>
+        <div><dt>Trial eligible</dt><dd>{v.trialEligible?'Yes':'No'}</dd></div>
+        <div><dt>Invoice description</dt><dd>{v.invoiceDescription}</dd></div>
+        <div><dt>Published by</dt><dd>{v.createdBy}</dd></div>
+        <div><dt>Published at</dt><dd><time dateTime={v.createdAt}>{new Date(v.createdAt).toLocaleString()}</time></dd></div>
+       </dl>
+       <details><summary>Feature entitlements</summary><pre>{v.entitlements}</pre></details>
+       <details><summary>Tax metadata</summary><pre>{v.taxMetadata}</pre></details>
+      </details>)}</div>{can('PLATFORM_PLAN_MANAGE')&&<><button type="button" className="secondary" disabled={busy} onClick={()=>editPlan(plan)}>Revise plan</button><button className="secondary" onClick={()=>void run(()=>platformApi(`/subscription-plans/${plan.id}/active`,'PATCH',{active:!plan.active}),'Plan availability updated.')}>{plan.active?'Disable':'Enable'} plan</button></>}</article>)}
      </section>}
     </>}
     {page==='audit'&&can('PLATFORM_AUDIT_VIEW')&&<PlatformAudit/>}

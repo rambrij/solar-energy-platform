@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import PlatformApp from './PlatformApp';
 import {useSession} from './session';
@@ -95,12 +95,29 @@ describe('PlatformApp',()=>{
   await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/tenants/12','PATCH',
    expect.objectContaining({contactPhone:'5550100',termsAccepted:true})));
  });
- it('renders historic plan versions as separate records',async()=>{
-  vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?[{id:1,planKey:'starter',displayName:'Starter',active:true,currentVersion:2,versions:[{version:2,currency:'INR',price:'999',billingInterval:'MONTHLY'},{version:1,currency:'INR',price:'799',billingInterval:'MONTHLY'}]}]:{tenantStatuses:[]});
+ it('shows the saved terms for each historical plan version',async()=>{
+  const shared={currency:'INR',billingInterval:'MONTHLY',maxStorageMb:1024,maxBranches:1,maxWarehouses:0,
+   taxMetadata:'{}',trialEligible:false,createdAt:'2026-11-01T12:00:00Z'};
+  const versions=[
+   {...shared,version:2,price:'999',maxUsers:10,graceDays:14,invoiceDescription:'New plan terms',
+    createdBy:'current@platform.test',entitlements:'{"features":{"POS":true}}'},
+   {...shared,version:1,price:'799',maxUsers:5,graceDays:7,invoiceDescription:'Original plan terms',
+    createdBy:'original@platform.test',entitlements:'{"features":{"POS":false}}'},
+  ];
+  vi.mocked(platformApi).mockImplementation(async(path)=>path==='/subscription-plans'?
+   [{id:1,planKey:'starter',displayName:'Starter',active:true,currentVersion:2,versions}]:{tenantStatuses:[]});
   render(<PlatformApp/>);
-  fireEvent.click(screen.getAllByRole('button',{name:/subscription plans/i})[0]);
-  expect(await screen.findByText('v2 · INR 999 · MONTHLY')).toBeTruthy();
-  expect(screen.getByText('v1 · INR 799 · MONTHLY')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:/subscription plans/i}));
+  const current=await screen.findByText('v2 · INR 999 · MONTHLY');
+  const original=screen.getByText('v1 · INR 799 · MONTHLY');
+  fireEvent.click(original);
+  const history=within(original.closest('details')!);
+  expect(history.getByText('Original plan terms')).toBeTruthy();
+  expect(history.getByText('original@platform.test')).toBeTruthy();
+  expect(history.getByText('7 days')).toBeTruthy();
+  expect(history.getByText('{"features":{"POS":false}}')).toBeTruthy();
+  expect(history.queryByText('New plan terms')).toBeNull();
+  expect(within(current.closest('details')!).getByText('14 days')).toBeTruthy();
  });
  it('prefills the current plan and submits a new version to the revision endpoint',async()=>{
   const current={version:2,price:'999',currency:'INR',billingInterval:'MONTHLY',maxUsers:5,maxStorageMb:1024,maxBranches:1,maxWarehouses:0,entitlements:'{"features":{"POS":true}}',trialEligible:true,graceDays:7,taxMetadata:'{}',invoiceDescription:'Starter subscription'};

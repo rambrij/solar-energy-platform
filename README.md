@@ -120,6 +120,8 @@ Flyway applies `backend/src/main/resources/db/migration/V1__base_schema.sql` to 
 
 Existing development databases using the previous migration history require a disposable local reset with `docker compose down -v` before startup. See [Clean Development Database Setup](docs/implementation/CLEAN_DEVELOPMENT_DATABASE.md).
 
+The grace-expiry worker adds an index and disabled audit identity to V1. An existing disposable database initialized with the earlier V1 checksum also requires a reset before running this build. Preserve any database you need to keep.
+
 ## Run backend and frontend directly
 
 This option uses the Compose MySQL service but runs Java and Vite on the host. Stop Compose's frontend and backend first to free host port 8080:

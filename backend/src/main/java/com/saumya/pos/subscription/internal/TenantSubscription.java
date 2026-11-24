@@ -26,4 +26,10 @@ public class TenantSubscription {
     public void transition(String next,Instant now,int graceDays){
         this.status=next;this.updatedAt=now;this.graceUntil="GRACE_PERIOD".equals(next)?now.plusSeconds(graceDays*86400L):null;
     }
+
+    public boolean expireGraceAt(Instant now) {
+        if (!"GRACE_PERIOD".equals(status) || graceUntil == null || graceUntil.isAfter(now)) return false;
+        transition("SUSPENDED", now, 0);
+        return true;
+    }
 }

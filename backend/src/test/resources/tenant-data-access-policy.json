@@ -66,6 +66,11 @@
       "trustedSource": "TenantSubscriptionServiceImpl.statusCounts requires the authenticated platform actor and PLATFORM_ANALYTICS_VIEW before querying. Only subscription status and row count are returned."
     },
     {
+      "operation": "TenantSubscriptionRepository#findTop100ByStatusAndGraceUntilLessThanEqualOrderByGraceUntilAscIdAsc",
+      "scope": "SYSTEM_SUBSCRIPTION_GRACE_EXPIRY",
+      "trustedSource": "Only the internal scheduled worker selects at most 100 expired GRACE_PERIOD subscriptions using the server clock and a write lock. No request parameters select records or set their scope."
+    },
+    {
       "operation": "TenantRepository#search",
       "scope": "PLATFORM_TENANT_DIRECTORY",
       "trustedSource": "Platform tenant directory search; no vendor-private records are returned."

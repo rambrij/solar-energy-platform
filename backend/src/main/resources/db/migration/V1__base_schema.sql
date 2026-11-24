@@ -434,6 +434,7 @@ CREATE TABLE `tenant_subscriptions` (
   UNIQUE KEY `uk_tenant_effective_subscription` (`active_tenant_id`),
   KEY `fk_subscription_plan_version` (`plan_id`,`plan_version`),
   KEY `ix_subscription_tenant_history` (`tenant_id`,`created_at` DESC,`id` DESC),
+  KEY `ix_subscription_grace_expiry` (`status`,`grace_until`,`id`),
   CONSTRAINT `fk_subscription_plan_version` FOREIGN KEY (`plan_id`, `plan_version`) REFERENCES `subscription_plan_versions` (`plan_id`, `version`),
   CONSTRAINT `fk_subscription_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
   CONSTRAINT `chk_subscription_status` CHECK ((`status` in ('PENDING','ACTIVE','PAST_DUE','GRACE_PERIOD','SUSPENDED','CANCEL_AT_PERIOD_END','CANCELLED','EXPIRED')))
@@ -1245,6 +1246,10 @@ INSERT INTO catalog_sequences (name, next_id) VALUES ('CATEGORY', 1), ('PRODUCT'
 INSERT INTO tenant_sequences (id, next_id) VALUES (1, 1);
 
 INSERT INTO identity_sequence (id, next_id) VALUES (1, 1);
+
+-- Non-login system identity preserves the existing subscription audit actor foreign key.
+INSERT INTO users (id, username, password_hash, enabled)
+VALUES (0, 'system:subscription-grace-expiry', '!', FALSE);
 
 /*!80000 CREATE TRIGGER `trg_platform_audit_no_update` BEFORE UPDATE ON `platform_audit_events` FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Platform audit events are immutable' */;
 

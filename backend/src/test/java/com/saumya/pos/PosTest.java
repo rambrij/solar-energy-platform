@@ -280,9 +280,10 @@ class PosTest {
  }
 
  @Test void guestBuyerSnapshotsArePrivateTransactionFactsAndNeverCreateAccounts()throws Exception{
+  int identitiesBefore=db.queryForObject("SELECT COUNT(*) FROM users",Integer.class);
   var buyer=new com.saumya.pos.checkout.BuyerDetailsPolicy.Input("Private walk-in buyer","private-contact","PRIVATE-TAX","Private street");
   var receipt=as("alice", () -> checkout.cashSale("alice","guest-buyer",new CheckoutService.CashSale(session,List.of(new CheckoutService.Item(1,1)),new BigDecimal("120"),false,null,buyer)));String id=(String)receipt.get("id");assertThat(receipt.get("buyer")).isEqualTo(buyer);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM users",Integer.class)).isEqualTo(2);assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM users",Integer.class)).isEqualTo(identitiesBefore);assertThat(db.queryForObject("SELECT COUNT(*) FROM customer_profiles",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();
   mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isOk()).andExpect(jsonPath("$.buyer.name").value("Private walk-in buyer")).andExpect(jsonPath("$.buyer.taxId").value("PRIVATE-TAX"));
   var denied=mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("bob").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isNotFound()).andReturn();assertThat(denied.getResponse().getContentAsString()).doesNotContain("Private walk-in buyer","PRIVATE-TAX");
   mvc.perform(get("/api/v1/vendor/pos/receipts/"+id).with(user("alice").authorities(()->"POS_VIEW"))).andExpect(status().isForbidden());assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='BUYER_SNAPSHOT_VIEW'",Integer.class)).isEqualTo(2);assertThat(db.queryForList("SELECT * FROM pos_audit").toString()).doesNotContain("private-contact","PRIVATE-TAX");

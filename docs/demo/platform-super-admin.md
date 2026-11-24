@@ -46,6 +46,7 @@ Tenant activation and subscription activation are separate. The Platform actor h
 1. In **Subscription plans**, enter the price, currency, billing period, limits, and feature entitlements. Save the first version.
 2. Use **Revise plan** to edit the current terms and save a new version. Older terms remain in the catalogue and existing subscription records keep their version. Use **Enable plan** or **Disable plan** to manage availability for new subscriptions.
 3. Use the top **Tenant subscriptions** link. Choose a tenant, plan, billing dates, and reason to create a pending subscription. Open **Billing and events** to see history and permitted administrative transitions. Activation requires a verified platform payment event. The vendor checkout mock does not activate platform subscriptions.
+4. A subscription in **Grace period** shows its deadline. Once that deadline passes, vendor writes lose their grace entitlement and the background worker records **Suspended** in billing events. The worker leaves the vendor's tenant lifecycle and existing records intact.
 
 **Overview** shows platform health, tenant lifecycle totals, and subscription counts by status. Use **Platform audit** for administrative events. The dashboard counts do not include tenant-private transaction details.
 

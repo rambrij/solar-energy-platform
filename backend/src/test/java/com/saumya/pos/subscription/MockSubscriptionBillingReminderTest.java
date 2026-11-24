@@ -21,7 +21,8 @@ class MockSubscriptionBillingReminderTest {
         var environment = new MockEnvironment();
         environment.setActiveProfiles("local");
         var template = mock(GraceReminderTemplate.class);
-        when(template.load()).thenReturn(new GraceReminderTemplate.Wording("Custom reminder", "Check your billing."));
+        when(template.load()).thenReturn(java.util.Optional.of(new GraceReminderTemplate.Wording("Custom reminder", "Check your billing.")),
+            java.util.Optional.empty());
         var reminder = new MockSubscriptionBillingReminder(provider, environment, template);
         var deadline = Instant.parse("2026-11-30T12:00:00Z");
 
@@ -30,6 +31,8 @@ class MockSubscriptionBillingReminderTest {
             reminder.afterCommit("vendor@example.test", "MOCK-SUB-12", deadline);
             verifyNoInteractions(mail, template);
             TransactionSynchronizationManager.getSynchronizations().forEach(callback -> callback.afterCommit());
+            reminder.afterCommit("vendor@example.test", "MOCK-SUB-13", deadline);
+            TransactionSynchronizationManager.getSynchronizations().getLast().afterCommit();
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }

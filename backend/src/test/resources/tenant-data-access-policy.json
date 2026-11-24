@@ -528,10 +528,12 @@
       "source": "com/saumya/pos/platform/PlatformGraceReminderTemplate.java",
       "repository": "PlatformConfigurationRepository#findById",
       "scope": "LOCAL_MOCK_SUBSCRIPTION_GRACE_TEMPLATE",
-      "authority": "The mock billing reminder reads one fixed platform configuration key after commit in the local profile. It ignores sensitive entries and accepts no caller-supplied key or tenant scope.",
+      "authority": "The mock billing reminder reads fixed platform adapter and template keys after commit in the local profile. It ignores sensitive entries and accepts no caller-supplied key or tenant scope.",
       "evidence": [
         "settings.findById(KEY)",
+        "settings.findById(ADAPTER_KEY)",
         "EMAIL_TEMPLATE.MOCK_SUBSCRIPTION_GRACE",
+        "INTEGRATION.MOCK_SUBSCRIPTION_MAIL.ADAPTER",
         "!entry.sensitive()"
       ]
     },

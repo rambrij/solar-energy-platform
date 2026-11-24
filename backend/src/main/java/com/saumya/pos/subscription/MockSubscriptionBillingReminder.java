@@ -35,8 +35,9 @@ class MockSubscriptionBillingReminder {
                     message.setFrom("platform-billing@somya.local");
                     message.setTo(recipient);
                     var wording=template.load();
-                    message.setSubject(wording.subject());
-                    message.setText(wording.body()+"\n\nMock invoice "+invoice+" is unpaid. The local test grace period ends "+graceUntil+
+                    if(wording.isEmpty())return;
+                    message.setSubject(wording.get().subject());
+                    message.setText(wording.get().body()+"\n\nMock invoice "+invoice+" is unpaid. The local test grace period ends "+graceUntil+
                         ". This is a simulation and no funds were collected.");
                     sender.send(message);
                 }catch(RuntimeException ex){

@@ -55,6 +55,16 @@ describe('PlatformApp',()=>{
   await screen.findByText('No audit events on this page.');
   expect(platformApi).toHaveBeenLastCalledWith('/audit?page=0&size=50');
  });
+ it('disables mock subscription reminders through the platform configuration endpoint',async()=>{
+  window.history.replaceState({},'','/platform#configuration');
+  render(<PlatformApp/>);
+  fireEvent.click(screen.getByRole('button',{name:'Configure Mock subscription reminder adapter'}));
+  fireEvent.change(screen.getByLabelText('Mock subscription reminder adapter'),{target:{value:'DISABLED'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save configuration'}));
+  await waitFor(()=>expect(platformApi).toHaveBeenCalledWith('/configuration','PUT',expect.objectContaining({
+   key:'INTEGRATION.MOCK_SUBSCRIPTION_MAIL.ADAPTER',category:'INTEGRATION',value:'DISABLED',sensitive:false,
+  })));
+ });
  it('shows tenant onboarding and submits the initial Vendor Admin details',async()=>{
   vi.mocked(platformApi).mockImplementation(async(path)=>{
    if(path.startsWith('/tenants?'))return {items:[],totalElements:0,totalPages:0,page:0};

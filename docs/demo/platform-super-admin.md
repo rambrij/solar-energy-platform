@@ -101,6 +101,10 @@ SUBSCRIPTIONS_MOCK_BILLING_RETRY_SECONDS=120
 
 Mock invoices use zero tax for the simulation, charge no funds, and are unsuitable for statutory or customer billing use. Production tax, retry, and provider settings still require approval.
 
+### Switch mock subscription reminder delivery
+
+Open **Configuration → Integration adapter settings → Configure Mock subscription reminder adapter**. Choose **Local Mailpit SMTP** or **Disabled** and save. The next committed mock grace reminder uses the saved setting immediately. Turning off delivery leaves the mock payment retries and MFA notices running. Turning it back on applies to future reminders.
+
 ### Customize the mock grace reminder
 
 In **Configuration**, choose **Email templates**, enter the key `MOCK_SUBSCRIPTION_GRACE`, and save a subject and plain-text body. The next grace notice uses the saved wording without a backend restart. If no usable template exists, the application uses its default wording. It always appends the mock invoice reference, grace deadline, and simulation notice. Open Mailpit to see the result after a new subscription's first failed mock attempt.

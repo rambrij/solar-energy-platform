@@ -74,6 +74,21 @@ class PlatformConfigurationServiceTest {
         assertThat(saved.value()).isNull();
     }
 
+    @Test void mockSubscriptionAdapterAcceptsOnlyLocalDeliveryModesAndAuditsChanges(){
+        var service=service();
+        String key=PlatformGraceReminderTemplate.ADAPTER_KEY;
+        assertThatThrownBy(()->service.put(new PlatformConfigurationService.Update(
+            key,"INTEGRATION","LIVE",false,null),"admin",null)).isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(repository,audit);
+
+        when(repository.saveAndFlush(any())).thenAnswer(inv->inv.getArgument(0));
+        var saved=service.put(new PlatformConfigurationService.Update(
+            key,"INTEGRATION","DISABLED",false,null),"admin","trace");
+        assertThat(saved.value()).isEqualTo("DISABLED");
+        verify(audit).record("admin","PLATFORM_CONFIGURATION_UPDATED","CONFIGURATION",key,null,
+            "Configuration updated","trace");
+    }
+
     @Test void configurationWritesRequirePlatformGrantBeforeRepositoryOrAuditAccess(){
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("vendor","n/a",
             java.util.List.of(new SimpleGrantedAuthority("VENDOR_AUDIT_VIEW"),new SimpleGrantedAuthority(com.saumya.pos.security.AuthorizationContext.ACTOR_CONTEXT_VENDOR))));

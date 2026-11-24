@@ -47,9 +47,9 @@ public class PlatformConfigurationServiceImpl implements PlatformConfigurationSe
         if(key.startsWith("PAYMENT_PROVIDER.")||category.equalsIgnoreCase("PAYMENT_PROVIDER")){
             validatePaymentProvider(key,category,value,update.sensitive());
         }
-        if(key.equals(LocalPlatformMfaMail.ADAPTER_KEY)
+        if((key.equals(LocalPlatformMfaMail.ADAPTER_KEY)||key.equals(PlatformGraceReminderTemplate.ADAPTER_KEY))
             &&(!category.equals("INTEGRATION")||update.sensitive()||!("SMTP".equals(value)||"DISABLED".equals(value))))
-            throw new ResponseStatusException(BAD_REQUEST,"Platform MFA mail adapter must be SMTP or DISABLED");
+            throw new ResponseStatusException(BAD_REQUEST,"Local platform mail adapter must be SMTP or DISABLED");
         var entry=repository.findById(key).orElse(null);
         if(entry==null)entry=repository.saveAndFlush(new PlatformConfigurationEntry(key,category,value,ref,update.sensitive(),actor,clock.instant()));
         else entry.update(category,value,ref,update.sensitive(),actor,clock.instant());

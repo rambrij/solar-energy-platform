@@ -5,12 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saumya.pos.platform.internal.PlatformConfigurationEntry;
 import com.saumya.pos.platform.internal.PlatformConfigurationRepository;
 import com.saumya.pos.subscription.GraceReminderTemplate;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 class PlatformGraceReminderTemplate implements GraceReminderTemplate {
+    static final String ADAPTER_KEY = "INTEGRATION.MOCK_SUBSCRIPTION_MAIL.ADAPTER";
     static final String KEY = "EMAIL_TEMPLATE.MOCK_SUBSCRIPTION_GRACE";
     static final Wording DEFAULT = new Wording("Test subscription payment failed",
         "A simulated subscription payment could not be completed.");
@@ -25,12 +27,18 @@ class PlatformGraceReminderTemplate implements GraceReminderTemplate {
 
     @Override
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
-    public Wording load() {
-        return settings.findById(KEY)
+    public Optional<Wording> load() {
+        var adapter = settings.findById(ADAPTER_KEY);
+        if (adapter.isPresent() && adapter.filter(entry ->
+            "INTEGRATION".equals(entry.category()) && !entry.sensitive() && "SMTP".equals(entry.plainValue())).isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(settings.findById(KEY)
             .filter(entry -> "EMAIL_TEMPLATE".equals(entry.category()) && !entry.sensitive())
             .map(PlatformConfigurationEntry::plainValue)
             .map(this::parse)
-            .orElse(DEFAULT);
+            .orElse(DEFAULT));
     }
 
     private Wording parse(String value) {

@@ -142,6 +142,7 @@ CREATE TABLE `catalog_discount_policy` (
 CREATE TABLE `customer_profiles` (
   `id` bigint NOT NULL,
   `user_id` bigint NOT NULL,
+  `display_name` varchar(120) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   CONSTRAINT `customer_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)

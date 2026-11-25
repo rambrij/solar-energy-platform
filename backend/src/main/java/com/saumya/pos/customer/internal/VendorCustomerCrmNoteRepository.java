@@ -4,22 +4,18 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface VendorCustomerCrmNoteRepository extends JpaRepository<VendorCustomerCrmNote,Long> {
     @Query("""
         select note from VendorCustomerCrmNote note
-        where note.tenantId = :tenantId and note.tenantCustomerId = :relationshipId
+        where note.tenantId = ?1 and note.tenantCustomerId = ?2
         order by note.createdAt desc, note.id desc
         """)
-    List<VendorCustomerCrmNote> findNotesForRelationship(
-        @Param("tenantId") long tenantId, @Param("relationshipId") String relationshipId);
+    List<VendorCustomerCrmNote> findNotesForRelationship(long tenantId,String relationshipId);
 
     @Query("""
         select note from VendorCustomerCrmNote note
-        where note.tenantId = :tenantId and note.tenantCustomerId = :relationshipId and note.id = :noteId
+        where note.tenantId = ?1 and note.tenantCustomerId = ?2 and note.id = ?3
         """)
-    Optional<VendorCustomerCrmNote> findNoteForRelationship(
-        @Param("tenantId") long tenantId, @Param("relationshipId") String relationshipId,
-        @Param("noteId") long noteId);
+    Optional<VendorCustomerCrmNote> findNoteForRelationship(long tenantId,String relationshipId,long noteId);
 }

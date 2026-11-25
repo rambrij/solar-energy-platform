@@ -2565,7 +2565,7 @@
     },
     "StockReceiving.tsx:14": {
       "fn": "vendorApi",
-      "argument": "kind==='products'?`/products?page=${page}&size=20`:`/inventory/receipts?page=${page}&size=20${productFilter?`&productId=${encodeURIComponent(productFilter)}`: ''}`",
+      "argument": "kind==='products'?`/products?page=${page}&size=20${filter?`&q=${encodeURIComponent(filter)}`:''}`:`/inventory/receipts?page=${page}&size=20${filter?`&productId=${encodeURIComponent(filter)}`: ''}`",
       "actions": [
         "pos-stock-products-list",
         "pos-stock-list"

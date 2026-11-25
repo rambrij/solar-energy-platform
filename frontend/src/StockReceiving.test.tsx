@@ -37,3 +37,30 @@ it('applies the product filter to receipt history and keeps it when paging',asyn
  fireEvent.click(screen.getByText('Load stock receipt history'));
  await waitFor(()=>expect(vendorApi).toHaveBeenLastCalledWith('/inventory/receipts?page=0&size=20&productId=8'));
 });
+
+it('searches receiving products across pages and retains the selected product identity',async()=>{
+ vi.mocked(vendorApi).mockImplementation(async(path,method)=>{
+  if(method==='POST')return {id:'receipt-7',quantity:1,availableAfter:5};
+  if(path.includes('page=1'))return {items:[{id:8,name:'Second panel',sku:'P8',published:true}],page:1,totalPages:2};
+  return {...products,totalPages:2};
+ });
+ render(<StockReceiving/>);
+ const search=screen.getByLabelText('Search receiving products by name, SKU, or barcode');
+ fireEvent.change(search,{target:{value:' Panel & cable '}});
+ fireEvent.click(screen.getByText('Load products for receiving'));
+ await screen.findByRole('option',{name:'Panel (P7) - unpublished'});
+ expect(vendorApi).toHaveBeenLastCalledWith('/products?page=0&size=20&q=Panel%20%26%20cable');
+ const product=screen.getByLabelText('Receiving product') as HTMLSelectElement;
+ fireEvent.change(product,{target:{value:'7'}});
+ fireEvent.change(search,{target:{value:'Unsubmitted search'}});
+ fireEvent.click(screen.getByRole('button',{name:'Next receiving products'}));
+ await screen.findByRole('option',{name:'Second panel (P8)'});
+ expect(vendorApi).toHaveBeenLastCalledWith('/products?page=1&size=20&q=Panel%20%26%20cable');
+ expect(product.value).toBe('7');
+ expect(product.selectedOptions[0].textContent).toContain('Panel (P7)');
+ fireEvent.change(screen.getByLabelText('Stock receiving reason'),{target:{value:'Delivery'}});
+ fireEvent.click(screen.getByRole('button',{name:'Record stock receipt'}));
+ await screen.findByText(/Stock receipt receipt-7/);
+ expect(vendorApi).toHaveBeenLastCalledWith('/inventory/receipts','POST',
+  {productId:7,quantity:1,reason:'Delivery'},expect.any(String));
+});

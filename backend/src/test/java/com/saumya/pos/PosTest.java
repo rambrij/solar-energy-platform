@@ -3911,8 +3911,11 @@ class PosTest {
    return receipt==null?"1":receipt.toString();
   }
   if(route.contains("/vendor/customers/{relationshipId}/crm-notes")){
-   String relationship=db.queryForObject("SELECT id FROM tenant_customers WHERE tenant_id=910001 AND customer_id=949001",String.class);
-   return relationship==null?"550e8400-e29b-41d4-a716-446655440000":relationship;
+   if(key.equals("relationshipId")){
+    String relationship=db.queryForObject("SELECT id FROM tenant_customers WHERE tenant_id=910001 AND customer_id=949001",String.class);
+    return relationship==null?"550e8400-e29b-41d4-a716-446655440000":relationship;
+   }
+   if(key.equals("noteId"))return "1";
   }
   if(route.contains("/vendor/products/{id}")){
    Long product=db.queryForObject("SELECT MIN(id) FROM products WHERE tenant_id=910001",Long.class);

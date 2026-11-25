@@ -8,11 +8,12 @@ public interface ProductRepository extends JpaRepository<Product,Long> {
     org.springframework.data.domain.Page<Product> findByTenantIdOrderByNameAscIdAsc(long tenant,org.springframework.data.domain.Pageable page);
     @Query("""
         select p from Product p
-        where p.tenantId=:tenant and (locate(:query,lower(p.name))>0
+        where p.tenantId=:tenant and (:published is null or p.published=:published)
+            and (:query is null or locate(:query,lower(p.name))>0
             or locate(:query,lower(p.sku))>0 or locate(:query,lower(p.barcode))>0)
         order by p.name asc,p.id asc
         """)
-    org.springframework.data.domain.Page<Product> search(long tenant,String query,org.springframework.data.domain.Pageable page);
+    org.springframework.data.domain.Page<Product> search(long tenant,String query,Boolean published,org.springframework.data.domain.Pageable page);
     boolean existsByTenantIdAndSkuAndIdNot(long tenant,String sku,long id);
     boolean existsByTenantIdAndBarcodeAndIdNot(long tenant,String barcode,long id);
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select p from Product p where p.tenantId=:tenant and p.id=:id") Optional<Product> locked(long tenant,long id);

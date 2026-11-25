@@ -29,6 +29,6 @@ class PlatformAdminAuthorizationTest {
     }
     @Test void platformIdentityCannotUseVendorCatalogueControllerEvenWithCreateGrant(){
         var controller=new ProductAdminController(null,context("PLATFORM_TENANT_CREATE"));
-        assertThatThrownBy(()->controller.list(0,20,"panel")).isInstanceOf(ResponseStatusException.class).hasMessageContaining("Active vendor membership required");
+        assertThatThrownBy(()->controller.list(0,20,"panel",false)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("Active vendor membership required");
     }
 }

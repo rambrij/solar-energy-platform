@@ -24,12 +24,13 @@ public class ProductAdminController {
     public Object list(
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
-        @RequestParam(name = "q", required = false) String query
+        @RequestParam(name = "q", required = false) String query,
+        @RequestParam(required = false) Boolean published
     ) {
         var ctx = authContext.current();
         ctx.requireVendorMembership();
-        return query == null || query.isBlank() ? products.list(ctx.tenantId(), page, size)
-            : products.search(ctx.tenantId(), page, size, query);
+        return published == null && (query == null || query.isBlank()) ? products.list(ctx.tenantId(), page, size)
+            : products.search(ctx.tenantId(), page, size, query, published);
     }
     
     @PostMapping

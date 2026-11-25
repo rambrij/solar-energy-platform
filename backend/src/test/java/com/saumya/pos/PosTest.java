@@ -403,6 +403,15 @@ class PosTest {
    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   mvc.perform(get(path).param("q","%").with(user("alice").authorities(()->"PRODUCT_VIEW")))
    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  update("INSERT INTO products(id,tenant_id,sku,name,price,tax_rate,published) VALUES(3,1,'DRAFT','Panel draft',100,0,FALSE),(4,2,'OTHER-DRAFT','Panel other tenant',100,0,FALSE)");
+  mvc.perform(get(path).param("published","false").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(3));
+  mvc.perform(get(path).param("q","panel").param("published","true").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(1));
+  mvc.perform(get(path).param("q","private").param("published","false").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("published","unknown").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isBadRequest());
  }
 
  @Test void productPriceViewRequiresSeparatePermission() throws Exception {

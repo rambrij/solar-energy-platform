@@ -747,7 +747,7 @@ class PosTest {
   configureOnline();var draft=onlineDraft("receipt-security");String path="/api/v1/customer/orders/"+draft.id();
   mvc.perform(get(path+"/receipt").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path+"/receipt").with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isForbidden());mvc.perform(get(path+"/receipt").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   var attempt=asCustomer("customer", () -> payments.start("customer",draft.id(),"CARD"));asCustomer("customer", () -> payments.confirm("customer",draft.id(),attempt.attemptId()));
-  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(300,'other-buyer','unused',TRUE)");update("INSERT INTO customer_profiles VALUES(300,300)");mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(300,'other-buyer','unused',TRUE)");update("INSERT INTO customer_profiles(id,user_id) VALUES(300,300)");mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   mvc.perform(post(path+"/receipt-copy").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isForbidden());
   mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{\"tenantId\":2}")).andExpect(status().isBadRequest());
   mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isOk()).andExpect(jsonPath("$.copy").value(true)).andExpect(jsonPath("$.paymentMethod").value("MOCK_CARD")).andExpect(jsonPath("$.seller").value("Vendor A"));
@@ -1421,6 +1421,11 @@ class PosTest {
   String update="{\"displayName\":\"Primary Customer\",\"customerId\":101,\"tenantId\":2,\"actorType\":\"VENDOR\",\"role\":\"PLATFORM_ADMIN\"}";
   mvc.perform(put("/api/v1/customer/profile").with(bearer("customer","CustomerPassword"))
     .contentType("application/json").content(update))
+   .andExpect(status().isBadRequest());
+  assertThat(db.queryForObject("SELECT display_name FROM customer_profiles WHERE id=100",String.class)).isNull();
+  assertThat(db.queryForObject("SELECT display_name FROM customer_profiles WHERE id=101",String.class)).isNull();
+  mvc.perform(put("/api/v1/customer/profile").with(bearer("customer","CustomerPassword"))
+    .contentType("application/json").content("{\"displayName\":\"Primary Customer\"}"))
    .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(100))
    .andExpect(jsonPath("$.displayName").value("Primary Customer"));
   assertThat(db.queryForObject("SELECT display_name FROM customer_profiles WHERE id=100",String.class)).isEqualTo("Primary Customer");

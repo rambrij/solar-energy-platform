@@ -569,7 +569,12 @@
       "repository": "SubscriptionPlanVersionRepository#findById",
       "scope": "LOCAL_MOCK_BILLING_COMPOSITE_PLAN_VERSION",
       "authority": "The opted-in mock job reads the immutable global plan version identified by the locked subscription after checking tenant activity.",
-      "evidence": ["tenants.lockActive(subscription.tenantId())", "key.planId=subscription.planId()", "key.version=subscription.planVersion()", "versions.findById(key)"]
+      "evidence": [
+        "tenants.lockActive(subscription.tenantId())",
+        "key.planId=subscription.planId()",
+        "key.version=subscription.planVersion()",
+        "versions.findById(key)"
+      ]
     },
     {
       "source": "com/saumya/pos/subscription/TenantSubscriptionServiceImpl.java",
@@ -584,6 +589,17 @@
         "plans.findById(input.planId())",
         "subscriptions.findById(subscriptionId)",
         "plans.findById(s.planId())"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/identity/CustomerProfileService.java",
+      "repository": "CustomerRepository#findById",
+      "scope": "AUTHENTICATED_GLOBAL_CUSTOMER_PROFILE_ID",
+      "authority": "CustomerAccess.resolve requires an isolated authenticated CUSTOMER actor and exact principal username before returning the global profile ID. The update path locks that same principal-derived profile ID before reading and saving the profile.",
+      "evidence": [
+        "long id = access.resolve(username)",
+        "access.lock(id)",
+        "customers.findById(id)"
       ]
     }
   ],
@@ -855,12 +871,16 @@
   "trustedServiceTenantParameters": {
     "com.saumya.pos.subscription.TenantSubscriptionServiceImpl": {
       "trustedTenantParameters": {
-        "scopedMockInvoice": ["tenantId"]
+        "scopedMockInvoice": [
+          "tenantId"
+        ]
       }
     },
     "com.saumya.pos.subscription.MockSubscriptionBillingJob": {
       "trustedTenantParameters": {
-        "process": ["tenantId"]
+        "process": [
+          "tenantId"
+        ]
       }
     },
     "com.saumya.pos.cart.CartService": {

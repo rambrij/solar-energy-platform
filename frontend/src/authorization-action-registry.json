@@ -2705,13 +2705,6 @@
         "vendor-role-update"
       ]
     },
-    "VendorCustomerCrm.tsx:23": {
-      "fn": "vendorApi",
-      "argument": "'/customers/'+encodeURIComponent(selected)+'/crm-notes'",
-      "actions": [
-        "vendor-crm-note-list"
-      ]
-    },
     "VendorCustomerCrm.tsx:32": {
       "fn": "vendorApi",
       "argument": "path+'/'+editing.id",

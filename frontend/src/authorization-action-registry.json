@@ -39,7 +39,8 @@
         "customer-cart",
         "online-checkout",
         "saved-vendor-carts",
-        "customer-purchases"
+        "customer-purchases",
+        "customer-profile"
       ]
     },
     {
@@ -138,6 +139,13 @@
       "label": "Purchases",
       "items": [
         "customer-purchases"
+      ]
+    },
+    {
+      "id": "account",
+      "label": "Account",
+      "items": [
+        "customer-profile"
       ]
     }
   ],
@@ -276,6 +284,11 @@
       "id": "customer-purchases",
       "path": "/marketplace/purchases",
       "group": "Purchases"
+    },
+    {
+      "id": "customer-profile",
+      "path": "/marketplace/profile",
+      "group": "Account"
     }
   ],
   "tabs": [
@@ -1139,7 +1152,9 @@
       "trigger": "button",
       "method": "GET",
       "endpoint": "/api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document",
-      "permissions": ["PLATFORM_SUBSCRIPTION_VIEW"],
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_VIEW"
+      ],
       "actor": "PLATFORM",
       "implementationFile": "PlatformSubscriptions.tsx",
       "backendOperation": "GET /api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document"
@@ -2073,6 +2088,18 @@
       "method": "GET",
       "endpoint": "/api/v1/auth/me",
       "backendOperation": "GET /api/v1/auth/me"
+    },
+    {
+      "id": "customer-profile-read",
+      "component": "CustomerProfile.tsx",
+      "trigger": "load",
+      "backendOperation": "GET /api/v1/customer/profile"
+    },
+    {
+      "id": "customer-profile-update",
+      "component": "CustomerProfile.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/customer/profile"
     }
   ],
   "buttons": [

@@ -18,8 +18,8 @@ public class VendorCustomerCrmNote {
     @Version @Column(name="version",nullable=false) private long version;
 
     protected VendorCustomerCrmNote() {}
-    public VendorCustomerCrmNote(long tenantId,String tenantCustomerId,String noteText,String actor) {
-        this.tenantId=tenantId; this.tenantCustomerId=tenantCustomerId; this.noteText=noteText;
+    public VendorCustomerCrmNote(long tenantId,String relationshipId,String noteText,String actor) {
+        this.tenantId=tenantId; this.relationshipId=relationshipId; this.noteText=noteText;
         this.createdBy=actor; this.updatedBy=actor;
     }
     @PrePersist void beforeInsert() {
@@ -28,7 +28,7 @@ public class VendorCustomerCrmNote {
     @PreUpdate void beforeUpdate() { updatedAt=Instant.now(); }
     public void update(String value,String actor) { noteText=value; updatedBy=actor; }
     public Long id(){return id;}
-    public String tenantCustomerId(){return tenantCustomerId;}
+    public String relationshipId(){return relationshipId;}
     public String noteText(){return noteText;}
     public String createdBy(){return createdBy;}
     public String updatedBy(){return updatedBy;}

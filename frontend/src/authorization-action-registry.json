@@ -2619,6 +2619,18 @@
       "component": "CustomerProfile.tsx",
       "trigger": "submit",
       "backendOperation": "PUT /api/v1/customer/profile"
+    },
+    {
+      "id": "vendor-crm-note-create",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/customers/{customerId}/crm-notes"
+    },
+    {
+      "id": "vendor-crm-note-update",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}"
     }
   ],
   "dynamicRouteParameters": {

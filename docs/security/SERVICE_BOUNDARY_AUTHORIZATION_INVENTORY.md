@@ -44,7 +44,7 @@ No frontend changes or schema migrations are part of P0-02.
 | ReturnSaleAccess.read/lock/cashSale | repeated service-level POS_VIEW plus the relevant POS_RETURN_* or POS_REFUND_* permission set | `AuthorizationContext`-derived vendor membership, exact tenant/branch, and return/refund permission before order, item or policy repositories |
 | VendorCustomerService.associate | dedicated internal principal + `SYSTEM_CUSTOMER_ASSOCIATION`; exact principal and authority checked in service before repository access | only invoked by CustomerAssociationService.approve after customer identity, explicit consent, valid unexpired one-time challenge, owned in-store draft and open session are verified; original customer SecurityContext is restored in `finally` |
 | PosCatalogService.search/scan | POS_VIEW + service guard | caller tenant/branch must exactly match requested scope |
-| ProductAdminService.list/create/update | PRODUCT_VIEW/CREATE/UPDATE; vendor membership, tenant and actor checks; archive and price sub-permissions | authenticated tenant and actor |
+| ProductAdminService.list/search/create/update | PRODUCT_VIEW/CREATE/UPDATE; vendor membership, tenant and actor checks; archive and price sub-permissions | authenticated tenant and actor |
 | CategoryAdminService.list/create/update | PRODUCT_VIEW/CREATE/UPDATE; vendor membership, tenant and actor checks; archive sub-permission | authenticated tenant and actor |
 | PromotionHistoryService.history | POS_VIEW + CATALOG_PROMOTION_MANAGE + POS_DISCOUNT_APPROVE | authenticated tenant |
 | CheckoutReceiptService.receipt/reprint | POS_VIEW + POS_RECEIPT_VIEW; reprint additionally POS_RECEIPT_REPRINT | authenticated tenant/branch and POS scope |
@@ -196,7 +196,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | CategoryAdminService | list, create, update | Vendor membership, tenant, actor and PRODUCT_* permissions; archive sub-permission |
 | DiscountPolicyService | maximum, configure | Vendor membership, tenant and POS_VIEW/POS_DISCOUNT_OVERRIDE |
 | PosCatalogService | search, scan | POS_VIEW plus exact tenant/branch match |
-| ProductAdminService | list, create, update | Vendor membership, tenant, actor and PRODUCT_*; archive and PRICE_UPDATE sub-permissions |
+| ProductAdminService | list, search, create, update | Vendor membership, tenant, actor and PRODUCT_*; archive and PRICE_UPDATE sub-permissions |
 | ProductDetailService | detail | Public published-product projection |
 | PromotionHistoryService | history | POS_VIEW, CATALOG_PROMOTION_MANAGE and POS_DISCOUNT_APPROVE |
 | PromotionService | price, approve | price is scoped catalogue projection; approve requires vendor tenant, actor, CATALOG_PROMOTION_MANAGE and POS_DISCOUNT_APPROVE |

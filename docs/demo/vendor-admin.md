@@ -37,7 +37,7 @@ All three use the `VENDOR` actor and the persisted `VENDOR_ADMIN` role in their 
 
 ## Catalogue and inventory flow
 
-1. Open **Manage Products** and load the catalogue. Use a seeded product for the shortest demo, or create a product with a unique SKU, a valid price, and a change reason. If you want it visible in marketplace browsing, select **Published in vendor catalogue** and verify it on your vendor storefront.
+1. Open **Manage Products** and load the catalogue. Enter a name, SKU, or barcode to search the entire authorized catalogue, including unpublished products. The submitted term applies across pages. Use a seeded product for the shortest demo, or create a product with a unique SKU, a valid price, and a change reason. If you want it visible in marketplace browsing, select **Published in vendor catalogue** and verify it on your vendor storefront.
 2. Open **Receive Stock**. Select **Load products for receiving**, choose the product, enter a quantity and reason, and select **Record stock receipt**. Record the receipt ID shown after confirmation.
 3. Enter the product ID and select **Load stock receipt history** to narrow the receipt list. The product filter persists when paging and the server scopes every page to your assigned outlet.
 4. If the app reports an uncertain receipt outcome, use **Retry same stock receipt**. It sends the saved command with the same idempotency key. Avoid recording the delivery a second time as a new receipt.

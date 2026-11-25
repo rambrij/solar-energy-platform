@@ -23,11 +23,13 @@ public class ProductAdminController {
     @PreAuthorize("hasAuthority('PRODUCT_VIEW')")
     public Object list(
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestParam(name = "q", required = false) String query
     ) {
         var ctx = authContext.current();
         ctx.requireVendorMembership();
-        return products.list(ctx.tenantId(), page, size);
+        return query == null || query.isBlank() ? products.list(ctx.tenantId(), page, size)
+            : products.search(ctx.tenantId(), page, size, query);
     }
     
     @PostMapping

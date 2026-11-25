@@ -34,7 +34,22 @@ public class ProductAdminService {
  private View view(long tenant,Product p){var value=snapshot(tenant,p);return hasAuthority("PRICE_VIEW")?value:new View(value.id(),value.sku(),value.barcode(),value.name(),null,null,value.published(),value.categoryId(),value.version());}
  private void save(long tenant,String actor,Product p,Input q,String before){p.edit(q.sku().strip(),barcode(q),q.name().strip(),q.price(),q.taxRate(),q.published());em.flush();var key=new ProductCategory.Key(tenant,p.id());if(q.categoryId()==null)assignments.findById(key).ifPresent(assignments::delete);else assignments.saveAndFlush(new ProductCategory(tenant,p.id(),q.categoryId()));assignments.flush();events.saveAndFlush(new CatalogChangeEvent(tenant,actor,before.isEmpty()?"PRODUCT_CREATE":"PRODUCT_UPDATE",p.id(),q.reason().strip(),before,snapshot(tenant,p).toString(),clock.instant()));}
  @Transactional(readOnly=true) @PreAuthorize("hasAuthority('PRODUCT_VIEW')")
- public Page list(long tenant,int page,int size){authorize(tenant,null,"PRODUCT_VIEW");if(page<0||page>10000||size<1||size>100)throw new ResponseStatusException(BAD_REQUEST,"Bounded product pagination required");var rows=products.findByTenantIdOrderByNameAscIdAsc(tenant,org.springframework.data.domain.PageRequest.of(page,size));return new Page(rows.stream().map(p->view(tenant,p)).toList(),page,size,rows.getTotalElements(),rows.getTotalPages());}
+ public Page list(long tenant,int page,int size){
+  authorize(tenant,null,"PRODUCT_VIEW");
+  var rows=products.findByTenantIdOrderByNameAscIdAsc(tenant,pageRequest(page,size));
+  return new Page(rows.map(p->view(tenant,p)).getContent(),page,size,rows.getTotalElements(),rows.getTotalPages());
+ }
+ @Transactional(readOnly=true) @PreAuthorize("hasAuthority('PRODUCT_VIEW')")
+ public Page search(long tenant,int page,int size,String query){
+  authorize(tenant,null,"PRODUCT_VIEW");
+  if(query==null||query.isBlank()||query.length()>160)throw new ResponseStatusException(BAD_REQUEST,"Search must contain 1–160 characters");
+  var rows=products.search(tenant,query.strip().toLowerCase(java.util.Locale.ROOT),pageRequest(page,size));
+  return new Page(rows.map(p->view(tenant,p)).getContent(),page,size,rows.getTotalElements(),rows.getTotalPages());
+ }
+ private org.springframework.data.domain.PageRequest pageRequest(int page,int size){
+  if(page<0||page>10000||size<1||size>100)throw new ResponseStatusException(BAD_REQUEST,"Bounded product pagination required");
+  return org.springframework.data.domain.PageRequest.of(page,size);
+ }
  @Transactional @PreAuthorize("hasAuthority('PRODUCT_CREATE')")
  public View create(long tenant,String actor,Input q){var context=authorize(tenant,actor,"PRODUCT_CREATE");validate(q,true);long id=sequences.locked("PRODUCT").orElseThrow().allocate();unique(tenant,id,q);category(tenant,q);var p=new Product(id,tenant);p.edit(q.sku().strip(),barcode(q),q.name().strip(),q.price(),q.taxRate(),q.published());em.persist(p);save(tenant,actor,p,q,"");return view(tenant,p);}
  @Transactional @PreAuthorize("hasAuthority('PRODUCT_UPDATE')")

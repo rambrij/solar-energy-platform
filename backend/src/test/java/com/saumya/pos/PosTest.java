@@ -390,6 +390,21 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM product_categories WHERE product_id=1",Integer.class)).isZero();assertThat(db.queryForObject("SELECT version FROM products WHERE id=1",Long.class)).isGreaterThan(version);
   mvc.perform(put(path).with(csrf()).with(user("alice").authorities(()->"PRODUCT_UPDATE")).contentType("application/json").content(productBody("P1","123",version,true,"120",10L))).andExpect(status().isConflict());
  }
+ @Test void productAdminSearchIsTenantScopedAndKeepsPriceFieldsRedacted()throws Exception{
+  String path="/api/v1/vendor/products";
+  for(String term:List.of("pAnEl"," P1 ","123")){
+   var response=mvc.perform(get(path).param("q",term).with(user("alice").authorities(()->"PRODUCT_VIEW")))
+    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+    .andExpect(jsonPath("$.items[0].id").value(1)).andReturn();
+   assertThat(new com.fasterxml.jackson.databind.ObjectMapper()
+    .readTree(response.getResponse().getContentAsString()).path("items").get(0).path("price").isNull()).isTrue();
+  }
+  mvc.perform(get(path).param("q","Private").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("q","%").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+ }
+
  @Test void productPriceViewRequiresSeparatePermission() throws Exception {
   setEmployeeRolePermissions("alice",List.of("PRODUCT_VIEW"));
   var hidden=mvc.perform(get("/api/v1/vendor/products").with(user("alice").authorities(()->"PRODUCT_VIEW")))

@@ -279,7 +279,7 @@ test('P3-01: mobile navigation supports keyboard dismissal, focus restoration an
   await expect(active).toHaveAttribute('aria-current', 'page');
   await expect(active.locator('.navigation-current-text')).toHaveText('Current page');
   await page.keyboard.press('Shift+Tab');
-  await expect(navigation.getByRole('link', { name: 'Employees' })).toBeFocused();
+  await expect(navigation.getByRole('link', { name: 'Customers & CRM' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(close).toBeFocused();
   await page.keyboard.press('Escape');

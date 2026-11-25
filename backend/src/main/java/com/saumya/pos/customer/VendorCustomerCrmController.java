@@ -28,7 +28,7 @@ public class VendorCustomerCrmController {
 
     @GetMapping("/{relationshipId}/crm-notes")
     @PreAuthorize("hasAuthority('CRM_NOTE_VIEW')")
-    public List<VendorCustomerCrmService.CrmNote> notes(@PathVariable long relationshipId) {
+    public List<VendorCustomerCrmService.CrmNote> notes(@PathVariable String relationshipId) {
         return service.notes(relationshipId);
     }
 
@@ -36,14 +36,14 @@ public class VendorCustomerCrmController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('CRM_NOTE_CREATE')")
     public VendorCustomerCrmService.CrmNote createNote(
-        @PathVariable long relationshipId, @Valid @RequestBody NoteCreate request) {
+        @PathVariable String relationshipId, @Valid @RequestBody NoteCreate request) {
         return service.createNote(relationshipId, request.note(), request.reason());
     }
 
     @PutMapping("/{relationshipId}/crm-notes/{noteId}")
     @PreAuthorize("hasAuthority('CRM_NOTE_UPDATE')")
     public VendorCustomerCrmService.CrmNote updateNote(
-        @PathVariable long relationshipId, @PathVariable long noteId, @Valid @RequestBody NoteUpdate request) {
+        @PathVariable String relationshipId, @PathVariable long noteId, @Valid @RequestBody NoteUpdate request) {
         return service.updateNote(relationshipId, noteId, request.expectedVersion(), request.note(), request.reason());
     }
 }

@@ -159,7 +159,7 @@ it('moves focus into the mobile drawer, traps tab navigation and restores focus 
   expect(document.activeElement).toBe(close);
 
   fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
-  expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Your Purchases' }));
+  expect(document.activeElement).toBe(screen.getByRole('link', { name: 'My Profile' }));
   fireEvent.keyDown(document, { key: 'Tab' });
   expect(document.activeElement).toBe(close);
 

@@ -29,7 +29,7 @@ class LocalDemoFlywaySeedMySqlTest {
    assertThat(flyway.migrate().migrationsExecuted).isZero();
    JdbcTemplate db=new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(targetUrl,user,password));
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'standard:%'")).isEqualTo(15);
-   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(196);
+   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(204);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_role_assignments WHERE active=TRUE")).isEqualTo(15);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_register_assignments WHERE active=TRUE")).isEqualTo(9);
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_access_audit_events")).isGreaterThanOrEqualTo(39);

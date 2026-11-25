@@ -223,6 +223,11 @@
       "anyOf": [
         "CUSTOMER"
       ]
+    },
+    "customer-profile": {
+      "allOf": [
+        "CUSTOMER"
+      ]
     }
   },
   "controllerPolicies": {
@@ -266,7 +271,8 @@
     "RefundReportController": "VENDOR_POS_REFUND_REPORT_PERMISSION",
     "ReturnAuditController": "VENDOR_POS_RETURN_AUDIT_PERMISSION",
     "ReturnController": "VENDOR_POS_RETURN_PERMISSION",
-    "ReturnQueueController": "VENDOR_POS_RETURN_QUEUE_PERMISSION"
+    "ReturnQueueController": "VENDOR_POS_RETURN_QUEUE_PERMISSION",
+    "CustomerProfileController": "CUSTOMER_GLOBAL_PROFILE_OWNER_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"

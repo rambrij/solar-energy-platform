@@ -31,8 +31,8 @@ public class VendorCustomerCrmService {
         this.authorization = authorization;
     }
 
-    public record CustomerRelationship(long customerId, String displayName, Instant consentAt, String provenance) {}
-    public record CrmNote(long id, long customerId, String note, String createdBy, String updatedBy,
+    public record CustomerRelationship(String relationshipId, long customerId, String displayName, Instant consentAt, String provenance) {}
+    public record CrmNote(long id, String relationshipId, String note, String createdBy, String updatedBy,
                           Instant createdAt, Instant updatedAt, long version) {}
 
     private AuthorizationContext.Context actor(String permission) {
@@ -46,8 +46,8 @@ public class VendorCustomerCrmService {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer relationship or CRM note unavailable");
     }
 
-    private void requireRelationship(long tenantId, long customerId) {
-        if (!relationships.existsByTenantAndCustomer(tenantId, customerId)) throw unavailable();
+    private void requireRelationship(long tenantId, String relationshipId) {
+        if (!relationships.existsByTenantAndId(tenantId, relationshipId)) throw unavailable();
     }
 
     private String noteText(String value) {
@@ -68,38 +68,38 @@ public class VendorCustomerCrmService {
     public List<CustomerRelationship> customers() {
         var context = actor("CUSTOMER_RELATION_VIEW");
         return relationships.findCustomerRelationships(context.tenantId()).stream()
-            .map(row -> new CustomerRelationship(row.customerId(), row.displayName(), row.consentAt(), row.provenance()))
+            .map(row -> new CustomerRelationship(row.relationshipId(), row.customerId(), row.displayName(), row.consentAt(), row.provenance()))
             .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<CrmNote> notes(long customerId) {
+    public List<CrmNote> notes(String relationshipId) {
         var context = actor("CRM_NOTE_VIEW");
         requireRelationship(context.tenantId(), customerId);
-        return crmNotes.findAllByTenantIdAndCustomerIdOrderByCreatedAtDescIdDesc(context.tenantId(), customerId)
+        return crmNotes.findAllByTenantIdAndTenantCustomerIdOrderByCreatedAtDescIdDesc(context.tenantId(), relationshipId)
             .stream().map(this::view).toList();
     }
 
     @Transactional
-    public CrmNote createNote(long customerId, String requestedNote, String requestedReason) {
+    public CrmNote createNote(String relationshipId, String requestedNote, String requestedReason) {
         var context = actor("CRM_NOTE_CREATE");
         String note = noteText(requestedNote);
         String reason = reasonText(requestedReason);
         requireRelationship(context.tenantId(), customerId);
         var saved = crmNotes.saveAndFlush(new VendorCustomerCrmNote(
-            context.tenantId(), customerId, note, context.username()));
+            context.tenantId(), relationshipId, note, context.username()));
         audit(context, saved.id(), "CRM_NOTE_CREATED", reason);
         return view(saved);
     }
 
     @Transactional
-    public CrmNote updateNote(long customerId, long noteId, long expectedVersion,
+    public CrmNote updateNote(String relationshipId, long noteId, long expectedVersion,
                               String requestedNote, String requestedReason) {
         var context = actor("CRM_NOTE_UPDATE");
         String note = noteText(requestedNote);
         String reason = reasonText(requestedReason);
         requireRelationship(context.tenantId(), customerId);
-        var existing = crmNotes.findByTenantIdAndCustomerIdAndId(context.tenantId(), customerId, noteId)
+        var existing = crmNotes.findByTenantIdAndTenantCustomerIdAndId(context.tenantId(), relationshipId, noteId)
             .orElseThrow(this::unavailable);
         if (existing.version() != expectedVersion)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CRM note changed; reload before updating");
@@ -114,7 +114,7 @@ public class VendorCustomerCrmService {
     }
 
     private CrmNote view(VendorCustomerCrmNote note) {
-        return new CrmNote(note.id(), note.customerId(), note.noteText(), note.createdBy(), note.updatedBy(),
+        return new CrmNote(note.id(), note.tenantCustomerId(), note.noteText(), note.createdBy(), note.updatedBy(),
             note.createdAt(), note.updatedAt(), note.version());
     }
 

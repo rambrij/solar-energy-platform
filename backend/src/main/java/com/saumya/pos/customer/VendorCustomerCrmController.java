@@ -26,24 +26,24 @@ public class VendorCustomerCrmController {
     @PreAuthorize("hasAuthority('CUSTOMER_RELATION_VIEW')")
     public List<VendorCustomerCrmService.CustomerRelationship> customers() { return service.customers(); }
 
-    @GetMapping("/{customerId}/crm-notes")
+    @GetMapping("/{relationshipId}/crm-notes")
     @PreAuthorize("hasAuthority('CRM_NOTE_VIEW')")
-    public List<VendorCustomerCrmService.CrmNote> notes(@PathVariable long customerId) {
-        return service.notes(customerId);
+    public List<VendorCustomerCrmService.CrmNote> notes(@PathVariable long relationshipId) {
+        return service.notes(relationshipId);
     }
 
-    @PostMapping("/{customerId}/crm-notes")
+    @PostMapping("/{relationshipId}/crm-notes")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('CRM_NOTE_CREATE')")
     public VendorCustomerCrmService.CrmNote createNote(
-        @PathVariable long customerId, @Valid @RequestBody NoteCreate request) {
-        return service.createNote(customerId, request.note(), request.reason());
+        @PathVariable long relationshipId, @Valid @RequestBody NoteCreate request) {
+        return service.createNote(relationshipId, request.note(), request.reason());
     }
 
-    @PutMapping("/{customerId}/crm-notes/{noteId}")
+    @PutMapping("/{relationshipId}/crm-notes/{noteId}")
     @PreAuthorize("hasAuthority('CRM_NOTE_UPDATE')")
     public VendorCustomerCrmService.CrmNote updateNote(
-        @PathVariable long customerId, @PathVariable long noteId, @Valid @RequestBody NoteUpdate request) {
-        return service.updateNote(customerId, noteId, request.expectedVersion(), request.note(), request.reason());
+        @PathVariable long relationshipId, @PathVariable long noteId, @Valid @RequestBody NoteUpdate request) {
+        return service.updateNote(relationshipId, noteId, request.expectedVersion(), request.note(), request.reason());
     }
 }

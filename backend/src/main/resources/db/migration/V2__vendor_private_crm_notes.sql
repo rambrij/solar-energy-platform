@@ -4,7 +4,7 @@ INSERT INTO vendor_permission_catalogue (permission) VALUES
 CREATE TABLE vendor_customer_crm_notes (
   id BIGINT NOT NULL AUTO_INCREMENT,
   tenant_id BIGINT NOT NULL,
-  customer_id BIGINT NOT NULL,
+  tenant_customer_id VARCHAR(36) NOT NULL,
   note_text VARCHAR(2000) NOT NULL,
   created_by VARCHAR(100) NOT NULL,
   updated_by VARCHAR(100) NOT NULL,
@@ -13,9 +13,9 @@ CREATE TABLE vendor_customer_crm_notes (
   version BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   UNIQUE KEY uk_vendor_customer_crm_note_tenant_id (tenant_id, id),
-  KEY ix_vendor_customer_crm_note_customer (tenant_id, customer_id, created_at, id),
-  CONSTRAINT fk_vendor_crm_note_relationship FOREIGN KEY (tenant_id, customer_id)
-    REFERENCES tenant_customers (tenant_id, customer_id),
+  KEY ix_vendor_customer_crm_note_customer (tenant_id, tenant_customer_id, created_at, id),
+  CONSTRAINT fk_vendor_crm_note_relationship FOREIGN KEY (tenant_id, tenant_customer_id)
+    REFERENCES tenant_customers (tenant_id, id),
   CONSTRAINT fk_vendor_crm_note_created_by FOREIGN KEY (tenant_id, created_by)
     REFERENCES employees (tenant_id, username),
   CONSTRAINT fk_vendor_crm_note_updated_by FOREIGN KEY (tenant_id, updated_by)

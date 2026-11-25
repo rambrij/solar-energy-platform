@@ -24,16 +24,18 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class P202MysqlPersistenceIntegrationTest {
 
     @Test
-    void cleanInstallAppliesExactlyV1AndRepeatStartupIsANoOp() throws Exception {
+    void cleanInstallAppliesAllVersionedMigrationsAndRepeatStartupIsANoOp() throws Exception {
         withSchema((url, user, password, schema) -> {
             Flyway flyway = flyway(url, user, password, schema);
             flyway.migrate();
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(1);
-            assertThat(applied.getFirst().getScript()).isEqualTo("V1__base_schema.sql");
-            assertThat(applied.getFirst().getVersion().getVersion()).isEqualTo("1");
+            assertThat(applied).hasSize(2);
+            assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
+            assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
+            assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
+            assertThat(applied.get(1).getVersion().getVersion()).isEqualTo("2");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -41,7 +43,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1");
+                    .containsExactly("1", "2");
         });
     }
 
@@ -115,7 +117,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "vendor_role_permissions", "employee_role_assignments",
                     "employee_register_assignments", "vendor_access_audit_events",
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
-                    "platform_support_access", "stock_reservations");
+                    "platform_support_access", "stock_reservations", "vendor_customer_crm_notes");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns

@@ -37,7 +37,7 @@ class VendorCustomerCrmServiceAuthorizationBoundaryTest {
         var service=new VendorCustomerCrmService(relationships,notes,audit,auth);
         assertThatThrownBy(service::customers).isInstanceOfSatisfying(ResponseStatusException.class,
             e->assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
-        assertThatThrownBy(()->service.notes(99L)).isInstanceOfSatisfying(ResponseStatusException.class,
+        assertThatThrownBy(()->service.notes("foreign-relationship")).isInstanceOfSatisfying(ResponseStatusException.class,
             e->assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
         assertThatThrownBy(()->service.createNote(99L,"Private note","Test")).isInstanceOfSatisfying(ResponseStatusException.class,
             e->assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
@@ -53,11 +53,11 @@ class VendorCustomerCrmServiceAuthorizationBoundaryTest {
         var auth=mock(AuthorizationContext.class);
         when(auth.current()).thenReturn(new AuthorizationContext.Context("employee@vendor-a.test",7L,11L,
             "7:employee@vendor-a.test",Set.of("CRM_NOTE_VIEW"),false,false,true));
-        when(relationships.existsByTenantAndCustomer(7L,99L)).thenReturn(false);
+        when(relationships.existsByTenantAndId(7L,"foreign-relationship")).thenReturn(false);
         var service=new VendorCustomerCrmService(relationships,notes,audit,auth);
         assertThatThrownBy(()->service.notes(99L)).isInstanceOfSatisfying(ResponseStatusException.class,
             e->assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
-        verify(relationships).existsByTenantAndCustomer(7L,99L);
+        verify(relationships).existsByTenantAndId(7L,"foreign-relationship");
         verifyNoInteractions(notes,audit);
     }
 }

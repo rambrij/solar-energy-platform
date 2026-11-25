@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { vendorApi } from './api';
 import { useSession } from './session';
 
-type CustomerRelationship={customerId:number;displayName:string;consentAt:string;provenance:string};
-type CrmNote={id:number;customerId:number;note:string;createdBy:string;updatedBy:string;createdAt:string;updatedAt:string;version:number};
+type CustomerRelationship={relationshipId:string;customerId:number;displayName:string;consentAt:string;provenance:string};
+type CrmNote={id:number;relationshipId:string;note:string;createdBy:string;updatedBy:string;createdAt:string;updatedAt:string;version:number};
 
 export default function VendorCustomerCrm(){
  const {account}=useSession(); const permissions=account?.permissions??[];
@@ -13,7 +13,7 @@ export default function VendorCustomerCrm(){
  const [editing,setEditing]=useState<CrmNote>(),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
 
  useEffect(()=>{let active=true;setBusy(true);setError('');
-  vendorApi('/customers').then((items:CustomerRelationship[])=>{if(active){setCustomers(items);setSelected(current=>current||(items.length?String(items[0].customerId):''));}})
+  vendorApi('/customers').then((items:CustomerRelationship[])=>{if(active){setCustomers(items);setSelected(current=>current||(items.length?items[0].relationshipId:''));}})
    .catch(e=>{if(active)setError((e as Error).message||'Customer relationships could not be loaded.');})
    .finally(()=>{if(active)setBusy(false);});
   return()=>{active=false;};
@@ -42,7 +42,7 @@ export default function VendorCustomerCrm(){
    {busy&&!customers.length&&<p role="status">Loading customer relationships…</p>}
    {!busy&&!customers.length&&<p className="empty-state">No verified customer relationships are available for this vendor.</p>}
    {!!customers.length&&<label>Select customer<select value={selected} onChange={e=>{setSelected(e.target.value);setEditing(undefined);setDraft('');setReason('');}}>
-    {customers.map(c=><option key={c.customerId} value={c.customerId}>{c.displayName}</option>)}
+    {customers.map(c=><option key={c.relationshipId} value={c.relationshipId}>{c.displayName}</option>)}
    </select></label>}
   </section>
   {selected&&<section aria-label="Private customer notes"><h2>Private CRM notes</h2>

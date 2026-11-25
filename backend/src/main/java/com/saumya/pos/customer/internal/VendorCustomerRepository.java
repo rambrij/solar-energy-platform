@@ -7,10 +7,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface VendorCustomerRepository extends JpaRepository<VendorCustomer,String> {
     boolean existsByTenantAndCustomer(long tenant,long customer);
+    boolean existsByTenantAndId(long tenant,String relationshipId);
 
     @Query("""
         select new com.saumya.pos.customer.internal.VendorCustomerRelationshipRow(
-            tc.customer,
+            tc.id, tc.customer,
             coalesce(nullif(cp.displayName, ''), concat('Customer ', tc.customer)),
             tc.consent,
             tc.provenance

@@ -601,6 +601,18 @@
         "access.lock(id)",
         "customers.findById(id)"
       ]
+    },
+    {
+      "source": "com/saumya/pos/customer/VendorCustomerCrmService.java",
+      "repository": "JdbcTemplate queries against tenant_customers and vendor_customer_crm_notes",
+      "scope": "ACTIVE_VENDOR_TENANT_AND_CUSTOMER_RELATIONSHIP",
+      "authority": "AuthorizationContext.current() supplies active vendor tenant and actor. Every relationship/note query constrains tenant_id and customer_id; note IDs are never queried alone.",
+      "evidence": [
+        "requireVendorMembership()",
+        "requirePermission(operationPermission)",
+        "tenant_customers WHERE tenant_id=? AND customer_id=?",
+        "vendor_customer_crm_notes WHERE tenant_id=? AND customer_id=?"
+      ]
     }
   ],
   "scopedBulkMethods": [

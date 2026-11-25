@@ -1470,6 +1470,30 @@
       "scope": "GLOBAL_CUSTOMER_PROFILE_SELF",
       "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY_AND_PROFILE_ROW_LOCK",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; PosTest#customerProfileHttpOperationsRequireCustomerActorAndCannotBeForged"
+    },
+    "VendorCustomerCrmController#customers": {
+      "actor": "VENDOR",
+      "scope": "ACTIVE_TENANT_EXISTING_CUSTOMER_RELATIONSHIPS",
+      "assignment": "Active Vendor actor; CUSTOMER_RELATION_VIEW; tenant-scoped tenant_customers query",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; VendorCustomerCrmServiceAuthorizationBoundaryTest"
+    },
+    "VendorCustomerCrmController#notes": {
+      "actor": "VENDOR",
+      "scope": "ACTIVE_TENANT_CUSTOMER_PRIVATE_CRM_NOTES",
+      "assignment": "Active Vendor actor; CRM_NOTE_VIEW; tenant/customer scoped relationship and note queries",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; VendorCustomerCrmServiceAuthorizationBoundaryTest"
+    },
+    "VendorCustomerCrmController#createNote": {
+      "actor": "VENDOR",
+      "scope": "ACTIVE_TENANT_CUSTOMER_PRIVATE_CRM_NOTES",
+      "assignment": "Active Vendor actor; CRM_NOTE_CREATE; server-derived actor/tenant; verified relationship; required reason",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; VendorCustomerCrmServiceAuthorizationBoundaryTest"
+    },
+    "VendorCustomerCrmController#updateNote": {
+      "actor": "VENDOR",
+      "scope": "ACTIVE_TENANT_CUSTOMER_PRIVATE_CRM_NOTES",
+      "assignment": "Active Vendor actor; CRM_NOTE_UPDATE; tenant/customer/note scoped lookup; expected version; required reason",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; VendorCustomerCrmServiceAuthorizationBoundaryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

@@ -205,6 +205,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | CheckoutReceiptService | receipt, reprint | POS_RECEIPT_VIEW; reprint also POS_RECEIPT_REPRINT; buyer snapshot audit uses POS_RECEIPT_VIEW |
 | CheckoutService | online, pos, cashSale, onlineList, posList, cancelOnline, cancelPos, finalizeCash, expire | Customer or POS actor/resource ownership; expire accepts SYSTEM_DRAFT_EXPIRY only |
 | CustomerAccess | resolve, lock | Customer identity adapter; `resolve` requires isolated authenticated CUSTOMER actor (not Vendor, Platform or a dual customer/vendor context) and exact username match; `lock` re-resolves that principal and compares its customer ID before row lock; no HTTP controller exposes either method |
+| VendorCustomerCrmService | customers, notes, createNote, updateNote | Active isolated Vendor actor and operation-specific CRM grants; tenant derived from AuthorizationContext; all customer/note reads and writes tenant and relationship scoped. |
 | CustomerProfileService | read, update | Global profile lookup is reached only through CustomerAccess.resolve for the authenticated CUSTOMER actor; update locks that principal-derived profile ID before persistence. Email remains read-only. |
 | CustomerAssociationService | create, preview, approve | POS sale actor or customer identity; approve requires explicit consent and one-time challenge |
 | DraftRecoveryService | pos, customer | POS scope or customer identity and owned order |

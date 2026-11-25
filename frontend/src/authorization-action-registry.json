@@ -26,7 +26,8 @@
         "refund-insights",
         "cashier-sales-insights",
         "role-management",
-        "employee-management"
+        "employee-management",
+        "vendor-customer-crm"
       ]
     },
     {
@@ -146,6 +147,13 @@
       "label": "Account",
       "items": [
         "customer-profile"
+      ]
+    },
+    {
+      "id": "customer-management",
+      "label": "Customer Management",
+      "items": [
+        "vendor-customer-crm"
       ]
     }
   ],
@@ -289,6 +297,11 @@
       "id": "customer-profile",
       "path": "/marketplace/profile",
       "group": "Account"
+    },
+    {
+      "id": "vendor-customer-crm",
+      "path": "/vendor/customers",
+      "group": "Customer Management"
     }
   ],
   "tabs": [
@@ -2112,6 +2125,54 @@
       ],
       "method": "PUT",
       "endpoint": "/api/v1/customer/profile"
+    },
+    {
+      "id": "vendor-crm-relationship-list",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/customers",
+      "permissions": [
+        "CUSTOMER_RELATION_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/customers"
+    },
+    {
+      "id": "vendor-crm-note-list",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes",
+      "permissions": [
+        "CRM_NOTE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/customers/{customerId}/crm-notes"
+    },
+    {
+      "id": "vendor-crm-note-create",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes",
+      "permissions": [
+        "CRM_NOTE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/customers/{customerId}/crm-notes"
+    },
+    {
+      "id": "vendor-crm-note-update",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes/{noteId}",
+      "permissions": [
+        "CRM_NOTE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}"
     }
   ],
   "buttons": [

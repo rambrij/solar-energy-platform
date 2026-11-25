@@ -8,10 +8,12 @@ it('groups unique workspace destinations without exposing unrelated modules', ()
     expect(new Set(items.map(item => item.path)).size).toBe(items.length);
   }
   expect(navigationItems('online').some(item => item.id === 'cash-refunds')).toBe(false);
+  expect(navigationItems('pos').some(item => item.id === 'vendor-customer-crm')).toBe(true);
   expect(availableNavigation('pos', new Set(['checkout', 'order-history'])).map(item => item.id)).toEqual(['checkout', 'order-history']);
 });
 
 it('resolves direct workspace paths and legacy section fragments', () => {
+  expect(resolveWorkspaceRoute('pos', '/vendor/customers', '')).toBe('vendor-customer-crm');
   expect(resolveWorkspaceRoute('pos', '/vendor/pos/products', '')).toBe('product-management');
   expect(resolveWorkspaceRoute('pos', '/vendor/pos', '#cash-refunds')).toBe('cash-refunds');
   expect(resolveWorkspaceRoute('online', '/marketplace/cart', '')).toBe('customer-cart');

@@ -3,6 +3,10 @@
   "description": "Canonical assignable permission catalogue and endpoint inventory. Only vendorPermissions and platformPermissions are assignable; reserved, orphaned, conflicting and unknown identifiers are non-assignable. The same JSON resource drives backend registries, Flyway catalogue constraints, frontend checks and traceability tests.",
   "vendorPermissions": [
     "CATALOG_PROMOTION_MANAGE",
+    "CRM_NOTE_CREATE",
+    "CRM_NOTE_UPDATE",
+    "CRM_NOTE_VIEW",
+    "CUSTOMER_RELATION_VIEW",
     "INVENTORY_RECEIVE",
     "INVENTORY_VIEW",
     "POS_CASHIER_REPORT_VIEW",
@@ -228,6 +232,11 @@
       "allOf": [
         "CUSTOMER"
       ]
+    },
+    "vendor-customer-crm": {
+      "allOf": [
+        "CUSTOMER_RELATION_VIEW"
+      ]
     }
   },
   "controllerPolicies": {
@@ -272,19 +281,16 @@
     "ReturnAuditController": "VENDOR_POS_RETURN_AUDIT_PERMISSION",
     "ReturnController": "VENDOR_POS_RETURN_PERMISSION",
     "ReturnQueueController": "VENDOR_POS_RETURN_QUEUE_PERMISSION",
-    "CustomerProfileController": "CUSTOMER_GLOBAL_PROFILE_OWNER_SCOPE"
+    "CustomerProfileController": "CUSTOMER_GLOBAL_PROFILE_OWNER_SCOPE",
+    "VendorCustomerCrmController": "VENDOR_PRIVATE_CUSTOMER_CRM_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"
   ],
   "reservedVendorPermissions": [
     "CART_SUPPORT_VIEW",
-    "CRM_NOTE_CREATE",
-    "CRM_NOTE_UPDATE",
-    "CRM_NOTE_VIEW",
     "CUSTOMER_RELATION_CREATE",
     "CUSTOMER_RELATION_UPDATE",
-    "CUSTOMER_RELATION_VIEW",
     "INSTALLATION_ASSIGN",
     "INSTALLATION_COMMISSION",
     "INSTALLATION_UPDATE",
@@ -961,6 +967,46 @@
       "scope": "One tenant; employee branch and register assignments remain additional controls",
       "ui": "Vendor workspace > Access administration > employee lifecycle",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "CUSTOMER_RELATION_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/customers",
+      "service": "VendorCustomerCrmService",
+      "scope": "Tenant derived from active Vendor actor; only existing tenant_customers associations are returned.",
+      "ui": "Vendor workspace > Customers & CRM",
+      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
+    },
+    {
+      "permission": "CRM_NOTE_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/customers/{customerId}/crm-notes",
+      "service": "VendorCustomerCrmService",
+      "scope": "Tenant and customer relationship are constrained in every note query; notes are not exposed to customer APIs.",
+      "ui": "Vendor workspace > Private notes",
+      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
+    },
+    {
+      "permission": "CRM_NOTE_CREATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "POST /api/v1/vendor/customers/{customerId}/crm-notes",
+      "service": "VendorCustomerCrmService",
+      "scope": "Server-derived tenant and actor; verified relationship; required reason; audited write.",
+      "ui": "Vendor workspace > Add private note",
+      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
+    },
+    {
+      "permission": "CRM_NOTE_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}",
+      "service": "VendorCustomerCrmService",
+      "scope": "Tenant/customer/note composite lookup; optimistic version; required reason; audited write.",
+      "ui": "Vendor workspace > Update private note",
+      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
     }
   ],
   "frontendPlatformPages": {

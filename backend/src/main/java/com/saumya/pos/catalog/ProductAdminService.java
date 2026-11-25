@@ -40,11 +40,12 @@ public class ProductAdminService {
   return new Page(rows.map(p->view(tenant,p)).getContent(),page,size,rows.getTotalElements(),rows.getTotalPages());
  }
  @Transactional(readOnly=true) @PreAuthorize("hasAuthority('PRODUCT_VIEW')")
- public Page search(long tenant,int page,int size,String query,Boolean published){
+ public Page search(long tenant,int page,int size,String query,Boolean published,Long categoryId){
   authorize(tenant,null,"PRODUCT_VIEW");
   if(query!=null&&query.length()>160)throw new ResponseStatusException(BAD_REQUEST,"Search is limited to 160 characters");
+  if(categoryId!=null&&categoryId<1)throw new ResponseStatusException(BAD_REQUEST,"Category ID must be positive");
   String term=query==null||query.isBlank()?null:query.strip().toLowerCase(java.util.Locale.ROOT);
-  var rows=products.search(tenant,term,published,pageRequest(page,size));
+  var rows=products.search(tenant,term,published,categoryId,pageRequest(page,size));
   return new Page(rows.map(p->view(tenant,p)).getContent(),page,size,rows.getTotalElements(),rows.getTotalPages());
  }
  private org.springframework.data.domain.PageRequest pageRequest(int page,int size){

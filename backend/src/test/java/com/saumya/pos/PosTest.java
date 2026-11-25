@@ -412,6 +412,15 @@ class PosTest {
    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
   mvc.perform(get(path).param("published","unknown").with(user("alice").authorities(()->"PRODUCT_VIEW")))
    .andExpect(status().isBadRequest());
+  update("INSERT INTO catalog_categories(id,tenant_id,name,slug) VALUES(10,1,'Panels','panels'),(20,2,'Private panels','private-panels')");
+  update("INSERT INTO product_categories(tenant_id,product_id,category_id) VALUES(1,3,10),(2,4,20)");
+  mvc.perform(get(path).param("q","panel").param("published","false").param("categoryId","10")
+    .with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(3));
+  mvc.perform(get(path).param("categoryId","20").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+  mvc.perform(get(path).param("categoryId","0").with(user("alice").authorities(()->"PRODUCT_VIEW")))
+   .andExpect(status().isBadRequest());
  }
 
  @Test void productPriceViewRequiresSeparatePermission() throws Exception {

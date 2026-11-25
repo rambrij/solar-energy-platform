@@ -10,9 +10,9 @@ it('keeps the loaded version and entered data when an edit outcome is uncertain'
  vi.mocked(vendorApi).mockImplementation(async(path,method)=>{if(method==='PUT')throw Error('Connection lost');return {items:path.startsWith('/categories')?[]:[{id:7,sku:'P7',barcode:null,name:'Panel',price:100,taxRate:10,published:true,categoryId:null,version:3}],page:0,totalPages:1,totalElements:1};});render(<ProductManager/>);fireEvent.click(screen.getByText('Load vendor products'));fireEvent.click(await screen.findByText('Edit product Panel'));fireEvent.change(screen.getByLabelText('Product name'),{target:{value:'Updated panel'}});fireEvent.change(screen.getByLabelText('Product change reason'),{target:{value:'Correct description'}});fireEvent.click(screen.getByText('Save product'));await screen.findByRole('alert');expect(vendorApi).toHaveBeenLastCalledWith('/products/7','PUT',expect.objectContaining({expectedVersion:3,name:'Updated panel'}));expect((screen.getByLabelText('Product name') as HTMLInputElement).value).toBe('Updated panel');
 });
 
-it('keeps the submitted catalogue search and publication filter while paging',async()=>{
+it('keeps the submitted catalogue filters while paging',async()=>{
  vi.mocked(vendorApi).mockImplementation(async(path)=>path.startsWith('/categories')?
-  {items:[],page:0,totalPages:0,totalElements:0}:
+  {items:[{id:4,name:'Panels',active:true}],page:0,totalPages:1,totalElements:1}:
   {items:[],page:path.includes('page=1')?1:0,totalPages:2,totalElements:2});
  render(<ProductManager/>);
  const search=screen.getByLabelText('Search product name, SKU, or barcode');
@@ -20,8 +20,11 @@ it('keeps the submitted catalogue search and publication filter while paging',as
  fireEvent.change(screen.getByLabelText('Product publication status'),{target:{value:'false'}});
  fireEvent.click(screen.getByText('Load vendor products'));
  await screen.findByText('Unpublished products only.');
- expect(vendorApi).toHaveBeenCalledWith('/products?page=0&size=20&q=Panel%20%26%20cable&published=false');
+ fireEvent.change(screen.getByLabelText('Filter by category'),{target:{value:'4'}});
+ fireEvent.click(screen.getByText('Load vendor products'));
+ await screen.findByText('Category filter: Panels.');
+ expect(vendorApi).toHaveBeenCalledWith('/products?page=0&size=20&q=Panel%20%26%20cable&published=false&categoryId=4');
  fireEvent.change(search,{target:{value:'new draft query'}});
  fireEvent.click(screen.getByText('Next products'));
- await waitFor(()=>expect(vendorApi).toHaveBeenCalledWith('/products?page=1&size=20&q=Panel%20%26%20cable&published=false'));
+ await waitFor(()=>expect(vendorApi).toHaveBeenCalledWith('/products?page=1&size=20&q=Panel%20%26%20cable&published=false&categoryId=4'));
 });

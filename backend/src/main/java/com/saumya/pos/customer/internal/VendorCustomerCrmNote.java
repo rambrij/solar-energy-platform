@@ -9,7 +9,7 @@ public class VendorCustomerCrmNote {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY)
     private Long id;
     @Column(name="tenant_id",nullable=false) private long tenantId;
-    @Column(name="tenant_customer_id",nullable=false,length=36) private String tenantCustomerId;
+    @Column(name="tenant_customer_id",nullable=false,length=36) private String relationshipId;
     @Column(name="note_text",nullable=false,length=2000) private String noteText;
     @Column(name="created_by",nullable=false,length=100) private String createdBy;
     @Column(name="updated_by",nullable=false,length=100) private String updatedBy;

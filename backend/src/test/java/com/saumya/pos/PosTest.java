@@ -1413,6 +1413,24 @@ class PosTest {
    .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CLOSING")).andExpect(jsonPath("$.requestId").value(key)).andExpect(jsonPath("$.variance").value(-50));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='SHIFT_VARIANCE_SUBMIT'",Integer.class)).isEqualTo(1);
  }
+ @Test void customerProfileHttpOperationsRequireCustomerActorAndCannotBeForged() throws Exception {
+  customers();
+  mvc.perform(get("/api/v1/customer/profile").with(bearer("customer","CustomerPassword")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(100))
+   .andExpect(jsonPath("$.email").value("customer")).andExpect(jsonPath("$.displayName").doesNotExist());
+  String update="{\"displayName\":\"Primary Customer\",\"customerId\":101,\"tenantId\":2,\"actorType\":\"VENDOR\",\"role\":\"PLATFORM_ADMIN\"}";
+  mvc.perform(put("/api/v1/customer/profile").with(bearer("customer","CustomerPassword"))
+    .contentType("application/json").content(update))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(100))
+   .andExpect(jsonPath("$.displayName").value("Primary Customer"));
+  assertThat(db.queryForObject("SELECT display_name FROM customer_profiles WHERE id=100",String.class)).isEqualTo("Primary Customer");
+  assertThat(db.queryForObject("SELECT display_name FROM customer_profiles WHERE id=101",String.class)).isNull();
+  mvc.perform(get("/api/v1/customer/profile").with(bearer("other-customer","OtherPassword")))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(101));
+  mvc.perform(get("/api/v1/customer/profile").with(bearer("alice","StaffPasswordForTests")))
+   .andExpect(status().isForbidden());
+ }
+
  void customers(){
   update("UPDATE tenants SET slug=CONCAT('vendor-',id),online_branch_id=id");
   update("INSERT INTO users(id,username,password_hash,enabled) VALUES(100,'customer',?,TRUE),(101,'other-customer',?,TRUE)",encoder.encode("CustomerPassword"),encoder.encode("OtherPassword"));

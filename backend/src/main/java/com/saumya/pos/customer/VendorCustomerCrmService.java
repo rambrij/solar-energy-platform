@@ -68,14 +68,14 @@ public class VendorCustomerCrmService {
     public List<CustomerRelationship> customers() {
         var context = actor("CUSTOMER_RELATION_VIEW");
         return relationships.findCustomerRelationships(context.tenantId()).stream()
-            .map(row -> new CustomerRelationship(row.relationshipId(), row.customerId(), row.displayName(), row.consentAt(), row.provenance()))
+            .map(row -> new CustomerRelationship(row.customerId(), row.relationshipId(), row.displayName(), row.consentAt(), row.provenance()))
             .toList();
     }
 
     @Transactional(readOnly = true)
     public List<CrmNote> notes(String relationshipId) {
         var context = actor("CRM_NOTE_VIEW");
-        requireRelationship(context.tenantId(), customerId);
+        requireRelationship(context.tenantId(), relationshipId);
         return crmNotes.findAllByTenantIdAndTenantCustomerIdOrderByCreatedAtDescIdDesc(context.tenantId(), relationshipId)
             .stream().map(this::view).toList();
     }
@@ -85,7 +85,7 @@ public class VendorCustomerCrmService {
         var context = actor("CRM_NOTE_CREATE");
         String note = noteText(requestedNote);
         String reason = reasonText(requestedReason);
-        requireRelationship(context.tenantId(), customerId);
+        requireRelationship(context.tenantId(), relationshipId);
         var saved = crmNotes.saveAndFlush(new VendorCustomerCrmNote(
             context.tenantId(), relationshipId, note, context.username()));
         audit(context, saved.id(), "CRM_NOTE_CREATED", reason);
@@ -98,7 +98,7 @@ public class VendorCustomerCrmService {
         var context = actor("CRM_NOTE_UPDATE");
         String note = noteText(requestedNote);
         String reason = reasonText(requestedReason);
-        requireRelationship(context.tenantId(), customerId);
+        requireRelationship(context.tenantId(), relationshipId);
         var existing = crmNotes.findByTenantIdAndTenantCustomerIdAndId(context.tenantId(), relationshipId, noteId)
             .orElseThrow(this::unavailable);
         if (existing.version() != expectedVersion)

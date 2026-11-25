@@ -2704,6 +2704,36 @@
       "actions": [
         "vendor-role-update"
       ]
+    },
+    "VendorCustomerCrm.tsx:23": {
+      "fn": "vendorApi",
+      "argument": "'/customers/'+encodeURIComponent(selected)+'/crm-notes'",
+      "actions": [
+        "vendor-crm-note-list"
+      ]
+    },
+    "VendorCustomerCrm.tsx:32": {
+      "fn": "vendorApi",
+      "argument": "path+'/'+editing.id",
+      "methodArgument": "'PUT'",
+      "actions": [
+        "vendor-crm-note-update"
+      ]
+    },
+    "VendorCustomerCrm.tsx:33": {
+      "fn": "vendorApi",
+      "argument": "path",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-crm-note-create"
+      ]
+    },
+    "VendorCustomerCrm.tsx:34": {
+      "fn": "vendorApi",
+      "argument": "path",
+      "actions": [
+        "vendor-crm-note-list"
+      ]
     }
   },
   "sessionApiOperations": [

@@ -1458,6 +1458,18 @@
       "scope": "TENANT_BRANCH_RETURN_QUEUE",
       "assignment": "RETURN_VIEW_PERMISSION_AND_POS_SCOPE",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "CustomerProfileController#read": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PROFILE_SELF",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; CustomerProfileControllerAuthorizationTest"
+    },
+    "CustomerProfileController#update": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PROFILE_SELF",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY_AND_PROFILE_ROW_LOCK",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; CustomerProfileControllerAuthorizationTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

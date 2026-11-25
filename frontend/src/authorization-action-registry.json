@@ -2093,13 +2093,25 @@
       "id": "customer-profile-read",
       "component": "CustomerProfile.tsx",
       "trigger": "load",
-      "backendOperation": "GET /api/v1/customer/profile"
+      "backendOperation": "GET /api/v1/customer/profile",
+      "actor": "CUSTOMER",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "method": "GET",
+      "endpoint": "/api/v1/customer/profile"
     },
     {
       "id": "customer-profile-update",
       "component": "CustomerProfile.tsx",
       "trigger": "submit",
-      "backendOperation": "PUT /api/v1/customer/profile"
+      "backendOperation": "PUT /api/v1/customer/profile",
+      "actor": "CUSTOMER",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "method": "PUT",
+      "endpoint": "/api/v1/customer/profile"
     }
   ],
   "buttons": [
@@ -2540,6 +2552,12 @@
       "component": "PlatformMfaEnrollment.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/complete"
+    },
+    {
+      "id": "customer-profile-update",
+      "component": "CustomerProfile.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/customer/profile"
     }
   ],
   "dynamicRouteParameters": {

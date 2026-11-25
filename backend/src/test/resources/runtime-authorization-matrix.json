@@ -1463,13 +1463,13 @@
       "actor": "CUSTOMER",
       "scope": "GLOBAL_CUSTOMER_PROFILE_SELF",
       "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY",
-      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; CustomerProfileControllerAuthorizationTest"
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; PosTest#customerProfileHttpOperationsRequireCustomerActorAndCannotBeForged"
     },
     "CustomerProfileController#update": {
       "actor": "CUSTOMER",
       "scope": "GLOBAL_CUSTOMER_PROFILE_SELF",
       "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_IDENTITY_AND_PROFILE_ROW_LOCK",
-      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; CustomerProfileControllerAuthorizationTest"
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; PosTest#customerProfileHttpOperationsRequireCustomerActorAndCannotBeForged"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

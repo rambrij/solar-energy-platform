@@ -4,6 +4,7 @@ import ReservedDrafts from './ReservedDrafts';
 import CheckoutSteps from './CheckoutSteps';
 import Shell from './Shell';
 import OrderHistory from './OrderHistory';
+import CustomerProfile from './CustomerProfile';
 import ProductDetails from './ProductDetails';
 import VendorDirectory from './VendorDirectory';
 import CategoryNav, { type CategoryChoice } from './CategoryNav';
@@ -164,6 +165,7 @@ export default function Marketplace() {
       </li>)}</ul> : <p>No archived carts found.</p>)}
     </section></RouteOutlet>
     <RouteOutlet id="customer-purchases" mode="online"><OrderHistory mode="online"/></RouteOutlet>
+    <RouteOutlet id="customer-profile" mode="online"><CustomerProfile/></RouteOutlet>
     {restoreTarget && <RouteOutlet id="saved-vendor-carts" mode="online"><section role="dialog" aria-modal="true" aria-labelledby="restore-title"><h2 id="restore-title">Restore archived vendor cart?</h2>
       <p>Restore your saved {restoreTarget.vendorName} cart using current prices. Your active cart will be archived with its items retained. This does not reserve stock or place an order.</p>
       <button disabled={busy} onClick={() => setRestoreTarget(undefined)}>Keep active cart</button><button disabled={busy} onClick={restore}>Confirm cart restore</button>

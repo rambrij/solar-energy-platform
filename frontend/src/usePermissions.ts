@@ -84,6 +84,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'online-checkout':{anyOf:['CUSTOMER']},
  'saved-vendor-carts':{anyOf:['CUSTOMER']},
  'customer-purchases':{anyOf:['CUSTOMER']},
+ 'customer-profile':{allOf:['CUSTOMER']},
 };
 
 export function hasNavigationPermission(itemId:string,userPermissions:string[]):boolean{

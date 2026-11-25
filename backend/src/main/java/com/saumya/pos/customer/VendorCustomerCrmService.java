@@ -76,7 +76,7 @@ public class VendorCustomerCrmService {
     public List<CrmNote> notes(String relationshipId) {
         var context = actor("CRM_NOTE_VIEW");
         requireRelationship(context.tenantId(), relationshipId);
-        return crmNotes.findAllByTenantIdAndTenantCustomerIdOrderByCreatedAtDescIdDesc(context.tenantId(), relationshipId)
+        return crmNotes.findNotesForRelationship(context.tenantId(), relationshipId)
             .stream().map(this::view).toList();
     }
 
@@ -99,7 +99,7 @@ public class VendorCustomerCrmService {
         String note = noteText(requestedNote);
         String reason = reasonText(requestedReason);
         requireRelationship(context.tenantId(), relationshipId);
-        var existing = crmNotes.findByTenantIdAndTenantCustomerIdAndId(context.tenantId(), relationshipId, noteId)
+        var existing = crmNotes.findNoteForRelationship(context.tenantId(), relationshipId, noteId)
             .orElseThrow(this::unavailable);
         if (existing.version() != expectedVersion)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CRM note changed; reload before updating");

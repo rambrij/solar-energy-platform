@@ -1,14 +1,15 @@
 package com.saumya.pos.customer;
 
+import com.saumya.pos.customer.internal.VendorAccessAuditEvent;
+import com.saumya.pos.customer.internal.VendorAccessAuditRepository;
+import com.saumya.pos.customer.internal.VendorCustomerCrmNote;
+import com.saumya.pos.customer.internal.VendorCustomerCrmNoteRepository;
+import com.saumya.pos.customer.internal.VendorCustomerRepository;
 import com.saumya.pos.security.AuthorizationContext;
-import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -16,11 +17,17 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class VendorCustomerCrmService {
     private static final int MAX_NOTE_LENGTH = 2000;
-    private final JdbcTemplate jdbc;
+    private final VendorCustomerRepository relationships;
+    private final VendorCustomerCrmNoteRepository crmNotes;
+    private final VendorAccessAuditRepository auditEvents;
     private final AuthorizationContext authorization;
 
-    public VendorCustomerCrmService(JdbcTemplate jdbc, AuthorizationContext authorization) {
-        this.jdbc = jdbc;
+    public VendorCustomerCrmService(VendorCustomerRepository relationships,
+            VendorCustomerCrmNoteRepository crmNotes, VendorAccessAuditRepository auditEvents,
+            AuthorizationContext authorization) {
+        this.relationships = relationships;
+        this.crmNotes = crmNotes;
+        this.auditEvents = auditEvents;
         this.authorization = authorization;
     }
 
@@ -40,10 +47,7 @@ public class VendorCustomerCrmService {
     }
 
     private void requireRelationship(long tenantId, long customerId) {
-        Boolean exists = jdbc.queryForObject(
-            "SELECT COUNT(*) > 0 FROM tenant_customers WHERE tenant_id=? AND customer_id=?",
-            Boolean.class, tenantId, customerId);
-        if (!Boolean.TRUE.equals(exists)) throw unavailable();
+        if (!relationships.existsByTenantAndCustomer(tenantId, customerId)) throw unavailable();
     }
 
     private String noteText(String value) {
@@ -63,31 +67,17 @@ public class VendorCustomerCrmService {
     @Transactional(readOnly = true)
     public List<CustomerRelationship> customers() {
         var context = actor("CUSTOMER_RELATION_VIEW");
-        return jdbc.query("""
-            SELECT tc.customer_id,
-                   COALESCE(NULLIF(cp.display_name, ''), CONCAT('Customer ', tc.customer_id)) AS display_name,
-                   tc.consent_at, tc.provenance
-            FROM tenant_customers tc
-            JOIN customer_profiles cp ON cp.id=tc.customer_id
-            WHERE tc.tenant_id=?
-            ORDER BY tc.consent_at DESC, tc.customer_id DESC
-            """, (rs, row) -> new CustomerRelationship(rs.getLong("customer_id"),
-                rs.getString("display_name"), rs.getTimestamp("consent_at").toInstant(), rs.getString("provenance")),
-            context.tenantId());
+        return relationships.findCustomerRelationships(context.tenantId()).stream()
+            .map(row -> new CustomerRelationship(row.customerId(), row.displayName(), row.consentAt(), row.provenance()))
+            .toList();
     }
 
     @Transactional(readOnly = true)
     public List<CrmNote> notes(long customerId) {
         var context = actor("CRM_NOTE_VIEW");
         requireRelationship(context.tenantId(), customerId);
-        return jdbc.query("""
-            SELECT id, customer_id, note_text, created_by, updated_by, created_at, updated_at, version
-            FROM vendor_customer_crm_notes
-            WHERE tenant_id=? AND customer_id=?
-            ORDER BY created_at DESC, id DESC
-            """, (rs, row) -> mapNote(rs.getLong("id"), rs.getLong("customer_id"), rs.getString("note_text"),
-                rs.getString("created_by"), rs.getString("updated_by"), rs.getTimestamp("created_at"),
-                rs.getTimestamp("updated_at"), rs.getLong("version")), context.tenantId(), customerId);
+        return crmNotes.findAllByTenantIdAndCustomerIdOrderByCreatedAtDescIdDesc(context.tenantId(), customerId)
+            .stream().map(this::view).toList();
     }
 
     @Transactional
@@ -96,24 +86,10 @@ public class VendorCustomerCrmService {
         String note = noteText(requestedNote);
         String reason = reasonText(requestedReason);
         requireRelationship(context.tenantId(), customerId);
-        KeyHolder key = new GeneratedKeyHolder();
-        jdbc.update(connection -> {
-            var statement = connection.prepareStatement("""
-                INSERT INTO vendor_customer_crm_notes (tenant_id, customer_id, note_text, created_by, updated_by)
-                VALUES (?, ?, ?, ?, ?)
-                """, Statement.RETURN_GENERATED_KEYS);
-            statement.setLong(1, context.tenantId());
-            statement.setLong(2, customerId);
-            statement.setString(3, note);
-            statement.setString(4, context.username());
-            statement.setString(5, context.username());
-            return statement;
-        }, key);
-        Number generated = key.getKey();
-        if (generated == null) throw new IllegalStateException("CRM note identifier was not generated");
-        long noteId = generated.longValue();
-        audit(context, noteId, "CRM_NOTE_CREATED", reason);
-        return loadNote(context.tenantId(), customerId, noteId);
+        var saved = crmNotes.saveAndFlush(new VendorCustomerCrmNote(
+            context.tenantId(), customerId, note, context.username()));
+        audit(context, saved.id(), "CRM_NOTE_CREATED", reason);
+        return view(saved);
     }
 
     @Transactional
@@ -123,42 +99,27 @@ public class VendorCustomerCrmService {
         String note = noteText(requestedNote);
         String reason = reasonText(requestedReason);
         requireRelationship(context.tenantId(), customerId);
-        Boolean exists = jdbc.queryForObject("""
-            SELECT COUNT(*) > 0 FROM vendor_customer_crm_notes
-            WHERE tenant_id=? AND customer_id=? AND id=?
-            """, Boolean.class, context.tenantId(), customerId, noteId);
-        if (!Boolean.TRUE.equals(exists)) throw unavailable();
-        int changed = jdbc.update("""
-            UPDATE vendor_customer_crm_notes
-            SET note_text=?, updated_by=?, updated_at=CURRENT_TIMESTAMP, version=version+1
-            WHERE tenant_id=? AND customer_id=? AND id=? AND version=?
-            """, note, context.username(), context.tenantId(), customerId, noteId, expectedVersion);
-        if (changed != 1) throw new ResponseStatusException(HttpStatus.CONFLICT,
-            "CRM note changed; reload before updating");
-        audit(context, noteId, "CRM_NOTE_UPDATED", reason);
-        return loadNote(context.tenantId(), customerId, noteId);
+        var existing = crmNotes.findByTenantIdAndCustomerIdAndId(context.tenantId(), customerId, noteId)
+            .orElseThrow(this::unavailable);
+        if (existing.version() != expectedVersion)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CRM note changed; reload before updating");
+        existing.update(note, context.username());
+        try {
+            var saved = crmNotes.saveAndFlush(existing);
+            audit(context, saved.id(), "CRM_NOTE_UPDATED", reason);
+            return view(saved);
+        } catch (OptimisticLockingFailureException conflict) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CRM note changed; reload before updating");
+        }
     }
 
-    private CrmNote loadNote(long tenantId, long customerId, long noteId) {
-        return jdbc.queryForObject("""
-            SELECT id, customer_id, note_text, created_by, updated_by, created_at, updated_at, version
-            FROM vendor_customer_crm_notes WHERE tenant_id=? AND customer_id=? AND id=?
-            """, (rs, row) -> mapNote(rs.getLong("id"), rs.getLong("customer_id"), rs.getString("note_text"),
-                rs.getString("created_by"), rs.getString("updated_by"), rs.getTimestamp("created_at"),
-                rs.getTimestamp("updated_at"), rs.getLong("version")), tenantId, customerId, noteId);
-    }
-
-    private CrmNote mapNote(long id, long customerId, String note, String createdBy, String updatedBy,
-                            Timestamp createdAt, Timestamp updatedAt, long version) {
-        return new CrmNote(id, customerId, note, createdBy, updatedBy,
-            createdAt.toInstant(), updatedAt.toInstant(), version);
+    private CrmNote view(VendorCustomerCrmNote note) {
+        return new CrmNote(note.id(), note.customerId(), note.noteText(), note.createdBy(), note.updatedBy(),
+            note.createdAt(), note.updatedAt(), note.version());
     }
 
     private void audit(AuthorizationContext.Context context, long noteId, String action, String reason) {
-        jdbc.update("""
-            INSERT INTO vendor_access_audit_events
-              (tenant_id, actor_username, resource_type, resource_id, action, reason)
-            VALUES (?, ?, 'CRM_NOTE', ?, ?, ?)
-            """, context.tenantId(), context.username(), Long.toString(noteId), action, reason);
+        auditEvents.save(new VendorAccessAuditEvent(context.tenantId(), context.username(),
+            "CRM_NOTE", Long.toString(noteId), action, reason));
     }
 }

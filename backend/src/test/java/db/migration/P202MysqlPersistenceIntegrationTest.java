@@ -45,7 +45,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3");
+                    .containsExactly("1", "2", "3", "4");
         });
     }
 
@@ -119,7 +119,8 @@ class P202MysqlPersistenceIntegrationTest {
                     "vendor_role_permissions", "employee_role_assignments",
                     "employee_register_assignments", "vendor_access_audit_events",
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
-                    "platform_support_access", "stock_reservations", "vendor_customer_crm_notes");
+                    "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
+                    "shipments", "shipment_events");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns

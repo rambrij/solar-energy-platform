@@ -402,7 +402,8 @@
         "shipments",
         "createShipment",
         "addEvent",
-        "customerShipments"
+        "customerShipments",
+        "events"
       ],
       "authority": "Vendor operations derive tenant from authenticated AuthorizationContext; customer tracking resolves authenticated customer ID and proves order ownership before reading shipment data.",
       "evidence": [
@@ -410,8 +411,14 @@
         "requireVendorMembership()",
         "c.tenantId()",
         "customers.resolve(username)",
-        "orders.customer_id=?"
-      ]
+        "orders.customer_id=?",
+        "events(long tenant,long id)"
+      ],
+      "trustedTenantParameters": {
+        "events": [
+          "tenant"
+        ]
+      }
     }
   ],
   "inheritedIdLookups": [

@@ -90,7 +90,8 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.membership.StandardRoleTemplates",
                 "com.saumya.pos.retail.DraftSessionProjection",
                 "com.saumya.pos.retail.CashDrawerProjection",
-                "com.saumya.pos.retail.BranchProvisioningServiceImpl"
+                "com.saumya.pos.retail.BranchProvisioningServiceImpl",
+                "com.saumya.pos.fulfillment.ShipmentService"
             );
         Map<String, String> jdbcSqlSources = Map.of(
             "com.saumya.pos.membership.MembershipService", "backend/src/main/java/com/saumya/pos/membership/MembershipService.java",
@@ -100,7 +101,8 @@ class ModuleArchitectureTest {
             "com.saumya.pos.membership.StandardRoleTemplates", "backend/src/main/java/com/saumya/pos/membership/StandardRoleTemplates.java",
             "com.saumya.pos.retail.DraftSessionProjection", "backend/src/main/java/com/saumya/pos/retail/DraftSessionProjection.java",
             "com.saumya.pos.retail.CashDrawerProjection", "backend/src/main/java/com/saumya/pos/retail/CashDrawerProjection.java",
-            "com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java"
+            "com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java",
+            "com.saumya.pos.fulfillment.ShipmentService", "backend/src/main/java/com/saumya/pos/fulfillment/ShipmentService.java"
         );
         assertThat(jdbcConsumers).as("every direct JDBC consumer has a query-level review")
             .containsExactlyInAnyOrderElementsOf(jdbcSqlSources.keySet());

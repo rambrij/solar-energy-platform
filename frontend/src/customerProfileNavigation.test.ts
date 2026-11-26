@@ -3,7 +3,10 @@ import {navigationItems,resolveWorkspaceRoute} from './navigation';
 import {hasNavigationPermission} from './usePermissions';
 it('exposes profile only to the customer actor and resolves its route',()=>{
  expect(navigationItems('online').some(item=>item.id==='customer-profile')).toBe(true);
+ expect(navigationItems('online').some(item=>item.id==='customer-dashboard')).toBe(true);
  expect(resolveWorkspaceRoute('online','/marketplace/profile','')).toBe('customer-profile');
  expect(hasNavigationPermission('customer-profile',['CUSTOMER'])).toBe(true);
  expect(hasNavigationPermission('customer-profile',['POS_VIEW'])).toBe(false);
+ expect(hasNavigationPermission('customer-dashboard',['CUSTOMER'])).toBe(true);
+ expect(hasNavigationPermission('customer-dashboard',['POS_VIEW'])).toBe(false);
 });

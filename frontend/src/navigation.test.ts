@@ -18,6 +18,7 @@ it('resolves direct workspace paths and legacy section fragments', () => {
   expect(resolveWorkspaceRoute('pos', '/vendor/pos', '#cash-refunds')).toBe('cash-refunds');
   expect(resolveWorkspaceRoute('online', '/marketplace/cart', '')).toBe('customer-cart');
   expect(resolveWorkspaceRoute('online', '/marketplace/purchases', '')).toBe('customer-purchases');
+  expect(resolveWorkspaceRoute('online', '/marketplace/dashboard', '')).toBe('customer-dashboard');
   expect(resolveWorkspaceRoute('online', '/vendors/vendor-1', '')).toBe('storefront-products');
 });
 
@@ -42,5 +43,6 @@ it('matches nested pages to their deepest registered navigation parent', () => {
 it('normalizes trailing slashes and never selects the first menu item for unknown routes', () => {
   expect(resolveWorkspaceRoute('pos', '/vendor/pos/products/', '')).toBe('product-management');
   expect(resolveWorkspaceRoute('online', '/marketplace/cart/', '')).toBe('customer-cart');
+  expect(resolveWorkspaceRoute('online', '/marketplace/dashboard/', '')).toBe('customer-dashboard');
   expect(selectedNavigation(navigationItems('pos'), 'not-found')).toBeUndefined();
 });

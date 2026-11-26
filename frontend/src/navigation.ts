@@ -38,6 +38,7 @@ const online: NavigationItem[] = [
   { id: 'customer-cart', label: 'My Single-Vendor Cart', group: 'Cart', description: 'Review your active vendor cart, quantities and server-calculated estimate.', path: '/marketplace/cart' },
   { id: 'online-checkout', label: 'Reserve Vendor Cart', group: 'Cart', description: 'Review existing reservation and checkout steps for your vendor cart.', path: '/marketplace/reserved-cart' },
   { id: 'saved-vendor-carts', label: 'Saved Vendor Carts', group: 'Cart', description: 'Load and restore your archived vendor carts.', path: '/marketplace/saved-carts' },
+  { id: 'customer-dashboard', label: 'My Dashboard', group: 'Account', description: 'See a private overview of your global account, vendor orders and current cart.', path: '/marketplace/dashboard' },
   { id: 'customer-purchases', label: 'Your Purchases', group: 'Purchases', description: 'Review your existing marketplace purchase history.', path: '/marketplace/purchases' },
   { id: 'customer-profile', label: 'My Profile', group: 'Account', description: 'Manage your global customer display name and account details.', path: '/marketplace/profile' },
 ];

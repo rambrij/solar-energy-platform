@@ -212,7 +212,7 @@ it('reactivates a disabled employee only with explicitly selected active roles',
  const initialButton=screen.getByRole('button',{name:'Reactivate employee with selected roles'});
  expect((initialButton as HTMLButtonElement).disabled).toBe(true);
  const roles=screen.getByLabelText('Role assignments');
- fireEvent.change(roles,{target:{selectedOptions:[{value:'7'}]}});
+ fireEvent.change(roles,{target:{value:'7'}});
  fireEvent.change(screen.getByLabelText('Audit reason'),{target:{value:'Approved return'}});
  expect((screen.getByRole('button',{name:'Reactivate employee with selected roles'}) as HTMLButtonElement).disabled).toBe(false);
  fireEvent.click(screen.getByRole('button',{name:'Reactivate employee with selected roles'}));

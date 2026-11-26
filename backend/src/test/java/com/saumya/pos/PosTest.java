@@ -781,6 +781,9 @@ class PosTest {
     .andExpect(status().isForbidden());
   mvc.perform(post(path+"/receipt-document").with(csrf()).with(user("other-buyer").authorities(()->"CUSTOMER")))
     .andExpect(status().isNotFound());
+  int paymentAttemptsBeforePdf=db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class);
+  int invoicesBeforePdf=db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class);
+  int inventoryLedgerBeforePdf=db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class);
   var pdfResponse=mvc.perform(post(path+"/receipt-document").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")))
     .andExpect(status().isOk())
     .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_PDF))
@@ -791,9 +794,9 @@ class PosTest {
   assertThat(pdfResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
   assertThat(pdfResponse.getHeader("X-Document-Reference")).matches("[0-9a-f-]{36}");
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CUSTOMER_RECEIPT_COPY'",Integer.class)).isEqualTo(2);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(paymentAttemptsBeforePdf);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(invoicesBeforePdf);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(inventoryLedgerBeforePdf);
  }
  @Test void onlineReceiptCannotExposeGuestPosSale(){configureOnline();String id=(String)as("alice",()->as("alice", () -> checkout.cashSale("alice","receipt-pos-private",sale(1,"120")))).get("id");assertThatThrownBy(()->onlineReceipts.read("customer",id)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);}
  @Test void onlinePaymentIsDurableVendorOwnedAndConfirmedExactlyOnce(){

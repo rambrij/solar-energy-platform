@@ -302,7 +302,8 @@
     "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE",
     "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE",
     "MarketplaceEnquiryController": "PUBLIC_VENDOR_ENQUIRY_INTAKE_WITH_EXPLICIT_CONSENT_AND_RATE_LIMIT",
-    "VendorLeadController": "VENDOR_TENANT_LEAD_INBOX_PERMISSION_AND_AUDIT"
+    "VendorLeadController": "VENDOR_TENANT_LEAD_INBOX_PERMISSION_AND_AUDIT",
+    "CustomerReceiptDocumentController": "CUSTOMER_ORDER_OWNER_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"

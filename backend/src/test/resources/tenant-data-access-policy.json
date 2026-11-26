@@ -402,17 +402,15 @@
         "shipments",
         "createShipment",
         "addEvent",
-        "customerShipments",
         "events"
       ],
-      "authority": "Vendor operations derive tenant from authenticated AuthorizationContext; customer tracking resolves authenticated customer ID and proves order ownership before reading shipment data.",
+      "authority": "Vendor methods derive tenant from authenticated AuthorizationContext; customer shipment queries obtain tenant only from OrderHistoryService.customerOrderTenant after authenticated ownership proof.",
       "evidence": [
         "auth.current()",
         "requireVendorMembership()",
         "c.tenantId()",
-        "customers.resolve(username)",
-        "orders.customer_id=?",
-        "events(long tenant,long id)"
+        "events(long tenant,long id)",
+        "orderHistory.customerOrderTenant(username,orderId)"
       ],
       "trustedTenantParameters": {
         "events": [
@@ -893,6 +891,18 @@
           "expression": "order.tenant()",
           "argumentIndex": 0,
           "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.fulfillment.ShipmentService#events",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.fulfillment.ShipmentService#view",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
         }
       ]
     }

@@ -1,12 +1,12 @@
 package com.saumya.pos.fulfillment;
-import com.saumya.pos.identity.CustomerAccess;
+import com.saumya.pos.checkout.OrderHistoryService;
 import com.saumya.pos.security.AuthorizationContext;
 import java.math.BigDecimal;import java.sql.Timestamp;import java.time.Instant;import java.util.*;
 import org.springframework.http.HttpStatus;import org.springframework.jdbc.core.JdbcTemplate;import org.springframework.security.access.prepost.PreAuthorize;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;import org.springframework.web.server.ResponseStatusException;
 @Service @Transactional(readOnly=true)
 public class ShipmentService {
- private final JdbcTemplate db;private final AuthorizationContext auth;private final CustomerAccess customers;
- public ShipmentService(JdbcTemplate db,AuthorizationContext auth,CustomerAccess customers){this.db=db;this.auth=auth;this.customers=customers;}
+ private final JdbcTemplate db;private final AuthorizationContext auth;private final OrderHistoryService orderHistory;
+ public ShipmentService(JdbcTemplate db,AuthorizationContext auth,OrderHistoryService orderHistory){this.db=db;this.auth=auth;this.orderHistory=orderHistory;}
  public record EligibleOrder(String orderId,Instant orderedAt,BigDecimal total){}
  public record Event(long id,String eventCode,String description,String reason,String actorUsername,Instant occurredAt){}
  public record CustomerEvent(long id,String eventCode,String description,Instant occurredAt){}
@@ -47,8 +47,8 @@ public class ShipmentService {
   return new Event(eventId,code,description,reason,c.username(),time(r.get("occurred_at")));
  }
  @PreAuthorize("hasAuthority('CUSTOMER')") public List<CustomerShipment> customerShipments(String username,String orderId){
-  long customer=customers.resolve(username);if(orderId==null||!orderId.matches("[A-Za-z0-9-]{1,36}"))throw missing();
-  var rows=db.queryForList("SELECT tenant_id,sales_channel FROM orders WHERE id=? AND customer_id=?",orderId,customer);if(rows.isEmpty())throw missing();var order=rows.getFirst();if(!"ONLINE".equals(order.get("sales_channel")))return List.of();long tenant=((Number)order.get("tenant_id")).longValue();
+  if(orderId==null||!orderId.matches("[A-Za-z0-9-]{1,36}"))throw missing();
+  long tenant=orderHistory.customerOrderTenant(username,orderId);
   return db.queryForList("SELECT id,carrier,tracking_reference,tracking_url,created_at FROM shipments WHERE tenant_id=? AND order_id=? ORDER BY id",tenant,orderId).stream().map(r->{long id=((Number)r.get("id")).longValue();var es=db.queryForList("SELECT id,event_code,description,occurred_at FROM shipment_events WHERE tenant_id=? AND shipment_id=? ORDER BY occurred_at,id",tenant,id).stream().map(e->new CustomerEvent(((Number)e.get("id")).longValue(),(String)e.get("event_code"),(String)e.get("description"),time(e.get("occurred_at")))).toList();return new CustomerShipment(id,(String)r.get("carrier"),(String)r.get("tracking_reference"),(String)r.get("tracking_url"),time(r.get("created_at")),es);}).toList();
  }
 }

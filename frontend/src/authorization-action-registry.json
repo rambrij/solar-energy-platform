@@ -1755,6 +1755,19 @@
       "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-copy"
     },
     {
+      "id": "customer-receipt-pdf-copy",
+      "component": "OnlineReceipt.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/orders/{id}/receipt-document",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-document",
+      "implementationFile": "customerReceiptPdfApi.ts"
+    },
+    {
       "id": "customer-draft-list",
       "component": "ReservedDrafts.tsx",
       "trigger": "load",

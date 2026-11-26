@@ -2,6 +2,7 @@ import BuyerSnapshotView from './BuyerSnapshotView';
 import {useEffect,useRef,useState} from 'react';
 import {marketplaceApi} from './marketplaceApi';
 import {printDocument} from './printDocument';
+import CustomerReceiptPdfCopy from './CustomerReceiptPdfCopy';
 export type OnlineReceiptData={buyer?:import("./BuyerDetailsForm").BuyerDetails|null;orderId:string;seller:string|null;outlet:string|null;issuedAt:string;total:number;paymentMethod:string;copy:boolean;items:{productId:number;name:string;quantity:number;unitPrice:number;taxRate:number;discount:number;tax:number;total:number}[];invoices:{number:string;seller:string;outlet:string;total:number}[]};
 const money=(amount:number)=>Number(amount).toFixed(2);
 export default function OnlineReceipt({orderId,channel,onClose}:{orderId:string;channel:string;onClose:()=>void}){
@@ -25,6 +26,8 @@ export default function OnlineReceipt({orderId,channel,onClose}:{orderId:string;
    {receipt.invoices.length?<section className="receipt-invoices" aria-label="Online tax invoice"><h3>Linked tax invoice</h3>{receipt.invoices.map(invoice=><p key={invoice.number}>{invoice.number} · {invoice.seller} · {invoice.outlet} · {money(invoice.total)}</p>)}</section>:<p className="receipt-note">No tax invoice was issued for this order.</p>}
    <p className="receipt-note">These are saved transaction facts. Printing creates an audited copy of this receipt and its linked invoice details. You can save the print output as PDF. A copy does not create a payment or a new tax invoice.</p>
    <div className="receipt-actions"><button disabled={busy} onClick={()=>void print()}>{busy?'Preparing copy…':'Print / save receipt copy'}</button></div>
+   <CustomerReceiptPdfCopy orderId={orderId} disabled={busy}/>
+
   </>}
  </section>;
 }

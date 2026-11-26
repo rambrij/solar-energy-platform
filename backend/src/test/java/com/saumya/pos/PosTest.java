@@ -764,13 +764,36 @@ class PosTest {
  }
  @Test void onlineReceiptApiEnforcesCustomerOwnershipAndAuditedCopyCsrf() throws Exception {
   configureOnline();var draft=onlineDraft("receipt-security");String path="/api/v1/customer/orders/"+draft.id();
-  mvc.perform(get(path+"/receipt").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());mvc.perform(get(path+"/receipt").with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isForbidden());mvc.perform(get(path+"/receipt").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  mvc.perform(get(path+"/receipt").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
+  mvc.perform(get(path+"/receipt").with(user("alice").authorities(()->"POS_RECEIPT_VIEW"))).andExpect(status().isForbidden());
+  mvc.perform(get(path+"/receipt").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   var attempt=asCustomer("customer", () -> payments.start("customer",draft.id(),"CARD"));asCustomer("customer", () -> payments.confirm("customer",draft.id(),attempt.attemptId()));
-  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(300,'other-buyer','unused',TRUE)");update("INSERT INTO customer_profiles(id,user_id) VALUES(300,300)");mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
+  update("INSERT INTO users(id,username,password_hash,enabled) VALUES(300,'other-buyer','unused',TRUE)");
+  update("INSERT INTO customer_profiles(id,user_id) VALUES(300,300)");
+  mvc.perform(get(path+"/receipt").with(user("other-buyer").authorities(()->"CUSTOMER"))).andExpect(status().isNotFound());
   mvc.perform(post(path+"/receipt-copy").with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isForbidden());
   mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{\"tenantId\":2}")).andExpect(status().isBadRequest());
   mvc.perform(post(path+"/receipt-copy").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")).contentType("application/json").content("{}")).andExpect(status().isOk()).andExpect(jsonPath("$.copy").value(true)).andExpect(jsonPath("$.paymentMethod").value("MOCK_CARD")).andExpect(jsonPath("$.seller").value("Vendor A"));
   assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CUSTOMER_RECEIPT_COPY'",Integer.class)).isEqualTo(1);
+  mvc.perform(post(path+"/receipt-document").with(user("customer").authorities(()->"CUSTOMER")))
+    .andExpect(status().isForbidden());
+  mvc.perform(post(path+"/receipt-document").with(csrf()).with(user("alice").authorities(()->"POS_VIEW")))
+    .andExpect(status().isForbidden());
+  mvc.perform(post(path+"/receipt-document").with(csrf()).with(user("other-buyer").authorities(()->"CUSTOMER")))
+    .andExpect(status().isNotFound());
+  var pdfResponse=mvc.perform(post(path+"/receipt-document").with(csrf()).with(user("customer").authorities(()->"CUSTOMER")))
+    .andExpect(status().isOk())
+    .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_PDF))
+    .andReturn().getResponse();
+  assertThat(new String(pdfResponse.getContentAsByteArray(),0,5,java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+  assertThat(pdfResponse.getHeader("Content-Disposition")).contains("attachment","customer-copy");
+  assertThat(pdfResponse.getHeader("Cache-Control")).contains("no-store");
+  assertThat(pdfResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+  assertThat(pdfResponse.getHeader("X-Document-Reference")).matches("[0-9a-f-]{36}");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM pos_audit WHERE action='CUSTOMER_RECEIPT_COPY'",Integer.class)).isEqualTo(2);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_payment_attempts",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_invoices",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM inventory_ledger",Integer.class)).isEqualTo(1);
  }
  @Test void onlineReceiptCannotExposeGuestPosSale(){configureOnline();String id=(String)as("alice",()->as("alice", () -> checkout.cashSale("alice","receipt-pos-private",sale(1,"120")))).get("id");assertThatThrownBy(()->onlineReceipts.read("customer",id)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);}
  @Test void onlinePaymentIsDurableVendorOwnedAndConfirmedExactlyOnce(){

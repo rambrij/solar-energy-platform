@@ -421,6 +421,16 @@
       "expected": 404,
       "test": "PosTest#p006CashierHttpChecksSameBranchUnassignedRegisterAndForeignSession",
       "sideEffect": "no session is created on the unassigned register"
+    },
+    {
+      "id": "P006-CUSTOMER-OWN-RECEIPT-PDF-COPY",
+      "actor": "CUSTOMER",
+      "endpoint": "POST /api/v1/customer/orders/{id}/receipt-document",
+      "permission": "CUSTOMER",
+      "scope": "CUSTOMER_ORDER_OWNER",
+      "expected": 200,
+      "test": "PosTest#onlineReceiptApiEnforcesCustomerOwnershipAndAuditedCopyCsrf",
+      "sideEffect": "one CUSTOMER_RECEIPT_COPY audit event; saved order, payment, vendor invoice and inventory remain unchanged"
     }
   ],
   "notApplicableResources": [
@@ -1590,6 +1600,12 @@
       "scope": "ACTIVE_TENANT_MARKETPLACE_ENQUIRIES",
       "assignment": "Active vendor membership and LEAD_VIEW; tenant-derived query; inbox read audit event",
       "runtimeTest": "MarketplaceEnquiryServiceAuthorizationBoundaryTest#vendorInboxUsesOnlyAuthenticatedTenantAndAuditsTheRead; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "OnlineReceiptController#downloadPdfCopy": {
+      "actor": "CUSTOMER",
+      "scope": "CUSTOMER_OWNED_ORDER",
+      "assignment": "NONE",
+      "runtimeTest": "PosTest#onlineReceiptApiEnforcesCustomerOwnershipAndAuditedCopyCsrf; RuntimeAuthorizationEndpointInventoryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

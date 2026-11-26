@@ -9,5 +9,6 @@ public class VendorCustomer {
  @Column(name="consent_at",nullable=false) private Instant consent;
  @Column(nullable=false,length=40) private String provenance;
  protected VendorCustomer(){}
- public VendorCustomer(long tenant,long customer,Instant consent){id=java.util.UUID.randomUUID().toString();this.tenant=tenant;this.customer=customer;this.consent=consent;provenance="CUSTOMER_AUTHENTICATED_POS_CONSENT";}
+ public VendorCustomer(long tenant,long customer,Instant consent){this(tenant,customer,consent,"CUSTOMER_AUTHENTICATED_POS_CONSENT");}
+ public VendorCustomer(long tenant,long customer,Instant consent,String provenance){id=java.util.UUID.randomUUID().toString();this.tenant=tenant;this.customer=customer;this.consent=consent;this.provenance=provenance;}
 }

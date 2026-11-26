@@ -83,6 +83,8 @@ public class MarketplaceEnquiryService {
         if(request.linkToAccount()) {
             if(username==null||username.isBlank())
                 throw new ResponseStatusException(UNAUTHORIZED,"Sign in with your global customer account before linking this enquiry");
+            if(!email.equals(username.strip().toLowerCase(Locale.ROOT)))
+                throw new ResponseStatusException(BAD_REQUEST,"Linked enquiry email must match the signed-in customer account");
             customerId=customers.resolve(username);
             customers.lock(customerId);
             associateWithVerifiedConsent(vendor.id(),customerId,now);
@@ -112,7 +114,7 @@ public class MarketplaceEnquiryService {
             VendorCustomerService.APPROVAL_PRINCIPAL,null,
             List.of(new SimpleGrantedAuthority(VendorCustomerService.APPROVAL_AUTHORITY))));
         SecurityContextHolder.setContext(delegated);
-        try { relationships.associate(tenant,customer,consent); }
+        try { relationships.associate(tenant,customer,consent,"CUSTOMER_AUTHENTICATED_MARKETPLACE_ENQUIRY"); }
         finally { SecurityContextHolder.setContext(previous); }
     }
 

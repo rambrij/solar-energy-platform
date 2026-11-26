@@ -2800,14 +2800,6 @@
         "vendor-crm-note-list"
       ]
     },
-    "VendorAccessAdmin.tsx:115": {
-      "fn": "vendorApi",
-      "argument": "'/employees/'+encodeURIComponent(username)+'/reactivate'",
-      "methodArgument": "'POST'",
-      "actions": [
-        "vendor-employee-reactivate"
-      ]
-    },
     "VendorAccessAdmin.tsx:79": {
       "fn": "vendorApi",
       "argument": "'/roles/'+role.id",

@@ -3,7 +3,7 @@ import java.util.*;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.*;
 public interface ReturnRepository extends JpaRepository<ReturnCase,String> {
- @Lock(LockModeType.PESSIMISTIC_READ) List<ReturnCase> findTop20ByTenantAndOrderIdOrderByCreatedDescIdDesc(long tenant,String orderId);
+ List<ReturnCase> findTop20ByTenantAndOrderIdOrderByCreatedDescIdDesc(long tenant,String orderId);
  @Query(value="select new com.saumya.pos.returns.internal.ReturnQueueRow(r.id,r.orderId,r.state,r.created) from ReturnCase r where r.tenant=:tenant and r.branch=:branch and (:state='ALL' or r.state=:state) and r.created>=:start and r.created<:until and (lower(r.id) like :prefix or lower(r.orderId) like :prefix) order by r.created asc,r.id asc",
  countQuery="select count(r) from ReturnCase r where r.tenant=:tenant and r.branch=:branch and (:state='ALL' or r.state=:state) and r.created>=:start and r.created<:until and (lower(r.id) like :prefix or lower(r.orderId) like :prefix)")
  org.springframework.data.domain.Page<ReturnQueueRow> queue(long tenant,long branch,String state,java.time.Instant start,java.time.Instant until,String prefix,org.springframework.data.domain.Pageable pageable);

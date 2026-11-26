@@ -54,6 +54,7 @@ class CustomerReturnHistoryServiceTest {
 
         when(orders.customerDetail("buyer@example.test", "owned-order"))
             .thenReturn(ownedOrder("owned-order", "IN_STORE", "PAID"));
+        when(orders.customerOrderTenant("buyer@example.test", "owned-order")).thenReturn(17L);
         when(returns.findTop20ByTenantAndOrderIdOrderByCreatedDescIdDesc(17, "owned-order"))
             .thenReturn(List.of(returned));
         when(refunds.findAllByTenantAndReturnIdIn(17, List.of("return-1")))

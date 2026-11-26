@@ -57,25 +57,28 @@ public class CustomerReturnHistoryService {
         if (orderId == null || !orderId.matches("[A-Za-z0-9-]{1,36}")) throw missing();
 
         // customerDetail enforces CUSTOMER identity and the existing global order ownership scope.
-        // Its returned Order entity carries the persisted tenant and is the trusted query scope below.
         var order = orders.customerDetail(username, orderId).order();
         // The implemented POS return workflow covers paid IN_STORE orders only.
         if (!"IN_STORE".equals(order.channel()) || !"PAID".equals(order.status())) {
             return new History(orderId, List.of());
         }
 
-        // Keep every read bound to the authenticated owned order and its tenant.
-        var cases = returns.findTop20ByTenantAndOrderIdOrderByCreatedDescIdDesc(order.tenant(), orderId);
+        // This existing helper independently verifies the authenticated customer and owned order,
+        // then returns the persisted tenant. It never accepts a tenant identifier from the client.
+        long tenant = orders.customerOrderTenant(username, orderId);
+
+        // Keep every read bound to the authenticated owned order and its server-derived tenant.
+        var cases = returns.findTop20ByTenantAndOrderIdOrderByCreatedDescIdDesc(tenant, orderId);
         if (cases.isEmpty()) return new History(orderId, List.of());
 
         var returnIds = cases.stream().map(ReturnCase::id).toList();
         var refundByReturn = new HashMap<String, CashRefund>();
-        for (CashRefund refund : refunds.findAllByTenantAndReturnIdIn(order.tenant(), returnIds)) {
+        for (CashRefund refund : refunds.findAllByTenantAndReturnIdIn(tenant, returnIds)) {
             refundByReturn.putIfAbsent(refund.returned(), refund);
         }
 
         var result = cases.stream()
-            .map(returned -> project(order.tenant(), returned, refundByReturn.get(returned.id())))
+            .map(returned -> project(tenant, returned, refundByReturn.get(returned.id())))
             .toList();
         return new History(orderId, result);
     }

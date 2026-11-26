@@ -123,7 +123,7 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
                     : 'Not issued'}</p>
                 </article>)}
         <p className="receipt-note">This is the recorded status of the existing in-store return workflow. Viewing it does not start a return or change a refund.</p>
-      </section>
+      </section>}
       <p>Status updated {date(detail.statusChangedAt)}</p><p>Line details are saved order snapshots. Catalogue changes do not change this order.</p>
     </section>}
     

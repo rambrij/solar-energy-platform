@@ -2,12 +2,12 @@ package com.saumya.pos.marketplace;
 
 import com.saumya.pos.catalog.CatalogService;
 import com.saumya.pos.customer.VendorCustomerService;
-import com.saumya.pos.customer.internal.VendorAccessAuditEvent;
-import com.saumya.pos.customer.internal.VendorAccessAuditRepository;
+import com.saumya.pos.customer.VendorAccessAuditService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.marketplace.internal.MarketplaceEnquiry;
 import com.saumya.pos.marketplace.internal.MarketplaceEnquiryRepository;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.tenant.TenantLifecycleService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -18,7 +18,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,15 +35,15 @@ public class MarketplaceEnquiryService {
     private final CustomerAccess customers;
     private final VendorCustomerService relationships;
     private final AuthorizationContext authorization;
-    private final VendorAccessAuditRepository audit;
-    private final JdbcTemplate jdbc;
+    private final VendorAccessAuditService audit;
+    private final TenantLifecycleService tenants;
     private final Clock clock;
 
     public MarketplaceEnquiryService(CatalogService catalogue,MarketplaceEnquiryRepository enquiries,
             CustomerAccess customers,VendorCustomerService relationships,AuthorizationContext authorization,
-            VendorAccessAuditRepository audit,JdbcTemplate jdbc,Clock clock) {
+            VendorAccessAuditService audit,TenantLifecycleService tenants,Clock clock) {
         this.catalogue=catalogue;this.enquiries=enquiries;this.customers=customers;this.relationships=relationships;
-        this.authorization=authorization;this.audit=audit;this.jdbc=jdbc;this.clock=clock;
+        this.authorization=authorization;this.audit=audit;this.tenants=tenants;this.clock=clock;
     }
 
     public record Submission(String contactName,String contactEmail,String contactPhone,String message,
@@ -65,7 +64,7 @@ public class MarketplaceEnquiryService {
         String message=required(request.message(),2000,"Enquiry message");
         var vendor=catalogue.activeVendor(slug);
         String requesterHash=hashAddress(remoteAddress);
-        jdbc.queryForObject("SELECT id FROM tenants WHERE id=? FOR UPDATE",Long.class,vendor.id());
+        if(!tenants.lockActive(vendor.id())) throw new ResponseStatusException(NOT_FOUND,"Vendor unavailable");
         Instant now=clock.instant();
         long recent=enquiries.countByTenantIdAndRequesterHashAndCreatedAtAfter(vendor.id(),requesterHash,now.minus(RATE_WINDOW));
         if(recent>=MAX_REQUESTS_PER_WINDOW)
@@ -101,8 +100,7 @@ public class MarketplaceEnquiryService {
         actor.requireVendorMembership();
         actor.requirePermission("LEAD_VIEW");
         var rows=enquiries.findAllByTenantIdOrderByCreatedAtDescIdDesc(actor.tenantId(),PageRequest.of(0,100));
-        audit.save(new VendorAccessAuditEvent(actor.tenantId(),actor.username(),
-            "LEAD_INBOX",null,"LEAD_INBOX_VIEWED","Vendor lead inbox viewed"));
+        audit.recordLeadInboxRead();
         return rows.getContent().stream().map(row->new Lead(row.id(),row.productId(),row.productNameSnapshot(),
             row.contactName(),row.contactEmail(),row.contactPhone(),row.message(),row.createdAt(),row.status())).toList();
     }

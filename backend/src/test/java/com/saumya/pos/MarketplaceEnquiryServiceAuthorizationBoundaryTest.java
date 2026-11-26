@@ -2,7 +2,8 @@ package com.saumya.pos;
 
 import com.saumya.pos.catalog.CatalogService;
 import com.saumya.pos.customer.VendorCustomerService;
-import com.saumya.pos.customer.internal.VendorAccessAuditRepository;
+import com.saumya.pos.customer.VendorAccessAuditService;
+import com.saumya.pos.tenant.TenantLifecycleService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.marketplace.MarketplaceEnquiryService;
 import com.saumya.pos.marketplace.internal.MarketplaceEnquiryRepository;
@@ -15,7 +16,6 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.*;
@@ -23,9 +23,9 @@ import static org.mockito.Mockito.*;
 
 class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
     private MarketplaceEnquiryService service(AuthorizationContext authorization,
-            MarketplaceEnquiryRepository enquiries,VendorAccessAuditRepository audit) {
+            MarketplaceEnquiryRepository enquiries,VendorAccessAuditService audit) {
         return new MarketplaceEnquiryService(mock(CatalogService.class),enquiries,mock(CustomerAccess.class),
-            mock(VendorCustomerService.class),authorization,audit,mock(JdbcTemplate.class),
+            mock(VendorCustomerService.class),authorization,audit,mock(TenantLifecycleService.class),
             Clock.fixed(Instant.parse("2026-11-26T10:00:00Z"),ZoneOffset.UTC));
     }
 
@@ -34,7 +34,7 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "customer@example.test",null,null,null,Set.of("CUSTOMER"),false,true,false));
         var enquiries=mock(MarketplaceEnquiryRepository.class);
-        var audit=mock(VendorAccessAuditRepository.class);
+        var audit=mock(VendorAccessAuditService.class);
         var service=service(authorization,enquiries,audit);
         assertThatThrownBy(service::leads).isInstanceOfSatisfying(ResponseStatusException.class,
             e->assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
@@ -64,7 +64,7 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
         var service=service(authorization,enquiries,audit);
         assertThat(service.leads()).isEmpty();
         verify(enquiries).findAllByTenantIdOrderByCreatedAtDescIdDesc(71L,PageRequest.of(0,100));
-        verify(audit).save(argThat(event->event!=null));
+        verify(audit).recordLeadInboxRead();
         verifyNoMoreInteractions(enquiries);
     }
 
@@ -83,6 +83,6 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
         assertThatThrownBy(()->service.submit("vendor",request,"192.0.2.1",null))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e->assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
-        verifyNoInteractions(catalogue,enquiries,customers,relationships,jdbc);
+        verifyNoInteractions(catalogue,enquiries,customers,relationships,tenants);
     }
 }

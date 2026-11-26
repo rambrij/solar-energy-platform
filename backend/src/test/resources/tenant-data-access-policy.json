@@ -418,18 +418,6 @@
           "tenant"
         ]
       }
-    },
-    {
-      "source": "com.saumya.pos.marketplace.MarketplaceEnquiryService",
-      "methods": [
-        "submit"
-      ],
-      "authority": "The vendor tenant is resolved from the active public storefront slug through CatalogService.activeVendor before the tenant row is locked for a serialized per-vendor enquiry rate check. The slug is a public resource selector; tenant identity is never accepted from the request body.",
-      "evidence": [
-        "catalogue.activeVendor(slug)",
-        "vendor.id()",
-        "SELECT id FROM tenants WHERE id=? FOR UPDATE"
-      ]
     }
   ],
   "inheritedIdLookups": [

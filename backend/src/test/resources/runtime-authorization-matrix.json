@@ -1576,17 +1576,20 @@
     "MarketplaceEnquiryController#csrf": {
       "actor": "PUBLIC",
       "scope": "PUBLIC_MARKETPLACE_CSRF_BOOTSTRAP",
-      "assignment": "CSRF_TOKEN_ONLY_NO_TENANT_DATA"
+      "assignment": "CSRF_TOKEN_ONLY_NO_TENANT_DATA",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest#everyLiveControllerEndpointHasCanonicalActorScopeAndAssignmentMetadata"
     },
     "MarketplaceEnquiryController#submit": {
-      "actor": "PUBLIC_OR_CUSTOMER",
+      "actor": "PUBLIC",
       "scope": "ACTIVE_VENDOR_FROM_STOREFRONT_SLUG_AND_TENANT_OWNED_ENQUIRY",
-      "assignment": "Explicit sharing consent; optional authenticated customer link only when contact email matches authenticated global identity; product ID constrained to published product under selected tenant; per-vendor requester rate limit"
+      "assignment": "Explicit sharing consent; optional authenticated customer link only when contact email matches authenticated global identity; product ID constrained to published product under selected tenant; per-vendor requester rate limit",
+      "runtimeTest": "MarketplaceEnquiryServiceAuthorizationBoundaryTest#publicSubmissionRequiresExplicitSharingConsentBeforeTenantLookup"
     },
     "VendorLeadController#list": {
       "actor": "VENDOR",
       "scope": "ACTIVE_TENANT_MARKETPLACE_ENQUIRIES",
-      "assignment": "Active vendor membership and LEAD_VIEW; tenant-derived query; inbox read audit event"
+      "assignment": "Active vendor membership and LEAD_VIEW; tenant-derived query; inbox read audit event",
+      "runtimeTest": "MarketplaceEnquiryServiceAuthorizationBoundaryTest#vendorInboxUsesOnlyAuthenticatedTenantAndAuditsTheRead; RuntimeAuthorizationEndpointInventoryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

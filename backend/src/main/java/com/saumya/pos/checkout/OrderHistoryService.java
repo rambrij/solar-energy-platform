@@ -95,9 +95,10 @@ public class OrderHistoryService {
         var page=orders.findAll(filtered(scope,filter),PageRequest.of(filter.page(),filter.size(),Sort.by(Sort.Order.desc("createdAt"),Sort.Order.desc("id"))));
         var names=new HashMap<Long,String>();
         var payments=new HashMap<String,List<PaymentAttempt>>();
-        page.getContent().stream().collect(java.util.stream.Collectors.groupingBy(DraftOrder::tenant))
-            .forEach((tenant, rows) -> paymentAttempts.findAllByTenantAndOrderInOrderByCreatedAscIdAsc(tenant, rows.stream().map(DraftOrder::id).toList())
-                .forEach(attempt -> payments.computeIfAbsent(paymentKey(tenant, attempt.order()), key -> new ArrayList<>()).add(attempt)));
+        for (DraftOrder order : page.getContent()) {
+            payments.put(paymentKey(order.tenant(), order.id()),
+                paymentAttempts.findAllForHistoryByTenantAndOrder(order.tenant(), order.id()));
+        }
         return new History(page.getContent().stream().map(o->view(o,names,payments.getOrDefault(paymentKey(o.tenant(),o.id()),List.of()))).toList(),page.getNumber(),page.getSize(),page.getTotalElements(),page.getTotalPages());
     }
     
@@ -117,7 +118,7 @@ public class OrderHistoryService {
     private Detail detail(Specification<DraftOrder> scope, String id) {
         var order=orders.findOne(scope.and((r,q,b)->b.equal(r.get("id"),id))).orElseThrow(this::missing);
         var snapshots=lines.lines(order.tenant(),order.id()).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList();
-        var attempts = paymentAttempts.findAllByTenantAndOrderOrderByCreatedAscIdAsc(order.tenant(), order.id());
+        var attempts = paymentAttempts.findAllForHistoryByTenantAndOrder(order.tenant(), order.id());
         return new Detail(view(order,new HashMap<>(),attempts),snapshots,order.cash(),order.change(),order.cancellationReason(),order.changed());
     }
 }

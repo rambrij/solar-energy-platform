@@ -1549,22 +1549,22 @@
       "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_VIEW",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
     },
-    "VendorShipmentController#createShipment": {
+    "CustomerShipmentController#customerShipments": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_OWNED_ORDER_SHIPMENTS",
+      "assignment": "CUSTOMER_IDENTITY_AND_ORDER_OWNERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "VendorShipmentController#create": {
       "actor": "VENDOR",
       "scope": "TENANT_PAID_ONLINE_ORDER",
       "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_UPDATE",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
     },
-    "VendorShipmentController#addEvent": {
+    "VendorShipmentController#event": {
       "actor": "VENDOR",
       "scope": "TENANT_SHIPMENT_APPEND_ONLY_EVENTS",
       "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_UPDATE",
-      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
-    },
-    "CustomerShipmentController#customerShipments": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_OWNED_ORDER_SHIPMENTS",
-      "assignment": "CUSTOMER_IDENTITY_AND_ORDER_OWNERSHIP",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
     }
   },

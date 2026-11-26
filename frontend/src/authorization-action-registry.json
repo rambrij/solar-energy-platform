@@ -2957,6 +2957,13 @@
       "actions": [
         "vendor-role-access-history"
       ]
+    },
+    "OrderHistory.tsx:42": {
+      "fn": "marketplaceApi",
+      "argument": "`/api/v1/customer/orders/${encodeURIComponent(id)}/shipments`",
+      "actions": [
+        "customer-order-shipment-tracking"
+      ]
     }
   },
   "sessionApiOperations": [

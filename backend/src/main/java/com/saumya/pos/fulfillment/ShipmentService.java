@@ -16,7 +16,12 @@ public class ShipmentService {
  private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Shipment or order unavailable");}
  private String clean(String s,int n,String label){String v=s==null?"":s.strip();if(v.isEmpty()||v.length()>n||v.codePoints().anyMatch(Character::isISOControl))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,label+" is invalid");return v;}
  private String url(String s){if(s==null||s.isBlank())return null;String v=s.strip();if(v.length()>1000||!v.matches("https://\\S+"))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Tracking URL must use HTTPS");return v;}
- private Instant time(Object x){return x instanceof Timestamp t?t.toInstant():((Instant)x);}
+ private Instant time(Object x){
+  if(x instanceof Timestamp t)return t.toInstant();
+  if(x instanceof Instant i)return i;
+  if(x instanceof java.time.LocalDateTime d)return d.toInstant(java.time.ZoneOffset.UTC);
+  throw new IllegalStateException("Unsupported database timestamp representation");
+ }
  private List<Event> events(long tenant,long id){return db.queryForList("SELECT id,event_code,description,reason,actor_username,occurred_at FROM shipment_events WHERE tenant_id=? AND shipment_id=? ORDER BY occurred_at,id",tenant,id).stream().map(r->new Event(((Number)r.get("id")).longValue(),(String)r.get("event_code"),(String)r.get("description"),(String)r.get("reason"),(String)r.get("actor_username"),time(r.get("occurred_at")))).toList();}
  private Shipment view(long tenant,Map<String,Object> r){long id=((Number)r.get("id")).longValue();return new Shipment(id,(String)r.get("order_id"),(String)r.get("carrier"),(String)r.get("tracking_reference"),(String)r.get("tracking_url"),time(r.get("created_at")),events(tenant,id));}
  @PreAuthorize("hasAuthority('SHIPMENT_VIEW')") public List<EligibleOrder> eligibleOrders(){var c=vendor("SHIPMENT_VIEW");return db.queryForList("SELECT o.id order_id,o.created_at,o.total FROM orders o LEFT JOIN shipments s ON s.tenant_id=o.tenant_id AND s.order_id=o.id WHERE o.tenant_id=? AND o.sales_channel='ONLINE' AND o.status='PAID' AND o.customer_id IS NOT NULL AND s.id IS NULL ORDER BY o.created_at DESC,o.id DESC LIMIT 100",c.tenantId()).stream().map(r->new EligibleOrder((String)r.get("order_id"),time(r.get("created_at")),(BigDecimal)r.get("total"))).toList();}

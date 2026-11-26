@@ -2831,7 +2831,7 @@
         "vendor-crm-note-list"
       ]
     },
-    "VendorAccessAdmin.tsx:79": {
+    "VendorAccessAdmin.tsx:81": {
       "fn": "vendorApi",
       "argument": "'/roles/'+role.id",
       "methodArgument": "'PUT'",
@@ -2839,14 +2839,14 @@
         "vendor-role-update"
       ]
     },
-    "VendorAccessAdmin.tsx:96": {
+    "VendorAccessAdmin.tsx:98": {
       "fn": "vendorApi",
       "argument": "'/employees/'+encodeURIComponent(username)+'/invitation'",
       "actions": [
         "vendor-employee-invitation-status"
       ]
     },
-    "VendorAccessAdmin.tsx:102": {
+    "VendorAccessAdmin.tsx:104": {
       "fn": "vendorApi",
       "argument": "'/employees/'+encodeURIComponent(subject)+'/invitation/resend'",
       "methodArgument": "'POST'",

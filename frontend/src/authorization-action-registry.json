@@ -2843,7 +2843,7 @@
         "vendor-crm-note-list"
       ]
     },
-    "VendorAccessAdmin.tsx:81": {
+    "VendorAccessAdmin.tsx:83": {
       "fn": "vendorApi",
       "argument": "'/roles/'+role.id",
       "methodArgument": "'PUT'",

@@ -2972,7 +2972,7 @@
         "pos-tender-review-awaiting-read"
       ]
     },
-    "VendorCustomerCrm.tsx:32": {
+    "VendorCustomerCrm.tsx:33": {
       "fn": "vendorApi",
       "argument": "path+'/'+editing.id",
       "methodArgument": "'PUT'",
@@ -2980,7 +2980,7 @@
         "vendor-crm-note-update"
       ]
     },
-    "VendorCustomerCrm.tsx:33": {
+    "VendorCustomerCrm.tsx:34": {
       "fn": "vendorApi",
       "argument": "path",
       "methodArgument": "'POST'",
@@ -2988,7 +2988,7 @@
         "vendor-crm-note-create"
       ]
     },
-    "VendorCustomerCrm.tsx:34": {
+    "VendorCustomerCrm.tsx:35": {
       "fn": "vendorApi",
       "argument": "path",
       "actions": [

@@ -1756,7 +1756,7 @@
     },
     {
       "id": "customer-receipt-pdf-copy",
-      "component": "OnlineReceipt.tsx",
+      "component": "CustomerReceiptPdfCopy.tsx",
       "trigger": "button",
       "method": "POST",
       "endpoint": "/api/v1/customer/orders/{id}/receipt-document",
@@ -2919,6 +2919,12 @@
       "component": "MarketplaceEnquiryForm.tsx",
       "trigger": "submit",
       "backendOperation": "POST /api/v1/marketplace/vendors/{slug}/enquiries"
+    },
+    {
+      "id": "customer-receipt-pdf-copy",
+      "component": "CustomerReceiptPdfCopy.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-document"
     }
   ],
   "dynamicRouteParameters": {

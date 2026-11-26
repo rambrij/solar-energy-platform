@@ -3043,6 +3043,11 @@
       "method": "GET",
       "endpoint": "/api/v1/customer/csrf",
       "helper": "marketplaceApi.ts"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/api/v1/marketplace/csrf",
+      "helper": "marketplaceApi.ts"
     }
   ]
 }

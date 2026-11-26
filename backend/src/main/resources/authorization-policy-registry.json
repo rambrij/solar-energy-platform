@@ -9,6 +9,7 @@
     "CUSTOMER_RELATION_VIEW",
     "INVENTORY_RECEIVE",
     "INVENTORY_VIEW",
+    "LEAD_VIEW",
     "POS_CASHIER_REPORT_VIEW",
     "POS_CASH_IN",
     "POS_CASH_OUT",
@@ -236,8 +237,9 @@
       ]
     },
     "vendor-customer-crm": {
-      "allOf": [
-        "CUSTOMER_RELATION_VIEW"
+      "anyOf": [
+        "CUSTOMER_RELATION_VIEW",
+        "LEAD_VIEW"
       ]
     },
     "customer-dashboard": {
@@ -298,7 +300,9 @@
     "VendorCustomerCrmController": "VENDOR_PRIVATE_CUSTOMER_CRM_SCOPE",
     "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_ORDER_SCOPE",
     "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE",
-    "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE"
+    "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE",
+    "MarketplaceEnquiryController": "PUBLIC_VENDOR_ENQUIRY_INTAKE_WITH_EXPLICIT_CONSENT_AND_RATE_LIMIT",
+    "VendorLeadController": "VENDOR_TENANT_LEAD_INBOX_PERMISSION_AND_AUDIT"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -321,7 +325,6 @@
     "LEAD_ASSIGN",
     "LEAD_CREATE",
     "LEAD_UPDATE",
-    "LEAD_VIEW",
     "ORDER_CANCEL",
     "ORDER_CREATE",
     "ORDER_UPDATE",
@@ -431,6 +434,16 @@
       "scope": "Authenticated tenant and branch-scoped inventory records",
       "ui": "Inventory > Stock receiving > view receipts",
       "test": "PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "LEAD_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/leads",
+      "service": "MarketplaceEnquiryService",
+      "scope": "Active Vendor actor; tenant-scoped enquiry query; tenant-private contact data; audited inbox read",
+      "ui": "Vendor workspace > Customers & CRM > Marketplace enquiries",
+      "test": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
     },
     {
       "permission": "PLATFORM_ANALYTICS_VIEW",

@@ -1572,6 +1572,21 @@
       "scope": "GLOBAL_CUSTOMER_OWNED_ORDER_POS_RETURN_STATUS",
       "assignment": "CUSTOMER_IDENTITY_AND_OWNED_PAID_IN_STORE_ORDER",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; CustomerReturnControllerAuthorizationTest; CustomerReturnHistoryServiceTest"
+    },
+    "MarketplaceEnquiryController#csrf": {
+      "actor": "PUBLIC",
+      "scope": "PUBLIC_MARKETPLACE_CSRF_BOOTSTRAP",
+      "assignment": "CSRF_TOKEN_ONLY_NO_TENANT_DATA"
+    },
+    "MarketplaceEnquiryController#submit": {
+      "actor": "PUBLIC_OR_CUSTOMER",
+      "scope": "ACTIVE_VENDOR_FROM_STOREFRONT_SLUG_AND_TENANT_OWNED_ENQUIRY",
+      "assignment": "Explicit sharing consent; optional authenticated customer link only when contact email matches authenticated global identity; product ID constrained to published product under selected tenant; per-vendor requester rate limit"
+    },
+    "VendorLeadController#list": {
+      "actor": "VENDOR",
+      "scope": "ACTIVE_TENANT_MARKETPLACE_ENQUIRIES",
+      "assignment": "Active vendor membership and LEAD_VIEW; tenant-derived query; inbox read audit event"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

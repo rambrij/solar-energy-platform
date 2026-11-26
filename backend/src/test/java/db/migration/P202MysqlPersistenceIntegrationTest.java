@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(4);
+            assertThat(applied).hasSize(5);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -40,6 +40,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(2).getVersion().getVersion()).isEqualTo("3");
             assertThat(applied.get(3).getScript()).isEqualTo("V4__shipment_tracking.sql");
             assertThat(applied.get(3).getVersion().getVersion()).isEqualTo("4");
+            assertThat(applied.get(4).getScript()).isEqualTo("V5__marketplace_enquiry_intake.sql");
+            assertThat(applied.get(4).getVersion().getVersion()).isEqualTo("5");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -47,7 +49,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4");
+                    .containsExactly("1", "2", "3", "4", "5");
         });
     }
 
@@ -60,7 +62,7 @@ class P202MysqlPersistenceIntegrationTest {
             JdbcTemplate db = jdbc(url, user, password);
 
             for (String table : Set.of("branches", "employees", "registers", "pos_sessions",
-                    "products", "inventory", "orders", "order_items", "inventory_ledger",
+                    "products", "inventory", "orders", "order_items", "inventory_ledger", "marketplace_enquiries",
                     "pos_audit", "vendor_roles", "vendor_role_permissions",
                     "employee_role_assignments", "employee_register_assignments",
                     "tenant_subscriptions", "subscription_invoices", "subscription_payments",
@@ -120,9 +122,9 @@ class P202MysqlPersistenceIntegrationTest {
                     "subscription_payments", "subscription_events", "vendor_roles",
                     "vendor_role_permissions", "employee_role_assignments",
                     "employee_register_assignments", "vendor_access_audit_events",
-                    "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
+                    "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews", "marketplace_enquiries",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
-                    "shipments", "shipment_events");
+                    "shipments", "shipment_events", "marketplace_enquiries");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns
@@ -200,6 +202,10 @@ class P202MysqlPersistenceIntegrationTest {
             assertUniqueKey(db, schema, "tenant_subscriptions", "tenant_id,id");
             assertUniqueKey(db, schema, "subscription_invoices", "tenant_id,id");
             assertUniqueKey(db, schema, "vendor_roles", "tenant_id,id");
+            assertUniqueKey(db, schema, "marketplace_enquiries", "tenant_id,id");
+            assertForeignKey(db, schema, "marketplace_enquiries", "tenant_id,customer_id", "tenant_customers", "tenant_id,customer_id");
+            assertForeignKey(db, schema, "marketplace_enquiries", "tenant_id,product_id", "products", "tenant_id,id");
+            assertConstraint(db, schema, "marketplace_enquiries", "chk_marketplace_enquiry_status", "CHECK");
 
             // Derive every tenant-to-tenant FK edge from MySQL metadata and
             // assert that its referenced ordered column tuple is itself unique.

@@ -2870,7 +2870,7 @@
         "vendor-crm-note-list"
       ]
     },
-    "VendorAccessAdmin.tsx:83": {
+    "VendorAccessAdmin.tsx:86": {
       "fn": "vendorApi",
       "argument": "'/roles/'+role.id",
       "methodArgument": "'PUT'",
@@ -2878,7 +2878,7 @@
         "vendor-role-update"
       ]
     },
-    "VendorAccessAdmin.tsx:193": {
+    "VendorAccessAdmin.tsx:198": {
       "fn": "vendorApi",
       "argument": "'/roles/'.concat(encodeURIComponent(roleId),'/access-history')",
       "actions": [

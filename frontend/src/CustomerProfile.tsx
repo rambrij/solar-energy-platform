@@ -29,5 +29,28 @@ export default function CustomerProfile(){
    <button disabled={busy||saving}>{saving?'Saving…':'Save profile'}</button>
    <button type="button" className="secondary" disabled={busy||saving} onClick={()=>{setName(profile.displayName??'');setNotice('Changes discarded.');}}>Discard changes</button>
   </form>}
+  <CustomerSessionSecurity/>
+ </section>;
+}
+
+function CustomerSessionSecurity(){
+ const [confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ async function revoke(){
+  setBusy(true);setError('');setNotice('');
+  try{await marketplaceApi('/api/v1/auth/sessions/revoke-others','POST',{});setConfirm(false);setNotice('Other active sessions were signed out. This device remains signed in.');}
+  catch{setError('Other sessions could not be signed out. This device remains active; retry when connected.');}
+  finally{setBusy(false);}
+ }
+ return <section aria-labelledby="customer-security-title" className="customer-security">
+  <h3 id="customer-security-title">Account security</h3>
+  <p>Sign out other active sessions for this global account. This device will remain signed in.</p>
+  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
+  <button type="button" className="secondary" disabled={busy} onClick={()=>{setError('');setNotice('');setConfirm(true);}}>Sign out other devices</button>
+  {confirm&&<section role="dialog" aria-modal="true" aria-labelledby="customer-revoke-title">
+   <h3 id="customer-revoke-title">Sign out other sessions?</h3>
+   <p>All other active sessions will be revoked. Your current device remains active.</p>
+   <button type="button" className="secondary" disabled={busy} onClick={()=>setConfirm(false)}>Keep other sessions</button>
+   <button type="button" disabled={busy} onClick={()=>void revoke()}>{busy?'Signing out…':'Confirm sign out'}</button>
+  </section>}
  </section>;
 }

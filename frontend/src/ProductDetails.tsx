@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { marketplaceApi } from './marketplaceApi';
+import MarketplaceEnquiryForm from './MarketplaceEnquiryForm';
 
 type Detail = { id: number; vendorSlug: string; vendorName: string; sku: string; name: string; unitPrice: number; taxRate: number; unitTax: number; unitTotal: number; inStock: boolean; listPrice?: number; discountPercent?: number; categoryName?: string; brand?: string };
 export default function ProductDetails({ slug, productId, disabled, onClose, onAdd }: { slug: string; productId: number; disabled: boolean; onClose: () => void; onAdd: (id: number, quantity: number) => void }) {
@@ -29,6 +30,7 @@ export default function ProductDetails({ slug, productId, disabled, onClose, onA
       <p>Availability refers to this vendor’s designated online stock location. Checkout rechecks prices, tax and stock at the designated location. Adding to your cart does not reserve stock.</p>
       <label>Product detail quantity<input type="number" min="1" max="10000" value={quantity} disabled={disabled} onChange={event => setQuantity(Number(event.target.value))}/></label>
       <button className="detail-add" disabled={disabled || !product.inStock || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000} onClick={() => onAdd(product.id, quantity)}>Add or update this product in cart</button>
+      <MarketplaceEnquiryForm slug={slug} productId={product.id} productName={product.name}/>
     </>}
   </dialog>;
 }

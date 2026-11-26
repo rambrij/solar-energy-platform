@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { vendorApi } from './api';
 import { useSession } from './session';
+import VendorLeadInbox from './VendorLeadInbox';
 
 type CustomerRelationship={relationshipId:string;customerId:number;displayName:string;consentAt:string;provenance:string};
 type CrmNote={id:number;relationshipId:string;note:string;createdBy:string;updatedBy:string;createdAt:string;updatedAt:string;version:number};
@@ -12,12 +13,12 @@ export default function VendorCustomerCrm(){
  const [notes,setNotes]=useState<CrmNote[]>([]),[draft,setDraft]=useState(''),[reason,setReason]=useState('');
  const [editing,setEditing]=useState<CrmNote>(),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
 
- useEffect(()=>{let active=true;setBusy(true);setError('');
+ useEffect(()=>{if(!permissions.includes('CUSTOMER_RELATION_VIEW')){setCustomers([]);return;}let active=true;setBusy(true);setError('');
   vendorApi('/customers').then((items:CustomerRelationship[])=>{if(active){setCustomers(items);setSelected(current=>current||(items.length?items[0].relationshipId:''));}})
    .catch(e=>{if(active)setError((e as Error).message||'Customer relationships could not be loaded.');})
    .finally(()=>{if(active)setBusy(false);});
   return()=>{active=false;};
- },[account?.tenantId,account?.username]);
+ },[account?.tenantId,account?.username,permissions.includes('CUSTOMER_RELATION_VIEW')]);
 
  useEffect(()=>{if(!selected||!canView){setNotes([]);return;}let active=true;setBusy(true);setError('');
   vendorApi('/customers/'+encodeURIComponent(selected)+'/crm-notes').then((items:CrmNote[])=>{if(active)setNotes(items);})
@@ -38,13 +39,14 @@ export default function VendorCustomerCrm(){
   <h1 id="customer-crm-title">Customer relationships &amp; private CRM</h1>
   <p>Relationships and notes belong only to the active vendor tenant. Customers and other vendors cannot view this private workspace data.</p>
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-  <section aria-label="Vendor customer relationships"><h2>Linked customers</h2>
+  {permissions.includes("LEAD_VIEW")&&<VendorLeadInbox/>}
+  {permissions.includes("CUSTOMER_RELATION_VIEW")&&<section aria-label="Vendor customer relationships"><h2>Linked customers</h2>
    {busy&&!customers.length&&<p role="status">Loading customer relationships…</p>}
    {!busy&&!customers.length&&<p className="empty-state">No verified customer relationships are available for this vendor.</p>}
    {!!customers.length&&<label>Select customer<select value={selected} onChange={e=>{setSelected(e.target.value);setEditing(undefined);setDraft('');setReason('');}}>
     {customers.map(c=><option key={c.relationshipId} value={c.relationshipId}>{c.displayName}</option>)}
    </select></label>}
-  </section>
+  </section>}
   {selected&&<section aria-label="Private customer notes"><h2>Private CRM notes</h2>
    {!canView&&<p>Your role does not include CRM_NOTE_VIEW.</p>}
    {canView&&!notes.length&&<p className="empty-state">No private notes have been recorded for this relationship.</p>}

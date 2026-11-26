@@ -2390,6 +2390,28 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/orders/{orderId}/returns"
+    },
+    {
+      "id": "marketplace-enquiry-submit",
+      "component": "MarketplaceEnquiryForm.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/marketplace/vendors/{slug}/enquiries",
+      "permissions": [],
+      "actor": "PUBLIC",
+      "backendOperation": "POST /api/v1/marketplace/vendors/{slug}/enquiries"
+    },
+    {
+      "id": "vendor-lead-inbox-read",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/leads",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/leads"
     }
   ],
   "buttons": [
@@ -2878,6 +2900,12 @@
       "component": "ShipmentManagement.tsx",
       "trigger": "submit",
       "backendOperation": "POST /api/v1/vendor/shipments/{shipmentId}/events"
+    },
+    {
+      "id": "marketplace-enquiry-submit",
+      "component": "MarketplaceEnquiryForm.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/marketplace/vendors/{slug}/enquiries"
     }
   ],
   "dynamicRouteParameters": {

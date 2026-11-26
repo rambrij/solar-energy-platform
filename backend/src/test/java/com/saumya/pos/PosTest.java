@@ -649,7 +649,7 @@ class PosTest {
   update("UPDATE employees SET enabled=FALSE WHERE username='alice'");
   mvc.perform(get("/api/v1/vendor/pos/products").header("Authorization","Bearer "+login.accessToken())).andExpect(status().isUnauthorized());
  }
- @Test void guestAssociationRequiresCustomerProofAndOnlyCreatesCurrentVendorRelationship(){
+ @Test void guestAssociationRequiresCustomerProofAndOnlyCreatesCurrentVendorRelationship() throws Exception {
   configureOnline();var draft=as("alice",()->as("alice", () -> checkout.pos("alice","customer-association",posDraft())));
   assertThat(db.queryForObject("SELECT customer_id FROM orders WHERE id=?",Long.class,draft.id())).isNull();
   assertThatThrownBy(()->as("alice", () -> associations.create("alice",draft.id(),false)));

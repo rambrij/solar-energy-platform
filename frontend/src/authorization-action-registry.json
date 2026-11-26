@@ -2180,6 +2180,42 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}"
+    },
+    {
+      "id": "customer-dashboard-profile-read",
+      "component": "CustomerDashboard.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/profile",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/profile"
+    },
+    {
+      "id": "customer-dashboard-order-list",
+      "component": "CustomerDashboard.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders"
+    },
+    {
+      "id": "customer-dashboard-cart-read",
+      "component": "CustomerDashboard.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/cart",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/cart"
     }
   ],
   "buttons": [

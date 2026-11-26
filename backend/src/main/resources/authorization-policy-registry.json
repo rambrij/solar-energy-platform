@@ -927,11 +927,11 @@
       "permission": "ROLE_VIEW",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/roles and /employees",
+      "endpoint": "GET /api/v1/vendor/roles; GET /api/v1/vendor/roles/{id}; GET /api/v1/vendor/roles/{id}/access-history",
       "service": "VendorRoleService",
       "scope": "One tenant; delegated grants cannot exceed actor's effective role grants",
-      "ui": "Vendor workspace > Access administration > roles and assignments",
-      "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+      "ui": "Vendor workspace > Access administration > roles, assignments and role audit history",
+      "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; VendorRoleServiceProvisioningTest; P101VendorRoleLifecycleTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
     },
     {
       "permission": "USER_CREATE",

@@ -248,6 +248,7 @@
         "disableEmployee",
         "reactivateEmployee",
         "employeeAccessHistory",
+        "roleAccessHistory",
         "employeeRow",
         "audit"
       ],

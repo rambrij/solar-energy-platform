@@ -24,6 +24,36 @@ beforeEach(()=>{
 afterEach(()=>cleanup());
 
 describe('VendorAccessAdmin role editor',()=>{
+ it('loads and displays role lifecycle and employee assignment events in role history',async()=>{
+  const events=[
+   {id:92,actorUsername:'admin@vendor.test',subjectUsername:null,resourceType:'ROLE',resourceId:'7',
+    action:'ROLE_UPDATED',reason:'Tighten least privilege',occurredAt:'2026-11-26T10:00:00Z'},
+   {id:91,actorUsername:'admin@vendor.test',subjectUsername:'staff@vendor.test',resourceType:'ROLE_ASSIGNMENT',
+    resourceId:'7',action:'ROLE_ASSIGNED',reason:'Assign sales duties',occurredAt:'2026-11-26T09:00:00Z'}
+  ];
+  mockVendorApi.mockImplementation(async(path:string)=>{
+   if(path==='/roles')return [role];
+   if(path==='/roles/permissions')return {permissions:['PRODUCT_VIEW','POS_VIEW']};
+   if(path==='/roles/7/access-history')return events;
+   return [];
+  });
+  render(<VendorAccessAdmin mode="roles"/>);
+  fireEvent.click(await screen.findByRole('button',{name:'View audit history for Sales role'}));
+  const history=await screen.findByRole('region',{name:'Role access history'});
+  expect(await within(history).findByText('ROLE UPDATED')).toBeTruthy();
+  expect(within(history).getByText('ROLE ASSIGNED')).toBeTruthy();
+  expect(within(history).getByText('Tighten least privilege')).toBeTruthy();
+  expect(within(history).getByText('Employee: staff@vendor.test')).toBeTruthy();
+  expect(history.querySelector('time')?.dateTime).toBe('2026-11-26T10:00:00Z');
+  expect(mockVendorApi).toHaveBeenCalledWith('/roles/7/access-history');
+ });
+
+ it('does not offer role audit history when ROLE_VIEW is absent',async()=>{
+  mockUseSession.mockReturnValue({account:{...account,permissions:['ROLE_UPDATE']}});
+  render(<VendorAccessAdmin mode="roles"/>);
+  expect(screen.queryByRole('button',{name:/View audit history/})).toBeNull();
+ });
+
  it('offers only server-resolved vendor permissions and never exposes platform permissions',async()=>{
   render(<VendorAccessAdmin mode="roles"/>);
   const form=await screen.findByTestId('create-role-form');

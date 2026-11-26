@@ -20,6 +20,7 @@ public class VendorRoleService {
     public record Employee(String username,long branchId,boolean enabled,List<Long> roleIds,List<Long> registerIds){}
     public record EmployeeInvitation(String username,String invitationToken,String expiresAt,boolean accountAlreadyActive){}
     public record EmployeeAccessEvent(long id,String actorUsername,String resourceType,String resourceId,String action,String reason,Instant occurredAt){}
+    public record RoleAccessEvent(long id,String actorUsername,String subjectUsername,String resourceType,String resourceId,String action,String reason,Instant occurredAt){}
     private AuthorizationContext.Context require(String permission){var c=auth.current();c.requireVendorMembership();c.requirePermission(permission);return c;}
     private String reason(String value){if(value==null||value.isBlank()||value.strip().length()>500)throw new ResponseStatusException(BAD_REQUEST,"A reason (1-500 characters) is required");return value.strip();}
     private List<String> permissions(List<String> input){
@@ -296,6 +297,28 @@ public class VendorRoleService {
         return rows.stream().map(row->new EmployeeAccessEvent(
             ((Number)row.get("id")).longValue(),
             (String)row.get("actor_username"),
+            (String)row.get("resource_type"),
+            (String)row.get("resource_id"),
+            (String)row.get("action"),
+            (String)row.get("reason"),
+            ((Timestamp)row.get("occurred_at")).toInstant()
+        )).toList();
+    }
+    public List<RoleAccessEvent> roleAccessHistory(long roleId){
+        var c=require("ROLE_VIEW");
+        roleRow(c,roleId);
+        var rows=db.queryForList("""
+            SELECT id,actor_username,subject_username,resource_type,resource_id,action,reason,occurred_at
+            FROM vendor_access_audit_events
+            WHERE tenant_id=? AND resource_id=?
+              AND resource_type IN ('ROLE','ROLE_PERMISSIONS_REPLACED','ROLE_ASSIGNMENT')
+            ORDER BY occurred_at DESC,id DESC
+            LIMIT 50
+            """,c.tenantId(),Long.toString(roleId));
+        return rows.stream().map(row->new RoleAccessEvent(
+            ((Number)row.get("id")).longValue(),
+            (String)row.get("actor_username"),
+            (String)row.get("subject_username"),
             (String)row.get("resource_type"),
             (String)row.get("resource_id"),
             (String)row.get("action"),

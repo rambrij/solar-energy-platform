@@ -182,6 +182,20 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const removedPermissions=[...savedPermissions].filter(permission=>!selectedPermissionSet.has(permission));
  const retainedPermissionCount=editPermissions.length-addedPermissions.length;
  const roleNames=new Map(roles.map(role=>[role.id,role.displayName]));
+ type RoleAccessEvent={id:number;actorUsername:string;subjectUsername:string|null;resourceType:string;resourceId:string;action:string;reason:string;occurredAt:string};
+ const [roleHistory,setRoleHistory]=useState<{roleId:number;events:RoleAccessEvent[]}|null>(null);
+ const [checkingRoleHistory,setCheckingRoleHistory]=useState(false);
+ const roleHistoryRequest=useRef(0);
+ async function refreshRoleHistory(roleId:number){
+  const request=++roleHistoryRequest.current;
+  setRoleHistory({roleId,events:[]});setCheckingRoleHistory(true);setError('');
+  try{
+   const value:RoleAccessEvent[]=await vendorApi(`/roles/${encodeURIComponent(roleId)}/access-history`);
+   if(request===roleHistoryRequest.current)setRoleHistory({roleId,events:value??[]});
+  }catch(e){if(request===roleHistoryRequest.current)setError(errorMessage(e));}
+  finally{if(request===roleHistoryRequest.current)setCheckingRoleHistory(false);}
+ }
+
 
  return <section className="vendor-access-admin">
   <header><h2>{mode==='roles'?'Roles & permissions':'Employee administration'}</h2><p>Access is resolved from the signed-in tenant membership, active role assignments and current resource assignments. Platform permissions cannot be assigned here.</p></header>
@@ -213,7 +227,25 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     <div className="vendor-access-actions">
      {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>startEdit(role)}>Edit role {role.displayName}</button>}
      {canRoleUpdate&&role.active&&<button type="button" className="secondary" disabled={busy} onClick={()=>void run(()=>vendorApi(`/roles/${encodeURIComponent(role.id)}/deactivate`,'POST',{reason}),'Role deactivated.')}>Deactivate role {role.displayName}</button>}
+     <button type="button" className="secondary" disabled={busy||checkingRoleHistory} onClick={()=>void refreshRoleHistory(role.id)}>
+      {checkingRoleHistory&&roleHistory?.roleId===role.id?'Loading role history…':roleHistory?.roleId===role.id?'Refresh role history':'View audit history for '+role.displayName}
+     </button>
     </div>
+    {roleHistory?.roleId===role.id&&<section aria-label="Role access history" aria-busy={checkingRoleHistory}>
+     <h4>Recorded role activity</h4>
+     {checkingRoleHistory&&<p role="status">Loading role history…</p>}
+     {!checkingRoleHistory&&!roleHistory.events.length&&<p>No role access history recorded.</p>}
+     {!!roleHistory.events.length&&<ol className="employee-access-history">
+      {roleHistory.events.map(event=><li key={event.id}>
+       <strong>{event.action.replaceAll('_',' ')}</strong>
+       <p>{event.resourceType.replaceAll('_',' ')}{event.resourceId?' · '+event.resourceId:''}</p>
+       {event.subjectUsername&&<p>Employee: {event.subjectUsername}</p>}
+       <p>{event.reason}</p>
+       <p>By {event.actorUsername} · <time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString()}</time></p>
+      </li>)}
+     </ol>}
+     <p>Newest events first. This timeline includes role changes and employee role-assignment activity.</p>
+    </section>}
    </article>)}</div>}
    {editingRole&&<form data-testid="edit-role-form" onSubmit={e=>void updateRole(e)} className="vendor-access-form">
     <h3>Edit tenant role: {editingRole.displayName} Â· v{editingRole.version}</h3>

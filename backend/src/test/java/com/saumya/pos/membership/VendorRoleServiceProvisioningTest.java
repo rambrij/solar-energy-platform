@@ -40,6 +40,44 @@ class VendorRoleServiceProvisioningTest {
         verify(invitations).issueInvitation("cashier@vendor.test");
     }
 
+    @Test void roleAccessHistoryReadsOnlyCurrentTenantRoleAndIncludesRoleAssignments(){
+        var db=mock(JdbcTemplate.class);var auth=mock(AuthorizationContext.class);
+        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,"7:admin@vendor.test",java.util.Set.of("ROLE_VIEW"),false,false,true);
+        when(auth.current()).thenReturn(actor);
+        when(db.queryForList(startsWith("SELECT id,role_key,display_name,active,version"),eq(7L),eq(41L)))
+            .thenReturn(List.of(Map.of("id",41L,"role_key","sales","display_name","Sales","active",true,"version",1L)));
+        var occurred=java.sql.Timestamp.from(Instant.parse("2026-11-26T09:00:00Z"));
+        when(db.queryForList(contains("FROM vendor_access_audit_events"),eq(7L),eq("41")))
+            .thenReturn(List.of(Map.of("id",91L,"actor_username","admin@vendor.test","subject_username","staff@vendor.test",
+                "resource_type","ROLE_ASSIGNMENT","resource_id","41","action","ROLE_ASSIGNED",
+                "reason","Approved onboarding","occurred_at",occurred)));
+        var service=new VendorRoleService(db,auth,mock(IdentityInvitationPort.class),mock(MembershipService.class));
+        var result=service.roleAccessHistory(41L);
+        assertThat(result).containsExactly(new VendorRoleService.RoleAccessEvent(91,"admin@vendor.test","staff@vendor.test",
+            "ROLE_ASSIGNMENT","41","ROLE_ASSIGNED","Approved onboarding",occurred.toInstant()));
+        org.mockito.ArgumentCaptor<String> sql=org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(db).queryForList(sql.capture(),eq(7L),eq(41L));
+        verify(db).queryForList(sql.capture(),eq(7L),eq("41"));
+        String auditQuery=sql.getAllValues().stream()
+            .filter(statement->statement.contains("FROM vendor_access_audit_events"))
+            .findFirst().orElseThrow();
+        assertThat(auditQuery).contains("tenant_id=?","resource_id=?","resource_type IN",
+            "ORDER BY occurred_at DESC,id DESC","LIMIT 50");
+    }
+
+    @Test void roleAccessHistoryDoesNotReadAuditForRoleOutsideTheVendorTenant(){
+        var db=mock(JdbcTemplate.class);var auth=mock(AuthorizationContext.class);
+        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,"7:admin@vendor.test",java.util.Set.of("ROLE_VIEW"),false,false,true);
+        when(auth.current()).thenReturn(actor);
+        when(db.queryForList(startsWith("SELECT id,role_key,display_name,active,version"),eq(7L),eq(99L)))
+            .thenReturn(List.of());
+        var service=new VendorRoleService(db,auth,mock(IdentityInvitationPort.class),mock(MembershipService.class));
+        assertThatThrownBy(()->service.roleAccessHistory(99L))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.NOT_FOUND);
+        verify(db,never()).queryForList(contains("FROM vendor_access_audit_events"),any(Object[].class));
+    }
+
     @Test void employeeAccessHistoryReadsOnlyCurrentTenantSubjectAndReturnsNewestEvents(){
         var db=mock(JdbcTemplate.class);var auth=mock(AuthorizationContext.class);
         var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,"7:admin@vendor.test",java.util.Set.of("USER_VIEW"),false,false,true);

@@ -2278,6 +2278,18 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/employees/{username}/access-history"
+    },
+    {
+      "id": "vendor-role-access-history",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/roles/{id}/access-history",
+      "permissions": [
+        "ROLE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/roles/{id}/access-history"
     }
   ],
   "buttons": [
@@ -2849,6 +2861,13 @@
       "methodArgument": "'PUT'",
       "actions": [
         "vendor-role-update"
+      ]
+    },
+    "VendorAccessAdmin.tsx:193": {
+      "fn": "vendorApi",
+      "argument": "`/roles/${encodeURIComponent(roleId)}/access-history`",
+      "actions": [
+        "vendor-role-access-history"
       ]
     }
   },

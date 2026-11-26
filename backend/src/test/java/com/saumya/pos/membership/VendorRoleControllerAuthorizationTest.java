@@ -104,6 +104,28 @@ class VendorRoleControllerAuthorizationTest {
         verify(service).createEmployee("staff@vendor.test",1,2,"Invite employee");
     }
 
+    @Test @WithMockUser(authorities={"ROLE_VIEW"})
+    void roleAccessHistoryUsesReadOnlyRoleViewPermission() throws Exception {
+        when(service.roleAccessHistory(41L)).thenReturn(List.of(
+            new VendorRoleService.RoleAccessEvent(91,"admin@vendor.test","staff@vendor.test",
+                "ROLE_ASSIGNMENT","41","ROLE_ASSIGNED","Approved onboarding",
+                java.time.Instant.parse("2026-11-26T09:00:00Z"))));
+        mvc.perform(get("/api/v1/vendor/roles/41/access-history"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].actorUsername").value("admin@vendor.test"))
+            .andExpect(jsonPath("$[0].subjectUsername").value("staff@vendor.test"))
+            .andExpect(jsonPath("$[0].action").value("ROLE_ASSIGNED"))
+            .andExpect(jsonPath("$[0].reason").value("Approved onboarding"));
+        verify(service).roleAccessHistory(41L);
+    }
+
+    @Test @WithMockUser(authorities={"USER_VIEW"})
+    void userViewWithoutRoleViewCannotReadRoleAccessHistory() throws Exception {
+        mvc.perform(get("/api/v1/vendor/roles/41/access-history"))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
     @Test @WithMockUser(authorities={"USER_VIEW"})
     void employeeAccessHistoryUsesReadOnlyEmployeeViewPermission() throws Exception {
         when(service.employeeAccessHistory("staff@vendor.test")).thenReturn(List.of(

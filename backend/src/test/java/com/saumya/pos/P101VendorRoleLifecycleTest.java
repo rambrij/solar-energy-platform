@@ -186,6 +186,13 @@ class P101VendorRoleLifecycleTest {
         assertThat(auditCount(VENDOR_A_TENANT, "ROLE_UPDATED", Long.toString(created.id()))).isEqualTo(1);
         assertThat(auditCount(VENDOR_A_TENANT, "ROLE_PERMISSIONS_CHANGED", Long.toString(created.id()))).isEqualTo(1);
         assertThat(auditCount(VENDOR_A_TENANT, "ROLE_DEACTIVATED", Long.toString(created.id()))).isEqualTo(1);
+
+        var roleHistory=asVendorA(() -> roles.roleAccessHistory(created.id()));
+        assertThat(roleHistory).extracting(VendorRoleService.RoleAccessEvent::action)
+            .contains("ROLE_CREATED","ROLE_ASSIGNED","ROLE_UPDATED","ROLE_PERMISSIONS_CHANGED","ROLE_DEACTIVATED");
+        assertThat(roleHistory.getFirst().action()).isEqualTo("ROLE_DEACTIVATED");
+        assertThat(roleHistory.stream().filter(event->"ROLE_ASSIGNED".equals(event.action())).findFirst().orElseThrow().subjectUsername())
+            .isEqualTo(TARGET);
     }
 
     @Test

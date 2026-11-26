@@ -159,7 +159,8 @@ it('moves focus into the mobile drawer, traps tab navigation and restores focus 
   expect(document.activeElement).toBe(close);
 
   fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
-  expect(document.activeElement).toBe(screen.getByRole('link', { name: 'My Profile' }));
+  const workspaceLinks = within(screen.getByRole('navigation', { name: 'Workspace sections' })).getAllByRole('link');
+  expect(document.activeElement).toBe(workspaceLinks[workspaceLinks.length - 1]);
   fireEvent.keyDown(document, { key: 'Tab' });
   expect(document.activeElement).toBe(close);
 

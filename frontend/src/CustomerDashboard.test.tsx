@@ -23,7 +23,7 @@ afterEach(() => { cleanup(); vi.resetAllMocks(); });
 it('combines only the signed-in customer profile, cross-vendor orders and current cart', async () => {
   render(<CustomerDashboard/>);
   expect(await screen.findByRole('heading', { name: 'Welcome back, Asha Rao' })).toBeTruthy();
-  expect(screen.getByText('Orders across vendors').parentElement).toHaveTextContent('2');
+  expect(screen.getByText('Orders across vendors').parentElement?.textContent).toContain('2');
   expect(screen.getByText('Vendor A')).toBeTruthy();
   expect(screen.getByText('Vendor B')).toBeTruthy();
   expect(screen.getByText('asha@example.test')).toBeTruthy();
@@ -49,7 +49,7 @@ it('explains empty order and cart states without implying a reservation', async 
 it('provides a retry when any customer dashboard source is unavailable', async () => {
   vi.mocked(marketplaceApi).mockRejectedValueOnce(new Error('network unavailable'));
   render(<CustomerDashboard/>);
-  expect(await screen.findByRole('alert')).toHaveTextContent('Your dashboard could not be loaded');
+  expect((await screen.findByRole('alert')).textContent).toContain('Your dashboard could not be loaded');
   vi.mocked(marketplaceApi).mockImplementation(async path => path === '/api/v1/customer/profile' ? profile : path.startsWith('/api/v1/customer/orders') ? orders : cart);
   screen.getByRole('button', { name: 'Retry dashboard' }).click();
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Welcome back, Asha Rao' })).toBeTruthy());

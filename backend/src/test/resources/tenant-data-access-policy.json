@@ -930,5 +930,14 @@
         ]
       }
     }
-  }
+  },
+  "trustedTenantLocalVariables": [
+    {
+      "class": "com.saumya.pos.fulfillment.ShipmentService",
+      "method": "customerShipments",
+      "variable": "tenant",
+      "initializer": "orderHistory.customerOrderTenant(username,orderId)",
+      "authority": "OrderHistoryService authorizes the authenticated customer and resolves the tenant from the persisted customer-owned order; this service method accepts no client-supplied tenant identifier."
+    }
+  ]
 }

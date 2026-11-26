@@ -241,6 +241,18 @@ class JdbcTenantSqlAstAnalysisTest {
         }
         return result;
     }
+    private static boolean isReviewedTrustedTenantLocal(JsonNode policy,String className,String methodName,
+                                                        String variable,String initializer) {
+        for(JsonNode rule:policy.path("trustedTenantLocalVariables")) {
+            if(rule.path("class").asText().equals(className)
+                &&rule.path("method").asText().equals(methodName)
+                &&rule.path("variable").asText().equals(variable)
+                &&rule.path("initializer").asText().equals(initializer)
+                &&!rule.path("authority").asText().isBlank()) return true;
+        }
+        return false;
+    }
+
     private static Set<String> trustedSources(JsonNode policy) {
         Set<String> result=new TreeSet<>();
         policy.path("trustedTenantParameterSources").forEach(item->result.add(item.path("source").asText()));
@@ -275,19 +287,40 @@ class JdbcTenantSqlAstAnalysisTest {
                 new TreePathScanner<Void,Void>() {
                     String methodName="";
                     Set<String> taintedTenantVariables=new HashSet<>();
+                    Set<String> trustedTenantVariables=new HashSet<>();
                     @Override public Void visitMethod(MethodTree node,Void unused) {
-                        String previous=methodName;Set<String> previousTainted=taintedTenantVariables;
-                        methodName=node.getName().toString();taintedTenantVariables=new HashSet<>();
-                        try{return super.visitMethod(node,unused);}finally{methodName=previous;taintedTenantVariables=previousTainted;}
+                        String previous=methodName;
+                        Set<String> previousTainted=taintedTenantVariables;
+                        Set<String> previousTrusted=trustedTenantVariables;
+                        methodName=node.getName().toString();
+                        taintedTenantVariables=new HashSet<>();
+                        trustedTenantVariables=new HashSet<>();
+                        try{return super.visitMethod(node,unused);}
+                        finally {
+                            methodName=previous;
+                            taintedTenantVariables=previousTainted;
+                            trustedTenantVariables=previousTrusted;
+                        }
                     }
                     @Override public Void visitVariable(VariableTree node,Void unused) {
-                        if(node.getInitializer()!=null&&clientOrigin(node.getInitializer().toString(),taintedTenantVariables))
-                            taintedTenantVariables.add(node.getName().toString());
+                        if(node.getInitializer()!=null) {
+                            String initializer=node.getInitializer().toString();
+                            String variable=node.getName().toString();
+                            if(clientOrigin(initializer,taintedTenantVariables)) {
+                                taintedTenantVariables.add(variable);
+                            } else if(isReviewedTrustedTenantLocal(registry,className,methodName,variable,initializer)) {
+                                trustedTenantVariables.add(variable);
+                            }
+                        }
                         return super.visitVariable(node,unused);
                     }
                     @Override public Void visitAssignment(AssignmentTree node,Void unused) {
-                        if(node.getVariable() instanceof IdentifierTree id&&clientOrigin(node.getExpression().toString(),taintedTenantVariables))
-                            taintedTenantVariables.add(id.getName().toString());
+                        if(node.getVariable() instanceof IdentifierTree id) {
+                            // A reviewed local value loses trusted status as soon as it is reassigned.
+                            trustedTenantVariables.remove(id.getName().toString());
+                            if(clientOrigin(node.getExpression().toString(),taintedTenantVariables))
+                                taintedTenantVariables.add(id.getName().toString());
+                        }
                         return super.visitAssignment(node,unused);
                     }
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused) {
@@ -350,8 +383,10 @@ class JdbcTenantSqlAstAnalysisTest {
                                 assertThat(tenantArgument).as("tenant placeholder %s must bind to an explicit trusted argument in %s",tenantIndex,node).isNotNull();
                                 assertThat(clientOrigin(tenantArgument,taintedTenantVariables))
                                     .as("forged tenant value or transitive alias cannot bind a SQL tenant placeholder: %s",node).isFalse();
-                                assertThat(hasTrustedTenantArgument(tenantArgument,className,methodName,classPolicy))
-                                    .as("tenant placeholder must bind to authenticated context, trusted domain event or a parameter with an explicit caller-flow proof: %s",node).isTrue();
+                                boolean trustedLocal=tenantArgument!=null
+                                    &&trustedTenantVariables.contains(tenantArgument.trim());
+                                assertThat(hasTrustedTenantArgument(tenantArgument,className,methodName,classPolicy)||trustedLocal)
+                                    .as("tenant placeholder must bind to authenticated context, trusted domain event, explicitly proven parameter, or a reviewed local ownership lookup: %s",node).isTrue();
                             }
                         }
                         return super.visitMethodInvocation(node,unused);

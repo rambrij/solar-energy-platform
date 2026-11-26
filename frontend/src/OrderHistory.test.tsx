@@ -33,7 +33,7 @@ it('keeps pagination bound to applied filters rather than unsubmitted edits', as
 it('loads customer snapshot details and never offers a POS receipt action', async () => {
   vi.mocked(marketplaceApi).mockImplementation(async path => path.includes('/orders/') ? { order: { ...order, channel: 'ONLINE', status: 'CANCELLED' }, items: [{ productId: 1, name: 'Original panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }], cashReceived: null, changeGiven: null, cancellationReason: 'Buying later', statusChangedAt: '2026-11-13T09:01:00Z' } : page);
   render(<OrderHistory mode="online"/>);
-  fireEvent.click(screen.getByText('Load order history')); fireEvent.click(await screen.findByText(`View order ${order.id}`));
+  fireEvent.click(screen.getByText('Load order history')); await screen.findByText('Payment: CONFIRMED'); fireEvent.click(await screen.findByText(`View order ${order.id}`));
   await screen.findByText('Original panel'); await screen.findByText('Cancellation reason: Buying later'); await screen.findByText('Payment state: CONFIRMED');
   expect(marketplaceApi).toHaveBeenCalledWith(`/api/v1/customer/orders/${order.id}`);
   expect(screen.queryByText('Open receipt 4')).toBeNull(); expect(api).not.toHaveBeenCalled();

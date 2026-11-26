@@ -56,6 +56,11 @@ public class AuthenticationController {
   service.logout(token);
   return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,cookie("",Duration.ZERO).toString()).body(Map.of("loggedOut",true));
  }
+ @PostMapping("/sessions/revoke-others") @PreAuthorize("hasAuthority('CUSTOMER')")
+ public Object revokeCustomerOtherSessions(java.security.Principal actor) {
+  service.revokeOtherSessions(actor.getName());
+  return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL,"no-store").body(Map.of("revoked",true));
+ }
  @GetMapping("/me") @PreAuthorize("isAuthenticated()")
  public Object me(java.security.Principal actor) {return service.me(actor.getName());}
 }

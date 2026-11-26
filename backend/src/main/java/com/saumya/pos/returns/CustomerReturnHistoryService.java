@@ -78,15 +78,17 @@ public class CustomerReturnHistoryService {
         }
 
         var result = cases.stream()
-            .map(returned -> project(tenant, returned, refundByReturn.get(returned.id())))
+            .map(returned -> {
+                var customerItems = items.customerItems(tenant, returned.id()).stream()
+                    .map(item -> new CustomerItem(item.name(), item.quantity()))
+                    .toList();
+                return project(returned, refundByReturn.get(returned.id()), customerItems);
+            })
             .toList();
         return new History(orderId, result);
     }
 
-    private ReturnStatus project(long tenant, ReturnCase returned, CashRefund refund) {
-        var customerItems = items.customerItems(tenant, returned.id()).stream()
-            .map(item -> new CustomerItem(item.name(), item.quantity()))
-            .toList();
+    private ReturnStatus project(ReturnCase returned, CashRefund refund, List<CustomerItem> customerItems) {
         return new ReturnStatus(
             returned.id(), returned.state(), returned.created(), returned.reviewedAt(), returned.inspectedAt(),
             refund == null ? "NOT_INITIATED" : "PAID",

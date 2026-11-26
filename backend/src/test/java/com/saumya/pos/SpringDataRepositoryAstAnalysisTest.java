@@ -382,6 +382,18 @@ class SpringDataRepositoryAstAnalysisTest {
         }
         return indices;
     }
+    private static boolean isReviewedTrustedTenantLocal(JsonNode policy,String className,String methodName,
+                                                        String variable,String initializer) {
+        for(JsonNode rule:policy.path("trustedTenantLocalVariables")) {
+            if(rule.path("class").asText().equals(className)
+                &&rule.path("method").asText().equals(methodName)
+                &&rule.path("variable").asText().equals(variable)
+                &&rule.path("initializer").asText().replaceAll("\\s+","").equals(initializer.replaceAll("\\s+",""))
+                &&!rule.path("authority").asText().isBlank()) return true;
+        }
+        return false;
+    }
+
     private static boolean trustedTenantExpression(String expression,Set<String> trustedVariables){
         String value=expression.trim();
         if(value.matches("(?i)input\\s*\\.\\s*tenantId\\s*\\(\\s*\\)")
@@ -608,15 +620,23 @@ class SpringDataRepositoryAstAnalysisTest {
                         return result;
                     }
                     @Override public Void visitVariable(VariableTree node,Void unused){
-                        if(methodName!=null&&node.getInitializer()!=null
-                            &&trustedTenantExpression(node.getInitializer().toString(),trustedVariables))
-                            trustedVariables.add(node.getName().toString());
+                        if(methodName!=null&&node.getInitializer()!=null){
+                            String initializer=node.getInitializer().toString();
+                            String variable=node.getName().toString();
+                            if(trustedTenantExpression(initializer,trustedVariables)
+                                ||isReviewedTrustedTenantLocal(policy,className,methodName,variable,initializer))
+                                trustedVariables.add(variable);
+                        }
                         return super.visitVariable(node,unused);
                     }
                     @Override public Void visitAssignment(AssignmentTree node,Void unused){
-                        if(methodName!=null&&node.getVariable() instanceof IdentifierTree identifier
-                            &&trustedTenantExpression(node.getExpression().toString(),trustedVariables))
-                            trustedVariables.add(identifier.getName().toString());
+                        if(methodName!=null&&node.getVariable() instanceof IdentifierTree identifier){
+                            String variable=identifier.getName().toString();
+                            if(trustedTenantExpression(node.getExpression().toString(),trustedVariables))
+                                trustedVariables.add(variable);
+                            else
+                                trustedVariables.remove(variable);
+                        }
                         return super.visitAssignment(node,unused);
                     }
                     @Override public Void visitMethodInvocation(MethodInvocationTree node,Void unused){

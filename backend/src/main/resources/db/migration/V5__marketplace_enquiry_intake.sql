@@ -12,7 +12,7 @@ CREATE TABLE marketplace_enquiries (
   message VARCHAR(2000) NOT NULL,
   consent_at TIMESTAMP NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'NEW',
-  requester_hash CHAR(64) NOT NULL,
+  requester_hash VARCHAR(64) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_marketplace_enquiry_tenant_id (tenant_id,id),

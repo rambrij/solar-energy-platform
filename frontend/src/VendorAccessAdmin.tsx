@@ -190,7 +190,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   const request=++roleHistoryRequest.current;
   setRoleHistory({roleId,events:[]});setCheckingRoleHistory(true);setError('');
   try{
-   const value:RoleAccessEvent[]=await vendorApi('/roles/'+encodeURIComponent(roleId)+'/access-history');
+   const value:RoleAccessEvent[]=await vendorApi('/roles/'.concat(encodeURIComponent(roleId),'/access-history'));
    if(request===roleHistoryRequest.current)setRoleHistory({roleId,events:value??[]});
   }catch(e){if(request===roleHistoryRequest.current)setError(errorMessage(e));}
   finally{if(request===roleHistoryRequest.current)setCheckingRoleHistory(false);}

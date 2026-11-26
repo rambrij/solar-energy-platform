@@ -72,7 +72,7 @@ A walk-in sale remains a guest sale unless the customer asks to link it to their
 1. Keep the sale as a draft and open the **Walk-in customer** panel.
 2. Only after the buyer asks for the association, select **Customer requested linking their own account** and choose **Create customer approval link**.
 3. Share the one-time link with the customer so they can open it on their own device. The challenge currently expires after five minutes.
-4. The customer signs in with their own CUSTOMER context, reviews the vendor and purchase total, and explicitly consents at `/customer/associate`. See the [customer association walkthrough](customer-journey.md#optional-link-a-verified-in-store-purchase-to-your-customer-account).
+4. The customer signs in with their own CUSTOMER context, reviews the vendor and purchase total, and explicitly consents at `/customer/associate`. See the [customer association walkthrough](customer-journey.md#9-optional-link-a-verified-in-store-purchase-to-your-customer-account).
 5. Complete the sale after approval. Only the current vendor relationship is created; another vendor's customer history is never exposed to the cashier or vendor.
 
 The customer can complete or decline the association. A sale can still complete as a guest when the customer does not request or approve the link.
@@ -84,7 +84,7 @@ The customer can complete or decline the association. A sale can still complete 
 3. Add progress events as they become available. Each event has a customer-facing event code/description and a separate vendor-private audit reason. Events are append-only; do not use this screen to overwrite the history.
 4. Ask the customer to open **My Dashboard → Shipment updates** or the matching order detail in **Your Purchases**. The customer sees vendor, carrier, tracking reference, supplied carrier URL and customer-safe event history. Vendor audit reasons and employee identities are not returned to the customer.
 
-The current integration records shipment and progress information entered by the vendor. It does not establish a live carrier API connection, prove an external delivery scan, or implement installation, warranty, service-ticket or advanced online-return workflows. Those capabilities remain later Operations scope; see the [Global Customer journey](customer-journey.md#capabilities-not-yet-exposed-as-a-customer-journey).
+The current integration records shipment and progress information entered by the vendor. It does not establish a live carrier API connection, prove an external delivery scan, or implement installation, warranty, service-ticket or advanced online-return workflows. Those capabilities remain later Operations scope; see the [Global Customer journey](customer-journey.md#13-capabilities-not-yet-exposed-as-a-customer-journey).
 
 ## Reports and outlet settings
 

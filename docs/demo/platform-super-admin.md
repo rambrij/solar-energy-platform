@@ -21,7 +21,7 @@
 | Edit the MFA notification templates | **Configuration → Email templates**. Save a subject and plain-text body, or choose **Edit template** beside a saved template. |
 | Switch the local MFA mail adapter | **Configuration → Integration adapter settings → Configure MFA mail adapter**. Choose **Local Mailpit SMTP** or **Disabled**. The next committed MFA activity uses the saved setting. |
 | Issue or reset platform MFA and view activity notices | **Platform identities → Issue / reset MFA** on a different provisioned platform identity. Enter a reason and share the one-time token through the approved secure channel. Activity notices appear in [Mailpit](http://localhost:8025). |
-| Simulate a vendor payment locally | Set `PAYMENTS_MOCK_ENABLED=true` with the `local` profile, then sign out of Platform and follow the [Global Customer journey](customer-journey.md#check-payment-and-complete-the-local-demo-order). |
+| Simulate a vendor payment locally | Set `PAYMENTS_MOCK_ENABLED=true` with the `local` profile, then sign out of Platform and follow the [Global Customer journey](customer-journey.md#6-check-payment-and-complete-the-local-demo-order). |
 
 ## Vendor tenant onboarding and lifecycle
 

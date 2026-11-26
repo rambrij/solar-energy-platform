@@ -5,6 +5,8 @@ type Profile = { id: number; displayName: string | null; email: string };
 type Order = { id: string; vendorName: string; channel: string; status: string; paymentState: string; createdAt: string; total: number; receiptNumber: number | null };
 type OrdersPage = { items: Order[]; totalElements: number; totalPages: number; page: number; size: number };
 type Cart = { id: string | null; vendorSlug: string | null; vendorName: string | null; items: { productId: number; name: string; quantity: number; available: boolean }[]; total: number; checkoutAvailable: boolean; message: string };
+type ShipmentEvent={id:number;eventCode:string;description:string;occurredAt:string};
+type Shipment={orderId:string;vendorName:string;id:number;carrier:string;trackingReference:string;trackingUrl:string|null;createdAt:string;events:ShipmentEvent[]};
 type DashboardData = { profile: Profile; orders: OrdersPage; cart: Cart };
 
 const money = (value: number) => Number(value).toFixed(2);
@@ -16,6 +18,7 @@ export default function CustomerDashboard() {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [retryCount, setRetryCount] = useState(0);
+  const [shipments,setShipments]=useState<Shipment[]>([]),[shipmentBusy,setShipmentBusy]=useState(true),[shipmentError,setShipmentError]=useState(''),[shipmentRetry,setShipmentRetry]=useState(0);
   const requestVersion = useRef(0);
 
   const load = useCallback(async () => {
@@ -41,6 +44,11 @@ export default function CustomerDashboard() {
     return () => { requestVersion.current += 1; };
   }, [load, retryCount]);
 
+  useEffect(()=>{
+    let active=true;setShipmentBusy(true);setShipmentError('');
+    marketplaceApi('/api/v1/customer/shipments').then((rows:Shipment[])=>{if(active)setShipments(rows);}).catch(()=>{if(active){setShipments([]);setShipmentError('Shipment updates are temporarily unavailable. Your order history is still available.');}}).finally(()=>{if(active)setShipmentBusy(false);});
+    return()=>{active=false;};
+  },[shipmentRetry]);
   const greeting = data?.profile.displayName?.trim() || data?.profile.email || 'Customer';
   const cartCount = data?.cart.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
 
@@ -58,6 +66,11 @@ export default function CustomerDashboard() {
         <article className="customer-dashboard-stat"><span>Recent orders shown</span><strong>{data.orders.items.length}</strong></article>
         <article className="customer-dashboard-stat"><span>Items in current cart</span><strong>{cartCount}</strong></article>
       </div>
+      <section className="customer-dashboard-card customer-dashboard-shipments" aria-labelledby="customer-dashboard-shipments-title">
+        <div className="customer-dashboard-card-heading"><h3 id="customer-dashboard-shipments-title">Shipment updates</h3><a className="customer-dashboard-link" href="/marketplace/purchases">View purchases</a></div>
+        {shipmentBusy?<p role="status">Loading shipment updates…</p>:shipmentError?<div role="alert"><p>{shipmentError}</p><button type="button" className="secondary" onClick={()=>setShipmentRetry(v=>v+1)}>Retry shipment updates</button></div>:shipments.length===0?<p>No shipments have been registered for your paid online orders yet.</p>:<ul className="customer-dashboard-orders">{shipments.map(s=><li className="customer-dashboard-order" key={s.id}><div><h4>{s.vendorName}</h4><p>Order {s.orderId} · {s.carrier}</p><p>Tracking reference: {s.trackingReference}</p>{s.events.length?<ol>{s.events.slice(-3).reverse().map(e=><li key={e.id}><strong>{e.eventCode.replaceAll('_',' ')}</strong> · {e.description} · {date(e.occurredAt)}</li>)}</ol>:<p>Shipment registered; no tracking events have been added yet.</p>}{s.trackingUrl&&<a href={s.trackingUrl} target="_blank" rel="noreferrer">Open carrier tracking</a>}</div></li>)}</ul>}
+        <p className="receipt-note">Only tracking updates for your own paid online orders are shown. Vendor audit reasons and employee identities are not shared.</p>
+      </section>
       <div className="customer-dashboard-grid">
         <section className="customer-dashboard-card" aria-labelledby="customer-dashboard-orders-title">
           <div className="customer-dashboard-card-heading"><h3 id="customer-dashboard-orders-title">Recent orders</h3><a className="customer-dashboard-link" href="/marketplace/purchases">View all orders</a></div>

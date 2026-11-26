@@ -12,6 +12,7 @@ public class ShipmentService {
  public record CustomerEvent(long id,String eventCode,String description,Instant occurredAt){}
  public record Shipment(long id,String orderId,String carrier,String trackingReference,String trackingUrl,Instant createdAt,List<Event> events){}
  public record CustomerShipment(long id,String carrier,String trackingReference,String trackingUrl,Instant createdAt,List<CustomerEvent> events){}
+ public record CustomerShipmentSummary(String orderId,String vendorName,long id,String carrier,String trackingReference,String trackingUrl,Instant createdAt,List<CustomerEvent> events){}
  private AuthorizationContext.Context vendor(String p){var c=auth.current();c.requireVendorMembership();c.requirePermission(p);return c;}
  private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Shipment or order unavailable");}
  private String clean(String s,int n,String label){String v=s==null?"":s.strip();if(v.isEmpty()||v.length()>n||v.codePoints().anyMatch(Character::isISOControl))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,label+" is invalid");return v;}
@@ -46,9 +47,21 @@ public class ShipmentService {
   var r=db.queryForList("SELECT id,event_code,description,reason,actor_username,occurred_at FROM shipment_events WHERE tenant_id=? AND shipment_id=? AND id=?",c.tenantId(),id,eventId).getFirst();
   return new Event(eventId,code,description,reason,c.username(),time(r.get("occurred_at")));
  }
+ private List<CustomerEvent> customerEvents(long tenant,long shipmentId){
+  return db.queryForList("SELECT id,event_code,description,occurred_at FROM shipment_events WHERE tenant_id=? AND shipment_id=? ORDER BY occurred_at,id",tenant,shipmentId)
+   .stream().map(e->new CustomerEvent(((Number)e.get("id")).longValue(),(String)e.get("event_code"),(String)e.get("description"),time(e.get("occurred_at")))).toList();
+ }
  @PreAuthorize("hasAuthority('CUSTOMER')") public List<CustomerShipment> customerShipments(String username,String orderId){
   if(orderId==null||!orderId.matches("[A-Za-z0-9-]{1,36}"))throw missing();
   long tenant=orderHistory.customerOrderTenant(username,orderId);
-  return db.queryForList("SELECT id,carrier,tracking_reference,tracking_url,created_at FROM shipments WHERE tenant_id=? AND order_id=? ORDER BY id",tenant,orderId).stream().map(r->{long id=((Number)r.get("id")).longValue();var es=db.queryForList("SELECT id,event_code,description,occurred_at FROM shipment_events WHERE tenant_id=? AND shipment_id=? ORDER BY occurred_at,id",tenant,id).stream().map(e->new CustomerEvent(((Number)e.get("id")).longValue(),(String)e.get("event_code"),(String)e.get("description"),time(e.get("occurred_at")))).toList();return new CustomerShipment(id,(String)r.get("carrier"),(String)r.get("tracking_reference"),(String)r.get("tracking_url"),time(r.get("created_at")),es);}).toList();
+  return db.queryForList("SELECT id,carrier,tracking_reference,tracking_url,created_at FROM shipments WHERE tenant_id=? AND order_id=? ORDER BY id",tenant,orderId).stream().map(r->{long id=((Number)r.get("id")).longValue();return new CustomerShipment(id,(String)r.get("carrier"),(String)r.get("tracking_reference"),(String)r.get("tracking_url"),time(r.get("created_at")),customerEvents(tenant,id));}).toList();
+ }
+ @PreAuthorize("hasAuthority('CUSTOMER')")
+ public List<CustomerShipmentSummary> customerShipmentFeed(String username){
+  long customerId=orderHistory.customerIdentityId(username);
+  return db.queryForList("SELECT s.tenant_id,s.id,s.order_id,COALESCE(o.receipt_seller_name,'Seller not recorded') vendor_name,s.carrier,s.tracking_reference,s.tracking_url,s.created_at FROM shipments s JOIN orders o ON o.tenant_id=s.tenant_id AND o.id=s.order_id WHERE o.customer_id=? AND o.sales_channel='ONLINE' AND o.status='PAID' ORDER BY s.created_at DESC,s.id DESC LIMIT 10",customerId).stream().map(r->{
+   long tenant=((Number)r.get("tenant_id")).longValue(),id=((Number)r.get("id")).longValue();
+   return new CustomerShipmentSummary((String)r.get("order_id"),(String)r.get("vendor_name"),id,(String)r.get("carrier"),(String)r.get("tracking_reference"),(String)r.get("tracking_url"),time(r.get("created_at")),customerEvents(tenant,id));
+  }).toList();
  }
 }

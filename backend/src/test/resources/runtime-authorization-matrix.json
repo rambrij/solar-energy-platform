@@ -1606,6 +1606,12 @@
       "scope": "CUSTOMER_OWNED_PAID_ORDER",
       "assignment": "NONE",
       "runtimeTest": "PosTest#onlineReceiptApiEnforcesCustomerOwnershipAndAuditedCopyCsrf; CustomerReceiptDocumentServiceTest"
+    },
+    "CustomerShipmentController#customerShipmentFeed": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_SHIPMENTS",
+      "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_GLOBAL_IDENTITY; PAID_ONLINE_ORDER_JOIN; CUSTOMER_SAFE_TRACKING_FIELDS_ONLY",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

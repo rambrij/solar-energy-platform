@@ -9,10 +9,11 @@ The customer workspace now has a dedicated **My Dashboard** page at `/marketplac
 - `GET /api/v1/customer/profile` for the global display name and sign-in email.
 - `GET /api/v1/customer/orders?page=0&size=5&status=ALL&reference=` for the five most recent orders and the server-reported total order count across vendors.
 - `GET /api/v1/customer/cart` for the current single-vendor cart and its current estimate.
+- `GET /api/v1/customer/shipments` for the ten most recently registered shipments across the customer's paid ONLINE orders.
 
-The dashboard labels the vendor and channel for each recent order, displays persisted order and derived payment states, and provides links to the full order history, cart, profile and public vendor directory. It counts the quantities in the active cart, not distinct product lines. The estimate is informational: stock and prices are rechecked later, and the cart does not reserve stock or create an order.
+The dashboard labels the vendor and channel for each recent order, displays persisted order and derived payment states, and provides links to the full order history, cart, profile and public vendor directory. Shipment updates load independently, so a tracking-feed failure does not hide the profile, orders or cart. The summary shows up to three latest tracking events per shipment. It counts the quantities in the active cart, not distinct product lines. The estimate is informational: stock and prices are rechecked later, and the cart does not reserve stock or create an order.
 
-This is a read-only composition of existing application APIs. It introduces no duplicate backend controller/service, new persistence model, migration, financial transition, customer/vendor relationship, or audit event. All data remains protected by the existing `CUSTOMER` API authorization and server-derived customer identity; no customer ID or tenant ID is accepted from the browser. It does not expose vendor CRM notes or operational data.
+The dashboard is a read-only composition of existing APIs plus a customer shipment-feed read operation in the existing ShipmentService. The feed derives the global customer ID from the authenticated CUSTOMER identity, joins only that customer's PAID ONLINE orders, and returns saved vendor name and customer-safe tracking fields. It accepts no customer, tenant or order identifiers from the browser; vendor event reasons and actor usernames are excluded. No new persistence model or migration is introduced. All data remains protected by the existing `CUSTOMER` API authorization and server-derived customer identity; no customer ID or tenant ID is accepted from the browser. It does not expose vendor CRM notes or operational data.
 
 ## Explicit boundaries
 
@@ -22,4 +23,4 @@ The portal does not claim installation, warranty or service-ticket tracking, or 
 
 ## Verification
 
-Frontend tests cover authenticated customer route registration, customer-only navigation permission, cross-vendor vendor-labelled order rendering, current-cart estimate, empty states, account details, API composition, loading/error and retry. Existing backend authorization remains authoritative and unchanged.
+Frontend tests cover the shipment summary, empty state, independent feed failure and retry. Backend boundary tests verify authenticated customer ID derivation, paid online order filtering and omission of vendor-private event fields. The live route inventory requires a canonical CUSTOMER policy for the new endpoint.

@@ -2425,6 +2425,18 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/leads"
+    },
+    {
+      "id": "customer-shipment-feed-read",
+      "component": "CustomerDashboard.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/shipments",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/shipments"
     }
   ],
   "buttons": [

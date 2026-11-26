@@ -103,6 +103,12 @@ public class OrderHistoryService {
     }
     
     @PreAuthorize("hasAuthority('CUSTOMER')")
+    public long customerIdentityId(String username) {
+        retail.authorizeCustomer(username);
+        return customers.resolve(username);
+    }
+
+    @PreAuthorize("hasAuthority('CUSTOMER')")
     public long customerOrderTenant(String username, String id) {
         retail.authorizeCustomer(username);
         var order = orders.findOne(customerScope(customers.resolve(username))

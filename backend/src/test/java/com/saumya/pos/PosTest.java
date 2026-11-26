@@ -3336,6 +3336,7 @@ class PosTest {
 
  private static boolean publicRoute(RequestMethod method,String route){
   if(method==RequestMethod.GET&&(route.startsWith("/api/v1/marketplace/")||route.equals("/api/v1/auth/csrf")))return true;
+  if(method==RequestMethod.POST&&route.equals("/api/v1/marketplace/vendors/{slug}/enquiries"))return true;
   return method==RequestMethod.POST&&Set.of(
       "/api/v1/auth/login","/api/v1/auth/register","/api/v1/auth/refresh","/api/v1/auth/logout",
       "/api/v1/auth/invitations/accept","/api/v1/auth/platform-mfa/enrollment/start",

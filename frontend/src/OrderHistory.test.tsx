@@ -11,9 +11,9 @@ beforeEach(()=>{vi.mocked(useSession).mockReturnValue({status:'authenticated',lo
 const order = { id: '12345678-abcd-4321-abcd-123456789000', vendorName: 'Solar Partner', channel: 'IN_STORE', status: 'PAID', paymentState: 'CONFIRMED', createdAt: '2026-11-13T09:00:00Z', expiresAt: null, total: 110, receiptNumber: 4, taxInvoice: true };
 const page = { items: [order], page: 0, size: 10, totalElements: 11, totalPages: 2 };
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
-it('opens an owned online receipt from paid customer order details',async()=>{
- vi.mocked(marketplaceApi).mockImplementation(async path=>path.endsWith('/receipt')?{orderId:order.id,seller:'Saved seller',outlet:'Saved outlet',issuedAt:order.createdAt,total:110,paymentMethod:'MOCK_CARD',copy:false,items:[],invoices:[]}:path.includes('/orders/')?{order:{...order,channel:'ONLINE'},items:[],cashReceived:null,changeGiven:null,cancellationReason:null,statusChangedAt:order.createdAt}:page);
- render(<OrderHistory mode="online"/>);fireEvent.click(screen.getByText('Load order history'));fireEvent.click(await screen.findByText(`View order ${order.id}`));fireEvent.click(await screen.findByText('Open online receipt'));await screen.findByText('Saved seller');expect(marketplaceApi).toHaveBeenCalledWith(`/api/v1/customer/orders/${order.id}/receipt`);expect(api).not.toHaveBeenCalled();fireEvent.click(screen.getByText('Close online receipt'));expect(screen.queryByLabelText('Online order receipt')).toBeNull();
+it('opens a paid customer receipt directly from a cross-vendor order card',async()=>{
+ vi.mocked(marketplaceApi).mockImplementation(async path=>path.endsWith('/receipt')?{orderId:order.id,seller:'Saved seller',outlet:'Saved outlet',issuedAt:order.createdAt,total:110,paymentMethod:'MOCK_CARD',copy:false,items:[],invoices:[]}:page);
+ render(<OrderHistory mode="online"/>);fireEvent.click(screen.getByText('Load order history'));fireEvent.click(await screen.findByText('Open receipt'));await screen.findByText('Saved seller');expect(marketplaceApi).toHaveBeenCalledWith(`/api/v1/customer/orders/${order.id}/receipt`);expect(api).not.toHaveBeenCalled();fireEvent.click(screen.getByText('Close purchase receipt'));expect(screen.queryByLabelText('Online order receipt')).toBeNull();
 });
 it('does not request protected history until explicitly loaded', () => {
   render(<OrderHistory mode="online"/>);

@@ -55,8 +55,11 @@ class VendorRoleServiceProvisioningTest {
         assertThat(result).containsExactly(new VendorRoleService.EmployeeAccessEvent(91,"admin@vendor.test","ROLE_ASSIGNMENT","41",
             "ROLE_ASSIGNED","Approved onboarding",occurred.toInstant()));
         org.mockito.ArgumentCaptor<String> sql=org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(db).queryForList(sql.capture(),eq(7L),eq("staff@vendor.test"));
-        assertThat(sql.getValue()).contains("tenant_id=?","subject_username=?","ORDER BY occurred_at DESC,id DESC","LIMIT 50");
+        verify(db,times(2)).queryForList(sql.capture(),eq(7L),eq("staff@vendor.test"));
+        String auditQuery=sql.getAllValues().stream()
+            .filter(statement->statement.contains("FROM vendor_access_audit_events"))
+            .findFirst().orElseThrow();
+        assertThat(auditQuery).contains("tenant_id=?","subject_username=?","ORDER BY occurred_at DESC,id DESC","LIMIT 50");
     }
 
     @Test void employeeAccessHistoryDoesNotQueryAuditForAnEmployeeOutsideTheVendorTenant(){

@@ -247,6 +247,7 @@
         "updateBranch",
         "disableEmployee",
         "reactivateEmployee",
+        "employeeAccessHistory",
         "employeeRow",
         "audit"
       ],

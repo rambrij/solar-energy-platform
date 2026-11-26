@@ -2216,6 +2216,18 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/cart"
+    },
+    {
+      "id": "customer-security-revoke-other-sessions",
+      "component": "CustomerProfile.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/auth/sessions/revoke-others",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/auth/sessions/revoke-others"
     }
   ],
   "buttons": [
@@ -2674,6 +2686,12 @@
       "component": "VendorCustomerCrm.tsx",
       "trigger": "submit",
       "backendOperation": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}"
+    },
+    {
+      "id": "customer-security-revoke-other-sessions",
+      "component": "CustomerProfile.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/sessions/revoke-others"
     }
   ],
   "dynamicRouteParameters": {

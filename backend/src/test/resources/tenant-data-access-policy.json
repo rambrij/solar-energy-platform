@@ -246,6 +246,7 @@
         "assignRegisters",
         "updateBranch",
         "disableEmployee",
+        "reactivateEmployee",
         "employeeRow",
         "audit"
       ],

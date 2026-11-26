@@ -139,7 +139,8 @@ describe('VendorAccessAdmin role editor',()=>{
   mockVendorApi.mockImplementation(async(path:string,method='GET')=>{
    if(path==='/roles')return [role];
    if(path==='/roles/permissions')return {permissions:['ROLE_VIEW']};
-   if(path==='/employees')return [{username:'staff@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]}];
+   if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
+  if(path==='/employees')return [{username:'staff@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]}];
    if(path==='/employees/staff%40vendor.test/roles'&&method==='PUT')return {username:'staff@vendor.test',roleIds:[7]};
    if(path==='/employees/staff%40vendor.test/effective-permissions')return {permissions:['POS_VIEW']};
    return [];
@@ -157,6 +158,7 @@ it('combines email, status, and role filters within the authorized employee dire
  mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','ROLE_VIEW']}});
  mockVendorApi.mockImplementation(async(path:string)=>{
   if(path==='/roles')return [role,{...role,id:8,displayName:'Inventory role'}];
+  if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
   if(path==='/employees')return [
    {username:'sales.enabled@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]},
    {username:'sales.disabled@vendor.test',branchId:12,enabled:false,roleIds:[7],registerIds:[]},
@@ -181,6 +183,7 @@ it('shows empty effective access and ignores a response for a previously selecte
  mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW']}});
  let finishFirst:(result:{permissions:string[]})=>void=()=>{};
  mockVendorApi.mockImplementation(async(path:string)=>{
+  if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
   if(path==='/employees')return [
    {username:'first@vendor.test',branchId:12,enabled:true,roleIds:[],registerIds:[19]},
    {username:'second@vendor.test',branchId:13,enabled:false,roleIds:[],registerIds:[]},
@@ -208,6 +211,7 @@ it('uses tenant branch names to move an employee without accepting a raw branch 
  mockVendorApi.mockImplementation(async(path:string,method='GET',body?:any)=>{
   if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
   if(path==='/roles')return [role];
+  if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
   if(path==='/employees')return [{username:'staff@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]}];
   if(path==='/employees/staff%40vendor.test/branch'&&method==='PATCH'){
    expect(body).toEqual({branchId:13,reason:'Move to North branch'});
@@ -223,7 +227,7 @@ it('uses tenant branch names to move an employee without accepting a raw branch 
  const branchSelect=screen.getByLabelText('New branch');
  expect(within(branchSelect).getByRole('option',{name:'North branch (#13)'})).toBeTruthy();
  fireEvent.change(branchSelect,{target:{value:'13'}});
- fireEvent.change(screen.getByLabelText('Audit reason'),{target:{value:'Move to North branch'}});
+ fireEvent.change(screen.getAllByLabelText('Audit reason').at(-1)!,{target:{value:'Move to North branch'}});
  fireEvent.click(screen.getByRole('button',{name:'Change branch'}));
  await waitFor(()=>expect(mockVendorApi).toHaveBeenCalledWith('/employees/staff%40vendor.test/branch','PATCH',{
   branchId:13,reason:'Move to North branch'
@@ -257,6 +261,7 @@ it('shows tenant-scoped invitation status and allows a reasoned resend without e
  mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','USER_CREATE','ROLE_ASSIGN']}});
  mockVendorApi.mockImplementation(async(path:string,method='GET',body?:any)=>{
   if(path==='/roles')return [role];
+  if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
   if(path==='/employees')return [{username:'staff@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]}];
   if(path==='/employees/staff%40vendor.test/invitation')return {status:'EXPIRED',expiresAt:'2026-11-24T10:00:00Z'};
   if(path==='/employees/staff%40vendor.test/invitation/resend'&&method==='POST'){
@@ -281,6 +286,7 @@ it('does not offer resend for an already active employee identity',async()=>{
  mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','USER_CREATE','ROLE_ASSIGN']}});
  mockVendorApi.mockImplementation(async(path:string)=>{
   if(path==='/roles')return [role];
+  if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
   if(path==='/employees')return [{username:'active@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]}];
   if(path==='/employees/active%40vendor.test/invitation')return {status:'ACTIVE',expiresAt:null};
   return [];
@@ -297,6 +303,7 @@ it('reactivates a disabled employee only with explicitly selected active roles',
  mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','USER_UPDATE','ROLE_ASSIGN','ROLE_VIEW']}});
  mockVendorApi.mockImplementation(async(path:string,method='GET',body?:any)=>{
   if(path==='/roles')return [role];
+  if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
   if(path==='/employees')return [{username:'disabled@vendor.test',branchId:12,enabled:false,roleIds:[],registerIds:[]}];
   if(path==='/employees/disabled%40vendor.test/reactivate'&&method==='POST'){
    expect(body).toEqual({roleIds:[7],reason:'Approved return'});

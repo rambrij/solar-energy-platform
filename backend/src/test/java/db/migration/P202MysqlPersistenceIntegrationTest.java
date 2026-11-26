@@ -122,7 +122,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "subscription_payments", "subscription_events", "vendor_roles",
                     "vendor_role_permissions", "employee_role_assignments",
                     "employee_register_assignments", "vendor_access_audit_events",
-                    "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews", "marketplace_enquiries",
+                    "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
                     "shipments", "shipment_events", "marketplace_enquiries");
 

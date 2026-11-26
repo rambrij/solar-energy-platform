@@ -15,6 +15,7 @@ export default function CustomerDashboard() {
   const [data, setData] = useState<DashboardData>();
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
   const requestVersion = useRef(0);
 
   const load = useCallback(async () => {
@@ -38,14 +39,14 @@ export default function CustomerDashboard() {
   useEffect(() => {
     void load();
     return () => { requestVersion.current += 1; };
-  }, [load]);
+  }, [load, retryCount]);
 
   const greeting = data?.profile.displayName?.trim() || data?.profile.email || 'Customer';
   const cartCount = data?.cart.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
 
   return <section className="customer-dashboard" aria-labelledby="customer-dashboard-title" aria-busy={busy}>
     {busy && !data && <p role="status">Loading your global customer dashboard…</p>}
-    {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => void load()} disabled={busy}>Retry dashboard</button></div>}
+    {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => setRetryCount(count => count + 1)} disabled={busy}>Retry dashboard</button></div>}
     {data && <>
       <header className="customer-dashboard-intro">
         <span className="eyebrow">Your global customer account</span>

@@ -40,6 +40,7 @@
         "customer-cart",
         "online-checkout",
         "saved-vendor-carts",
+        "customer-dashboard",
         "customer-purchases",
         "customer-profile"
       ]
@@ -146,7 +147,8 @@
       "id": "account",
       "label": "Account",
       "items": [
-        "customer-profile"
+        "customer-profile",
+        "customer-dashboard"
       ]
     },
     {
@@ -292,6 +294,11 @@
       "id": "customer-purchases",
       "path": "/marketplace/purchases",
       "group": "Purchases"
+    },
+    {
+      "id": "customer-dashboard",
+      "path": "/marketplace/dashboard",
+      "group": "Account"
     },
     {
       "id": "customer-profile",

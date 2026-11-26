@@ -237,6 +237,11 @@
       "allOf": [
         "CUSTOMER_RELATION_VIEW"
       ]
+    },
+    "customer-dashboard": {
+      "allOf": [
+        "CUSTOMER"
+      ]
     }
   },
   "controllerPolicies": {

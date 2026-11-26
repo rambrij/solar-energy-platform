@@ -402,7 +402,8 @@
         "shipments",
         "createShipment",
         "addEvent",
-        "events"
+        "events",
+        "customerShipments"
       ],
       "authority": "Vendor methods derive tenant from authenticated AuthorizationContext; customer shipment queries obtain tenant only from OrderHistoryService.customerOrderTenant after authenticated ownership proof.",
       "evidence": [
@@ -414,6 +415,9 @@
       ],
       "trustedTenantParameters": {
         "events": [
+          "tenant"
+        ],
+        "customerShipments": [
           "tenant"
         ]
       }

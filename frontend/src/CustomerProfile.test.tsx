@@ -17,3 +17,15 @@ it('does not send a mutation when profile loading fails',async()=>{
  render(<CustomerProfile/>);await screen.findByRole('alert');
  expect(marketplaceApi).toHaveBeenCalledTimes(1);
 });
+
+it('requires confirmation before revoking other sessions and keeps the current device signed in',async()=>{
+ vi.mocked(marketplaceApi).mockResolvedValueOnce({id:42,email:'buyer@example.test',displayName:'Solar Buyer'}).mockResolvedValueOnce({revoked:true});
+ render(<CustomerProfile/>);await screen.findByLabelText('Display name');
+ fireEvent.click(screen.getByText('Sign out other devices'));
+ expect(screen.getByRole('dialog').textContent).toContain('current device remains active');
+ expect(marketplaceApi).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByText('Keep other sessions'));expect(screen.queryByRole('dialog')).toBeNull();
+ fireEvent.click(screen.getByText('Sign out other devices'));fireEvent.click(screen.getByText('Confirm sign out'));
+ await waitFor(()=>expect(marketplaceApi).toHaveBeenLastCalledWith('/api/v1/auth/sessions/revoke-others','POST',{}));
+ await screen.findByText('Other active sessions were signed out. This device remains signed in.');
+});

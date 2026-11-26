@@ -2777,14 +2777,6 @@
         "pos-tender-review-awaiting-read"
       ]
     },
-    "VendorAccessAdmin.tsx:78": {
-      "fn": "vendorApi",
-      "argument": "'/roles/'+role.id",
-      "methodArgument": "'PUT'",
-      "actions": [
-        "vendor-role-update"
-      ]
-    },
     "VendorCustomerCrm.tsx:32": {
       "fn": "vendorApi",
       "argument": "path+'/'+editing.id",
@@ -2814,6 +2806,14 @@
       "methodArgument": "'POST'",
       "actions": [
         "vendor-employee-reactivate"
+      ]
+    },
+    "VendorAccessAdmin.tsx:79": {
+      "fn": "vendorApi",
+      "argument": "'/roles/'+role.id",
+      "methodArgument": "'PUT'",
+      "actions": [
+        "vendor-role-update"
       ]
     }
   },

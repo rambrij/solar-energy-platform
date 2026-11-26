@@ -73,7 +73,7 @@ class PosTest {
   update("DELETE FROM order_buyer_snapshots");
   update("DELETE FROM vendor_payment_attempts");
   update("UPDATE tenants SET online_branch_id=NULL");
-  for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","platform_support_access","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","registers","inventory","pos_stock_locations","products","employees","branches","tenants")) update("DELETE FROM "+table);
+  for(String table:List.of("subscription_events","subscription_payments","subscription_invoices","tenant_subscriptions","subscription_plan_versions","subscription_plans","catalog_change_events","branch_settings_events","identity_security_events","identity_refresh_tokens","platform_mfa_enrollment_tokens","platform_support_access","vendor_access_audit_events","employee_register_assignments","employee_role_assignments","vendor_role_permissions","vendor_roles","pos_customer_challenges","tenant_customers","catalog_discount_policy","receipt_document_audit","report_export_audit","pos_cash_refund_items","pos_cash_refunds","inventory_return_dispositions","pos_return_events","pos_return_items","pos_returns","catalog_promotion_audit","catalog_promotions","product_categories","catalog_categories","stock_reservations","vendor_invoices","inventory_ledger","order_items","orders","cart_items","carts","customer_profiles","platform_user_permissions","pos_shift_reviews","pos_cash_movements","pos_audit","pos_sessions","registers","inventory","pos_stock_locations","products","employees","branches","tenants")) update("DELETE FROM "+table);
   update("DELETE FROM users WHERE id>0");
   update("INSERT INTO tenants(id,name,slug,legal_name,lifecycle_status) VALUES(1,'Vendor A','vendor-1','Vendor A','ACTIVE'),(2,'Vendor B','vendor-2','Vendor B','ACTIVE')");
   update("INSERT INTO branches(id,tenant_id,name) VALUES(1,1,'A'),(2,2,'B')");
@@ -469,6 +469,23 @@ class PosTest {
   mvc.perform(get("/api/v1/customer/cart").header("Authorization","Bearer "+second.accessToken())).andExpect(status().isUnauthorized());
   assertThatThrownBy(()->authentication.refresh(second.refreshToken())).hasMessageContaining("expired");
  }
+ @Test void customerCanRevokeOtherSessionFamiliesWithoutRevokingCurrentFamily() throws Exception {
+  customers();
+  var current=authentication.login("customer","CustomerPassword");
+  var other=authentication.login("customer","CustomerPassword");
+  var vendor=authentication.login("alice","StaffPasswordForTests");
+  String path="/api/v1/auth/sessions/revoke-others";
+  mvc.perform(post(path).with(csrf()).header("Authorization","Bearer "+vendor.accessToken())).andExpect(status().isForbidden());
+  mvc.perform(post(path).with(csrf()).header("Authorization","Bearer "+current.accessToken())).andExpect(status().isOk()).andExpect(jsonPath("$.revoked").value(true));
+  mvc.perform(get("/api/v1/customer/profile").header("Authorization","Bearer "+current.accessToken())).andExpect(status().isOk());
+  mvc.perform(get("/api/v1/customer/profile").header("Authorization","Bearer "+other.accessToken())).andExpect(status().isUnauthorized());
+  var rotated=authentication.refresh(current.refreshToken());
+  assertThat(rotated.account().actorType()).isEqualTo(com.saumya.pos.identity.AuthenticationService.ActorType.CUSTOMER);
+  assertThatThrownBy(()->authentication.refresh(other.refreshToken())).hasMessageContaining("expired");
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM identity_security_events WHERE user_id=100 AND actor_type='CUSTOMER' AND action='CUSTOMER_OTHER_SESSIONS_REVOKED'",Integer.class)).isEqualTo(1);
+  assertThat(db.queryForObject("SELECT revoked_refresh_token_count FROM identity_security_events WHERE user_id=100 ORDER BY id DESC LIMIT 1",Integer.class)).isEqualTo(1);
+ }
+
  @Test void registrationAndCookieAuthenticationEnforceCsrfAndDoNotExposeRefreshToken() throws Exception {
   String body="{\"username\":\"new-buyer@example.com\",\"password\":\"CustomerPasswordForTests\"}";
   mvc.perform(post("/api/v1/auth/register").contentType("application/json").content(body)).andExpect(status().isForbidden());

@@ -2838,21 +2838,6 @@
       "actions": [
         "vendor-role-update"
       ]
-    },
-    "VendorAccessAdmin.tsx:96": {
-      "fn": "vendorApi",
-      "argument": "'/employees/'+encodeURIComponent(username)+'/invitation'",
-      "actions": [
-        "vendor-employee-invitation-status"
-      ]
-    },
-    "VendorAccessAdmin.tsx:102": {
-      "fn": "vendorApi",
-      "argument": "'/employees/'+encodeURIComponent(subject)+'/invitation/resend'",
-      "methodArgument": "'POST'",
-      "actions": [
-        "vendor-employee-invitation-resend"
-      ]
     }
   },
   "sessionApiOperations": [

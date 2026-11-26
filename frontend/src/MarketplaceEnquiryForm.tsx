@@ -11,7 +11,7 @@ export default function MarketplaceEnquiryForm({slug,productId,productName}:{slu
   event.preventDefault();if(!consent)return;
   setBusy(true);setError('');setNotice('');
   try{
-   await marketplaceApi('/api/v1/marketplace/vendors/'+encodeURIComponent(slug)+'/enquiries','POST',{contactName:name,contactEmail:email,contactPhone:phone,message,productId,consent,linkToAccount:link});
+   await marketplaceApi(`/api/v1/marketplace/vendors/${encodeURIComponent(slug)}/enquiries`,'POST',{contactName:name,contactEmail:email,contactPhone:phone,message,productId,consent,linkToAccount:link});
    setNotice('Your enquiry has been sent to this vendor.');setOpen(false);
    setName('');setEmail('');setPhone('');setMessage('');setConsent(false);setLink(false);
   }catch(e){setError((e as Error).message||'The enquiry could not be sent.');}finally{setBusy(false);}

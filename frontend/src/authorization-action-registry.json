@@ -3009,14 +3009,6 @@
       "actions": [
         "vendor-role-access-history"
       ]
-    },
-    "MarketplaceEnquiryForm.tsx:14": {
-      "fn": "marketplaceApi",
-      "argument": "'/api/v1/marketplace/vendors/'+encodeURIComponent(slug)+'/enquiries",
-      "methodArgument": "'POST'",
-      "actions": [
-        "marketplace-enquiry-submit"
-      ]
     }
   },
   "sessionApiOperations": [

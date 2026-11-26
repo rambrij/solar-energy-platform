@@ -212,6 +212,7 @@ The source inventory contains **62 service-type Java source files** (54 concrete
 | DraftRecoveryService | pos, customer | POS scope or customer identity and owned order |
 | OnlineReceiptService | read, copy | Customer identity and owned online order; copy writes a customer-owned audit event |
 | OrderHistoryService | customer, pos, customerOrderTenant, customerDetail, posDetail | Customer order ownership or POS tenant/branch permission |
+| CustomerReturnHistoryService | history | CUSTOMER actor; order loaded through OrderHistoryService.customerDetail; only owned, paid IN_STORE purchases are queried; tenant derived from the returned owned Order entity; customer-safe projection only. |
 | PaymentCheckoutService | tenderStatus, tender, finalizeTenders, status, start, confirm, unknown, reviewStatus, awaitingReview, finalizeVerified, verifyEvidence | Owned order plus customer/POS actor and operation-specific tender permissions |
 | SaleDiscountService | calculate | Internal checkout calculation; applied discounts require POS_DISCOUNT_APPLY, reason and tenant policy |
 | SalesReportService | report | POS_VIEW and POS_REPORT_VIEW |

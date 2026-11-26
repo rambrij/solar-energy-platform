@@ -44,7 +44,6 @@ public class OrderHistoryService {
     public record History(List<Order> items,int page,int size,long totalElements,int totalPages){}
     public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal discount){}
     public record Detail(Order order,List<Line> items,BigDecimal cashReceived,BigDecimal changeGiven,String cancellationReason,Instant statusChangedAt){}
-    public record CustomerOrderAccess(long tenantId,String channel,String status){}
     private static void bad(String reason){throw new ResponseStatusException(HttpStatus.BAD_REQUEST,reason);}
     private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Order unavailable");}
     private Specification<DraftOrder> customerScope(long customer){return (r,q,b)->b.equal(r.get("customerId"),customer);}
@@ -109,15 +108,6 @@ public class OrderHistoryService {
         var order = orders.findOne(customerScope(customers.resolve(username))
             .and((r,q,b)->b.equal(r.get("id"),id))).orElseThrow(this::missing);
         return order.tenant();
-    }
-
-    @PreAuthorize("hasAuthority('CUSTOMER')")
-    public CustomerOrderAccess customerOrderAccess(String username, String id) {
-        if (id == null || !id.matches("[A-Za-z0-9-]{1,36}")) throw missing();
-        retail.authorizeCustomer(username);
-        var order = orders.findOne(customerScope(customers.resolve(username))
-            .and((r,q,b)->b.equal(r.get("id"),id))).orElseThrow(this::missing);
-        return new CustomerOrderAccess(order.tenant(), order.channel(), order.status());
     }
 
     @PreAuthorize("hasAuthority('CUSTOMER')")

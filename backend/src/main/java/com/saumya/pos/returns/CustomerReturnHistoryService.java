@@ -56,25 +56,26 @@ public class CustomerReturnHistoryService {
     public History history(String username, String orderId) {
         if (orderId == null || !orderId.matches("[A-Za-z0-9-]{1,36}")) throw missing();
 
-        // Authenticate and resolve the customer-owned order before deriving tenant scope.
-        var owned = orders.customerOrderAccess(username, orderId);
+        // customerDetail enforces CUSTOMER identity and the existing global order ownership scope.
+        // Its returned Order entity carries the persisted tenant and is the trusted query scope below.
+        var order = orders.customerDetail(username, orderId).order();
         // The implemented POS return workflow covers paid IN_STORE orders only.
-        if (!"IN_STORE".equals(owned.channel()) || !"PAID".equals(owned.status())) {
+        if (!"IN_STORE".equals(order.channel()) || !"PAID".equals(order.status())) {
             return new History(orderId, List.of());
         }
 
-        // Bound both the parent projection and the child lookup to the owned order.
-        var cases = returns.findTop20ByTenantAndOrderIdOrderByCreatedDescIdDesc(owned.tenantId(), orderId);
+        // Keep every read bound to the authenticated owned order and its tenant.
+        var cases = returns.findTop20ByTenantAndOrderIdOrderByCreatedDescIdDesc(order.tenant(), orderId);
         if (cases.isEmpty()) return new History(orderId, List.of());
 
         var returnIds = cases.stream().map(ReturnCase::id).toList();
         var refundByReturn = new HashMap<String, CashRefund>();
-        for (CashRefund refund : refunds.findAllByTenantAndReturnIdIn(owned.tenantId(), returnIds)) {
+        for (CashRefund refund : refunds.findAllByTenantAndReturnIdIn(order.tenant(), returnIds)) {
             refundByReturn.putIfAbsent(refund.returned(), refund);
         }
 
         var result = cases.stream()
-            .map(returned -> project(owned.tenantId(), returned, refundByReturn.get(returned.id())))
+            .map(returned -> project(order.tenant(), returned, refundByReturn.get(returned.id())))
             .toList();
         return new History(orderId, result);
     }

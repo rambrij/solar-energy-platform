@@ -31,6 +31,13 @@ class CustomerReturnHistoryServiceTest {
         service = new CustomerReturnHistoryService(orders, returns, items, refunds);
     }
 
+    private OrderHistoryService.Detail ownedOrder(String id, String channel, String status) {
+        Instant now = Instant.parse("2026-11-01T08:00:00Z");
+        var order = new OrderHistoryService.Order(id, "Saumya Solar", channel, status,
+            now, now.plusSeconds(3600), BigDecimal.ZERO, null, false, "CONFIRMED");
+        return new OrderHistoryService.Detail(order, List.of(), null, null, null, now);
+    }
+
     @Test void returnsOnlyCustomerSafeStatusForAnOwnedPaidInStoreOrder() {
         Instant requested = Instant.parse("2026-11-01T08:00:00Z");
         Instant reviewed = Instant.parse("2026-11-01T09:00:00Z");
@@ -45,8 +52,8 @@ class CustomerReturnHistoryServiceTest {
             "private-cashier", "private-requester", "private-session", "refund-key", "request-hash",
             "quote-hash", new BigDecimal("75.00"), "private cash handover reason", refundedAt);
 
-        when(orders.customerOrderAccess("buyer@example.test", "owned-order"))
-            .thenReturn(new OrderHistoryService.CustomerOrderAccess(17, "IN_STORE", "PAID"));
+        when(orders.customerDetail("buyer@example.test", "owned-order"))
+            .thenReturn(ownedOrder("owned-order", "IN_STORE", "PAID"));
         when(returns.findTop20ByTenantAndOrderIdOrderByCreatedDescIdDesc(17, "owned-order"))
             .thenReturn(List.of(returned));
         when(refunds.findAllByTenantAndReturnIdIn(17, List.of("return-1")))
@@ -71,23 +78,23 @@ class CustomerReturnHistoryServiceTest {
     }
 
     @Test void onlineOrdersDoNotQueryPosReturnOrCashRefundRecords() {
-        when(orders.customerOrderAccess("buyer@example.test", "online-order"))
-            .thenReturn(new OrderHistoryService.CustomerOrderAccess(19, "ONLINE", "PAID"));
+        when(orders.customerDetail("buyer@example.test", "online-order"))
+            .thenReturn(ownedOrder("online-order", "ONLINE", "PAID"));
         var result = service.history("buyer@example.test", "online-order");
         assertThat(result.returns()).isEmpty();
         verifyNoInteractions(returns, items, refunds);
     }
 
     @Test void unpaidInStoreOrdersDoNotQueryPosReturnOrCashRefundRecords() {
-        when(orders.customerOrderAccess("buyer@example.test", "draft-order"))
-            .thenReturn(new OrderHistoryService.CustomerOrderAccess(19, "IN_STORE", "DRAFT"));
+        when(orders.customerDetail("buyer@example.test", "draft-order"))
+            .thenReturn(ownedOrder("draft-order", "IN_STORE", "DRAFT"));
         var result = service.history("buyer@example.test", "draft-order");
         assertThat(result.returns()).isEmpty();
         verifyNoInteractions(returns, items, refunds);
     }
 
     @Test void foreignOrderRejectionStopsBeforeReturnRepositories() {
-        when(orders.customerOrderAccess("buyer@example.test", "foreign-order"))
+        when(orders.customerDetail("buyer@example.test", "foreign-order"))
             .thenThrow(new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Order unavailable"));
         assertThatThrownBy(() -> service.history("buyer@example.test", "foreign-order"))
             .isInstanceOfSatisfying(ResponseStatusException.class,

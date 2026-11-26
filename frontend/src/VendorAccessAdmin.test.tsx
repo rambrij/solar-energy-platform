@@ -203,9 +203,37 @@ it('shows empty effective access and ignores a response for a previously selecte
  expect(screen.getByText('No effective permissions.')).toBeTruthy();
 });
 
+it('uses tenant branch names to move an employee without accepting a raw branch ID',async()=>{
+ mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','USER_UPDATE','USER_CREATE','ROLE_ASSIGN']}});
+ mockVendorApi.mockImplementation(async(path:string,method='GET',body?:any)=>{
+  if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
+  if(path==='/roles')return [role];
+  if(path==='/employees')return [{username:'staff@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]}];
+  if(path==='/employees/staff%40vendor.test/branch'&&method==='PATCH'){
+   expect(body).toEqual({branchId:13,reason:'Move to North branch'});
+   return {username:'staff@vendor.test',branchId:13,enabled:true,roleIds:[],registerIds:[]};
+  }
+  if(path==='/employees/staff%40vendor.test/effective-permissions')return {permissions:[]};
+  return [];
+ });
+ render(<VendorAccessAdmin mode="employees"/>);
+ const row=await screen.findByText('staff@vendor.test');
+ expect(within(row.closest('article')!).getByText(/Branch Main branch/)).toBeTruthy();
+ fireEvent.click(within(row.closest('article')!).getByRole('button',{name:'Manage'}));
+ const branchSelect=screen.getByLabelText('New branch');
+ expect(within(branchSelect).getByRole('option',{name:'North branch (#13)'})).toBeTruthy();
+ fireEvent.change(branchSelect,{target:{value:'13'}});
+ fireEvent.change(screen.getByLabelText('Audit reason'),{target:{value:'Move to North branch'}});
+ fireEvent.click(screen.getByRole('button',{name:'Change branch'}));
+ await waitFor(()=>expect(mockVendorApi).toHaveBeenCalledWith('/employees/staff%40vendor.test/branch','PATCH',{
+  branchId:13,reason:'Move to North branch'
+ }));
+});
+
 it('shows the invitation expiry and a token-free activation page link',async()=>{
  mockUseSession.mockReturnValue({account:{...account,permissions:['ROLE_VIEW','USER_CREATE']}});
  mockVendorApi.mockImplementation(async(path:string,method='GET')=>{
+  if(path==='/employees/branches')return [{id:12,name:'Main branch'},{id:13,name:'North branch'}];
   if(path==='/roles')return [role];
   if(path==='/employees'&&method==='POST')return {username:'new@vendor.test',invitationToken:'one-time-token',
    expiresAt:'2026-11-25T10:00:00Z',accountAlreadyActive:false};
@@ -215,6 +243,7 @@ it('shows the invitation expiry and a token-free activation page link',async()=>
  const initialRole=await screen.findByLabelText('Initial role');
  await screen.findByRole('option',{name:'Sales role'});
  fireEvent.change(screen.getByLabelText('Employee email'),{target:{value:'new@vendor.test'}});
+ fireEvent.change(screen.getByLabelText('Branch'),{target:{value:'12'}});
  fireEvent.change(initialRole,{target:{value:'7'}});
  fireEvent.change(screen.getByLabelText('Audit reason'),{target:{value:'Onboard staff'}});
  fireEvent.click(screen.getByRole('button',{name:'Create employee invitation'}));

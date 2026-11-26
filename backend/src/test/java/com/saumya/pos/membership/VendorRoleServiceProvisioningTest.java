@@ -13,6 +13,35 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class VendorRoleServiceProvisioningTest {
+    @Test void employeeBranchDirectoryReturnsOnlyBranchesForTheAuthenticatedTenant(){
+        var db=mock(JdbcTemplate.class);
+        var auth=mock(AuthorizationContext.class);
+        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,"7:admin@vendor.test",
+            java.util.Set.of("USER_CREATE"),false,false,true);
+        when(auth.current()).thenReturn(actor);
+        when(db.queryForList(startsWith("SELECT id,name FROM branches"),eq(7L)))
+            .thenReturn(List.of(Map.of("id",12L,"name","Main branch"),Map.of("id",13L,"name","North branch")));
+        var service=new VendorRoleService(db,auth,mock(IdentityInvitationPort.class),mock(MembershipService.class));
+        assertThat(service.employeeBranches()).containsExactly(
+            new VendorRoleService.EmployeeBranch(12L,"Main branch"),
+            new VendorRoleService.EmployeeBranch(13L,"North branch"));
+        verify(db).queryForList(startsWith("SELECT id,name FROM branches"),eq(7L));
+        verifyNoMoreInteractions(db);
+    }
+
+    @Test void employeeBranchDirectoryRejectsActorsWithoutEmployeeAdministrationPermission(){
+        var db=mock(JdbcTemplate.class);
+        var auth=mock(AuthorizationContext.class);
+        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,"7:admin@vendor.test",
+            java.util.Set.of("ROLE_VIEW"),false,false,true);
+        when(auth.current()).thenReturn(actor);
+        var service=new VendorRoleService(db,auth,mock(IdentityInvitationPort.class),mock(MembershipService.class));
+        assertThatThrownBy(service::employeeBranches)
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.FORBIDDEN);
+        verifyNoInteractions(db);
+    }
+
     @Test void vendorCreatedEmployeeGetsExplicitRoleAssignmentBeforeInvitationCompletes(){
         var db=mock(JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);

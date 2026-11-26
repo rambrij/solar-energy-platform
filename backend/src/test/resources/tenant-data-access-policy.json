@@ -240,6 +240,7 @@
         "update",
         "deactivate",
         "employees",
+        "employeeBranches",
         "employee",
         "createEmployee",
         "assignRoles",

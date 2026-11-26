@@ -1582,6 +1582,21 @@
       "backendOperation": "GET /api/v1/vendor/employees"
     },
     {
+      "id": "vendor-employee-branches",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees/branches",
+      "permissions": [
+        "USER_VIEW",
+        "USER_CREATE",
+        "USER_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees/branches",
+      "permissionMode": "ANY"
+    },
+    {
       "id": "vendor-employee-create",
       "component": "VendorAccessAdmin.tsx",
       "trigger": "submit",

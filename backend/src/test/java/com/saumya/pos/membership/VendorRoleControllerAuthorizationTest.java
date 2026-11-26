@@ -126,6 +126,23 @@ class VendorRoleControllerAuthorizationTest {
         verifyNoInteractions(service);
     }
 
+    @Test @WithMockUser(authorities={"USER_CREATE"})
+    void employeeCreatorCanReadTheTenantBranchChoicesWithoutUserView() throws Exception {
+        when(service.employeeBranches()).thenReturn(List.of(
+            new VendorRoleService.EmployeeBranch(12L,"Main branch")));
+        mvc.perform(get("/api/v1/vendor/employees/branches"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(12))
+            .andExpect(jsonPath("$[0].name").value("Main branch"));
+        verify(service).employeeBranches();
+    }
+    @Test @WithMockUser(authorities={"ROLE_VIEW"})
+    void roleOnlyActorCannotReadEmployeeBranchChoices() throws Exception {
+        mvc.perform(get("/api/v1/vendor/employees/branches"))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
     @Test @WithMockUser(authorities={"USER_VIEW"})
     void employeeAccessHistoryUsesReadOnlyEmployeeViewPermission() throws Exception {
         when(service.employeeAccessHistory("staff@vendor.test")).thenReturn(List.of(

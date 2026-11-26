@@ -5,6 +5,7 @@ import {useSession} from './session';
 type Template={key:string;version:number;permissions:string[];deferredReason:string|null};
 type Role={templateKey?:string;templateVersion?:number;id:number;key:string;displayName:string;active:boolean;version:number;permissions:string[]};
 type Employee={username:string;branchId:number;enabled:boolean;roleIds:number[];registerIds:number[]};
+type EmployeeBranch={id:number;name:string};
 type Invitation={username:string;invitationToken:string|null;expiresAt:string|null;accountAlreadyActive:boolean};
 type InvitationStatus={status:'ACTIVE'|'ACCEPTED'|'PENDING'|'EXPIRED'|'NOT_SENT';expiresAt:string|null};
 type EmployeeAccessEvent={id:number;actorUsername:string;resourceType:string;resourceId:string|null;action:string;reason:string;occurredAt:string};
@@ -21,7 +22,7 @@ function errorMessage(error:unknown){
 export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const {account}=useSession();
  const rights=new Set(account?.permissions??[]);
- const [roles,setRoles]=useState<Role[]>([]),[employees,setEmployees]=useState<Employee[]>([]);
+ const [roles,setRoles]=useState<Role[]>([]),[employees,setEmployees]=useState<Employee[]>([]),[branches,setBranches]=useState<EmployeeBranch[]>([]);
  const [templates,setTemplates]=useState<Template[]>([]),[source,setSource]=useState<Template|null>(null);
  const [delegablePermissions,setDelegablePermissions]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -50,8 +51,10 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
    }else setDelegablePermissions([]);
    if(canUserView)setEmployees(await vendorApi('/employees'));
    else setEmployees([]);
+   if(mode==='employees'&&(canUserView||canUserCreate||canUserUpdate))setBranches(await vendorApi('/employees/branches'));
+   else setBranches([]);
   }catch(e){setError(errorMessage(e));}
- },[canRoleView,canRoleCreate,canRoleUpdate,canUserView]);
+ },[mode,canRoleView,canRoleCreate,canRoleUpdate,canUserView,canUserCreate,canUserUpdate]);
  useEffect(()=>{void load();},[load]);
 
  async function run(action:()=>Promise<any>,message:string){
@@ -182,6 +185,8 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const removedPermissions=[...savedPermissions].filter(permission=>!selectedPermissionSet.has(permission));
  const retainedPermissionCount=editPermissions.length-addedPermissions.length;
  const roleNames=new Map(roles.map(role=>[role.id,role.displayName]));
+ const branchNames=new Map(branches.map(branch=>[branch.id,branch.name]));
+ const selectedBranchIsValid=branches.some(branch=>String(branch.id)===employeeBranch);
  type RoleAccessEvent={id:number;actorUsername:string;subjectUsername:string|null;resourceType:string;resourceId:string;action:string;reason:string;occurredAt:string};
  const [roleHistory,setRoleHistory]=useState<{roleId:number;events:RoleAccessEvent[]}|null>(null);
  const [checkingRoleHistory,setCheckingRoleHistory]=useState(false);
@@ -268,10 +273,12 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
    {canUserCreate&&<form onSubmit={e=>void createEmployee(e)} className="vendor-access-form">
     <h3>Invite employee</h3>
     <label>Employee email<input type="email" required value={employeeEmail} onChange={e=>setEmployeeEmail(e.target.value)}/></label>
-    <label>Branch ID<input type="number" required min="1" value={employeeBranch} onChange={e=>setEmployeeBranch(e.target.value)}/></label>
+    <label>Branch<select required value={employeeBranch} onChange={e=>setEmployeeBranch(e.target.value)} disabled={!branches.length}>
+     <option value="">Select branch</option>{branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name} (#{branch.id})</option>)}
+    </select></label>
     <label>Initial role<select required value={employeeRole} onChange={e=>setEmployeeRole(e.target.value)}><option value="">Select role</option>{roles.filter(r=>r.active).map(r=><option key={r.id} value={r.id}>{r.displayName}</option>)}</select></label>
     <label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-    <button disabled={busy||!employeeRole}>Create employee invitation</button>
+    <button disabled={busy||!employeeRole||!selectedBranchIsValid}>Create employee invitation</button>
     {invitation&&<section aria-label="Employee invitation result">
      <p role="status">Invitation result for {invitation.username}</p>
      {invitation.invitationToken?<>
@@ -297,7 +304,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     <p aria-live="polite">Showing {visibleEmployees.length} of {employees.length} employees.</p>
     {visibleEmployees.length===0&&<p>No employees match the current filters.</p>}
     {visibleEmployees.map(e=><article key={e.username}>
-    <div><strong>{e.username}</strong><small>Branch {e.branchId} Â· {e.enabled?'Enabled':'Disabled'}</small><p>Roles: {e.roleIds.map(id=>roleNames.get(id)??`#${id}`).join(', ')||'None'} Â· Registers: {e.registerIds.join(', ')||'None'}</p></div>
+    <div><strong>{e.username}</strong><small>Branch {branchNames.get(e.branchId)??'#'+e.branchId} Â· {e.enabled?'Enabled':'Disabled'}</small><p>Roles: {e.roleIds.map(id=>roleNames.get(id)??`#${id}`).join(', ')||'None'} Â· Registers: {e.registerIds.join(', ')||'None'}</p></div>
     <div className="vendor-access-actions"><button type="button" className="secondary" onClick={()=>chooseEmployee(e.username)}>Manage</button>{canUserDisable&&e.enabled&&<button type="button" className="secondary" disabled={busy} onClick={()=>void disableEmployee(e.username)}>Disable</button>}</div>
    </article>)}</div>}
    {subject&&<div className="vendor-access-form">
@@ -316,12 +323,14 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
      {invitation&&invitation.username===subject&&invitation.invitationToken&&<p>New one-time token: <code>{invitation.invitationToken}</code>. Share it securely; it expires <time dateTime={invitation.expiresAt??''}>{invitation.expiresAt?new Date(invitation.expiresAt).toLocaleString():'at the configured expiry'}</time>.</p>}
      {invitation&&invitation.username===subject&&invitation.accountAlreadyActive&&<p>The identity already has an active account and can sign in with its existing credentials.</p>}
     </section>}
-    {savedEmployee&&<p>Saved branch #{savedEmployee.branchId} · {savedEmployee.enabled?'Enabled':'Disabled'}
+    {savedEmployee&&<p>Saved branch #{savedEmployee.branchId}{branchNames.has(savedEmployee.branchId)?' · '+branchNames.get(savedEmployee.branchId):''} · {savedEmployee.enabled?'Enabled':'Disabled'}
      {' · Registers '}{savedEmployee.registerIds.join(', ')||'none assigned'}</p>}
     {(canRoleAssign||canUserUpdate||canUserDisable)&&<label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
     {canRoleAssign&&<><label>Role assignments<select multiple value={selectedRoles.map(String)} onChange={e=>setSelectedRoles(Array.from(e.target.selectedOptions).map(x=>Number(x.value)))}>{roles.filter(r=>r.active).map(r=><option key={r.id} value={r.id}>{r.displayName}</option>)}</select></label>{savedEmployee?.enabled!==false&&<button type="button" disabled={busy} onClick={()=>void assignRoles()}>Save role assignments</button>}</>}
     {canRoleAssign&&<><label>Assigned register IDs (comma separated)<input value={registerIds} onChange={e=>setRegisterIds(e.target.value)}/></label><button type="button" disabled={busy} onClick={()=>void assignRegisters()}>Save register assignments</button></>}
-    {canUserUpdate&&<><label>New branch ID<input type="number" min="1" value={employeeBranch} onChange={e=>setEmployeeBranch(e.target.value)}/></label><button type="button" className="secondary" disabled={busy} onClick={()=>void changeBranch()}>Change branch</button></>}
+    {canUserUpdate&&<><label>New branch<select value={employeeBranch} onChange={e=>setEmployeeBranch(e.target.value)} disabled={!branches.length}>
+     <option value="">Select branch</option>{branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name} (#{branch.id})</option>)}
+    </select></label><button type="button" className="secondary" disabled={busy||!selectedBranchIsValid} onClick={()=>void changeBranch()}>Change branch</button></>}
     {savedEmployee&&!savedEmployee.enabled&&canReactivateEmployee&&<><p>Reactivation requires at least one active role. Previous register assignments remain revoked.</p><button type="button" disabled={busy||selectedRoles.length===0} onClick={()=>void reactivateEmployee(subject)}>Reactivate employee with selected roles</button></>}
     {canUserView&&<button type="button" className="secondary" disabled={busy||checkingPermissions} onClick={()=>void preview()}>Preview effective permissions</button>}
     {checkingPermissions&&<p role="status">Checking effective permissions…</p>}

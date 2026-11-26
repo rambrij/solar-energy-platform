@@ -35,6 +35,9 @@ public class VendorRoleController {
     @GetMapping("/roles/{id}/access-history")
     @PreAuthorize("hasAuthority('ROLE_VIEW')")
     public Object roleAccessHistory(@PathVariable long id){return service.roleAccessHistory(id);}
+    @GetMapping("/employees/branches")
+    @PreAuthorize("hasAnyAuthority('USER_VIEW','USER_CREATE','USER_UPDATE')")
+    public Object employeeBranches(){return service.employeeBranches();}
     @GetMapping("/employees") @PreAuthorize("hasAuthority('USER_VIEW')") public Object employees(){return service.employees();}
     @PostMapping("/employees") @PreAuthorize("hasAuthority('USER_CREATE') and hasAuthority('ROLE_ASSIGN')") public Object createEmployee(@Valid @RequestBody EmployeeCreate request){return org.springframework.http.ResponseEntity.status(HttpStatus.CREATED).body(service.createEmployee(request.username(),request.branchId(),request.roleId(),request.reason()));}
     @PutMapping("/employees/{username}/roles") @PreAuthorize("hasAuthority('ROLE_ASSIGN')") public Object assignRoles(@PathVariable String username,@Valid @RequestBody RoleAssignment request){return service.assignRoles(username,request.roleIds(),request.reason());}

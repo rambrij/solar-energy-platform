@@ -1530,6 +1530,12 @@
       "scope": "TENANT_OWNED_ROLE_ACCESS_AUDIT",
       "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_ROLE_VIEW",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; VendorRoleServiceProvisioningTest"
+    },
+    "VendorRoleController#employeeBranches": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_BRANCH_DIRECTORY",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_USER_VIEW_OR_CREATE_OR_UPDATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

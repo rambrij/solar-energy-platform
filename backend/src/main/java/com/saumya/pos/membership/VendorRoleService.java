@@ -18,6 +18,7 @@ public class VendorRoleService {
     public VendorRoleService(JdbcTemplate db,AuthorizationContext auth,IdentityInvitationPort invitations,MembershipService memberships){this.db=db;this.auth=auth;this.invitations=invitations;this.memberships=memberships;}
     public record Role(long id,String key,String displayName,boolean active,long version,List<String> permissions,String templateKey,Integer templateVersion){}
     public record Employee(String username,long branchId,boolean enabled,List<Long> roleIds,List<Long> registerIds){}
+    public record EmployeeBranch(long id,String name){}
     public record EmployeeInvitation(String username,String invitationToken,String expiresAt,boolean accountAlreadyActive){}
     public record EmployeeAccessEvent(long id,String actorUsername,String resourceType,String resourceId,String action,String reason,Instant occurredAt){}
     public record RoleAccessEvent(long id,String actorUsername,String subjectUsername,String resourceType,String resourceId,String action,String reason,Instant occurredAt){}
@@ -140,6 +141,14 @@ public class VendorRoleService {
         var c=require("ROLE_UPDATE");String why=reason(requestedReason);roleRow(c,id);
         db.update("UPDATE vendor_roles SET active=FALSE,updated_by=?,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE tenant_id=? AND id=?",c.username(),c.tenantId(),id);
         audit(c,null,"ROLE",Long.toString(id),"ROLE_DEACTIVATED",why);
+    }
+    public List<EmployeeBranch> employeeBranches(){
+        var c=auth.current();
+        c.requireVendorMembership();
+        if(!c.hasAnyPermission("USER_VIEW","USER_CREATE","USER_UPDATE"))
+            throw new ResponseStatusException(FORBIDDEN,"Employee administration permission required");
+        return db.queryForList("SELECT id,name FROM branches WHERE tenant_id=? ORDER BY name,id",c.tenantId())
+            .stream().map(row->new EmployeeBranch(((Number)row.get("id")).longValue(),(String)row.get("name"))).toList();
     }
     public List<Employee> employees(){
         var c=require("USER_VIEW");

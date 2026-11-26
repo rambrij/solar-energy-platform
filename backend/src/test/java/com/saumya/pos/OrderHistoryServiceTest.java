@@ -35,7 +35,7 @@ class OrderHistoryServiceTest {
                 }
         );
         var attempts = (PaymentAttemptRepository) Proxy.newProxyInstance(PaymentAttemptRepository.class.getClassLoader(), new Class<?>[]{PaymentAttemptRepository.class}, (proxy, method, args) -> {
-            if (method.getName().equals("findAllByTenantAndOrderInOrderByCreatedAscIdAsc") || method.getName().equals("findAllByTenantAndOrderOrderByCreatedAscIdAsc")) return paymentRows;
+            if (method.getName().equals("findAllForHistoryByTenantAndOrder") || method.getName().equals("findAllByTenantAndOrderInOrderByCreatedAscIdAsc") || method.getName().equals("findAllByTenantAndOrderOrderByCreatedAscIdAsc")) return paymentRows;
             if (method.getName().equals("findByTenantAndOrder")) return Optional.empty();
             throw new AssertionError("Unexpected payment repository call: " + method.getName());
         });

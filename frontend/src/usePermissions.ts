@@ -79,6 +79,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'role-management':{anyOf:['ROLE_VIEW','ROLE_CREATE','ROLE_UPDATE','ROLE_ASSIGN']},
  'employee-management':{anyOf:['USER_VIEW','USER_CREATE','USER_UPDATE','USER_DISABLE']},
  'vendor-customer-crm':{allOf:['CUSTOMER_RELATION_VIEW']},
+ 'shipment-management':{anyOf:['SHIPMENT_VIEW','SHIPMENT_UPDATE']},
  'vendor-directory':{anyOf:['CUSTOMER']},
  'storefront-products':{anyOf:['CUSTOMER']},
  'customer-cart':{anyOf:['CUSTOMER']},

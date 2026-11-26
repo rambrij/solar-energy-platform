@@ -31,7 +31,7 @@ it('keeps pagination bound to applied filters rather than unsubmitted edits', as
   await waitFor(() => expect(api).toHaveBeenLastCalledWith('/orders?status=PAID&reference=&page=1&size=10'));
 });
 it('loads customer snapshot details and never offers a POS receipt action', async () => {
-  vi.mocked(marketplaceApi).mockImplementation(async path => path.includes('/orders/') ? { order: { ...order, channel: 'ONLINE', status: 'CANCELLED' }, items: [{ productId: 1, name: 'Original panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }], cashReceived: null, changeGiven: null, cancellationReason: 'Buying later', statusChangedAt: '2026-11-13T09:01:00Z' } : page);
+  vi.mocked(marketplaceApi).mockImplementation(async path => path.includes('/shipments') ? [] : path.includes('/orders/') ? { order: { ...order, channel: 'ONLINE', status: 'CANCELLED' }, items: [{ productId: 1, name: 'Original panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }], cashReceived: null, changeGiven: null, cancellationReason: 'Buying later', statusChangedAt: '2026-11-13T09:01:00Z' } : page);
   render(<OrderHistory mode="online"/>);
   fireEvent.click(screen.getByText('Load order history')); await screen.findByText('Payment: CONFIRMED'); fireEvent.click(await screen.findByText(`View order ${order.id}`));
   await screen.findByText('Original panel'); await screen.findByText('Cancellation reason: Buying later'); await screen.findByText('Payment state: CONFIRMED');
@@ -83,6 +83,7 @@ it('hides return and receipt actions without their exact POS grants',async()=>{
 it('loads customer-owned shipment events for an online order detail',async()=>{
  vi.mocked(marketplaceApi).mockImplementation(async path=>{
   if(path.includes('/shipments'))return [{id:9,carrier:'Solar Carrier',trackingReference:'TRK-9',trackingUrl:'https://carrier.example/TRK-9',createdAt:'2026-11-26T08:00:00Z',events:[{id:10,eventCode:'IN_TRANSIT',description:'Parcel moving',occurredAt:'2026-11-26T09:00:00Z'}]}];
+  if(path.includes('/shipments'))return [];
   if(path.includes('/orders/'))return {order:{...order,channel:'ONLINE'},items:[],cashReceived:null,changeGiven:null,cancellationReason:null,statusChangedAt:order.createdAt};
   return page;
  });

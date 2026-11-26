@@ -109,4 +109,28 @@ class VendorRoleControllerAuthorizationTest {
         mvc.perform(get("/api/v1/vendor/roles")).andExpect(status().isForbidden());
         verifyNoInteractions(service);
     }
+
+    @Test @WithMockUser(authorities={"USER_UPDATE"})
+    void employeeReactivationRequiresRoleAssignmentAuthorityToo() throws Exception {
+        mvc.perform(post("/api/v1/vendor/employees/staff@vendor.test/reactivate")
+            .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"roleIds\":[41],\"reason\":\"Return to work\"}"))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
+    @Test @WithMockUser(authorities={"USER_UPDATE","ROLE_ASSIGN"})
+    void employeeReactivationPassesExplicitRolesAndReasonToService() throws Exception {
+        when(service.reactivateEmployee("staff@vendor.test",List.of(41L),"Return to work"))
+            .thenReturn(new VendorRoleService.Employee("staff@vendor.test",12L,true,List.of(41L),List.of()));
+        mvc.perform(post("/api/v1/vendor/employees/staff@vendor.test/reactivate")
+            .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"roleIds\":[41],\"reason\":\"Return to work\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(true))
+            .andExpect(jsonPath("$.roleIds[0]").value(41));
+        verify(service).reactivateEmployee("staff@vendor.test",List.of(41L),"Return to work");
+    }
+
 }

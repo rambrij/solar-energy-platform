@@ -1087,6 +1087,12 @@
       "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
+    "VendorRoleController#reactivate": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_DELEGATION",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
     "VendorRoleController#permissions": {
       "actor": "VENDOR",
       "scope": "TENANT_OWNED_EMPLOYEE_AND_ROLE",

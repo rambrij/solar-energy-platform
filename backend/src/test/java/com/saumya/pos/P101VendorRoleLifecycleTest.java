@@ -260,6 +260,39 @@ class P101VendorRoleLifecycleTest {
             Long.toString(role.id()))).isEqualTo(1);
     }
 
+
+    @Test
+    @DisplayName("Reactivation requires fresh explicit active roles and does not restore registers")
+    void employeeReactivationRestoresOnlyExplicitRolesBeforeEnablingMembership() {
+        grant(VENDOR_A_TENANT, seed.vendorARoleId(), "USER_UPDATE", "ROLE_ASSIGN", "USER_DISABLE");
+        var role=asVendorA(() -> roles.create("p101-reactivation", "Reactivation role",
+            List.of("POS_VIEW"), "P1-01 reactivation role"));
+        asVendorA(() -> roles.assignRoles(TARGET,List.of(role.id()),"P1-01 initial assignment"));
+        asVendorA(() -> { roles.disableEmployee(TARGET,"P1-01 disable before reactivation"); return null; });
+
+        assertThat(memberships.access(TARGET)).isEmpty();
+        assertThat(activeAssignments(TARGET)).isZero();
+
+        var reactivated=asVendorA(() -> roles.reactivateEmployee(TARGET,List.of(role.id()),
+            "P1-01 approved employee return"));
+
+        assertThat(reactivated.enabled()).isTrue();
+        assertThat(reactivated.roleIds()).containsExactly(role.id());
+        assertThat(reactivated.registerIds()).isEmpty();
+        assertThat(db.queryForObject("SELECT enabled FROM employees WHERE tenant_id=? AND username=?",
+            Boolean.class,VENDOR_A_TENANT,TARGET)).isTrue();
+        assertThat(activeAssignments(TARGET)).isEqualTo(1);
+        assertThat(memberships.access(TARGET)).get()
+            .extracting(MembershipService.Access::permissions).asList().contains("POS_VIEW");
+        assertThat(db.queryForObject("""
+            SELECT COUNT(*) FROM employee_register_assignments
+            WHERE tenant_id=? AND username=? AND active=TRUE
+            """,Integer.class,VENDOR_A_TENANT,TARGET)).isZero();
+        assertThat(auditCount(VENDOR_A_TENANT,"EMPLOYEE_REACTIVATED",TARGET)).isEqualTo(1);
+        assertThat(auditCount(VENDOR_A_TENANT,"ROLE_ASSIGNED_ON_EMPLOYEE_REACTIVATION",
+            Long.toString(role.id()))).isEqualTo(1);
+    }
+
     @Test
     @DisplayName("Vendor A and Vendor B cannot read, update, deactivate or assign each other's roles")
     void vendorRoleLifecycleAndAssignmentsAreIsolatedInBothDirections() {

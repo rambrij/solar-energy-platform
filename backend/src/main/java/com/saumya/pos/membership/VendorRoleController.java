@@ -20,6 +20,7 @@ public class VendorRoleController {
     public record RoleAssignment(@NotNull List<@Positive Long> roleIds,@NotBlank @Size(max=500) String reason){}
     public record RegisterAssignment(@NotNull List<@Positive Long> registerIds,@NotBlank @Size(max=500) String reason){}
     public record BranchUpdate(@Positive long branchId,@NotBlank @Size(max=500) String reason){}
+    public record Reactivation(@NotEmpty @Size(max=50) List<@Positive Long> roleIds,@NotBlank @Size(max=500) String reason){}
     public record Reason(@NotBlank @Size(max=500) String reason){}
 
     @GetMapping("/roles") @PreAuthorize("hasAuthority('ROLE_VIEW')") public Object roles(){return service.roles();}
@@ -35,6 +36,11 @@ public class VendorRoleController {
     @PutMapping("/employees/{username}/roles") @PreAuthorize("hasAuthority('ROLE_ASSIGN')") public Object assignRoles(@PathVariable String username,@Valid @RequestBody RoleAssignment request){return service.assignRoles(username,request.roleIds(),request.reason());}
     @PutMapping("/employees/{username}/registers") @PreAuthorize("hasAuthority('ROLE_ASSIGN')") public Object assignRegisters(@PathVariable String username,@Valid @RequestBody RegisterAssignment request){return service.assignRegisters(username,request.registerIds(),request.reason());}
     @PatchMapping("/employees/{username}/branch") @PreAuthorize("hasAuthority('USER_UPDATE')") public Object branch(@PathVariable String username,@Valid @RequestBody BranchUpdate request){return service.updateBranch(username,request.branchId(),request.reason());}
+    @PostMapping("/employees/{username}/reactivate")
+    @PreAuthorize("hasAuthority('USER_UPDATE') and hasAuthority('ROLE_ASSIGN')")
+    public Object reactivate(@PathVariable String username,@Valid @RequestBody Reactivation request){
+        return service.reactivateEmployee(username,request.roleIds(),request.reason());
+    }
     @PostMapping("/employees/{username}/disable") @PreAuthorize("hasAuthority('USER_DISABLE')") public Object disable(@PathVariable String username,@Valid @RequestBody Reason request){service.disableEmployee(username,request.reason());return java.util.Map.of("disabled",true);}
     @GetMapping("/employees/{username}/effective-permissions") @PreAuthorize("hasAuthority('USER_VIEW')") public Object permissions(@PathVariable String username){return java.util.Map.of("permissions",service.effectivePermissions(username));}
 }

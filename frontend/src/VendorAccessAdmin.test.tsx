@@ -193,3 +193,31 @@ it('shows the invitation expiry and a token-free activation page link',async()=>
  expect(within(result).getByRole('link',{name:'vendor activation page'}).getAttribute('href')).toBe('/vendor/invitation');
  expect(result.querySelector('time')?.dateTime).toBe('2026-11-25T10:00:00Z');
 });
+
+it('reactivates a disabled employee only with explicitly selected active roles',async()=>{
+ mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','USER_UPDATE','ROLE_ASSIGN','ROLE_VIEW']}});
+ mockVendorApi.mockImplementation(async(path:string,method='GET',body?:any)=>{
+  if(path==='/roles')return [role];
+  if(path==='/employees')return [{username:'disabled@vendor.test',branchId:12,enabled:false,roleIds:[],registerIds:[]}];
+  if(path==='/employees/disabled%40vendor.test/reactivate'&&method==='POST'){
+   expect(body).toEqual({roleIds:[7],reason:'Approved return'});
+   return {username:'disabled@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]};
+  }
+  if(path==='/employees/disabled%40vendor.test/effective-permissions')return {permissions:['POS_VIEW']};
+  return [];
+ });
+ render(<VendorAccessAdmin mode="employees"/>);
+ const row=await screen.findByText('disabled@vendor.test');
+ fireEvent.click(within(row.closest('article')!).getByRole('button',{name:'Manage'}));
+ const initialButton=screen.getByRole('button',{name:'Reactivate employee with selected roles'});
+ expect((initialButton as HTMLButtonElement).disabled).toBe(true);
+ const roles=screen.getByLabelText('Role assignments');
+ fireEvent.change(roles,{target:{selectedOptions:[{value:'7'}]}});
+ fireEvent.change(screen.getByLabelText('Audit reason'),{target:{value:'Approved return'}});
+ expect((screen.getByRole('button',{name:'Reactivate employee with selected roles'}) as HTMLButtonElement).disabled).toBe(false);
+ fireEvent.click(screen.getByRole('button',{name:'Reactivate employee with selected roles'}));
+ expect(await screen.findByText('Effective permissions: POS_VIEW')).toBeTruthy();
+ expect(mockVendorApi).toHaveBeenCalledWith('/employees/disabled%40vendor.test/reactivate','POST',{
+  roleIds:[7],reason:'Approved return'
+ });
+});

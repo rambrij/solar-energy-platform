@@ -231,6 +231,42 @@ public class VendorRoleService {
         audit(c,subject,"REGISTER_ASSIGNMENT",subject,"REGISTER_ASSIGNMENTS_REVOKED_ON_BRANCH_CHANGE",why);
         return employee(c,subject,newBranch,Boolean.TRUE.equals(emp.get("enabled")));
     }
+    public Employee reactivateEmployee(String username,List<Long> roleIds,String requestedReason){
+        var c=auth.current();
+        c.requireVendorMembership();
+        c.requirePermission("USER_UPDATE");
+        c.requirePermission("ROLE_ASSIGN");
+        String why=reason(requestedReason);
+        String subject=subject(c,username);
+        var rows=db.queryForList("SELECT username,branch_id,enabled FROM employees WHERE tenant_id=? AND username=? FOR UPDATE",c.tenantId(),subject);
+        var emp=rows.stream().findFirst().orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Employee unavailable"));
+        if(Boolean.TRUE.equals(emp.get("enabled")))
+            throw new ResponseStatusException(CONFLICT,"Employee is already enabled");
+        long branch=((Number)emp.get("branch_id")).longValue();
+        if(!Boolean.TRUE.equals(db.queryForObject("SELECT COUNT(*)>0 FROM branches WHERE tenant_id=? AND id=?",Boolean.class,c.tenantId(),branch)))
+            throw new ResponseStatusException(CONFLICT,"Employee branch is unavailable");
+        List<Long> selected=roleIds==null?List.of():roleIds.stream().distinct().sorted().toList();
+        if(selected.isEmpty()||selected.size()>50)
+            throw new ResponseStatusException(BAD_REQUEST,"Reactivation requires 1-50 active roles");
+        for(long id:selected){
+            var role=roleRow(c,id);
+            if(!Boolean.TRUE.equals(role.get("active")))
+                throw new ResponseStatusException(CONFLICT,"Inactive role cannot be assigned");
+            requireRoleDelegable(c,id);
+        }
+        // Restore only explicitly selected roles. Register assignments remain revoked.
+        for(long id:selected){
+            int restored=db.update("UPDATE employee_role_assignments SET branch_id=?,active=TRUE,assigned_by=?,assigned_at=CURRENT_TIMESTAMP,revoked_by=NULL,revoked_at=NULL WHERE tenant_id=? AND username=? AND role_id=?",
+                branch,c.username(),c.tenantId(),subject,id);
+            if(restored==0)db.update("INSERT INTO employee_role_assignments(tenant_id,branch_id,username,role_id,active,assigned_by) VALUES(?,?,?,?,TRUE,?)",
+                c.tenantId(),branch,subject,id,c.username());
+            audit(c,subject,"ROLE_ASSIGNMENT",Long.toString(id),"ROLE_ASSIGNED_ON_EMPLOYEE_REACTIVATION",why);
+        }
+        int enabled=db.update("UPDATE employees SET enabled=TRUE WHERE tenant_id=? AND username=? AND enabled=FALSE",c.tenantId(),subject);
+        if(enabled!=1)throw new ResponseStatusException(CONFLICT,"Employee state changed; reload before reactivating");
+        audit(c,subject,"EMPLOYEE",subject,"EMPLOYEE_REACTIVATED",why);
+        return employee(c,subject,branch,true);
+    }
     public void disableEmployee(String username,String requestedReason){
         var c=require("USER_DISABLE");String why=reason(requestedReason);String subject=subject(c,username);
         if(subject.equals(c.username()))throw new ResponseStatusException(CONFLICT,"An administrator cannot disable their own membership");

@@ -30,6 +30,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const [effective,setEffective]=useState<{username:string;permissions:string[]}|null>(null),[invitation,setInvitation]=useState<Invitation|null>(null);
  const canRoleView=rights.has('ROLE_VIEW'),canRoleCreate=rights.has('ROLE_CREATE'),canRoleUpdate=rights.has('ROLE_UPDATE'),canRoleAssign=rights.has('ROLE_ASSIGN');
  const canUserView=rights.has('USER_VIEW'),canUserCreate=rights.has('USER_CREATE'),canUserUpdate=rights.has('USER_UPDATE'),canUserDisable=rights.has('USER_DISABLE');
+ const canReactivateEmployee=canUserUpdate&&canRoleAssign;
  const permissionOptions=[...new Set(delegablePermissions)]
   .filter(permission=>!permission.startsWith('PLATFORM_')&&permission!=='CUSTOMER')
   .sort();
@@ -108,6 +109,10 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  }
  async function changeBranch(){
   const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/branch','PATCH',{branchId:Number(employeeBranch),reason}),'Employee branch updated; prior register assignments revoked.');
+  if(value)await refreshEffectivePermissions();
+ }
+ async function reactivateEmployee(username:string){
+  const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(username)+'/reactivate','POST',{roleIds:selectedRoles,reason}),'Employee reactivated with explicit role assignments. Previous register assignments remain revoked and must be assigned separately.');
   if(value)await refreshEffectivePermissions();
  }
  async function disableEmployee(username:string){
@@ -234,9 +239,10 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     {savedEmployee&&<p>Saved branch #{savedEmployee.branchId} · {savedEmployee.enabled?'Enabled':'Disabled'}
      {' · Registers '}{savedEmployee.registerIds.join(', ')||'none assigned'}</p>}
     {(canRoleAssign||canUserUpdate||canUserDisable)&&<label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
-    {canRoleAssign&&<><label>Role assignments<select multiple value={selectedRoles.map(String)} onChange={e=>setSelectedRoles(Array.from(e.target.selectedOptions).map(x=>Number(x.value)))}>{roles.filter(r=>r.active).map(r=><option key={r.id} value={r.id}>{r.displayName}</option>)}</select></label><button type="button" disabled={busy} onClick={()=>void assignRoles()}>Save role assignments</button></>}
+    {canRoleAssign&&<><label>Role assignments<select multiple value={selectedRoles.map(String)} onChange={e=>setSelectedRoles(Array.from(e.target.selectedOptions).map(x=>Number(x.value)))}>{roles.filter(r=>r.active).map(r=><option key={r.id} value={r.id}>{r.displayName}</option>)}</select></label>{savedEmployee?.enabled!==false&&<button type="button" disabled={busy} onClick={()=>void assignRoles()}>Save role assignments</button>}</>
     {canRoleAssign&&<><label>Assigned register IDs (comma separated)<input value={registerIds} onChange={e=>setRegisterIds(e.target.value)}/></label><button type="button" disabled={busy} onClick={()=>void assignRegisters()}>Save register assignments</button></>}
     {canUserUpdate&&<><label>New branch ID<input type="number" min="1" value={employeeBranch} onChange={e=>setEmployeeBranch(e.target.value)}/></label><button type="button" className="secondary" disabled={busy} onClick={()=>void changeBranch()}>Change branch</button></>}
+    {savedEmployee&&!savedEmployee.enabled&&canReactivateEmployee&&<><p>Reactivation requires at least one active role. Previous register assignments remain revoked.</p><button type="button" disabled={busy||selectedRoles.length===0} onClick={()=>void reactivateEmployee(subject)}>Reactivate employee with selected roles</button></>}
     {canUserView&&<button type="button" className="secondary" disabled={busy||checkingPermissions} onClick={()=>void preview()}>Preview effective permissions</button>}
     {checkingPermissions&&<p role="status">Checking effective permissions…</p>}
     {canUserView&&effective?.username===subject&&

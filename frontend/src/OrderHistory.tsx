@@ -8,6 +8,8 @@ import OnlineReceipt from './OnlineReceipt';
 type Order = { id: string; vendorName: string; channel: string; status: string; paymentState: string; createdAt: string; expiresAt: string | null; total: number; receiptNumber: number | null; taxInvoice: boolean };
 type Page = { items: Order[]; page: number; size: number; totalElements: number; totalPages: number };
 type Tracking = {id:number;carrier:string;trackingReference:string;trackingUrl:string|null;createdAt:string;events:{id:number;eventCode:string;description:string;occurredAt:string}[]};
+type CustomerReturnStatus = {id:string;state:string;requestedAt:string;reviewedAt:string|null;inspectedAt:string|null;cashRefundStatus:string;cashRefundAmount:number|null;cashRefundedAt:string|null;items:{name:string;quantity:number}[]};
+type CustomerReturnHistory = {orderId:string;returns:CustomerReturnStatus[]};
 type Detail = { order: Order; items: { productId: number; name: string; quantity: number; unitPrice: number; tax: number; total: number; discount?: number }[]; cashReceived: number | null; changeGiven: number | null; cancellationReason: string | null; statusChangedAt: string | null };
 type Filters = { status: string; reference: string; from: string; to: string };
 const initial: Filters = { status: 'ALL', reference: '', from: '', to: '' };
@@ -19,6 +21,9 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
   const canOpenPosReceipt=mode==='online'||!!account?.permissions.includes('POS_RECEIPT_VIEW');
   const [onlineReceipt,setOnlineReceipt]=useState<{orderId:string;channel:string}>();
   const [tracking,setTracking]=useState<Tracking[]>([]);
+  const [customerReturns,setCustomerReturns]=useState<CustomerReturnStatus[]>([]);
+  const [customerReturnError,setCustomerReturnError]=useState('');
+  const [customerReturnLoading,setCustomerReturnLoading]=useState(false);
   const [filters, setFilters] = useState<Filters>(initial), [applied, setApplied] = useState<Filters>(initial);
   const [page, setPage] = useState<Page>(), [detail, setDetail] = useState<Detail>(), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const version = useRef(0);
@@ -37,9 +42,39 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
     } catch { if (current === version.current) setError('History unavailable. Check your login, permissions and filters, then retry. Existing sales are unchanged.'); }
     finally { if (current === version.current) setBusy(false); }
   }
+  async function loadCustomerReturnStatus(id: string) {
+    const current = version.current;
+    setCustomerReturnError('');
+    setCustomerReturns([]);
+    setCustomerReturnLoading(true);
+    try {
+      const history: CustomerReturnHistory = await marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/returns`);
+      if (current === version.current && history.orderId === id) setCustomerReturns(history.returns);
+    } catch {
+      if (current === version.current) setCustomerReturnError('Return status is currently unavailable. Retry to check again.');
+    } finally {
+      if (current === version.current) setCustomerReturnLoading(false);
+    }
+  }
   async function inspect(id: string) {
     const current = ++version.current; setBusy(true); setError(''); setDetail(undefined);
-    try { const value: Detail = await request(`/${encodeURIComponent(id)}`); if (current === version.current) { setDetail(value); if(mode==='online'&&value.order.channel==='ONLINE') { try { const trackingRows:Tracking[]=await marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/shipments`); if(current===version.current)setTracking(trackingRows); } catch { if(current===version.current)setTracking([]); } } else setTracking([]); } }
+    setTracking([]); setCustomerReturns([]); setCustomerReturnError(''); setCustomerReturnLoading(false);
+    try {
+      const value: Detail = await request(`/${encodeURIComponent(id)}`);
+      if (current === version.current) {
+        setDetail(value);
+        if (mode === 'online' && value.order.channel === 'ONLINE') {
+          try {
+            const trackingRows: Tracking[] = await marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/shipments`);
+            if (current === version.current) setTracking(trackingRows);
+          } catch {
+            if (current === version.current) setTracking([]);
+          }
+        } else if (mode === 'online' && value.order.channel === 'IN_STORE' && value.order.status === 'PAID') {
+          await loadCustomerReturnStatus(id);
+        }
+      }
+    }
     catch { if (current === version.current) setError('Order unavailable for your account. Reload history and try again.'); }
     finally { if (current === version.current) setBusy(false); }
   }
@@ -69,6 +104,26 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
       {detail.cancellationReason && <p>Cancellation reason: {detail.cancellationReason}</p>}
       {detail.order.status === 'DRAFT' && <p>Unpaid reservation · Expires {date(detail.order.expiresAt)}. Manage it in reserved drafts above.</p>}
       {mode==='online'&&detail.order.channel==='ONLINE'&&<section aria-label="Shipment tracking"><h4>Shipment tracking</h4>{tracking.length===0?<p>No shipment has been registered for this order yet.</p>:tracking.map(shipment=><article key={shipment.id}><h5>{shipment.carrier}</h5><p>Tracking reference: {shipment.trackingReference}</p>{shipment.trackingUrl&&<a href={shipment.trackingUrl} target="_blank" rel="noreferrer">Open carrier tracking</a>}<ol>{shipment.events.map(event=><li key={event.id}><strong>{event.eventCode.replaceAll('_',' ')}</strong> · {event.description} · {date(event.occurredAt)}</li>)}</ol></article>)}</section>}
+      {mode==='online'&&detail.order.channel==='IN_STORE'&&detail.order.status==='PAID'&&<section aria-label="Return and refund status">
+        <div className="section-heading"><h4>Return and refund status</h4></div>
+        {customerReturnError
+          ? <p role="alert">{customerReturnError} <button className="secondary" disabled={customerReturnLoading} onClick={()=>void loadCustomerReturnStatus(detail.order.id)}>{customerReturnLoading?'Checking…':'Retry return status'}</button></p>
+          : customerReturnLoading && customerReturns.length===0
+            ? <p role="status">Checking return status…</p>
+            : customerReturns.length===0
+              ? <p>No return has been recorded for this verified store purchase.</p>
+              : customerReturns.map(returned=><article key={returned.id}>
+                  <p><strong>Return status:</strong> {returned.state.replaceAll('_',' ')}</p>
+                  <p>Requested {date(returned.requestedAt)}</p>
+                  {returned.reviewedAt&&<p>Reviewed {date(returned.reviewedAt)}</p>}
+                  {returned.inspectedAt&&<p>Inspection recorded {date(returned.inspectedAt)}</p>}
+                  {returned.items.length>0&&<ul>{returned.items.map((item,index)=><li key={index}>{item.name} × {item.quantity}</li>)}</ul>}
+                  <p><strong>Cash refund:</strong> {returned.cashRefundStatus==='PAID'
+                    ? 'Paid ' + money(returned.cashRefundAmount??0) + ' on ' + date(returned.cashRefundedAt)
+                    : 'Not issued'}</p>
+                </article>)}
+        <p className="receipt-note">This is the recorded status of the existing in-store return workflow. Viewing it does not start a return or change a refund.</p>
+      </section>
       <p>Status updated {date(detail.statusChangedAt)}</p><p>Line details are saved order snapshots. Catalogue changes do not change this order.</p>
     </section>}
     

@@ -297,7 +297,8 @@
     "CustomerProfileController": "CUSTOMER_GLOBAL_PROFILE_OWNER_SCOPE",
     "VendorCustomerCrmController": "VENDOR_PRIVATE_CUSTOMER_CRM_SCOPE",
     "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_ORDER_SCOPE",
-    "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE"
+    "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE",
+    "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"

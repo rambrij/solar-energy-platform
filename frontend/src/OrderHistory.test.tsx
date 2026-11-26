@@ -90,3 +90,45 @@ it('loads customer-owned shipment events for an online order detail',async()=>{
  await screen.findByText('Solar Carrier');await screen.findByText(/Parcel moving/);
  expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/orders/'+order.id+'/shipments');
 });
+
+it('shows customer-safe return and cash-refund status for a verified in-store purchase',async()=>{
+ const returnStatus={id:'return-1',state:'INSPECTED',requestedAt:'2026-11-01T08:00:00Z',reviewedAt:'2026-11-01T09:00:00Z',inspectedAt:'2026-11-01T10:00:00Z',cashRefundStatus:'PAID',cashRefundAmount:75,cashRefundedAt:'2026-11-01T11:00:00Z',items:[{name:'Saved solar panel',quantity:2}]};
+ vi.mocked(marketplaceApi).mockImplementation(async path=>{
+  if(path.endsWith('/returns'))return {orderId:order.id,returns:[returnStatus]};
+  if(path.includes('/orders/'))return {order:{...order,channel:'IN_STORE',status:'PAID'},items:[],cashReceived:100,changeGiven:0,cancellationReason:null,statusChangedAt:order.createdAt};
+  return page;
+ });
+ render(<OrderHistory mode="online"/>);
+ fireEvent.click(screen.getByText('Load order history'));
+ fireEvent.click(await screen.findByText('View order '+order.id));
+ await screen.findByText('Return status: INSPECTED');
+ await screen.findByText('Saved solar panel × 2');
+ await screen.findByText(/Cash refund: Paid 75.00 on/);
+ expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/orders/'+order.id+'/returns');
+ expect(screen.getByLabelText('Return and refund status')).toBeTruthy();
+});
+
+it('shows an empty return state for a verified store purchase with no return record',async()=>{
+ vi.mocked(marketplaceApi).mockImplementation(async path=>{
+  if(path.endsWith('/returns'))return {orderId:order.id,returns:[]};
+  if(path.includes('/orders/'))return {order:{...order,channel:'IN_STORE',status:'PAID'},items:[],cashReceived:100,changeGiven:0,cancellationReason:null,statusChangedAt:order.createdAt};
+  return page;
+ });
+ render(<OrderHistory mode="online"/>);
+ fireEvent.click(screen.getByText('Load order history'));
+ fireEvent.click(await screen.findByText('View order '+order.id));
+ await screen.findByText('No return has been recorded for this verified store purchase.');
+});
+
+it('does not request POS return status for an online order',async()=>{
+ vi.mocked(marketplaceApi).mockImplementation(async path=>{
+  if(path.endsWith('/shipments'))return [];
+  if(path.includes('/orders/'))return {order:{...order,channel:'ONLINE',status:'PAID'},items:[],cashReceived:null,changeGiven:null,cancellationReason:null,statusChangedAt:order.createdAt};
+  return page;
+ });
+ render(<OrderHistory mode="online"/>);
+ fireEvent.click(screen.getByText('Load order history'));
+ fireEvent.click(await screen.findByText('View order '+order.id));
+ await screen.findByLabelText('Shipment tracking');
+ expect(marketplaceApi).not.toHaveBeenCalledWith('/api/v1/customer/orders/'+order.id+'/returns');
+});

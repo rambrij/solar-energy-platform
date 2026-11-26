@@ -16,7 +16,9 @@ This is a read-only composition of existing application APIs. It introduces no d
 
 ## Explicit boundaries
 
-The dashboard does not claim shipment, installation, warranty, service-ticket or online-return tracking. The SRS places advanced fulfilment, installation, warranty, service tickets and advanced returns for shipped online orders in later Operations scope, and those tenant-owned operational workflows are not yet implemented. Email-change, recovery, mobile-verification and communication/consent preference policies also remain separate identity-lifecycle decisions; this screen does not infer or mutate them.
+The customer order detail now also displays a read-only status projection for existing POS-originated returns and recorded cash refunds on paid, verified IN_STORE purchases. It derives ownership from the authenticated global customer and exposes only return state, lifecycle timestamps, item names/quantities and cash-refund status/amount/date. POS reasons, proof, cashier identities, session IDs and private inspection notes remain vendor-private. It does not let the customer create, approve or inspect a return.
+
+The portal does not claim installation, warranty or service-ticket tracking, or advanced return handling for shipped ONLINE orders. The SRS places those operational workflows in later Operations scope. Email-change, recovery, mobile-verification and communication/consent preference policies also remain separate identity-lifecycle decisions; this screen does not infer or mutate them.
 
 ## Verification
 

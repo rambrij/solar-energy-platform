@@ -2378,6 +2378,18 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/orders/{orderId}/shipments"
+    },
+    {
+      "id": "customer-order-return-status",
+      "component": "OrderHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{orderId}/returns",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{orderId}/returns"
     }
   ],
   "buttons": [

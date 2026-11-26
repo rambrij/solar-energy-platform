@@ -16,7 +16,7 @@ This guide runs through the current vendor workspace as a seeded `VENDOR_ADMIN`,
 | Helio Rural Energy · `920001` | `helio.admin@somya.local` | `Somya-Helio-ADM-2026!` |
 | Lumina Solar Lighting · `930001` | `lumina.admin@somya.local` | `Somya-Lumina-ADM-2026!` |
 
-All three use the `VENDOR` actor and the persisted `VENDOR_ADMIN` role in their own tenant. The fixture branch ID equals the tenant ID for these accounts. Cashier, inventory, sales manager, accountant, and customer comparison accounts are in the [demo account matrix](README.md).
+All three use the `VENDOR` actor and the persisted `VENDOR_ADMIN` role in their own tenant. The fixture branch ID equals the tenant ID for these accounts. Cashier, inventory, sales manager, accountant, and customer comparison accounts are in the [demo account matrix](README.md). For the customer-side checkout, order, receipt and tracking handoff, see the [Global Customer journey](customer-journey.md).
 
 ## Quick reference
 
@@ -25,6 +25,7 @@ All three use the `VENDOR` actor and the persisted `VENDOR_ADMIN` role in their 
 | Organize the catalogue | **Catalogue & Inventory → Categories** | Changes apply to the signed-in vendor. |
 | Create or edit a product | **Catalogue & Inventory → Manage Products** | Save a SKU, price, publication status, and reason. New products start with zero stock. |
 | Record a delivery or find its receipt | **Catalogue & Inventory → Receive Stock** | The delivery goes to the assigned outlet. Receipt history can be filtered by product ID. |
+| Register a carrier and update an online shipment | **Fulfilment → Shipments** | Only paid online customer orders can be registered; append tracking events with their audit reasons. Customers see the customer-safe tracking projection. |
 | Invite staff and assign work scope | **Administration → Employees** | Choose an active role and branch. For POS staff, assign an eligible register separately. |
 | Create or revise a role | **Administration → Roles & Permissions** | Check the permissions you can delegate and enter an audit reason. |
 | Open a register and complete a walk-in sale | **POS → Cashier Session → Current Bill** | Use the assigned register and a saved opening float. Finalizing a sale creates a receipt. |
@@ -57,12 +58,33 @@ Platform grants are outside this workflow. Vendor permissions depend on active m
 ## Cash sale, close, and after-sale flow
 
 1. In **Cashier Session**, select an assigned register and enter the opening float. If a session is already open, select it. Use a stocked product from the inventory flow to start a walk-in sale.
-2. In **Current Bill**, review the quantities and server-calculated total, then complete a cash tender using the actual cash received in the demo. A guest cash sale can complete without creating a customer account.
+2. In **Current Bill**, review the quantities and server-calculated total, then complete a cash tender using the actual cash received in the demo. A guest cash sale can complete without creating a customer account. Do not ask for or search for a customer account as a condition of sale. If the buyer explicitly requests association with an existing global customer account, use the customer-requested approval flow described below before finalizing the eligible draft.
 3. Open **Current Receipt** and verify the sale and receipt identifiers. Use **Sales History** to find the sale again. When reprinting, supply the requested reason and verify the result is a copy of the original.
 4. Open **Opening Float & Drawer**, review the movements, and close with the counted cash. Check **Drawer Records** for the saved reconciliation. If a variance requires approval, use **Supervisor Shift Review** with the appropriate permission.
 5. For an after-sale test, select the eligible sale from **Sales History** and follow the return action. Record inspection and disposition as required, then use **Cash Refunds** only once the return reaches the eligible state. Verify the refund against the original sale and tender.
 
 Use cash for this walkthrough. External terminal confirmation, manual evidence review, and supervisor approval follow their separate controls. For local marketplace test payments, use the [vendor payment mock walkthrough](platform-super-admin.md#simulate-a-vendor-payment). Live payments and statutory GST invoicing are outside this demo.
+
+### Optional: customer-requested global account association
+
+A walk-in sale remains a guest sale unless the customer asks to link it to their own existing global customer account. The POS must not silently create an account or reveal whether an email belongs to a customer.
+
+1. Keep the sale as a draft and open the **Walk-in customer** panel.
+2. Only after the buyer asks for the association, select **Customer requested linking their own account** and choose **Create customer approval link**.
+3. Share the one-time link with the customer so they can open it on their own device. The challenge currently expires after five minutes.
+4. The customer signs in with their own CUSTOMER context, reviews the vendor and purchase total, and explicitly consents at `/customer/associate`. See the [customer association walkthrough](customer-journey.md#optional-link-a-verified-in-store-purchase-to-your-customer-account).
+5. Complete the sale after approval. Only the current vendor relationship is created; another vendor's customer history is never exposed to the cashier or vendor.
+
+The customer can complete or decline the association. A sale can still complete as a guest when the customer does not request or approve the link.
+
+### Online shipment registration and customer tracking handoff
+
+1. Open **Fulfilment → Shipments** using an account with `SHIPMENT_VIEW` and `SHIPMENT_UPDATE`.
+2. Select an eligible **paid ONLINE** order. Enter the carrier, tracking reference, optional HTTPS tracking URL and required audit reason, then register the shipment.
+3. Add progress events as they become available. Each event has a customer-facing event code/description and a separate vendor-private audit reason. Events are append-only; do not use this screen to overwrite the history.
+4. Ask the customer to open **My Dashboard → Shipment updates** or the matching order detail in **Your Purchases**. The customer sees vendor, carrier, tracking reference, supplied carrier URL and customer-safe event history. Vendor audit reasons and employee identities are not returned to the customer.
+
+The current integration records shipment and progress information entered by the vendor. It does not establish a live carrier API connection, prove an external delivery scan, or implement installation, warranty, service-ticket or advanced online-return workflows. Those capabilities remain later Operations scope; see the [Global Customer journey](customer-journey.md#capabilities-not-yet-exposed-as-a-customer-journey).
 
 ## Reports and outlet settings
 

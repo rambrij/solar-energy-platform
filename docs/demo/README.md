@@ -2,7 +2,9 @@
 
 For onboarding, subscriptions, support, MFA, Mailpit, and mock payment steps, see the [Platform Super Admin demo walkthrough](platform-super-admin.md).
 
-For catalogue, inventory, POS, and employee administration, see the [Vendor Admin demo walkthrough](vendor-admin.md).
+For catalogue, inventory, POS, shipment fulfilment, and employee administration, see the [Vendor Admin demo walkthrough](vendor-admin.md).
+
+For the end-to-end global customer experience, see the [Global Customer journey and demo walkthrough](customer-journey.md).
 
 > **Local/test only.** Fixture credentials are public development credentials. Never use them in production or expose the local environment publicly.
 
@@ -100,13 +102,13 @@ The backend StandardRoleTemplates catalogue is the source for provisioning. Test
 
 | Template | Permissions |
 |---|---|
-| VENDOR_ADMIN | CATALOG_PROMOTION_MANAGE; INVENTORY_RECEIVE, INVENTORY_VIEW; POS_CASHIER_REPORT_VIEW, POS_CASH_IN, POS_CASH_OUT, POS_DISCOUNT_APPLY, POS_DISCOUNT_APPROVE, POS_DISCOUNT_OVERRIDE, POS_RECEIPT_REPRINT, POS_RECEIPT_VIEW, POS_REFUND_APPROVE, POS_REFUND_CASH_RECORD, POS_REFUND_PRINT, POS_REFUND_VIEW, POS_REPORT_EXPORT, POS_REPORT_VIEW, POS_RETURN_AUDIT_VIEW, POS_RETURN_APPROVE, POS_RETURN_CREATE, POS_RETURN_INSPECT, POS_RETURN_VIEW, POS_SAFE_DROP, POS_SALE_CANCEL, POS_SALE_CREATE, POS_SESSION_CLOSE, POS_SESSION_OPEN, POS_SESSION_REOPEN, POS_SETTINGS_MANAGE, POS_SHIFT_VARIANCE_APPROVE, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_TENDER_MANUAL_VERIFY, POS_VIEW; PRICE_UPDATE, PRICE_VIEW; PRODUCT_ARCHIVE, PRODUCT_CREATE, PRODUCT_UPDATE, PRODUCT_VIEW; ROLE_ASSIGN, ROLE_CREATE, ROLE_UPDATE, ROLE_VIEW; USER_CREATE, USER_DISABLE, USER_UPDATE, USER_VIEW |
+| VENDOR_ADMIN | CUSTOMER_RELATION_VIEW, CRM_NOTE_VIEW, CRM_NOTE_CREATE, CRM_NOTE_UPDATE, LEAD_VIEW; CATALOG_PROMOTION_MANAGE; INVENTORY_RECEIVE, INVENTORY_VIEW; POS_CASHIER_REPORT_VIEW, POS_CASH_IN, POS_CASH_OUT, POS_DISCOUNT_APPLY, POS_DISCOUNT_APPROVE, POS_DISCOUNT_OVERRIDE, POS_RECEIPT_REPRINT, POS_RECEIPT_VIEW, POS_REFUND_APPROVE, POS_REFUND_CASH_RECORD, POS_REFUND_PRINT, POS_REFUND_VIEW, POS_REPORT_EXPORT, POS_REPORT_VIEW, POS_RETURN_AUDIT_VIEW, POS_RETURN_APPROVE, POS_RETURN_CREATE, POS_RETURN_INSPECT, POS_RETURN_VIEW, POS_SAFE_DROP, POS_SALE_CANCEL, POS_SALE_CREATE, POS_SESSION_CLOSE, POS_SESSION_OPEN, POS_SESSION_REOPEN, POS_SETTINGS_MANAGE, POS_SHIFT_VARIANCE_APPROVE, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_TENDER_MANUAL_VERIFY, POS_VIEW; PRICE_UPDATE, PRICE_VIEW; PRODUCT_ARCHIVE, PRODUCT_CREATE, PRODUCT_UPDATE, PRODUCT_VIEW; SHIPMENT_UPDATE, SHIPMENT_VIEW; ROLE_ASSIGN, ROLE_CREATE, ROLE_UPDATE, ROLE_VIEW; USER_CREATE, USER_DISABLE, USER_UPDATE |
 | POS_CASHIER | POS_VIEW, POS_SESSION_OPEN, POS_SESSION_CLOSE, POS_SALE_CREATE, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_RECEIPT_VIEW |
-| SALES_MANAGER | POS_VIEW, POS_REPORT_VIEW |
+| SALES_MANAGER | LEAD_VIEW, POS_VIEW, POS_REPORT_VIEW |
 | INVENTORY_MANAGER | PRODUCT_VIEW, INVENTORY_VIEW, INVENTORY_RECEIVE |
 | ACCOUNTANT | POS_VIEW, POS_REPORT_VIEW, POS_REFUND_VIEW |
 
-Future CRM, quotations, order, shipment, installation and service permissions are not granted until the corresponding APIs and assignment-scoped enforcement are implemented. Deferred templates remain visible as catalogue definitions with explicit reasons, but cannot be materialized or assigned.
+The current `VENDOR_ADMIN` template includes customer-relationship/CRM grants (`CUSTOMER_RELATION_VIEW`, `CRM_NOTE_*`, `LEAD_VIEW`) and shipment grants (`SHIPMENT_VIEW`, `SHIPMENT_UPDATE`); the local Vendor Admin walkthrough covers those implemented surfaces. `SALES_MANAGER` currently includes `LEAD_VIEW` with its POS reporting grants. The `SALES_EXECUTIVE` template remains unassigned because assignment-scoped lead/quotation/vendor-order workflows are not implemented. `OPERATIONS_MANAGER` remains deferred even though Vendor Admin can register basic shipments: broader installation and operations workflows are unavailable. `SERVICE_MANAGER` and `SERVICE_ENGINEER` remain deferred because service-request and assigned service-work APIs are unavailable. Deferred templates stay deny-by-default and cannot be materialized or assigned.
 
 ## Verify persisted RBAC
 

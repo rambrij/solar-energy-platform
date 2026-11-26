@@ -21,7 +21,7 @@
 | Edit the MFA notification templates | **Configuration → Email templates**. Save a subject and plain-text body, or choose **Edit template** beside a saved template. |
 | Switch the local MFA mail adapter | **Configuration → Integration adapter settings → Configure MFA mail adapter**. Choose **Local Mailpit SMTP** or **Disabled**. The next committed MFA activity uses the saved setting. |
 | Issue or reset platform MFA and view activity notices | **Platform identities → Issue / reset MFA** on a different provisioned platform identity. Enter a reason and share the one-time token through the approved secure channel. Activity notices appear in [Mailpit](http://localhost:8025). |
-| Simulate a vendor payment locally | Set `PAYMENTS_MOCK_ENABLED=true` with the `local` profile, then use test UPI or card payment in vendor checkout as a demo customer. |
+| Simulate a vendor payment locally | Set `PAYMENTS_MOCK_ENABLED=true` with the `local` profile, then sign out of Platform and follow the [Global Customer journey](customer-journey.md#check-payment-and-complete-the-local-demo-order). |
 
 ## Vendor tenant onboarding and lifecycle
 
@@ -39,7 +39,7 @@ In **Tenant directory**, enter a reason for each lifecycle change and select the
 
 Use **Edit profile** to update a tenant's legal name, contact details, tax identifier, and address. When the vendor's acceptance has been confirmed, select **Record confirmed vendor terms acceptance** during onboarding or profile editing. The server records the first confirmation time and the platform audit attributes the action to the operator. Profiles without confirmation show **Unrecorded**.
 
-Tenant activation and subscription activation are separate. The Platform actor has no commercial catalogue, vendor POS, or customer-order authority.
+Tenant activation and subscription activation are separate. The Platform actor has no commercial catalogue, vendor POS, or customer-order authority. To test a customer purchase, sign out of the Platform identity and sign in separately with the `CUSTOMER` actor; the [Global Customer journey](customer-journey.md) covers that end-to-end flow.
 
 ## Subscription plans and tenant subscriptions
 
@@ -80,7 +80,7 @@ Use a disposable local environment. Set `PAYMENTS_MOCK_ENABLED=true` with `SPRIN
 2. Choose **Start test UPI payment** or **Start test card payment**. The checkout records a pending attempt scoped to the vendor and order.
 3. Choose **Simulate successful payment** for the selected method. The application verifies the attempt and completes its normal order, stock, and receipt flow with a mock reference. Reload or query status before retrying an uncertain outcome.
 
-This simulates successful vendor payment confirmation. No network provider is contacted and no funds move. Terminal tenders and platform subscription payments use separate flows. Disable the flag when the demo is finished.
+This simulates successful vendor payment confirmation. No network provider is contacted and no funds move. Terminal tenders and platform subscription payments use separate flows. Disable the flag when the demo is finished. For the full customer flow—including vendor discovery, single-vendor cart, draft reservation, order history, receipts and shipment visibility—follow the [Global Customer journey](customer-journey.md).
 
 ## Simulate subscription invoicing, retries, and reactivation
 

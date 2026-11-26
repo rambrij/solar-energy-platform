@@ -461,7 +461,7 @@ if(!/authenticatedFetch\(\s*path\s*,\s*\{\s*method/.test(marketplaceHelperSource
  || !/authenticatedFetch\(\s*['"]\/api\/v1\/auth\/csrf['"]/.test(apiHelperSource))
  throw new Error('CSRF transport helpers must use only their reviewed fixed endpoints');
 const transportEndpoints=actionRegistry.transportEndpoints??[];
-const expectedTransports=['GET /api/v1/auth/csrf','GET /api/v1/customer/csrf'].sort();
+const expectedTransports=['GET /api/v1/auth/csrf','GET /api/v1/customer/csrf','GET /api/v1/marketplace/csrf'].sort();
 const observedTransports=transportEndpoints.map(item=>item.method+' '+item.endpoint).sort();
 if(JSON.stringify(observedTransports)!==JSON.stringify(expectedTransports))
  throw new Error('CSRF transport endpoint inventory is incomplete or contains an unreviewed endpoint');

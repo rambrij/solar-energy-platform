@@ -87,6 +87,6 @@ it('loads customer-owned shipment events for an online order detail',async()=>{
   return page;
  });
  render(<OrderHistory mode="online"/>);fireEvent.click(screen.getByText('Load order history'));fireEvent.click(await screen.findByText('View order '+order.id));
- await screen.findByText('Solar Carrier');await screen.findByText('Parcel moving');
+ await screen.findByText('Solar Carrier');await screen.findByText(/Parcel moving/);
  expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/orders/'+order.id+'/shipments');
 });

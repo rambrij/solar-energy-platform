@@ -27,7 +27,19 @@ class LocalDemoFlywaySeedMySqlTest {
        .schemas(schema).defaultSchema(schema).createSchemas(false).load();
    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(5);
    assertThat(flyway.migrate().migrationsExecuted).isZero();
-   JdbcTemplate db=new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(targetUrl,user,password));
+   var dataSource=new org.springframework.jdbc.datasource.DriverManagerDataSource(targetUrl,user,password);
+   var seedScript=new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+       new org.springframework.core.io.ClassPathResource("db/local-seed/local_demo_solar_catalog.sql"));
+   seedScript.execute(dataSource);
+   seedScript.execute(dataSource); // A second application start must not duplicate stock or rows.
+   JdbcTemplate db=new JdbcTemplate(dataSource);
+   assertThat(count(db,"SELECT COUNT(*) FROM products WHERE tenant_id IN (910001,920001,930001)")).isEqualTo(36);
+   assertThat(count(db,"SELECT COUNT(*) FROM catalog_categories WHERE tenant_id IN (910001,920001,930001)")).isEqualTo(21);
+   assertThat(count(db,"SELECT COUNT(*) FROM products WHERE tenant_id IN (910001,920001,930001) AND published=TRUE")).isEqualTo(36);
+   assertThat(count(db,"SELECT COUNT(*) FROM inventory_receipts WHERE tenant_id IN (910001,920001,930001) AND command_key LIKE 'local-demo-catalog-v2-%'")).isEqualTo(36);
+   assertThat(count(db,"SELECT COUNT(*) FROM inventory i JOIN products p ON p.tenant_id=i.tenant_id AND p.id=i.product_id WHERE i.tenant_id IN (910001,920001,930001) AND i.quantity-i.reserved<>100")).isZero();
+   assertThat(count(db,"SELECT COUNT(*) FROM products p LEFT JOIN product_categories pc ON pc.tenant_id=p.tenant_id AND pc.product_id=p.id LEFT JOIN catalog_categories c ON c.tenant_id=pc.tenant_id AND c.id=pc.category_id WHERE p.tenant_id IN (910001,920001,930001) AND (pc.product_id IS NULL OR c.id IS NULL)")).isZero();
+   assertThat(count(db,"SELECT COUNT(*) FROM (SELECT tenant_id,sku FROM products WHERE tenant_id IN (910001,920001,930001) GROUP BY tenant_id,sku HAVING COUNT(*)>1) duplicate_skus")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'standard:%'")).isEqualTo(15);
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(216);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_role_assignments WHERE active=TRUE")).isEqualTo(15);

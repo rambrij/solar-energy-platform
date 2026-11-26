@@ -3,7 +3,7 @@ import jakarta.validation.Valid;import jakarta.validation.constraints.*;import j
 @RestController @RequestMapping("/api/v1/vendor")
 public class VendorShipmentController {
  private final ShipmentService service;public VendorShipmentController(ShipmentService service){this.service=service;}
- public record Create(@NotBlank @Size(max=120) String carrier,@NotBlank @Size(max=160) String trackingReference,@Size(max=1000) @Pattern(regexp="https://\\S+") String trackingUrl,@NotBlank @Size(max=500) String reason){}
+ public record Create(@NotBlank @Size(max=120) String carrier,@NotBlank @Size(max=160) String trackingReference,@Size(max=1000) String trackingUrl,@NotBlank @Size(max=500) String reason){}
  public record EventCreate(@NotBlank @Pattern(regexp="[A-Za-z][A-Za-z0-9_]{1,39}") String eventCode,@NotBlank @Size(max=500) String description,@NotBlank @Size(max=500) String reason){}
  @GetMapping("/shipments/orders") @PreAuthorize("hasAuthority('SHIPMENT_VIEW')") public List<ShipmentService.EligibleOrder> eligibleOrders(){return service.eligibleOrders();}
  @GetMapping("/shipments") @PreAuthorize("hasAuthority('SHIPMENT_VIEW')") public List<ShipmentService.Shipment> shipments(){return service.shipments();}

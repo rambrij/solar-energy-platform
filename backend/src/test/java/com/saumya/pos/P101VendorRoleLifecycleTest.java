@@ -264,7 +264,9 @@ class P101VendorRoleLifecycleTest {
     @Test
     @DisplayName("Reactivation requires fresh explicit active roles and does not restore registers")
     void employeeReactivationRestoresOnlyExplicitRolesBeforeEnablingMembership() {
-        grant(VENDOR_A_TENANT, seed.vendorARoleId(), "USER_UPDATE", "ROLE_ASSIGN", "USER_DISABLE");
+        grant(VENDOR_A_TENANT, seed.vendorARoleId(), "USER_UPDATE", VENDOR_A);
+        grant(VENDOR_A_TENANT, seed.vendorARoleId(), "ROLE_ASSIGN", VENDOR_A);
+        grant(VENDOR_A_TENANT, seed.vendorARoleId(), "USER_DISABLE", VENDOR_A);
         var role=asVendorA(() -> roles.create("p101-reactivation", "Reactivation role",
             List.of("POS_VIEW"), "P1-01 reactivation role"));
         asVendorA(() -> roles.assignRoles(TARGET,List.of(role.id()),"P1-01 initial assignment"));

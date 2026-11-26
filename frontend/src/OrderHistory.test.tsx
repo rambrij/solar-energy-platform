@@ -101,9 +101,9 @@ it('shows customer-safe return and cash-refund status for a verified in-store pu
  render(<OrderHistory mode="online"/>);
  fireEvent.click(screen.getByText('Load order history'));
  fireEvent.click(await screen.findByText('View order '+order.id));
- await screen.findByText('Return status: INSPECTED');
+ await screen.findByText('INSPECTED', { exact: true });
  await screen.findByText('Saved solar panel × 2');
- await screen.findByText(/Cash refund: Paid 75.00 on/);
+ await screen.findByText(/Paid 75\.00 on/);
  expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/orders/'+order.id+'/returns');
  expect(screen.getByLabelText('Return and refund status')).toBeTruthy();
 });

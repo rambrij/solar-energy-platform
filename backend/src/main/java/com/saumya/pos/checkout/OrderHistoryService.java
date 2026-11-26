@@ -21,11 +21,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class OrderHistoryService {
     private final DraftRepository orders;
     private final DraftLineRepository lines;
+    private final PaymentAttemptRepository paymentAttempts;
     private final CustomerAccess customers;
     private final PosService retail;
     private final CatalogService catalog;
-    public OrderHistoryService(DraftRepository orders,DraftLineRepository lines,CustomerAccess customers,PosService retail,CatalogService catalog){
-        this.orders=orders;this.lines=lines;this.customers=customers;this.retail=retail;this.catalog=catalog;
+    public OrderHistoryService(DraftRepository orders,DraftLineRepository lines,PaymentAttemptRepository paymentAttempts,CustomerAccess customers,PosService retail,CatalogService catalog){
+        this.orders=orders;this.lines=lines;this.paymentAttempts=paymentAttempts;this.customers=customers;this.retail=retail;this.catalog=catalog;
     }
     public record Filter(String status,String reference,LocalDate from,LocalDate to,int page,int size){
         public Filter {
@@ -39,7 +40,7 @@ public class OrderHistoryService {
         }
     }
     public record Order(String id,String vendorName,String channel,String status,Instant createdAt,Instant expiresAt,
-                        BigDecimal total,Long receiptNumber,boolean taxInvoice){}
+                        BigDecimal total,Long receiptNumber,boolean taxInvoice,String paymentState){}
     public record History(List<Order> items,int page,int size,long totalElements,int totalPages){}
     public record Line(long productId,String name,int quantity,BigDecimal unitPrice,BigDecimal taxRate,BigDecimal tax,BigDecimal total,BigDecimal listPrice,BigDecimal discount){}
     public record Detail(Order order,List<Line> items,BigDecimal cashReceived,BigDecimal changeGiven,String cancellationReason,Instant statusChangedAt){}
@@ -74,13 +75,30 @@ public class OrderHistoryService {
         return search(branchScope(scope), filter);
     }
     
-    private Order view(DraftOrder order, Map<Long, String> names) {
-        return new Order(order.id(),names.computeIfAbsent(order.tenant(),id->catalog.vendor(id).name()),order.channel(),order.status(),order.created(),order.expires(),order.total(),order.receiptNumber(),order.taxInvoice());
+    private String paymentState(DraftOrder order, List<PaymentAttempt> attempts) {
+        if ("PAID".equals(order.status())) return "CONFIRMED";
+        if (attempts.stream().anyMatch(a -> "UNKNOWN_RECONCILIATION_REQUIRED".equals(a.state()))) return "RECONCILIATION_REQUIRED";
+        if (attempts.stream().anyMatch(a -> "PENDING_VERIFICATION".equals(a.state()))) return "PENDING_VERIFICATION";
+        BigDecimal confirmed = attempts.stream().filter(a -> "CONFIRMED".equals(a.state()))
+            .map(PaymentAttempt::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (confirmed.compareTo(order.total()) >= 0) return "CONFIRMED";
+        if (confirmed.signum() > 0) return "PARTIALLY_PAID";
+        if (attempts.stream().anyMatch(a -> "PENDING".equals(a.state()))) return "PENDING";
+        if (attempts.stream().anyMatch(a -> "FAILED".equals(a.state()))) return "FAILED";
+        return attempts.isEmpty() ? ("CANCELLED".equals(order.status()) || "EXPIRED".equals(order.status()) ? "NOT_PAID" : "NOT_STARTED") : "NOT_PAID";
     }
+    private Order view(DraftOrder order, Map<Long, String> names, List<PaymentAttempt> attempts) {
+        return new Order(order.id(),names.computeIfAbsent(order.tenant(),id->catalog.vendor(id).name()),order.channel(),order.status(),order.created(),order.expires(),order.total(),order.receiptNumber(),order.taxInvoice(),paymentState(order, attempts));
+    }
+    private String paymentKey(long tenant, String order) { return tenant + ":" + order; }
     private History search(Specification<DraftOrder> scope,Filter filter){
         var page=orders.findAll(filtered(scope,filter),PageRequest.of(filter.page(),filter.size(),Sort.by(Sort.Order.desc("createdAt"),Sort.Order.desc("id"))));
         var names=new HashMap<Long,String>();
-        return new History(page.getContent().stream().map(o->view(o,names)).toList(),page.getNumber(),page.getSize(),page.getTotalElements(),page.getTotalPages());
+        var payments=new HashMap<String,List<PaymentAttempt>>();
+        page.getContent().stream().collect(java.util.stream.Collectors.groupingBy(DraftOrder::tenant))
+            .forEach((tenant, rows) -> paymentAttempts.findAllByTenantAndOrderInOrderByCreatedAscIdAsc(tenant, rows.stream().map(DraftOrder::id).toList())
+                .forEach(attempt -> payments.computeIfAbsent(paymentKey(tenant, attempt.order()), key -> new ArrayList<>()).add(attempt)));
+        return new History(page.getContent().stream().map(o->view(o,names,payments.getOrDefault(paymentKey(o.tenant(),o.id()),List.of()))).toList(),page.getNumber(),page.getSize(),page.getTotalElements(),page.getTotalPages());
     }
     
     @PreAuthorize("hasAuthority('CUSTOMER')")

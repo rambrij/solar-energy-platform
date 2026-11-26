@@ -8,6 +8,7 @@ public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt,S
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     java.util.List<PaymentAttempt> findAllByTenantAndOrderOrderByCreatedAscIdAsc(long tenant,String order);
     default Optional<PaymentAttempt> findByTenantAndOrder(long tenant,String order){return findAllByTenantAndOrderOrderByCreatedAscIdAsc(tenant,order).stream().findFirst();}
+    java.util.List<PaymentAttempt> findAllByTenantAndOrderInOrderByCreatedAscIdAsc(long tenant,java.util.Collection<String> orders);
     @org.springframework.data.jpa.repository.Query(value="""
         SELECT pa.*
         FROM vendor_payment_attempts pa

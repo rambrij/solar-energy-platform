@@ -8,7 +8,7 @@ vi.mock('./api', () => ({ api: vi.fn() }));
 vi.mock('./marketplaceApi', () => ({ marketplaceApi: vi.fn() }));
 vi.mock('./session',()=>({useSession:vi.fn()}));
 beforeEach(()=>{vi.mocked(useSession).mockReturnValue({status:'authenticated',loading:false,refreshing:false,account:{username:'cashier',tenantId:1,branchId:10,membershipId:'1:cashier',actorType:'VENDOR',permissions:['POS_VIEW','POS_RECEIPT_VIEW','POS_RETURN_CREATE'],availableActorTypes:['VENDOR']},error:null} as ReturnType<typeof useSession>);});
-const order = { id: '12345678-abcd-4321-abcd-123456789000', vendorName: 'Solar Partner', channel: 'IN_STORE', status: 'PAID', createdAt: '2026-11-13T09:00:00Z', expiresAt: null, total: 110, receiptNumber: 4, taxInvoice: true };
+const order = { id: '12345678-abcd-4321-abcd-123456789000', vendorName: 'Solar Partner', channel: 'IN_STORE', status: 'PAID', paymentState: 'CONFIRMED', createdAt: '2026-11-13T09:00:00Z', expiresAt: null, total: 110, receiptNumber: 4, taxInvoice: true };
 const page = { items: [order], page: 0, size: 10, totalElements: 11, totalPages: 2 };
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 it('opens an owned online receipt from paid customer order details',async()=>{
@@ -34,7 +34,7 @@ it('loads customer snapshot details and never offers a POS receipt action', asyn
   vi.mocked(marketplaceApi).mockImplementation(async path => path.includes('/orders/') ? { order: { ...order, channel: 'ONLINE', status: 'CANCELLED' }, items: [{ productId: 1, name: 'Original panel', quantity: 1, unitPrice: 100, tax: 10, total: 110 }], cashReceived: null, changeGiven: null, cancellationReason: 'Buying later', statusChangedAt: '2026-11-13T09:01:00Z' } : page);
   render(<OrderHistory mode="online"/>);
   fireEvent.click(screen.getByText('Load order history')); fireEvent.click(await screen.findByText(`View order ${order.id}`));
-  await screen.findByText('Original panel'); await screen.findByText('Cancellation reason: Buying later');
+  await screen.findByText('Original panel'); await screen.findByText('Cancellation reason: Buying later'); await screen.findByText('Payment state: CONFIRMED');
   expect(marketplaceApi).toHaveBeenCalledWith(`/api/v1/customer/orders/${order.id}`);
   expect(screen.queryByText('Open receipt 4')).toBeNull(); expect(api).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText('Close order details')); expect(screen.queryByLabelText('Order details')).toBeNull();

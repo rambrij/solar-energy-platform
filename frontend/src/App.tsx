@@ -29,6 +29,7 @@ import ProductManager from './ProductManager';
 import StockReceiving from './StockReceiving';
 import VendorAccessAdmin from './VendorAccessAdmin';
 import VendorCustomerCrm from './VendorCustomerCrm';
+import ShipmentManagement from './ShipmentManagement';
 import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
 import {useSession} from './session';
 import RouteOutlet from './RouteOutlet';
@@ -163,6 +164,7 @@ export default function App() {
     <RouteOutlet id="role-management" mode="pos"><VendorAccessAdmin mode="roles"/></RouteOutlet>
     <RouteOutlet id="employee-management" mode="pos"><VendorAccessAdmin mode="employees"/></RouteOutlet>
     <RouteOutlet id="vendor-customer-crm" mode="pos"><VendorCustomerCrm/></RouteOutlet>
+    <RouteOutlet id="shipment-management" mode="pos"><ShipmentManagement/></RouteOutlet>
     <RouteOutlet id="terminal-tender-review" mode="pos"><TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>
   </Shell>;
 }

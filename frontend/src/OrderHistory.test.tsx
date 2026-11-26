@@ -79,3 +79,14 @@ it('hides return and receipt actions without their exact POS grants',async()=>{
  expect(screen.queryByText('Open receipt 4')).toBeNull();
  expect(screen.getByText('View order '+order.id)).toBeTruthy();
 });
+
+it('loads customer-owned shipment events for an online order detail',async()=>{
+ vi.mocked(marketplaceApi).mockImplementation(async path=>{
+  if(path.includes('/shipments'))return [{id:9,carrier:'Solar Carrier',trackingReference:'TRK-9',trackingUrl:'https://carrier.example/TRK-9',createdAt:'2026-11-26T08:00:00Z',events:[{id:10,eventCode:'IN_TRANSIT',description:'Parcel moving',occurredAt:'2026-11-26T09:00:00Z'}]}];
+  if(path.includes('/orders/'))return {order:{...order,channel:'ONLINE'},items:[],cashReceived:null,changeGiven:null,cancellationReason:null,statusChangedAt:order.createdAt};
+  return page;
+ });
+ render(<OrderHistory mode="online"/>);fireEvent.click(screen.getByText('Load order history'));fireEvent.click(await screen.findByText('View order '+order.id));
+ await screen.findByText('Solar Carrier');await screen.findByText('Parcel moving');
+ expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/orders/'+order.id+'/shipments');
+});

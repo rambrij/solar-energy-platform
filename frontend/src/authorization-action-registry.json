@@ -27,7 +27,8 @@
         "cashier-sales-insights",
         "role-management",
         "employee-management",
-        "vendor-customer-crm"
+        "vendor-customer-crm",
+        "shipment-management"
       ]
     },
     {
@@ -156,6 +157,13 @@
       "label": "Customer Management",
       "items": [
         "vendor-customer-crm"
+      ]
+    },
+    {
+      "id": "fulfilment",
+      "label": "Fulfilment",
+      "items": [
+        "shipment-management"
       ]
     }
   ],
@@ -309,6 +317,11 @@
       "id": "vendor-customer-crm",
       "path": "/vendor/customers",
       "group": "Customer Management"
+    },
+    {
+      "id": "shipment-management",
+      "path": "/vendor/shipments",
+      "group": "Fulfilment"
     }
   ],
   "tabs": [
@@ -2305,6 +2318,66 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/roles/{id}/access-history"
+    },
+    {
+      "id": "vendor-shipment-eligible-orders",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/shipments/orders",
+      "permissions": [
+        "SHIPMENT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/shipments/orders"
+    },
+    {
+      "id": "vendor-shipment-list",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/shipments",
+      "permissions": [
+        "SHIPMENT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/shipments"
+    },
+    {
+      "id": "vendor-shipment-create",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/orders/{orderId}/shipments",
+      "permissions": [
+        "SHIPMENT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/orders/{orderId}/shipments"
+    },
+    {
+      "id": "vendor-shipment-event-create",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/shipments/{shipmentId}/events",
+      "permissions": [
+        "SHIPMENT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/shipments/{shipmentId}/events"
+    },
+    {
+      "id": "customer-order-shipment-tracking",
+      "component": "OrderHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{orderId}/shipments",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{orderId}/shipments"
     }
   ],
   "buttons": [

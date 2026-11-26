@@ -664,6 +664,8 @@ class PosTest {
   assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE tenant_id=1 AND customer_id=100",Integer.class)).isEqualTo(1);
   assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers WHERE tenant_id=2",Integer.class)).isZero();
   as("alice", () -> checkout.finalizeCash("alice",draft.id(),new BigDecimal("120")));assertThat(asCustomer("customer",()->onlineReceipts.read("customer",draft.id())).orderId()).isEqualTo(draft.id());
+  mvc.perform(get("/api/v1/customer/orders").with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.items[0].id").value(draft.id())).andExpect(jsonPath("$.items[0].channel").value("IN_STORE")).andExpect(jsonPath("$.items[0].paymentState").value("CONFIRMED"));
+  mvc.perform(get("/api/v1/customer/orders/"+draft.id()).with(user("customer").authorities(()->"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.order.channel").value("IN_STORE")).andExpect(jsonPath("$.order.paymentState").value("CONFIRMED"));
  }
  @Test void expiredAssociationTokenCannotAttachCustomer(){configureOnline();var draft=as("alice",()->as("alice", () -> checkout.pos("alice","expired-association",posDraft())));var challenge=as("alice", () -> associations.create("alice",draft.id(),true));update("UPDATE pos_customer_challenges SET expires_at=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)));assertThatThrownBy(()->asCustomer("customer", () -> associations.approve("customer",challenge.token(),true)));assertThat(db.queryForObject("SELECT COUNT(*) FROM tenant_customers",Integer.class)).isZero();}
  @Test void partialCashImmediatelyAppearsInDrawerAndRetriesCannotDoubleCount(){

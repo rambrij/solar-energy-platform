@@ -20,6 +20,7 @@ class OrderHistoryServiceTest {
     List<DraftOrder> results=List.of();boolean disabled;
     OrderHistoryService service;
     @BeforeEach void setup(){
+        paymentRows = List.of();
         var orders=(DraftRepository)Proxy.newProxyInstance(DraftRepository.class.getClassLoader(),new Class<?>[]{DraftRepository.class},(proxy,method,args)->{
             reads++;
             if(method.getName().equals("findAll")){requestedPage=(Pageable)args[1];return new PageImpl<>(results,requestedPage,22);}

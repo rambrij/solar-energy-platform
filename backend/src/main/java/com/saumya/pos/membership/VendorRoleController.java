@@ -43,6 +43,9 @@ public class VendorRoleController {
         return service.reactivateEmployee(username,request.roleIds(),request.reason());
     }
     @PostMapping("/employees/{username}/disable") @PreAuthorize("hasAuthority('USER_DISABLE')") public Object disable(@PathVariable String username,@Valid @RequestBody Reason request){service.disableEmployee(username,request.reason());return java.util.Map.of("disabled",true);}
+    @GetMapping("/employees/{username}/access-history")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
+    public Object employeeAccessHistory(@PathVariable String username){return service.employeeAccessHistory(username);}
     @GetMapping("/employees/{username}/invitation")
     @PreAuthorize("hasAuthority('USER_VIEW')")
     public Object invitationStatus(@PathVariable String username){return service.invitationStatus(username);}

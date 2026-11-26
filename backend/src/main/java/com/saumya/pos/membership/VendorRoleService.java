@@ -2,6 +2,8 @@ package com.saumya.pos.membership;
 
 import com.saumya.pos.security.IdentityInvitationPort;
 import com.saumya.pos.security.AuthorizationContext;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,7 @@ public class VendorRoleService {
     public record Role(long id,String key,String displayName,boolean active,long version,List<String> permissions,String templateKey,Integer templateVersion){}
     public record Employee(String username,long branchId,boolean enabled,List<Long> roleIds,List<Long> registerIds){}
     public record EmployeeInvitation(String username,String invitationToken,String expiresAt,boolean accountAlreadyActive){}
+    public record EmployeeAccessEvent(long id,String actorUsername,String resourceType,String resourceId,String action,String reason,Instant occurredAt){}
     private AuthorizationContext.Context require(String permission){var c=auth.current();c.requireVendorMembership();c.requirePermission(permission);return c;}
     private String reason(String value){if(value==null||value.isBlank()||value.strip().length()>500)throw new ResponseStatusException(BAD_REQUEST,"A reason (1-500 characters) is required");return value.strip();}
     private List<String> permissions(List<String> input){
@@ -279,6 +282,26 @@ public class VendorRoleService {
         for(Long id:previousRoles)audit(c,subject,"ROLE_ASSIGNMENT",Long.toString(id),"ROLE_REVOKED_ON_EMPLOYEE_DISABLE",why);
         for(Long id:previousRegisters)audit(c,subject,"REGISTER_ASSIGNMENT",Long.toString(id),"REGISTER_REVOKED_ON_EMPLOYEE_DISABLE",why);
         audit(c,subject,"EMPLOYEE",subject,"EMPLOYEE_DISABLED",why);
+    }
+    public List<EmployeeAccessEvent> employeeAccessHistory(String username){
+        var c=require("USER_VIEW");String subject=subject(c,username);
+        employeeRow(c,subject);
+        var rows=db.queryForList("""
+            SELECT id,actor_username,resource_type,resource_id,action,reason,occurred_at
+            FROM vendor_access_audit_events
+            WHERE tenant_id=? AND subject_username=?
+            ORDER BY occurred_at DESC,id DESC
+            LIMIT 50
+            """,c.tenantId(),subject);
+        return rows.stream().map(row->new EmployeeAccessEvent(
+            ((Number)row.get("id")).longValue(),
+            (String)row.get("actor_username"),
+            (String)row.get("resource_type"),
+            (String)row.get("resource_id"),
+            (String)row.get("action"),
+            (String)row.get("reason"),
+            ((Timestamp)row.get("occurred_at")).toInstant()
+        )).toList();
     }
     public IdentityInvitationPort.InvitationStatus invitationStatus(String username){
         var c=require("USER_VIEW");String subject=subject(c,username);

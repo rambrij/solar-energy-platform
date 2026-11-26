@@ -2266,6 +2266,18 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "POST /api/v1/vendor/employees/{username}/invitation/resend"
+    },
+    {
+      "id": "vendor-employee-access-history",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees/{username}/access-history",
+      "permissions": [
+        "USER_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees/{username}/access-history"
     }
   ],
   "buttons": [

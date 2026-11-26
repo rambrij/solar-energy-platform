@@ -105,6 +105,26 @@ class VendorRoleControllerAuthorizationTest {
     }
 
     @Test @WithMockUser(authorities={"USER_VIEW"})
+    void employeeAccessHistoryUsesReadOnlyEmployeeViewPermission() throws Exception {
+        when(service.employeeAccessHistory("staff@vendor.test")).thenReturn(List.of(
+            new VendorRoleService.EmployeeAccessEvent(91,"admin@vendor.test","ROLE_ASSIGNMENT","41",
+                "ROLE_ASSIGNED","Approved onboarding",java.time.Instant.parse("2026-11-26T09:00:00Z"))));
+        mvc.perform(get("/api/v1/vendor/employees/staff@vendor.test/access-history"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].actorUsername").value("admin@vendor.test"))
+            .andExpect(jsonPath("$[0].action").value("ROLE_ASSIGNED"))
+            .andExpect(jsonPath("$[0].reason").value("Approved onboarding"));
+        verify(service).employeeAccessHistory("staff@vendor.test");
+    }
+
+    @Test @WithMockUser(authorities={"ROLE_VIEW"})
+    void roleViewWithoutUserViewCannotReadEmployeeAccessHistory() throws Exception {
+        mvc.perform(get("/api/v1/vendor/employees/staff@vendor.test/access-history"))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
+    @Test @WithMockUser(authorities={"USER_VIEW"})
     void employeeInvitationStatusIsReadOnlyAndVendorScoped() throws Exception {
         when(service.invitationStatus("staff@vendor.test"))
             .thenReturn(new com.saumya.pos.security.IdentityInvitationPort.InvitationStatus("PENDING",java.time.Instant.parse("2026-11-28T00:00:00Z")));

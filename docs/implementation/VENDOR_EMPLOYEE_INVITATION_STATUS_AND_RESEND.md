@@ -32,3 +32,8 @@ The status endpoint is called only after VendorRoleService has resolved the empl
 ## Verification
 
 Service tests cover pending/expired/active status, tenant-scoped employee resolution, token rotation response, audit persistence, and deny-before-collaborator access. Controller tests cover read and resend permissions. Frontend tests cover status/expiry display and the resend flow. No schema migration is required.
+
+
+## Related employee access history
+
+The employee administration detail panel also shows a read-only access timeline backed by the existing `vendor_access_audit_events` table. `GET /api/v1/vendor/employees/{username}/access-history` requires `USER_VIEW`, resolves the employee within the authenticated tenant first, then returns at most the latest 50 rows filtered by both authenticated `tenant_id` and employee `subject_username`. Entries include actor, resource, action, reason and occurrence time. The API accepts no tenant, actor or pagination scope from the browser, creates no audit records, and adds no schema migration. The frontend discards late responses when a different employee is selected.

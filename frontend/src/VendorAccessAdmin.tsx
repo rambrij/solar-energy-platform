@@ -7,6 +7,7 @@ type Role={templateKey?:string;templateVersion?:number;id:number;key:string;disp
 type Employee={username:string;branchId:number;enabled:boolean;roleIds:number[];registerIds:number[]};
 type Invitation={username:string;invitationToken:string|null;expiresAt:string|null;accountAlreadyActive:boolean};
 type InvitationStatus={status:'ACTIVE'|'ACCEPTED'|'PENDING'|'EXPIRED'|'NOT_SENT';expiresAt:string|null};
+type EmployeeAccessEvent={id:number;actorUsername:string;resourceType:string;resourceId:string|null;action:string;reason:string;occurredAt:string};
 
 function errorMessage(error:unknown){
  if(error instanceof ApiError){
@@ -30,6 +31,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const [subject,setSubject]=useState(''),[selectedRoles,setSelectedRoles]=useState<number[]>([]),[registerIds,setRegisterIds]=useState('');
  const [effective,setEffective]=useState<{username:string;permissions:string[]}|null>(null),[invitation,setInvitation]=useState<Invitation|null>(null);
  const [invitationStatus,setInvitationStatus]=useState<InvitationStatus|null>(null),[checkingInvitation,setCheckingInvitation]=useState(false);
+ const [accessHistory,setAccessHistory]=useState<EmployeeAccessEvent[]>([]),[checkingAccessHistory,setCheckingAccessHistory]=useState(false);
  const canRoleView=rights.has('ROLE_VIEW'),canRoleCreate=rights.has('ROLE_CREATE'),canRoleUpdate=rights.has('ROLE_UPDATE'),canRoleAssign=rights.has('ROLE_ASSIGN');
  const canUserView=rights.has('USER_VIEW'),canUserCreate=rights.has('USER_CREATE'),canUserUpdate=rights.has('USER_UPDATE'),canUserDisable=rights.has('USER_DISABLE');
  const canReactivateEmployee=canUserUpdate&&canRoleAssign;
@@ -98,7 +100,17 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   }catch(e){if(request===invitationRequest.current)setError(errorMessage(e));}
   finally{if(request===invitationRequest.current)setCheckingInvitation(false);}
  }
- async function resendInvitation(){
+   async function refreshAccessHistory(username:string){
+   if(!username||username!==selectedEmployee.current||!canUserView)return;
+   const request=++historyRequest.current;
+   setAccessHistory([]);setCheckingAccessHistory(true);
+   try{
+    const value=await vendorApi('/employees/'+encodeURIComponent(username)+'/access-history');
+    if(request===historyRequest.current&&selectedEmployee.current===username)setAccessHistory(value??[]);
+   }catch(e){if(request===historyRequest.current)setError(errorMessage(e));}
+   finally{if(request===historyRequest.current)setCheckingAccessHistory(false);}
+  }
+  async function resendInvitation(){
   const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/invitation/resend','POST',{reason}),
    'A fresh one-time invitation was issued; the previous token is no longer valid.');
   if(value){setInvitation(value);setInvitationStatus({status:value.accountAlreadyActive?'ACTIVE':'PENDING',expiresAt:value.expiresAt});}
@@ -144,6 +156,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   selectedEmployee.current=username;
   invitationRequest.current++;setInvitationStatus(null);setCheckingInvitation(false);
   void refreshInvitationStatus(username);
+  historyRequest.current++;setAccessHistory([]);setCheckingAccessHistory(false);void refreshAccessHistory(username);
   permissionRequest.current++;
   setEffective(null);
   setCheckingPermissions(false);
@@ -151,6 +164,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const permissionRequest=useRef(0);
  const selectedEmployee=useRef('');
  const invitationRequest=useRef(0);
+ const historyRequest=useRef(0);
  const [checkingPermissions,setCheckingPermissions]=useState(false);
  const savedEmployee=employees.find(employee=>employee.username===subject);
  const [employeeQuery,setEmployeeQuery]=useState('');
@@ -281,6 +295,19 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
     {checkingPermissions&&<p role="status">Checking effective permissions…</p>}
     {canUserView&&effective?.username===subject&&
      <p role="status">{effective.permissions.length>0?`Effective permissions: ${effective.permissions.join(', ')}`:'No effective permissions.'}</p>}
+     {canUserView&&<section aria-label="Employee access history">
+      <h4>Access history</h4>
+      {checkingAccessHistory&&<p role="status">Loading access history…</p>}
+      {!checkingAccessHistory&&accessHistory.length===0&&<p>No access history recorded for this employee.</p>}
+      {accessHistory.length>0&&<ol className="employee-access-history">
+       {accessHistory.map(event=><li key={event.id}>
+        <strong>{event.action.replaceAll('_',' ')}</strong>
+        <p>{event.resourceType.replaceAll('_',' ')}{event.resourceId?' · '+event.resourceId:''}</p>
+        <p>{event.reason}</p>
+        <p>By {event.actorUsername} · <time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString()}</time></p>
+       </li>)}
+      </ol>}
+     </section>}
    </div>}
   </>}
  </section>;

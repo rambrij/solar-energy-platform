@@ -1518,6 +1518,12 @@
       "scope": "TENANT_OWNED_EMPLOYEE_IDENTITY_INVITATION",
       "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_USER_CREATE_AND_ROLE_ASSIGN",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest"
+    },
+    "VendorRoleController#employeeAccessHistory": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_EMPLOYEE_ACCESS_AUDIT",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_USER_VIEW",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

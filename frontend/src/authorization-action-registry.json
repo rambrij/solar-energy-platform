@@ -2976,14 +2976,6 @@
       "actions": [
         "customer-order-shipment-tracking"
       ]
-    },
-    "ShipmentManagement.tsx:10": {
-      "fn": "vendorApi",
-      "argument": "'/shipments/'+id+'/events'",
-      "methodArgument": "'POST'",
-      "actions": [
-        "vendor-shipment-event-create"
-      ]
     }
   },
   "sessionApiOperations": [

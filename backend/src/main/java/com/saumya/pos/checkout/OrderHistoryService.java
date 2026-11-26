@@ -117,6 +117,7 @@ public class OrderHistoryService {
     private Detail detail(Specification<DraftOrder> scope, String id) {
         var order=orders.findOne(scope.and((r,q,b)->b.equal(r.get("id"),id))).orElseThrow(this::missing);
         var snapshots=lines.lines(order.tenant(),order.id()).stream().map(l->new Line(l.product(),l.name(),l.quantity(),l.price(),l.rate(),l.tax(),l.total(),l.listPrice(),l.discount())).toList();
-        return new Detail(view(order,new HashMap<>()),snapshots,order.cash(),order.change(),order.cancellationReason(),order.changed());
+        var attempts = paymentAttempts.findAllByTenantAndOrderOrderByCreatedAscIdAsc(order.tenant(), order.id());
+        return new Detail(view(order,new HashMap<>(),attempts),snapshots,order.cash(),order.change(),order.cancellationReason(),order.changed());
     }
 }

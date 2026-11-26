@@ -35,7 +35,8 @@ class ShipmentServiceAuthorizationBoundaryTest {
   verify(orderHistory).customerOrderTenant("buyer@test","owned");
  }
  @Test void customerShipmentFeedDerivesIdentityAndReturnsOnlyPaidOnlineCustomerSafeTracking(){
-  var db=mock(JdbcTemplate.class);var history=mock(OrderHistoryService.class);when(history.customerIdentityId("buyer@test")).thenReturn(42L);
+  var db=mock(JdbcTemplate.class);var history=mock(OrderHistoryService.class);
+  when(history.customerPaidOnlineOrderReferences("buyer@test")).thenReturn(List.of(new OrderHistoryService.CustomerOrderReference("owned-order",7L,"Solar Vendor")));
   var t=Timestamp.from(Instant.parse("2026-11-26T08:00:00Z"));Map<String,Object> row=new HashMap<>();
   row.put("tenant_id",7L);row.put("id",2L);row.put("order_id","owned-order");row.put("vendor_name","Solar Vendor");row.put("carrier","Carrier");row.put("tracking_reference","T-1");row.put("tracking_url","https://carrier.test/t");row.put("created_at",t);
   when(db.queryForList(contains("FROM shipments WHERE tenant_id=? AND order_id=?"),eq(7L),eq("owned-order"))).thenReturn(List.of(Map.of("id",2L,"order_id","owned-order","carrier","Carrier","tracking_reference","T-1","tracking_url","https://carrier.test/t","created_at",t)));

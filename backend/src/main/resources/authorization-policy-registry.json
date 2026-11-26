@@ -50,6 +50,8 @@
     "ROLE_CREATE",
     "ROLE_UPDATE",
     "ROLE_VIEW",
+    "SHIPMENT_UPDATE",
+    "SHIPMENT_VIEW",
     "USER_CREATE",
     "USER_DISABLE",
     "USER_UPDATE",
@@ -287,7 +289,9 @@
     "ReturnController": "VENDOR_POS_RETURN_PERMISSION",
     "ReturnQueueController": "VENDOR_POS_RETURN_QUEUE_PERMISSION",
     "CustomerProfileController": "CUSTOMER_GLOBAL_PROFILE_OWNER_SCOPE",
-    "VendorCustomerCrmController": "VENDOR_PRIVATE_CUSTOMER_CRM_SCOPE"
+    "VendorCustomerCrmController": "VENDOR_PRIVATE_CUSTOMER_CRM_SCOPE",
+    "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_ORDER_SCOPE",
+    "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -332,8 +336,6 @@
     "SERVICE_RESOLVE",
     "SERVICE_UPDATE",
     "SERVICE_VIEW",
-    "SHIPMENT_UPDATE",
-    "SHIPMENT_VIEW",
     "TENANT_PROFILE_UPDATE",
     "TENANT_PROFILE_VIEW",
     "VENDOR_AUDIT_VIEW",
@@ -362,6 +364,46 @@
       "scope": "Authenticated tenant product; tenant_id derived from membership",
       "ui": "POS > Promotions > update promotion",
       "test": "CatalogPromotionAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "CRM_NOTE_CREATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "POST /api/v1/vendor/customers/{customerId}/crm-notes",
+      "service": "VendorCustomerCrmService",
+      "scope": "Server-derived tenant and actor; verified relationship; required reason; audited write.",
+      "ui": "Vendor workspace > Add private note",
+      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
+    },
+    {
+      "permission": "CRM_NOTE_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}",
+      "service": "VendorCustomerCrmService",
+      "scope": "Tenant/customer/note composite lookup; optimistic version; required reason; audited write.",
+      "ui": "Vendor workspace > Update private note",
+      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
+    },
+    {
+      "permission": "CRM_NOTE_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/customers/{customerId}/crm-notes",
+      "service": "VendorCustomerCrmService",
+      "scope": "Tenant and customer relationship are constrained in every note query; notes are not exposed to customer APIs.",
+      "ui": "Vendor workspace > Private notes",
+      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
+    },
+    {
+      "permission": "CUSTOMER_RELATION_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/customers",
+      "service": "VendorCustomerCrmService",
+      "scope": "Tenant derived from active Vendor actor; only existing tenant_customers associations are returned.",
+      "ui": "Vendor workspace > Customers & CRM",
+      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
     },
     {
       "permission": "INVENTORY_RECEIVE",
@@ -934,6 +976,26 @@
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; VendorRoleServiceProvisioningTest; P101VendorRoleLifecycleTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
     },
     {
+      "permission": "SHIPMENT_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "POST /api/v1/vendor/orders/{orderId}/shipments; POST /api/v1/vendor/shipments/{shipmentId}/events",
+      "service": "ShipmentService",
+      "scope": "Authenticated vendor tenant; paid online order; append-only tracking events",
+      "ui": "Vendor fulfilment shipment registration and tracking",
+      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
+    },
+    {
+      "permission": "SHIPMENT_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/shipments/orders; GET /api/v1/vendor/shipments",
+      "service": "ShipmentService",
+      "scope": "Authenticated vendor tenant and paid online orders",
+      "ui": "Vendor fulfilment shipment queue",
+      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
+    },
+    {
       "permission": "USER_CREATE",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
@@ -972,46 +1034,6 @@
       "scope": "One tenant; employee branch and register assignments remain additional controls",
       "ui": "Vendor workspace > Access administration > employee lifecycle",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
-    },
-    {
-      "permission": "CUSTOMER_RELATION_VIEW",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/customers",
-      "service": "VendorCustomerCrmService",
-      "scope": "Tenant derived from active Vendor actor; only existing tenant_customers associations are returned.",
-      "ui": "Vendor workspace > Customers & CRM",
-      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
-    },
-    {
-      "permission": "CRM_NOTE_VIEW",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/customers/{customerId}/crm-notes",
-      "service": "VendorCustomerCrmService",
-      "scope": "Tenant and customer relationship are constrained in every note query; notes are not exposed to customer APIs.",
-      "ui": "Vendor workspace > Private notes",
-      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
-    },
-    {
-      "permission": "CRM_NOTE_CREATE",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "POST /api/v1/vendor/customers/{customerId}/crm-notes",
-      "service": "VendorCustomerCrmService",
-      "scope": "Server-derived tenant and actor; verified relationship; required reason; audited write.",
-      "ui": "Vendor workspace > Add private note",
-      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
-    },
-    {
-      "permission": "CRM_NOTE_UPDATE",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}",
-      "service": "VendorCustomerCrmService",
-      "scope": "Tenant/customer/note composite lookup; optimistic version; required reason; audited write.",
-      "ui": "Vendor workspace > Update private note",
-      "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
     }
   ],
   "frontendPlatformPages": {

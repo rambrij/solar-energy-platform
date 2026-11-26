@@ -394,6 +394,24 @@
           "tenantId"
         ]
       }
+    },
+    {
+      "source": "com.saumya.pos.fulfillment.ShipmentService",
+      "methods": [
+        "eligibleOrders",
+        "shipments",
+        "createShipment",
+        "addEvent",
+        "customerShipments"
+      ],
+      "authority": "Vendor operations derive tenant from authenticated AuthorizationContext; customer tracking resolves authenticated customer ID and proves order ownership before reading shipment data.",
+      "evidence": [
+        "auth.current()",
+        "requireVendorMembership()",
+        "c.tenantId()",
+        "customers.resolve(username)",
+        "orders.customer_id=?"
+      ]
     }
   ],
   "inheritedIdLookups": [

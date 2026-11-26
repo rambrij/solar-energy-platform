@@ -1536,6 +1536,36 @@
       "scope": "TENANT_OWNED_BRANCH_DIRECTORY",
       "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_USER_VIEW_OR_CREATE_OR_UPDATE",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest"
+    },
+    "VendorShipmentController#eligibleOrders": {
+      "actor": "VENDOR",
+      "scope": "TENANT_PAID_ONLINE_ORDERS",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_VIEW",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "VendorShipmentController#shipments": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_SHIPMENTS",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_VIEW",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "VendorShipmentController#createShipment": {
+      "actor": "VENDOR",
+      "scope": "TENANT_PAID_ONLINE_ORDER",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_UPDATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "VendorShipmentController#addEvent": {
+      "actor": "VENDOR",
+      "scope": "TENANT_SHIPMENT_APPEND_ONLY_EVENTS",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_UPDATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "CustomerShipmentController#customerShipments": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_OWNED_ORDER_SHIPMENTS",
+      "assignment": "CUSTOMER_IDENTITY_AND_ORDER_OWNERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

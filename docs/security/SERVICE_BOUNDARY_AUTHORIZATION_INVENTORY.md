@@ -56,6 +56,7 @@ No frontend changes or schema migrations are part of P0-02.
 | ReturnService, CashRefundService, ReturnQueueService, ReturnAuditService, RefundHistoryService | existing service-level POS permission checks verified in reviewed methods | authenticated tenant/branch/cashier |
 | PaymentCheckoutService | existing POS/customer ownership and permission checks verified in reviewed methods | customer identity or tenant/branch/order owner |
 | CheckoutService | existing POS/customer actor guards verified for online, POS, cash sale, list, cancel and finalize paths | customer identity or tenant/branch/session/cashier |
+| ShipmentService | eligibleOrders, shipments, createShipment, addEvent, customerShipments | Vendor reads/writes derive tenant from active membership; customer reads verify authenticated global customer owns the order; events are append-only | authenticated vendor tenant or authenticated global customer order |
 | VendorRoleService | method-specific vendor permission checks verified across role/employee operations; employeeBranches additionally requires USER_VIEW, USER_CREATE or USER_UPDATE and queries only branches for the authenticated tenant | authenticated vendor tenant |
 | PlatformAdminService, PlatformSupportServiceImpl, PlatformAuditServiceImpl.search, PlatformConfigurationServiceImpl, subscription plan/tenant subscription services | existing platform-only permission gates verified in reviewed methods | authenticated platform identity |
 

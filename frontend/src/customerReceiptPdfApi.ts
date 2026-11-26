@@ -7,8 +7,10 @@ export type CustomerReceiptPdfDownload={blob:Blob;filename:string;reference:stri
 
 export async function requestCustomerReceiptPdf(orderId:string):Promise<CustomerReceiptPdfDownload>{
  const {token}=await marketplaceApi('/api/v1/customer/csrf');
- const path='/api/v1/customer/orders/'+encodeURIComponent(orderId)+'/receipt-document';
- const response=await authenticatedFetch(path,{method:'POST',...jsonRequestOptions({},token)});
+ const response=await authenticatedFetch(`/api/v1/customer/orders/${encodeURIComponent(orderId)}/receipt-document`,{
+  method:'POST',
+  ...jsonRequestOptions({},token)
+ });
  if(!response.ok)throw new MarketplaceError(response.status);
  const reference=downloadReference(response,'X-Document-Reference');
  if(response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase()!=='application/pdf'||!reference)

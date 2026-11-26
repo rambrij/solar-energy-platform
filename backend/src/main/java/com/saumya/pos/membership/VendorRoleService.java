@@ -280,6 +280,21 @@ public class VendorRoleService {
         for(Long id:previousRegisters)audit(c,subject,"REGISTER_ASSIGNMENT",Long.toString(id),"REGISTER_REVOKED_ON_EMPLOYEE_DISABLE",why);
         audit(c,subject,"EMPLOYEE",subject,"EMPLOYEE_DISABLED",why);
     }
+    public IdentityInvitationPort.InvitationStatus invitationStatus(String username){
+        var c=require("USER_VIEW");String subject=subject(c,username);
+        employeeRow(c,subject);
+        return invitations.invitationStatus(subject);
+    }
+    public EmployeeInvitation resendEmployeeInvitation(String username,String requestedReason){
+        var c=require("USER_CREATE");c.requirePermission("ROLE_ASSIGN");
+        String subject=subject(c,username);String why=reason(requestedReason);
+        employeeRow(c,subject);
+        var invitation=invitations.issueInvitation(subject);
+        audit(c,subject,"EMPLOYEE_INVITATION",subject,
+            invitation.accountAlreadyActive()?"EMPLOYEE_INVITATION_RESEND_SKIPPED_ACTIVE_ACCOUNT":"EMPLOYEE_INVITATION_RESENT",why);
+        return new EmployeeInvitation(subject,invitation.token(),
+            invitation.expiresAt()==null?null:invitation.expiresAt().toString(),invitation.accountAlreadyActive());
+    }
     public List<String> effectivePermissions(String username){
         var c=require("USER_VIEW");String subject=subject(c,username);
         var emp=employeeRow(c,subject);

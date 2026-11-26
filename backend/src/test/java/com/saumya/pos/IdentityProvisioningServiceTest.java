@@ -55,6 +55,23 @@ class IdentityProvisioningServiceTest {
         assertThatThrownBy(()->service.acceptInvitation(invitation.token(),"AnotherStrongPassword2026"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
+    @Test void invitationStatusDistinguishesPendingExpiredAndActiveAccounts(){
+        Instant now=Instant.parse("2026-11-26T00:00:00Z");
+        var pending=new IdentityInvitation("pending-hash","pending@vendor.test",now.plusSeconds(3600),now.minusSeconds(60));
+        var expired=new IdentityInvitation("expired-hash","expired@vendor.test",now.minusSeconds(1),now.minusSeconds(7200));
+        when(users.findByUsername("pending@vendor.test")).thenReturn(Optional.of(new GlobalUser(11,"pending@vendor.test","hash",false)));
+        when(users.findByUsername("expired@vendor.test")).thenReturn(Optional.of(new GlobalUser(12,"expired@vendor.test","hash",false)));
+        when(users.findByUsername("active@vendor.test")).thenReturn(Optional.of(new GlobalUser(13,"active@vendor.test","hash",true)));
+        when(invitations.findTopByUsernameOrderByCreatedAtDesc("pending@vendor.test")).thenReturn(Optional.of(pending));
+        when(invitations.findTopByUsernameOrderByCreatedAtDesc("expired@vendor.test")).thenReturn(Optional.of(expired));
+        var service=new IdentityProvisioningServiceImpl(users,sequences,invitations,platform,customers,new BCryptPasswordEncoder(4),Clock.fixed(now,ZoneOffset.UTC));
+        assertThat(service.invitationStatus("pending@vendor.test").status()).isEqualTo("PENDING");
+        assertThat(service.invitationStatus("pending@vendor.test").expiresAt()).isEqualTo(now.plusSeconds(3600));
+        assertThat(service.invitationStatus("expired@vendor.test").status()).isEqualTo("EXPIRED");
+        assertThat(service.invitationStatus("active@vendor.test").status()).isEqualTo("ACTIVE");
+        verify(invitations,never()).findTopByUsernameOrderByCreatedAtDesc("active@vendor.test");
+    }
+
     @Test void existingCustomerIdentityCanBeReusedForVendorMembershipOnboarding(){
         when(platform.permissions("customer@vendor.test")).thenReturn(java.util.List.of());
         var existingCustomer=new GlobalUser(9,"customer@vendor.test","$2a$10$active",true);

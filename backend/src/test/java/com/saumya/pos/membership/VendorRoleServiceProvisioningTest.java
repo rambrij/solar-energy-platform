@@ -40,6 +40,36 @@ class VendorRoleServiceProvisioningTest {
         verify(invitations).issueInvitation("cashier@vendor.test");
     }
 
+    @Test void invitationStatusIsReadOnlyAndRequiresEmployeeInTheActiveTenant(){
+        var db=mock(JdbcTemplate.class);var auth=mock(AuthorizationContext.class);var invitations=mock(IdentityInvitationPort.class);
+        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,"7:admin@vendor.test",java.util.Set.of("USER_VIEW"),false,false,true);
+        when(auth.current()).thenReturn(actor);
+        when(db.queryForList(startsWith("SELECT username,branch_id,enabled"),eq(7L),eq("staff@vendor.test")))
+            .thenReturn(List.of(Map.of("username","staff@vendor.test","branch_id",12L,"enabled",true)));
+        when(invitations.invitationStatus("staff@vendor.test"))
+            .thenReturn(new IdentityInvitationPort.InvitationStatus("PENDING",Instant.parse("2026-11-28T00:00:00Z")));
+        var service=new VendorRoleService(db,auth,invitations,mock(MembershipService.class));
+        assertThat(service.invitationStatus("STAFF@VENDOR.TEST").status()).isEqualTo("PENDING");
+        verify(invitations).invitationStatus("staff@vendor.test");
+        verify(db,never()).update(anyString(),any(Object[].class));
+    }
+
+    @Test void resendRotatesInvitationOnlyForTenantOwnedEmployeeAndAuditsReason(){
+        var db=mock(JdbcTemplate.class);var auth=mock(AuthorizationContext.class);var invitations=mock(IdentityInvitationPort.class);
+        var actor=new AuthorizationContext.Context("admin@vendor.test",7L,12L,"7:admin@vendor.test",java.util.Set.of("USER_CREATE","ROLE_ASSIGN"),false,false,true);
+        when(auth.current()).thenReturn(actor);
+        when(db.queryForList(startsWith("SELECT username,branch_id,enabled"),eq(7L),eq("staff@vendor.test")))
+            .thenReturn(List.of(Map.of("username","staff@vendor.test","branch_id",12L,"enabled",true)));
+        when(invitations.issueInvitation("staff@vendor.test")).thenReturn(
+            new IdentityInvitationPort.Invitation("staff@vendor.test","rotated-token",Instant.parse("2026-11-28T00:00:00Z"),false));
+        var service=new VendorRoleService(db,auth,invitations,mock(MembershipService.class));
+        var result=service.resendEmployeeInvitation("STAFF@VENDOR.TEST","Follow up with employee");
+        assertThat(result.invitationToken()).isEqualTo("rotated-token");
+        assertThat(result.expiresAt()).isEqualTo("2026-11-28T00:00:00Z");
+        verify(db).update(contains("INSERT INTO vendor_access_audit_events"),eq(7L),eq("admin@vendor.test"),eq("staff@vendor.test"),
+            eq("EMPLOYEE_INVITATION"),eq("staff@vendor.test"),eq("EMPLOYEE_INVITATION_RESENT"),eq("Follow up with employee"));
+    }
+
     @Test void vendorCreatedEmployeeCannotBeProvisionedWithoutAValidRole(){
         var db=mock(JdbcTemplate.class);
         var auth=mock(AuthorizationContext.class);

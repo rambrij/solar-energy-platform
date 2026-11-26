@@ -5,7 +5,9 @@ import java.time.Instant;
 /** Identity invitation boundary consumed by tenant employee administration. */
 public interface IdentityInvitationPort {
     record Invitation(String username,String token,Instant expiresAt,boolean accountAlreadyActive) {}
+    record InvitationStatus(String status,Instant expiresAt) {}
     void ensureVendorEligible(String username);
     Invitation issueInvitation(String username);
+    InvitationStatus invitationStatus(String username);
     void acceptInvitation(String token,String password);
 }

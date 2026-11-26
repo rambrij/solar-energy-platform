@@ -22,6 +22,7 @@ public class VendorRoleController {
     public record BranchUpdate(@Positive long branchId,@NotBlank @Size(max=500) String reason){}
     public record Reactivation(@NotEmpty @Size(max=50) List<@Positive Long> roleIds,@NotBlank @Size(max=500) String reason){}
     public record Reason(@NotBlank @Size(max=500) String reason){}
+    public record InvitationResend(@NotBlank @Size(max=500) String reason){}
 
     @GetMapping("/roles") @PreAuthorize("hasAuthority('ROLE_VIEW')") public Object roles(){return service.roles();}
     @GetMapping("/roles/permissions")
@@ -42,5 +43,13 @@ public class VendorRoleController {
         return service.reactivateEmployee(username,request.roleIds(),request.reason());
     }
     @PostMapping("/employees/{username}/disable") @PreAuthorize("hasAuthority('USER_DISABLE')") public Object disable(@PathVariable String username,@Valid @RequestBody Reason request){service.disableEmployee(username,request.reason());return java.util.Map.of("disabled",true);}
+    @GetMapping("/employees/{username}/invitation")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
+    public Object invitationStatus(@PathVariable String username){return service.invitationStatus(username);}
+    @PostMapping("/employees/{username}/invitation/resend")
+    @PreAuthorize("hasAuthority('USER_CREATE') and hasAuthority('ROLE_ASSIGN')")
+    public Object resendInvitation(@PathVariable String username,@Valid @RequestBody InvitationResend request){
+        return service.resendEmployeeInvitation(username,request.reason());
+    }
     @GetMapping("/employees/{username}/effective-permissions") @PreAuthorize("hasAuthority('USER_VIEW')") public Object permissions(@PathVariable String username){return java.util.Map.of("permissions",service.effectivePermissions(username));}
 }

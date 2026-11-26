@@ -104,6 +104,35 @@ class VendorRoleControllerAuthorizationTest {
         verify(service).createEmployee("staff@vendor.test",1,2,"Invite employee");
     }
 
+    @Test @WithMockUser(authorities={"USER_VIEW"})
+    void employeeInvitationStatusIsReadOnlyAndVendorScoped() throws Exception {
+        when(service.invitationStatus("staff@vendor.test"))
+            .thenReturn(new com.saumya.pos.security.IdentityInvitationPort.InvitationStatus("PENDING",java.time.Instant.parse("2026-11-28T00:00:00Z")));
+        mvc.perform(get("/api/v1/vendor/employees/staff@vendor.test/invitation"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDING"));
+        verify(service).invitationStatus("staff@vendor.test");
+    }
+
+    @Test @WithMockUser(authorities={"USER_CREATE"})
+    void invitationResendRequiresRoleAssignmentToo() throws Exception {
+        mvc.perform(post("/api/v1/vendor/employees/staff@vendor.test/invitation/resend")
+            .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Follow up\"}"))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
+    @Test @WithMockUser(authorities={"USER_CREATE","ROLE_ASSIGN"})
+    void invitationResendRequiresAnAuditReasonAndReturnsOnlyTheNewOneTimeToken() throws Exception {
+        when(service.resendEmployeeInvitation("staff@vendor.test","Follow up"))
+            .thenReturn(new VendorRoleService.EmployeeInvitation("staff@vendor.test","new-token","2026-11-28T00:00:00Z",false));
+        mvc.perform(post("/api/v1/vendor/employees/staff@vendor.test/invitation/resend")
+            .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Follow up\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.invitationToken").value("new-token"));
+        verify(service).resendEmployeeInvitation("staff@vendor.test","Follow up");
+    }
+
     @Test @WithMockUser(authorities={"PLATFORM_IDENTITY_MANAGE"})
     void platformAdminCannotOperateVendorRoleApi() throws Exception {
         mvc.perform(get("/api/v1/vendor/roles")).andExpect(status().isForbidden());

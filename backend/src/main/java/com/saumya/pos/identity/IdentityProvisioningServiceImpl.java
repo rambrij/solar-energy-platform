@@ -2,6 +2,7 @@ package com.saumya.pos.identity;
 
 import com.saumya.pos.identity.internal.*;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.security.IdentityInvitationPort;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -62,6 +63,17 @@ public class IdentityProvisioningServiceImpl implements IdentityProvisioningServ
         String token=randomToken();Instant now=clock.instant(),expires=now.plus(Duration.ofHours(48));
         invitations.saveAndFlush(new IdentityInvitation(hash(token),username,expires,now));
         return new com.saumya.pos.security.IdentityInvitationPort.Invitation(username,token,expires,false);
+    }
+    @Override public IdentityInvitationPort.InvitationStatus invitationStatus(String requested){
+        String username=normalize(requested);
+        var user=users.findByUsername(username).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Employee identity unavailable"));
+        if(user.enabled())return new IdentityInvitationPort.InvitationStatus("ACTIVE",null);
+        var latest=invitations.findTopByUsernameOrderByCreatedAtDesc(username);
+        if(latest.isEmpty())return new IdentityInvitationPort.InvitationStatus("NOT_SENT",null);
+        var invitation=latest.get();
+        if(invitation.consumedAt()!=null)return new IdentityInvitationPort.InvitationStatus("ACCEPTED",invitation.expiresAt());
+        if(!invitation.expiresAt().isAfter(clock.instant()))return new IdentityInvitationPort.InvitationStatus("EXPIRED",invitation.expiresAt());
+        return new IdentityInvitationPort.InvitationStatus("PENDING",invitation.expiresAt());
     }
     @Override public void acceptInvitation(String rawToken,String newPassword){
         if(rawToken==null||!rawToken.matches("[A-Za-z0-9_-]{43}")||newPassword==null||newPassword.length()<12||newPassword.getBytes(StandardCharsets.UTF_8).length>72)

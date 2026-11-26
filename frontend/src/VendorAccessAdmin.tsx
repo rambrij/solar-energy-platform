@@ -6,6 +6,7 @@ type Template={key:string;version:number;permissions:string[];deferredReason:str
 type Role={templateKey?:string;templateVersion?:number;id:number;key:string;displayName:string;active:boolean;version:number;permissions:string[]};
 type Employee={username:string;branchId:number;enabled:boolean;roleIds:number[];registerIds:number[]};
 type Invitation={username:string;invitationToken:string|null;expiresAt:string|null;accountAlreadyActive:boolean};
+type InvitationStatus={status:'ACTIVE'|'ACCEPTED'|'PENDING'|'EXPIRED'|'NOT_SENT';expiresAt:string|null};
 
 function errorMessage(error:unknown){
  if(error instanceof ApiError){
@@ -28,6 +29,7 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
  const [reason,setReason]=useState(''),[employeeEmail,setEmployeeEmail]=useState(''),[employeeBranch,setEmployeeBranch]=useState(String(account?.branchId??'')),[employeeRole,setEmployeeRole]=useState('');
  const [subject,setSubject]=useState(''),[selectedRoles,setSelectedRoles]=useState<number[]>([]),[registerIds,setRegisterIds]=useState('');
  const [effective,setEffective]=useState<{username:string;permissions:string[]}|null>(null),[invitation,setInvitation]=useState<Invitation|null>(null);
+ const [invitationStatus,setInvitationStatus]=useState<InvitationStatus|null>(null),[checkingInvitation,setCheckingInvitation]=useState(false);
  const canRoleView=rights.has('ROLE_VIEW'),canRoleCreate=rights.has('ROLE_CREATE'),canRoleUpdate=rights.has('ROLE_UPDATE'),canRoleAssign=rights.has('ROLE_ASSIGN');
  const canUserView=rights.has('USER_VIEW'),canUserCreate=rights.has('USER_CREATE'),canUserUpdate=rights.has('USER_UPDATE'),canUserDisable=rights.has('USER_DISABLE');
  const canReactivateEmployee=canUserUpdate&&canRoleAssign;
@@ -86,6 +88,21 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   const value=await run(()=>vendorApi('/employees','POST',{username:employeeEmail,branchId:Number(employeeBranch),roleId:Number(employeeRole),reason}),'Employee invitation and initial role assignment created.');
   if(value)setInvitation(value);
  }
+ async function refreshInvitationStatus(username:string){
+  if(!username||username!==selectedEmployee.current)return;
+  const request=++invitationRequest.current;
+  setInvitationStatus(null);setCheckingInvitation(true);
+  try{
+   const value=await vendorApi('/employees/'+encodeURIComponent(username)+'/invitation');
+   if(request===invitationRequest.current&&selectedEmployee.current===username)setInvitationStatus(value);
+  }catch(e){if(request===invitationRequest.current)setError(errorMessage(e));}
+  finally{if(request===invitationRequest.current)setCheckingInvitation(false);}
+ }
+ async function resendInvitation(){
+  const value=await run(()=>vendorApi('/employees/'+encodeURIComponent(subject)+'/invitation/resend','POST',{reason}),
+   'A fresh one-time invitation was issued; the previous token is no longer valid.');
+  if(value){setInvitation(value);setInvitationStatus({status:value.accountAlreadyActive?'ACTIVE':'PENDING',expiresAt:value.expiresAt});}
+ }
  async function refreshEffectivePermissions(){
   if(!subject||!canUserView||subject!==selectedEmployee.current)return;
   const request=++permissionRequest.current;
@@ -125,12 +142,15 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
   setSelectedRoles(row?.roleIds??[]);setRegisterIds(row?.registerIds.join(',')??'');
   if(row)setEmployeeBranch(String(row.branchId));
   selectedEmployee.current=username;
+  invitationRequest.current++;setInvitationStatus(null);setCheckingInvitation(false);
+  void refreshInvitationStatus(username);
   permissionRequest.current++;
   setEffective(null);
   setCheckingPermissions(false);
  };
  const permissionRequest=useRef(0);
  const selectedEmployee=useRef('');
+ const invitationRequest=useRef(0);
  const [checkingPermissions,setCheckingPermissions]=useState(false);
  const savedEmployee=employees.find(employee=>employee.username===subject);
  const [employeeQuery,setEmployeeQuery]=useState('');
@@ -236,6 +256,20 @@ export default function VendorAccessAdmin({mode}:{mode:'roles'|'employees'}){
    </article>)}</div>}
    {subject&&<div className="vendor-access-form">
     <h3>Manage {subject}</h3>
+    {canUserView&&<section aria-label="Employee invitation status">
+     <h4>Invitation status</h4>
+     {checkingInvitation&&<p role="status">Checking invitation status…</p>}
+     {invitationStatus&&<>
+      <p role="status">{invitationStatus.status==='ACTIVE'?'Account active':invitationStatus.status==='ACCEPTED'?'Invitation accepted':invitationStatus.status==='PENDING'?'Invitation pending':invitationStatus.status==='EXPIRED'?'Invitation expired':'Invitation not sent'}</p>
+      {invitationStatus.expiresAt&&<p>Expires <time dateTime={invitationStatus.expiresAt}>{new Date(invitationStatus.expiresAt).toLocaleString()}</time>.</p>}
+      {canUserCreate&&canRoleAssign&&!['ACTIVE','ACCEPTED'].includes(invitationStatus.status)&&
+       <button type="button" className="secondary" disabled={busy} onClick={()=>void resendInvitation()}>
+        {invitationStatus.status==='NOT_SENT'?'Issue invitation':'Resend invitation'}
+       </button>}
+     </>}
+     {invitation&&invitation.username===subject&&invitation.invitationToken&&<p>New one-time token: <code>{invitation.invitationToken}</code>. Share it securely; it expires <time dateTime={invitation.expiresAt??''}>{invitation.expiresAt?new Date(invitation.expiresAt).toLocaleString():'at the configured expiry'}</time>.</p>}
+     {invitation&&invitation.username===subject&&invitation.accountAlreadyActive&&<p>The identity already has an active account and can sign in with its existing credentials.</p>}
+    </section>}
     {savedEmployee&&<p>Saved branch #{savedEmployee.branchId} · {savedEmployee.enabled?'Enabled':'Disabled'}
      {' · Registers '}{savedEmployee.registerIds.join(', ')||'none assigned'}</p>}
     {(canRoleAssign||canUserUpdate||canUserDisable)&&<label>Audit reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>}

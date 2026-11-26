@@ -11,4 +11,5 @@ public interface IdentityInvitationRepository extends JpaRepository<IdentityInvi
     @Query("select i from IdentityInvitation i where i.tokenHash=:hash")
     Optional<IdentityInvitation> locked(@Param("hash") String hash);
     void deleteByUsername(String username);
+    java.util.Optional<IdentityInvitation> findTopByUsernameOrderByCreatedAtDesc(String username);
 }

@@ -2241,6 +2241,31 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "POST /api/v1/vendor/employees/{username}/reactivate"
+    },
+    {
+      "id": "vendor-employee-invitation-status",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees/{username}/invitation",
+      "permissions": [
+        "USER_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees/{username}/invitation"
+    },
+    {
+      "id": "vendor-employee-invitation-resend",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/employees/{username}/invitation/resend",
+      "permissions": [
+        "USER_CREATE",
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/invitation/resend"
     }
   ],
   "buttons": [
@@ -2711,6 +2736,12 @@
       "component": "VendorAccessAdmin.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/vendor/employees/{username}/reactivate"
+    },
+    {
+      "id": "vendor-employee-invitation-resend",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/invitation/resend"
     }
   ],
   "dynamicRouteParameters": {
@@ -2806,6 +2837,21 @@
       "methodArgument": "'PUT'",
       "actions": [
         "vendor-role-update"
+      ]
+    },
+    "VendorAccessAdmin.tsx:96": {
+      "fn": "vendorApi",
+      "argument": "'/employees/'+encodeURIComponent(username)+'/invitation'",
+      "actions": [
+        "vendor-employee-invitation-status"
+      ]
+    },
+    "VendorAccessAdmin.tsx:102": {
+      "fn": "vendorApi",
+      "argument": "'/employees/'+encodeURIComponent(subject)+'/invitation/resend'",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-employee-invitation-resend"
       ]
     }
   },

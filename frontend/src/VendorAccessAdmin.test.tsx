@@ -194,6 +194,46 @@ it('shows the invitation expiry and a token-free activation page link',async()=>
  expect(result.querySelector('time')?.dateTime).toBe('2026-11-25T10:00:00Z');
 });
 
+it('shows tenant-scoped invitation status and allows a reasoned resend without exposing old tokens',async()=>{
+ mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','USER_CREATE','ROLE_ASSIGN']}});
+ mockVendorApi.mockImplementation(async(path:string,method='GET',body?:any)=>{
+  if(path==='/roles')return [role];
+  if(path==='/employees')return [{username:'staff@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]}];
+  if(path==='/employees/staff%40vendor.test/invitation')return {status:'EXPIRED',expiresAt:'2026-11-24T10:00:00Z'};
+  if(path==='/employees/staff%40vendor.test/invitation/resend'&&method==='POST'){
+   expect(body).toEqual({reason:'Employee requested a fresh invitation'});
+   return {username:'staff@vendor.test',invitationToken:'fresh-one-time-token',expiresAt:'2026-11-28T10:00:00Z',accountAlreadyActive:false};
+  }
+  return [];
+ });
+ render(<VendorAccessAdmin mode="employees"/>);
+ const row=await screen.findByText('staff@vendor.test');
+ fireEvent.click(within(row.closest('article')!).getByRole('button',{name:'Manage'}));
+ expect(await screen.findByText('Invitation expired')).toBeTruthy();
+ expect(screen.queryByText(/old-token/)).toBeNull();
+ fireEvent.change(screen.getByLabelText('Audit reason'),{target:{value:'Employee requested a fresh invitation'}});
+ fireEvent.click(screen.getByRole('button',{name:'Resend invitation'}));
+ expect(await screen.findByText(/A fresh one-time invitation was issued/)).toBeTruthy();
+ expect(screen.getByText('fresh-one-time-token')).toBeTruthy();
+ expect(mockVendorApi).toHaveBeenCalledWith('/employees/staff%40vendor.test/invitation/resend','POST',{reason:'Employee requested a fresh invitation'});
+});
+
+it('does not offer resend for an already active employee identity',async()=>{
+ mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','USER_CREATE','ROLE_ASSIGN']}});
+ mockVendorApi.mockImplementation(async(path:string)=>{
+  if(path==='/roles')return [role];
+  if(path==='/employees')return [{username:'active@vendor.test',branchId:12,enabled:true,roleIds:[7],registerIds:[]}];
+  if(path==='/employees/active%40vendor.test/invitation')return {status:'ACTIVE',expiresAt:null};
+  return [];
+ });
+ render(<VendorAccessAdmin mode="employees"/>);
+ const row=await screen.findByText('active@vendor.test');
+ fireEvent.click(within(row.closest('article')!).getByRole('button',{name:'Manage'}));
+ expect(await screen.findByText('Account active')).toBeTruthy();
+ expect(screen.queryByRole('button',{name:'Resend invitation'})).toBeNull();
+ expect(screen.queryByRole('button',{name:'Issue invitation'})).toBeNull();
+});
+
 it('reactivates a disabled employee only with explicitly selected active roles',async()=>{
  mockUseSession.mockReturnValue({account:{...account,permissions:['USER_VIEW','USER_UPDATE','ROLE_ASSIGN','ROLE_VIEW']}});
  mockVendorApi.mockImplementation(async(path:string,method='GET',body?:any)=>{

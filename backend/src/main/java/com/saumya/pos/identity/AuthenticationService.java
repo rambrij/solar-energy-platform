@@ -34,6 +34,7 @@ public class AuthenticationService {
  private final boolean localPlatformAccess;
  @Autowired private PlatformMfaCrypto mfaCrypto;
  @Autowired private PlatformTotp totp;
+ @Autowired private IdentitySecurityEventRepository securityEvents;
 
  public enum ActorType { PLATFORM, VENDOR, CUSTOMER }
  public record Account(String username,Long tenantId,Long branchId,List<String> permissions,ActorType actorType,String membershipId,List<ActorType> availableActorTypes) {}
@@ -247,6 +248,21 @@ public class AuthenticationService {
     authorities.stream().map(SimpleGrantedAuthority::new).toList());
   authentication.setDetails(new ActorSessionDetails(actorType.name(),tenantId,membershipId,family));
   return authentication;
+ }
+
+ @Transactional
+ @org.springframework.security.access.prepost.PreAuthorize("hasAuthority('CUSTOMER')")
+ public int revokeOtherSessions(String username) {
+  var auth=SecurityContextHolder.getContext().getAuthentication();
+  if(auth==null||!auth.isAuthenticated()||!Objects.equals(normalize(auth.getName()),normalize(username))
+      ||!(auth.getDetails() instanceof ActorSessionDetails active)||!ActorType.CUSTOMER.name().equals(active.actorType()))
+   throw new ResponseStatusException(FORBIDDEN,"Authenticated customer session required");
+  String actor=normalize(username);
+  if(customers.resolve(actor).isEmpty())throw denied();
+  var user=users.findByUsername(actor).filter(GlobalUser::enabled).orElseThrow(this::denied);
+  int revoked=sessions.revokeOtherFamilies(actor,active.family(),clock.instant());
+  securityEvents.saveAndFlush(new IdentitySecurityEvent(user.id(),"CUSTOMER","CUSTOMER_OTHER_SESSIONS_REVOKED",revoked,clock.instant()));
+  return revoked;
  }
 
  @Transactional(readOnly=true)

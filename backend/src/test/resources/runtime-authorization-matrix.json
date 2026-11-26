@@ -1494,6 +1494,12 @@
       "scope": "ACTIVE_TENANT_CUSTOMER_PRIVATE_CRM_NOTES",
       "assignment": "Active Vendor actor; CRM_NOTE_UPDATE; tenant/customer/note scoped lookup; expected version; required reason",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest; VendorCustomerCrmServiceAuthorizationBoundaryTest"
+    },
+    "AuthenticationController#revokeCustomerOtherSessions": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_ACCOUNT_OTHER_REFRESH_FAMILIES",
+      "assignment": "CUSTOMER_ACTOR_FROM_AUTHENTICATED_SESSION; CURRENT_FAMILY_RETAINED; NO_CLIENT_ACCOUNT_OR_FAMILY_INPUT",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; PosTest#customerCanRevokeOtherSessionFamiliesWithoutRevokingCurrentFamily"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

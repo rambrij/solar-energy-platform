@@ -416,9 +416,6 @@
       "trustedTenantParameters": {
         "events": [
           "tenant"
-        ],
-        "customerShipments": [
-          "tenant"
         ]
       }
     }

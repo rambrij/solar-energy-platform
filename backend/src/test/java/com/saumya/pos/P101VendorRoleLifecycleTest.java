@@ -48,6 +48,7 @@ class P101VendorRoleLifecycleTest {
     @Autowired VendorRoleService roles;
     @Autowired MembershipService memberships;
     @Autowired TenantEntitlementPolicy entitlementPolicy;
+    @Autowired jakarta.persistence.EntityManager entityManager;
 
     private TenantIsolationFixture.Seed seed;
 
@@ -287,6 +288,8 @@ class P101VendorRoleLifecycleTest {
         assertThat(db.queryForObject("SELECT enabled FROM employees WHERE tenant_id=? AND username=?",
             Boolean.class,VENDOR_A_TENANT,TARGET)).isTrue();
         assertThat(activeAssignments(TARGET)).isEqualTo(1);
+        // JDBC performs the state transition; clear the JPA first-level cache before resolving the membership again.
+        entityManager.clear();
         assertThat(memberships.access(TARGET)).get()
             .extracting(MembershipService.Access::permissions).asList().contains("POS_VIEW");
         assertThat(db.queryForObject("""

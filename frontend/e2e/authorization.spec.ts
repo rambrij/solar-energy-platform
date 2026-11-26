@@ -523,3 +523,39 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   const staleVendor = await apiAs(page, vendorLoginBody.accessToken, '/api/v1/vendor/pos/sessions/active');
   expect([401, 403]).toContain(staleVendor.status);
 });
+
+test('Customer: signing out other devices revokes the other browser session and preserves this one', async ({ page, browser }) => {
+  const otherContext = await browser.newContext();
+  try {
+    const otherPage = await otherContext.newPage();
+    const currentToken = await signIn(page, demo.customer.username, demo.customer.password);
+    const otherToken = await signIn(otherPage, demo.customer.username, demo.customer.password);
+
+    const currentProfile = await apiAs(page, currentToken, '/api/v1/customer/profile');
+    const otherProfile = await apiAs(otherPage, otherToken, '/api/v1/customer/profile');
+    expect(currentProfile.status).toBe(200);
+    expect(otherProfile.status).toBe(200);
+    expect(otherProfile.body.id).toBe(currentProfile.body.id);
+
+    await page.goto('/marketplace/profile');
+    await expect(page.getByRole('heading', { name: 'My customer profile' })).toBeVisible();
+    await page.getByRole('button', { name: 'Sign out other devices' }).click();
+    const confirmation = page.getByRole('dialog', { name: 'Sign out other sessions?' });
+    await expect(confirmation).toBeVisible();
+    await confirmation.getByRole('button', { name: 'Confirm sign out' }).click();
+    await expect(page.getByRole('status')).toContainText('Other active sessions were signed out. This device remains signed in.');
+
+    // The secondary browser must fail cookie-backed refresh after its family is revoked.
+    await otherPage.reload();
+    await expect(otherPage.getByRole('button', { name: 'Sign in / Register' })).toBeVisible();
+
+    // The initiating browser's refresh family is deliberately preserved.
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'My customer profile' })).toBeVisible();
+    const stillAuthenticated = await apiAs(page, currentToken, '/api/v1/customer/profile');
+    expect(stillAuthenticated.status).toBe(200);
+  } finally {
+    await otherContext.close();
+  }
+});
+

@@ -58,10 +58,16 @@ public class ShipmentService {
  }
  @PreAuthorize("hasAuthority('CUSTOMER')")
  public List<CustomerShipmentSummary> customerShipmentFeed(String username){
-  long customerId=orderHistory.customerIdentityId(username);
-  return db.queryForList("SELECT s.tenant_id,s.id,s.order_id,COALESCE(o.receipt_seller_name,'Seller not recorded') vendor_name,s.carrier,s.tracking_reference,s.tracking_url,s.created_at FROM shipments s JOIN orders o ON o.tenant_id=s.tenant_id AND o.id=s.order_id WHERE o.customer_id=? AND o.sales_channel='ONLINE' AND o.status='PAID' ORDER BY s.created_at DESC,s.id DESC LIMIT 10",customerId).stream().map(r->{
-   long tenant=((Number)r.get("tenant_id")).longValue(),id=((Number)r.get("id")).longValue();
-   return new CustomerShipmentSummary((String)r.get("order_id"),(String)r.get("vendor_name"),id,(String)r.get("carrier"),(String)r.get("tracking_reference"),(String)r.get("tracking_url"),time(r.get("created_at")),customerEvents(tenant,id));
-  }).toList();
+  var shipments=new ArrayList<CustomerShipmentSummary>();
+  for(var order:orderHistory.customerPaidOnlineOrderReferences(username)){
+   long tenant=order.tenantId();
+   for(var row:db.queryForList("SELECT id,order_id,carrier,tracking_reference,tracking_url,created_at FROM shipments WHERE tenant_id=? AND order_id=? ORDER BY created_at DESC,id DESC",tenant,order.orderId())){
+    long id=((Number)row.get("id")).longValue();
+    shipments.add(new CustomerShipmentSummary(order.orderId(),order.vendorName(),id,(String)row.get("carrier"),
+      (String)row.get("tracking_reference"),(String)row.get("tracking_url"),time(row.get("created_at")),customerEvents(tenant,id)));
+   }
+  }
+  return shipments.stream().sorted(Comparator.comparing(CustomerShipmentSummary::createdAt).reversed()
+    .thenComparing(Comparator.comparingLong(CustomerShipmentSummary::id).reversed())).limit(10).toList();
  }
 }

@@ -403,18 +403,26 @@
         "createShipment",
         "addEvent",
         "events",
-        "customerShipments"
+        "customerShipments",
+        "customerEvents",
+        "customerShipmentFeed"
       ],
-      "authority": "Vendor methods derive tenant from authenticated AuthorizationContext; customer shipment queries obtain tenant only from OrderHistoryService.customerOrderTenant after authenticated ownership proof.",
+      "authority": "Vendor methods derive tenant from authenticated AuthorizationContext; customer methods derive paid ONLINE order references through OrderHistoryService using the authenticated global customer, then bind each trusted order tenant to shipment and event queries.",
       "evidence": [
         "auth.current()",
         "requireVendorMembership()",
         "c.tenantId()",
         "events(long tenant,long id)",
-        "orderHistory.customerOrderTenant(username,orderId)"
+        "orderHistory.customerOrderTenant(username,orderId)",
+        "OrderHistoryService.customerPaidOnlineOrderReferences(username)",
+        "CustomerOrderReference.tenantId()",
+        "customerEvents(long tenant,long shipmentId)"
       ],
       "trustedTenantParameters": {
         "events": [
+          "tenant"
+        ],
+        "customerEvents": [
           "tenant"
         ]
       }
@@ -945,6 +953,13 @@
       "variable": "tenant",
       "initializer": "orders.customerOrderTenant(username,orderId)",
       "authority": "OrderHistoryService.customerOrderTenant requires the authenticated CUSTOMER actor and resolves the tenant from the persisted customer-owned order; this method accepts no client-supplied tenant identifier."
+    },
+    {
+      "class": "com.saumya.pos.fulfillment.ShipmentService",
+      "method": "customerShipmentFeed",
+      "variable": "tenant",
+      "initializer": "order.tenantId()",
+      "authority": "OrderHistoryService returns this tenant only with a paid ONLINE order reference selected by the authenticated global CUSTOMER identity; the value is bound to the tenant_id predicate for that exact order's shipment lookup."
     }
   ]
 }

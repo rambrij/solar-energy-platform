@@ -102,10 +102,19 @@ public class OrderHistoryService {
         return new History(page.getContent().stream().map(o->view(o,names,payments.getOrDefault(paymentKey(o.tenant(),o.id()),List.of()))).toList(),page.getNumber(),page.getSize(),page.getTotalElements(),page.getTotalPages());
     }
     
+    public record CustomerOrderReference(String orderId,long tenantId,String vendorName) {}
+
     @PreAuthorize("hasAuthority('CUSTOMER')")
-    public long customerIdentityId(String username) {
+    public List<CustomerOrderReference> customerPaidOnlineOrderReferences(String username) {
         retail.authorizeCustomer(username);
-        return customers.resolve(username);
+        long customer=customers.resolve(username);
+        Specification<DraftOrder> scope=(r,q,b)->b.and(
+            b.equal(r.get("customerId"),customer),
+            b.equal(r.get("channel"),"ONLINE"),
+            b.equal(r.get("status"),"PAID"));
+        return orders.findAll(scope,Sort.by(Sort.Order.desc("createdAt"),Sort.Order.desc("id")))
+            .stream().map(order->new CustomerOrderReference(order.id(),order.tenant(),
+                order.receiptSeller()==null?"Seller not recorded":order.receiptSeller())).toList();
     }
 
     @PreAuthorize("hasAuthority('CUSTOMER')")

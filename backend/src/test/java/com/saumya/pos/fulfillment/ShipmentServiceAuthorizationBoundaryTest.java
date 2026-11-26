@@ -38,13 +38,14 @@ class ShipmentServiceAuthorizationBoundaryTest {
   var db=mock(JdbcTemplate.class);var history=mock(OrderHistoryService.class);when(history.customerIdentityId("buyer@test")).thenReturn(42L);
   var t=Timestamp.from(Instant.parse("2026-11-26T08:00:00Z"));Map<String,Object> row=new HashMap<>();
   row.put("tenant_id",7L);row.put("id",2L);row.put("order_id","owned-order");row.put("vendor_name","Solar Vendor");row.put("carrier","Carrier");row.put("tracking_reference","T-1");row.put("tracking_url","https://carrier.test/t");row.put("created_at",t);
-  when(db.queryForList(contains("FROM shipments s"),eq(42L))).thenReturn(List.of(row));
+  when(db.queryForList(contains("FROM shipments WHERE tenant_id=? AND order_id=?"),eq(7L),eq("owned-order"))).thenReturn(List.of(Map.of("id",2L,"order_id","owned-order","carrier","Carrier","tracking_reference","T-1","tracking_url","https://carrier.test/t","created_at",t)));
   when(db.queryForList(contains("FROM shipment_events WHERE tenant_id=? AND shipment_id=?"),eq(7L),eq(2L))).thenReturn(List.of(Map.of("id",3L,"event_code","IN_TRANSIT","description","On the way","occurred_at",t)));
   var result=new ShipmentService(db,mock(AuthorizationContext.class),history).customerShipmentFeed("buyer@test");
   assertThat(result).hasSize(1);assertThat(result.getFirst().orderId()).isEqualTo("owned-order");assertThat(result.getFirst().vendorName()).isEqualTo("Solar Vendor");
   assertThat(result.getFirst().events().getFirst().description()).isEqualTo("On the way");
   assertThat(Arrays.stream(ShipmentService.CustomerEvent.class.getRecordComponents()).map(java.lang.reflect.RecordComponent::getName).toList()).containsExactly("id","eventCode","description","occurredAt");
-  verify(history).customerIdentityId("buyer@test");verify(db).queryForList(contains("o.customer_id=? AND o.sales_channel='ONLINE' AND o.status='PAID'"),eq(42L));
+  verify(history).customerPaidOnlineOrderReferences("buyer@test");
+  verify(db).queryForList(contains("FROM shipments WHERE tenant_id=? AND order_id=?"),eq(7L),eq("owned-order"));
  }
  @Test void foreignCustomerOrderIsRejectedBeforeShipmentLookup(){
   var db=mock(JdbcTemplate.class);var orderHistory=mock(OrderHistoryService.class);

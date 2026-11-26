@@ -414,8 +414,8 @@
         "c.tenantId()",
         "events(long tenant,long id)",
         "orderHistory.customerOrderTenant(username,orderId)",
-        "OrderHistoryService.customerPaidOnlineOrderReferences(username)",
-        "CustomerOrderReference.tenantId()",
+        "orderHistory.customerPaidOnlineOrderReferences(username)",
+        "order.tenantId()",
         "customerEvents(long tenant,long shipmentId)"
       ],
       "trustedTenantParameters": {
@@ -909,6 +909,24 @@
       "callers": [
         {
           "caller": "com.saumya.pos.fulfillment.ShipmentService#view",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.fulfillment.ShipmentService#customerEvents",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.fulfillment.ShipmentService#customerShipments",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.fulfillment.ShipmentService#customerShipmentFeed",
           "expression": "tenant",
           "argumentIndex": 0,
           "expectedCallCount": 1

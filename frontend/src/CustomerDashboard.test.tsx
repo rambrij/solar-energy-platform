@@ -30,7 +30,7 @@ it('combines only the signed-in customer profile, cross-vendor orders and curren
   expect(screen.getByText('asha@example.test')).toBeTruthy();
   expect(screen.getByText('Current estimate: 2200.00')).toBeTruthy();
   expect(await screen.findByText('Shipment updates')).toBeTruthy();
-  expect(screen.getByText('Solar Carrier')).toBeTruthy();
+  expect(screen.getByText(/Solar Carrier/)).toBeTruthy();
   expect(screen.getByText(/Package moving/)).toBeTruthy();
   expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/shipments');
   expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/profile');
@@ -58,7 +58,7 @@ it('keeps the dashboard usable when shipment feed fails and allows an independen
  render(<CustomerDashboard/>);expect(await screen.findByRole('heading',{name:'Welcome back, Asha Rao'})).toBeTruthy();
  expect((await screen.findByRole('alert')).textContent).toContain('Shipment updates are temporarily unavailable');
  vi.mocked(marketplaceApi).mockImplementation(async path=>path==='/api/v1/customer/shipments'?[{id:9,orderId:'order-b',vendorName:'Vendor B',carrier:'Carrier B',trackingReference:'B-9',trackingUrl:null,createdAt:'2026-11-25T10:00:00Z',events:[]}]:path==='/api/v1/customer/profile'?profile:path.startsWith('/api/v1/customer/orders')?orders:cart);
- fireEvent.click(screen.getByRole('button',{name:'Retry shipment updates'}));expect(await screen.findByText('Carrier B')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'Retry shipment updates'}));expect(await screen.findByText(/Carrier B/)).toBeTruthy();
 });
 
 it('provides a retry when any customer dashboard source is unavailable', async () => {

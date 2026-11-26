@@ -2865,7 +2865,7 @@
     },
     "VendorAccessAdmin.tsx:193": {
       "fn": "vendorApi",
-      "argument": "`/roles/${encodeURIComponent(roleId)}/access-history`",
+      "argument": "'/roles/'+encodeURIComponent(roleId)+'/access-history'",
       "actions": [
         "vendor-role-access-history"
       ]

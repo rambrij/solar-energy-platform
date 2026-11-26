@@ -2228,6 +2228,19 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "POST /api/v1/auth/sessions/revoke-others"
+    },
+    {
+      "id": "vendor-employee-reactivate",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/employees/{username}/reactivate",
+      "permissions": [
+        "USER_UPDATE",
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/reactivate"
     }
   ],
   "buttons": [
@@ -2692,6 +2705,12 @@
       "component": "CustomerProfile.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/auth/sessions/revoke-others"
+    },
+    {
+      "id": "vendor-employee-reactivate",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/reactivate"
     }
   ],
   "dynamicRouteParameters": {
@@ -2787,6 +2806,14 @@
       "argument": "path",
       "actions": [
         "vendor-crm-note-list"
+      ]
+    },
+    "VendorAccessAdmin.tsx:115": {
+      "fn": "vendorApi",
+      "argument": "'/employees/'+encodeURIComponent(username)+'/reactivate'",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-employee-reactivate"
       ]
     }
   },

@@ -214,7 +214,7 @@ it('shows tenant-scoped invitation status and allows a reasoned resend without e
  fireEvent.change(screen.getAllByLabelText('Audit reason').at(-1)!,{target:{value:'Employee requested a fresh invitation'}});
  fireEvent.click(screen.getByRole('button',{name:'Resend invitation'}));
  expect(await screen.findByText(/A fresh one-time invitation was issued/)).toBeTruthy();
- expect(screen.getByText('fresh-one-time-token')).toBeTruthy();
+ expect(screen.getAllByText('fresh-one-time-token').some(element=>element.tagName==='CODE')).toBe(true);
  expect(mockVendorApi).toHaveBeenCalledWith('/employees/staff%40vendor.test/invitation/resend','POST',{reason:'Employee requested a fresh invitation'});
 });
 

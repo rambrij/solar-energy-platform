@@ -1,13 +1,13 @@
 package com.saumya.pos;
 
 import com.saumya.pos.catalog.CatalogService;
-import com.saumya.pos.customer.VendorCustomerService;
 import com.saumya.pos.customer.VendorAccessAuditService;
-import com.saumya.pos.tenant.TenantLifecycleService;
+import com.saumya.pos.customer.VendorCustomerService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.marketplace.MarketplaceEnquiryService;
 import com.saumya.pos.marketplace.internal.MarketplaceEnquiryRepository;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.tenant.TenantLifecycleService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -46,7 +46,7 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "employee@vendor.test",71L,5L,"71:employee@vendor.test",Set.of("CUSTOMER_RELATION_VIEW"),false,false,true));
         var enquiries=mock(MarketplaceEnquiryRepository.class);
-        var audit=mock(VendorAccessAuditRepository.class);
+        var audit=mock(VendorAccessAuditService.class);
         var service=service(authorization,enquiries,audit);
         assertThatThrownBy(service::leads).isInstanceOfSatisfying(ResponseStatusException.class,
             e->assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
@@ -58,7 +58,7 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "sales@vendor.test",71L,5L,"71:sales@vendor.test",Set.of("LEAD_VIEW"),false,false,true));
         var enquiries=mock(MarketplaceEnquiryRepository.class);
-        var audit=mock(VendorAccessAuditRepository.class);
+        var audit=mock(VendorAccessAuditService.class);
         when(enquiries.findAllByTenantIdOrderByCreatedAtDescIdDesc(71L,PageRequest.of(0,100)))
             .thenReturn(new PageImpl<>(List.of()));
         var service=service(authorization,enquiries,audit);
@@ -74,9 +74,9 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
         var customers=mock(CustomerAccess.class);
         var relationships=mock(VendorCustomerService.class);
         var authorization=mock(AuthorizationContext.class);
-        var audit=mock(VendorAccessAuditRepository.class);
-        var jdbc=mock(JdbcTemplate.class);
-        var service=new MarketplaceEnquiryService(catalogue,enquiries,customers,relationships,authorization,audit,jdbc,
+        var audit=mock(VendorAccessAuditService.class);
+        var tenants=mock(TenantLifecycleService.class);
+        var service=new MarketplaceEnquiryService(catalogue,enquiries,customers,relationships,authorization,audit,tenants,
             Clock.systemUTC());
         var request=new MarketplaceEnquiryService.Submission("Customer","customer@example.test",null,
             "Please share installation details",null,false,false);

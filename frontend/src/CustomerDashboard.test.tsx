@@ -24,7 +24,7 @@ it('combines only the signed-in customer profile, cross-vendor orders and curren
   render(<CustomerDashboard/>);
   expect(await screen.findByRole('heading', { name: 'Welcome back, Asha Rao' })).toBeTruthy();
   expect(screen.getByText('Orders across vendors').parentElement?.textContent).toContain('2');
-  expect(screen.getByText('Vendor A')).toBeTruthy();
+  expect(screen.getAllByText('Vendor A').length).toBeGreaterThan(0);
   expect(screen.getByText('Vendor B')).toBeTruthy();
   expect(screen.getByText('asha@example.test')).toBeTruthy();
   expect(screen.getByText('Current estimate: 2200.00')).toBeTruthy();

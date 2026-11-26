@@ -211,7 +211,7 @@ it('shows tenant-scoped invitation status and allows a reasoned resend without e
  fireEvent.click(within(row.closest('article')!).getByRole('button',{name:'Manage'}));
  expect(await screen.findByText('Invitation expired')).toBeTruthy();
  expect(screen.queryByText(/old-token/)).toBeNull();
- fireEvent.change(screen.getByLabelText('Audit reason'),{target:{value:'Employee requested a fresh invitation'}});
+ fireEvent.change(screen.getAllByLabelText('Audit reason').at(-1)!,{target:{value:'Employee requested a fresh invitation'}});
  fireEvent.click(screen.getByRole('button',{name:'Resend invitation'}));
  expect(await screen.findByText(/A fresh one-time invitation was issued/)).toBeTruthy();
  expect(screen.getByText('fresh-one-time-token')).toBeTruthy();

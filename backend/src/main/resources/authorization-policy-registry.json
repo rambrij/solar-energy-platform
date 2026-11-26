@@ -244,6 +244,12 @@
       "allOf": [
         "CUSTOMER"
       ]
+    },
+    "shipment-management": {
+      "anyOf": [
+        "SHIPMENT_VIEW",
+        "SHIPMENT_UPDATE"
+      ]
     }
   },
   "controllerPolicies": {

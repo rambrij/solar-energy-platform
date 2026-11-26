@@ -2854,6 +2854,18 @@
       "component": "VendorAccessAdmin.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/vendor/employees/{username}/invitation/resend"
+    },
+    {
+      "id": "vendor-shipment-create",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/orders/{orderId}/shipments"
+    },
+    {
+      "id": "vendor-shipment-event-create",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/shipments/{shipmentId}/events"
     }
   ],
   "dynamicRouteParameters": {

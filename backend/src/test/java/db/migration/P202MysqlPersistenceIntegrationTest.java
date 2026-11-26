@@ -31,11 +31,13 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(2);
+            assertThat(applied).hasSize(3);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
             assertThat(applied.get(1).getVersion().getVersion()).isEqualTo("2");
+            assertThat(applied.get(2).getScript()).isEqualTo("V3__customer_other_session_revocation_audit.sql");
+            assertThat(applied.get(2).getVersion().getVersion()).isEqualTo("3");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -43,7 +45,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2");
+                    .containsExactly("1", "2", "3");
         });
     }
 

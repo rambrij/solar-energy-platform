@@ -247,7 +247,7 @@ class JdbcTenantSqlAstAnalysisTest {
             if(rule.path("class").asText().equals(className)
                 &&rule.path("method").asText().equals(methodName)
                 &&rule.path("variable").asText().equals(variable)
-                &&rule.path("initializer").asText().equals(initializer)
+                &&rule.path("initializer").asText().replaceAll("\\s+","").equals(initializer.replaceAll("\\s+",""))
                 &&!rule.path("authority").asText().isBlank()) return true;
         }
         return false;

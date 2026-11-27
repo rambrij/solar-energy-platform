@@ -22,7 +22,7 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 class ModuleArchitectureTest {
     static final String[] MODULES = {
         "cart", "catalog", "checkout", "customer", "documents", "identity",
-        "integration", "inventory", "marketplace", "membership", "platform", "reporting",
+        "integration", "installation", "inventory", "marketplace", "membership", "platform", "reporting",
         "retail", "returns", "security", "shared", "subscription", "tenant"
     };
 
@@ -92,6 +92,7 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.retail.CashDrawerProjection",
                 "com.saumya.pos.retail.BranchProvisioningServiceImpl",
                 "com.saumya.pos.fulfillment.ShipmentService",
+                "com.saumya.pos.installation.InstallationService",
                 "com.saumya.pos.marketplace.MarketplaceEnquiryService",
                 "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed"
             );
@@ -105,6 +106,7 @@ class ModuleArchitectureTest {
             Map.entry("com.saumya.pos.retail.CashDrawerProjection", "backend/src/main/java/com/saumya/pos/retail/CashDrawerProjection.java"),
             Map.entry("com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java"),
             Map.entry("com.saumya.pos.fulfillment.ShipmentService", "backend/src/main/java/com/saumya/pos/fulfillment/ShipmentService.java"),
+            Map.entry("com.saumya.pos.installation.InstallationService", "backend/src/main/java/com/saumya/pos/installation/InstallationService.java"),
             Map.entry("com.saumya.pos.marketplace.MarketplaceEnquiryService", "backend/src/main/java/com/saumya/pos/marketplace/MarketplaceEnquiryService.java"),
             Map.entry("com.saumya.pos.catalog.LocalDemoSolarCatalogSeed", "backend/src/main/resources/db/local-seed/local_demo_solar_catalog.sql")
         );

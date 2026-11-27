@@ -43,7 +43,7 @@ public class InstallationController {
     @PostMapping("/api/v1/vendor/installations")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('INSTALLATION_ASSIGN')")
-    public InstallationService.Job create(@Valid @RequestBody(required=false) CreateRequest request){
+    public InstallationService.Job create(@RequestBody(required=false) CreateRequest request){
         if(request==null)throw new org.springframework.web.server.ResponseStatusException(
             HttpStatus.BAD_REQUEST,"Installation details are required");
         return installations.create(new InstallationService.Create(request.orderId(),request.siteAddress(),
@@ -53,7 +53,7 @@ public class InstallationController {
     @PatchMapping("/api/v1/vendor/installations/{id}/assignment")
     @PreAuthorize("hasAuthority('INSTALLATION_ASSIGN')")
     public InstallationService.Job assign(@PathVariable long id,
-            @Valid @RequestBody(required=false) AssignRequest request){
+            @RequestBody(required=false) AssignRequest request){
         if(request==null)throw new org.springframework.web.server.ResponseStatusException(
             HttpStatus.BAD_REQUEST,"Installation assignment is required");
         return installations.assign(id,new InstallationService.Assign(request.expectedVersion(),
@@ -63,7 +63,7 @@ public class InstallationController {
     @PatchMapping("/api/v1/vendor/installations/{id}/status")
     @PreAuthorize("hasAuthority('INSTALLATION_UPDATE')")
     public InstallationService.Job updateStatus(@PathVariable long id,
-            @Valid @RequestBody(required=false) StatusRequest request){
+            @RequestBody(required=false) StatusRequest request){
         if(request==null)throw new org.springframework.web.server.ResponseStatusException(
             HttpStatus.BAD_REQUEST,"Installation status update is required");
         return installations.updateStatus(id,new InstallationService.StatusChange(

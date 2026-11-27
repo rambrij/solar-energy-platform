@@ -6,6 +6,7 @@ import com.saumya.pos.customer.VendorAccessAuditService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.marketplace.internal.*;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.shared.Pricing;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -31,15 +32,17 @@ public class QuotationService {
     private final AuthorizationContext authorization;
     private final VendorAccessAuditService vendorAudit;
     private final Clock clock;
+    private final Pricing pricing;
 
     public QuotationService(QuotationRepository quotations, QuotationRevisionRepository revisions,
             QuotationLineRepository lines, QuotationAuditRepository audit,
             MarketplaceEnquiryRepository enquiries, CatalogService catalogue, CheckoutService checkout,
             CustomerAccess customers, AuthorizationContext authorization,
-            VendorAccessAuditService vendorAudit, Clock clock) {
+            VendorAccessAuditService vendorAudit, Clock clock, Pricing pricing) {
         this.quotations=quotations; this.revisions=revisions; this.lines=lines; this.audit=audit;
         this.enquiries=enquiries; this.catalogue=catalogue; this.checkout=checkout;
         this.customers=customers; this.authorization=authorization; this.vendorAudit=vendorAudit; this.clock=clock;
+        this.pricing=pricing;
     }
 
     public record LineInput(long productId, int quantity) {}
@@ -142,13 +145,7 @@ public class QuotationService {
         int lineNumber=0;
         for(LineInput item:requested) {
             var product=catalogue.lockForQuotation(quote.tenantId(),item.productId());
-            var amount=new com.saumya.pos.shared.Pricing.Amounts(
-                product.price().multiply(BigDecimal.valueOf(item.quantity())),
-                product.price().multiply(BigDecimal.valueOf(item.quantity()))
-                    .multiply(product.taxRate()).divide(new BigDecimal("100"),2,java.math.RoundingMode.HALF_UP),
-                product.price().multiply(BigDecimal.valueOf(item.quantity()))
-                    .multiply(BigDecimal.ONE.add(product.taxRate().divide(new BigDecimal("100"),6,java.math.RoundingMode.HALF_UP)))
-                    .setScale(2,java.math.RoundingMode.HALF_UP));
+            var amount=pricing.line(product.price(),product.taxRate(),item.quantity());
             subtotal=subtotal.add(amount.net()); taxTotal=taxTotal.add(amount.tax()); total=total.add(amount.total());
             productSnapshots.add(new QuotationLine(quote.tenantId(),0,quote.id(),number,++lineNumber,
                 product.id(),product.name(),item.quantity(),product.listPrice(),product.price(),

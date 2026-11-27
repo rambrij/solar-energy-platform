@@ -3296,6 +3296,30 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}"
+    },
+    {
+      "id": "vendor-claim-assignees",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests/assignees",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests/assignees"
+    },
+    {
+      "id": "customer-claim-eligible-warranties",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranties",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranties"
     }
   ],
   "buttons": [

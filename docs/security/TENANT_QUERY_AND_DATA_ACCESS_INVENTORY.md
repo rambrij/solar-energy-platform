@@ -431,3 +431,17 @@ The next work is targeted:
 3. Complete the broader P0-02 service authorization and P0-04 adversarial tenant/customer test matrices.
 4. Resolve RC-01, RC-02, RC-08 and RC-09 before changing membership, warehouse or vendor billing APIs.
 5. Do not claim complete tenant isolation until MySQL integration tests validate same-tenant success, cross-tenant denial and database rejection across all relevant resource families.
+
+### Warranty claims and evidence flow — V17
+
+`customer JWT → customerPaidOnlineOrderReferences(username) → tenant/order-owned warranty record → active inclusive coverage-date check → warranty_claims`
+
+`vendor JWT → AuthorizationContext.current() → active vendor membership + SERVICE_VIEW/SERVICE_ASSIGN/SERVICE_UPDATE/SERVICE_RESOLVE → tenant-qualified claim row lock + optimistic version → append-only event + outbox`
+
+- Customer claim submission and detail lookup never accept a tenant ID. A foreign claim identifier returns the same 404 as a missing claim.
+- Vendor staff without SERVICE_ASSIGN see and mutate only claims assigned to their authenticated username. Assignment targets must be enabled tenant employees with an active SERVICE_VIEW grant.
+- Evidence object keys are `tenants/{tenantId}/warranty-claims/{claimId}/evidence/{uuid}`. Ownership and assignment are checked before storage access. Customer evidence reads include only metadata marked customer-visible.
+- Claim event and evidence metadata tables have database-level update/delete guards. Claim state changes lock the tenant-owned row and require the caller's expected version.
+- Approval selects REPAIR or REPLACEMENT. The decision records the authorized workflow only; it does not issue refunds, external payments, inventory movements or replacement orders.
+- Direct JDBC tenant provenance is inventoried in `tenant-data-access-policy.json` under `WarrantyClaimService`.
+

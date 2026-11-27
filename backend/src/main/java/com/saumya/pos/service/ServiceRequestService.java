@@ -161,13 +161,13 @@ public class ServiceRequestService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Authenticated customer identity required");
         if (input == null) throw bad("Service request details are required");
         String orderId = orderId(input.orderId());
-        OrderHistoryService.CustomerOrderReference owner = orders.customerPaidOnlineOrderReferences(username)
-            .stream().filter(order -> order.orderId().equals(orderId)).findFirst()
+        OrderHistoryService.CustomerOrderReference order = orders.customerPaidOnlineOrderReferences(username)
+            .stream().filter(reference -> reference.orderId().equals(orderId)).findFirst()
             .orElseThrow(this::missingOrder);
         Map<String,Object> row = db.queryForList("""
             SELECT status,customer_id
             FROM orders WHERE tenant_id=? AND id=?
-            """, owner.tenantId(), orderId).stream().findFirst().orElseThrow(this::missingOrder);
+            """, order.tenantId(), orderId).stream().findFirst().orElseThrow(this::missingOrder);
         if (!"PAID".equals(row.get("status")) || row.get("customer_id") == null) throw missingOrder();
         return customerRequest(create(owner.tenantId(), username, "CUSTOMER", orderId, input));
     }

@@ -1,6 +1,7 @@
 package com.saumya.pos.shared;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -32,7 +33,16 @@ public class ApiProblemWriter {
     public void write(HttpServletRequest request,HttpServletResponse response,HttpStatusCode status,
             String code,String title,String detail)throws IOException{
         String correlationId=UUID.randomUUID().toString();
-        ProblemDetail body=problem(request,status,code,title,detail,Map.of("correlationId",correlationId));
+        String safeCode=(code==null||!code.matches("[A-Z][A-Z0-9_]{1,63}"))?"REQUEST_REJECTED":code;
+        // Emit extension members explicitly: this path must not depend on a Spring Boot Jackson mixin.
+        ObjectNode body=mapper.createObjectNode()
+            .put("type","urn:solar:problem:"+safeCode)
+            .put("title",title)
+            .put("status",status.value())
+            .put("detail",detail)
+            .put("code",safeCode)
+            .put("correlationId",correlationId);
+        if(request!=null&&request.getRequestURI()!=null)body.put("instance",request.getRequestURI());
         // Serialize before touching the servlet response so all headers are set before it is committed.
         byte[] payload=mapper.writeValueAsBytes(body);
         response.setStatus(status.value());

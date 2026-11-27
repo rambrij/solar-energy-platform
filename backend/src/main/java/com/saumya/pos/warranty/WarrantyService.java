@@ -40,6 +40,8 @@ public class WarrantyService {
             Long installationId,LocalDate coverageStartDate,LocalDate coverageEndDate,
             String termsSummary,String registeredBy,Instant registeredAt) {}
     public record CustomerWarranty(Warranty warranty,String vendorName) {}
+    public record EligibleOrder(String orderId,Instant orderedAt) {}
+    public record EligibleItem(long productId,String productName,int quantity) {}
 
     private AuthorizationContext.Context vendor(String permission) {
         var actor=authorization.current();
@@ -60,6 +62,34 @@ public class WarrantyService {
             WHERE w.tenant_id=?
             ORDER BY w.registered_at DESC,w.id DESC LIMIT 200
             """,actor.tenantId()).stream().map(this::warranty).toList();
+    }
+
+    @Transactional(readOnly=true)
+    public List<EligibleOrder> eligibleOrders() {
+        var actor=vendor("SERVICE_CREATE");
+        return db.queryForList("""
+            SELECT id,created_at FROM orders
+            WHERE tenant_id=? AND sales_channel='ONLINE' AND status='PAID' AND customer_id IS NOT NULL
+            ORDER BY created_at DESC,id DESC LIMIT 100
+            """,actor.tenantId()).stream().map(row->new EligibleOrder(
+                (String)row.get("id"),instant(row.get("created_at")))).toList();
+    }
+
+    @Transactional(readOnly=true)
+    public List<EligibleItem> eligibleItems(String orderId) {
+        var actor=vendor("SERVICE_CREATE");
+        String reference=clean(orderId,36,"Order reference");
+        List<Map<String,Object>> order=db.queryForList("""
+            SELECT id FROM orders WHERE tenant_id=? AND id=? AND status='PAID'
+              AND sales_channel='ONLINE' AND customer_id IS NOT NULL
+            """,actor.tenantId(),reference);
+        if(order.isEmpty()) throw missing();
+        return db.queryForList("""
+            SELECT product_id,name,quantity FROM order_items
+            WHERE tenant_id=? AND order_id=? ORDER BY name,product_id
+            """,actor.tenantId(),reference).stream().map(row->new EligibleItem(
+                ((Number)row.get("product_id")).longValue(),(String)row.get("name"),
+                ((Number)row.get("quantity")).intValue())).toList();
     }
 
     public Warranty register(Register request) {

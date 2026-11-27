@@ -18,6 +18,10 @@ public class QuotationController {
     public record LineRequest(@Positive long productId, @Min(1) @Max(10000) int quantity) {}
     public record DecisionRequest(@NotNull Boolean accept, @Size(max=500) String reason) {}
 
+    @GetMapping("/api/v1/vendor/quotation-catalogue")
+    @PreAuthorize("hasAuthority('LEAD_VIEW')")
+    Object vendorCatalogue() { return quotations.vendorCatalogue(); }
+
     @GetMapping("/api/v1/vendor/quotations")
     @PreAuthorize("hasAuthority('LEAD_VIEW')")
     Object vendorList() { return quotations.vendorList(); }

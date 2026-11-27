@@ -486,6 +486,42 @@
       "scope": "GLOBAL_CUSTOMER_WARRANTY_OWNERSHIP",
       "expected": 404,
       "test": "WarrantyServiceAuthorizationBoundaryTest#customerCannotReadWarrantyForAnOrderTheyDoNotOwn"
+    },
+    {
+      "id": "P006-CUSTOMER-SUBMIT-WARRANTY-CLAIM",
+      "actor": "CUSTOMER",
+      "endpoint": "POST /api/v1/customer/warranty-claims",
+      "permission": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_AND_ACTIVE_WARRANTY_OWNERSHIP",
+      "expected": 201,
+      "test": "WarrantyClaimControllerAuthorizationTest#customerCanSubmitAndReadClaimRoutes"
+    },
+    {
+      "id": "P006-CUSTOMER-FOREIGN-WARRANTY-CLAIM-404",
+      "actor": "WRONG_CUSTOMER",
+      "endpoint": "GET /api/v1/customer/warranty-claims/{id}",
+      "permission": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
+      "expected": 404,
+      "test": "WarrantyClaimServiceAuthorizationBoundaryTest#customerCannotReadClaimOutsideTheirPaidOrderHistory"
+    },
+    {
+      "id": "P006-CUSTOMER-OUTSIDE-COVERAGE-DENIED",
+      "actor": "CUSTOMER",
+      "endpoint": "POST /api/v1/customer/warranty-claims",
+      "permission": "CUSTOMER",
+      "scope": "ACTIVE_REGISTERED_WARRANTY_DATE_RANGE",
+      "expected": 409,
+      "test": "WarrantyClaimServiceAuthorizationBoundaryTest#claimSubmissionIsRejectedOutsideInclusiveCoverageWindow"
+    },
+    {
+      "id": "P006-VENDOR-CLAIM-TENANT-AND-ASSIGNMENT-SCOPE",
+      "actor": "VENDOR_ENGINEER",
+      "endpoint": "GET /api/v1/vendor/warranty-claims/{id}",
+      "permission": "SERVICE_VIEW",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_EMPLOYEE",
+      "expected": 404,
+      "test": "WarrantyClaimServiceAuthorizationBoundaryTest#vendorMustHaveServiceViewBeforeClaimQueries"
     }
   ],
   "notApplicableResources": [
@@ -2009,6 +2045,72 @@
       "scope": "GLOBAL_CUSTOMER_WARRANTY_OWNERSHIP",
       "assignment": "Warranty ID is resolved only inside the authenticated customer's paid ONLINE order references; foreign or unrelated IDs return 404",
       "runtimeTest": "WarrantyServiceAuthorizationBoundaryTest#customerCannotReadWarrantyForAnOrderTheyDoNotOwn"
+    },
+    "WarrantyClaimController#submit": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_AND_ACTIVE_WARRANTY_OWNERSHIP",
+      "assignment": "Authenticated global customer paid-order references resolve the tenant; claim requires registered warranty coverage dates to include current date",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerCanSubmitAndReadClaimRoutes"
+    },
+    "WarrantyClaimController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "Only claims joined to warranty records on the authenticated customer's tenant/order references are returned",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerCanSubmitAndReadClaimRoutes"
+    },
+    "WarrantyClaimController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
+      "assignment": "Foreign claim IDs return 404; customer-visible events and evidence only",
+      "runtimeTest": "WarrantyClaimServiceAuthorizationBoundaryTest#customerCannotReadClaimOutsideTheirPaidOrderHistory"
+    },
+    "WarrantyClaimController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_EMPLOYEE",
+      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens only within authenticated tenant, other staff see assigned claims only",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceViewCanReadVendorClaims"
+    },
+    "WarrantyClaimController#vendorGet": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_EMPLOYEE",
+      "assignment": "Tenant-qualified claim; employee assignment required unless SERVICE_ASSIGN",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceViewCanReadVendorClaims"
+    },
+    "WarrantyClaimController#assign": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_CLAIM_ASSIGNMENT",
+      "assignment": "SERVICE_ASSIGN; tenant-qualified row lock, expected version and active employee with SERVICE_VIEW",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceAssignCanAssignClaim"
+    },
+    "WarrantyClaimController#inspect": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
+      "assignment": "SERVICE_UPDATE; tenant lock, assigned staff scope, expected version and immutable event; note visibility explicit",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceUpdateCanRecordInspection"
+    },
+    "WarrantyClaimController#decide": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
+      "assignment": "SERVICE_RESOLVE; requires inspection decision state; approve requires repair/replacement action; reject requires reason",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceResolveCanDecideAndResolveClaim"
+    },
+    "WarrantyClaimController#resolve": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
+      "assignment": "SERVICE_RESOLVE; only approved repair/replacement can be resolved with version check",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceResolveCanDecideAndResolveClaim"
+    },
+    "WarrantyClaimController#customerEvidence": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
+      "assignment": "Claim ownership is resolved before object storage; customer uploads are visible only within their claim",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerEvidenceUploadRequiresOwnClaimServicePath"
+    },
+    "WarrantyClaimController#vendorEvidence": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
+      "assignment": "SERVICE_UPDATE; evidence key and metadata are tenant/claim scoped; visibility is explicit",
+      "runtimeTest": "WarrantyClaimServiceAuthorizationBoundaryTest#vendorMustHaveServiceViewBeforeClaimQueries"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

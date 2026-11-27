@@ -43,7 +43,7 @@ Every mutation uses a tenant-qualified row lock and expected version. Resolution
 
 Flyway V15 creates `service_requests` and append-only `service_request_events`. Composite tenant/order, tenant/installation and tenant/assignee foreign keys protect ownership. Event rows reject update/delete on MySQL. Each create, assignment and status change writes an integration outbox event in the same transaction.
 
-Customer detail queries are anchored to paid-online order references resolved for the authenticated customer. The customer API returns only customer-visible events. Vendor staff without `SERVICE_ASSIGN` can list/read only cases assigned to their own username. The vendor admin template receives the five service permissions; other roles remain deny-by-default until a supported role template is deliberately approved.
+Customer detail queries are anchored to paid-online order references resolved for the authenticated customer. The customer API returns only customer-visible events. Vendor staff without `SERVICE_ASSIGN` can list/read only cases assigned to their own username. The Vendor Admin and Service Manager templates receive all five service permissions. The Service Engineer template receives SERVICE_VIEW, SERVICE_UPDATE and SERVICE_RESOLVE; assigned-only query scope prevents engineers from browsing unassigned cases. These standard templates are provisioned for existing tenants by V15 and for new tenants by the standard-role initializer.
 
 ## Frontend
 

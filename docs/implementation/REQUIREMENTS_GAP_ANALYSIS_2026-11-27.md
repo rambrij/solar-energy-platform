@@ -131,3 +131,18 @@ These are recommendations only. The two Version 2.0 source-of-truth documents re
 - Extend Operations scope with warehouses/transfers/serialized inventory, advanced fulfilment, warranty eligibility/claims, engineer service visits, SLA/parts workflows and advanced online returns/reverse logistics as separately testable vertical slices. The initial service-request workflow is implemented but does not complete the broader service module.
 - Add or publish an OpenAPI 3 contract and verify RFC 9457 problem details.
 - Re-run both backend matrices, frontend tests/build, browser E2E, clean MySQL/Flyway initialization and persona/tenant boundary acceptance after the branch CI results are green.
+
+
+## 8. Branch implementation addendum — 2026-11-27
+
+The gap list above is a point-in-time review and predates several subsequent vertical slices on `refactor/development-baseline-cleanup`. Do not treat each earlier bullet as still missing without checking the current source and tests. In particular, the branch now contains customer email verification, vendor tenant-profile self-service, solar packages/product media, site surveys, quotations, vendor payment-account onboarding, installation management and service-request management.
+
+**Warranty coverage registration — PARTIAL (first slice implemented; CI verification pending):**
+- Vendor can select a paid ONLINE customer order and one of its purchased items, then register explicit coverage dates and terms with a required reason.
+- Registration is tenant-qualified, unique per order item, optionally linked to an active installation for the same order, and writes immutable warranty/event rows plus a transactional outbox event.
+- Customer can view warranty coverage only through paid-order references resolved for the authenticated global customer; customer projection omits vendor-private registration identity/reason.
+- Flyway V16 adds tenant-scoped persistence, composite ownership FKs, date checks and database immutability triggers.
+- Vendor workspace: Fulfilment → Warranty Coverage. Customer workspace: Purchases → My Warranties.
+- Warranty claims, claim evidence, visits, SLA/parts workflows, approvals, replacements/refunds and claim resolution remain NOT IMPLEMENTED and require separate approved vertical slices.
+
+The warranty slice reuses existing `SERVICE_VIEW` and `SERVICE_CREATE` grants for this bounded read/register workflow. It does not add new assignable permissions. The latest branch CI run must pass H2, MySQL 8.4, frontend authorization-registry/tests/build and browser E2E before the implementation can be called validated.

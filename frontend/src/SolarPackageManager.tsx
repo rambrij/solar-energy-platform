@@ -50,7 +50,7 @@ export default function SolarPackageManager(){
   setImageProduct(productId);setImages([]);
   if(!productId)return;
   setBusy(true);setError('');
-  try{setImages(await vendorApi('/products/'+productId+'/images'));}
+  try{setImages(await vendorApi(`/products/${encodeURIComponent(productId)}/images`));}
   catch(e){setError((e as Error).message||'Product images could not be loaded.');}
   finally{setBusy(false);}
  }
@@ -58,7 +58,7 @@ export default function SolarPackageManager(){
   if(!imageProduct||!file||!imageReason.trim())return;
   setBusy(true);setError('');setNotice('');
   try{
-   await vendorUpload('/products/'+imageProduct+'/images',file,alt,imageReason.trim());
+   await vendorUpload(`/products/${encodeURIComponent(imageProduct)}/images`,file,alt,imageReason.trim());
    setNotice('Product image uploaded.');setFile(undefined);setAlt('');setImageReason('');
    await loadImages(imageProduct);
   }catch(e){setError((e as Error).message||'Product image upload failed.');}
@@ -68,7 +68,7 @@ export default function SolarPackageManager(){
   if(!imageProduct)return;
   setBusy(true);setError('');
   try{
-   await vendorApi('/products/'+imageProduct+'/images/'+imageId,'DELETE',{reason:'Removed from the vendor product gallery'});
+   await vendorApi(`/products/${encodeURIComponent(imageProduct)}/images/${encodeURIComponent(imageId)}`,'DELETE',{reason:'Removed from the vendor product gallery'});
    setImages(current=>current.filter(image=>image.id!==imageId));setNotice('Image removed from the active gallery.');
   }catch(e){setError((e as Error).message||'Image could not be removed.');}
   finally{setBusy(false);}

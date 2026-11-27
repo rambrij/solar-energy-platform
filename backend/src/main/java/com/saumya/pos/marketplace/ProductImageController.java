@@ -1,22 +1,33 @@
 package com.saumya.pos.marketplace;
 
 import com.saumya.pos.catalog.ProductImageService;
+import com.saumya.pos.security.AuthorizationContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Part;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+import static org.springframework.http.HttpStatus.*;
 
 @RestController
 public class ProductImageController {
+    private static final long MAX_IMAGE_BYTES=5L*1024L*1024L;
     private final ProductImageService service;
-    public ProductImageController(ProductImageService service){this.service=service;}
+    private final AuthorizationContext authorization;
+    public ProductImageController(ProductImageService service,AuthorizationContext authorization){
+        this.service=service;this.authorization=authorization;
+    }
     public record DeleteRequest(@NotBlank @Size(max=250) String reason){}
 
     @GetMapping("/api/v1/vendor/products/{productId}/images")
@@ -25,11 +36,33 @@ public class ProductImageController {
         return service.listVendor(productId);
     }
 
-    @PostMapping(value="/api/v1/vendor/products/{productId}/images",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping("/api/v1/vendor/products/{productId}/images")
     @PreAuthorize("hasAuthority('PRODUCT_UPDATE')")
-    public ProductImageService.ImageView upload(@PathVariable long productId,@RequestPart("file") MultipartFile file,
-            @RequestParam(required=false) String altText,@RequestParam String reason) throws java.io.IOException {
-        return service.upload(productId,file.getBytes(),file.getContentType(),altText,reason);
+    public ProductImageService.ImageView upload(@PathVariable long productId,HttpServletRequest request)
+            throws IOException,ServletException {
+        // Resolve the permission gate before parsing a multipart body. This ensures a
+        // caller without vendor update access is denied consistently, even when the
+        // request has no valid multipart content type.
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        actor.requirePermission("PRODUCT_UPDATE");
+
+        String requestType=request.getContentType();
+        if(requestType==null||!requestType.toLowerCase(Locale.ROOT).startsWith("multipart/form-data"))
+            throw new ResponseStatusException(UNSUPPORTED_MEDIA_TYPE,"A multipart product image upload is required");
+        Part file;
+        try{file=request.getPart("file");}
+        catch(ServletException|IOException invalid){
+            throw new ResponseStatusException(BAD_REQUEST,"Invalid multipart product image upload",invalid);
+        }
+        if(file==null)throw new ResponseStatusException(BAD_REQUEST,"Product image file is required");
+        if(file.getSize()>MAX_IMAGE_BYTES)
+            throw new ResponseStatusException(PAYLOAD_TOO_LARGE,"Product images must not exceed 5 MB");
+        byte[] content;
+        try(var input=file.getInputStream()){content=input.readNBytes((int)MAX_IMAGE_BYTES+1);}
+        if(content.length>MAX_IMAGE_BYTES)
+            throw new ResponseStatusException(PAYLOAD_TOO_LARGE,"Product images must not exceed 5 MB");
+        return service.upload(productId,content,file.getContentType(),request.getParameter("altText"),request.getParameter("reason"));
     }
 
     @GetMapping("/api/v1/vendor/products/{productId}/images/{imageId}")

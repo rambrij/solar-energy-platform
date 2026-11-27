@@ -97,11 +97,11 @@ public class SolarPackageService {
                 i.productNameSnapshot(),i.quantity(),exposePrice?i.unitPriceSnapshot():null,
                 exposePrice?i.taxRateSnapshot():null)).toList());
     }
-    private View vendorView(SolarPackage p) {
-        return view(p,items.findByIdTenantIdAndIdPackageIdOrderByIdProductId(p.tenantId(),p.id()),hasPriceView());
+    private View vendorView(long tenant,SolarPackage p) {
+        return view(p,items.findByIdTenantIdAndIdPackageIdOrderByIdProductId(tenant,p.id()),hasPriceView());
     }
-    private View publicView(SolarPackage p) {
-        return view(p,items.findByIdTenantIdAndIdPackageIdOrderByIdProductId(p.tenantId(),p.id()),true);
+    private View publicView(long tenant,SolarPackage p) {
+        return view(p,items.findByIdTenantIdAndIdPackageIdOrderByIdProductId(tenant,p.id()),true);
     }
     private String snapshot(SolarPackage p,List<SolarPackageItem> lines) {
         return view(p,lines,true).toString();
@@ -113,7 +113,7 @@ public class SolarPackageService {
         if(page<0||page>10000||size<1||size>100)
             throw new ResponseStatusException(BAD_REQUEST,"Bounded solar package pagination required");
         var result=packages.findByTenantIdOrderByNameAscIdAsc(context.tenantId(),PageRequest.of(page,size));
-        return new Page(result.getContent().stream().map(this::vendorView).toList(),page,size,
+        return new Page(result.getContent().stream().map(p->vendorView(context.tenantId(),p)).toList(),page,size,
             result.getTotalElements(),result.getTotalPages());
     }
 
@@ -121,7 +121,7 @@ public class SolarPackageService {
     public List<View> publicList(String vendorSlug) {
         var vendor=catalog.activeVendor(vendorSlug);
         return packages.findByTenantIdAndPublishedTrueOrderByNameAsc(vendor.id()).stream()
-            .map(this::publicView).toList();
+            .map(p->publicView(vendor.id(),p)).toList();
     }
 
     @Transactional

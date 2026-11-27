@@ -62,19 +62,6 @@ public class WarrantyService {
             """,actor.tenantId()).stream().map(this::warranty).toList();
     }
 
-    @Transactional(readOnly=true)
-    public List<OrderHistoryService.CustomerOrderReference> eligibleOrders(String username) {
-        var actor=vendor("SERVICE_CREATE");
-        return db.queryForList("""
-            SELECT o.id,o.created_at
-            FROM orders o
-            WHERE o.tenant_id=? AND o.sales_channel='ONLINE' AND o.status='PAID'
-              AND o.customer_id IS NOT NULL
-            ORDER BY o.created_at DESC,o.id DESC LIMIT 100
-            """,actor.tenantId()).stream().map(row -> new OrderHistoryService.CustomerOrderReference(
-                (String)row.get("id"),actor.tenantId(),"Customer order")).toList();
-    }
-
     public Warranty register(Register request) {
         var actor=vendor("SERVICE_CREATE");
         if(request==null || request.productId()<=0 || request.coverageStartDate()==null
@@ -124,7 +111,15 @@ public class WarrantyService {
             "WARRANTY.REGISTERED",null,Map.of("warrantyId",id,"orderId",orderId,
                 "productId",request.productId(),"coverageStartDate",request.coverageStartDate().toString(),
                 "coverageEndDate",request.coverageEndDate().toString(),"occurredAt",now.toString()));
-        return vendorList().stream().filter(value->value.id()==id).findFirst().orElseThrow();
+        return db.queryForList("""
+            SELECT w.id,w.order_id,w.product_id,oi.name AS product_name,w.installation_id,
+                   w.coverage_start_date,w.coverage_end_date,w.terms_summary,w.registered_by,w.registered_at
+            FROM warranty_records w
+            JOIN order_items oi ON oi.tenant_id=w.tenant_id AND oi.order_id=w.order_id
+                              AND oi.product_id=w.product_id
+            WHERE w.tenant_id=? AND w.id=?
+            """,actor.tenantId(),id).stream().map(this::warranty).findFirst()
+            .orElseThrow(()->new IllegalStateException("Registered warranty could not be reloaded"));
     }
 
     @Transactional(readOnly=true)

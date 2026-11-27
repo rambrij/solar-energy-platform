@@ -5,6 +5,7 @@ For onboarding, subscriptions, support, MFA, Mailpit, and mock payment steps, se
 For catalogue, inventory, POS, shipment fulfilment, and employee administration, see the [Vendor Admin demo walkthrough](vendor-admin.md).
 
 For the end-to-end global customer experience, see the [Global Customer journey and demo walkthrough](customer-journey.md).
+For employee-specific steps, supported role permissions, and current restrictions, see the [Vendor Employee demo walkthrough](vendor-employee.md).
 
 > **Local/test only.** Fixture credentials are public development credentials. Never use them in production or expose the local environment publicly.
 

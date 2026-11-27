@@ -3124,18 +3124,6 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/warranties"
-    },
-    {
-      "id": "customer-warranty-detail",
-      "component": "CustomerWarranties.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/warranties/{id}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/warranties/{id}"
     }
   ],
   "buttons": [
@@ -3798,12 +3786,6 @@
       "component": "VendorWarranties.tsx",
       "trigger": "submit",
       "backendOperation": "POST /api/v1/vendor/warranties"
-    },
-    {
-      "id": "customer-warranty-detail",
-      "component": "CustomerWarranties.tsx",
-      "trigger": "button",
-      "backendOperation": "GET /api/v1/customer/warranties/{id}"
     }
   ],
   "dynamicRouteParameters": {

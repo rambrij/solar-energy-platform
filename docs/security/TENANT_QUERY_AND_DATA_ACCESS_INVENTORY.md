@@ -286,7 +286,17 @@ All inspected SQL uses parameter binding rather than string-concatenated client 
 
 The vendor slug selects a public storefront and does not authorize vendor administration or private records. Search, category, stock and promotion joins retain the selected tenant.
 
-### 7.4 Platform flow
+### 7.4 Vendor lead workflow
+
+`vendor JWT → AuthorizationContext.current() → active tenant membership + LEAD_* permission → tenant-scoped lead repository/JDBC → VendorAccessAuditService`
+
+- Public enquiry intake resolves an active vendor tenant from the storefront slug and requires explicit consent; optional account linking additionally requires an authenticated CUSTOMER identity, matching email and separate link consent.
+- The vendor inbox requires LEAD_VIEW. Actors with LEAD_ASSIGN can read the tenant inbox; other viewers receive only leads assigned to their authenticated username.
+- Assignee discovery and assignment require LEAD_ASSIGN. Candidate employees must be active in the same tenant and hold an active role with LEAD_VIEW.
+- Status changes require LEAD_UPDATE and either assignment ownership or lead-manager permission. Updates enforce an expected version, allowed state transitions and a non-empty reason.
+- The two direct JDBC lookups (`leadAssignees` and `isActiveLeadAssignee`) bind the authenticated tenant and join employee-role-permission data on tenant plus role identity. Read and mutation operations write vendor-private audit events in the same transaction.
+
+### 7.5 Platform flow
 
 `HTTP → platform JWT authorities → PlatformAuthorization / AuthorizationContext → platform controller/service → platform repository`
 

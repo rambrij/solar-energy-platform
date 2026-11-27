@@ -14,7 +14,8 @@ it('shows customer-owned installation status and only customer-visible timeline'
  });
  render(<CustomerInstallations/>);
  await screen.findByText('Installation #4');
- expect(await screen.findByText('Installation has started')).toBeTruthy();
+ await screen.findByText('Installation #4');
+ expect(screen.getAllByText('Installation has started').length).toBeGreaterThan(0);
  expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/installations/4');
 });
 

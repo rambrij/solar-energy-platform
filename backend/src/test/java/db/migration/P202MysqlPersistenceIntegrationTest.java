@@ -132,6 +132,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertConstraint(db, schema, "warranty_events", "fk_warranty_event_record", "FOREIGN KEY");
             assertConstraint(db, schema, "warranty_claims", "fk_warranty_claim_coverage", "FOREIGN KEY");
             assertConstraint(db, schema, "warranty_claims", "chk_warranty_claim_status", "CHECK");
+            assertConstraint(db, schema, "warranty_claims", "uk_warranty_claim_tenant_key", "UNIQUE");
+            assertConstraint(db, schema, "warranty_claims", "chk_warranty_claim_decision_status", "CHECK");
             assertConstraint(db, schema, "warranty_claim_events", "fk_warranty_claim_event_claim", "FOREIGN KEY");
             assertConstraint(db, schema, "warranty_claim_evidence", "fk_warranty_claim_evidence_claim", "FOREIGN KEY");
             assertConstraint(db, schema, "warranty_claim_evidence", "chk_warranty_claim_evidence_size", "CHECK");

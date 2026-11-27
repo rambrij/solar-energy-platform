@@ -1137,11 +1137,11 @@
       "permission": "SERVICE_CREATE",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "POST /api/v1/vendor/service-requests; GET /api/v1/vendor/service-requests/orders",
-      "service": "ServiceRequestService",
-      "scope": "Authenticated tenant; paid customer order; installation link resolved only within the same tenant and order",
-      "ui": "Vendor workspace > Customer Management > Service requests",
-      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest"
+      "endpoint": "POST /api/v1/vendor/service-requests; GET /api/v1/vendor/service-requests/orders; POST /api/v1/vendor/warranties; GET /api/v1/vendor/warranties/orders and /orders/{orderId}/items",
+      "service": "ServiceRequestService; WarrantyService",
+      "scope": "Authenticated tenant; paid customer order; installation link resolved only within the same tenant and order; warranty registration is tenant-qualified to a paid ONLINE customer order item and optional same-order installation; one registration per item",
+      "ui": "Vendor workspace > Customer Management > Service requests; Vendor workspace > Fulfilment > Warranty Coverage",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest; WarrantyControllerAuthorizationTest; WarrantyServiceAuthorizationBoundaryTest"
     },
     {
       "permission": "SERVICE_RESOLVE",
@@ -1167,11 +1167,11 @@
       "permission": "SERVICE_VIEW",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/service-requests; GET /api/v1/vendor/service-requests/{id}",
-      "service": "ServiceRequestService",
-      "scope": "Authenticated tenant; employees see only cases assigned to their username unless they hold SERVICE_ASSIGN",
-      "ui": "Vendor workspace > Customer Management > Service requests",
-      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest"
+      "endpoint": "GET /api/v1/vendor/service-requests; GET /api/v1/vendor/service-requests/{id}; GET /api/v1/vendor/warranties",
+      "service": "ServiceRequestService; WarrantyService",
+      "scope": "Authenticated tenant; employees see only cases assigned to their username unless they hold SERVICE_ASSIGN; warranty register is filtered to authenticated tenant",
+      "ui": "Vendor workspace > Customer Management > Service requests; Vendor workspace > Fulfilment > Warranty Coverage",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest; WarrantyControllerAuthorizationTest; WarrantyServiceAuthorizationBoundaryTest"
     },
     {
       "permission": "SHIPMENT_UPDATE",

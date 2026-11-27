@@ -31,7 +31,7 @@ export default function VendorQuotations(){
  const [notice,setNotice]=useState('');
 
  const refresh=useCallback(async()=>{
-  setLoading(true);setError('');
+  setLoading(true);setError('');setLeads([]);setProducts([]);setQuotes([]);setSelectedQuoteId(null);
   try{
    const [leadRows,productRows,quoteRows]=await Promise.all([
     vendorApi('/leads') as Promise<Lead[]>,

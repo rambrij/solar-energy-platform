@@ -3334,6 +3334,165 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/warranties"
+    },
+    {
+      "id": "vendor-service-visit-list",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-visits",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "vendor-service-visit-claims",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranty-claims",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranty-claims"
+    },
+    {
+      "id": "vendor-service-visit-requests",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests"
+    },
+    {
+      "id": "vendor-service-visit-assignees",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-visits/assignees",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-visits/assignees"
+    },
+    {
+      "id": "vendor-service-visit-create",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/service-visits",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "vendor-service-visit-detail",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-visits/{id}",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-visits/{id}"
+    },
+    {
+      "id": "vendor-service-visit-assignment",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/service-visits/{id}/assignment",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/assignment"
+    },
+    {
+      "id": "vendor-service-visit-status",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/service-visits/{id}/status",
+      "permissions": [
+        "SERVICE_UPDATE",
+        "SERVICE_RESOLVE",
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/status",
+      "permissionMode": "ANY"
+    },
+    {
+      "id": "vendor-service-visit-note",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/service-visits/{id}/notes",
+      "permissions": [
+        "SERVICE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/service-visits/{id}/notes"
+    },
+    {
+      "id": "vendor-service-visit-refresh",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-visits",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "customer-service-visit-list",
+      "component": "CustomerServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-visits",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-visits"
+    },
+    {
+      "id": "customer-service-visit-detail",
+      "component": "CustomerServiceVisits.tsx",
+      "trigger": "detail",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-visits/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-visits/{id}"
+    },
+    {
+      "id": "customer-service-visit-refresh",
+      "component": "CustomerServiceVisits.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-visits",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-visits"
     }
   ],
   "buttons": [
@@ -4050,6 +4209,48 @@
       "component": "CustomerWarrantyClaims.tsx",
       "trigger": "button",
       "backendOperation": "GET /api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}"
+    },
+    {
+      "id": "vendor-service-visit-create",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "vendor-service-visit-detail",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/service-visits/{id}"
+    },
+    {
+      "id": "vendor-service-visit-assignment",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/assignment"
+    },
+    {
+      "id": "vendor-service-visit-status",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/status"
+    },
+    {
+      "id": "vendor-service-visit-note",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/service-visits/{id}/notes"
+    },
+    {
+      "id": "vendor-service-visit-refresh",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "customer-service-visit-refresh",
+      "component": "CustomerServiceVisits.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/service-visits"
     }
   ],
   "dynamicRouteParameters": {

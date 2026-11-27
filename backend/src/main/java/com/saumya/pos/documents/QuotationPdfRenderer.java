@@ -1,6 +1,6 @@
 package com.saumya.pos.documents;
 
-import com.saumya.pos.marketplace.QuotationService;
+import com.saumya.pos.documents.QuotationPdfData;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -26,7 +26,7 @@ public class QuotationPdfRenderer {
         }
     }
 
-    public byte[] render(QuotationService.DocumentData quotation,String reference,Instant generatedAt) {
+    public byte[] render(QuotationPdfData quotation,String reference,Instant generatedAt) {
         if(quotation==null||quotation.quotationId()<=0||quotation.revisionNumber()<1
                 ||quotation.items()==null||quotation.items().isEmpty()||quotation.items().size()>100
                 ||reference==null||reference.isBlank()||generatedAt==null)

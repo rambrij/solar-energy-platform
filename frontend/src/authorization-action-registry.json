@@ -2858,7 +2858,7 @@
     {
       "id": "vendor-installation-status",
       "component": "InstallationManagement.tsx",
-      "trigger": "button",
+      "trigger": "submit",
       "method": "PATCH",
       "endpoint": "/api/v1/vendor/installations/{id}/status",
       "permissions": [
@@ -3508,7 +3508,7 @@
     {
       "id": "vendor-installation-status",
       "component": "InstallationManagement.tsx",
-      "trigger": "button",
+      "trigger": "submit",
       "backendOperation": "PATCH /api/v1/vendor/installations/{id}/status"
     },
     {
@@ -3649,6 +3649,36 @@
       "methodArgument": "'POST'",
       "actions": [
         "customer-quotation-decision"
+      ]
+    },
+    "InstallationManagement.tsx:69": {
+      "fn": "vendorApi",
+      "argument": "'/installations/'+id",
+      "actions": [
+        "vendor-installation-detail"
+      ]
+    },
+    "InstallationManagement.tsx:79": {
+      "fn": "vendorApi",
+      "argument": "'/installations/'+job.id+'/assignment'",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "vendor-installation-assignment"
+      ]
+    },
+    "InstallationManagement.tsx:95": {
+      "fn": "vendorApi",
+      "argument": "'/installations/'+job.id+'/status'",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "vendor-installation-status"
+      ]
+    },
+    "CustomerInstallations.tsx:28": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/installations/'+selected",
+      "actions": [
+        "customer-installation-detail"
       ]
     }
   },

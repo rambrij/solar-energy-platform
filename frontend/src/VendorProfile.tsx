@@ -1,6 +1,7 @@
 import {useState,type FormEvent} from 'react';
 import {vendorApi} from './api';
 import {useSession} from './session';
+import VendorPaymentAccounts from './VendorPaymentAccounts';
 
 type Profile={tenantId:number;slug:string;name:string;legalName:string;contactEmail:string|null;contactPhone:string|null;taxIdentifier:string|null;address:string|null;lifecycleStatus:string;version:number;updatedAt:string};
 type Draft={name:string;legalName:string;contactEmail:string;contactPhone:string;taxIdentifier:string;address:string};
@@ -44,5 +45,6 @@ export default function VendorProfile(){
     <label>Business address<textarea maxLength={500} value={draft.address} onChange={e=>change('address',e.target.value)}/></label>
     {canUpdate&&<button type="submit" disabled={busy||!draft.name.trim()||!draft.legalName.trim()}>Save business profile</button>}
    </fieldset></form></>}
+ <VendorPaymentAccounts/>
  </section>;
 }

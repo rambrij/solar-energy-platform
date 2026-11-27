@@ -3417,17 +3417,17 @@
         "solar-package-create"
       ]
     },
-    "VendorQuotations.tsx:68": {
+    "VendorQuotations.tsx:69": {
       "fn": "vendorApi",
-      "argument": "'/quotations/'+selectedQuote.id+'/revisions'",
+      "argument": "revisionPath",
       "methodArgument": "'POST'",
       "actions": [
         "vendor-quotation-revise"
       ]
     },
-    "CustomerQuotations.tsx:35": {
+    "CustomerQuotations.tsx:36": {
       "fn": "marketplaceApi",
-      "argument": "'/api/v1/customer/quotations/'+quote.id+'/revisions/'+revision.revisionNumber+'/decision'",
+      "argument": "decisionPath",
       "methodArgument": "'POST'",
       "actions": [
         "customer-quotation-decision"

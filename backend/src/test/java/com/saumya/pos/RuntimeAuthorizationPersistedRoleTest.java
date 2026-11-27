@@ -603,6 +603,13 @@ class RuntimeAuthorizationPersistedRoleTest {
                         }
                     }
 
+                    // Supply a valid DTO so request validation cannot mask method-security denial.
+                    if (controllerType.getSimpleName().equals("ServiceVisitController")
+                        && handler.getMethod().getName().equals("updateStatus")) {
+                        request.contentType(APPLICATION_JSON).content(
+                            "{\"expectedVersion\":0,\"status\":\"IN_PROGRESS\",\"note\":\"Runtime authorization probe\"}");
+                    }
+
                     int expected = authenticatedIdentityOnly ? 200 : 403;
                     int actual = mvc.perform(request).andReturn().getResponse().getStatus();
                     assertThat(actual).as("persisted no-effective-permission actor %s on %s %s (%s)",

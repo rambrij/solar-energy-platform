@@ -36,7 +36,8 @@
         "installation-management",
         "service-requests",
         "warranty-management",
-        "vendor-warranty-claims"
+        "vendor-warranty-claims",
+        "vendor-service-visits"
       ]
     },
     {
@@ -56,7 +57,8 @@
         "customer-installations",
         "customer-service-requests",
         "customer-warranties",
-        "customer-warranty-claims"
+        "customer-warranty-claims",
+        "customer-service-visits"
       ]
     },
     {
@@ -161,7 +163,8 @@
         "customer-installations",
         "customer-service-requests",
         "customer-warranties",
-        "customer-warranty-claims"
+        "customer-warranty-claims",
+        "customer-service-visits"
       ]
     },
     {
@@ -180,7 +183,8 @@
         "vendor-site-surveys",
         "vendor-quotations",
         "service-requests",
-        "vendor-warranty-claims"
+        "vendor-warranty-claims",
+        "vendor-service-visits"
       ]
     },
     {
@@ -412,6 +416,16 @@
     {
       "id": "customer-warranty-claims",
       "path": "/marketplace/warranty-claims",
+      "group": "Purchases"
+    },
+    {
+      "id": "vendor-service-visits",
+      "path": "/vendor/service-visits",
+      "group": "Customer Management"
+    },
+    {
+      "id": "customer-service-visits",
+      "path": "/marketplace/service-visits",
       "group": "Purchases"
     }
   ],

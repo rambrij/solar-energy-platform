@@ -616,6 +616,56 @@
           "tenant"
         ]
       }
+    },
+    {
+      "source": "com.saumya.pos.service.ServiceVisitService",
+      "methods": [
+        "eligibleAssignees",
+        "vendorList",
+        "create",
+        "assign",
+        "updateStatus",
+        "recordNote",
+        "customerList",
+        "customerGet",
+        "lockCase",
+        "requireActiveAssignee",
+        "lockVisit",
+        "loadVendor",
+        "appendEvent",
+        "vendorEvents",
+        "customerEvents"
+      ],
+      "authority": "Vendor visit tenant scope comes only from AuthorizationContext after active vendor membership and SERVICE_* checks. Customer visit tenant scope comes only from OrderHistoryService.CustomerOrderReference values resolved for the authenticated global customer and paid-online order ownership. Helper tenantId parameters are passed unchanged only from those authenticated contexts or owned order references.",
+      "evidence": [
+        "authorization.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "customerPaidOnlineOrderReferences(username)",
+        "order.tenantId()",
+        "WHERE v.tenant_id=?",
+        "WHERE tenant_id=?"
+      ],
+      "trustedTenantParameters": {
+        "lockCase": [
+          "tenantId"
+        ],
+        "lockVisit": [
+          "tenantId"
+        ],
+        "loadVendor": [
+          "tenantId"
+        ],
+        "appendEvent": [
+          "tenantId"
+        ],
+        "vendorEvents": [
+          "tenantId"
+        ],
+        "customerEvents": [
+          "tenantId"
+        ]
+      }
     }
   ],
   "inheritedIdLookups": [
@@ -1422,6 +1472,114 @@
         {
           "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorGet",
           "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#lockCase",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#create",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#lockVisit",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#updateStatus",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#recordNote",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#loadVendor",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#findVendor",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#appendEvent",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#create",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#updateStatus",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#recordNote",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#vendorEvents",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#customerEvents",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#customerGet",
+          "expression": "order.tenantId()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }

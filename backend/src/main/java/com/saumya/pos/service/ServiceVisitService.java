@@ -29,22 +29,6 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional
 public class ServiceVisitService {
     private static final Set<String> CASE_TYPES = Set.of("WARRANTY_CLAIM", "SERVICE_REQUEST");
-    private static final String VISIT_SELECT = """
-        SELECT v.id,v.case_type,
-               COALESCE(v.warranty_claim_id,v.service_request_id) AS case_id,
-               COALESCE(wr.order_id,sr.order_id) AS order_id,
-               COALESCE(wc.subject,sr.subject) AS case_subject,
-               v.site_address,v.scheduled_at,v.status,v.assigned_to,
-               v.created_at,v.updated_at,v.completed_at,v.version
-        FROM service_visits v
-        LEFT JOIN warranty_claims wc
-          ON v.case_type='WARRANTY_CLAIM' AND wc.tenant_id=v.tenant_id AND wc.id=v.warranty_claim_id
-        LEFT JOIN warranty_records wr
-          ON wr.tenant_id=wc.tenant_id AND wr.id=wc.warranty_id
-        LEFT JOIN service_requests sr
-          ON v.case_type='SERVICE_REQUEST' AND sr.tenant_id=v.tenant_id AND sr.id=v.service_request_id
-        """;
-
     private final JdbcTemplate db;
     private final AuthorizationContext authorization;
     private final OrderHistoryService orders;
@@ -142,14 +126,40 @@ public class ServiceVisitService {
     public List<VendorVisit> vendorList() {
         var actor=vendor("SERVICE_VIEW");
         List<Map<String,Object>> rows=actor.hasPermission("SERVICE_ASSIGN")
-            ?db.queryForList(VISIT_SELECT+"""
-                WHERE v.tenant_id=?
-                ORDER BY v.scheduled_at DESC,v.id DESC LIMIT 200
-                """,actor.tenantId())
-            :db.queryForList(VISIT_SELECT+"""
-                WHERE v.tenant_id=? AND v.assigned_to=?
-                ORDER BY v.scheduled_at DESC,v.id DESC LIMIT 200
-                """,actor.tenantId(),actor.username());
+            ?db.queryForList("""
+SELECT v.id,v.case_type,
+               COALESCE(v.warranty_claim_id,v.service_request_id) AS case_id,
+               COALESCE(wr.order_id,sr.order_id) AS order_id,
+               COALESCE(wc.subject,sr.subject) AS case_subject,
+               v.site_address,v.scheduled_at,v.status,v.assigned_to,
+               v.created_at,v.updated_at,v.completed_at,v.version
+        FROM service_visits v
+        LEFT JOIN warranty_claims wc
+          ON v.case_type='WARRANTY_CLAIM' AND wc.tenant_id=v.tenant_id AND wc.id=v.warranty_claim_id
+        LEFT JOIN warranty_records wr
+          ON wr.tenant_id=wc.tenant_id AND wr.id=wc.warranty_id
+        LEFT JOIN service_requests sr
+          ON v.case_type='SERVICE_REQUEST' AND sr.tenant_id=v.tenant_id AND sr.id=v.service_request_id
+        WHERE v.tenant_id=?
+        ORDER BY v.scheduled_at DESC,v.id DESC LIMIT 200
+        """,actor.tenantId())
+            :db.queryForList("""
+SELECT v.id,v.case_type,
+               COALESCE(v.warranty_claim_id,v.service_request_id) AS case_id,
+               COALESCE(wr.order_id,sr.order_id) AS order_id,
+               COALESCE(wc.subject,sr.subject) AS case_subject,
+               v.site_address,v.scheduled_at,v.status,v.assigned_to,
+               v.created_at,v.updated_at,v.completed_at,v.version
+        FROM service_visits v
+        LEFT JOIN warranty_claims wc
+          ON v.case_type='WARRANTY_CLAIM' AND wc.tenant_id=v.tenant_id AND wc.id=v.warranty_claim_id
+        LEFT JOIN warranty_records wr
+          ON wr.tenant_id=wc.tenant_id AND wr.id=wc.warranty_id
+        LEFT JOIN service_requests sr
+          ON v.case_type='SERVICE_REQUEST' AND sr.tenant_id=v.tenant_id AND sr.id=v.service_request_id
+        WHERE v.tenant_id=? AND v.assigned_to=?
+        ORDER BY v.scheduled_at DESC,v.id DESC LIMIT 200
+        """,actor.tenantId(),actor.username());
         return rows.stream().map(this::vendorVisit).toList();
     }
 
@@ -301,12 +311,24 @@ public class ServiceVisitService {
         customer(username);
         List<CustomerVisit> result=new ArrayList<>();
         for(var order:orders.customerPaidOnlineOrderReferences(username)) {
-            result.addAll(db.queryForList(VISIT_SELECT+"""
-                WHERE v.tenant_id=?
-                  AND ((v.case_type='WARRANTY_CLAIM' AND wr.order_id=?)
-                    OR (v.case_type='SERVICE_REQUEST' AND sr.order_id=?))
-                ORDER BY v.scheduled_at DESC,v.id DESC
-                """,order.tenantId(),order.orderId(),order.orderId()).stream()
+            result.addAll(db.queryForList("""
+SELECT v.id,v.case_type,
+               COALESCE(v.warranty_claim_id,v.service_request_id) AS case_id,
+               COALESCE(wr.order_id,sr.order_id) AS order_id,
+               COALESCE(wc.subject,sr.subject) AS case_subject,
+               v.site_address,v.scheduled_at,v.status,v.assigned_to,
+               v.created_at,v.updated_at,v.completed_at,v.version
+        FROM service_visits v
+        LEFT JOIN warranty_claims wc
+          ON v.case_type='WARRANTY_CLAIM' AND wc.tenant_id=v.tenant_id AND wc.id=v.warranty_claim_id
+        LEFT JOIN warranty_records wr
+          ON wr.tenant_id=wc.tenant_id AND wr.id=wc.warranty_id
+        LEFT JOIN service_requests sr
+          ON v.case_type='SERVICE_REQUEST' AND sr.tenant_id=v.tenant_id AND sr.id=v.service_request_id
+        WHERE v.tenant_id=? AND ((v.case_type='WARRANTY_CLAIM' AND wr.order_id=?)
+                  OR (v.case_type='SERVICE_REQUEST' AND sr.order_id=?))
+        ORDER BY v.scheduled_at DESC,v.id DESC
+        """,order.tenantId(),order.orderId(),order.orderId()).stream()
                 .map(this::customerVisit).toList());
         }
         return result.stream().collect(java.util.stream.Collectors.toMap(
@@ -320,11 +342,24 @@ public class ServiceVisitService {
         customer(username);
         if(id<=0) throw missing();
         for(var order:orders.customerPaidOnlineOrderReferences(username)) {
-            var rows=db.queryForList(VISIT_SELECT+"""
-                WHERE v.tenant_id=? AND v.id=?
-                  AND ((v.case_type='WARRANTY_CLAIM' AND wr.order_id=?)
-                    OR (v.case_type='SERVICE_REQUEST' AND sr.order_id=?))
-                """,order.tenantId(),id,order.orderId(),order.orderId());
+            var rows=db.queryForList("""
+SELECT v.id,v.case_type,
+               COALESCE(v.warranty_claim_id,v.service_request_id) AS case_id,
+               COALESCE(wr.order_id,sr.order_id) AS order_id,
+               COALESCE(wc.subject,sr.subject) AS case_subject,
+               v.site_address,v.scheduled_at,v.status,v.assigned_to,
+               v.created_at,v.updated_at,v.completed_at,v.version
+        FROM service_visits v
+        LEFT JOIN warranty_claims wc
+          ON v.case_type='WARRANTY_CLAIM' AND wc.tenant_id=v.tenant_id AND wc.id=v.warranty_claim_id
+        LEFT JOIN warranty_records wr
+          ON wr.tenant_id=wc.tenant_id AND wr.id=wc.warranty_id
+        LEFT JOIN service_requests sr
+          ON v.case_type='SERVICE_REQUEST' AND sr.tenant_id=v.tenant_id AND sr.id=v.service_request_id
+        WHERE v.tenant_id=? AND v.id=? AND ((v.case_type='WARRANTY_CLAIM' AND wr.order_id=?)
+                  OR (v.case_type='SERVICE_REQUEST' AND sr.order_id=?))
+        
+        """,order.tenantId(),id,order.orderId(),order.orderId());
             if(!rows.isEmpty()) return new CustomerDetail(customerVisit(rows.getFirst()),
                 customerEvents(order.tenantId(),id));
         }
@@ -332,16 +367,18 @@ public class ServiceVisitService {
     }
 
     private Map<String,Object> lockCase(long tenantId,String type,long caseId) {
-        String sql="WARRANTY_CLAIM".equals(type)?"""
-            SELECT c.id,c.status,w.order_id
-            FROM warranty_claims c
-            JOIN warranty_records w ON w.tenant_id=c.tenant_id AND w.id=c.warranty_id
-            WHERE c.tenant_id=? AND c.id=? FOR UPDATE
-            """:"""
+        if("WARRANTY_CLAIM".equals(type)) {
+            return db.queryForList("""
+                SELECT c.id,c.status,w.order_id
+                FROM warranty_claims c
+                JOIN warranty_records w ON w.tenant_id=c.tenant_id AND w.id=c.warranty_id
+                WHERE c.tenant_id=? AND c.id=? FOR UPDATE
+                """,tenantId,caseId).stream().findFirst().orElseThrow(this::missing);
+        }
+        return db.queryForList("""
             SELECT id,status,order_id FROM service_requests
             WHERE tenant_id=? AND id=? FOR UPDATE
-            """;
-        return db.queryForList(sql,tenantId,caseId).stream().findFirst().orElseThrow(this::missing);
+            """,tenantId,caseId).stream().findFirst().orElseThrow(this::missing);
     }
 
     private void requireActiveAssignee(AuthorizationContext.Context actor,String username) {
@@ -384,7 +421,23 @@ public class ServiceVisitService {
     }
 
     private Map<String,Object> loadVendor(long tenantId,long id) {
-        return db.queryForList(VISIT_SELECT+" WHERE v.tenant_id=? AND v.id=?",tenantId,id)
+        return db.queryForList("""
+SELECT v.id,v.case_type,
+               COALESCE(v.warranty_claim_id,v.service_request_id) AS case_id,
+               COALESCE(wr.order_id,sr.order_id) AS order_id,
+               COALESCE(wc.subject,sr.subject) AS case_subject,
+               v.site_address,v.scheduled_at,v.status,v.assigned_to,
+               v.created_at,v.updated_at,v.completed_at,v.version
+        FROM service_visits v
+        LEFT JOIN warranty_claims wc
+          ON v.case_type='WARRANTY_CLAIM' AND wc.tenant_id=v.tenant_id AND wc.id=v.warranty_claim_id
+        LEFT JOIN warranty_records wr
+          ON wr.tenant_id=wc.tenant_id AND wr.id=wc.warranty_id
+        LEFT JOIN service_requests sr
+          ON v.case_type='SERVICE_REQUEST' AND sr.tenant_id=v.tenant_id AND sr.id=v.service_request_id
+        WHERE v.tenant_id=? AND v.id=?
+        
+        """,tenantId,id)
             .stream().findFirst().orElseThrow(this::missing);
     }
 

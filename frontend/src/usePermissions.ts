@@ -82,6 +82,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'vendor-profile':{allOf:['TENANT_PROFILE_VIEW']},
  'vendor-customer-crm':{anyOf:['CUSTOMER_RELATION_VIEW','LEAD_VIEW']},
  'vendor-site-surveys':{allOf:['LEAD_VIEW']},
+ 'vendor-quotations':{allOf:['LEAD_VIEW']},
  'shipment-management':{anyOf:['SHIPMENT_VIEW','SHIPMENT_UPDATE']},
  'vendor-directory':{anyOf:['CUSTOMER']},
  'storefront-products':{anyOf:['CUSTOMER']},
@@ -90,6 +91,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'saved-vendor-carts':{anyOf:['CUSTOMER']},
  'customer-dashboard':{allOf:['CUSTOMER']},
  'customer-purchases':{anyOf:['CUSTOMER']},
+ 'customer-quotations':{allOf:['CUSTOMER']},
  'customer-profile':{allOf:['CUSTOMER']},
 };
 

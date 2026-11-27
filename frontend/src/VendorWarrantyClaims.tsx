@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {vendorApi,vendorUpload} from './api';
 import {useSession} from './session';
+import {downloadVendorClaimEvidence} from './evidenceDownload';
 type Claim={id:number;warrantyId:number;orderId:string;productName:string;subject:string;description:string;status:string;assignedTo:string|null;inspectionSummary:string|null;decision:string|null;decisionReason:string|null;resolutionType:string|null;version:number};
 type Event={id:number;toStatus:string;note:string;occurredAt:string};
 type Evidence={id:string;fileName:string;byteSize:number;customerVisible:boolean};
@@ -21,7 +22,7 @@ export default function VendorWarrantyClaims(){
  async function decide(row:Claim,e:FormEvent){e.preventDefault();const decision=val(row.id,'decision');await patch(row,'decision',{expectedVersion:row.version,decision,resolutionType:decision==='APPROVED'?val(row.id,'resolutionType'):null,reason:val(row.id,'decisionReason')},'Decision recorded.');}
  async function resolve(row:Claim,e:FormEvent){e.preventDefault();await patch(row,'resolution',{expectedVersion:row.version,note:val(row.id,'resolutionNote')},'Claim resolved.');}
  async function evidence(row:Claim,e:FormEvent<HTMLFormElement>){e.preventDefault();const form=e.currentTarget,file=(form.elements.namedItem('file') as HTMLInputElement).files?.[0];if(!file)return;setBusy(true);try{await vendorUpload('/warranty-claims/'+row.id+'/evidence',file,'','');setNotice('Evidence uploaded.');await detail(row.id);}catch(ex){setError((ex as Error).message);}finally{setBusy(false);}}
- async function download(row:Claim,id:string,name:string){try{const r=await fetch('/api/v1/vendor/warranty-claims/'+row.id+'/evidence/'+id,{credentials:'same-origin'});if(!r.ok)throw new Error('Download failed');const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}catch(e){setError((e as Error).message);}}
+ async function download(row:Claim,id:string,name:string){try{await downloadVendorClaimEvidence(row.id,id,name);}catch(e){setError((e as Error).message);}}
  return <section aria-labelledby="vendor-claim-title" aria-busy={busy}><header><span className="eyebrow">Fulfilment</span><h2 id="vendor-claim-title">Warranty claims</h2><p>Assign, inspect, decide and track warranty claim resolution.</p></header>
  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
  {!canView?<p>Warranty claim view permission is required.</p>:rows.length===0?<p>No warranty claims submitted.</p>:rows.map(row=><article key={row.id}>

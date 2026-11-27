@@ -85,7 +85,7 @@ public class ServiceRequestService {
         return db.queryForList("""
             SELECT id,created_at
             FROM orders
-            WHERE tenant_id=? AND status='PAID' AND customer_id IS NOT NULL
+            WHERE tenant_id=? AND status='PAID' AND customer_id IS NOT NULL AND sales_channel='ONLINE'
             ORDER BY created_at DESC,id DESC
             LIMIT 100
             """, actor.tenantId()).stream().map(row -> new EligibleOrder(
@@ -146,10 +146,11 @@ public class ServiceRequestService {
         if (input == null) throw bad("Service request details are required");
         String orderId = orderId(input.orderId());
         Map<String,Object> order = db.queryForList("""
-            SELECT customer_id,status
+            SELECT customer_id,status,sales_channel
             FROM orders WHERE tenant_id=? AND id=? FOR UPDATE
             """, actor.tenantId(), orderId).stream().findFirst().orElseThrow(this::missingOrder);
-        if (!"PAID".equals(order.get("status")) || order.get("customer_id") == null)
+        if (!"PAID".equals(order.get("status")) || order.get("customer_id") == null
+                || !"ONLINE".equals(order.get("sales_channel")))
             throw missingOrder();
         return create(actor.tenantId(), actor.username(), "VENDOR", orderId, input);
     }
@@ -165,10 +166,11 @@ public class ServiceRequestService {
             .stream().filter(reference -> reference.orderId().equals(orderId)).findFirst()
             .orElseThrow(this::missingOrder);
         Map<String,Object> row = db.queryForList("""
-            SELECT status,customer_id
-            FROM orders WHERE tenant_id=? AND id=?
+            SELECT status,customer_id,sales_channel
+            FROM orders WHERE tenant_id=? AND id=? FOR UPDATE
             """, order.tenantId(), orderId).stream().findFirst().orElseThrow(this::missingOrder);
-        if (!"PAID".equals(row.get("status")) || row.get("customer_id") == null) throw missingOrder();
+        if (!"PAID".equals(row.get("status")) || row.get("customer_id") == null
+                || !"ONLINE".equals(row.get("sales_channel"))) throw missingOrder();
         return customerRequest(create(order.tenantId(), username, "CUSTOMER", orderId, input));
     }
 

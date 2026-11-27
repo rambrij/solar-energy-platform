@@ -3538,13 +3538,13 @@ class PosTest {
             new org.springframework.security.core.authority.SimpleGrantedAuthority("ACTOR_CONTEXT_PLATFORM")));
   asAuthentication(platform,()->memberships.provisionInitialVendorAdmin(1,1,admin));
   asAuthentication(platform,()->memberships.provisionInitialVendorAdmin(1,1,admin));
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=1 AND action='ROLE_TEMPLATE_APPLIED'",Integer.class)).isEqualTo(6);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=1 AND action='ROLE_TEMPLATE_APPLIED'",Integer.class)).isEqualTo(8);
   var roleService=applicationContext.getBean(com.saumya.pos.membership.VendorRoleService.class);
   String target="p102-worker@example.test";
   employee(target,1,1);
   Map<String,String> routes=Map.of("VENDOR_ADMIN","roles","POS_CASHIER","pos/products",
       "INVENTORY_MANAGER","products","SALES_MANAGER","pos/reports/sales","ACCOUNTANT","pos/reports/cash-refunds",
-      "SALES_EXECUTIVE","leads");
+      "SALES_EXECUTIVE","leads","SERVICE_MANAGER","service-requests","SERVICE_ENGINEER","service-requests");
   for (var template : com.saumya.pos.membership.StandardRoleTemplates.ALL) {
    if(template.deferredReason()!=null){
     assertThat(template.permissions()).isEmpty();
@@ -3832,6 +3832,7 @@ class PosTest {
   if(name.contains("billinginterval"))return "MONTHLY";
   if(name.equals("requestId"))return "00000000-0000-4000-8000-000000000006";
   if(name.equals("status"))return "CANCELLED";
+  if(name.equals("priority"))return "NORMAL";
   if(name.contains("planKey".toLowerCase(Locale.ROOT)))return "p006-matrix-plan";
   if(name.contains("slug"))return "p006-matrix";
   if(name.contains("sku"))return "P006-MATRIX-SKU";

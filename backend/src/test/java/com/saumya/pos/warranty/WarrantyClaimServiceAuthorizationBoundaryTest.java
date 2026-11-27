@@ -33,6 +33,43 @@ class WarrantyClaimServiceAuthorizationBoundaryTest {
             "engineer@vendor.test",7L,2L,"7:engineer",grants,false,false,true));
     }
 
+    @Test void customerCanSubmitClaimForTheirActiveRegisteredWarranty(){
+        customer("customer@example.test");
+        when(orders.customerPaidOnlineOrderReferences("customer@example.test")).thenReturn(List.of(
+            new OrderHistoryService.CustomerOrderReference("own-order",7L,"Vendor A")));
+        var warranty=new java.util.HashMap<String,Object>();
+        warranty.put("id",99L);warranty.put("order_id","own-order");
+        warranty.put("coverage_start_date",java.sql.Date.valueOf("2020-01-01"));
+        warranty.put("coverage_end_date",java.sql.Date.valueOf("2030-11-27"));
+        warranty.put("product_name","Solar Panel");
+        var claim=new java.util.HashMap<String,Object>();
+        claim.put("id",101L);claim.put("tenant_id",7L);claim.put("warranty_id",99L);
+        claim.put("order_id","own-order");claim.put("product_name","Solar Panel");
+        claim.put("subject","Panel issue");claim.put("description","Panel stopped producing");
+        claim.put("status","SUBMITTED");claim.put("assigned_to",null);claim.put("inspection_summary",null);
+        claim.put("decision",null);claim.put("decision_reason",null);claim.put("resolution_type",null);
+        claim.put("submitted_at",java.sql.Timestamp.from(clock.instant()));
+        claim.put("updated_at",java.sql.Timestamp.from(clock.instant()));claim.put("resolved_at",null);
+        claim.put("version",0L);
+        when(db.queryForList(contains("SELECT w.id,w.order_id"),eq(7L),eq("own-order"),eq(99L)))
+            .thenReturn(List.of(warranty));
+        when(db.queryForObject(contains("SELECT id FROM warranty_claims"),eq(Long.class),eq(7L),anyString()))
+            .thenReturn(101L);
+        when(db.queryForList(contains("SELECT c.id,c.tenant_id"),eq(7L),eq(101L))).thenReturn(List.of(claim));
+        when(db.update(anyString(),any(Object[].class))).thenReturn(1);
+
+        var result=service().submit("customer@example.test",
+            new WarrantyClaimService.Create(99,"Panel issue","Panel stopped producing"));
+
+        assertThat(result.id()).isEqualTo(101L);
+        assertThat(result.status()).isEqualTo("SUBMITTED");
+        assertThat(result.productName()).isEqualTo("Solar Panel");
+        verify(db).update(contains("INSERT INTO warranty_claims"),any(Object[].class));
+        verify(db).update(contains("INSERT INTO warranty_claim_events"),any(Object[].class));
+        verify(outbox).append(eq(7L),eq("customer@example.test"),eq("WARRANTY_CLAIM"),eq("101"),
+            eq("WARRANTY_CLAIM.SUBMITTED"),isNull(),anyMap());
+    }
+
     @Test void customerCannotSubmitClaimForForeignWarranty(){
         customer("customer@example.test");
         when(orders.customerPaidOnlineOrderReferences("customer@example.test")).thenReturn(List.of());

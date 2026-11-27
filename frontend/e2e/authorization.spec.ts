@@ -432,9 +432,18 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
   expect(verificationMatch).toBeTruthy();
   const verificationUrl = verificationMatch![0].replace(/[),.]+$/, '');
   expect(new URL(verificationUrl).pathname).toBe('/verify-email');
+  const verificationResponse = page.waitForResponse(response =>
+    response.url().endsWith('/api/v1/auth/email-verification/verify') &&
+    response.request().method() === 'POST'
+  );
   await page.goto(verificationUrl);
+  const verificationResult = await verificationResponse;
+  expect(verificationResult.status(), await verificationResult.text()).toBe(200);
   await expect(page.getByRole('heading', { name: 'Email verified' })).toBeVisible();
 
+  // The verification page is intentionally a public confirmation screen. Return
+  // to the application home before using the sign-in helper to open the login UI.
+  await page.goto('/');
   const platformToken = await signIn(page, demo.platformAdmin.username, demo.platformAdmin.password);
   const created = await apiAs(page, platformToken, '/api/v1/platform/tenants', 'POST', {
     slug: 'dual-context-' + suffix,

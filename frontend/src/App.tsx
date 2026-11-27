@@ -31,6 +31,7 @@ import StockReceiving from './StockReceiving';
 import VendorAccessAdmin from './VendorAccessAdmin';
 import VendorCustomerCrm from './VendorCustomerCrm';
 import VendorSiteSurveys from './VendorSiteSurveys';
+import VendorQuotations from './VendorQuotations';
 import VendorProfile from './VendorProfile';
 import ShipmentManagement from './ShipmentManagement';
 import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
@@ -170,6 +171,7 @@ export default function App() {
     <RouteOutlet id="vendor-profile" mode="pos"><VendorProfile/></RouteOutlet>
     <RouteOutlet id="vendor-customer-crm" mode="pos"><VendorCustomerCrm/></RouteOutlet>
     {has("LEAD_VIEW")&&<RouteOutlet id="vendor-site-surveys" mode="pos"><VendorSiteSurveys/></RouteOutlet>}
+    {has("LEAD_VIEW")&&<RouteOutlet id="vendor-quotations" mode="pos"><VendorQuotations/></RouteOutlet>}
     <RouteOutlet id="shipment-management" mode="pos"><ShipmentManagement/></RouteOutlet>
     <RouteOutlet id="terminal-tender-review" mode="pos"><TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>
   </Shell>;

@@ -14,7 +14,7 @@ export default function VendorWarrantyClaims(){
  const set=(id:number,key:string,value:string)=>setForms(v=>({...v,[id]:{...v[id],[key]:value}}));
  const refresh=useCallback(async()=>{setBusy(true);setError('');try{const [r,s]=await Promise.all([canView?vendorApi('/warranty-claims') as Promise<Claim[]>:Promise.resolve([]),canAssign?vendorApi('/service-requests/assignees') as Promise<string[]>:Promise.resolve([])]);setRows(r);setStaff(s);}catch(e){setError((e as Error).message||'Claims unavailable.');}finally{setBusy(false);}},[canView,canAssign]);
  useEffect(()=>{void refresh();},[refresh,account?.tenantId,account?.username]);
- async function detail(id:number){try{setDetails(v=>({...v,[id]:await vendorApi('/warranty-claims/'+id) as Detail}));}catch(e){setError((e as Error).message);}}
+ async function detail(id:number){try{const result=await vendorApi('/warranty-claims/'+id) as Detail;setDetails(v=>({...v,[id]:result}));}catch(e){setError((e as Error).message);}}
  async function patch(row:Claim,path:string,body:unknown,message:string){setBusy(true);setError('');try{await vendorApi('/warranty-claims/'+row.id+'/'+path,'PATCH',body);setNotice(message);await refresh();await detail(row.id);}catch(e){setError((e as Error).message||'Update failed.');}finally{setBusy(false);}}
  async function assign(row:Claim,e:FormEvent){e.preventDefault();await patch(row,'assignment',{expectedVersion:row.version,assignedTo:val(row.id,'assignedTo'),reason:val(row.id,'assignReason')},'Claim assigned.');}
  async function inspect(row:Claim,e:FormEvent){e.preventDefault();await patch(row,'inspection',{expectedVersion:row.version,summary:val(row.id,'summary'),note:val(row.id,'inspectNote'),customerVisible:val(row.id,'visible')!=='false'},'Inspection recorded.');}

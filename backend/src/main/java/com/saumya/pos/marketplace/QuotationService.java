@@ -217,7 +217,10 @@ public class QuotationService {
         }
         quote.accept(revisionNumber,customer,now);
         var order=checkout.fromAcceptedQuotation(tenant,customer,quote.id(),revision.total(),
-            orderLineSnapshots(tenant,revision.id()));
+            lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(tenant,revision.id()).stream()
+                .map(line->new CheckoutService.QuotationLineSnapshot(line.productId(),line.productNameSnapshot(),
+                    line.quantity(),line.listPrice(),line.unitPrice(),line.discountPercent(),line.taxRate(),
+                    line.taxAmount(),line.lineTotal())).toList());
         quote.converted(order.id(),now);
         audit.save(new QuotationAuditEvent(tenant,quote.id(),revision.id(),"CUSTOMER",username,
             customer,"QUOTATION_ACCEPTED_AND_CONVERTED", "Customer accepted the current quotation revision",now));

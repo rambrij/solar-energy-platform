@@ -128,7 +128,7 @@ These are recommendations only. The two Version 2.0 source-of-truth documents re
 - Implement verified vendor merchant-account onboarding and the approved live vendor-direct payment provider/webhook/refund/reconciliation adapter once the approval gate is satisfied.
 - Implement Redis cache/rate limiting, MinIO/S3 object storage, transactional outbox and inbox/idempotency infrastructure.
 - Implement vendor invoice/finance and full vendor reporting slices.
-- Extend Operations scope with warehouses/transfers/serialized inventory, advanced fulfilment, warranty eligibility/claims, engineer service visits, SLA/parts workflows and advanced online returns/reverse logistics as separately testable vertical slices. The initial service-request workflow is implemented but does not complete the broader service module.
+- Extend Operations scope with warehouses/transfers/serialized inventory, advanced fulfilment, SLA/parts workflows, visit evidence and advanced online returns/reverse logistics as separately testable vertical slices. Warranty coverage/claims, general service requests and shared engineer visits now have initial tenant-scoped vertical slices.
 - Add or publish an OpenAPI 3 contract and verify RFC 9457 problem details.
 - Re-run both backend matrices, frontend tests/build, browser E2E, clean MySQL/Flyway initialization and persona/tenant boundary acceptance after the branch CI results are green.
 
@@ -158,3 +158,13 @@ The warranty slice reuses existing `SERVICE_VIEW` and `SERVICE_CREATE` grants fo
 - Flyway V17 creates tenant-owned claims, immutable event/evidence metadata and lifecycle/ownership constraints.
 - Vendor workspace: Customer Management → Warranty Claims. Customer workspace: Purchases → Warranty Claims.
 - Repair/replacement decisions record the workflow only. They do not execute refund/payment, inventory deduction or replacement-order transactions; those remain separate integrations/vertical slices.
+
+
+**Shared Engineer Visit Management — IMPLEMENTED IN BRANCH (CI verification pending):**
+- One tenant-owned `service_visits` aggregate supports both `WARRANTY_CLAIM` and `SERVICE_REQUEST`; each visit is constrained to exactly one case type and a tenant-qualified foreign key.
+- Vendor staff with `SERVICE_ASSIGN` can schedule, assign, reassign, reschedule and cancel visits. Assignees must be enabled employees with an active persisted `SERVICE_VIEW` grant.
+- Assigned engineers can update progress and record internal or customer-visible visit report notes. Completion requires `SERVICE_RESOLVE`; cancellation requires `SERVICE_ASSIGN`.
+- Vendor lists/details are tenant and assignment scoped. Customer visit reads derive ownership from authenticated paid-online order references and return customer-visible event notes only.
+- Mutations use tenant-qualified row locks and optimistic versions; event rows are append-only and each mutation publishes through the transactional outbox.
+- Flyway V18 creates the shared visit and immutable event tables. Vendor and customer workspace navigation exposes Engineer Visits.
+- This slice does not implement SLA timers/escalations, spare-parts inventory/approval, visit evidence uploads, or financial/refund/replacement transactions.

@@ -51,3 +51,29 @@ Customer detail queries are anchored to paid-online order references resolved fo
 - Customer workspace: Purchases → Service & Support.
 
 The UI submits no tenant identifier and uses server-returned request versions for mutations.
+
+
+## Shared engineer visits
+
+Engineer visits are shared by warranty claims and general service requests. They do not create a second case record: a visit references exactly one tenant-owned `warranty_claims` row or `service_requests` row.
+
+### Vendor API
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/v1/vendor/service-visits` | `SERVICE_VIEW` | Assigned-only visit register unless actor has `SERVICE_ASSIGN` |
+| GET | `/api/v1/vendor/service-visits/assignees` | `SERVICE_ASSIGN` | Enabled tenant employees with persisted `SERVICE_VIEW` |
+| GET | `/api/v1/vendor/service-visits/{id}` | `SERVICE_VIEW` | Visit detail and internal/customer-visible event history |
+| POST | `/api/v1/vendor/service-visits` | `SERVICE_ASSIGN` | Schedule a visit against a warranty claim or service request |
+| PATCH | `/api/v1/vendor/service-visits/{id}/assignment` | `SERVICE_ASSIGN` | Reassign/reschedule with expected version and reason |
+| PATCH | `/api/v1/vendor/service-visits/{id}/status` | `SERVICE_UPDATE`, `SERVICE_RESOLVE` or `SERVICE_ASSIGN` | Start, complete or cancel a visit with validated transition |
+| POST | `/api/v1/vendor/service-visits/{id}/notes` | `SERVICE_UPDATE` | Append a report note with explicit customer visibility |
+
+### Customer API
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/v1/customer/service-visits` | Visits linked to the customer's paid-online orders across vendors |
+| GET | `/api/v1/customer/service-visits/{id}` | One visit and customer-visible report history |
+
+Flyway V18 creates `service_visits` and `service_visit_events`. The case-type CHECK constraint requires exactly one case foreign key, composite tenant foreign keys prevent cross-tenant references, and event rows reject update/delete on MySQL. SLA clocks, parts workflows and visit evidence remain future increments.

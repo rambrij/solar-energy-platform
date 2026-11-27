@@ -98,6 +98,9 @@ describe('hasNavigationPermission',()=>{
   expect(hasNavigationPermission('checkout',['POS_VIEW'])).toBe(true);
   expect(hasNavigationPermission('register',['POS_VIEW'])).toBe(true);
   expect(hasNavigationPermission('product-management',['PRODUCT_VIEW'])).toBe(true);
+  expect(hasNavigationPermission('vendor-service-visits',['SERVICE_VIEW'])).toBe(true);
+  expect(hasNavigationPermission('vendor-service-visits',['SHIPMENT_VIEW'])).toBe(false);
+  expect(hasNavigationPermission('customer-service-visits',['CUSTOMER'])).toBe(true);
  });
  it('requires POS_VIEW to enter the checkout workspace',()=>{
   expect(hasNavigationPermission('checkout',['POS_VIEW'])).toBe(true);

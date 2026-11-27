@@ -2123,6 +2123,60 @@
       "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
       "assignment": "Authenticated customer order references resolve claim tenant; only customer-visible evidence object can be downloaded",
       "runtimeTest": "WarrantyClaimServiceAuthorizationBoundaryTest#customerCannotReadClaimOutsideTheirPaidOrderHistory"
+    },
+    "ServiceVisitController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER_VISIT",
+      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens list only within the authenticated tenant; other employees see visits assigned to their username",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceViewCanReadVendorVisitQueue"
+    },
+    "ServiceVisitController#eligibleAssignees": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_SERVICE_VIEW",
+      "assignment": "SERVICE_ASSIGN; only enabled employees with active persisted tenant SERVICE_VIEW grants are returned",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceAssignCanScheduleForEitherCaseTypeAndListAssignees"
+    },
+    "ServiceVisitController#vendorGet": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER_VISIT",
+      "assignment": "SERVICE_VIEW; tenant-qualified visit and assignedTo must match actor unless SERVICE_ASSIGN",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceViewCanReadVendorVisitQueue"
+    },
+    "ServiceVisitController#create": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_CASE_OWNERSHIP",
+      "assignment": "SERVICE_ASSIGN; exactly one tenant-qualified warranty_claim_id or service_request_id; source case row locked; assignee enabled with active SERVICE_VIEW",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceAssignCanScheduleForEitherCaseTypeAndListAssignees"
+    },
+    "ServiceVisitController#assign": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
+      "assignment": "SERVICE_ASSIGN; tenant-qualified visit lock and optimistic version; active tenant employee with SERVICE_VIEW; completed/cancelled visits terminal",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#assignmentIsProtectedByServiceAssign"
+    },
+    "ServiceVisitController#updateStatus": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
+      "assignment": "SERVICE_UPDATE for progress; SERVICE_RESOLVE for completion; SERVICE_ASSIGN for cancellation; tenant-qualified lock, assignment scope and expected version",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#engineerCanRecordProgressAndCustomerVisibleNote"
+    },
+    "ServiceVisitController#recordNote": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
+      "assignment": "SERVICE_UPDATE; assigned engineer scope; expected version; immutable note event has explicit customerVisible flag",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#engineerCanRecordProgressAndCustomerVisibleNote"
+    },
+    "ServiceVisitController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_VISIT_OWNERSHIP",
+      "assignment": "OrderHistoryService resolves authenticated global customer into paid-online order references; visits are filtered through tenant/order ownership for either case type",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#customerCanReadOnlyOwnVisitRoutes"
+    },
+    "ServiceVisitController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_VISIT_OWNERSHIP",
+      "assignment": "Foreign visit IDs return 404; customer timeline exposes only customer-visible visit events",
+      "runtimeTest": "ServiceVisitServiceAuthorizationBoundaryTest#customerVisitLookupUsesOnlyAuthenticatedPaidOrderReferences"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

@@ -13,6 +13,8 @@ it('groups unique workspace destinations without exposing unrelated modules', ()
   expect(navigationItems('pos').some(item => item.id === 'vendor-profile')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'vendor-site-surveys')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'solar-package-management')).toBe(true);
+  expect(navigationItems('pos').some(item => item.id === 'vendor-service-visits')).toBe(true);
+  expect(navigationItems('online').some(item => item.id === 'customer-service-visits')).toBe(true);
   expect(availableNavigation('pos', new Set(['checkout', 'order-history'])).map(item => item.id)).toEqual(['checkout', 'order-history']);
 });
 
@@ -50,6 +52,8 @@ it('matches nested pages to their deepest registered navigation parent', () => {
 
 it('normalizes trailing slashes and never selects the first menu item for unknown routes', () => {
   expect(resolveWorkspaceRoute('pos', '/vendor/pos/products/', '')).toBe('product-management');
+  expect(resolveWorkspaceRoute('pos', '/vendor/service-visits', '')).toBe('vendor-service-visits');
+  expect(resolveWorkspaceRoute('online', '/marketplace/service-visits', '')).toBe('customer-service-visits');
   expect(resolveWorkspaceRoute('online', '/marketplace/cart/', '')).toBe('customer-cart');
   expect(resolveWorkspaceRoute('online', '/marketplace/dashboard/', '')).toBe('customer-dashboard');
   expect(selectedNavigation(navigationItems('pos'), 'not-found')).toBeUndefined();

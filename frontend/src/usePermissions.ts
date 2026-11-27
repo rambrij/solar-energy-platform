@@ -88,6 +88,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'service-requests':{allOf:['SERVICE_VIEW']},
  'warranty-management':{anyOf:['SERVICE_VIEW','SERVICE_CREATE']},
  'vendor-warranty-claims':{allOf:['SERVICE_VIEW']},
+ 'vendor-service-visits':{allOf:['SERVICE_VIEW']},
  'vendor-directory':{anyOf:['CUSTOMER']},
  'storefront-products':{anyOf:['CUSTOMER']},
  'customer-cart':{anyOf:['CUSTOMER']},
@@ -99,6 +100,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'customer-service-requests':{allOf:['CUSTOMER']},
  'customer-warranties':{allOf:['CUSTOMER']},
  'customer-warranty-claims':{allOf:['CUSTOMER']},
+ 'customer-service-visits':{allOf:['CUSTOMER']},
  'customer-quotations':{allOf:['CUSTOMER']},
  'customer-profile':{allOf:['CUSTOMER']},
 };

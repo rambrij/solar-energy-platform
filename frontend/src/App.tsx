@@ -39,6 +39,7 @@ import CustomerInstallations from './CustomerInstallations';
 import VendorServiceRequests from './VendorServiceRequests';
 import VendorWarranties from './VendorWarranties';
 import VendorWarrantyClaims from './VendorWarrantyClaims';
+import VendorServiceVisits from './VendorServiceVisits';
 import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
 import {useSession} from './session';
 import RouteOutlet from './RouteOutlet';
@@ -182,6 +183,7 @@ export default function App() {
     <RouteOutlet id="service-requests" mode="pos"><VendorServiceRequests/></RouteOutlet>
     <RouteOutlet id="warranty-management" mode="pos"><VendorWarranties/></RouteOutlet>
     <RouteOutlet id="vendor-warranty-claims" mode="pos"><VendorWarrantyClaims/></RouteOutlet>
+    <RouteOutlet id="vendor-service-visits" mode="pos"><VendorServiceVisits/></RouteOutlet>
     <RouteOutlet id="terminal-tender-review" mode="pos"><TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>
   </Shell>;
 }

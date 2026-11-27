@@ -1,6 +1,6 @@
 package com.saumya.pos.installation;
 
-import com.saumya.pos.checkout.OrderHistoryService;
+import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.security.AuthorizationContext;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -30,14 +30,14 @@ import org.springframework.web.server.ResponseStatusException;
 public class InstallationService {
     private final JdbcTemplate db;
     private final AuthorizationContext authorization;
-    private final OrderHistoryService orders;
+    private final CustomerAccess customers;
     private final Clock clock;
 
     public InstallationService(JdbcTemplate db,AuthorizationContext authorization,
-            OrderHistoryService orders,Clock clock) {
+            CustomerAccess customers,Clock clock) {
         this.db=db;
         this.authorization=authorization;
-        this.orders=orders;
+        this.customers=customers;
         this.clock=clock;
     }
 
@@ -258,7 +258,7 @@ public class InstallationService {
     private long ordersCustomerId(String username) {
         // The order-history boundary validates username against the authenticated global
         // CUSTOMER actor before returning any cross-vendor order references.
-        return new com.saumya.pos.identity.CustomerAccessProxyPlaceholder().unused();
+        return customers.resolve(username);
     }
 
     private Job findVendor(AuthorizationContext.Context actor,long id) {

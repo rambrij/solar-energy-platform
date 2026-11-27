@@ -1,8 +1,8 @@
 import {useCallback,useEffect,useState} from 'react';
 import {marketplaceApi} from './marketplaceApi';
 
-type Job={id:number;orderId:string;siteAddress:string;scheduledAt:string;status:string;assignedTo:string;createdAt:string;updatedAt:string;completedAt:string|null;version:number};
-type Event={id:number;type:string;status:string;note:string;actorUsername:string;occurredAt:string};
+type Job={id:number;orderId:string;siteAddress:string;scheduledAt:string;status:string;createdAt:string;updatedAt:string;completedAt:string|null};
+type Event={id:number;type:string;status:string;note:string;occurredAt:string};
 type Detail={job:Job;events:Event[]};
 
 export default function CustomerInstallations(){

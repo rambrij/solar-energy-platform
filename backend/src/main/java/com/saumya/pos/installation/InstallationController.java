@@ -72,13 +72,13 @@ public class InstallationController {
 
     @GetMapping("/api/v1/customer/installations")
     @PreAuthorize("hasAuthority('CUSTOMER')")
-    public List<InstallationService.Job> customerList(Principal principal){
+    public List<InstallationService.CustomerJob> customerList(Principal principal){
         return installations.customerList(principal.getName());
     }
 
     @GetMapping("/api/v1/customer/installations/{id}")
     @PreAuthorize("hasAuthority('CUSTOMER')")
-    public InstallationService.Detail customerGet(Principal principal,@PathVariable long id){
+    public InstallationService.CustomerDetail customerGet(Principal principal,@PathVariable long id){
         return installations.customerGet(principal.getName(),id);
     }
 }

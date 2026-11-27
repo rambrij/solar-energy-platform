@@ -64,6 +64,7 @@ CREATE TABLE installation_events (
   event_type VARCHAR(32) NOT NULL,
   status VARCHAR(20) NOT NULL,
   note VARCHAR(1000) NOT NULL,
+  reason VARCHAR(1000) NOT NULL,
   customer_visible BOOLEAN NOT NULL DEFAULT TRUE,
   occurred_at TIMESTAMP(6) NOT NULL,
   PRIMARY KEY (id),

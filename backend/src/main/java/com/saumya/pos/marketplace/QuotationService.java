@@ -169,6 +169,46 @@ public class QuotationService {
         return catalogue.quotationCatalogue();
     }
 
+    public record DocumentData(long quotationId, int revisionNumber, String status, String currency,
+            Instant validUntil, Instant sentAt, BigDecimal subtotal, BigDecimal taxTotal,
+            BigDecimal total, String terms, List<LineView> items) {}
+
+    public DocumentData vendorDocument(long quotationId, int revisionNumber) {
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        actor.requirePermission("LEAD_VIEW");
+        Quotation quote=quotations.lockTenant(actor.tenantId(),quotationId).orElseThrow(this::missing);
+        MarketplaceEnquiry lead=enquiries.findByTenantIdAndIdForUpdate(actor.tenantId(),quote.enquiryId()).orElseThrow(this::missing);
+        requireLeadScope(actor,lead);
+        return document(quote,revisionNumber,"VENDOR",actor.username(),null);
+    }
+
+    public DocumentData customerDocument(String username,long quotationId,int revisionNumber) {
+        long customer=customers.resolve(username);
+        customers.lock(customer);
+        Quotation quote=quotations.lockByCustomerIdAndId(customer,quotationId).orElseThrow(this::missing);
+        return document(quote,revisionNumber,"CUSTOMER",username,customer);
+    }
+
+    private DocumentData document(Quotation quote,int revisionNumber,String actorType,
+            String username,Long customerId) {
+        long tenant=quote.tenantId();
+        QuotationRevision revision=revisions.lockRevision(tenant,quote.id(),revisionNumber).orElseThrow(this::missing);
+        if("DRAFT".equals(revision.status()))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Quotation revision unavailable");
+        List<LineView> items=lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(tenant,revision.id())
+            .stream().map(line->new LineView(line.productId(),line.productNameSnapshot(),line.quantity(),
+                line.listPrice(),line.unitPrice(),line.discountPercent(),line.taxRate(),
+                line.taxAmount(),line.lineTotal())).toList();
+        if(items.isEmpty()||items.size()>100)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Quotation revision has no printable saved lines");
+        audit.save(new QuotationAuditEvent(tenant,quote.id(),revision.id(),actorType,username,
+            customerId,"QUOTATION_DOCUMENT_VIEWED","Saved quotation revision PDF generated",clock.instant()));
+        return new DocumentData(quote.id(),revision.revisionNumber(),revision.status(),revision.currency(),
+            revision.validUntil(),revision.sentAt(),revision.subtotal(),revision.taxTotal(),
+            revision.total(),revision.terms(),items);
+    }
+
     @Transactional(readOnly=true)
     public List<View> vendorList() {
         var actor=authorization.current();

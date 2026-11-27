@@ -16,7 +16,7 @@ public class QuotationController {
     private final QuotationService quotations;
     private final QuotationDocumentService documents;
     public QuotationController(QuotationService quotations,
-            com.saumya.pos.documents.QuotationDocumentService documents) {
+            QuotationDocumentService documents) {
         this.quotations=quotations;
         this.documents=documents;
     }

@@ -345,6 +345,11 @@ class P202MysqlPersistenceIntegrationTest {
                     WHERE trigger_schema=? AND event_object_table='vendor_payment_account_events'
                       AND trigger_name IN ('trg_vendor_payment_account_events_no_update','trg_vendor_payment_account_events_no_delete')
                     """, Integer.class, schema)).isEqualTo(2);
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.triggers
+                    WHERE trigger_schema=? AND event_object_table='service_request_events'
+                      AND trigger_name IN ('trg_service_request_events_no_update','trg_service_request_events_no_delete')
+                    """, Integer.class, schema)).isEqualTo(2);
 
             assertConstraint(db, schema, "tenant_subscriptions", "uk_tenant_subscription_tenant_id", "UNIQUE");
             assertConstraint(db, schema, "subscription_invoices", "uk_sub_invoice_tenant_id", "UNIQUE");

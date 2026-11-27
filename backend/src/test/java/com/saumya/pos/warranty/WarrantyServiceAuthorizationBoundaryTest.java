@@ -37,6 +37,13 @@ class WarrantyServiceAuthorizationBoundaryTest {
         verifyNoInteractions(db,outbox,orders);
     }
 
+    @Test void viewOnlyServiceGrantCannotDiscoverRegistrationOrdersOrItems() {
+        vendor(Set.of("SERVICE_VIEW"));
+        assertThatThrownBy(service()::eligibleOrders).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service().eligibleItems("order-1")).isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(db,outbox,orders);
+    }
+
     @Test void customerCannotReadWarrantyForAnOrderTheyDoNotOwn() {
         when(orders.customerPaidOnlineOrderReferences("customer@example.test")).thenReturn(List.of(
             new OrderHistoryService.CustomerOrderReference("own-order",7L,"Vendor A")));

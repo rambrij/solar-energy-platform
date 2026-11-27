@@ -180,7 +180,8 @@ export default function App() {
     <RouteOutlet id="shipment-management" mode="pos"><ShipmentManagement/></RouteOutlet>
     <RouteOutlet id="installation-management" mode="pos"><InstallationManagement/></RouteOutlet>
     <RouteOutlet id="service-requests" mode="pos"><VendorServiceRequests/></RouteOutlet>
-    <RouteOutlet id="warranty-management" mode="pos"><VendorWarranties/></RouteOutlet>\n    <RouteOutlet id="vendor-warranty-claims" mode="pos"><VendorWarrantyClaims/></RouteOutlet>
+    <RouteOutlet id="warranty-management" mode="pos"><VendorWarranties/></RouteOutlet>
+    <RouteOutlet id="vendor-warranty-claims" mode="pos"><VendorWarrantyClaims/></RouteOutlet>
     <RouteOutlet id="terminal-tender-review" mode="pos"><TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>
   </Shell>;
 }

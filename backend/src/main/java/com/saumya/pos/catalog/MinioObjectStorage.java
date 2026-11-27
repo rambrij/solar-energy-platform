@@ -66,7 +66,7 @@ public class MinioObjectStorage implements ObjectStoragePort {
         if(key==null||!key.matches("tenants/[1-9][0-9]*/products/[1-9][0-9]*/images/[0-9a-f-]{36}"))
             throw new IllegalArgumentException("Tenant-scoped image key required");
         try(InputStream stream=client().getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
-            byte[] bytes=stream.readAllBytes();
+            byte[] bytes=stream.readNBytes(10*1024*1024+1);
             if(bytes.length>10*1024*1024)throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Stored object exceeds the configured limit");
             return bytes;
         } catch(ResponseStatusException ex){throw ex;}

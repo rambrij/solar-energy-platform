@@ -30,7 +30,7 @@ public class WarrantyClaimController {
     public record InspectionRequest(long expectedVersion,@NotBlank @Size(max=2000) String summary,
         @NotBlank @Size(max=1000) String note,boolean customerVisible){}
     public record DecisionRequest(long expectedVersion,@NotBlank @Size(max=32) String decision,
-        @Size(max=16) String resolutionType,@NotBlank @Size(max=1000) String reason){}
+        @Size(max=32) String resolutionType,@NotBlank @Size(max=1000) String reason){}
     public record ResolutionRequest(long expectedVersion,@NotBlank @Size(max=1000) String note){}
 
     @PostMapping("/api/v1/customer/warranty-claims")

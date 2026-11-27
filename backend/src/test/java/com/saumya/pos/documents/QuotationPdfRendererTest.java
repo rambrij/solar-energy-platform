@@ -1,6 +1,6 @@
 package com.saumya.pos.documents;
 
-import com.saumya.pos.marketplace.QuotationService;
+import com.saumya.pos.documents.QuotationPdfData;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -13,11 +13,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class QuotationPdfRendererTest {
     private final QuotationPdfRenderer renderer=new QuotationPdfRenderer();
     private final Instant sent=Instant.parse("2026-11-27T10:00:00Z");
-    private final QuotationService.DocumentData quotation=new QuotationService.DocumentData(
+    private final QuotationPdfData quotation=new QuotationService.DocumentData(
         42,2,"SENT","INR",sent.plusSeconds(86_400),sent,
         new BigDecimal("12000.00"),new BigDecimal("2160.00"),new BigDecimal("14160.00"),
         "Installation subject to site inspection",
-        List.of(new QuotationService.LineView(9,"Solar Panel 550W",1,
+        List.of(new QuotationPdfData.Line(9,"Solar Panel 550W",1,
             new BigDecimal("13000.00"),new BigDecimal("12000.00"),new BigDecimal("7.69"),
             new BigDecimal("18.00"),new BigDecimal("2160.00"),new BigDecimal("14160.00")))
     );

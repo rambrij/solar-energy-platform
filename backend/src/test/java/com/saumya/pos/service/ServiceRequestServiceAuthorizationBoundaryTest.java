@@ -21,10 +21,11 @@ class ServiceRequestServiceAuthorizationBoundaryTest {
     private final AuthorizationContext authorization=mock(AuthorizationContext.class);
     private final OrderHistoryService orders=mock(OrderHistoryService.class);
     private final EventOutbox outbox=mock(EventOutbox.class);
+    private final ServiceSlaService serviceSla=mock(ServiceSlaService.class);
     private final Clock clock=Clock.fixed(Instant.parse("2026-11-27T12:00:00Z"),ZoneOffset.UTC);
 
     private ServiceRequestService service() {
-        return new ServiceRequestService(db,authorization,orders,outbox,clock);
+        return new ServiceRequestService(db,authorization,orders,outbox,serviceSla,clock);
     }
 
     private void vendorContext(Set<String> permissions) {

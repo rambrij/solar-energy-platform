@@ -666,6 +666,45 @@
           "tenantId"
         ]
       }
+    },
+    {
+      "source": "com.saumya.pos.service.ServiceSlaService",
+      "methods": [
+        "policies",
+        "updatePolicy",
+        "backfillUntrackedCases",
+        "startForServiceRequest",
+        "startForWarrantyClaim",
+        "insertClock",
+        "recordFirstResponse",
+        "closeCase",
+        "dashboard",
+        "processDueForTenant",
+        "markResponseBreach",
+        "markResolutionBreach",
+        "appendVendorEvent",
+        "appendSystemEvent"
+      ],
+      "authority": "Service SLA reads and mutations are scoped by the active vendor AuthorizationContext or by a TenantSummary supplied from TenantLifecycleService.activeVendors to the scheduled worker. Service-case tenant identifiers passed from case creation are derived only from the already-authorized vendor actor or an authenticated customer's paid-online OrderHistoryService reference. Every SQL operation binds tenant_id from that trusted source; the scheduled worker only enumerates active persisted tenants.",
+      "evidence": [
+        "authorization.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "OrderHistoryService customer paid-online order reference",
+        "TenantLifecycleService.activeVendors()",
+        "WHERE tenant_id=?"
+      ],
+      "trustedTenantParameters": {
+        "startForServiceRequest": [
+          "tenantId"
+        ],
+        "startForWarrantyClaim": [
+          "tenantId"
+        ],
+        "insertClock": [
+          "tenantId"
+        ]
+      }
     }
   ],
   "inheritedIdLookups": [
@@ -1580,6 +1619,54 @@
         {
           "caller": "com.saumya.pos.service.ServiceVisitService#customerGet",
           "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaService#startForServiceRequest",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceRequestService#create",
+          "expression": "tenantId",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaService#startForWarrantyClaim",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#submit",
+          "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaService#insertClock",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaService#backfillUntrackedCases",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaService#startForServiceRequest",
+          "expression": "tenantId",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaService#startForWarrantyClaim",
+          "expression": "tenantId",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }

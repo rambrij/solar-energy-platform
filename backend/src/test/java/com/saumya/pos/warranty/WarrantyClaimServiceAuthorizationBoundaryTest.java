@@ -22,8 +22,9 @@ class WarrantyClaimServiceAuthorizationBoundaryTest {
     private final OrderHistoryService orders=mock(OrderHistoryService.class);
     private final EventOutbox outbox=mock(EventOutbox.class);
     private final ObjectStoragePort storage=mock(ObjectStoragePort.class);
+    private final ServiceSlaService serviceSla=mock(ServiceSlaService.class);
     private final Clock clock=Clock.fixed(Instant.parse("2026-11-27T12:00:00Z"),ZoneOffset.UTC);
-    private WarrantyClaimService service(){return new WarrantyClaimService(db,authorization,orders,outbox,storage,clock);}
+    private WarrantyClaimService service(){return new WarrantyClaimService(db,authorization,orders,outbox,storage,serviceSla,clock);}
     private void customer(String username){
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             username,null,null,null,Set.of("CUSTOMER"),false,true,false));

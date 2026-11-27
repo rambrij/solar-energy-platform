@@ -3493,6 +3493,42 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/service-visits"
+    },
+    {
+      "id": "vendor-service-sla-dashboard",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-sla",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-sla"
+    },
+    {
+      "id": "vendor-service-sla-policies",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-sla/policies",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-sla/policies"
+    },
+    {
+      "id": "vendor-service-sla-policy-update",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/service-sla/policies",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/service-sla/policies"
     }
   ],
   "buttons": [
@@ -4251,6 +4287,12 @@
       "component": "CustomerServiceVisits.tsx",
       "trigger": "button",
       "backendOperation": "GET /api/v1/customer/service-visits"
+    },
+    {
+      "id": "vendor-service-sla-policy-update",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/service-sla/policies"
     }
   ],
   "dynamicRouteParameters": {

@@ -33,12 +33,13 @@ public class WarrantyClaimService {
     private final OrderHistoryService orders;
     private final EventOutbox outbox;
     private final ObjectStoragePort storage;
+    private final ServiceSlaService serviceSla;
     private final Clock clock;
 
     public WarrantyClaimService(JdbcTemplate db,AuthorizationContext authorization,OrderHistoryService orders,
-            EventOutbox outbox,ObjectStoragePort storage,Clock clock){
+            EventOutbox outbox,ObjectStoragePort storage,ServiceSlaService serviceSla,Clock clock){
         this.db=db;this.authorization=authorization;this.orders=orders;this.outbox=outbox;
-        this.storage=storage;this.clock=clock;
+        this.storage=storage;this.serviceSla=serviceSla;this.clock=clock;
     }
 
     public record Create(long warrantyId,String subject,String description){}
@@ -112,6 +113,7 @@ public class WarrantyClaimService {
             if(id==null)throw new IllegalStateException("Warranty claim ID was not generated");
             event(order.tenantId(),id,"CUSTOMER",username,"SUBMITTED",null,"SUBMITTED","Customer submitted warranty claim",true,now);
             publish(order.tenantId(),username,id,"WARRANTY_CLAIM.SUBMITTED","SUBMITTED",now);
+            serviceSla.startForWarrantyClaim(order.tenantId(),id,username,now);
             return customerClaim(claim(load(order.tenantId(),id)));
         }
         throw missing();
@@ -201,6 +203,7 @@ public class WarrantyClaimService {
         update(actor.tenantId(),id,input.expectedVersion(),"ASSIGNED",assignee,null,null,null,null,null,now);
         event(actor.tenantId(),id,"VENDOR",actor.username(),"ASSIGNED",current,"ASSIGNED",reason,true,now);
         publish(actor.tenantId(),actor.username(),id,"WARRANTY_CLAIM.ASSIGNED","ASSIGNED",now);
+        serviceSla.recordFirstResponse(actor,"WARRANTY_CLAIM",id,now);
         return claim(load(actor.tenantId(),id));
     }
 
@@ -214,6 +217,7 @@ public class WarrantyClaimService {
         update(actor.tenantId(),id,input.expectedVersion(),"AWAITING_DECISION",(String)row.get("assigned_to"),summary,null,null,null,null,now);
         event(actor.tenantId(),id,"VENDOR",actor.username(),"INSPECTION_RECORDED",current,"AWAITING_DECISION",note,input.customerVisible(),now);
         publish(actor.tenantId(),actor.username(),id,"WARRANTY_CLAIM.INSPECTION_RECORDED","AWAITING_DECISION",now);
+        serviceSla.recordFirstResponse(actor,"WARRANTY_CLAIM",id,now);
         return claim(load(actor.tenantId(),id));
     }
 
@@ -233,6 +237,8 @@ public class WarrantyClaimService {
             (String)row.get("inspection_summary"),decision,reason,"REJECTED".equals(decision)?null:resolution,null,now);
         event(actor.tenantId(),id,"VENDOR",actor.username(),"DECISION_RECORDED","AWAITING_DECISION",next,reason,true,now);
         publish(actor.tenantId(),actor.username(),id,"WARRANTY_CLAIM.DECISION_RECORDED",next,now);
+        serviceSla.recordFirstResponse(actor,"WARRANTY_CLAIM",id,now);
+        if ("REJECTED".equals(next)) serviceSla.closeCase(actor,"WARRANTY_CLAIM",id,now);
         return claim(load(actor.tenantId(),id));
     }
 
@@ -248,6 +254,8 @@ public class WarrantyClaimService {
             (String)row.get("resolution_type"),Timestamp.from(now),now);
         event(actor.tenantId(),id,"VENDOR",actor.username(),"RESOLVED",current,"RESOLVED",note,true,now);
         publish(actor.tenantId(),actor.username(),id,"WARRANTY_CLAIM.RESOLVED","RESOLVED",now);
+        serviceSla.recordFirstResponse(actor,"WARRANTY_CLAIM",id,now);
+        serviceSla.closeCase(actor,"WARRANTY_CLAIM",id,now);
         return claim(load(actor.tenantId(),id));
     }
 

@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(18);
+            assertThat(applied).hasSize(19);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -68,6 +68,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(16).getVersion().getVersion()).isEqualTo("17");
             assertThat(applied.get(17).getScript()).isEqualTo("V18__tenant_owned_service_visits.sql");
             assertThat(applied.get(17).getVersion().getVersion()).isEqualTo("18");
+            assertThat(applied.get(18).getScript()).isEqualTo("V19__tenant_service_sla_tracking.sql");
+            assertThat(applied.get(18).getVersion().getVersion()).isEqualTo("19");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -75,7 +77,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19");
         });
     }
 
@@ -180,7 +182,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
                     "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "site_surveys", "quotations", "quotation_revisions", "quotation_lines", "quotation_audit_events", "vendor_payment_accounts", "vendor_payment_account_events",
-                    "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence", "service_visits", "service_visit_events");
+                    "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence", "service_visits", "service_visit_events", "service_sla_policies", "service_case_sla", "service_sla_events", "service_sla_policy_audit");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns
@@ -267,6 +269,10 @@ class P202MysqlPersistenceIntegrationTest {
             assertUniqueKey(db, schema, "quotation_revisions", "tenant_id,quotation_id,revision_number");
             assertUniqueKey(db, schema, "quotation_lines", "tenant_id,quotation_revision_id,line_number");
             assertUniqueKey(db, schema, "service_visits", "tenant_id,id");
+            assertUniqueKey(db, schema, "service_sla_policies", "tenant_id,case_type,priority");
+            assertUniqueKey(db, schema, "service_case_sla", "tenant_id,id");
+            assertUniqueKey(db, schema, "service_case_sla", "tenant_id,service_request_id");
+            assertUniqueKey(db, schema, "service_case_sla", "tenant_id,warranty_claim_id");
             assertForeignKey(db, schema, "marketplace_enquiries", "tenant_id,customer_id", "tenant_customers", "tenant_id,customer_id");
             assertForeignKey(db, schema, "marketplace_enquiries", "tenant_id,product_id", "products", "tenant_id,id");
             assertForeignKey(db, schema, "site_surveys", "tenant_id,enquiry_id", "marketplace_enquiries", "tenant_id,id");
@@ -292,6 +298,12 @@ class P202MysqlPersistenceIntegrationTest {
             assertForeignKey(db, schema, "service_visits", "tenant_id,updated_by", "employees", "tenant_id,username");
             assertForeignKey(db, schema, "service_visit_events", "tenant_id,service_visit_id", "service_visits", "tenant_id,id");
             assertForeignKey(db, schema, "service_visit_events", "tenant_id,actor_username", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "service_sla_policies", "tenant_id,updated_by", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "service_case_sla", "tenant_id,service_request_id", "service_requests", "tenant_id,id");
+            assertForeignKey(db, schema, "service_case_sla", "tenant_id,warranty_claim_id", "warranty_claims", "tenant_id,id");
+            assertForeignKey(db, schema, "service_sla_events", "tenant_id,service_case_sla_id", "service_case_sla", "tenant_id,id");
+            assertForeignKey(db, schema, "service_sla_policy_audit", "tenant_id,case_type,priority", "service_sla_policies", "tenant_id,case_type,priority");
+            assertForeignKey(db, schema, "service_sla_policy_audit", "tenant_id,actor_username", "employees", "tenant_id,username");
             assertConstraint(db, schema, "site_surveys", "chk_site_survey_status", "CHECK");
             assertConstraint(db, schema, "vendor_payment_accounts", "chk_vendor_payment_account_status", "CHECK");
             assertConstraint(db, schema, "vendor_payment_accounts", "chk_vendor_payment_account_verification", "CHECK");
@@ -302,6 +314,12 @@ class P202MysqlPersistenceIntegrationTest {
             assertConstraint(db, schema, "service_visits", "chk_service_visit_completion", "CHECK");
             assertConstraint(db, schema, "service_visit_events", "chk_service_visit_event_type", "CHECK");
             assertConstraint(db, schema, "service_visit_events", "chk_service_visit_event_status", "CHECK");
+            assertConstraint(db, schema, "service_sla_policies", "chk_service_sla_policy_case", "CHECK");
+            assertConstraint(db, schema, "service_sla_policies", "chk_service_sla_policy_targets", "CHECK");
+            assertConstraint(db, schema, "service_case_sla", "chk_service_case_sla_parent", "CHECK");
+            assertConstraint(db, schema, "service_case_sla", "chk_service_case_sla_targets", "CHECK");
+            assertConstraint(db, schema, "service_sla_events", "chk_service_sla_event_type", "CHECK");
+            assertConstraint(db, schema, "service_sla_policy_audit", "chk_service_sla_policy_audit_targets", "CHECK");
 
             // Derive every tenant-to-tenant FK edge from MySQL metadata and
             // assert that its referenced ordered column tuple is itself unique.

@@ -37,14 +37,16 @@ public class ServiceRequestService {
     private final AuthorizationContext authorization;
     private final OrderHistoryService orders;
     private final EventOutbox outbox;
+    private final ServiceSlaService serviceSla;
     private final Clock clock;
 
     public ServiceRequestService(JdbcTemplate db, AuthorizationContext authorization,
-            OrderHistoryService orders, EventOutbox outbox, Clock clock) {
+            OrderHistoryService orders, EventOutbox outbox, ServiceSlaService serviceSla, Clock clock) {
         this.db = db;
         this.authorization = authorization;
         this.orders = orders;
         this.outbox = outbox;
+        this.serviceSla = serviceSla;
         this.clock = clock;
     }
 
@@ -200,6 +202,7 @@ public class ServiceRequestService {
         appendEvent(tenantId, id, actorType, actorId, "CREATED", null, "OPEN",
             "Service request submitted", true, now);
         publish(tenantId, actorId, id, orderId, "SERVICE_REQUEST.CREATED", "OPEN", now);
+        serviceSla.startForServiceRequest(tenantId, id, priority, actorType, actorId, now);
         return db.queryForList("""
             SELECT id,order_id,installation_id,subject,description,priority,status,assigned_to,
                    created_at,updated_at,resolved_at,version
@@ -233,6 +236,7 @@ public class ServiceRequestService {
             current, next, reason, true, now);
         publish(actor.tenantId(), actor.username(), id, (String) row.get("order_id"),
             "SERVICE_REQUEST.ASSIGNED", next, now);
+        serviceSla.recordFirstResponse(actor, "SERVICE_REQUEST", id, now);
         return findVendor(actor, id);
     }
 
@@ -262,6 +266,9 @@ public class ServiceRequestService {
             current, next, note, input.customerVisible(), now);
         publish(actor.tenantId(), actor.username(), id, (String) row.get("order_id"),
             "SERVICE_REQUEST.STATUS_CHANGED", next, now);
+        serviceSla.recordFirstResponse(actor, "SERVICE_REQUEST", id, now);
+        if (Set.of("RESOLVED", "CLOSED").contains(next))
+            serviceSla.closeCase(actor, "SERVICE_REQUEST", id, now);
         return findVendor(actor, id);
     }
 

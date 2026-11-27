@@ -33,14 +33,16 @@ public class ServiceVisitService {
     private final AuthorizationContext authorization;
     private final OrderHistoryService orders;
     private final EventOutbox outbox;
+    private final ServiceSlaService serviceSla;
     private final Clock clock;
 
     public ServiceVisitService(JdbcTemplate db, AuthorizationContext authorization,
-            OrderHistoryService orders, EventOutbox outbox, Clock clock) {
+            OrderHistoryService orders, EventOutbox outbox, ServiceSlaService serviceSla, Clock clock) {
         this.db=db;
         this.authorization=authorization;
         this.orders=orders;
         this.outbox=outbox;
+        this.serviceSla=serviceSla;
         this.clock=clock;
     }
 
@@ -213,6 +215,7 @@ SELECT v.id,v.case_type,
         appendEvent(actor.tenantId(),id,actor.username(),"ASSIGNED","SCHEDULED","SCHEDULED",
             "Engineer assigned to visit",reason,true,now);
         publish(actor,id,type,input.caseId(),"SERVICE_VISIT.SCHEDULED","SCHEDULED",now);
+        serviceSla.recordFirstResponse(actor,type,input.caseId(),now);
         return findVendor(actor,id);
     }
 

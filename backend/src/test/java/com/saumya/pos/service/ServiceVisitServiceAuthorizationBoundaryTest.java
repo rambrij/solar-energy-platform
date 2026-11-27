@@ -20,8 +20,9 @@ class ServiceVisitServiceAuthorizationBoundaryTest {
     private final AuthorizationContext authorization=mock(AuthorizationContext.class);
     private final OrderHistoryService orders=mock(OrderHistoryService.class);
     private final EventOutbox outbox=mock(EventOutbox.class);
+    private final ServiceSlaService serviceSla=mock(ServiceSlaService.class);
     private final Clock clock=Clock.fixed(Instant.parse("2026-11-28T12:00:00Z"),ZoneOffset.UTC);
-    private ServiceVisitService service(){return new ServiceVisitService(db,authorization,orders,outbox,clock);}
+    private ServiceVisitService service(){return new ServiceVisitService(db,authorization,orders,outbox,serviceSla,clock);}
     private void vendor(Set<String> grants){
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "engineer@vendor.test",7L,2L,"7:engineer",grants,false,false,true));

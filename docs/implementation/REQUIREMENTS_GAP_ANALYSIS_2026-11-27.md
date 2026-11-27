@@ -168,3 +168,19 @@ The warranty slice reuses existing `SERVICE_VIEW` and `SERVICE_CREATE` grants fo
 - Mutations use tenant-qualified row locks and optimistic versions; event rows are append-only and each mutation publishes through the transactional outbox.
 - Flyway V18 creates the shared visit and immutable event tables. Vendor and customer workspace navigation exposes Engineer Visits.
 - This slice does not implement SLA timers/escalations, spare-parts inventory/approval, visit evidence uploads, or financial/refund/replacement transactions.
+
+
+## 9. Branch implementation addendum — 28 November 2026
+
+**Service SLA tracking — PARTIALLY IMPLEMENTED (new increment; CI verification pending):**
+- Tenant-configurable response and resolution targets are available for both service requests and warranty claims through the existing Service module.
+- Service-request policies support LOW/NORMAL/HIGH/URGENT. Warranty claims use NORMAL because the existing claim aggregate does not define priority.
+- New cases snapshot targets at creation. When a policy is first configured, active untracked cases are backfilled in bounded batches; subsequent policy edits do not rewrite existing snapshots.
+- First vendor assignment, inspection, progress update or engineer-visit scheduling records the first response. Terminal case transitions close the resolution clock.
+- A scheduled tenant-scoped worker detects response and resolution breaches using conditional updates, appends immutable events and emits transactional outbox events.
+- Vendor UI shows SLA state and due times; SERVICE_VIEW reads are assigned-engineer scoped and SERVICE_ASSIGN controls policy changes with a required reason.
+- Flyway V19 adds tenant-owned policies, case clocks, immutable SLA events and immutable policy-change audit history.
+- Targets use elapsed calendar time. Business-hours calendars, pause windows, notification delivery adapters and escalation-recipient configuration are not implemented in this increment. Outbox emission is not delivery confirmation.
+- Validate with the full frontend authorization inventory/tests/build, H2 and MySQL 8.4 suites, browser E2E and fresh MySQL migration initialization before calling the increment complete.
+
+The Version 2.0 source-of-truth documents remain unchanged.

@@ -59,7 +59,7 @@ CREATE TABLE warranty_claim_events (
     REFERENCES warranty_claims(tenant_id,id),
   CONSTRAINT chk_warranty_claim_event_actor CHECK (actor_type IN ('CUSTOMER','VENDOR')),
   CONSTRAINT chk_warranty_claim_event_type CHECK (
-    event_type IN ('SUBMITTED','ASSIGNED','INSPECTION_RECORDED','DECISION_RECORDED','RESOLVED')
+    event_type IN ('SUBMITTED','ASSIGNED','INSPECTION_RECORDED','DECISION_RECORDED','RESOLVED','EVIDENCE_ADDED')
   )
 );
 

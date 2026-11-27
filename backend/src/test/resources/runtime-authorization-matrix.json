@@ -467,7 +467,7 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_ORDER_ITEM",
       "expected": 201,
       "test": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty",
-      "sideEffect": "one immutable tenant-owned warranty record, one immutable registration event and one outbox event"
+      "sideEffect": "Controller SERVICE_CREATE gate is tested with a mocked service; WarrantyServiceAuthorizationBoundaryTest#vendorRegistersPaidOrderItemWithImmutableAuditAndOutbox verifies tenant-qualified order locking, one immutable registration/event and outbox append. Persisted-actor HTTP registration remains a follow-up acceptance probe."
     },
     {
       "id": "P006-CUSTOMER-OWN-WARRANTY",

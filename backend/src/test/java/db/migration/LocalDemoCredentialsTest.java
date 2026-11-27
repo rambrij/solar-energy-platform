@@ -36,7 +36,7 @@ class LocalDemoCredentialsTest {
 
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'standard:%' AND active=TRUE", Integer.class
-        )).isEqualTo(18);
+        )).isEqualTo(24);
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM vendor_role_permissions p JOIN vendor_roles r " +
             "ON r.tenant_id=p.tenant_id AND r.id=p.role_id WHERE r.role_key LIKE 'standard:%' " +

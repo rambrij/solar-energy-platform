@@ -9,6 +9,8 @@
     "CUSTOMER_RELATION_VIEW",
     "INVENTORY_RECEIVE",
     "INVENTORY_VIEW",
+    "LEAD_ASSIGN",
+    "LEAD_UPDATE",
     "LEAD_VIEW",
     "POS_CASHIER_REPORT_VIEW",
     "POS_CASH_IN",
@@ -316,7 +318,7 @@
     "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE",
     "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE",
     "MarketplaceEnquiryController": "PUBLIC_VENDOR_ENQUIRY_INTAKE_WITH_EXPLICIT_CONSENT_AND_RATE_LIMIT",
-    "VendorLeadController": "VENDOR_TENANT_LEAD_INBOX_PERMISSION_AND_AUDIT",
+    "VendorLeadController": "VENDOR_TENANT_LEAD_VIEW_UPDATE_AND_ASSIGNMENT_SCOPE_WITH_AUDIT",
     "CustomerReceiptDocumentController": "CUSTOMER_ORDER_OWNER_SCOPE",
     "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
     "ProductImageController": "VENDOR_TENANT_PRODUCT_IMAGE_PERMISSION_AND_PUBLISHED_PRODUCT_PUBLIC_ACCESS",
@@ -340,9 +342,7 @@
     "INVOICE_SEND",
     "INVOICE_VIEW",
     "INVOICE_VOID",
-    "LEAD_ASSIGN",
     "LEAD_CREATE",
-    "LEAD_UPDATE",
     "ORDER_CANCEL",
     "ORDER_CREATE",
     "ORDER_UPDATE",
@@ -1090,6 +1090,26 @@
       "scope": "One tenant; employee branch and register assignments remain additional controls",
       "ui": "Vendor workspace > Access administration > employee lifecycle",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "LEAD_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PATCH /api/v1/vendor/leads/{id}",
+      "service": "MarketplaceEnquiryService",
+      "scope": "Active tenant; assigned leads only unless manager grant; optimistic version; reason audit",
+      "ui": "Vendor workspace > Customers & CRM > Marketplace enquiries",
+      "test": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    {
+      "permission": "LEAD_ASSIGN",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PUT /api/v1/vendor/leads/{id}/assignment",
+      "service": "MarketplaceEnquiryService",
+      "scope": "Active tenant; target active employee with LEAD_VIEW; version check; reason audit",
+      "ui": "Vendor workspace > Customers & CRM > Marketplace enquiries",
+      "test": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
     }
   ],
   "frontendPlatformPages": {

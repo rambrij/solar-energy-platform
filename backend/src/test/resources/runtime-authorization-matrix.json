@@ -1696,6 +1696,24 @@
       "scope": "PUBLISHED_TENANT_SOLAR_PACKAGES",
       "assignment": "Active vendor slug resolves tenant; only published packages and tenant-owned component snapshots",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "VendorLeadController#assignees": {
+      "actor": "VENDOR",
+      "scope": "ACTIVE_TENANT_EMPLOYEES_WITH_LEAD_VIEW",
+      "assignment": "LEAD_ASSIGN required; tenant-scoped active employees only; audited read",
+      "runtimeTest": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "VendorLeadController#assign": {
+      "actor": "VENDOR",
+      "scope": "ACTIVE_TENANT_LEAD_AND_EMPLOYEE",
+      "assignment": "LEAD_ASSIGN; target active same-tenant employee with LEAD_VIEW; optimistic version; mandatory reason; audit",
+      "runtimeTest": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "VendorLeadController#updateLead": {
+      "actor": "VENDOR",
+      "scope": "ACTIVE_TENANT_LEAD",
+      "assignment": "LEAD_UPDATE assigned-to-self or LEAD_ASSIGN tenant manager; optimistic version; mandatory reason; audit",
+      "runtimeTest": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

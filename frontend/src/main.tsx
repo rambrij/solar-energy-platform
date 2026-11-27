@@ -19,6 +19,14 @@ const content=platform?<PlatformBoundary/>:path==='/verify-email'
  ?<AuthenticationBoundary permission="CUSTOMER" mode="online"><CustomerAssociation/></AuthenticationBoundary>
  :marketplace?<Marketplace/>:<AuthenticationBoundary mode="pos"><App/></AuthenticationBoundary>;
 
+// Email verification is a public, one-shot confirmation flow. It does not need
+// session restoration; mounting SessionBootstrap here would request a second
+// CSRF token concurrently with the verification POST and can race the cookie.
+const application=<WorkspaceErrorBoundary>{content}</WorkspaceErrorBoundary>;
+const sessionAwareApplication=path==='/verify-email'
+ ?application
+ :<SessionBootstrap>{application}</SessionBootstrap>;
+
 createRoot(document.getElementById('root')!).render(
- <StrictMode><SessionBootstrap><WorkspaceErrorBoundary>{content}</WorkspaceErrorBoundary></SessionBootstrap></StrictMode>
+ <StrictMode>{sessionAwareApplication}</StrictMode>
 );

@@ -18,6 +18,11 @@ class QuotationControllerAuthorizationTest {
     }
 
     @Test
+    void quotationCatalogueRequiresLeadView() {
+        assertThat(policy("vendorCatalogue")).isEqualTo("hasAuthority('LEAD_VIEW')");
+    }
+
+    @Test
     void vendorQuotationListRequiresLeadViewAndTenantAssignmentScope() {
         assertThat(policy("vendorList")).isEqualTo("hasAuthority('LEAD_VIEW')");
     }

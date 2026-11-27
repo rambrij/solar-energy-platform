@@ -19,8 +19,7 @@ class QuotationControllerAuthorizationTest {
 
     @Test
     void vendorQuotationListRequiresLeadViewAndTenantAssignmentScope() {
-        assertThat(QuotationController.class.getDeclaredMethod("vendorList")
-            .getAnnotation(PreAuthorize.class).value()).isEqualTo("hasAuthority('LEAD_VIEW')");
+        assertThat(policy("vendorList")).isEqualTo("hasAuthority('LEAD_VIEW')");
     }
 
     @Test

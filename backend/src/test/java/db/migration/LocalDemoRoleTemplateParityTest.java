@@ -29,7 +29,7 @@ class LocalDemoRoleTemplateParityTest {
   for(var definition:StandardRoleTemplates.ALL) if(definition.supported())
    expected.put(definition.key(),new HashSet<>(definition.permissions()));
   assertThat(actual).isEqualTo(expected);
-  assertThat(sql).contains("a.role_name IN ('VENDOR_ADMIN','POS_CASHIER','SALES_MANAGER','INVENTORY_MANAGER','ACCOUNTANT')");
+  assertThat(sql).contains("a.role_name IN ('VENDOR_ADMIN','POS_CASHIER','SALES_MANAGER','SALES_EXECUTIVE','INVENTORY_MANAGER','ACCOUNTANT')");
   assertThat(sql).doesNotContain("('SALES_EXECUTIVE','","('OPERATIONS_MANAGER','","('SERVICE_MANAGER','","('SERVICE_ENGINEER','","('CONTENT_MANAGER','");
  }
 

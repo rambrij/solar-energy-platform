@@ -16,6 +16,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.*;
@@ -25,7 +26,7 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
     private MarketplaceEnquiryService service(AuthorizationContext authorization,
             MarketplaceEnquiryRepository enquiries,VendorAccessAuditService audit) {
         return new MarketplaceEnquiryService(mock(CatalogService.class),enquiries,mock(CustomerAccess.class),
-            mock(VendorCustomerService.class),authorization,audit,mock(TenantLifecycleService.class),
+            mock(VendorCustomerService.class),authorization,audit,mock(TenantLifecycleService.class),mock(JdbcTemplate.class),
             Clock.fixed(Instant.parse("2026-11-26T10:00:00Z"),ZoneOffset.UTC));
     }
 
@@ -56,7 +57,7 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
     @Test void vendorInboxUsesOnlyAuthenticatedTenantAndAuditsTheRead() {
         var authorization=mock(AuthorizationContext.class);
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-            "sales@vendor.test",71L,5L,"71:sales@vendor.test",Set.of("LEAD_VIEW"),false,false,true));
+            "sales@vendor.test",71L,5L,"71:sales@vendor.test",Set.of("LEAD_VIEW","LEAD_ASSIGN"),false,false,true));
         var enquiries=mock(MarketplaceEnquiryRepository.class);
         var audit=mock(VendorAccessAuditService.class);
         when(enquiries.findAllByTenantIdOrderByCreatedAtDescIdDesc(71L,PageRequest.of(0,100)))
@@ -76,7 +77,7 @@ class MarketplaceEnquiryServiceAuthorizationBoundaryTest {
         var authorization=mock(AuthorizationContext.class);
         var audit=mock(VendorAccessAuditService.class);
         var tenants=mock(TenantLifecycleService.class);
-        var service=new MarketplaceEnquiryService(catalogue,enquiries,customers,relationships,authorization,audit,tenants,
+        var service=new MarketplaceEnquiryService(catalogue,enquiries,customers,relationships,authorization,audit,tenants,mock(JdbcTemplate.class),
             Clock.systemUTC());
         var request=new MarketplaceEnquiryService.Submission("Customer","customer@example.test",null,
             "Please share installation details",null,false,false);

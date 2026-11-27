@@ -20,6 +20,7 @@ import java.util.Locale;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -97,42 +98,116 @@ public class MarketplaceEnquiryService {
         return new Receipt(saved.id(),saved.createdAt(),saved.status());
     }
 
-    @Transactional(readOnly=true)
+    @Transactional
     public List<Lead> leads() {
-        var actor=authorization.current(); actor.requireVendorMembership(); actor.requirePermission("LEAD_VIEW");
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        actor.requirePermission("LEAD_VIEW");
         var rows=actor.hasPermission("LEAD_ASSIGN")
             ?enquiries.findAllByTenantIdOrderByCreatedAtDescIdDesc(actor.tenantId(),PageRequest.of(0,100))
-            :enquiries.findAllByTenantIdAndAssignedToOrderByCreatedAtDescIdDesc(actor.tenantId(),actor.username(),PageRequest.of(0,100));
-        audit.recordLeadInboxRead(); return rows.getContent().stream().map(this::leadView).toList();
+            :enquiries.findAllByTenantIdAndAssignedToOrderByCreatedAtDescIdDesc(
+                actor.tenantId(),actor.username(),PageRequest.of(0,100));
+        audit.recordLeadInboxRead();
+        return rows.getContent().stream().map(this::leadView).toList();
     }
-    @Transactional(readOnly=true)
-    public List<String> leadAssignees(){
-        var a=authorization.current();a.requireVendorMembership();a.requirePermission("LEAD_ASSIGN");
-        var names=jdbc.queryForList("SELECT DISTINCT e.username FROM employees e JOIN employee_role_assignments a ON a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE JOIN vendor_role_permissions p ON p.tenant_id=r.tenant_id AND p.role_id=r.id AND p.permission='LEAD_VIEW' WHERE e.tenant_id=? AND e.enabled=TRUE ORDER BY e.username",String.class,a.tenantId());
-        audit.recordLeadAssigneesRead();return names;
-    }
+
     @Transactional
-    public Lead updateLead(long id,LeadChange change){
-        var a=authorization.current();a.requireVendorMembership();
-        if(change==null||change.reason()==null||change.reason().isBlank()||change.reason().strip().length()>500||change.expectedVersion()<0)throw new ResponseStatusException(BAD_REQUEST,"A valid version and reason are required");
-        var row=enquiries.findByTenantIdAndIdForUpdate(a.tenantId(),id).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Lead unavailable"));
-        if(row.version()!=change.expectedVersion())throw new ResponseStatusException(CONFLICT,"Lead changed; reload before saving");
-        if(change.employeeUsername()!=null||a.hasPermission("LEAD_ASSIGN")){
-            a.requirePermission("LEAD_ASSIGN");String target=change.employeeUsername()==null||change.employeeUsername().isBlank()?null:change.employeeUsername().strip().toLowerCase(Locale.ROOT);
-            if(target!=null&&!Boolean.TRUE.equals(jdbc.queryForObject("SELECT COUNT(*)>0 FROM employees e JOIN employee_role_assignments a ON a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE JOIN vendor_role_permissions p ON p.tenant_id=r.tenant_id AND p.role_id=r.id AND p.permission='LEAD_VIEW' WHERE e.tenant_id=? AND e.username=? AND e.enabled=TRUE",Boolean.class,a.tenantId(),target)))throw new ResponseStatusException(NOT_FOUND,"Lead assignee unavailable");
-            row.assignTo(target,a.username(),clock.instant());
-            audit.recordLeadMutation(id,target,target==null?"LEAD_UNASSIGNED":"LEAD_ASSIGNED",change.reason());
-        } else {
-            a.requirePermission("LEAD_UPDATE");
-            if(!Objects.equals(row.assignedTo(),a.username()))throw new ResponseStatusException(NOT_FOUND,"Lead unavailable");
-            String next=change.status()==null?"":change.status().strip().toUpperCase(Locale.ROOT);
-            boolean valid=switch(row.status()){case "NEW"->Set.of("CONTACTED","LOST").contains(next);case "CONTACTED"->Set.of("QUALIFIED","LOST").contains(next);case "QUALIFIED"->"LOST".equals(next);default->false;};
-            if(!valid)throw new ResponseStatusException(CONFLICT,"Lead status transition is not allowed");
-            row.changeLeadStatus(next,a.username(),clock.instant());
-            audit.recordLeadMutation(id,row.assignedTo(),"LEAD_STATUS_UPDATED",change.reason());
-        }
-        return leadView(enquiries.saveAndFlush(row));
+    public List<String> leadAssignees() {
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        actor.requirePermission("LEAD_ASSIGN");
+        var names=jdbc.queryForList("""
+            SELECT DISTINCT e.username
+            FROM employees e
+            JOIN employee_role_assignments a
+              ON a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE
+            JOIN vendor_roles r
+              ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE
+            JOIN vendor_role_permissions p
+              ON p.tenant_id=r.tenant_id AND p.role_id=r.id AND p.permission='LEAD_VIEW'
+            WHERE e.tenant_id=? AND e.enabled=TRUE
+            ORDER BY e.username
+            """,String.class,actor.tenantId());
+        audit.recordLeadAssigneesRead();
+        return names;
     }
+
+    @Transactional
+    public Lead updateLeadStatus(long id,String requestedStatus,long expectedVersion,String requestedReason) {
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        actor.requirePermission("LEAD_UPDATE");
+        String reason=requiredReason(requestedReason);
+        String status=requestedStatus==null?"":requestedStatus.strip().toUpperCase(Locale.ROOT);
+        if(!List.of("NEW","CONTACTED","QUALIFIED","LOST").contains(status))
+            throw new ResponseStatusException(BAD_REQUEST,"Unsupported lead status");
+        var lead=enquiries.findByTenantIdAndIdForUpdate(actor.tenantId(),id)
+            .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Lead unavailable"));
+        if(!actor.hasPermission("LEAD_ASSIGN")&&!Objects.equals(lead.assignedTo(),actor.username()))
+            throw new ResponseStatusException(NOT_FOUND,"Lead unavailable");
+        checkLeadVersion(lead,expectedVersion);
+        if(status.equals(lead.status()))return leadView(lead);
+        boolean valid=switch(lead.status()) {
+            case "NEW" -> Set.of("CONTACTED","LOST").contains(status);
+            case "CONTACTED" -> Set.of("QUALIFIED","LOST").contains(status);
+            case "QUALIFIED" -> "LOST".equals(status);
+            default -> false;
+        };
+        if(!valid)throw new ResponseStatusException(CONFLICT,"Lead status transition is not allowed");
+        lead.changeLeadStatus(status,actor.username(),clock.instant());
+        var saved=enquiries.saveAndFlush(lead);
+        audit.recordLeadMutation(saved.id(),saved.assignedTo(),"LEAD_STATUS_UPDATED",reason);
+        return leadView(saved);
+    }
+
+    @Transactional
+    public Lead assignLead(long id,String requestedEmployee,long expectedVersion,String requestedReason) {
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        actor.requirePermission("LEAD_ASSIGN");
+        String reason=requiredReason(requestedReason);
+        String target=requestedEmployee==null||requestedEmployee.isBlank()
+            ?null:requestedEmployee.strip().toLowerCase(Locale.ROOT);
+        if(target!=null&&!isActiveLeadAssignee(actor.tenantId(),target))
+            throw new ResponseStatusException(NOT_FOUND,"Active lead assignee unavailable");
+        var lead=enquiries.findByTenantIdAndIdForUpdate(actor.tenantId(),id)
+            .orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Lead unavailable"));
+        checkLeadVersion(lead,expectedVersion);
+        if("LOST".equals(lead.status()))
+            throw new ResponseStatusException(CONFLICT,"A lost lead cannot be reassigned");
+        if(Objects.equals(lead.assignedTo(),target))return leadView(lead);
+        lead.assignTo(target,actor.username(),clock.instant());
+        var saved=enquiries.saveAndFlush(lead);
+        audit.recordLeadMutation(saved.id(),target,target==null?"LEAD_UNASSIGNED":"LEAD_ASSIGNED",reason);
+        return leadView(saved);
+    }
+
+    private boolean isActiveLeadAssignee(long tenant,String username) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT COUNT(*)>0
+            FROM employees e
+            JOIN employee_role_assignments a
+              ON a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE
+            JOIN vendor_roles r
+              ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE
+            JOIN vendor_role_permissions p
+              ON p.tenant_id=r.tenant_id AND p.role_id=r.id AND p.permission='LEAD_VIEW'
+            WHERE e.tenant_id=? AND e.username=? AND e.enabled=TRUE
+            """,Boolean.class,tenant,username));
+    }
+
+    private void checkLeadVersion(MarketplaceEnquiry lead,long expectedVersion) {
+        if(expectedVersion<0||lead.version()!=expectedVersion)
+            throw new ResponseStatusException(CONFLICT,"Lead changed; reload before saving");
+    }
+
+    private String requiredReason(String value) {
+        String reason=value==null?"":value.strip();
+        if(reason.isBlank()||reason.length()>500)
+            throw new ResponseStatusException(BAD_REQUEST,"A reason (1-500 characters) is required");
+        return reason;
+    }
+
     private Lead leadView(MarketplaceEnquiry row){return new Lead(row.id(),row.productId(),row.productNameSnapshot(),row.contactName(),row.contactEmail(),row.contactPhone(),row.message(),row.createdAt(),row.status(),row.assignedTo(),row.updatedAt(),row.updatedBy(),row.version());}
 
     private void associateWithVerifiedConsent(long tenant,long customer,Instant consent) {

@@ -1709,7 +1709,7 @@
       "assignment": "LEAD_ASSIGN; target active same-tenant employee with LEAD_VIEW; optimistic version; mandatory reason; audit",
       "runtimeTest": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
     },
-    "VendorLeadController#updateLead": {
+    "VendorLeadController#updateStatus": {
       "actor": "VENDOR",
       "scope": "ACTIVE_TENANT_LEAD",
       "assignment": "LEAD_UPDATE assigned-to-self or LEAD_ASSIGN tenant manager; optimistic version; mandatory reason; audit",

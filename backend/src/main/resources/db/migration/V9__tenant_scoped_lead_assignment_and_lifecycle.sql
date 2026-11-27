@@ -22,8 +22,9 @@ LEFT JOIN vendor_role_permissions existing
 WHERE r.template_key IN ('VENDOR_ADMIN','SALES_MANAGER') AND existing.permission IS NULL;
 
 INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
-SELECT r.tenant_id,r.id,'LEAD_VIEW',r.updated_by
+SELECT r.tenant_id,r.id,p.permission,r.updated_by
 FROM vendor_roles r
+JOIN (SELECT 'LEAD_VIEW' permission UNION ALL SELECT 'LEAD_UPDATE') p
 LEFT JOIN vendor_role_permissions existing
- ON existing.tenant_id=r.tenant_id AND existing.role_id=r.id AND existing.permission='LEAD_VIEW'
+ ON existing.tenant_id=r.tenant_id AND existing.role_id=r.id AND existing.permission=p.permission
 WHERE r.template_key='SALES_EXECUTIVE' AND existing.permission IS NULL;

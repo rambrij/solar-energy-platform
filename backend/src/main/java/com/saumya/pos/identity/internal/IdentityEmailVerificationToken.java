@@ -4,7 +4,7 @@ import java.time.Instant;
 
 @Entity @Table(name="identity_email_verification_tokens",indexes={@Index(name="ix_identity_email_verification_user",columnList="user_id,created_at")})
 public class IdentityEmailVerificationToken {
- @Id @Column(name="token_hash",nullable=false,length=64) private String tokenHash;
+ @Id @Column(name="token_hash",nullable=false,length=64,columnDefinition="CHAR(64)") private String tokenHash;
  @Column(name="user_id",nullable=false) private long userId;
  @Column(name="created_at",nullable=false,updatable=false) private Instant createdAt;
  @Column(name="expires_at",nullable=false) private Instant expiresAt;

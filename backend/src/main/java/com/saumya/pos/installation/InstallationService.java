@@ -93,12 +93,30 @@ public class InstallationService {
         return rows.stream().map(this::job).toList();
     }
 
+    @Transactional(readOnly=true)
+    public List<String> eligibleEngineers() {
+        var actor=vendor("INSTALLATION_ASSIGN");
+        return db.queryForList("""
+            SELECT DISTINCT e.username
+            FROM employees e
+            JOIN employee_role_assignments a
+              ON a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE
+            JOIN vendor_roles r
+              ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE
+            JOIN vendor_role_permissions p
+              ON p.tenant_id=r.tenant_id AND p.role_id=r.id
+             AND p.permission='INSTALLATION_VIEW'
+            WHERE e.tenant_id=? AND e.enabled=TRUE
+            ORDER BY e.username
+            """,String.class,actor.tenantId());
+    }
+
     public Job create(Create request) {
         var actor=vendor("INSTALLATION_ASSIGN");
         if(request==null)throw bad("Installation details are required");
         String orderId=orderId(request.orderId());
         Instant scheduled=requiredSchedule(request.scheduledAt());
-        String address=clean(request.siteAddress(),1000,"Site address",false);
+        String address=clean(request.siteAddress(),1000,"Site address");
         String assignee=clean(request.assignedTo(),100,"Assigned engineer",false);
         String reason=clean(request.reason(),500,"Reason",false);
 
@@ -110,16 +128,6 @@ public class InstallationService {
             throw conflict("An installation can be created only from a paid online customer order");
 
         requireActiveEngineer(actor.tenantId(),assignee);
-        if(address==null) {
-            address=db.queryForList("""
-                SELECT address FROM order_buyer_snapshots
-                WHERE tenant_id=? AND order_id=?
-                """,actor.tenantId(),orderId).stream().findFirst()
-                .map(row->clean((String)row.get("address"),1000,"Saved customer site address",false))
-                .orElse(null);
-        }
-        if(address==null)throw bad("A site address is required; no saved buyer address is available");
-
         Instant now=clock.instant();
         try {
             db.update("""
@@ -162,7 +170,7 @@ public class InstallationService {
             """,assignee,Timestamp.from(schedule),actor.username(),Timestamp.from(now),
             actor.tenantId(),id,request.expectedVersion());
         if(changed!=1)throw conflict("Installation changed; reload before saving");
-        String event="RESCHEDULED".equals(current)?"RESCHEDULED":"ASSIGNED";
+        String event=instant(row.get("scheduled_at")).equals(schedule)?"ASSIGNED":"RESCHEDULED";
         append(actor.tenantId(),id,actor.username(),event,current,reason,now);
         return findVendor(actor,id);
     }
@@ -327,10 +335,10 @@ public class InstallationService {
         return value;
     }
 
-    private String clean(String value,int max,String label,boolean optional) {
+    private String clean(String value,int max,String label) {
         String normalized=value==null?"":value.strip();
-        if(normalized.isEmpty()&&optional)return null;
-        if(normalized.isEmpty()||normalized.length()>max||normalized.codePoints().anyMatch(Character::isISOControl))
+        if(normalized.isEmpty()||normalized.length()>max
+                ||normalized.codePoints().anyMatch(Character::isISOControl))
             throw bad(label+" is invalid");
         return normalized;
     }

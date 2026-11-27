@@ -1846,6 +1846,12 @@
       "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_INSTALLATION_OWNERSHIP",
       "assignment": "CustomerAccess resolves global customer ID; job and its order are joined by tenant/order and customer_id; foreign IDs return 404",
       "runtimeTest": "InstallationControllerAuthorizationTest#customerRoutesRequireCustomerActor"
+    },
+    "InstallationController#eligibleEngineers": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_INSTALLATION_VIEW",
+      "assignment": "INSTALLATION_ASSIGN; only enabled employees with an active persisted tenant role grant are returned",
+      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleEngineersRequiresInstallationAssign"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

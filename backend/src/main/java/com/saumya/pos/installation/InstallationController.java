@@ -28,6 +28,10 @@ public class InstallationController {
     @PreAuthorize("hasAuthority('INSTALLATION_ASSIGN')")
     public List<InstallationService.EligibleOrder> eligibleOrders(){return installations.eligibleOrders();}
 
+    @GetMapping("/api/v1/vendor/installations/engineers")
+    @PreAuthorize("hasAuthority('INSTALLATION_ASSIGN')")
+    public List<String> eligibleEngineers(){return installations.eligibleEngineers();}
+
     @GetMapping("/api/v1/vendor/installations")
     @PreAuthorize("hasAuthority('INSTALLATION_VIEW')")
     public List<InstallationService.Job> vendorList(){return installations.vendorList();}

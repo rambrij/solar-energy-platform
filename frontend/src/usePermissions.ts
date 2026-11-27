@@ -66,6 +66,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'cash-refunds':{allOf:['POS_VIEW','POS_REFUND_VIEW']},
  'category-management':{anyOf:['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE']},
  'product-management':{anyOf:['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE']},
+ 'solar-package-management':{anyOf:['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE']},
  'stock-receiving':{anyOf:['INVENTORY_VIEW','INVENTORY_RECEIVE']},
  'register':{allOf:['POS_VIEW']},
  'shift-history':{allOf:['POS_VIEW']},

@@ -39,7 +39,17 @@ subscriptions:
     retry-seconds: ${SUBSCRIPTIONS_MOCK_BILLING_RETRY_SECONDS:0}
 auth:
   jwt-secret: ${AUTH_JWT_SECRET:}
+spring:
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 app:
+  object-storage:
+    endpoint: ${OBJECT_STORAGE_ENDPOINT:}
+    access-key: ${OBJECT_STORAGE_ACCESS_KEY:}
+    secret-key: ${OBJECT_STORAGE_SECRET_KEY:}
+    bucket: ${OBJECT_STORAGE_BUCKET:saumya-assets}
   public-url: ${APP_PUBLIC_URL:http://localhost:8080}
   mail:
     from: ${MAIL_FROM:noreply@somya.local}

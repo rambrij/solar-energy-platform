@@ -15,6 +15,7 @@
         "cash-refunds",
         "category-management",
         "product-management",
+        "solar-package-management",
         "stock-receiving",
         "register",
         "shift-history",
@@ -89,6 +90,7 @@
       "items": [
         "category-management",
         "product-management",
+        "solar-package-management",
         "stock-receiving"
       ]
     },
@@ -329,6 +331,11 @@
       "id": "vendor-profile",
       "path": "/vendor/profile",
       "group": "Administration"
+    },
+    {
+      "id": "solar-package-management",
+      "path": "/vendor/pos/solar-packages",
+      "group": "Catalogue & Inventory"
     }
   ],
   "tabs": [
@@ -2488,6 +2495,79 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "PUT /api/v1/vendor/profile"
+    },
+    {
+      "id": "solar-package-list",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/packages",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/packages"
+    },
+    {
+      "id": "solar-package-create",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/packages",
+      "permissions": [
+        "PRODUCT_CREATE",
+        "PRICE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/packages"
+    },
+    {
+      "id": "solar-package-update",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/packages/{id}",
+      "permissions": [
+        "PRODUCT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/packages/{id}"
+    },
+    {
+      "id": "product-image-list",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/products/{productId}/images",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products/{productId}/images"
+    },
+    {
+      "id": "product-image-upload",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/products/{productId}/images",
+      "permissions": [
+        "PRODUCT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/products/{productId}/images"
+    },
+    {
+      "id": "product-image-deactivate",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "button",
+      "method": "DELETE",
+      "endpoint": "/api/v1/vendor/products/{productId}/images/{imageId}",
+      "permissions": [
+        "PRODUCT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
     }
   ],
   "buttons": [
@@ -3006,6 +3086,30 @@
       "component": "VendorProfile.tsx",
       "trigger": "submit",
       "backendOperation": "PUT /api/v1/vendor/profile"
+    },
+    {
+      "id": "solar-package-create",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/packages"
+    },
+    {
+      "id": "solar-package-update",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/packages/{id}"
+    },
+    {
+      "id": "product-image-upload",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/products/{productId}/images"
+    },
+    {
+      "id": "product-image-deactivate",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "button",
+      "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
     }
   ],
   "dynamicRouteParameters": {

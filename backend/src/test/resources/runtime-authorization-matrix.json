@@ -1636,6 +1636,66 @@
       "scope": "ACTIVE_VENDOR_TENANT_PROFILE_UPDATE",
       "assignment": "TENANT_PROFILE_UPDATE; tenant row lock; expected version; append-only field-name audit",
       "runtimeTest": "VendorTenantProfileServiceTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductImageController#listVendor": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_PRODUCT_IMAGE_METADATA",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_PRODUCT_VIEW; tenant/product derived and same-tenant",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductImageController#upload": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_PRODUCT_IMAGE_OBJECT",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_PRODUCT_UPDATE; content signature/size validation; object key includes tenant/product",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductImageController#readVendor": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_PRODUCT_IMAGE_OBJECT",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_PRODUCT_VIEW; metadata lookup is tenant/product/id scoped",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductImageController#deactivate": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_PRODUCT_IMAGE_METADATA",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_PRODUCT_UPDATE; soft delete preserves object/audit history",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "ProductImageController#listPublic": {
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_PRODUCT_IMAGES_ONLY",
+      "assignment": "Active vendor slug plus published product; image metadata is same tenant/product scoped",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "ProductImageController#readPublic": {
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_PRODUCT_IMAGE_OBJECT",
+      "assignment": "Active vendor slug plus published product; image metadata is same tenant/product/id scoped",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "SolarPackageController#list": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_SOLAR_PACKAGES",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_PRODUCT_VIEW; tenant derived from AuthorizationContext",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "SolarPackageController#create": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_SOLAR_PACKAGE_AND_ITEMS",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_PRODUCT_CREATE_AND_PRICE_UPDATE; all components locked within same tenant",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "SolarPackageController#update": {
+      "actor": "VENDOR",
+      "scope": "TENANT_OWNED_SOLAR_PACKAGE_AND_ITEMS",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_PRODUCT_UPDATE; expected version; PRICE_UPDATE for pricing; PRODUCT_ARCHIVE for unpublish",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "SolarPackageController#publicList": {
+      "actor": "PUBLIC",
+      "scope": "PUBLISHED_TENANT_SOLAR_PACKAGES",
+      "assignment": "Active vendor slug resolves tenant; only published packages and tenant-owned component snapshots",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

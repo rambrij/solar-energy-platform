@@ -11,6 +11,7 @@ it('groups unique workspace destinations without exposing unrelated modules', ()
   expect(navigationItems('pos').some(item => item.id === 'vendor-customer-crm')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'shipment-management')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'vendor-profile')).toBe(true);
+  expect(navigationItems('pos').some(item => item.id === 'solar-package-management')).toBe(true);
   expect(availableNavigation('pos', new Set(['checkout', 'order-history'])).map(item => item.id)).toEqual(['checkout', 'order-history']);
 });
 
@@ -19,6 +20,7 @@ it('resolves direct workspace paths and legacy section fragments', () => {
   expect(resolveWorkspaceRoute('pos', '/vendor/shipments', '')).toBe('shipment-management');
   expect(resolveWorkspaceRoute('pos', '/vendor/profile', '')).toBe('vendor-profile');
   expect(resolveWorkspaceRoute('pos', '/vendor/pos/products', '')).toBe('product-management');
+  expect(resolveWorkspaceRoute('pos', '/vendor/pos/solar-packages', '')).toBe('solar-package-management');
   expect(resolveWorkspaceRoute('pos', '/vendor/pos', '#cash-refunds')).toBe('cash-refunds');
   expect(resolveWorkspaceRoute('online', '/marketplace/cart', '')).toBe('customer-cart');
   expect(resolveWorkspaceRoute('online', '/marketplace/purchases', '')).toBe('customer-purchases');

@@ -21,3 +21,12 @@ export function authPost(path:string,body:unknown){return request('/api/v1/auth'
 export function api(path:string,body?:unknown,key?:string){return request('/api/v1/vendor/pos'+path,body===undefined?'GET':'POST',body,key);}
 export function vendorApi(path:string,method='GET',body?:unknown,key?:string){return request('/api/v1/vendor'+path,method,body,key);}
 export function platformApi(path:string,method='GET',body?:unknown){return request('/api/v1/platform'+path,method,body);}
+
+export async function vendorUpload(path:string,file:File,altText:string,reason:string){
+ const current=sessionGeneration();
+ const csrf=await requestCsrfToken();
+ if(current!==sessionGeneration())throw new Error('The session changed before the upload could be sent.');
+ const form=new FormData();form.append('file',file);form.append('altText',altText);form.append('reason',reason);
+ const response=await authenticatedFetch('/api/v1/vendor'+path,{method:'POST',credentials:'same-origin',headers:{'X-XSRF-TOKEN':csrf},body:form});
+ return readJsonResponse(response,ApiError,true);
+}

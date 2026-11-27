@@ -259,6 +259,13 @@
       "allOf": [
         "TENANT_PROFILE_VIEW"
       ]
+    },
+    "solar-package-management": {
+      "anyOf": [
+        "PRODUCT_VIEW",
+        "PRODUCT_CREATE",
+        "PRODUCT_UPDATE"
+      ]
     }
   },
   "controllerPolicies": {
@@ -311,7 +318,9 @@
     "MarketplaceEnquiryController": "PUBLIC_VENDOR_ENQUIRY_INTAKE_WITH_EXPLICIT_CONSENT_AND_RATE_LIMIT",
     "VendorLeadController": "VENDOR_TENANT_LEAD_INBOX_PERMISSION_AND_AUDIT",
     "CustomerReceiptDocumentController": "CUSTOMER_ORDER_OWNER_SCOPE",
-    "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE"
+    "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
+    "ProductImageController": "VENDOR_TENANT_PRODUCT_IMAGE_PERMISSION_AND_PUBLISHED_PRODUCT_PUBLIC_ACCESS",
+    "SolarPackageController": "VENDOR_TENANT_SOLAR_PACKAGE_PERMISSION_AND_PUBLISHED_PUBLIC_CATALOGUE"
   },
   "customerPermissions": [
     "CUSTOMER"

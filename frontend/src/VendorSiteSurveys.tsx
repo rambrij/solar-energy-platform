@@ -44,7 +44,7 @@ export default function VendorSiteSurveys(){
   if(!leadId||!siteAddress.trim()||!scheduledAt||!reason.trim())return;
   setSaving(true);setError('');setNotice('');
   try{
-   await vendorApi('/leads/'+leadId+'/site-surveys','POST',{
+   await vendorApi(`/leads/${leadId}/site-surveys`,'POST',{
     siteAddress:siteAddress.trim(),scheduledAt:new Date(scheduledAt).toISOString(),
     roofType:roofType.trim()||null,
     monthlyConsumptionKwh:monthlyConsumption?Number(monthlyConsumption):null,
@@ -62,7 +62,7 @@ export default function VendorSiteSurveys(){
  async function update(survey:Survey,status:'COMPLETED'|'CANCELLED'){
   setSaving(true);setError('');setNotice('');
   try{
-   await vendorApi('/site-surveys/'+survey.id,'PATCH',{
+   await vendorApi(`/site-surveys/${survey.id}`,'PATCH',{
     expectedVersion:survey.version,status,
     findings:status==='COMPLETED'?(findings[survey.id]||''):null,
     reason:status==='COMPLETED'?'Site survey completed':'Site survey cancelled'

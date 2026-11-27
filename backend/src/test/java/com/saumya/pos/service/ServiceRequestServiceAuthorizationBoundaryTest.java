@@ -49,6 +49,27 @@ class ServiceRequestServiceAuthorizationBoundaryTest {
     }
 
     @Test
+    void vendorViewWithoutAssignIsLimitedToCasesAssignedToTheAuthenticatedEmployee() {
+        vendorContext(Set.of("SERVICE_VIEW"));
+        when(db.queryForList(contains("WHERE tenant_id=? AND assigned_to=?"),
+            eq(7L),eq("engineer@vendor.test"))).thenReturn(List.of());
+        assertThat(service().vendorList()).isEmpty();
+        verify(db).queryForList(contains("WHERE tenant_id=? AND assigned_to=?"),
+            eq(7L),eq("engineer@vendor.test"));
+    }
+
+    @Test
+    void customerCannotReadAServiceRequestOutsideTheirOwnedPaidOrderReferences() {
+        var reference=new OrderHistoryService.CustomerOrderReference("owned-order",7L,"Vendor A");
+        when(orders.customerPaidOnlineOrderReferences("customer@example.test")).thenReturn(List.of(reference));
+        when(db.queryForList(contains("FROM service_requests WHERE tenant_id=? AND order_id=? AND id=?"),
+            eq(7L),eq("owned-order"),eq(99L))).thenReturn(List.of());
+        assertThatThrownBy(()->service().customerGet("customer@example.test",99))
+            .isInstanceOfSatisfying(ResponseStatusException.class,error->
+                assertThat(error.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND));
+    }
+
+    @Test
     void customerListQueriesOnlyOrdersResolvedForTheAuthenticatedCustomer() {
         var reference=new OrderHistoryService.CustomerOrderReference("owned-order",7L,"Vendor A");
         when(orders.customerPaidOnlineOrderReferences("customer@example.test")).thenReturn(List.of(reference));

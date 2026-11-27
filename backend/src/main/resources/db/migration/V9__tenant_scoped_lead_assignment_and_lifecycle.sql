@@ -33,7 +33,7 @@ ALTER TABLE marketplace_enquiries
 INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
 SELECT r.tenant_id,r.id,p.permission,r.updated_by
 FROM vendor_roles r
-JOIN (SELECT 'LEAD_UPDATE' permission UNION ALL SELECT 'LEAD_ASSIGN') p
+CROSS JOIN (SELECT 'LEAD_UPDATE' permission UNION ALL SELECT 'LEAD_ASSIGN') p
 LEFT JOIN vendor_role_permissions existing
  ON existing.tenant_id=r.tenant_id AND existing.role_id=r.id AND existing.permission=p.permission
 WHERE r.template_key IN ('VENDOR_ADMIN','SALES_MANAGER') AND existing.permission IS NULL;
@@ -41,7 +41,7 @@ WHERE r.template_key IN ('VENDOR_ADMIN','SALES_MANAGER') AND existing.permission
 INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
 SELECT r.tenant_id,r.id,p.permission,r.updated_by
 FROM vendor_roles r
-JOIN (SELECT 'LEAD_VIEW' permission UNION ALL SELECT 'LEAD_UPDATE') p
+CROSS JOIN (SELECT 'LEAD_VIEW' permission UNION ALL SELECT 'LEAD_UPDATE') p
 LEFT JOIN vendor_role_permissions existing
  ON existing.tenant_id=r.tenant_id AND existing.role_id=r.id AND existing.permission=p.permission
 WHERE r.template_key='SALES_EXECUTIVE' AND existing.permission IS NULL;

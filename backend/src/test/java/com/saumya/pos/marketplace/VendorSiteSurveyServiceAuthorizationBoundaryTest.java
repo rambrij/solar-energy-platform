@@ -5,6 +5,7 @@ import com.saumya.pos.marketplace.internal.MarketplaceEnquiry;
 import com.saumya.pos.marketplace.internal.MarketplaceEnquiryRepository;
 import com.saumya.pos.marketplace.internal.SiteSurveyRepository;
 import com.saumya.pos.security.AuthorizationContext;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -107,7 +108,7 @@ class VendorSiteSurveyServiceAuthorizationBoundaryTest {
         assertThat(view.enquiryId()).isEqualTo(44L);
         assertThat(view.status()).isEqualTo("SCHEDULED");
         assertThat(view.assignedTo()).isEqualTo("sales@vendor.test");
-        verify(audit).recordSiteSurveyMutation(null,"SITE_SURVEY_CREATED","Customer requested a site visit");
+        verify(audit).recordSiteSurveyMutation(0L,"SITE_SURVEY_CREATED","Customer requested a site visit");
     }
 
     @Test void employeeCannotUpdateAnotherEmployeesSurvey() {

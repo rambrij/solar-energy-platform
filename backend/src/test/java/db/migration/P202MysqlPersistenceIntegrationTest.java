@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(14);
+            assertThat(applied).hasSize(15);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -60,6 +60,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(12).getVersion().getVersion()).isEqualTo("13");
             assertThat(applied.get(13).getScript()).isEqualTo("V14__tenant_owned_installation_jobs.sql");
             assertThat(applied.get(13).getVersion().getVersion()).isEqualTo("14");
+            assertThat(applied.get(14).getScript()).isEqualTo("V15__tenant_owned_service_requests.sql");
+            assertThat(applied.get(14).getVersion().getVersion()).isEqualTo("15");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -67,7 +69,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15");
         });
     }
 
@@ -143,7 +145,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
                     "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "site_surveys", "quotations", "quotation_revisions", "quotation_lines", "quotation_audit_events", "vendor_payment_accounts", "vendor_payment_account_events",
-                    "installation_jobs", "installation_events");
+                    "installation_jobs", "installation_events", "service_requests", "service_request_events");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns

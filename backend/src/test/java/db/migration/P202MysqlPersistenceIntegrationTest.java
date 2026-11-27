@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(16);
+            assertThat(applied).hasSize(17);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -63,6 +63,7 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(14).getScript()).isEqualTo("V15__tenant_owned_service_requests.sql");
             assertThat(applied.get(14).getVersion().getVersion()).isEqualTo("15");
             assertThat(applied.get(15).getScript()).isEqualTo("V16__tenant_owned_warranty_coverage.sql");
+            assertThat(applied.get(16).getScript()).isEqualTo("V17__tenant_owned_warranty_claims.sql");
             assertThat(applied.get(15).getVersion().getVersion()).isEqualTo("16");
 
             // A second application startup must be a no-op and validation must
@@ -125,6 +126,11 @@ class P202MysqlPersistenceIntegrationTest {
             assertConstraint(db, schema, "warranty_records", "fk_warranty_installation", "FOREIGN KEY");
             assertConstraint(db, schema, "warranty_records", "uk_warranty_order_item", "UNIQUE");
             assertConstraint(db, schema, "warranty_events", "fk_warranty_event_record", "FOREIGN KEY");
+            assertConstraint(db, schema, "warranty_claims", "fk_warranty_claim_coverage", "FOREIGN KEY");
+            assertConstraint(db, schema, "warranty_claims", "chk_warranty_claim_status", "CHECK");
+            assertConstraint(db, schema, "warranty_claim_events", "fk_warranty_claim_event_claim", "FOREIGN KEY");
+            assertConstraint(db, schema, "warranty_claim_evidence", "fk_warranty_claim_evidence_claim", "FOREIGN KEY");
+            assertConstraint(db, schema, "warranty_claim_evidence", "chk_warranty_claim_evidence_size", "CHECK");
             assertConstraint(db, schema, "service_requests", "chk_service_request_priority", "CHECK");
             assertConstraint(db, schema, "service_requests", "chk_service_request_status", "CHECK");
             assertConstraint(db, schema, "service_requests", "chk_service_request_resolution", "CHECK");
@@ -166,7 +172,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
                     "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "site_surveys", "quotations", "quotation_revisions", "quotation_lines", "quotation_audit_events", "vendor_payment_accounts", "vendor_payment_account_events",
-                    "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events");
+                    "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns

@@ -120,21 +120,24 @@ public class WarrantyClaimService {
     @Transactional(readOnly=true)
     public List<Claim> vendorList(){
         var actor=vendor("SERVICE_VIEW");
-        String sql=actor.hasPermission("SERVICE_ASSIGN")?"""
-            SELECT c.id,c.warranty_id,w.order_id,oi.name product_name,c.subject,c.description,c.status,c.assigned_to,
-              c.inspection_summary,c.decision,c.decision_reason,c.resolution_type,c.submitted_at,c.updated_at,c.resolved_at,c.version
-            FROM warranty_claims c JOIN warranty_records w ON w.tenant_id=c.tenant_id AND w.id=c.warranty_id
-            JOIN order_items oi ON oi.tenant_id=w.tenant_id AND oi.order_id=w.order_id AND oi.product_id=w.product_id
-            WHERE c.tenant_id=? ORDER BY c.updated_at DESC,c.id DESC LIMIT 200
-            """ : """
-            SELECT c.id,c.warranty_id,w.order_id,oi.name product_name,c.subject,c.description,c.status,c.assigned_to,
-              c.inspection_summary,c.decision,c.decision_reason,c.resolution_type,c.submitted_at,c.updated_at,c.resolved_at,c.version
-            FROM warranty_claims c JOIN warranty_records w ON w.tenant_id=c.tenant_id AND w.id=c.warranty_id
-            JOIN order_items oi ON oi.tenant_id=w.tenant_id AND oi.order_id=w.order_id AND oi.product_id=w.product_id
-            WHERE c.tenant_id=? AND c.assigned_to=? ORDER BY c.updated_at DESC,c.id DESC LIMIT 200
-            """;
-        var rows=actor.hasPermission("SERVICE_ASSIGN")?db.queryForList(sql,actor.tenantId())
-            :db.queryForList(sql,actor.tenantId(),actor.username());
+        List<Map<String,Object>> rows;
+        if(actor.hasPermission("SERVICE_ASSIGN")){
+            rows=db.queryForList("""
+                SELECT c.id,c.warranty_id,w.order_id,oi.name product_name,c.subject,c.description,c.status,c.assigned_to,
+                  c.inspection_summary,c.decision,c.decision_reason,c.resolution_type,c.submitted_at,c.updated_at,c.resolved_at,c.version
+                FROM warranty_claims c JOIN warranty_records w ON w.tenant_id=c.tenant_id AND w.id=c.warranty_id
+                JOIN order_items oi ON oi.tenant_id=w.tenant_id AND oi.order_id=w.order_id AND oi.product_id=w.product_id
+                WHERE c.tenant_id=? ORDER BY c.updated_at DESC,c.id DESC LIMIT 200
+                """,actor.tenantId());
+        }else{
+            rows=db.queryForList("""
+                SELECT c.id,c.warranty_id,w.order_id,oi.name product_name,c.subject,c.description,c.status,c.assigned_to,
+                  c.inspection_summary,c.decision,c.decision_reason,c.resolution_type,c.submitted_at,c.updated_at,c.resolved_at,c.version
+                FROM warranty_claims c JOIN warranty_records w ON w.tenant_id=c.tenant_id AND w.id=c.warranty_id
+                JOIN order_items oi ON oi.tenant_id=w.tenant_id AND oi.order_id=w.order_id AND oi.product_id=w.product_id
+                WHERE c.tenant_id=? AND c.assigned_to=? ORDER BY c.updated_at DESC,c.id DESC LIMIT 200
+                """,actor.tenantId(),actor.username());
+        }
         return rows.stream().map(this::claim).toList();
     }
 

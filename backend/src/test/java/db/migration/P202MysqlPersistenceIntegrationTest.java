@@ -114,6 +114,16 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(indexHasLeadingTenant(db, schema, "orders", "tenant_id")).isTrue();
             assertThat(indexHasLeadingTenant(db, schema, "inventory", "tenant_id")).isTrue();
             assertThat(indexHasLeadingTenant(db, schema, "subscription_invoices", "tenant_id")).isTrue();
+            assertThat(indexHasLeadingTenant(db, schema, "service_requests", "tenant_id")).isTrue();
+            assertThat(indexHasLeadingTenant(db, schema, "service_request_events", "tenant_id")).isTrue();
+            assertConstraint(db, schema, "service_requests", "chk_service_request_priority", "CHECK");
+            assertConstraint(db, schema, "service_requests", "chk_service_request_status", "CHECK");
+            assertConstraint(db, schema, "service_requests", "chk_service_request_resolution", "CHECK");
+            assertConstraint(db, schema, "service_request_events", "chk_service_request_event_actor", "CHECK");
+            assertConstraint(db, schema, "service_request_events", "chk_service_request_event_type", "CHECK");
+            assertConstraint(db, schema, "service_requests", "fk_service_request_order", "FOREIGN KEY");
+            assertConstraint(db, schema, "service_requests", "fk_service_request_installation", "FOREIGN KEY");
+            assertConstraint(db, schema, "service_request_events", "fk_service_request_event_request", "FOREIGN KEY");
         });
     }
 

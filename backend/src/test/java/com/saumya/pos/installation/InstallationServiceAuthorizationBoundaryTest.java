@@ -2,6 +2,7 @@ package com.saumya.pos.installation;
 
 import com.saumya.pos.checkout.OrderHistoryService;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.shared.EventOutbox;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -20,9 +21,10 @@ class InstallationServiceAuthorizationBoundaryTest {
     private final JdbcTemplate db=mock(JdbcTemplate.class);
     private final AuthorizationContext authorization=mock(AuthorizationContext.class);
     private final OrderHistoryService orders=mock(OrderHistoryService.class);
+    private final EventOutbox eventOutbox=mock(EventOutbox.class);
     private final Clock clock=Clock.fixed(Instant.parse("2026-11-27T12:00:00Z"),ZoneOffset.UTC);
 
-    private InstallationService service(){return new InstallationService(db,authorization,orders,clock);}
+    private InstallationService service(){return new InstallationService(db,authorization,orders,eventOutbox,clock);}
     private void vendorContext(Set<String> permissions) {
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "engineer@vendor.test",7L,2L,"7:engineer",permissions,false,false,true));
@@ -42,7 +44,7 @@ class InstallationServiceAuthorizationBoundaryTest {
             .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(()->service.updateStatus(10,new InstallationService.StatusChange(0,"IN_PROGRESS","Started")))
             .isInstanceOf(ResponseStatusException.class);
-        verifyNoInteractions(db,orders);
+        verifyNoInteractions(db,orders,eventOutbox);
     }
 
     @Test

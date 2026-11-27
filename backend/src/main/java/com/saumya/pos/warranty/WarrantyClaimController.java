@@ -49,11 +49,11 @@ public class WarrantyClaimController {
     public WarrantyClaimService.CustomerDetail customerGet(Principal principal,@PathVariable long id){
         return claims.customerGet(principal.getName(),id);
     }
-    @PostMapping(value="/api/v1/customer/warranty-claims/{id}/evidence",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping("/api/v1/customer/warranty-claims/{id}/evidence")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('CUSTOMER')")
     public WarrantyClaimService.Evidence customerEvidence(Principal principal,@PathVariable long id,
-            @RequestPart("file") MultipartFile file){
+            @RequestPart(value="file",required=false) MultipartFile file){
         return claims.uploadCustomerEvidence(principal.getName(),id,fileName(file),file.getContentType(),bytes(file));
     }
     @GetMapping("/api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}")
@@ -88,10 +88,10 @@ public class WarrantyClaimController {
     public WarrantyClaimService.Claim resolve(@PathVariable long id,@Valid @RequestBody ResolutionRequest request){
         return claims.resolve(id,new WarrantyClaimService.Resolution(request.expectedVersion(),request.note()));
     }
-    @PostMapping(value="/api/v1/vendor/warranty-claims/{id}/evidence",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping("/api/v1/vendor/warranty-claims/{id}/evidence")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('SERVICE_UPDATE')")
-    public WarrantyClaimService.Evidence vendorEvidence(@PathVariable long id,@RequestPart("file") MultipartFile file,
+    public WarrantyClaimService.Evidence vendorEvidence(@PathVariable long id,@RequestPart(value="file",required=false) MultipartFile file,
             @RequestParam(defaultValue="false") boolean customerVisible){
         return claims.uploadVendorEvidence(id,fileName(file),file.getContentType(),bytes(file),customerVisible);
     }

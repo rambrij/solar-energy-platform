@@ -1768,6 +1768,12 @@
       "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER_AND_CURRENT_UNEXPIRED_REVISION",
       "assignment": "Only the customer owner can accept/reject the latest SENT unexpired revision; conversion is transactional and idempotent",
       "runtimeTest": "QuotationControllerAuthorizationTest#customerDecisionIsOwnerBoundAndConvertsOnce"
+    },
+    "QuotationController#vendorCatalogue": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PUBLISHED_PRODUCT_CATALOGUE",
+      "assignment": "LEAD_VIEW; server-derived tenant comes from active vendor membership; only the tenant published catalogue projection is returned",
+      "runtimeTest": "QuotationControllerAuthorizationTest#quotationCatalogueRequiresLeadView"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

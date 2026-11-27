@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class QuotationPdfRendererTest {
     private final QuotationPdfRenderer renderer=new QuotationPdfRenderer();
     private final Instant sent=Instant.parse("2026-11-27T10:00:00Z");
-    private final QuotationPdfData quotation=new QuotationService.DocumentData(
+    private final QuotationPdfData quotation=new QuotationPdfData(
         42,2,"SENT","INR",sent.plusSeconds(86_400),sent,
         new BigDecimal("12000.00"),new BigDecimal("2160.00"),new BigDecimal("14160.00"),
         "Installation subject to site inspection",
@@ -32,7 +32,7 @@ class QuotationPdfRendererTest {
 
     @Test
     void rejectsMissingOrUnboundedRevisionLines() {
-        var empty=new QuotationService.DocumentData(42,2,"SENT","INR",sent,sent,
+        var empty=new QuotationPdfData(42,2,"SENT","INR",sent,sent,
             BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ZERO,null,List.of());
         assertThatThrownBy(()->renderer.render(empty,"doc-reference-42",sent))
             .isInstanceOf(ResponseStatusException.class)

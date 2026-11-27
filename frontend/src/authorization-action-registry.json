@@ -2515,8 +2515,7 @@
       "method": "POST",
       "endpoint": "/api/v1/vendor/packages",
       "permissions": [
-        "PRODUCT_CREATE",
-        "PRICE_UPDATE"
+        "PRODUCT_CREATE"
       ],
       "actor": "VENDOR",
       "backendOperation": "POST /api/v1/vendor/packages"

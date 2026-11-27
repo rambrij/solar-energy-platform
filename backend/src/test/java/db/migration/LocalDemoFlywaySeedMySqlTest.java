@@ -25,7 +25,7 @@ class LocalDemoFlywaySeedMySqlTest {
    var flyway = Flyway.configure().dataSource(targetUrl,user,password)
        .locations("classpath:db/migration","classpath:db/local-migration")
        .schemas(schema).defaultSchema(schema).createSchemas(false).load();
-   assertThat(flyway.migrate().migrationsExecuted).isEqualTo(14);
+   assertThat(flyway.migrate().migrationsExecuted).isEqualTo(15);
    assertThat(flyway.migrate().migrationsExecuted).isZero();
    var dataSource=new org.springframework.jdbc.datasource.DriverManagerDataSource(targetUrl,user,password);
    var seedScript=new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
@@ -41,8 +41,8 @@ class LocalDemoFlywaySeedMySqlTest {
    assertThat(count(db,"SELECT COUNT(*) FROM products p LEFT JOIN product_categories pc ON pc.tenant_id=p.tenant_id AND pc.product_id=p.id LEFT JOIN catalog_categories c ON c.tenant_id=pc.tenant_id AND c.id=pc.category_id WHERE p.tenant_id IN (910001,920001,930001) AND (pc.product_id IS NULL OR c.id IS NULL)")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM (SELECT tenant_id,sku FROM products WHERE tenant_id IN (910001,920001,930001) GROUP BY tenant_id,sku HAVING COUNT(*)>1) duplicate_skus")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'standard:%'")).isEqualTo(18);
-   // V14 adds four installation permissions to each of the three VENDOR_ADMIN roles.
-   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(252);
+   // V14 adds four installation and V15 adds five service permissions to each of three VENDOR_ADMIN roles.
+   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(267);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_role_assignments WHERE active=TRUE")).isEqualTo(18);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_register_assignments WHERE active=TRUE")).isEqualTo(9);
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_access_audit_events")).isGreaterThanOrEqualTo(39);

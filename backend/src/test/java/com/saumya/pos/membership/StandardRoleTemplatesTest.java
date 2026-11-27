@@ -51,8 +51,7 @@ class StandardRoleTemplatesTest {
             .collect(Collectors.toMap(StandardRoleTemplates.Definition::key,
                 StandardRoleTemplates.Definition::deferredReason));
         assertThat(deferred.keySet()).containsExactlyInAnyOrder(
-            "OPERATIONS_MANAGER", "SERVICE_MANAGER",
-            "SERVICE_ENGINEER", "CONTENT_MANAGER");
+            "OPERATIONS_MANAGER", "CONTENT_MANAGER");
         assertThat(StandardRoleTemplates.ALL.stream().filter(t -> t.key().equals("SALES_EXECUTIVE")).findFirst().orElseThrow().permissions())
             .containsExactlyInAnyOrder("LEAD_VIEW", "LEAD_UPDATE");
         assertThat(deferred.values()).allMatch(reason -> reason != null && !reason.isBlank());

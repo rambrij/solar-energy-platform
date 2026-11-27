@@ -94,6 +94,7 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.fulfillment.ShipmentService",
                 "com.saumya.pos.installation.InstallationService",
                 "com.saumya.pos.service.ServiceRequestService",
+                "com.saumya.pos.warranty.WarrantyService",
                 "com.saumya.pos.marketplace.MarketplaceEnquiryService",
                 "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed"
             );
@@ -109,6 +110,7 @@ class ModuleArchitectureTest {
             Map.entry("com.saumya.pos.fulfillment.ShipmentService", "backend/src/main/java/com/saumya/pos/fulfillment/ShipmentService.java"),
             Map.entry("com.saumya.pos.installation.InstallationService", "backend/src/main/java/com/saumya/pos/installation/InstallationService.java"),
             Map.entry("com.saumya.pos.service.ServiceRequestService", "backend/src/main/java/com/saumya/pos/service/ServiceRequestService.java"),
+            Map.entry("com.saumya.pos.warranty.WarrantyService", "backend/src/main/java/com/saumya/pos/warranty/WarrantyService.java"),
             Map.entry("com.saumya.pos.marketplace.MarketplaceEnquiryService", "backend/src/main/java/com/saumya/pos/marketplace/MarketplaceEnquiryService.java"),
             Map.entry("com.saumya.pos.catalog.LocalDemoSolarCatalogSeed", "backend/src/main/resources/db/local-seed/local_demo_solar_catalog.sql")
         );

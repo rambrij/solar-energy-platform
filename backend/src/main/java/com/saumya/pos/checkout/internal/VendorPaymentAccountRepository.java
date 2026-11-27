@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface VendorPaymentAccountRepository extends JpaRepository<VendorPaymentAccount,Long> {
-    List<VendorPaymentAccount> findAllByTenantIdOrderByUpdatedAtDesc(long tenantId);
+    List<VendorPaymentAccount> findTop10ByTenantIdOrderByUpdatedAtDesc(long tenantId);
     Optional<VendorPaymentAccount> findByTenantIdAndProviderKey(long tenantId,String providerKey);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -35,9 +35,9 @@ public class TenantService implements TenantLifecycleService {
     private static TenantSummary view(Tenant t){return new TenantSummary(t.id(),t.slug(),t.name(),t.legalName(),t.contactEmail(),t.contactPhone(),t.taxIdentifier(),t.address(),t.lifecycleStatus().name(),t.onlineBranchId(),t.initialVendorAdminUsername(),t.createdAt(),t.updatedAt(),t.version(),t.termsAcceptedAt());}
     private static String slug(String v){String s=v==null?"":v.strip().toLowerCase(Locale.ROOT);if(s.length()<2||s.length()>100||!SLUG.matcher(s).matches())throw new ResponseStatusException(BAD_REQUEST,"Store slug must use lowercase letters, numbers and single hyphens");return s;}
     private static String email(String v){String s=v==null?"":v.strip().toLowerCase(Locale.ROOT);if(s.length()>100||!s.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))throw new ResponseStatusException(BAD_REQUEST,"Valid administrator email required");return s;}
-    private static String emailOptional(String v){return v==null||v.isBlank()?null:email(v);}
-    private static String required(String v,int max,String l){if(v==null||v.isBlank()||v.strip().length()>max)throw new ResponseStatusException(BAD_REQUEST,l+" is required and must be at most "+max+" characters");return v.strip();}
-    private static String optional(String v,int max){if(v==null||v.isBlank())return null;if(v.strip().length()>max)throw new ResponseStatusException(BAD_REQUEST,"Optional tenant field is too long");return v.strip();}
+    static String emailOptional(String v){return v==null||v.isBlank()?null:email(v);}
+    static String required(String v,int max,String l){if(v==null||v.isBlank()||v.strip().length()>max)throw new ResponseStatusException(BAD_REQUEST,l+" is required and must be at most "+max+" characters");return v.strip();}
+    static String optional(String v,int max){if(v==null||v.isBlank())return null;if(v.strip().length()>max)throw new ResponseStatusException(BAD_REQUEST,"Optional tenant field is too long");return v.strip();}
     private static String safeQuery(String v){String s=v==null?"":v.strip();if(s.length()>120||s.codePoints().anyMatch(Character::isISOControl))throw new ResponseStatusException(BAD_REQUEST,"Search must be at most 120 printable characters");return s.toLowerCase(Locale.ROOT).replace("!","!!").replace("%","!%").replace("_","!_");}
     private static void checkPage(int p,int s,int max){if(p<0||p>10000||s<1||s>max)throw new ResponseStatusException(BAD_REQUEST,"Pagination outside supported bounds");}
 }

@@ -29,6 +29,7 @@ const pos: NavigationItem[] = [
   { id: 'cashier-sales-insights', label: 'Cashier Sales', group: 'Reports', description: 'Review existing cashier sales reporting.', path: '/vendor/pos/cashier-sales' },
   { id: 'role-management', label: 'Roles & Permissions', group: 'Administration', description: 'Manage tenant roles and their permission grants.', path: '/vendor/pos/roles' },
   { id: 'employee-management', label: 'Employees', group: 'Administration', description: 'Invite employees and manage roles, branch and register assignments.', path: '/vendor/pos/employees' },
+  { id: 'vendor-profile', label: 'Vendor Profile', group: 'Administration', description: 'Manage your tenant-owned business profile and storefront contact details.', path: '/vendor/profile' },
   { id: 'vendor-customer-crm', label: 'Customers & CRM', group: 'Customer Management', description: 'Review verified customer relationships and vendor-private CRM notes.', path: '/vendor/customers' },
   { id: 'shipment-management', label: 'Shipments', group: 'Fulfilment', description: 'Register tracking for paid online orders and append shipment events.', path: '/vendor/shipments' },
 ];

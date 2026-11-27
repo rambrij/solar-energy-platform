@@ -28,7 +28,8 @@
         "role-management",
         "employee-management",
         "vendor-customer-crm",
-        "shipment-management"
+        "shipment-management",
+        "vendor-profile"
       ]
     },
     {
@@ -117,7 +118,8 @@
       "label": "Administration",
       "items": [
         "role-management",
-        "employee-management"
+        "employee-management",
+        "vendor-profile"
       ]
     },
     {
@@ -322,6 +324,11 @@
       "id": "shipment-management",
       "path": "/vendor/shipments",
       "group": "Fulfilment"
+    },
+    {
+      "id": "vendor-profile",
+      "path": "/vendor/profile",
+      "group": "Administration"
     }
   ],
   "tabs": [
@@ -2457,6 +2464,30 @@
       "method": "POST",
       "endpoint": "/api/v1/auth/email-verification/resend",
       "backendOperation": "POST /api/v1/auth/email-verification/resend"
+    },
+    {
+      "id": "vendor-profile-read",
+      "component": "VendorProfile.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/profile",
+      "permissions": [
+        "TENANT_PROFILE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/profile"
+    },
+    {
+      "id": "vendor-profile-update",
+      "component": "VendorProfile.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/profile",
+      "permissions": [
+        "TENANT_PROFILE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/profile"
     }
   ],
   "buttons": [
@@ -2963,6 +2994,18 @@
       "component": "LoginPanel.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/auth/email-verification/resend"
+    },
+    {
+      "id": "vendor-profile-read",
+      "component": "VendorProfile.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/profile"
+    },
+    {
+      "id": "vendor-profile-update",
+      "component": "VendorProfile.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/profile"
     }
   ],
   "dynamicRouteParameters": {

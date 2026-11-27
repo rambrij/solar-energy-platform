@@ -53,6 +53,8 @@
     "ROLE_VIEW",
     "SHIPMENT_UPDATE",
     "SHIPMENT_VIEW",
+    "TENANT_PROFILE_UPDATE",
+    "TENANT_PROFILE_VIEW",
     "USER_CREATE",
     "USER_DISABLE",
     "USER_UPDATE",
@@ -75,6 +77,26 @@
     "PLATFORM_TENANT_VIEW"
   ],
   "frontendRoutes": {
+    "cash-refunds": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_REFUND_VIEW"
+      ]
+    },
+    "cashier-sales-insights": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_CASHIER_REPORT_VIEW"
+      ]
+    },
+    "category-management": {
+      "anyOf": [
+        "PRODUCT_VIEW",
+        "PRODUCT_CREATE",
+        "PRODUCT_UPDATE"
+      ]
+    },
     "checkout": {
       "allOf": [
         "POS_VIEW"
@@ -85,9 +107,37 @@
         "POS_VIEW"
       ]
     },
-    "reserved-pos-checkout": {
+    "customer-cart": {
+      "anyOf": [
+        "CUSTOMER"
+      ]
+    },
+    "customer-dashboard": {
       "allOf": [
-        "POS_VIEW"
+        "CUSTOMER"
+      ]
+    },
+    "customer-profile": {
+      "allOf": [
+        "CUSTOMER"
+      ]
+    },
+    "customer-purchases": {
+      "anyOf": [
+        "CUSTOMER"
+      ]
+    },
+    "employee-management": {
+      "anyOf": [
+        "USER_VIEW",
+        "USER_CREATE",
+        "USER_UPDATE",
+        "USER_DISABLE"
+      ]
+    },
+    "online-checkout": {
+      "anyOf": [
+        "CUSTOMER"
       ]
     },
     "order-history": {
@@ -95,28 +145,10 @@
         "POS_VIEW"
       ]
     },
-    "sale-receipt": {
-      "anyOf": [
-        "POS_RECEIPT_VIEW"
-      ]
-    },
     "pos-returns": {
       "allOf": [
         "POS_VIEW",
         "POS_RETURN_VIEW"
-      ]
-    },
-    "cash-refunds": {
-      "allOf": [
-        "POS_VIEW",
-        "POS_REFUND_VIEW"
-      ]
-    },
-    "category-management": {
-      "anyOf": [
-        "PRODUCT_VIEW",
-        "PRODUCT_CREATE",
-        "PRODUCT_UPDATE"
       ]
     },
     "product-management": {
@@ -126,15 +158,52 @@
         "PRODUCT_UPDATE"
       ]
     },
-    "stock-receiving": {
-      "anyOf": [
-        "INVENTORY_VIEW",
-        "INVENTORY_RECEIVE"
+    "promotion-history": {
+      "allOf": [
+        "POS_VIEW",
+        "CATALOG_PROMOTION_MANAGE",
+        "POS_DISCOUNT_APPROVE"
+      ]
+    },
+    "refund-insights": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_REFUND_VIEW"
       ]
     },
     "register": {
       "allOf": [
         "POS_VIEW"
+      ]
+    },
+    "reserved-pos-checkout": {
+      "allOf": [
+        "POS_VIEW"
+      ]
+    },
+    "role-management": {
+      "anyOf": [
+        "ROLE_VIEW",
+        "ROLE_CREATE",
+        "ROLE_UPDATE",
+        "ROLE_ASSIGN"
+      ]
+    },
+    "sale-receipt": {
+      "anyOf": [
+        "POS_RECEIPT_VIEW"
+      ]
+    },
+    "sales-insights": {
+      "allOf": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW"
+      ]
+    },
+    "saved-vendor-carts": {
+      "anyOf": [
+        "CUSTOMER"
       ]
     },
     "shift-history": {
@@ -147,9 +216,16 @@
         "POS_SHIFT_VARIANCE_APPROVE"
       ]
     },
-    "terminal-tender-review": {
+    "shipment-management": {
       "anyOf": [
-        "POS_TENDER_MANUAL_VERIFY"
+        "SHIPMENT_VIEW",
+        "SHIPMENT_UPDATE"
+      ]
+    },
+    "stock-receiving": {
+      "anyOf": [
+        "INVENTORY_VIEW",
+        "INVENTORY_RECEIVE"
       ]
     },
     "store-settings": {
@@ -158,82 +234,14 @@
         "POS_SETTINGS_MANAGE"
       ]
     },
-    "promotion-history": {
-      "allOf": [
-        "POS_VIEW",
-        "CATALOG_PROMOTION_MANAGE",
-        "POS_DISCOUNT_APPROVE"
-      ]
-    },
-    "sales-insights": {
-      "allOf": [
-        "POS_VIEW",
-        "POS_REPORT_VIEW"
-      ]
-    },
-    "refund-insights": {
-      "allOf": [
-        "POS_VIEW",
-        "POS_REPORT_VIEW",
-        "POS_REFUND_VIEW"
-      ]
-    },
-    "cashier-sales-insights": {
-      "allOf": [
-        "POS_VIEW",
-        "POS_REPORT_VIEW",
-        "POS_CASHIER_REPORT_VIEW"
-      ]
-    },
-    "role-management": {
-      "anyOf": [
-        "ROLE_VIEW",
-        "ROLE_CREATE",
-        "ROLE_UPDATE",
-        "ROLE_ASSIGN"
-      ]
-    },
-    "employee-management": {
-      "anyOf": [
-        "USER_VIEW",
-        "USER_CREATE",
-        "USER_UPDATE",
-        "USER_DISABLE"
-      ]
-    },
-    "vendor-directory": {
-      "anyOf": [
-        "CUSTOMER"
-      ]
-    },
     "storefront-products": {
       "anyOf": [
         "CUSTOMER"
       ]
     },
-    "customer-cart": {
+    "terminal-tender-review": {
       "anyOf": [
-        "CUSTOMER"
-      ]
-    },
-    "online-checkout": {
-      "anyOf": [
-        "CUSTOMER"
-      ]
-    },
-    "saved-vendor-carts": {
-      "anyOf": [
-        "CUSTOMER"
-      ]
-    },
-    "customer-purchases": {
-      "anyOf": [
-        "CUSTOMER"
-      ]
-    },
-    "customer-profile": {
-      "allOf": [
-        "CUSTOMER"
+        "POS_TENDER_MANUAL_VERIFY"
       ]
     },
     "vendor-customer-crm": {
@@ -242,15 +250,14 @@
         "LEAD_VIEW"
       ]
     },
-    "customer-dashboard": {
-      "allOf": [
+    "vendor-directory": {
+      "anyOf": [
         "CUSTOMER"
       ]
     },
-    "shipment-management": {
-      "anyOf": [
-        "SHIPMENT_VIEW",
-        "SHIPMENT_UPDATE"
+    "vendor-profile": {
+      "allOf": [
+        "TENANT_PROFILE_VIEW"
       ]
     }
   },
@@ -303,7 +310,8 @@
     "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE",
     "MarketplaceEnquiryController": "PUBLIC_VENDOR_ENQUIRY_INTAKE_WITH_EXPLICIT_CONSENT_AND_RATE_LIMIT",
     "VendorLeadController": "VENDOR_TENANT_LEAD_INBOX_PERMISSION_AND_AUDIT",
-    "CustomerReceiptDocumentController": "CUSTOMER_ORDER_OWNER_SCOPE"
+    "CustomerReceiptDocumentController": "CUSTOMER_ORDER_OWNER_SCOPE",
+    "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -347,8 +355,6 @@
     "SERVICE_RESOLVE",
     "SERVICE_UPDATE",
     "SERVICE_VIEW",
-    "TENANT_PROFILE_UPDATE",
-    "TENANT_PROFILE_VIEW",
     "VENDOR_AUDIT_VIEW",
     "VENDOR_PAYMENT_RECONCILE",
     "VENDOR_PAYMENT_REFUND",
@@ -1015,6 +1021,26 @@
       "scope": "Authenticated vendor tenant and paid online orders",
       "ui": "Vendor fulfilment shipment queue",
       "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
+    },
+    {
+      "permission": "TENANT_PROFILE_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PUT /api/v1/vendor/profile",
+      "service": "VendorTenantProfileService",
+      "scope": "Authenticated vendor membership tenant only; expected version and immutable field-name audit",
+      "ui": "Vendor workspace > Administration > Vendor Profile",
+      "test": "VendorTenantProfileServiceTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    {
+      "permission": "TENANT_PROFILE_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/profile",
+      "service": "VendorTenantProfileService",
+      "scope": "Authenticated vendor membership tenant only; no client tenant selector",
+      "ui": "Vendor workspace > Administration > Vendor Profile",
+      "test": "VendorTenantProfileServiceTest; RuntimeAuthorizationEndpointInventoryTest"
     },
     {
       "permission": "USER_CREATE",

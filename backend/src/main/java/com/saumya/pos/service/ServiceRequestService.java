@@ -98,7 +98,7 @@ public class ServiceRequestService {
     @Transactional(readOnly=true)
     public List<EligibleOrder> eligibleCustomerOrders(String username) {
         return orders.customerPaidOnlineOrderReferences(username).stream()
-            .map(order -> new EligibleOrder(order.orderId(), order.sellerName(), null)).toList();
+            .map(order -> new EligibleOrder(order.orderId(), order.vendorName(), null)).toList();
     }
 
     @Transactional(readOnly=true)

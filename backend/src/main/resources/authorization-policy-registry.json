@@ -55,6 +55,8 @@
     "ROLE_VIEW",
     "SHIPMENT_UPDATE",
     "SHIPMENT_VIEW",
+    "SITE_SURVEY_MANAGE",
+    "SITE_SURVEY_VIEW",
     "TENANT_PROFILE_UPDATE",
     "TENANT_PROFILE_VIEW",
     "USER_CREATE",
@@ -224,6 +226,13 @@
         "SHIPMENT_UPDATE"
       ]
     },
+    "solar-package-management": {
+      "anyOf": [
+        "PRODUCT_VIEW",
+        "PRODUCT_CREATE",
+        "PRODUCT_UPDATE"
+      ]
+    },
     "stock-receiving": {
       "anyOf": [
         "INVENTORY_VIEW",
@@ -262,67 +271,66 @@
         "TENANT_PROFILE_VIEW"
       ]
     },
-    "solar-package-management": {
-      "anyOf": [
-        "PRODUCT_VIEW",
-        "PRODUCT_CREATE",
-        "PRODUCT_UPDATE"
+    "vendor-site-surveys": {
+      "allOf": [
+        "SITE_SURVEY_VIEW"
       ]
     }
   },
   "controllerPolicies": {
+    "AuthenticationController": "AUTHENTICATION_FLOW",
+    "BranchSettingsController": "VENDOR_BRANCH_SETTINGS_PERMISSION",
     "CashierSalesController": "VENDOR_POS_REPORT_SCOPE",
+    "CashRefundController": "VENDOR_POS_REFUND_PERMISSION",
+    "CatalogSearchController": "PUBLIC_PUBLISHED_CATALOGUE",
+    "CategoryAdminController": "VENDOR_CATALOGUE_PERMISSION",
     "CheckoutController": "CUSTOMER_OR_POS_OWNER_SCOPE",
     "CustomerAssociationController": "CUSTOMER_VERIFICATION_AND_POS_SCOPE",
+    "CustomerProfileController": "CUSTOMER_GLOBAL_PROFILE_OWNER_SCOPE",
+    "CustomerReceiptDocumentController": "CUSTOMER_ORDER_OWNER_SCOPE",
+    "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE",
+    "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE",
+    "DiscountPolicyController": "VENDOR_POS_DISCOUNT_PERMISSION",
     "DraftRecoveryController": "CUSTOMER_OR_POS_OWNER_SCOPE",
+    "IdentityInvitationController": "ONE_TIME_INVITATION_TOKEN",
+    "MarketplaceController": "PUBLIC_OR_CUSTOMER_OWNER",
+    "MarketplaceEnquiryController": "PUBLIC_VENDOR_ENQUIRY_INTAKE_WITH_EXPLICIT_CONSENT_AND_RATE_LIMIT",
     "OnlineReceiptController": "CUSTOMER_ORDER_OWNER_SCOPE",
     "OrderHistoryController": "CUSTOMER_OR_POS_OWNER_SCOPE",
     "PaymentCheckoutController": "CUSTOMER_OR_POS_AND_SUPERVISOR_SCOPE",
-    "SalesReportController": "VENDOR_REPORT_SCOPE",
-    "ReceiptDocumentController": "RECEIPT_OWNER_AND_REPRINT_PERMISSION",
-    "SaleReceiptController": "VENDOR_RECEIPT_SCOPE",
-    "AuthenticationController": "AUTHENTICATION_FLOW",
-    "IdentityInvitationController": "ONE_TIME_INVITATION_TOKEN",
-    "PlatformIdentityController": "PLATFORM_IDENTITY_PERMISSION",
-    "PlatformMfaController": "ONE_TIME_MFA_ENROLLMENT_TOKEN",
-    "CatalogSearchController": "PUBLIC_PUBLISHED_CATALOGUE",
-    "CategoryAdminController": "VENDOR_CATALOGUE_PERMISSION",
-    "DiscountPolicyController": "VENDOR_POS_DISCOUNT_PERMISSION",
-    "MarketplaceController": "PUBLIC_OR_CUSTOMER_OWNER",
-    "ProductAdminController": "VENDOR_CATALOGUE_PERMISSION",
-    "ProductDetailController": "PUBLIC_PUBLISHED_CATALOGUE",
-    "PromotionController": "VENDOR_PROMOTION_PERMISSION",
-    "PromotionHistoryController": "VENDOR_PROMOTION_PERMISSION",
-    "StockReceivingController": "VENDOR_INVENTORY_PERMISSION",
-    "VendorDirectoryController": "PUBLIC_ACTIVE_VENDOR_DIRECTORY",
-    "VendorRoleController": "VENDOR_ROLE_AND_EMPLOYEE_PERMISSION",
     "PlatformAdminController": "PLATFORM_TENANT_AND_AUDIT_PERMISSION",
     "PlatformHealthController": "PLATFORM_ANALYTICS_PERMISSION",
+    "PlatformIdentityController": "PLATFORM_IDENTITY_PERMISSION",
+    "PlatformMfaController": "ONE_TIME_MFA_ENROLLMENT_TOKEN",
     "PlatformSubscriptionController": "PLATFORM_PLAN_PERMISSION",
     "PlatformTenantSubscriptionController": "PLATFORM_SUBSCRIPTION_PERMISSION",
-    "ReportExportController": "VENDOR_REPORT_EXPORT_PERMISSION",
-    "BranchSettingsController": "VENDOR_BRANCH_SETTINGS_PERMISSION",
     "PosCatalogController": "VENDOR_POS_VIEW_AND_BRANCH_SCOPE",
     "PosController": "VENDOR_POS_PERMISSION_AND_SESSION_SCOPE",
-    "RegisterDirectoryController": "VENDOR_POS_REGISTER_ASSIGNMENT_SCOPE",
-    "ShiftHistoryController": "CASHIER_OWN_SHIFT_SCOPE",
-    "CashRefundController": "VENDOR_POS_REFUND_PERMISSION",
+    "ProductAdminController": "VENDOR_CATALOGUE_PERMISSION",
+    "ProductDetailController": "PUBLIC_PUBLISHED_CATALOGUE",
+    "ProductImageController": "VENDOR_TENANT_PRODUCT_IMAGE_PERMISSION_AND_PUBLISHED_PRODUCT_PUBLIC_ACCESS",
+    "PromotionController": "VENDOR_PROMOTION_PERMISSION",
+    "PromotionHistoryController": "VENDOR_PROMOTION_PERMISSION",
+    "ReceiptDocumentController": "RECEIPT_OWNER_AND_REPRINT_PERMISSION",
     "RefundHistoryController": "VENDOR_POS_REFUND_PERMISSION",
     "RefundReportController": "VENDOR_POS_REFUND_REPORT_PERMISSION",
+    "RegisterDirectoryController": "VENDOR_POS_REGISTER_ASSIGNMENT_SCOPE",
+    "ReportExportController": "VENDOR_REPORT_EXPORT_PERMISSION",
     "ReturnAuditController": "VENDOR_POS_RETURN_AUDIT_PERMISSION",
     "ReturnController": "VENDOR_POS_RETURN_PERMISSION",
     "ReturnQueueController": "VENDOR_POS_RETURN_QUEUE_PERMISSION",
-    "CustomerProfileController": "CUSTOMER_GLOBAL_PROFILE_OWNER_SCOPE",
+    "SaleReceiptController": "VENDOR_RECEIPT_SCOPE",
+    "SalesReportController": "VENDOR_REPORT_SCOPE",
+    "ShiftHistoryController": "CASHIER_OWN_SHIFT_SCOPE",
+    "SolarPackageController": "VENDOR_TENANT_SOLAR_PACKAGE_PERMISSION_AND_PUBLISHED_PUBLIC_CATALOGUE",
+    "StockReceivingController": "VENDOR_INVENTORY_PERMISSION",
     "VendorCustomerCrmController": "VENDOR_PRIVATE_CUSTOMER_CRM_SCOPE",
-    "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_ORDER_SCOPE",
-    "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE",
-    "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE",
-    "MarketplaceEnquiryController": "PUBLIC_VENDOR_ENQUIRY_INTAKE_WITH_EXPLICIT_CONSENT_AND_RATE_LIMIT",
+    "VendorDirectoryController": "PUBLIC_ACTIVE_VENDOR_DIRECTORY",
     "VendorLeadController": "VENDOR_TENANT_LEAD_VIEW_UPDATE_AND_ASSIGNMENT_SCOPE_WITH_AUDIT",
-    "CustomerReceiptDocumentController": "CUSTOMER_ORDER_OWNER_SCOPE",
-    "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
-    "ProductImageController": "VENDOR_TENANT_PRODUCT_IMAGE_PERMISSION_AND_PUBLISHED_PRODUCT_PUBLIC_ACCESS",
-    "SolarPackageController": "VENDOR_TENANT_SOLAR_PACKAGE_PERMISSION_AND_PUBLISHED_PUBLIC_CATALOGUE"
+    "VendorRoleController": "VENDOR_ROLE_AND_EMPLOYEE_PERMISSION",
+    "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_ORDER_SCOPE",
+    "VendorSiteSurveyController": "VENDOR_TENANT_SITE_SURVEY_VIEW_AND_MANAGE_WITH_LEAD_ASSIGNMENT_SCOPE",
+    "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -450,6 +458,26 @@
       "scope": "Authenticated tenant and branch-scoped inventory records",
       "ui": "Inventory > Stock receiving > view receipts",
       "test": "PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "LEAD_ASSIGN",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PUT /api/v1/vendor/leads/{id}/assignment",
+      "service": "MarketplaceEnquiryService",
+      "scope": "Active tenant; target active employee with LEAD_VIEW; version check; reason audit",
+      "ui": "Vendor workspace > Customers & CRM > Marketplace enquiries",
+      "test": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    {
+      "permission": "LEAD_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PATCH /api/v1/vendor/leads/{id}",
+      "service": "MarketplaceEnquiryService",
+      "scope": "Active tenant; assigned leads only unless manager grant; optimistic version; reason audit",
+      "ui": "Vendor workspace > Customers & CRM > Marketplace enquiries",
+      "test": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
     },
     {
       "permission": "LEAD_VIEW",
@@ -1032,6 +1060,26 @@
       "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
     },
     {
+      "permission": "SITE_SURVEY_MANAGE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "POST /api/v1/vendor/leads/{leadId}/site-surveys; PATCH /api/v1/vendor/site-surveys/{id}",
+      "service": "VendorSiteSurveyService",
+      "scope": "Tenant derived from authenticated membership; lead and survey row locked by tenant; employee can only operate on assigned leads/surveys; reason required and changes audited.",
+      "ui": "Vendor workspace > Customers & CRM > Site Surveys",
+      "test": "VendorSiteSurveyServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    {
+      "permission": "SITE_SURVEY_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/site-surveys",
+      "service": "VendorSiteSurveyService",
+      "scope": "Tenant-scoped survey list; manager can view tenant surveys; sales employee sees only surveys assigned to their authenticated membership; read is audited.",
+      "ui": "Vendor workspace > Customers & CRM > Site Surveys",
+      "test": "VendorSiteSurveyServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    {
       "permission": "TENANT_PROFILE_UPDATE",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
@@ -1090,26 +1138,6 @@
       "scope": "One tenant; employee branch and register assignments remain additional controls",
       "ui": "Vendor workspace > Access administration > employee lifecycle",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
-    },
-    {
-      "permission": "LEAD_UPDATE",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "PATCH /api/v1/vendor/leads/{id}",
-      "service": "MarketplaceEnquiryService",
-      "scope": "Active tenant; assigned leads only unless manager grant; optimistic version; reason audit",
-      "ui": "Vendor workspace > Customers & CRM > Marketplace enquiries",
-      "test": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
-    },
-    {
-      "permission": "LEAD_ASSIGN",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "PUT /api/v1/vendor/leads/{id}/assignment",
-      "service": "MarketplaceEnquiryService",
-      "scope": "Active tenant; target active employee with LEAD_VIEW; version check; reason audit",
-      "ui": "Vendor workspace > Customers & CRM > Marketplace enquiries",
-      "test": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
     }
   ],
   "frontendPlatformPages": {

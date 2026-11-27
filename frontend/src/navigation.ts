@@ -32,6 +32,7 @@ const pos: NavigationItem[] = [
   { id: 'employee-management', label: 'Employees', group: 'Administration', description: 'Invite employees and manage roles, branch and register assignments.', path: '/vendor/pos/employees' },
   { id: 'vendor-profile', label: 'Vendor Profile', group: 'Administration', description: 'Manage your tenant-owned business profile and storefront contact details.', path: '/vendor/profile' },
   { id: 'vendor-customer-crm', label: 'Customers & CRM', group: 'Customer Management', description: 'Review verified customer relationships and vendor-private CRM notes.', path: '/vendor/customers' },
+  { id: 'vendor-site-surveys', label: 'Site Surveys', group: 'Customer Management', description: 'Schedule and record site surveys linked to existing vendor leads.', path: '/vendor/pos/site-surveys' },
   { id: 'shipment-management', label: 'Shipments', group: 'Fulfilment', description: 'Register tracking for paid online orders and append shipment events.', path: '/vendor/shipments' },
 ];
 

@@ -3483,7 +3483,7 @@
         "solar-package-create"
       ]
     },
-    "VendorQuotations.tsx:69": {
+    "VendorQuotations.tsx:82": {
       "fn": "vendorApi",
       "argument": "revisionPath",
       "methodArgument": "'POST'",
@@ -3491,7 +3491,7 @@
         "vendor-quotation-revise"
       ]
     },
-    "CustomerQuotations.tsx:36": {
+    "CustomerQuotations.tsx:48": {
       "fn": "marketplaceApi",
       "argument": "decisionPath",
       "methodArgument": "'POST'",

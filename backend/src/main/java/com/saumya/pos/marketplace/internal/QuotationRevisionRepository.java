@@ -14,6 +14,8 @@ public interface QuotationRevisionRepository extends JpaRepository<QuotationRevi
     Optional<QuotationRevision> findTopByTenantIdAndQuotationIdOrderByRevisionNumberDesc(
         long tenantId, long quotationId);
 
+    java.util.List<QuotationRevision> findAllByTenantIdAndQuotationIdOrderByRevisionNumberAsc(long tenantId, long quotationId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select r from QuotationRevision r

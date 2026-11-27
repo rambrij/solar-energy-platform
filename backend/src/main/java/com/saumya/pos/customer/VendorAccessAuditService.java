@@ -61,6 +61,19 @@ public class VendorAccessAuditService {
     }
 
     @Transactional
+    public void recordQuotationMutation(long quotationId,String action,String reason) {
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        actor.requirePermission("LEAD_UPDATE");
+        if(!java.util.Set.of("QUOTATION_SENT","QUOTATION_REVISION_SENT").contains(action))
+            throw new IllegalArgumentException("Unsupported quotation audit action");
+        if(reason==null||reason.isBlank()||reason.strip().length()>500)
+            throw new IllegalArgumentException("Quotation audit reason is required");
+        events.save(new VendorAccessAuditEvent(actor.tenantId(),actor.username(),
+            "QUOTATION",Long.toString(quotationId),action,reason.strip()));
+    }
+
+    @Transactional
     public void recordSiteSurveyMutation(long surveyId,String action,String reason) {
         var actor=authorization.current();
         actor.requireVendorMembership();

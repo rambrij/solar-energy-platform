@@ -3000,7 +3000,8 @@
         "SERVICE_RESOLVE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/status"
+      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/status",
+      "permissionMode": "ANY"
     },
     {
       "id": "customer-service-request-list",

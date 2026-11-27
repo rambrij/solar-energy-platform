@@ -61,7 +61,7 @@ class LocalDemoCredentialsTest {
             "e.username LIKE '%.service.manager@somya.local' OR " +
             "e.username LIKE '%.service.engineer@somya.local' OR " +
             "e.username LIKE '%.content.manager@somya.local'", Integer.class
-        )).isZero();
+        )).isEqualTo(6);
 
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM platform_user_permissions WHERE username='platform.superadmin@somya.local'", Integer.class

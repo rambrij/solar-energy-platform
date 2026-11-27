@@ -66,7 +66,7 @@ public class VendorPaymentAccountService {
     @Transactional(readOnly=true)
     public List<View> list() {
         var actor=actor("TENANT_PROFILE_VIEW");
-        return accounts.findAllByTenantIdOrderByUpdatedAtDesc(actor.tenantId()).stream().map(this::view).toList();
+        return accounts.findTop10ByTenantIdOrderByUpdatedAtDesc(actor.tenantId()).stream().map(this::view).toList();
     }
 
     public View submit(Submit request) {

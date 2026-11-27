@@ -2916,6 +2916,139 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/installations/{id}"
+    },
+    {
+      "id": "vendor-service-request-list",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests"
+    },
+    {
+      "id": "vendor-service-request-eligible-orders",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests/orders",
+      "permissions": [
+        "SERVICE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests/orders"
+    },
+    {
+      "id": "vendor-service-request-assignees",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests/assignees",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests/assignees"
+    },
+    {
+      "id": "vendor-service-request-create",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/service-requests",
+      "permissions": [
+        "SERVICE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/service-requests"
+    },
+    {
+      "id": "vendor-service-request-detail",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests/{id}",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests/{id}"
+    },
+    {
+      "id": "vendor-service-request-assignment",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/service-requests/{id}/assignment",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/assignment"
+    },
+    {
+      "id": "vendor-service-request-status",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/service-requests/{id}/status",
+      "permissions": [
+        "SERVICE_UPDATE",
+        "SERVICE_RESOLVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/status"
+    },
+    {
+      "id": "customer-service-request-list",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-requests",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-requests"
+    },
+    {
+      "id": "customer-service-request-eligible-orders",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-requests/orders",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-requests/orders"
+    },
+    {
+      "id": "customer-service-request-create",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/service-requests",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/service-requests"
+    },
+    {
+      "id": "customer-service-request-detail",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-requests/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-requests/{id}"
     }
   ],
   "buttons": [
@@ -3677,6 +3810,36 @@
       "argument": "'/api/v1/customer/installations/'+selected",
       "actions": [
         "customer-installation-detail"
+      ]
+    },
+    "VendorServiceRequests.tsx:47": {
+      "fn": "vendorApi",
+      "argument": "'/service-requests/'+id",
+      "actions": [
+        "vendor-service-request-detail"
+      ]
+    },
+    "VendorServiceRequests.tsx:54": {
+      "fn": "vendorApi",
+      "argument": "`/service-requests/${row.id}/assignment`",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "vendor-service-request-assignment"
+      ]
+    },
+    "VendorServiceRequests.tsx:63": {
+      "fn": "vendorApi",
+      "argument": "`/service-requests/${row.id}/status`",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "vendor-service-request-status"
+      ]
+    },
+    "CustomerServiceRequests.tsx:37": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/service-requests/'+id",
+      "actions": [
+        "customer-service-request-detail"
       ]
     }
   },

@@ -23,7 +23,7 @@ class ModuleArchitectureTest {
     static final String[] MODULES = {
         "cart", "catalog", "checkout", "customer", "documents", "identity",
         "integration", "installation", "inventory", "marketplace", "membership", "platform", "reporting",
-        "retail", "returns", "security", "service", "shared", "subscription", "tenant"
+        "retail", "returns", "security", "service", "shared", "subscription", "tenant", "warranty"
     };
 
     static JavaClasses productionClasses() {

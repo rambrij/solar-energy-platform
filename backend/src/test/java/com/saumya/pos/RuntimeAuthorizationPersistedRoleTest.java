@@ -701,6 +701,7 @@ class RuntimeAuthorizationPersistedRoleTest {
     private Object defaultRecordComponent(RecordComponent component) {
         Class<?> type = component.getType();
         String name = component.getName();
+        if (type == java.time.Instant.class) return java.time.Instant.parse("2026-11-27T10:00:00Z");
         if ((type == boolean.class || type == Boolean.class)
             && validationAnnotation(component, jakarta.validation.constraints.AssertTrue.class) != null) return true;
         if (type == String.class) {

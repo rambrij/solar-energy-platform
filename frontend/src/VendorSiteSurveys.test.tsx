@@ -29,7 +29,7 @@ it('loads tenant leads and surveys and schedules a survey against the selected l
 it('shows an API denial without claiming that a survey was created',async()=>{
  vi.mocked(vendorApi).mockImplementation(async(path)=>{
   if(path==='/leads')return [] as never;
-  if(path==='/site-surveys')throw new Error('Missing SITE_SURVEY_VIEW');
+  if(path==='/site-surveys')throw new Error('Missing LEAD_VIEW');
   throw new Error('Unexpected request '+path);
  });
  render(<VendorSiteSurveys/>);

@@ -431,6 +431,33 @@
       "expected": 200,
       "test": "PosTest#onlineReceiptApiEnforcesCustomerOwnershipAndAuditedCopyCsrf",
       "sideEffect": "one CUSTOMER_RECEIPT_COPY audit event; saved order, payment, vendor invoice and inventory remain unchanged"
+    },
+    {
+      "id": "P006-CUSTOMER-OWN-SERVICE-REQUESTS",
+      "actor": "CUSTOMER",
+      "endpoint": "GET /api/v1/customer/service-requests",
+      "permission": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "expected": 200,
+      "test": "ServiceRequestServiceAuthorizationBoundaryTest#customerListQueriesOnlyOrdersResolvedForTheAuthenticatedCustomer"
+    },
+    {
+      "id": "P006-CUSTOMER-FOREIGN-SERVICE-REQUEST-404",
+      "actor": "WRONG_CUSTOMER",
+      "endpoint": "GET /api/v1/customer/service-requests/{id}",
+      "permission": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_SERVICE_REQUEST_OWNERSHIP",
+      "expected": 404,
+      "test": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    {
+      "id": "P006-VENDOR-SERVICE-REQUEST-TENANT-SCOPE",
+      "actor": "VENDOR_ADMIN",
+      "endpoint": "GET /api/v1/vendor/service-requests",
+      "permission": "SERVICE_VIEW",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
+      "expected": 200,
+      "test": "ServiceRequestControllerAuthorizationTest#vendorListAndDetailRequireServiceView"
     }
   ],
   "notApplicableResources": [
@@ -1852,6 +1879,72 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_INSTALLATION_VIEW",
       "assignment": "INSTALLATION_ASSIGN; only enabled employees with an active persisted tenant role grant are returned",
       "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersAndEngineersRequireInstallationAssign"
+    },
+    "ServiceRequestController#eligibleVendorOrders": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDERS",
+      "assignment": "SERVICE_CREATE; order query is tenant-qualified and returns only paid orders with a customer identity",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorCanReadEligibleOrdersAndCreateServiceRequest"
+    },
+    "ServiceRequestController#eligibleAssignees": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_SERVICE_VIEW",
+      "assignment": "SERVICE_ASSIGN; only enabled employees with an active persisted tenant SERVICE_VIEW role grant are returned",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceAssignCanListAssigneesAndReassign"
+    },
+    "ServiceRequestController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
+      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens listing only within the authenticated tenant; other employees see only cases assigned to their username",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorListAndDetailRequireServiceView"
+    },
+    "ServiceRequestController#vendorGet": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
+      "assignment": "SERVICE_VIEW; tenant-qualified request read; assignedTo must match actor unless SERVICE_ASSIGN",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorListAndDetailRequireServiceView"
+    },
+    "ServiceRequestController#vendorCreate": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDER",
+      "assignment": "SERVICE_CREATE; order locked inside authenticated tenant; installation link is resolved using the same tenant and order; event and outbox append in the same transaction",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorCanReadEligibleOrdersAndCreateServiceRequest"
+    },
+    "ServiceRequestController#assign": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_ASSIGNMENT",
+      "assignment": "SERVICE_ASSIGN; tenant-qualified request row lock and optimistic version; assigned employee must hold active SERVICE_VIEW",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceAssignCanListAssigneesAndReassign"
+    },
+    "ServiceRequestController#updateStatus": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_SERVICE_REQUEST",
+      "assignment": "SERVICE_UPDATE for forward progress or SERVICE_RESOLVE for resolution/closure; tenant-qualified row lock, optimistic version, transition validation, immutable event and outbox",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceUpdateCanMoveRequestForwardButNotUseResolvePermissionOnItsOwn"
+    },
+    "ServiceRequestController#eligibleCustomerOrders": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "OrderHistoryService resolves authenticated global customer into paid-online order references; no client-supplied tenant is accepted",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    "ServiceRequestController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "Each request query is scoped to the verified tenant/order composite references returned for the authenticated customer",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    "ServiceRequestController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_SERVICE_REQUEST_OWNERSHIP",
+      "assignment": "Request detail and customer-visible events use only verified tenant/order references; foreign request IDs return 404",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    "ServiceRequestController#customerCreate": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "Authenticated customer actor must match Principal; order must appear in the customer's paid-online order references; tenant derived server-side; no vendor/customer cross-context",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

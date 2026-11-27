@@ -39,7 +39,8 @@ public class WarrantyService {
     public record Warranty(long id,String orderId,long productId,String productName,
             Long installationId,LocalDate coverageStartDate,LocalDate coverageEndDate,
             String termsSummary,String registeredBy,Instant registeredAt) {}
-    public record CustomerWarranty(long id,String orderId,String productName,Long installationId,\n            LocalDate coverageStartDate,LocalDate coverageEndDate,String termsSummary,\n            Instant registeredAt,String vendorName) {}
+    public record CustomerWarranty(long id,String orderId,String productName,Long installationId,
+            LocalDate coverageStartDate,LocalDate coverageEndDate,String termsSummary,\n            Instant registeredAt,String vendorName) {}
     public record EligibleOrder(String orderId,Instant orderedAt) {}
     public record EligibleItem(long productId,String productName,int quantity) {}
 

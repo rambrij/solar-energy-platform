@@ -85,17 +85,24 @@ public class InstallationService {
     @Transactional(readOnly=true)
     public List<Job> vendorList() {
         var actor=vendor("INSTALLATION_VIEW");
-        String sql="""
+        if(actor.hasPermission("INSTALLATION_ASSIGN")) {
+            return db.queryForList("""
+                SELECT id,order_id,site_address,scheduled_at,status,assigned_to,
+                       created_at,updated_at,completed_at,version
+                FROM installation_jobs
+                WHERE tenant_id=?
+                ORDER BY scheduled_at DESC,id DESC
+                LIMIT 100
+                """,actor.tenantId()).stream().map(this::job).toList();
+        }
+        return db.queryForList("""
             SELECT id,order_id,site_address,scheduled_at,status,assigned_to,
                    created_at,updated_at,completed_at,version
             FROM installation_jobs
-            WHERE tenant_id=?
-            """+(actor.hasPermission("INSTALLATION_ASSIGN")?"":" AND assigned_to=? ")
-                +" ORDER BY scheduled_at DESC,id DESC LIMIT 100";
-        List<Map<String,Object>> rows=actor.hasPermission("INSTALLATION_ASSIGN")
-            ?db.queryForList(sql,actor.tenantId())
-            :db.queryForList(sql,actor.tenantId(),actor.username());
-        return rows.stream().map(this::job).toList();
+            WHERE tenant_id=? AND assigned_to=?
+            ORDER BY scheduled_at DESC,id DESC
+            LIMIT 100
+            """,actor.tenantId(),actor.username()).stream().map(this::job).toList();
     }
 
     @Transactional(readOnly=true)

@@ -112,7 +112,7 @@ public class WarrantyClaimService {
             if(id==null)throw new IllegalStateException("Warranty claim ID was not generated");
             event(order.tenantId(),id,"CUSTOMER",username,"SUBMITTED",null,"SUBMITTED","Customer submitted warranty claim",true,now);
             publish(order.tenantId(),username,id,"WARRANTY_CLAIM.SUBMITTED","SUBMITTED",now);
-            return customerClaim(load(order.tenantId(),id));
+            return customerClaim(claim(load(order.tenantId(),id)));
         }
         throw missing();
     }

@@ -12,13 +12,13 @@ it('creates a paid-order installation and records engineer progress',async()=>{
  vi.mocked(useSession).mockReturnValue({account:{username:'manager@vendor.test',tenantId:7,permissions:['INSTALLATION_ASSIGN','INSTALLATION_VIEW','INSTALLATION_UPDATE','INSTALLATION_COMMISSION']}} as any);
  let jobs:any[]=[];
  vi.mocked(vendorApi).mockImplementation(async(path,method='GET',body?:any)=>{
-  if(path==='/installations')return jobs;
-  if(path==='/installations/orders')return [{orderId:'paid-order-1',orderedAt:'2026-11-26T08:00:00Z',total:100000}];
-  if(path==='/installations/engineers')return ['engineer@vendor.test'];
   if(path==='/installations'&&method==='POST'){
    jobs=[{id:1,orderId:body.orderId,siteAddress:body.siteAddress,scheduledAt:body.scheduledAt,status:'ASSIGNED',assignedTo:body.assignedTo,createdAt:body.scheduledAt,updatedAt:body.scheduledAt,completedAt:null,version:0}];
    return jobs[0];
   }
+  if(path==='/installations')return jobs;
+  if(path==='/installations/orders')return [{orderId:'paid-order-1',orderedAt:'2026-11-26T08:00:00Z',total:100000}];
+  if(path==='/installations/engineers')return ['engineer@vendor.test'];
   if(path==='/installations/1'&&method==='GET')return {job:jobs[0],events:[]};
   if(path==='/installations/1/status'&&method==='PATCH'){
    jobs=[{...jobs[0],status:body.status,version:1,completedAt:body.status==='COMPLETED'?body.note:null}];return jobs[0];

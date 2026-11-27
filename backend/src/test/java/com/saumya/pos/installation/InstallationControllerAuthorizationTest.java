@@ -28,6 +28,13 @@ class InstallationControllerAuthorizationTest {
         verify(service).vendorList();
     }
 
+    @Test @WithMockUser(authorities={"INSTALLATION_VIEW"})
+    void vendorGetRequiresInstallationView() throws Exception {
+        when(service.vendorGet(10)).thenReturn(null);
+        mvc.perform(get("/api/v1/vendor/installations/10")).andExpect(status().isOk());
+        verify(service).vendorGet(10);
+    }
+
     @Test @WithMockUser(authorities={"SHIPMENT_VIEW"})
     void shipmentViewDoesNotGrantInstallationView() throws Exception {
         mvc.perform(get("/api/v1/vendor/installations")).andExpect(status().isForbidden());

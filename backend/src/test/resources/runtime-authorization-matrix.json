@@ -1803,7 +1803,7 @@
       "actor": "VENDOR",
       "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_CUSTOMER_ORDERS_WITHOUT_INSTALLATION",
       "assignment": "INSTALLATION_ASSIGN; all order reads include tenant_id, ONLINE, PAID, customer_id and no existing tenant/order installation",
-      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersRequiresInstallationAssign"
+      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersAndEngineersRequireInstallationAssign"
     },
     "InstallationController#vendorList": {
       "actor": "VENDOR",
@@ -1821,37 +1821,37 @@
       "actor": "VENDOR",
       "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDER",
       "assignment": "INSTALLATION_ASSIGN; paid online order locked within tenant; only one installation per tenant/order; assignee must be enabled tenant employee with active INSTALLATION_VIEW grant",
-      "runtimeTest": "InstallationControllerAuthorizationTest#createRequiresInstallationAssign"
+      "runtimeTest": "InstallationControllerAuthorizationTest#managerCanCreateAndAssignInstallation"
     },
     "InstallationController#assign": {
       "actor": "VENDOR",
       "scope": "AUTHENTICATED_VENDOR_TENANT_INSTALLATION_ASSIGNMENT",
       "assignment": "INSTALLATION_ASSIGN; tenant-qualified job row lock and optimistic version; assigned employee must hold active INSTALLATION_VIEW",
-      "runtimeTest": "InstallationControllerAuthorizationTest#assignRequiresInstallationAssign"
+      "runtimeTest": "InstallationControllerAuthorizationTest#managerCanCreateAndAssignInstallation"
     },
     "InstallationController#updateStatus": {
       "actor": "VENDOR",
       "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_INSTALLATION",
       "assignment": "INSTALLATION_UPDATE; only assigned engineer or INSTALLATION_ASSIGN actor; completion additionally requires INSTALLATION_COMMISSION; transitions are optimistic and audited",
-      "runtimeTest": "InstallationControllerAuthorizationTest#updateStatusRequiresInstallationUpdate"
+      "runtimeTest": "InstallationControllerAuthorizationTest#assignedEngineerCanSubmitProgress"
     },
     "InstallationController#customerList": {
       "actor": "CUSTOMER",
       "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
-      "assignment": "CustomerAccess resolves global customer ID; list joins tenant/order and returns only that customer's paid online installations",
-      "runtimeTest": "InstallationControllerAuthorizationTest#customerRoutesRequireCustomerActor"
+      "assignment": "OrderHistoryService resolves the authenticated global customer into paid-online order references; each installation read is scoped by the verified tenant/order composite key.",
+      "runtimeTest": "InstallationControllerAuthorizationTest#customerCanReadOwnInstallationRoutes"
     },
     "InstallationController#customerGet": {
       "actor": "CUSTOMER",
       "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_INSTALLATION_OWNERSHIP",
-      "assignment": "CustomerAccess resolves global customer ID; job and its order are joined by tenant/order and customer_id; foreign IDs return 404",
-      "runtimeTest": "InstallationControllerAuthorizationTest#customerRoutesRequireCustomerActor"
+      "assignment": "OrderHistoryService resolves the authenticated global customer into paid-online order references; job detail and events use the verified tenant/order composite key; foreign IDs return 404.",
+      "runtimeTest": "InstallationControllerAuthorizationTest#customerCanReadOwnInstallationRoutes"
     },
     "InstallationController#eligibleEngineers": {
       "actor": "VENDOR",
       "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_INSTALLATION_VIEW",
       "assignment": "INSTALLATION_ASSIGN; only enabled employees with an active persisted tenant role grant are returned",
-      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleEngineersRequiresInstallationAssign"
+      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersAndEngineersRequireInstallationAssign"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

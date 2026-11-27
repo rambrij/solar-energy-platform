@@ -192,8 +192,7 @@ public class ServiceRequestService {
         KeyHolder keys = new GeneratedKeyHolder();
         db.update(connection -> {
             PreparedStatement statement = connection.prepareStatement("""
-                INSERT INTO service_requests(
-                    tenant_id,order_id,installation_id,subject,description,priority,status,
+                INSERT INTO service_requests(tenant_id,order_id,installation_id,subject,description,priority,status,
                     created_by,created_by_actor,updated_by,updated_by_actor,created_at,updated_at,version)
                 VALUES(?,?,?,?,?,?,'OPEN',?,?,?,?,?,?,0)
                 """, Statement.RETURN_GENERATED_KEYS);
@@ -372,8 +371,7 @@ public class ServiceRequestService {
             String eventType, String fromStatus, String toStatus, String note,
             boolean customerVisible, Instant occurredAt) {
         db.update("""
-            INSERT INTO service_request_events(
-                tenant_id,service_request_id,actor_type,actor_id,event_type,
+            INSERT INTO service_request_events(tenant_id,service_request_id,actor_type,actor_id,event_type,
                 from_status,to_status,note,customer_visible,occurred_at)
             VALUES(?,?,?,?,?,?,?,?,?,?)
             """, tenantId, id, actorType, actorId, eventType, fromStatus,

@@ -21,6 +21,16 @@ public class WarrantyController {
         @Positive long productId,@NotNull LocalDate coverageStartDate,@NotNull LocalDate coverageEndDate,
         @NotBlank @Size(max=2000) String termsSummary,@NotBlank @Size(max=500) String reason){}
 
+    @GetMapping("/api/v1/vendor/warranties/orders")
+    @PreAuthorize("hasAuthority('SERVICE_CREATE')")
+    public List<WarrantyService.EligibleOrder> eligibleOrders(){return warranties.eligibleOrders();}
+
+    @GetMapping("/api/v1/vendor/warranties/orders/{orderId}/items")
+    @PreAuthorize("hasAuthority('SERVICE_CREATE')")
+    public List<WarrantyService.EligibleItem> eligibleItems(@PathVariable String orderId){
+        return warranties.eligibleItems(orderId);
+    }
+
     @GetMapping("/api/v1/vendor/warranties")
     @PreAuthorize("hasAuthority('SERVICE_VIEW')")
     public List<WarrantyService.Warranty> vendorList(){return warranties.vendorList();}

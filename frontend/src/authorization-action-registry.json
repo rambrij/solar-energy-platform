@@ -34,7 +34,8 @@
         "shipment-management",
         "vendor-profile",
         "installation-management",
-        "service-requests"
+        "service-requests",
+        "warranty-management"
       ]
     },
     {
@@ -52,7 +53,8 @@
         "customer-quotations",
         "customer-profile",
         "customer-installations",
-        "customer-service-requests"
+        "customer-service-requests",
+        "customer-warranties"
       ]
     },
     {
@@ -155,7 +157,8 @@
         "customer-purchases",
         "customer-quotations",
         "customer-installations",
-        "customer-service-requests"
+        "customer-service-requests",
+        "customer-warranties"
       ]
     },
     {
@@ -181,7 +184,8 @@
       "label": "Fulfilment",
       "items": [
         "shipment-management",
-        "installation-management"
+        "installation-management",
+        "warranty-management"
       ]
     }
   ],
@@ -384,6 +388,16 @@
     {
       "id": "customer-service-requests",
       "path": "/marketplace/service-requests",
+      "group": "Purchases"
+    },
+    {
+      "id": "warranty-management",
+      "path": "/vendor/warranties",
+      "group": "Fulfilment"
+    },
+    {
+      "id": "customer-warranties",
+      "path": "/marketplace/warranties",
       "group": "Purchases"
     }
   ],
@@ -3050,6 +3064,78 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/service-requests/{id}"
+    },
+    {
+      "id": "vendor-warranty-list",
+      "component": "VendorWarranties.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranties",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranties"
+    },
+    {
+      "id": "vendor-warranty-orders",
+      "component": "VendorWarranties.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranties/orders",
+      "permissions": [
+        "SERVICE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranties/orders"
+    },
+    {
+      "id": "vendor-warranty-items",
+      "component": "VendorWarranties.tsx",
+      "trigger": "change",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranties/orders/{orderId}/items",
+      "permissions": [
+        "SERVICE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranties/orders/{orderId}/items"
+    },
+    {
+      "id": "vendor-warranty-register",
+      "component": "VendorWarranties.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/warranties",
+      "permissions": [
+        "SERVICE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/warranties"
+    },
+    {
+      "id": "customer-warranty-list",
+      "component": "CustomerWarranties.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranties",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranties"
+    },
+    {
+      "id": "customer-warranty-detail",
+      "component": "CustomerWarranties.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranties/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranties/{id}"
     }
   ],
   "buttons": [
@@ -3706,6 +3792,18 @@
       "component": "CustomerServiceRequests.tsx",
       "trigger": "button",
       "backendOperation": "GET /api/v1/customer/service-requests/{id}"
+    },
+    {
+      "id": "vendor-warranty-register",
+      "component": "VendorWarranties.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/warranties"
+    },
+    {
+      "id": "customer-warranty-detail",
+      "component": "CustomerWarranties.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/warranties/{id}"
     }
   ],
   "dynamicRouteParameters": {

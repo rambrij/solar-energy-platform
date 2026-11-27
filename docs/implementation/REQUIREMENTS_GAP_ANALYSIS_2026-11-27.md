@@ -102,12 +102,12 @@ Latest pre-fix CI run observed for the reviewed baseline:
 - Failure: `ModuleArchitectureTest.directJdbcUsageIsLimitedToReviewedTenantScopedAdapters`, unexpected `com.saumya.pos.catalog.LocalDemoSolarCatalogSeed`.
 - Runtime authorization report generated in that run showed 42/42 actor scenarios passed, 18/18 P0-07 actor-context scenarios passed, 153 missing-permission HTTP checks passed, and zero protected routes without persisted-actor authorization evidence. Those results do not override the suite failure.
 
-After the fix, GitHub Actions runs were triggered on the branch for:
-- `85c401499a324ca5d792f3cbf71b9d46712c0aea` — architecture review correction.
-- `98a2cb49bb287e4e65bf4bbca59fc20fe796c6d1` — Vendor Employee documentation.
-- `74069de310bf8c91f81c872ca16e24c93f0c3451` — demo index link.
+After the fix, GitHub Actions run results observed:
+- Run `45935649547` for `85c401499a324ca5d792f3cbf71b9d46712c0aea`: backend H2 **passed**, backend MySQL 8.4 **passed**, frontend tests/build **passed**; Browser E2E was still running when checked.
+- Run `45935761066` for `98a2cb49bb287e4e65bf4bbca59fc20fe796c6d1`: backend H2 **passed**, backend MySQL 8.4 **passed**, frontend tests/build **passed**; Browser E2E was still running when checked.
+- Runs `45935818724` (`74069de310bf8c91f81c872ca16e24c93f0c3451`) and `45935993902` (current report commit `8531d8e99805b52d9170c4dc9fb9b6f88d21d1c6`) were still in progress when checked.
 
-Their status must be checked on GitHub before treating the fix as validated. No local Maven/npm commands are claimed because the repository could not be cloned in the execution environment.
+The workflow commands are `mvn -B -f backend/pom.xml test` for both H2 and MySQL 8.4, and `npm ci`, `npm test`, `npm run build` for the frontend. The dependent browser job runs `npm run test:e2e`. The job conclusions above are the evidence for the passed commands; no local Maven/npm commands are claimed because the repository could not be cloned in the execution environment. Browser E2E and the latest branch-tip workflow remain pending and must pass before final release sign-off.
 
 ## 6. Source-of-truth change recommendations (do not apply without approval)
 

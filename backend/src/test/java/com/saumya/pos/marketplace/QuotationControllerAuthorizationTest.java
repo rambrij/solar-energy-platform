@@ -10,40 +10,36 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Focused guard and domain-state tests for the assisted-sales quotation boundary. */
 class QuotationControllerAuthorizationTest {
-    private static String policy(String method) throws Exception {
-        PreAuthorize annotation=QuotationController.class.getDeclaredMethod(method,
-            switch(method) {
-                case "create" -> QuotationController.CreateRequest.class;
-                case "revise" -> long.class;
-                case "decide" -> java.security.Principal.class;
-                default -> java.security.Principal.class;
-            }).getAnnotation(PreAuthorize.class);
-        return annotation==null?"":annotation.value();
+    private static String policy(String method) {
+        return java.util.Arrays.stream(QuotationController.class.getDeclaredMethods())
+            .filter(candidate->candidate.getName().equals(method))
+            .findFirst().map(candidate->candidate.getAnnotation(PreAuthorize.class))
+            .map(PreAuthorize::value).orElse("");
     }
 
     @Test
-    void vendorQuotationListRequiresLeadViewAndTenantAssignmentScope() throws Exception {
+    void vendorQuotationListRequiresLeadViewAndTenantAssignmentScope() {
         assertThat(QuotationController.class.getDeclaredMethod("vendorList")
             .getAnnotation(PreAuthorize.class).value()).isEqualTo("hasAuthority('LEAD_VIEW')");
     }
 
     @Test
-    void createQuotationRequiresAssignedLeadAndTenantOwnedProducts() throws Exception {
+    void createQuotationRequiresAssignedLeadAndTenantOwnedProducts() {
         assertThat(policy("create")).isEqualTo("hasAuthority('LEAD_UPDATE')");
     }
 
     @Test
-    void reviseQuotationRequiresTenantAndAssignedLeadScope() throws Exception {
+    void reviseQuotationRequiresTenantAndAssignedLeadScope() {
         assertThat(policy("revise")).isEqualTo("hasAuthority('LEAD_UPDATE')");
     }
 
     @Test
-    void customerQuotationListReturnsOnlyAuthenticatedCustomerRows() throws Exception {
+    void customerQuotationListReturnsOnlyAuthenticatedCustomerRows() {
         assertThat(policy("customerList")).isEqualTo("hasAuthority('CUSTOMER')");
     }
 
     @Test
-    void customerCannotReadAnotherCustomersQuotation() throws Exception {
+    void customerCannotReadAnotherCustomersQuotation() {
         assertThat(policy("customerGet")).isEqualTo("hasAuthority('CUSTOMER')");
     }
 

@@ -1774,6 +1774,18 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_PUBLISHED_PRODUCT_CATALOGUE",
       "assignment": "LEAD_VIEW; server-derived tenant comes from active vendor membership; only the tenant published catalogue projection is returned",
       "runtimeTest": "QuotationControllerAuthorizationTest#quotationCatalogueRequiresLeadView"
+    },
+    "VendorPaymentAccountController#list": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAYMENT_ACCOUNT_COLLECTION",
+      "assignment": "TENANT_PROFILE_VIEW; tenant comes only from active vendor membership; provider references are masked",
+      "runtimeTest": "VendorPaymentAccountControllerAuthorizationTest#listRequiresTenantProfileView"
+    },
+    "VendorPaymentAccountController#submit": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PROVIDER_ACCOUNT",
+      "assignment": "TENANT_PROFILE_UPDATE; body cannot set verification state; account submission/resubmission is audited and remains pending until provider verification",
+      "runtimeTest": "VendorPaymentAccountControllerAuthorizationTest#submitRequiresTenantProfileUpdate"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

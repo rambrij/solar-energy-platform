@@ -3,8 +3,6 @@ package com.saumya.pos.service;
 import com.saumya.pos.checkout.OrderHistoryService;
 import com.saumya.pos.security.AuthorizationContext;
 import com.saumya.pos.shared.EventOutbox;
-import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -17,9 +15,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -121,22 +118,19 @@ public class ServiceRequestService {
     @Transactional(readOnly=true)
     public List<VendorRequest> vendorList() {
         var actor = vendor("SERVICE_VIEW");
-        String sql = actor.hasPermission("SERVICE_ASSIGN")
-            ? """
-              SELECT id,order_id,installation_id,subject,description,priority,status,assigned_to,
-                     created_at,updated_at,resolved_at,version
-              FROM service_requests WHERE tenant_id=?
-              ORDER BY updated_at DESC,id DESC LIMIT 100
-              """
-            : """
-              SELECT id,order_id,installation_id,subject,description,priority,status,assigned_to,
-                     created_at,updated_at,resolved_at,version
-              FROM service_requests WHERE tenant_id=? AND assigned_to=?
-              ORDER BY updated_at DESC,id DESC LIMIT 100
-              """;
         List<Map<String,Object>> rows = actor.hasPermission("SERVICE_ASSIGN")
-            ? db.queryForList(sql, actor.tenantId())
-            : db.queryForList(sql, actor.tenantId(), actor.username());
+            ? db.queryForList("""
+                SELECT id,order_id,installation_id,subject,description,priority,status,assigned_to,
+                       created_at,updated_at,resolved_at,version
+                FROM service_requests WHERE tenant_id=?
+                ORDER BY updated_at DESC,id DESC LIMIT 100
+                """, actor.tenantId())
+            : db.queryForList("""
+                SELECT id,order_id,installation_id,subject,description,priority,status,assigned_to,
+                       created_at,updated_at,resolved_at,version
+                FROM service_requests WHERE tenant_id=? AND assigned_to=?
+                ORDER BY updated_at DESC,id DESC LIMIT 100
+                """, actor.tenantId(), actor.username());
         return rows.stream().map(this::vendorRequest).toList();
     }
 
@@ -189,31 +183,18 @@ public class ServiceRequestService {
             """, tenantId, orderId).stream().map(row -> ((Number) row.get("id")).longValue())
             .findFirst().orElse(null);
         Instant now = clock.instant();
-        KeyHolder keys = new GeneratedKeyHolder();
-        db.update(connection -> {
-            PreparedStatement statement = connection.prepareStatement("""
-                INSERT INTO service_requests(tenant_id,order_id,installation_id,subject,description,priority,status,
-                    created_by,created_by_actor,updated_by,updated_by_actor,created_at,updated_at,version)
-                VALUES(?,?,?,?,?,?,'OPEN',?,?,?,?,?,?,0)
-                """, Statement.RETURN_GENERATED_KEYS);
-            statement.setLong(1, tenantId);
-            statement.setString(2, orderId);
-            if (installationId == null) statement.setNull(3, java.sql.Types.BIGINT);
-            else statement.setLong(3, installationId);
-            statement.setString(4, subject);
-            statement.setString(5, description);
-            statement.setString(6, priority);
-            statement.setString(7, actorId);
-            statement.setString(8, actorType);
-            statement.setString(9, actorId);
-            statement.setString(10, actorType);
-            statement.setTimestamp(11, Timestamp.from(now));
-            statement.setTimestamp(12, Timestamp.from(now));
-            return statement;
-        }, keys);
-        Number generated = keys.getKey();
+        String requestKey = UUID.randomUUID().toString();
+        db.update("""
+            INSERT INTO service_requests(request_key,tenant_id,order_id,installation_id,subject,description,priority,status,
+                created_by,created_by_actor,updated_by,updated_by_actor,created_at,updated_at,version)
+            VALUES(?,?,?,?,?,?,?,'OPEN',?,?,?,?,?,?,0)
+            """, requestKey, tenantId, orderId, installationId, subject, description, priority,
+            actorId, actorType, actorId, actorType, Timestamp.from(now), Timestamp.from(now));
+        Long generated = db.queryForObject("""
+            SELECT id FROM service_requests WHERE tenant_id=? AND request_key=?
+            """, Long.class, tenantId, requestKey);
         if (generated == null) throw new IllegalStateException("Service request ID was not generated");
-        long id = generated.longValue();
+        long id = generated;
         appendEvent(tenantId, id, actorType, actorId, "CREATED", null, "OPEN",
             "Service request submitted", true, now);
         publish(tenantId, actorId, id, orderId, "SERVICE_REQUEST.CREATED", "OPEN", now);

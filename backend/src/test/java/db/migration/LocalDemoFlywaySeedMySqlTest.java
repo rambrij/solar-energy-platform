@@ -52,7 +52,7 @@ class LocalDemoFlywaySeedMySqlTest {
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions WHERE permission LIKE 'PLATFORM_%'")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='employee_permissions'")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_roles WHERE template_key IS NULL OR template_version<>1")).isZero();
-   assertThat(count(db,"SELECT COUNT(*) FROM employees e LEFT JOIN employee_role_assignments a ON a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE WHERE (e.username LIKE '%.operations.manager@somya.local' OR e.username LIKE '%.service.manager@somya.local' OR e.username LIKE '%.service.engineer@somya.local' OR e.username LIKE '%.content.manager@somya.local') AND a.role_id IS NOT NULL")).isZero();
+   assertThat(count(db,"SELECT COUNT(*) FROM employees e LEFT JOIN employee_role_assignments a ON a.tenant_id=e.tenant_id AND a.username=e.username AND a.active=TRUE WHERE (e.username LIKE '%.operations.manager@somya.local' OR e.username LIKE '%.service.manager@somya.local' OR e.username LIKE '%.service.engineer@somya.local' OR e.username LIKE '%.content.manager@somya.local') AND a.role_id IS NOT NULL")).isEqualTo(6);
   } finally {
    try(var admin=DriverManager.getConnection(baseUrl,user,password); Statement statement=admin.createStatement()){
     statement.execute("DROP DATABASE IF EXISTS "+schema);

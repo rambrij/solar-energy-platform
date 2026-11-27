@@ -146,3 +146,15 @@ The gap list above is a point-in-time review and predates several subsequent ver
 - Warranty claims, claim evidence, visits, SLA/parts workflows, approvals, replacements/refunds and claim resolution remain NOT IMPLEMENTED and require separate approved vertical slices.
 
 The warranty slice reuses existing `SERVICE_VIEW` and `SERVICE_CREATE` grants for this bounded read/register workflow. It does not add new assignable permissions. The latest branch CI run must pass H2, MySQL 8.4, frontend authorization-registry/tests/build and browser E2E before the implementation can be called validated.
+
+
+**Warranty Claims Management — IMPLEMENTED IN BRANCH (CI verification pending):**
+- Customer submits a claim only against their own registered warranty linked to a paid-online order and within inclusive coverage dates.
+- Vendor claim queue and detail are tenant-scoped; staff without SERVICE_ASSIGN see only claims assigned to their authenticated employee identity.
+- Assignment requires an enabled tenant employee with active SERVICE_VIEW.
+- Inspection notes support explicit customer visibility. Approval/rejection requires SERVICE_RESOLVE; approval selects REPAIR or REPLACEMENT, and only approved work can be marked resolved.
+- Claim events and evidence metadata are append-only. PDF/JPEG/PNG evidence is limited to 10 MB and stored through the existing tenant-scoped MinIO object-storage integration.
+- Customer views return only customer-visible events/evidence and omit internal inspection summaries, actor identities and internal evidence.
+- Flyway V17 creates tenant-owned claims, immutable event/evidence metadata and lifecycle/ownership constraints.
+- Vendor workspace: Customer Management → Warranty Claims. Customer workspace: Purchases → Warranty Claims.
+- Repair/replacement decisions record the workflow only. They do not execute refund/payment, inventory deduction or replacement-order transactions; those remain separate integrations/vertical slices.

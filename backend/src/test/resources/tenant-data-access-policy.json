@@ -471,6 +471,25 @@
           "tenant"
         ]
       }
+    },
+    {
+      "source": "com.saumya.pos.checkout.CheckoutService",
+      "methods": [
+        "fromAcceptedQuotation"
+      ],
+      "authority": "The internal accepted-quotation conversion method is called by QuotationService only after the authenticated global customer identity owns the locked quotation and accepted its latest revision. Tenant comes from that persisted customer-owned quotation; the method re-resolves the current global customer and confirms the exact customer ID before any tenant-scoped order and stock operation.",
+      "evidence": [
+        "public Draft fromAcceptedQuotation(long tenant,long customer,long quotationId",
+        "long resolved=customers.resolve(authentication.getName())",
+        "if(resolved!=customer)",
+        "orders.findByTenantIdAndKey(tenant,orderKey)",
+        "stock.reserve(tenant,branch,line.product(),line.quantity(),id,expires)"
+      ],
+      "trustedTenantParameters": {
+        "fromAcceptedQuotation": [
+          "tenant"
+        ]
+      }
     }
   ],
   "inheritedIdLookups": [
@@ -955,6 +974,12 @@
           "expression": "order.tenant()",
           "argumentIndex": 0,
           "expectedCallCount": 2
+        },
+        {
+          "caller": "com.saumya.pos.checkout.CheckoutService#fromAcceptedQuotation",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
         }
       ]
     },
@@ -995,6 +1020,18 @@
         {
           "caller": "com.saumya.pos.marketplace.MarketplaceEnquiryService#assignLead",
           "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.checkout.CheckoutService#fromAcceptedQuotation",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.marketplace.QuotationService#decide",
+          "expression": "tenant",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }
@@ -1045,6 +1082,27 @@
       "variable": "tenant",
       "initializer": "order.tenantId()",
       "authority": "OrderHistoryService returns this tenant only with a paid ONLINE order reference selected by the authenticated global CUSTOMER identity; the value is bound to the tenant_id predicate for that exact order's shipment lookup."
+    },
+    {
+      "class": "com.saumya.pos.marketplace.QuotationService",
+      "method": "decide",
+      "variable": "tenant",
+      "initializer": "quote.tenantId()",
+      "authority": "The quotation row is pessimistically locked by the authenticated global customer ID and quotation ID; CustomerAccess resolves and locks that same customer before the query. Tenant is read only from this customer-owned persisted quotation."
+    },
+    {
+      "class": "com.saumya.pos.marketplace.QuotationService",
+      "method": "view",
+      "variable": "tenant",
+      "initializer": "quote.tenantId()",
+      "authority": "The quotation is already loaded by an authenticated vendor tenant-scoped operation or by a global customer ID + quotation ID owner-scoped operation; tenant is read from that persisted authorized row."
+    },
+    {
+      "class": "com.saumya.pos.marketplace.QuotationService",
+      "method": "revisionView",
+      "variable": "tenant",
+      "initializer": "revision.tenantId()",
+      "authority": "The revision belongs to an authorized quotation through a composite tenant/quotation FK; the revision is loaded only after its parent quotation has been vendor-tenant or customer-owner scoped."
     }
   ]
 }

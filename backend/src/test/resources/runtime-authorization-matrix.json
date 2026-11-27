@@ -1732,6 +1732,42 @@
       "scope": "ACTIVE_VENDOR_TENANT_PROFILE_UPDATE",
       "assignment": "TENANT_PROFILE_UPDATE; tenant row lock; expected version; append-only field-name audit",
       "runtimeTest": "VendorTenantProfileServiceTest; RuntimeAuthorizationPersistedRoleTest"
+    },
+    "QuotationController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_SCOPE",
+      "assignment": "LEAD_VIEW; LEAD_ASSIGN widens visibility only within the authenticated tenant",
+      "runtimeTest": "QuotationControllerAuthorizationTest#vendorQuotationListRequiresLeadViewAndTenantAssignmentScope"
+    },
+    "QuotationController#create": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_WITH_VERIFIED_CUSTOMER_ENQUIRY",
+      "assignment": "LEAD_UPDATE and assigned lead or LEAD_ASSIGN; enquiry must be linked to the global customer identity",
+      "runtimeTest": "QuotationControllerAuthorizationTest#createQuotationRequiresAssignedLeadAndTenantOwnedProducts"
+    },
+    "QuotationController#revise": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_WITH_EXISTING_QUOTATION",
+      "assignment": "LEAD_UPDATE and assigned lead or LEAD_ASSIGN; only OPEN quotations may be revised",
+      "runtimeTest": "QuotationControllerAuthorizationTest#reviseQuotationRequiresTenantAndAssignedLeadScope"
+    },
+    "QuotationController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PROFILE_FROM_AUTHENTICATED_IDENTITY",
+      "assignment": "CustomerAccess.resolve binds all rows to the authenticated global customer ID",
+      "runtimeTest": "QuotationControllerAuthorizationTest#customerQuotationListReturnsOnlyAuthenticatedCustomerRows"
+    },
+    "QuotationController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER",
+      "assignment": "Repository query is keyed by authenticated customer ID and quotation ID; foreign quotations return 404",
+      "runtimeTest": "QuotationControllerAuthorizationTest#customerCannotReadAnotherCustomersQuotation"
+    },
+    "QuotationController#decide": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER_AND_CURRENT_UNEXPIRED_REVISION",
+      "assignment": "Only the customer owner can accept/reject the latest SENT unexpired revision; conversion is transactional and idempotent",
+      "runtimeTest": "QuotationControllerAuthorizationTest#customerDecisionIsOwnerBoundAndConvertsOnce"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

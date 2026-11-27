@@ -10,6 +10,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface QuotationRepository extends JpaRepository<Quotation, Long> {
+    Optional<Quotation> findByCustomerIdAndId(long customerId, long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select q from Quotation q where q.customerId=:customer and q.id=:id")
+    Optional<Quotation> lockByCustomerIdAndId(@Param("customer") long customer, @Param("id") long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select q from Quotation q where q.tenantId=:tenant and q.id=:id")
     Optional<Quotation> lockTenant(@Param("tenant") long tenant, @Param("id") long id);

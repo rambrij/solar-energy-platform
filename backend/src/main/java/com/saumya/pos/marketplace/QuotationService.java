@@ -103,7 +103,8 @@ public class QuotationService {
 
         Instant now=clock.instant();
         Quotation quote=quotations.saveAndFlush(new Quotation(actor.tenantId(),lead.id(),lead.customerId(),actorName,now));
-        RevisionView revision=createSentRevision(quote,1,validateItems(request.items()),request.validityDays(),terms,actorName,now);
+        int revisionNumber=quote.addRevision(actorName,now);
+        RevisionView revision=createSentRevision(quote,revisionNumber,validateItems(request.items()),request.validityDays(),terms,actorName,now);
         audit.save(new QuotationAuditEvent(actor.tenantId(),quote.id(),revision.id(),"VENDOR",actorName,null,
             "QUOTATION_SENT",reason,now));
         vendorAudit.recordQuotationMutation(quote.id(),"QUOTATION_SENT",reason);
@@ -185,12 +186,9 @@ public class QuotationService {
             boolean accept,String requestedReason) {
         long customer=customers.resolve(username);
         customers.lock(customer);
-        Quotation quote=quotations.findById(quotationId).orElseThrow(this::missing);
-        if(quote.customerId()!=customer) throw missing();
-        // Lock through the tenant-qualified query after ownership is established.
-        quote=quotations.lockTenant(quote.tenantId(),quotationId).orElseThrow(this::missing);
-        if(quote.customerId()!=customer) throw missing();
-        QuotationRevision revision=revisions.lockRevision(quote.tenantId(),quote.id(),revisionNumber).orElseThrow(this::missing);
+        Quotation quote=quotations.lockByCustomerIdAndId(customer,quotationId).orElseThrow(this::missing);
+        long tenant=quote.tenantId();
+        QuotationRevision revision=revisions.lockRevision(tenant,quote.id(),revisionNumber).orElseThrow(this::missing);
         Instant now=clock.instant();
         if(!"OPEN".equals(quote.status())||quote.latestRevisionNumber()!=revisionNumber
                 ||!"SENT".equals(revision.status())||!revision.validUntil().isAfter(now))
@@ -205,11 +203,11 @@ public class QuotationService {
             return new CustomerDecision(view(quote),null);
         }
         quote.accept(revisionNumber,customer,now);
-        var snapshots=lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(quote.tenantId(),revision.id());
+        var snapshots=lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(tenant,revision.id());
         var orderLines=snapshots.stream().map(line->new CheckoutService.QuotationLineSnapshot(
             line.productId(),line.productNameSnapshot(),line.quantity(),line.listPrice(),line.unitPrice(),
             line.discountPercent(),line.taxRate(),line.taxAmount(),line.lineTotal())).toList();
-        var order=checkout.fromAcceptedQuotation(quote.tenantId(),customer,quote.id(),revision.total(),orderLines);
+        var order=checkout.fromAcceptedQuotation(tenant,customer,quote.id(),revision.total(),orderLines);
         quote.converted(order.id(),now);
         audit.save(new QuotationAuditEvent(quote.tenantId(),quote.id(),revision.id(),"CUSTOMER",username,
             customer,"QUOTATION_ACCEPTED_AND_CONVERTED", "Customer accepted the current quotation revision",now));
@@ -219,20 +217,21 @@ public class QuotationService {
     @Transactional(readOnly=true)
     public View customerGet(String username,long id) {
         long customer=customers.resolve(username);
-        Quotation quote=quotations.findById(id).orElseThrow(this::missing);
-        if(quote.customerId()!=customer) throw missing();
+        Quotation quote=quotations.findByCustomerIdAndId(customer,id).orElseThrow(this::missing);
         return view(quote);
     }
 
     private View view(Quotation quote) {
+        long tenant=quote.tenantId();
         List<RevisionView> revisionViews=revisions.findAllByTenantIdAndQuotationIdOrderByRevisionNumberAsc(
-            quote.tenantId(),quote.id()).stream().map(this::revisionView).toList();
+            tenant,quote.id()).stream().map(this::revisionView).toList();
         return new View(quote.id(),quote.enquiryId(),quote.status(),quote.acceptedRevisionNumber(),
             quote.convertedOrderId(),quote.version(),revisionViews);
     }
     private RevisionView revisionView(QuotationRevision revision) {
+        long tenant=revision.tenantId();
         return revisionView(revision,lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(
-            revision.tenantId(),revision.id()));
+            tenant,revision.id()));
     }
     private RevisionView revisionView(QuotationRevision revision,List<QuotationLine> items) {
         return new RevisionView(revision.id(),revision.revisionNumber(),revision.status(),revision.currency(),

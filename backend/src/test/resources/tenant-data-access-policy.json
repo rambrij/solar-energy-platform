@@ -483,7 +483,6 @@
         "updateStatus",
         "customerList",
         "customerGet",
-        "vendorGet",
         "findVendor",
         "lockJob",
         "requireActiveEngineer",

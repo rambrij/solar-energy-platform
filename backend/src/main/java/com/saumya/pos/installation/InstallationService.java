@@ -144,10 +144,10 @@ public class InstallationService {
         try {
             db.update("""
                 INSERT INTO installation_jobs(
-                    tenant_id,order_id,site_address,scheduled_at,status,assigned_to,
+                    order_id,tenant_id,site_address,scheduled_at,status,assigned_to,
                     created_by,updated_by,created_at,updated_at,version)
                 VALUES(?,?,?,?,'ASSIGNED',?,?,?,?,?,0)
-                """,actor.tenantId(),orderId,address,Timestamp.from(scheduled),assignee,
+                """,orderId,actor.tenantId(),address,Timestamp.from(scheduled),assignee,
                 actor.username(),actor.username(),Timestamp.from(now),Timestamp.from(now));
         } catch(DuplicateKeyException duplicate) {
             throw conflict("This order already has an installation job");
@@ -310,9 +310,9 @@ public class InstallationService {
             String note,String reason,boolean customerVisible,Instant now) {
         db.update("""
             INSERT INTO installation_events(
-                tenant_id,installation_id,actor_username,event_type,status,note,reason,customer_visible,occurred_at)
+                installation_id,tenant_id,actor_username,event_type,status,note,reason,customer_visible,occurred_at)
             VALUES(?,?,?,?,?,?,?,?,?)
-            """,actor.tenantId(),installation,actor.username(),type,status,note,reason,customerVisible,Timestamp.from(now));
+            """,installation,actor.tenantId(),actor.username(),type,status,note,reason,customerVisible,Timestamp.from(now));
     }
 
     private List<Event> events(AuthorizationContext.Context actor,long installation) {

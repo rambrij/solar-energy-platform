@@ -57,7 +57,7 @@ import org.springframework.web.server.ResponseStatusException;
   if(raw==null||!raw.matches("[A-Za-z0-9_-]{43}"))throw unavailable();
   String tokenHash=hash(raw);
   Instant now=clock.instant();
-  IdentityEmailVerificationToken observed=tokens.findById(tokenHash).orElseThrow(CustomerEmailVerificationService::unavailable);
+  IdentityEmailVerificationToken observed=tokens.findByTokenHash(tokenHash).orElseThrow(CustomerEmailVerificationService::unavailable);
   if(observed.cancelledAt()!=null||!observed.expiresAt().isAfter(now))throw unavailable();
   GlobalUser user=users.lockedById(observed.userId()).orElseThrow(CustomerEmailVerificationService::unavailable);
   IdentityEmailVerificationToken token=tokens.lockedByHash(tokenHash).orElseThrow(CustomerEmailVerificationService::unavailable);

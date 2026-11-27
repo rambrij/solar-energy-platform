@@ -9,5 +9,5 @@ CREATE TABLE identity_email_verification_tokens (
  cancelled_at TIMESTAMP(6) NULL,
  PRIMARY KEY (token_hash),
  KEY ix_identity_email_verification_user (user_id, created_at),
- CONSTRAINT fk_email_verification_user FOREIGN KEY (user_id) REFERENCES users(id)
+ CONSTRAINT fk_email_verification_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

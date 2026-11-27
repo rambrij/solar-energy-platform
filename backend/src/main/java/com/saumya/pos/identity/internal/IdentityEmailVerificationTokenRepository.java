@@ -9,6 +9,7 @@ import jakarta.persistence.LockModeType;
 public interface IdentityEmailVerificationTokenRepository extends JpaRepository<IdentityEmailVerificationToken,String> {
  @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select t from IdentityEmailVerificationToken t where t.tokenHash=:hash")
  Optional<IdentityEmailVerificationToken> lockedByHash(@Param("hash") String hash);
+ Optional<IdentityEmailVerificationToken> findByTokenHash(String tokenHash);
  @Lock(LockModeType.PESSIMISTIC_WRITE)
  Optional<IdentityEmailVerificationToken> findFirstByUserIdOrderByCreatedAtDesc(long userId);
 }

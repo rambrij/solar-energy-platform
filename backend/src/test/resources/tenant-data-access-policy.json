@@ -46,6 +46,11 @@
       "trustedSource": "Username is the authenticated global identity key; lock is used for identity lifecycle transitions."
     },
     {
+      "operation": "IdentityEmailVerificationTokenRepository#findFirstByUserIdOrderByCreatedAtDesc",
+      "scope": "ONE_TIME_EMAIL_VERIFICATION_OWNER",
+      "trustedSource": "The user ID comes from the authenticated global identity during resend. The method reads only that identity's newest verification token while holding the user row lock; token lifecycle and rate limits are checked before sending."
+    },
+    {
       "operation": "IdentityInvitationRepository#locked",
       "scope": "ONE_TIME_INVITATION_TOKEN",
       "trustedSource": "SHA-256 token hash from one-time invitation token; expiry and single-use state are checked by service."

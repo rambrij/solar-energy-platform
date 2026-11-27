@@ -527,7 +527,7 @@
         "requireVendorMembership()",
         "actor.tenantId()",
         "customerPaidOnlineOrderReferences(username)",
-        "owner.tenantId()",
+        "order.tenantId()",
         "order.tenantId()",
         "WHERE tenant_id=?"
       ],
@@ -1101,7 +1101,7 @@
         },
         {
           "caller": "com.saumya.pos.service.ServiceRequestService#createForCustomer",
-          "expression": "owner.tenantId()",
+          "expression": "order.tenantId()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }

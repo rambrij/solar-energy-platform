@@ -175,7 +175,7 @@ export default function InstallationManagement(){
       {job.status==='ASSIGNED'?'Start installation':'Commission installation'}
      </button>
     </form>}
-    {canAssign&&job.status!=='COMPLETED'&&job.status!=='CANCELLED'&&<button type="button" className="secondary" disabled={busy||!(notes[job.id]??'').trim()}
+    {canAssign&&canUpdate&&job.status!=='COMPLETED'&&job.status!=='CANCELLED'&&<button type="button" className="secondary" disabled={busy||!(notes[job.id]??'').trim()}
       onClick={()=>void changeStatus(job,'CANCELLED')}>Cancel installation</button>}
    </article>)}
   </section>

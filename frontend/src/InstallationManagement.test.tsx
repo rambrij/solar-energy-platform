@@ -47,6 +47,6 @@ it('does not expose create actions to an installation-view-only engineer',async(
  vi.mocked(vendorApi).mockResolvedValue([]);
  render(<InstallationManagement/>);
  await screen.findByText('No installation jobs are assigned to your account.');
- expect(screen.queryByRole('heading',{name:'Paid orders awaiting installation'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('heading',{name:'Paid orders awaiting installation'})).toBeNull();
  expect(vendorApi).toHaveBeenCalledWith('/installations');
 });

@@ -22,6 +22,46 @@ LEFT JOIN vendor_role_permissions existing
 WHERE r.template_key='VENDOR_ADMIN'
   AND existing.permission IS NULL;
 
+INSERT INTO vendor_roles(
+  tenant_id,role_key,display_name,active,created_by,updated_by,template_key,template_version
+)
+SELECT admin.tenant_id,template.role_key,template.display_name,TRUE,
+       admin.updated_by,admin.updated_by,template.template_key,1
+FROM vendor_roles admin
+CROSS JOIN (
+  SELECT 'standard:SERVICE_MANAGER' role_key,'Service Manager' display_name,'SERVICE_MANAGER' template_key
+  UNION ALL
+  SELECT 'standard:SERVICE_ENGINEER','Service Engineer','SERVICE_ENGINEER'
+) template
+LEFT JOIN vendor_roles existing
+  ON existing.tenant_id=admin.tenant_id AND existing.role_key=template.role_key
+WHERE admin.template_key='VENDOR_ADMIN' AND existing.id IS NULL;
+
+INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
+SELECT r.tenant_id,r.id,p.permission,r.updated_by
+FROM vendor_roles r
+CROSS JOIN (
+  SELECT 'SERVICE_MANAGER' template_key,'SERVICE_VIEW' permission
+  UNION ALL SELECT 'SERVICE_MANAGER','SERVICE_CREATE'
+  UNION ALL SELECT 'SERVICE_MANAGER','SERVICE_ASSIGN'
+  UNION ALL SELECT 'SERVICE_MANAGER','SERVICE_UPDATE'
+  UNION ALL SELECT 'SERVICE_MANAGER','SERVICE_RESOLVE'
+  UNION ALL SELECT 'SERVICE_ENGINEER','SERVICE_VIEW'
+  UNION ALL SELECT 'SERVICE_ENGINEER','SERVICE_UPDATE'
+  UNION ALL SELECT 'SERVICE_ENGINEER','SERVICE_RESOLVE'
+) p
+LEFT JOIN vendor_role_permissions existing
+  ON existing.tenant_id=r.tenant_id AND existing.role_id=r.id AND existing.permission=p.permission
+WHERE r.template_key=p.template_key AND existing.permission IS NULL;
+
+INSERT INTO vendor_access_audit_events(
+  tenant_id,actor_username,resource_type,resource_id,action,reason
+)
+SELECT tenant_id,updated_by,'ROLE',CAST(id AS CHAR),'ROLE_TEMPLATE_APPLIED',
+       'V15 service role template materialization'
+FROM vendor_roles
+WHERE template_key IN ('SERVICE_MANAGER','SERVICE_ENGINEER');
+
 CREATE TABLE service_requests (
   id BIGINT NOT NULL AUTO_INCREMENT,
   tenant_id BIGINT NOT NULL,

@@ -123,6 +123,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertConstraint(db, schema, "service_request_events", "chk_service_request_event_type", "CHECK");
             assertConstraint(db, schema, "service_requests", "fk_service_request_order", "FOREIGN KEY");
             assertConstraint(db, schema, "service_requests", "fk_service_request_installation", "FOREIGN KEY");
+            assertConstraint(db, schema, "service_requests", "fk_service_request_assignee", "FOREIGN KEY");
+            assertConstraint(db, schema, "service_requests", "uk_service_request_tenant_request_key", "UNIQUE");
             assertConstraint(db, schema, "service_request_events", "fk_service_request_event_request", "FOREIGN KEY");
         });
     }

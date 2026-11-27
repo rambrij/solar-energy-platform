@@ -471,25 +471,6 @@
           "tenant"
         ]
       }
-    },
-    {
-      "source": "com.saumya.pos.checkout.CheckoutService",
-      "methods": [
-        "fromAcceptedQuotation"
-      ],
-      "authority": "The internal accepted-quotation conversion method is called by QuotationService only after the authenticated global customer identity owns the locked quotation and accepted its latest revision. Tenant comes from that persisted customer-owned quotation; the method re-resolves the current global customer and confirms the exact customer ID before any tenant-scoped order and stock operation.",
-      "evidence": [
-        "public Draft fromAcceptedQuotation(long tenant,long customer,long quotationId",
-        "long resolved=customers.resolve(authentication.getName())",
-        "if(resolved!=customer)",
-        "orders.findByTenantIdAndKey(tenant,orderKey)",
-        "stock.reserve(tenant,branch,line.product(),line.quantity(),id,expires)"
-      ],
-      "trustedTenantParameters": {
-        "fromAcceptedQuotation": [
-          "tenant"
-        ]
-      }
     }
   ],
   "inheritedIdLookups": [
@@ -1033,7 +1014,7 @@
           "caller": "com.saumya.pos.marketplace.QuotationService#decide",
           "expression": "tenant",
           "argumentIndex": 0,
-          "expectedCallCount": 1
+          "expectedCallCount": 2
         }
       ]
     }
@@ -1056,6 +1037,13 @@
     "com.saumya.pos.cart.CartService": {
       "trustedTenantParameters": {
         "requireFeature": [
+          "tenant"
+        ]
+      }
+    },
+    "com.saumya.pos.checkout.CheckoutService": {
+      "trustedTenantParameters": {
+        "fromAcceptedQuotation": [
           "tenant"
         ]
       }

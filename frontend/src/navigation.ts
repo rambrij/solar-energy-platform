@@ -36,6 +36,7 @@ const pos: NavigationItem[] = [
   { id: 'vendor-quotations', label: 'Quotations', group: 'Customer Management', description: 'Create price-snapshotted quotations and manage revisions for assigned leads.', path: '/vendor/pos/quotations' },
   { id: 'shipment-management', label: 'Shipments', group: 'Fulfilment', description: 'Register tracking for paid online orders and append shipment events.', path: '/vendor/shipments' },
   { id: 'installation-management', label: 'Installations', group: 'Fulfilment', description: 'Assign engineers and track solar installation jobs for paid customer orders.', path: '/vendor/installations' },
+  { id: 'service-requests', label: 'Service Requests', group: 'Customer Management', description: 'Manage tenant-owned customer support cases, assignments and service history.', path: '/vendor/service-requests' },
 ];
 
 const online: NavigationItem[] = [
@@ -48,6 +49,7 @@ const online: NavigationItem[] = [
   { id: 'customer-purchases', label: 'Your Purchases', group: 'Purchases', description: 'Review your existing marketplace purchase history.', path: '/marketplace/purchases' },
   { id: 'customer-quotations', label: 'My Quotations', group: 'Purchases', description: 'Review vendor quotations, compare revisions and accept or reject a valid offer.', path: '/marketplace/quotations' },
   { id: 'customer-installations', label: 'My Installations', group: 'Purchases', description: 'See your solar installation schedule and vendor-shared progress history.', path: '/marketplace/installations' },
+  { id: 'customer-service-requests', label: 'Service & Support', group: 'Purchases', description: 'Request help with your paid orders and follow vendor updates.', path: '/marketplace/service-requests' },
   { id: 'customer-profile', label: 'My Profile', group: 'Account', description: 'Manage your global customer display name and account details.', path: '/marketplace/profile' },
 ];
 

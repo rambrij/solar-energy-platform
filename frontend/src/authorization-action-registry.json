@@ -3658,22 +3658,6 @@
         "vendor-installation-detail"
       ]
     },
-    "InstallationManagement.tsx:79": {
-      "fn": "vendorApi",
-      "argument": "'/installations/'+job.id+'/assignment'",
-      "methodArgument": "'PATCH'",
-      "actions": [
-        "vendor-installation-assignment"
-      ]
-    },
-    "InstallationManagement.tsx:95": {
-      "fn": "vendorApi",
-      "argument": "'/installations/'+job.id+'/status'",
-      "methodArgument": "'PATCH'",
-      "actions": [
-        "vendor-installation-status"
-      ]
-    },
     "CustomerInstallations.tsx:28": {
       "fn": "marketplaceApi",
       "argument": "'/api/v1/customer/installations/'+selected",

@@ -76,7 +76,7 @@ export default function InstallationManagement(){
   if(!value?.assignedTo||!value.scheduledAt||!value.reason.trim())return;
   setBusy(true);setError('');setNotice('');
   try{
-   await vendorApi('/installations/'+job.id+'/assignment','PATCH',{
+   await vendorApi(`/installations/${job.id}/assignment`,'PATCH',{
     expectedVersion:job.version,assignedTo:value.assignedTo,
     scheduledAt:new Date(value.scheduledAt).toISOString(),reason:value.reason.trim()
    });
@@ -92,7 +92,7 @@ export default function InstallationManagement(){
   if(!note)return;
   setBusy(true);setError('');setNotice('');
   try{
-   await vendorApi('/installations/'+job.id+'/status','PATCH',{
+   await vendorApi(`/installations/${job.id}/status`,'PATCH',{
     expectedVersion:job.version,status,note
    });
    setNotice(status==='COMPLETED'?'Installation commissioned.':status==='CANCELLED'?'Installation cancelled.':'Installation progress updated.');

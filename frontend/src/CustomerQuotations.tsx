@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {marketplaceApi} from './marketplaceApi';
+import {marketplaceApi,downloadProtectedPdf} from './marketplaceApi';
 
 type QuoteLine={productId:number;name:string;quantity:number;listPrice:number|string;unitPrice:number|string;discountPercent:number|string;taxRate:number|string;tax:number|string;total:number|string};
 type Revision={id:number;revisionNumber:number;status:string;currency:string;validUntil:string;subtotal:number|string;taxTotal:number|string;total:number|string;terms:string|null;sentAt:string|null;items:QuoteLine[]};
@@ -25,6 +25,18 @@ export default function CustomerQuotations(){
   finally{setLoading(false);}
  }
  useEffect(()=>{void refresh();},[]);
+
+ async function downloadRevision(quoteId:number,revisionNumber:number) {
+  setError('');
+  try {
+   await downloadProtectedPdf(
+    '/api/v1/customer/quotations/'+quoteId+'/revisions/'+revisionNumber+'/document',
+    'quotation-'+quoteId+'-revision-'+revisionNumber+'.pdf'
+   );
+  } catch(e) {
+   setError((e as Error).message||'Quotation PDF could not be downloaded.');
+  }
+ }
 
  async function decide(quote:Quote,accept:boolean){
   const revision=newest(quote);
@@ -58,6 +70,10 @@ export default function CustomerQuotations(){
     {quote.revisions.slice().sort((a,b)=>a.revisionNumber-b.revisionNumber).map(revision=><section key={revision.id} aria-label={`Quotation revision ${revision.revisionNumber}`}>
      <h4>Revision {revision.revisionNumber} · {revision.status}</h4>
      <p>{revision.currency} {money(revision.total)} · Valid until {new Date(revision.validUntil).toLocaleString()}</p>
+     <button type="button" className="secondary" disabled={savingId!==null}
+       onClick={()=>void downloadRevision(quote.id,revision.revisionNumber)}>
+      Download PDF
+     </button>
      <dl><dt>Subtotal</dt><dd>{money(revision.subtotal)}</dd><dt>Tax</dt><dd>{money(revision.taxTotal)}</dd><dt>Total</dt><dd>{money(revision.total)}</dd></dl>
      {revision.terms&&<p>Terms: {revision.terms}</p>}
      <ul>{revision.items.map(line=><li key={line.productId}>{line.name} × {line.quantity} · {money(line.unitPrice)} each · Tax {money(line.tax)} · Total {money(line.total)}</li>)}</ul>

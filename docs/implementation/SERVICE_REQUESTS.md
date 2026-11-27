@@ -14,7 +14,7 @@ All vendor endpoints derive tenant and actor from the active vendor membership; 
 | GET | `/api/v1/vendor/service-requests/assignees` | `SERVICE_ASSIGN` | Enabled employees with a persisted `SERVICE_VIEW` grant |
 | GET | `/api/v1/vendor/service-requests` | `SERVICE_VIEW` | Tenant case register; assigned-only unless actor has `SERVICE_ASSIGN` |
 | GET | `/api/v1/vendor/service-requests/{id}` | `SERVICE_VIEW` | Tenant and assignment-scoped detail/history |
-| POST | `/api/v1/vendor/service-requests` | `SERVICE_CREATE` | Open a case for a paid customer order |
+| POST | `/api/v1/vendor/service-requests` | `SERVICE_CREATE` | Open a case for a paid online customer order |
 | PATCH | `/api/v1/vendor/service-requests/{id}/assignment` | `SERVICE_ASSIGN` | Assign an active service employee using optimistic version |
 | PATCH | `/api/v1/vendor/service-requests/{id}/status` | `SERVICE_UPDATE` or `SERVICE_RESOLVE` | Validated forward progress, resolution or closure |
 

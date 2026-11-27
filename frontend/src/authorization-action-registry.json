@@ -3856,22 +3856,6 @@
         "vendor-service-request-detail"
       ]
     },
-    "VendorServiceRequests.tsx:54": {
-      "fn": "vendorApi",
-      "argument": "`/service-requests/${row.id}/assignment`",
-      "methodArgument": "'PATCH'",
-      "actions": [
-        "vendor-service-request-assignment"
-      ]
-    },
-    "VendorServiceRequests.tsx:63": {
-      "fn": "vendorApi",
-      "argument": "`/service-requests/${row.id}/status`",
-      "methodArgument": "'PATCH'",
-      "actions": [
-        "vendor-service-request-status"
-      ]
-    },
     "CustomerServiceRequests.tsx:37": {
       "fn": "marketplaceApi",
       "argument": "'/api/v1/customer/service-requests/'+id",

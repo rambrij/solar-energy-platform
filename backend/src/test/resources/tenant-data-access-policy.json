@@ -436,6 +436,26 @@
           "tenant"
         ]
       }
+    },
+    {
+      "source": "com.saumya.pos.marketplace.MarketplaceEnquiryService",
+      "methods": [
+        "leadAssignees",
+        "isActiveLeadAssignee"
+      ],
+      "authority": "Lead assignee reads derive tenant scope from the authenticated Vendor AuthorizationContext. isActiveLeadAssignee receives its tenant only from assignLead after the active Vendor membership and LEAD_ASSIGN checks; employee, assignment, role and permission joins retain tenant ownership.",
+      "evidence": [
+        "authorization.current()",
+        "actor.tenantId()",
+        "requirePermission(\"LEAD_ASSIGN\")",
+        "WHERE e.tenant_id=?",
+        "permission='LEAD_VIEW'"
+      ],
+      "trustedTenantParameters": {
+        "isActiveLeadAssignee": [
+          "tenant"
+        ]
+      }
     }
   ],
   "inheritedIdLookups": [
@@ -948,6 +968,18 @@
         {
           "caller": "com.saumya.pos.fulfillment.ShipmentService#customerShipmentFeed",
           "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.marketplace.MarketplaceEnquiryService#isActiveLeadAssignee",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.marketplace.MarketplaceEnquiryService#assignLead",
+          "expression": "actor.tenantId()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }

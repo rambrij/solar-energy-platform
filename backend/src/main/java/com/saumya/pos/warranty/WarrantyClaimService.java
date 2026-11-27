@@ -171,7 +171,7 @@ public class WarrantyClaimService {
                 WHERE c.tenant_id=? AND w.order_id=? AND c.id=?
                 """,order.tenantId(),order.orderId(),id);
             if(!rows.isEmpty())return new CustomerDetail(customerClaim(claim(rows.getFirst())),
-                events(order.tenantId(),id,true),evidence(order.tenantId(),id,true));
+                customerEvents(order.tenantId(),id),customerEvidence(order.tenantId(),id));
         }
         throw missing();
     }
@@ -360,6 +360,14 @@ public class WarrantyClaimService {
             .map(r->new Event(((Number)r.get("id")).longValue(),(String)r.get("event_type"),(String)r.get("from_status"),
                 (String)r.get("to_status"),(String)r.get("note"),Boolean.TRUE.equals(r.get("customer_visible")),
                 (String)r.get("actor_type"),(String)r.get("actor_id"),instant(r.get("occurred_at")))).toList();
+    }
+    private List<CustomerEvent> customerEvents(long tenant,long id){
+        return events(tenant,id,true).stream().map(e->new CustomerEvent(e.id(),e.eventType(),e.fromStatus(),
+            e.toStatus(),e.note(),e.occurredAt())).toList();
+    }
+    private List<CustomerEvidence> customerEvidence(long tenant,long id){
+        return evidence(tenant,id,true).stream().map(e->new CustomerEvidence(e.id(),e.fileName(),
+            e.contentType(),e.byteSize(),e.createdAt())).toList();
     }
     private List<Evidence> evidence(long tenant,long id,boolean customer){
         return db.queryForList("""

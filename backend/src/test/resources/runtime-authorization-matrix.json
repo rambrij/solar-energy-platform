@@ -1786,6 +1786,18 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_PROVIDER_ACCOUNT",
       "assignment": "TENANT_PROFILE_UPDATE; body cannot set verification state; account submission/resubmission is audited and remains pending until provider verification",
       "runtimeTest": "VendorPaymentAccountControllerAuthorizationTest#submitRequiresTenantProfileUpdate"
+    },
+    "QuotationController#vendorDocument": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_QUOTATION_REVISION",
+      "assignment": "LEAD_VIEW; document data comes only from the tenant-owned quotation and saved revision; vendor must own or be assigned to the source lead",
+      "runtimeTest": "QuotationControllerAuthorizationTest#vendorQuotationDocumentRequiresLeadView"
+    },
+    "QuotationController#customerDocument": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER_AND_SAVED_REVISION",
+      "assignment": "CustomerAccess resolves the global customer identity; repository lookup requires customer ID and quotation ID; document access is audited",
+      "runtimeTest": "QuotationControllerAuthorizationTest#customerQuotationDocumentRequiresCustomerIdentity"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

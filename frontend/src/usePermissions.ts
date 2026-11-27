@@ -85,6 +85,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'vendor-quotations':{allOf:['LEAD_VIEW']},
  'shipment-management':{anyOf:['SHIPMENT_VIEW','SHIPMENT_UPDATE']},
  'installation-management':{anyOf:['INSTALLATION_VIEW','INSTALLATION_ASSIGN','INSTALLATION_UPDATE']},
+ 'installation-management':{anyOf:['INSTALLATION_VIEW','INSTALLATION_ASSIGN','INSTALLATION_UPDATE']},
  'vendor-directory':{anyOf:['CUSTOMER']},
  'storefront-products':{anyOf:['CUSTOMER']},
  'customer-cart':{anyOf:['CUSTOMER']},
@@ -94,6 +95,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'customer-purchases':{anyOf:['CUSTOMER']},
  'customer-installations':{allOf:['CUSTOMER']},
  'customer-quotations':{allOf:['CUSTOMER']},
+ 'customer-installations':{allOf:['CUSTOMER']},
  'customer-profile':{allOf:['CUSTOMER']},
 };
 

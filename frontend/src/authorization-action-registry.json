@@ -32,7 +32,8 @@
         "vendor-site-surveys",
         "vendor-quotations",
         "shipment-management",
-        "vendor-profile"
+        "vendor-profile",
+        "installation-management"
       ]
     },
     {
@@ -48,7 +49,8 @@
         "customer-dashboard",
         "customer-purchases",
         "customer-quotations",
-        "customer-profile"
+        "customer-profile",
+        "customer-installations"
       ]
     },
     {
@@ -149,7 +151,8 @@
       "label": "Purchases",
       "items": [
         "customer-purchases",
-        "customer-quotations"
+        "customer-quotations",
+        "customer-installations"
       ]
     },
     {
@@ -173,7 +176,8 @@
       "id": "fulfilment",
       "label": "Fulfilment",
       "items": [
-        "shipment-management"
+        "shipment-management",
+        "installation-management"
       ]
     }
   ],
@@ -356,6 +360,16 @@
     {
       "id": "customer-quotations",
       "path": "/marketplace/quotations",
+      "group": "Purchases"
+    },
+    {
+      "id": "installation-management",
+      "path": "/vendor/installations",
+      "group": "Fulfilment"
+    },
+    {
+      "id": "customer-installations",
+      "path": "/marketplace/installations",
       "group": "Purchases"
     }
   ],
@@ -2780,6 +2794,114 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/quotations/{id}/revisions/{revision}/document"
+    },
+    {
+      "id": "vendor-installation-eligible-orders",
+      "component": "InstallationManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/installations/orders",
+      "permissions": [
+        "INSTALLATION_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/installations/orders"
+    },
+    {
+      "id": "vendor-installation-engineers",
+      "component": "InstallationManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/installations/engineers",
+      "permissions": [
+        "INSTALLATION_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/installations/engineers"
+    },
+    {
+      "id": "vendor-installation-list",
+      "component": "InstallationManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/installations",
+      "permissions": [
+        "INSTALLATION_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/installations"
+    },
+    {
+      "id": "vendor-installation-create",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/installations",
+      "permissions": [
+        "INSTALLATION_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/installations"
+    },
+    {
+      "id": "vendor-installation-assignment",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/installations/{id}/assignment",
+      "permissions": [
+        "INSTALLATION_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/assignment"
+    },
+    {
+      "id": "vendor-installation-status",
+      "component": "InstallationManagement.tsx",
+      "trigger": "button",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/installations/{id}/status",
+      "permissions": [
+        "INSTALLATION_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/status"
+    },
+    {
+      "id": "vendor-installation-detail",
+      "component": "InstallationManagement.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/installations/{id}",
+      "permissions": [
+        "INSTALLATION_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/installations/{id}"
+    },
+    {
+      "id": "customer-installation-list",
+      "component": "CustomerInstallations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/installations",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/installations"
+    },
+    {
+      "id": "customer-installation-detail",
+      "component": "CustomerInstallations.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/installations/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/installations/{id}"
     }
   ],
   "buttons": [
@@ -3370,6 +3492,36 @@
       "component": "CustomerQuotations.tsx",
       "trigger": "button",
       "backendOperation": "GET /api/v1/customer/quotations/{id}/revisions/{revision}/document"
+    },
+    {
+      "id": "vendor-installation-create",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/installations"
+    },
+    {
+      "id": "vendor-installation-assignment",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/assignment"
+    },
+    {
+      "id": "vendor-installation-status",
+      "component": "InstallationManagement.tsx",
+      "trigger": "button",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/status"
+    },
+    {
+      "id": "vendor-installation-detail",
+      "component": "InstallationManagement.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/installations/{id}"
+    },
+    {
+      "id": "customer-installation-detail",
+      "component": "CustomerInstallations.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/installations/{id}"
     }
   ],
   "dynamicRouteParameters": {

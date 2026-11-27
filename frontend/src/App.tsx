@@ -34,6 +34,8 @@ import VendorSiteSurveys from './VendorSiteSurveys';
 import VendorQuotations from './VendorQuotations';
 import VendorProfile from './VendorProfile';
 import ShipmentManagement from './ShipmentManagement';
+import InstallationManagement from './InstallationManagement';
+import CustomerInstallations from './CustomerInstallations';
 import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
 import {useSession} from './session';
 import RouteOutlet from './RouteOutlet';
@@ -173,6 +175,7 @@ export default function App() {
     {has("LEAD_VIEW")&&<RouteOutlet id="vendor-site-surveys" mode="pos"><VendorSiteSurveys/></RouteOutlet>}
     {has("LEAD_VIEW")&&<RouteOutlet id="vendor-quotations" mode="pos"><VendorQuotations/></RouteOutlet>}
     <RouteOutlet id="shipment-management" mode="pos"><ShipmentManagement/></RouteOutlet>
+    <RouteOutlet id="installation-management" mode="pos"><InstallationManagement/></RouteOutlet>
     <RouteOutlet id="terminal-tender-review" mode="pos"><TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>
   </Shell>;
 }

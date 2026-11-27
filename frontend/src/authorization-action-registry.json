@@ -735,6 +735,18 @@
       "backendOperation": "GET /api/v1/vendor/products"
     },
     {
+      "id": "solar-package-product-source-list",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/products",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products"
+    },
+    {
       "id": "pos-product-create",
       "component": "ProductManager.tsx",
       "trigger": "submit",

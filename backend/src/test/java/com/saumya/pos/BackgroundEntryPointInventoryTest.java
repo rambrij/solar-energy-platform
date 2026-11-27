@@ -4,6 +4,9 @@ import java.lang.reflect.Method;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.core.type.filter.AssignableTypeFilter;
+import com.saumya.pos.integration.IntegrationOutboxWorker;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,6 +23,8 @@ class BackgroundEntryPointInventoryTest {
         var scanner=new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AnnotationTypeFilter(Component.class,true));
         scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
+        // Keep infrastructure dispatchers in the inventory even if component metadata filters evolve.
+        scanner.addIncludeFilter(new AssignableTypeFilter(IntegrationOutboxWorker.class));
         Set<String> scheduled=new TreeSet<>(),events=new TreeSet<>(),async=new TreeSet<>(),messages=new TreeSet<>(),webhooks=new TreeSet<>(),runners=new TreeSet<>();
         for(var bean:scanner.findCandidateComponents("com.saumya.pos")){
             Class<?> type=Class.forName(bean.getBeanClassName());

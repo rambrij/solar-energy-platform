@@ -238,13 +238,13 @@ public class InstallationService {
         if(id<=0)throw missing();
         OrderHistoryService.CustomerOrderReference owner=null;
         Map<String,Object> row=null;
-        for(var reference:orders.customerPaidOnlineOrderReferences(username)) {
+        for(var order:orders.customerPaidOnlineOrderReferences(username)) {
             var matches=db.queryForList("""
                 SELECT id,order_id,site_address,scheduled_at,status,created_at,updated_at,completed_at
                 FROM installation_jobs WHERE tenant_id=? AND order_id=? AND id=?
-                """,reference.tenantId(),reference.orderId(),id);
+                """,order.tenantId(),order.orderId(),id);
             if(!matches.isEmpty()) {
-                owner=reference;
+                owner=order;
                 row=matches.getFirst();
                 break;
             }

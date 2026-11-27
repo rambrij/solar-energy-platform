@@ -169,7 +169,7 @@ public class ServiceRequestService {
             FROM orders WHERE tenant_id=? AND id=?
             """, order.tenantId(), orderId).stream().findFirst().orElseThrow(this::missingOrder);
         if (!"PAID".equals(row.get("status")) || row.get("customer_id") == null) throw missingOrder();
-        return customerRequest(create(owner.tenantId(), username, "CUSTOMER", orderId, input));
+        return customerRequest(create(order.tenantId(), username, "CUSTOMER", orderId, input));
     }
 
     private VendorRequest create(long tenantId, String actorId, String actorType, String orderId, Create input) {

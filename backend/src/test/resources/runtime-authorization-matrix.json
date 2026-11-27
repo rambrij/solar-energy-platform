@@ -2111,6 +2111,18 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
       "assignment": "SERVICE_UPDATE; evidence key and metadata are tenant/claim scoped; visibility is explicit",
       "runtimeTest": "WarrantyClaimServiceAuthorizationBoundaryTest#vendorMustHaveServiceViewBeforeClaimQueries"
+    },
+    "WarrantyClaimController#vendorEvidenceContent": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
+      "assignment": "SERVICE_VIEW; claim tenant and assignment are checked before tenant/claim-scoped object storage read",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceViewCanReadVendorClaims"
+    },
+    "WarrantyClaimController#customerEvidenceContent": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
+      "assignment": "Authenticated customer order references resolve claim tenant; only customer-visible evidence object can be downloaded",
+      "runtimeTest": "WarrantyClaimServiceAuthorizationBoundaryTest#customerCannotReadClaimOutsideTheirPaidOrderHistory"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

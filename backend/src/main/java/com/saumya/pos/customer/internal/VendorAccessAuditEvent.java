@@ -13,6 +13,8 @@ public class VendorAccessAuditEvent {
     private long tenantId;
     @Column(name="actor_username",nullable=false,length=100)
     private String actorUsername;
+    @Column(name="subject_username",length=100)
+    private String subjectUsername;
     @Column(name="resource_type",nullable=false,length=40)
     private String resourceType;
     @Column(name="resource_id",length=120)
@@ -28,8 +30,14 @@ public class VendorAccessAuditEvent {
 
     public VendorAccessAuditEvent(long tenantId,String actorUsername,String resourceType,
             String resourceId,String action,String reason) {
+        this(tenantId,actorUsername,null,resourceType,resourceId,action,reason);
+    }
+
+    public VendorAccessAuditEvent(long tenantId,String actorUsername,String subjectUsername,
+            String resourceType,String resourceId,String action,String reason) {
         this.tenantId=tenantId;
         this.actorUsername=actorUsername;
+        this.subjectUsername=subjectUsername;
         this.resourceType=resourceType;
         this.resourceId=resourceId;
         this.action=action;

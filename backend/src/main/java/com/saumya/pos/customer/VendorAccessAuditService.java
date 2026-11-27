@@ -16,6 +16,32 @@ public class VendorAccessAuditService {
         this.authorization=authorization;
     }
 
+    private static final java.util.Set<String> LEAD_MUTATIONS=java.util.Set.of(
+        "LEAD_ASSIGNED","LEAD_UNASSIGNED","LEAD_STATUS_UPDATED");
+
+    @Transactional
+    public void recordLeadAssigneesRead() {
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        actor.requirePermission("LEAD_ASSIGN");
+        events.save(new VendorAccessAuditEvent(actor.tenantId(),actor.username(),
+            "LEAD_ASSIGNMENT",null,"LEAD_ASSIGNEES_VIEWED","Assignable lead employees viewed"));
+    }
+
+    @Transactional
+    public void recordLeadMutation(long leadId,String subjectUsername,String action,String reason) {
+        var actor=authorization.current();
+        actor.requireVendorMembership();
+        if(!LEAD_MUTATIONS.contains(action))
+            throw new IllegalArgumentException("Unsupported lead audit action");
+        if("LEAD_STATUS_UPDATED".equals(action))actor.requirePermission("LEAD_UPDATE");
+        else actor.requirePermission("LEAD_ASSIGN");
+        if(reason==null||reason.isBlank()||reason.strip().length()>500)
+            throw new IllegalArgumentException("Lead mutation audit reason is required");
+        events.save(new VendorAccessAuditEvent(actor.tenantId(),actor.username(),subjectUsername,
+            "LEAD",Long.toString(leadId),action,reason.strip()));
+    }
+
     @Transactional
     public void recordLeadInboxRead() {
         var actor=authorization.current();

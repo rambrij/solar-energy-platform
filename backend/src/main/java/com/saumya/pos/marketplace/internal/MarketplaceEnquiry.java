@@ -17,7 +17,12 @@ public class MarketplaceEnquiry {
     @Column(name="contact_phone",length=30) private String contactPhone;
     @Column(nullable=false,length=2000) private String message;
     @Column(name="consent_at",nullable=false) private Instant consentAt;
-    @Column(nullable=false,length=20) private String status;
+    // "status" remains the public-intake state; lead_status is the vendor workflow.
+    @Column(name="lead_status",nullable=false,length=20) private String leadStatus;
+    @Column(name="assigned_to",length=100) private String assignedTo;
+    @Column(name="updated_by",length=100) private String updatedBy;
+    @Column(name="updated_at") private Instant updatedAt;
+    @Version @Column(nullable=false) private long version;
     @Column(name="requester_hash",nullable=false,length=64) private String requesterHash;
     @Column(name="created_at",nullable=false,updatable=false) private Instant createdAt;
 
@@ -29,8 +34,21 @@ public class MarketplaceEnquiry {
         this.tenantId=tenantId;this.customerId=customerId;this.productId=productId;
         this.productNameSnapshot=productNameSnapshot;this.contactName=contactName;
         this.contactEmail=contactEmail;this.contactPhone=contactPhone;this.message=message;
-        this.consentAt=consentAt;this.requesterHash=requesterHash;this.createdAt=createdAt;this.status="NEW";
+        this.consentAt=consentAt;this.requesterHash=requesterHash;this.createdAt=createdAt;
+        this.leadStatus="NEW";this.updatedAt=createdAt;
     }
+
+    public void assignTo(String username,String actor,Instant at) {
+        this.assignedTo=username;
+        this.updatedBy=actor;
+        this.updatedAt=at;
+    }
+    public void changeLeadStatus(String status,String actor,Instant at) {
+        this.leadStatus=status;
+        this.updatedBy=actor;
+        this.updatedAt=at;
+    }
+
     public Long id(){return id;}
     public long tenantId(){return tenantId;}
     public Long productId(){return productId;}
@@ -40,5 +58,9 @@ public class MarketplaceEnquiry {
     public String contactPhone(){return contactPhone;}
     public String message(){return message;}
     public Instant createdAt(){return createdAt;}
-    public String status(){return status;}
+    public String status(){return leadStatus;}
+    public String assignedTo(){return assignedTo;}
+    public String updatedBy(){return updatedBy;}
+    public Instant updatedAt(){return updatedAt;}
+    public long version(){return version;}
 }

@@ -4432,6 +4432,44 @@
       "actions": [
         "customer-claim-detail"
       ]
+    },
+    "VendorServiceVisits.tsx:35": {
+      "fn": "vendorApi",
+      "argument": "'/service-visits/'+id",
+      "actions": [
+        "vendor-service-visit-detail"
+      ]
+    },
+    "VendorServiceVisits.tsx:52": {
+      "fn": "vendorApi",
+      "argument": "'/service-visits/'+v.id+'/assignment'",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "vendor-service-visit-assignment"
+      ]
+    },
+    "VendorServiceVisits.tsx:61": {
+      "fn": "vendorApi",
+      "argument": "'/service-visits/'+v.id+'/status'",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "vendor-service-visit-status"
+      ]
+    },
+    "VendorServiceVisits.tsx:70": {
+      "fn": "vendorApi",
+      "argument": "'/service-visits/'+v.id+'/notes'",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-service-visit-note"
+      ]
+    },
+    "CustomerServiceVisits.tsx:23": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/service-visits/'+selected",
+      "actions": [
+        "customer-service-visit-detail"
+      ]
     }
   },
   "sessionApiOperations": [

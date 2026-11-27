@@ -592,9 +592,9 @@
         "actor.tenantId()",
         "customerPaidOnlineOrderReferences(username)",
         "customerOwned(username,id)",
-        "lock(tenant,id)",
-        "scope(actor,assignedTo)",
-        "tenants/{tenantId}/warranty-claims/{claimId}/evidence/{uuid}"
+        "lock(actor.tenantId(),id)",
+        "scope(actor,(String)row.get(\"assigned_to\"))",
+        "\"tenants/\"+tenant+\"/warranty-claims/\"+id+\"/evidence/\"+evidenceId"
       ],
       "trustedTenantParameters": {
         "evidenceContent": [
@@ -1215,6 +1215,216 @@
         {
           "caller": "com.saumya.pos.service.ServiceRequestService#customerGet",
           "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#evidenceContent",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#customerEvidence",
+          "expression": "((Number)claim.get(\"tenant_id\")).longValue()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorEvidence",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#load",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#decide",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#inspect",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#resolve",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#submit",
+          "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorEvidence",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#lock",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#decide",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#inspect",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#resolve",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#uploadVendorEvidence",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#update",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#inspect",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#decide",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#resolve",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#event",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#inspect",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#decide",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#resolve",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#submit",
+          "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#upload",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#events",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#customerEvents",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#evidence",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#customerEvidence",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorGet",
+          "expression": "actor.tenantId()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }

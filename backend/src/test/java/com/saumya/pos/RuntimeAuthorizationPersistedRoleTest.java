@@ -277,6 +277,7 @@ class RuntimeAuthorizationPersistedRoleTest {
             "inventory_receipts", "stock_reservations", "pos_sessions", "pos_drawer_tenders",
             "pos_cash_movements", "pos_cash_refunds", "pos_returns", "pos_return_events",
             "pos_audit", "pos_shift_reviews", "carts", "cart_items", "vendor_roles",
+            "service_requests", "service_request_events",
             "vendor_role_permissions", "employee_role_assignments", "employee_register_assignments",
             "platform_support_access", "platform_configuration", "platform_audit_events",
             "report_export_audit", "vendor_payment_accounts", "vendor_payment_account_events", "vendor_payment_attempts", "installation_jobs", "installation_events", "tenant_profile_audit_events", "tenant_subscriptions",

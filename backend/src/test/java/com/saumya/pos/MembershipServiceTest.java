@@ -125,7 +125,7 @@ class MembershipServiceTest {
         var result=service.provisionInitialVendorAdmin(7,12,"admin@example.com");
         assertThat(result.created()).isTrue();
         assertThat(result.permissionCount()).isEqualTo(77);
-        verify(db,times(6)).batchUpdate(contains("INSERT INTO vendor_role_permissions"),anyList());
+        verify(db,times(8)).batchUpdate(contains("INSERT INTO vendor_role_permissions"),anyList());
         verify(db).update(contains("INSERT INTO employee_role_assignments"),eq(7L),eq(12L),eq("admin@example.com"),eq(99L),eq("admin@example.com"));
     }
 }

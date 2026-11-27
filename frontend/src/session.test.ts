@@ -1,6 +1,6 @@
 import {act,renderHook,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {authenticatedFetch,restoreSession,signIn,signOut,switchActorContext,useSession,type ActorType} from './session';
+import {authenticatedFetch,restoreSession,resendCustomerEmailVerification,signIn,signOut,switchActorContext,useSession,verifyCustomerEmail,type ActorType} from './session';
 
 function response(body:unknown,status=200){
  return {ok:status>=200&&status<300,status,json:vi.fn().mockResolvedValue(body)} as unknown as Response;
@@ -37,6 +37,26 @@ describe('canonical authenticated session snapshot',()=>{
   expect(result.current.account).toEqual(authoritativeAccount);
   expect(result.current.account?.permissions).toEqual(['POS_VIEW','PRODUCT_VIEW']);
   expect(fetchMock.mock.calls.filter(([url])=>url==='/api/v1/auth/me')).toHaveLength(1);
+ });
+
+ it('does not issue a Customer session before email verification is complete',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-register'})).mockResolvedValueOnce(response({emailVerificationRequired:true},202));
+  const {result}=renderHook(()=>useSession());
+  await signIn('new-buyer@example.test','safe-test-password',true);
+  expect(result.current.status).toBe('anonymous');expect(result.current.account).toBeNull();
+  expect(fetchMock.mock.calls.map(([url])=>url)).toEqual(['/api/v1/auth/csrf','/api/v1/auth/register']);
+ });
+
+ it('sends verification and resend requests through the CSRF-protected auth API',async()=>{
+  const fetchMock=vi.mocked(fetch);
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-verify'})).mockResolvedValueOnce(response({verified:true}));
+  await verifyCustomerEmail('A'.repeat(43));
+  expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/auth/email-verification/verify');
+  expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({token:'A'.repeat(43)});
+  fetchMock.mockResolvedValueOnce(response({token:'csrf-resend'})).mockResolvedValueOnce(response({accepted:true},202));
+  await resendCustomerEmailVerification('buyer@example.test');
+  expect(fetchMock.mock.calls.at(-1)?.[0]).toBe('/api/v1/auth/email-verification/resend');
  });
 
  it('uses one refresh-derived snapshot for all permission consumers without another fetch',async()=>{

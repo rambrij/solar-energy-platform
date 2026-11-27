@@ -186,6 +186,14 @@ export function restoreSession(){
  return task;
 }
 
+export async function resendCustomerEmailVerification(email:string){
+ await authRequest('/email-verification/resend',{email});
+}
+
+export async function verifyCustomerEmail(tokenValue:string){
+ await authRequest('/email-verification/verify',{token:tokenValue});
+}
+
 export async function signIn(
  username:string,password:string,register=false,totpCode?:string,
  actorType?:Exclude<ActorType,'PLATFORM'>
@@ -198,12 +206,16 @@ export async function signIn(
   // Let any earlier refresh finish cookie rotation before issuing a new login.
   if(pendingRefresh)await pendingRefresh;
   if(current!==generation)throw Error('Sign-in superseded');
-  const value=await authRequest(register?'/register':'/login',{
-   username,password,
-   ...(!register&&totpCode?{totpCode}:{}),
-   ...(!register&&actorType?{actorType}:{})
-  });
-  if(current!==generation)throw Error('Sign-in superseded');
+  const value=register
+   ?await authRequest('/register',{username,password})
+   :await authRequest('/login',{username,password,...(totpCode?{totpCode}:{}),...(actorType?{actorType}:{})});
+  if(current!==generation)throw Error(register?'Registration superseded':'Sign-in superseded');
+  if(register){
+   if(value.emailVerificationRequired!==true)throw new Error('The registration response did not confirm email verification.');
+   token=undefined;
+   publish('anonymous');
+   return;
+  }
   if(typeof value.accessToken!=='string'||!value.accessToken)throw new Error('The sign-in response did not contain an access token.');
   token=value.accessToken;
   const account=await loadAuthoritativeAccount();

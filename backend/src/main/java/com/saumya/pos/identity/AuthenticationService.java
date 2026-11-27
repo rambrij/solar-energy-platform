@@ -39,6 +39,8 @@ public class AuthenticationService {
  public enum ActorType { PLATFORM, VENDOR, CUSTOMER }
  public record Account(String username,Long tenantId,Long branchId,List<String> permissions,ActorType actorType,String membershipId,List<ActorType> availableActorTypes) {}
  public record Session(String accessToken,int expiresIn,Account account,String refreshToken) {}
+ public record RegistrationResult(boolean emailVerificationRequired) {}
+ @Autowired private CustomerEmailVerificationService emailVerification;
 
  @Autowired
  public AuthenticationService(GlobalUserRepository users,CustomerRepository customers,IdentitySequenceRepository sequence,
@@ -120,7 +122,7 @@ public class AuthenticationService {
   String normalized=normalize(username);
   var user=users.findByUsername(normalized);
   boolean valid=password!=null&&passwords.matches(password,user.map(GlobalUser::password).orElse(dummy));
-  if(!valid||user.isEmpty()||!user.get().enabled())throw denied();
+  if(!valid||user.isEmpty()||!user.get().enabled()||!user.get().emailVerified())throw denied();
 
   boolean isPlatform=!platform.permissions(normalized).isEmpty(),mfaVerified=false;
   if(isPlatform) {
@@ -138,24 +140,31 @@ public class AuthenticationService {
  }
 
  @Transactional
- public Session register(String username,String password) {
+ public RegistrationResult register(String username,String password) {
   String normalized=normalize(username);
   if(normalized.length()>100||!normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")||password==null||password.length()<12||password.getBytes(StandardCharsets.UTF_8).length>72)
    throw new ResponseStatusException(BAD_REQUEST,"Valid email and password of 12 to 72 UTF-8 bytes required");
   var counter=sequence.locked().orElseThrow();
   if(users.findByUsername(normalized).isPresent())throw new ResponseStatusException(CONFLICT,"Registration unavailable");
   long id=counter.allocate();
-  users.saveAndFlush(new GlobalUser(id,normalized,passwords.encode(password)));
+  GlobalUser user=users.saveAndFlush(new GlobalUser(id,normalized,passwords.encode(password),true,false));
   customers.saveAndFlush(new CustomerProfile(id,id));
-  return issue(normalized,UUID.randomUUID().toString(),false,ActorType.CUSTOMER,null);
+  emailVerification.sendInitial(user);
+  return new RegistrationResult(true);
  }
+
+ @Transactional
+ public void verifyCustomerEmail(String token){emailVerification.verify(token);}
+
+ @Transactional
+ public void resendCustomerVerification(String email){emailVerification.resend(email);}
 
  @Transactional(noRollbackFor=ResponseStatusException.class)
  public Session refresh(String token) {
   if(token==null||!token.matches("[A-Za-z0-9_-]{43}"))throw denied();
   var current=sessions.locked(hash(token)).orElseThrow(this::denied);
   if(current.spent()||!current.expires().isAfter(clock.instant())){sessions.revoke(current.family());throw denied();}
-  var user=users.findByUsername(current.username()).filter(GlobalUser::enabled);
+  var user=users.findByUsername(current.username()).filter(u->u.enabled()&&u.emailVerified());
   if(user.isEmpty()){sessions.revoke(current.family());throw denied();}
 
   ActorType actorType;
@@ -212,7 +221,7 @@ public class AuthenticationService {
  @Transactional(readOnly=true)
  public org.springframework.security.authentication.AbstractAuthenticationToken authenticate(org.springframework.security.oauth2.jwt.Jwt token) {
   String username=token.getSubject(),family=token.getClaimAsString("family");
-  if(family==null||users.findByUsername(username).filter(GlobalUser::enabled).isEmpty())
+  if(family==null||users.findByUsername(username).filter(u->u.enabled()&&u.emailVerified()).isEmpty())
    throw new BadCredentialsException("Session unavailable");
   var persisted=sessions.activeForFamily(family,clock.instant())
     .filter(s->Objects.equals(username,s.username()))

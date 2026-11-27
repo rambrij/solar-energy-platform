@@ -22,3 +22,5 @@ it('requires a dual Customer/Vendor identity to select one actor context before 
  expect(signIn).toHaveBeenNthCalledWith(2,'dual@example.test','dual-context-password',false,undefined,'VENDOR');
  expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
 });
+
+it('successful customer registration prompts for email verification without opening a session',async()=>{vi.mocked(signIn).mockResolvedValue();const completed=vi.fn();render(<LoginPanel onSignedIn={completed}/>);fireEvent.click(screen.getByText('Create a customer account'));fireEvent.change(screen.getByLabelText('Email address'),{target:{value:'buyer@example.com'}});fireEvent.change(screen.getByLabelText('Password'),{target:{value:'test-password-for-registration'}});fireEvent.submit(screen.getByRole('form'));await screen.findByText(/We sent a verification link to buyer@example.com/);expect(completed).not.toHaveBeenCalled();expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');});

@@ -2437,6 +2437,26 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/shipments"
+    },
+    {
+      "id": "auth-email-verification-verify",
+      "component": "CustomerEmailVerification.tsx",
+      "trigger": "load",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/email-verification/verify",
+      "backendOperation": "POST /api/v1/auth/email-verification/verify"
+    },
+    {
+      "id": "auth-email-verification-resend",
+      "component": "LoginPanel.tsx",
+      "trigger": "button",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/email-verification/resend",
+      "backendOperation": "POST /api/v1/auth/email-verification/resend"
     }
   ],
   "buttons": [
@@ -2937,6 +2957,12 @@
       "component": "CustomerReceiptPdfCopy.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-document"
+    },
+    {
+      "id": "auth-email-verification-resend",
+      "component": "LoginPanel.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/email-verification/resend"
     }
   ],
   "dynamicRouteParameters": {
@@ -3062,6 +3088,14 @@
     {
       "path": "/logout",
       "action": "auth-logout"
+    },
+    {
+      "path": "/email-verification/verify",
+      "action": "auth-email-verification-verify"
+    },
+    {
+      "path": "/email-verification/resend",
+      "action": "auth-email-verification-resend"
     }
   ],
   "transportEndpoints": [

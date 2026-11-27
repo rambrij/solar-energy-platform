@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.context.TestPropertySource(properties="payments.mock-enabled=true")
 @org.springframework.test.context.TestExecutionListeners(listeners=org.springframework.test.context.support.DependencyInjectionTestExecutionListener.class,inheritListeners=false)
 class PosTest {
+ @org.springframework.boot.test.mock.mockito.MockBean org.springframework.mail.javamail.JavaMailSender mailSender;
  @Autowired com.saumya.pos.checkout.CheckoutReceiptService receiptReader;
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
  @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
@@ -486,12 +487,26 @@ class PosTest {
   assertThat(db.queryForObject("SELECT revoked_refresh_token_count FROM identity_security_events WHERE user_id=100 ORDER BY id DESC LIMIT 1",Integer.class)).isEqualTo(1);
  }
 
- @Test void registrationAndCookieAuthenticationEnforceCsrfAndDoNotExposeRefreshToken() throws Exception {
+ @Test void registrationRequiresEmailVerificationBeforeIssuingAnyCustomerSession() throws Exception {
   String body="{\"username\":\"new-buyer@example.com\",\"password\":\"CustomerPasswordForTests\"}";
   mvc.perform(post("/api/v1/auth/register").contentType("application/json").content(body)).andExpect(status().isForbidden());
-  var result=mvc.perform(post("/api/v1/auth/register").with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.refreshToken").doesNotExist()).andExpect(jsonPath("$.account.permissions[0]").value("CUSTOMER")).andReturn();
-  assertThat(result.getResponse().getHeader("Set-Cookie")).contains("HttpOnly","SameSite=Strict","Path=/api/v1/auth");
+  var result=mvc.perform(post("/api/v1/auth/register").with(csrf()).contentType("application/json").content(body))
+      .andExpect(status().isAccepted()).andExpect(jsonPath("$.emailVerificationRequired").value(true))
+      .andExpect(jsonPath("$.accessToken").doesNotExist()).andExpect(jsonPath("$.account").doesNotExist()).andReturn();
+  assertThat(result.getResponse().getHeader("Set-Cookie")).isNull();
   assertThat(db.queryForObject("SELECT password_hash FROM users WHERE username='new-buyer@example.com'",String.class)).doesNotContain("CustomerPasswordForTests");
+  assertThat(db.queryForObject("SELECT email_verified FROM users WHERE username='new-buyer@example.com'",Boolean.class)).isFalse();
+  var mailCaptor=org.mockito.ArgumentCaptor.forClass(org.springframework.mail.SimpleMailMessage.class);
+  org.mockito.Mockito.verify(mailSender).send(mailCaptor.capture());
+  var matcher=java.util.regex.Pattern.compile("token=([A-Za-z0-9_-]{43})").matcher(mailCaptor.getValue().getText());
+  assertThat(matcher.find()).isTrue();
+  String token=matcher.group(1);
+  mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(body)).andExpect(status().isUnauthorized());
+  mvc.perform(post("/api/v1/auth/email-verification/verify").with(csrf()).contentType("application/json")
+      .content(json.writeValueAsString(Map.of("token",token))))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.verified").value(true));
+  assertThat(db.queryForObject("SELECT email_verified FROM users WHERE username='new-buyer@example.com'",Boolean.class)).isTrue();
+  mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk());
  }
  @Test void p007DualCustomerVendorIdentityRequiresExplicitContextSwitchAndNeverFallsBack() throws Exception {
   // Start with a Customer identity that has no Vendor employee membership yet.
@@ -3365,6 +3380,7 @@ class PosTest {
   if(method==RequestMethod.POST&&route.equals("/api/v1/marketplace/vendors/{slug}/enquiries"))return true;
   return method==RequestMethod.POST&&Set.of(
       "/api/v1/auth/login","/api/v1/auth/register","/api/v1/auth/refresh","/api/v1/auth/logout",
+      "/api/v1/auth/email-verification/verify","/api/v1/auth/email-verification/resend",
       "/api/v1/auth/invitations/accept","/api/v1/auth/platform-mfa/enrollment/start",
       "/api/v1/auth/platform-mfa/enrollment/complete").contains(route);
  }

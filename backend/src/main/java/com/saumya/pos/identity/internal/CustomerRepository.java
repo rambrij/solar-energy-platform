@@ -4,7 +4,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.Repository;
 public interface CustomerRepository extends org.springframework.data.jpa.repository.JpaRepository<CustomerProfile,Long> {
-    @Query(value="SELECT c.id FROM customer_profiles c JOIN users u ON u.id=c.user_id WHERE u.username=:username AND u.enabled=TRUE",nativeQuery=true)
+    @Query(value="SELECT c.id FROM customer_profiles c JOIN users u ON u.id=c.user_id WHERE u.username=:username AND u.enabled=TRUE AND u.email_verified=TRUE",nativeQuery=true)
     Optional<Long> resolve(String username);
     @Query(value="SELECT COUNT(*) FROM customer_profiles c JOIN users u ON u.id=c.user_id WHERE u.username=:username",nativeQuery=true)
     long profileCount(String username);

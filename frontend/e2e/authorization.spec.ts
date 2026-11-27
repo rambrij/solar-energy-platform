@@ -392,7 +392,7 @@ test('P3-01: permission revocation removes navigation and denies a direct deep l
 });
 
 
-test('P3-02: dual Customer/Vendor browser context switching replaces the complete server snapshot', async ({ page }) => {
+test('P3-02: dual Customer/Vendor browser context switching replaces the complete server snapshot', async ({ page, request }) => {
   // Register a fresh Customer identity for every attempt. Playwright retries
   // must not reuse an identity already provisioned as a Vendor Admin by the
   // previous attempt; the customer/vendor coexistence assertion is then tested
@@ -415,7 +415,25 @@ test('P3-02: dual Customer/Vendor browser context switching replaces the complet
     try { body = await response.json(); } catch { /* empty response */ }
     return { status: response.status, body };
   }, { username: customerUsername, password: customerPassword });
-  expect(registration.status, JSON.stringify(registration.body)).toBe(200);
+  expect(registration.status, JSON.stringify(registration.body)).toBe(202);
+  expect(registration.body.emailVerificationRequired).toBe(true);
+  let messageId = '';
+  await expect.poll(async () => {
+    const result = await request.get('http://127.0.0.1:8025/api/v1/search?query=' + encodeURIComponent('to:' + customerUsername));
+    expect(result.ok()).toBeTruthy();
+    const mailbox = await result.json() as { messages: Array<{ ID: string; To: Array<{ Address: string }> }> };
+    messageId = mailbox.messages.find(message => message.To.some(address => address.Address.toLowerCase() === customerUsername.toLowerCase()))?.ID ?? '';
+    return messageId;
+  }, { timeout: 15_000, intervals: [250, 500, 1_000] }).not.toBe('');
+  const messageResponse = await request.get('http://127.0.0.1:8025/api/v1/message/' + messageId);
+  expect(messageResponse.ok()).toBeTruthy();
+  const verificationMessage = await messageResponse.json() as { Text: string };
+  const verificationMatch = verificationMessage.Text.match(/https?:\/\/[^\s<>"]+/);
+  expect(verificationMatch).toBeTruthy();
+  const verificationUrl = verificationMatch![0].replace(/[),.]+$/, '');
+  expect(new URL(verificationUrl).pathname).toBe('/verify-email');
+  await page.goto(verificationUrl);
+  await expect(page.getByRole('heading', { name: 'Email verified' })).toBeVisible();
 
   const platformToken = await signIn(page, demo.platformAdmin.username, demo.platformAdmin.password);
   const created = await apiAs(page, platformToken, '/api/v1/platform/tenants', 'POST', {

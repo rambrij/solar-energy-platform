@@ -9,15 +9,17 @@ public class GlobalUser {
     @Column(nullable=false,unique=true,length=100) private String username;
     @Column(name="password_hash",nullable=false,length=200) private String password;
     @Column(nullable=false) private boolean enabled;
+    @Column(name="email_verified",nullable=false) private boolean emailVerified;
     @Column(name="platform_mfa_secret_enc",length=512) private String platformMfaSecretEnc;
     @Column(name="platform_mfa_enrolled_at") private Instant platformMfaEnrolledAt;
     @Column(name="platform_mfa_last_counter",nullable=false) private long platformMfaLastCounter=-1;
     @Column(name="platform_mfa_failed_attempts",nullable=false) private int platformMfaFailedAttempts;
     @Column(name="platform_mfa_locked_until") private Instant platformMfaLockedUntil;
     protected GlobalUser(){}
-    public GlobalUser(long id,String username,String password){this(id,username,password,true);}
-    public GlobalUser(long id,String username,String password,boolean enabled){this.id=id;this.username=username;this.password=password;this.enabled=enabled;}
-    public long id(){return id;} public String username(){return username;} public String password(){return password;} public boolean enabled(){return enabled;}
+    public GlobalUser(long id,String username,String password){this(id,username,password,true,true);}
+    public GlobalUser(long id,String username,String password,boolean enabled){this(id,username,password,enabled,enabled);}
+    public GlobalUser(long id,String username,String password,boolean enabled,boolean emailVerified){this.id=id;this.username=username;this.password=password;this.enabled=enabled;this.emailVerified=emailVerified;}
+    public long id(){return id;} public String username(){return username;} public String password(){return password;} public boolean enabled(){return enabled;} public boolean emailVerified(){return emailVerified;}
     public boolean platformMfaEnrolled(){return platformMfaSecretEnc!=null&&platformMfaEnrolledAt!=null;}
     public String platformMfaSecretEnc(){return platformMfaSecretEnc;}
     public long platformMfaLastCounter(){return platformMfaLastCounter;}
@@ -33,7 +35,8 @@ public class GlobalUser {
         this.platformMfaSecretEnc=null;this.platformMfaEnrolledAt=null;this.platformMfaLastCounter=-1;
         this.platformMfaFailedAttempts=0;this.platformMfaLockedUntil=null;
     }
-    public void activate(String passwordHash){this.password=passwordHash;this.enabled=true;}
+    public void activate(String passwordHash){this.password=passwordHash;this.enabled=true;this.emailVerified=true;}
+    public void verifyEmail(){this.emailVerified=true;}
     public void enrollPlatformMfa(String encryptedSecret,Instant now,long counter){
         if(encryptedSecret==null||encryptedSecret.isBlank()||now==null||counter<0)throw new IllegalArgumentException("Valid platform MFA material required");
         this.platformMfaSecretEnc=encryptedSecret;this.platformMfaEnrolledAt=now;this.platformMfaLastCounter=counter;

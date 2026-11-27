@@ -33,12 +33,17 @@ services:
       SUBSCRIPTIONS_MOCK_BILLING_MAX_ATTEMPTS: ${SUBSCRIPTIONS_MOCK_BILLING_MAX_ATTEMPTS:-0}
       SUBSCRIPTIONS_MOCK_BILLING_RETRY_SECONDS: ${SUBSCRIPTIONS_MOCK_BILLING_RETRY_SECONDS:-0}
       MAILPIT_HOST: mailpit
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:8080}
       DB_URL: jdbc:mysql://mysql:3306/solar
       DB_USER: solar
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
     depends_on:
       mysql:
         condition: service_healthy
+      mailpit:
+        condition: service_started
   frontend:
     build: ./frontend
     ports:

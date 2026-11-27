@@ -24,6 +24,8 @@ public class AuthenticationController {
   public Credentials(String username,String password,String totpCode){this(username,password,totpCode,null,null);}
  }
  public record ContextSelection(@NotNull AuthenticationService.ActorType actorType,@Positive Long tenantId) {}
+ public record VerificationToken(@NotBlank @Pattern(regexp="[A-Za-z0-9_-]{43}") String token) {}
+ public record VerificationEmail(@NotBlank @Email @Size(max=100) String email) {}
  private ResponseCookie cookie(String value,Duration age) {
   return ResponseCookie.from("solar-refresh",value).httpOnly(true).secure(secure).sameSite("Strict").path("/api/v1/auth").maxAge(age).build();
  }
@@ -42,7 +44,20 @@ public class AuthenticationController {
  }
  @PostMapping("/register") @PreAuthorize("permitAll()")
  public Object register(@Valid @RequestBody Credentials credentials) {
-  return response(service.register(credentials.username(),credentials.password()));
+  service.register(credentials.username(),credentials.password());
+  return ResponseEntity.accepted().header(HttpHeaders.CACHE_CONTROL,"no-store")
+    .body(Map.of("emailVerificationRequired",true,"message","Check your email for a verification link before signing in."));
+ }
+ @PostMapping("/email-verification/verify") @PreAuthorize("permitAll()")
+ public Object verifyEmail(@Valid @RequestBody VerificationToken request) {
+  service.verifyCustomerEmail(request.token());
+  return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL,"no-store").body(Map.of("verified",true));
+ }
+ @PostMapping("/email-verification/resend") @PreAuthorize("permitAll()")
+ public Object resendVerification(@Valid @RequestBody VerificationEmail request) {
+  service.resendCustomerVerification(request.email());
+  return ResponseEntity.accepted().header(HttpHeaders.CACHE_CONTROL,"no-store")
+    .body(Map.of("accepted",true,"message","If this account needs verification, an email will be sent."));
  }
  @PostMapping("/refresh") @PreAuthorize("permitAll()")
  public Object refresh(@CookieValue(name="solar-refresh",required=false) String token) {return response(service.refresh(token));}

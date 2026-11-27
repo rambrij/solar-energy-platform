@@ -73,5 +73,5 @@ CREATE TABLE service_visit_events (
   )
 );
 
-/*!80000 CREATE TRIGGER trg_service_visit_events_no_update BEFORE UPDATE ON service_visit_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Service visit events are immutable' */
+/*!80000 CREATE TRIGGER trg_service_visit_events_no_update BEFORE UPDATE ON service_visit_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Service visit events are immutable' */;
 /*!80000 CREATE TRIGGER trg_service_visit_events_no_delete BEFORE DELETE ON service_visit_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Service visit events cannot be deleted' */;

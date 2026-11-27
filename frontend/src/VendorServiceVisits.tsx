@@ -31,8 +31,10 @@ export default function VendorServiceVisits(){
  },[canAssign]);
  useEffect(()=>{void refresh();},[refresh,account?.tenantId,account?.username]);
  async function detail(id:number){
-  try{setDetails(v=>({...v,[id]:await vendorApi('/service-visits/'+id) as Detail}));}
-  catch(e){setError((e as Error).message||'Visit report could not be loaded.');}
+  try{
+   const result=await vendorApi('/service-visits/'+id) as Detail;
+   setDetails(v=>({...v,[id]:result}));
+  }catch(e){setError((e as Error).message||'Visit report could not be loaded.');}
  }
  async function create(e:FormEvent){
   e.preventDefault();if(!caseId||!site.trim()||!schedule||!assignee||!reason.trim())return;

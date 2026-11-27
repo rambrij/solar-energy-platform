@@ -256,6 +256,7 @@ public class WarrantyClaimService {
 
     private Evidence upload(Map<String,Object> row,String uploader,String uploaderType,String name,String type,byte[] bytes,boolean visible){
         String file=clean(name,255,"Evidence file name");
+        if(Set.of("REJECTED","RESOLVED").contains((String)row.get("status")))throw conflict("Evidence cannot be added to a completed claim");
         if(file.contains("/")||file.contains("\\")||file.equals(".")||file.equals(".."))throw bad("Evidence file name is invalid");
         if(bytes==null||bytes.length==0||bytes.length>MAX_EVIDENCE)throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,"Evidence must be between 1 byte and 10 MB");
         if(!EVIDENCE_TYPES.contains(type)||!validContent(type,bytes))throw bad("Evidence must be a valid PDF, JPEG or PNG");

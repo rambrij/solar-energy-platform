@@ -10,7 +10,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class MinioObjectStorage implements ObjectStoragePort {
-    private static final String ALLOWED_KEY="(?:tenants/[1-9][0-9]*/products/[1-9][0-9]*/images/[0-9a-f-]{36}|tenants/[1-9][0-9]*/warranty-claims/[1-9][0-9]*/evidence/[0-9a-f-]{36})";\n    private final String endpoint,accessKey,secretKey,bucket;
+    private static final String ALLOWED_KEY="(?:tenants/[1-9][0-9]*/products/[1-9][0-9]*/images/[0-9a-f-]{36}|tenants/[1-9][0-9]*/warranty-claims/[1-9][0-9]*/evidence/[0-9a-f-]{36})";
+    private final String endpoint,accessKey,secretKey,bucket;
     private volatile MinioClient client;
 
     public MinioObjectStorage(

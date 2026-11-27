@@ -3258,6 +3258,44 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "POST /api/v1/customer/warranty-claims/{id}/evidence"
+    },
+    {
+      "id": "customer-claim-detail",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "detail",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranty-claims/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}"
+    },
+    {
+      "id": "vendor-claim-evidence-download",
+      "component": "VendorWarrantyClaims.tsx",
+      "implementationFile": "evidenceDownload.ts",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranty-claims/{id}/evidence/{evidenceId}",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranty-claims/{id}/evidence/{evidenceId}"
+    },
+    {
+      "id": "customer-claim-evidence-download",
+      "component": "CustomerWarrantyClaims.tsx",
+      "implementationFile": "evidenceDownload.ts",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}"
     }
   ],
   "buttons": [
@@ -3920,6 +3958,60 @@
       "component": "VendorWarranties.tsx",
       "trigger": "submit",
       "backendOperation": "POST /api/v1/vendor/warranties"
+    },
+    {
+      "id": "vendor-claim-assignment",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/assignment"
+    },
+    {
+      "id": "vendor-claim-inspection",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/inspection"
+    },
+    {
+      "id": "vendor-claim-decision",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/decision"
+    },
+    {
+      "id": "vendor-claim-resolution",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/resolution"
+    },
+    {
+      "id": "vendor-claim-evidence",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/warranty-claims/{id}/evidence"
+    },
+    {
+      "id": "customer-claim-submit",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/customer/warranty-claims"
+    },
+    {
+      "id": "customer-claim-evidence",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/customer/warranty-claims/{id}/evidence"
+    },
+    {
+      "id": "vendor-claim-evidence-download",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/warranty-claims/{id}/evidence/{evidenceId}"
+    },
+    {
+      "id": "customer-claim-evidence-download",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}"
     }
   ],
   "dynamicRouteParameters": {
@@ -4075,6 +4167,31 @@
       "argument": "'/api/v1/customer/service-requests/'+id",
       "actions": [
         "customer-service-request-detail"
+      ]
+    },
+    "VendorWarrantyClaims.tsx:18": {
+      "fn": "vendorApi",
+      "argument": "'/warranty-claims/'+id",
+      "actions": [
+        "vendor-claim-detail"
+      ]
+    },
+    "VendorWarrantyClaims.tsx:19": {
+      "fn": "vendorApi",
+      "argument": "'/warranty-claims/'+row.id+'/'+path",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "vendor-claim-assignment",
+        "vendor-claim-inspection",
+        "vendor-claim-decision",
+        "vendor-claim-resolution"
+      ]
+    },
+    "CustomerWarrantyClaims.tsx:16": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/warranty-claims/'+id",
+      "actions": [
+        "customer-claim-detail"
       ]
     }
   },

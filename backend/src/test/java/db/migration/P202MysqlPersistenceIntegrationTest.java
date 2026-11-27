@@ -65,6 +65,7 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(15).getScript()).isEqualTo("V16__tenant_owned_warranty_coverage.sql");
             assertThat(applied.get(16).getScript()).isEqualTo("V17__tenant_owned_warranty_claims.sql");
             assertThat(applied.get(15).getVersion().getVersion()).isEqualTo("16");
+            assertThat(applied.get(16).getVersion().getVersion()).isEqualTo("17");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -72,7 +73,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17");
         });
     }
 
@@ -121,6 +122,9 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(indexHasLeadingTenant(db, schema, "service_request_events", "tenant_id")).isTrue();
             assertThat(indexHasLeadingTenant(db, schema, "warranty_records", "tenant_id")).isTrue();
             assertThat(indexHasLeadingTenant(db, schema, "warranty_events", "tenant_id")).isTrue();
+            assertThat(indexHasLeadingTenant(db, schema, "warranty_claims", "tenant_id")).isTrue();
+            assertThat(indexHasLeadingTenant(db, schema, "warranty_claim_events", "tenant_id")).isTrue();
+            assertThat(indexHasLeadingTenant(db, schema, "warranty_claim_evidence", "tenant_id")).isTrue();
             assertConstraint(db, schema, "warranty_records", "chk_warranty_coverage_dates", "CHECK");
             assertConstraint(db, schema, "warranty_records", "fk_warranty_order_item", "FOREIGN KEY");
             assertConstraint(db, schema, "warranty_records", "fk_warranty_installation", "FOREIGN KEY");
@@ -376,6 +380,16 @@ class P202MysqlPersistenceIntegrationTest {
                     SELECT COUNT(*) FROM information_schema.triggers
                     WHERE trigger_schema=? AND event_object_table='warranty_events'
                       AND trigger_name IN ('trg_warranty_events_no_update','trg_warranty_events_no_delete')
+                    """, Integer.class, schema)).isEqualTo(2);
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.triggers
+                    WHERE trigger_schema=? AND event_object_table='warranty_claim_events'
+                      AND trigger_name IN ('trg_warranty_claim_events_no_update','trg_warranty_claim_events_no_delete')
+                    """, Integer.class, schema)).isEqualTo(2);
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.triggers
+                    WHERE trigger_schema=? AND event_object_table='warranty_claim_evidence'
+                      AND trigger_name IN ('trg_warranty_claim_evidence_no_update','trg_warranty_claim_evidence_no_delete')
                     """, Integer.class, schema)).isEqualTo(2);
 
             assertConstraint(db, schema, "tenant_subscriptions", "uk_tenant_subscription_tenant_id", "UNIQUE");

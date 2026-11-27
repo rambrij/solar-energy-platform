@@ -102,13 +102,13 @@ public class WarrantyClaimService {
             LocalDate end=((java.sql.Date)warranty.get("coverage_end_date")).toLocalDate();
             LocalDate today=LocalDate.now(clock);
             if(today.isBefore(start)||today.isAfter(end))throw conflict("Warranty coverage is not active for claim submission");
-            Instant now=clock.instant();
+            Instant now=clock.instant();String claimKey=UUID.randomUUID().toString();
             db.update("""
-                INSERT INTO warranty_claims(tenant_id,warranty_id,submitted_by,subject,description,status,submitted_at,updated_at,version)
-                VALUES(?,?,?, ?,?,'SUBMITTED',?,?,0)
-                """,order.tenantId(),input.warrantyId(),username,subject,description,Timestamp.from(now),Timestamp.from(now));
-            Long id=db.queryForObject("SELECT id FROM warranty_claims WHERE tenant_id=? AND warranty_id=? AND submitted_by=? AND submitted_at=? ORDER BY id DESC LIMIT 1",
-                Long.class,order.tenantId(),input.warrantyId(),username,Timestamp.from(now));
+                INSERT INTO warranty_claims(tenant_id,warranty_id,submitted_by,claim_key,subject,description,status,submitted_at,updated_at,version)
+                VALUES(?,?,?,?,?,?,'SUBMITTED',?,?,0)
+                """,order.tenantId(),input.warrantyId(),username,claimKey,subject,description,Timestamp.from(now),Timestamp.from(now));
+            Long id=db.queryForObject("SELECT id FROM warranty_claims WHERE tenant_id=? AND claim_key=?",
+                Long.class,order.tenantId(),claimKey);
             if(id==null)throw new IllegalStateException("Warranty claim ID was not generated");
             event(order.tenantId(),id,"CUSTOMER",username,"SUBMITTED",null,"SUBMITTED","Customer submitted warranty claim",true,now);
             publish(order.tenantId(),username,id,"WARRANTY_CLAIM.SUBMITTED","SUBMITTED",now);

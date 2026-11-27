@@ -30,7 +30,8 @@ class LocalDemoRoleTemplateParityTest {
    expected.put(definition.key(),new HashSet<>(definition.permissions()));
   assertThat(actual).isEqualTo(expected);
   assertThat(sql).contains("a.role_name IN ('VENDOR_ADMIN','POS_CASHIER','SALES_MANAGER','SALES_EXECUTIVE','INVENTORY_MANAGER','ACCOUNTANT')");
-  assertThat(sql).doesNotContain("('SALES_EXECUTIVE','","('OPERATIONS_MANAGER','","('SERVICE_MANAGER','","('SERVICE_ENGINEER','","('CONTENT_MANAGER','");
+  assertThat(sql).contains("('SALES_EXECUTIVE','LEAD_VIEW'");
+  assertThat(sql).doesNotContain("('OPERATIONS_MANAGER','","('SERVICE_MANAGER','","('SERVICE_ENGINEER','","('CONTENT_MANAGER','");
  }
 
  @Test void checkedInMultiVendorDemoGrantsExactlyMatchSupportedStandardTemplates() throws Exception {

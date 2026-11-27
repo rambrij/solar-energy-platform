@@ -25,7 +25,7 @@ class LocalDemoFlywaySeedMySqlTest {
    var flyway = Flyway.configure().dataSource(targetUrl,user,password)
        .locations("classpath:db/migration","classpath:db/local-migration")
        .schemas(schema).defaultSchema(schema).createSchemas(false).load();
-   assertThat(flyway.migrate().migrationsExecuted).isEqualTo(13);
+   assertThat(flyway.migrate().migrationsExecuted).isEqualTo(14);
    assertThat(flyway.migrate().migrationsExecuted).isZero();
    var dataSource=new org.springframework.jdbc.datasource.DriverManagerDataSource(targetUrl,user,password);
    var seedScript=new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(

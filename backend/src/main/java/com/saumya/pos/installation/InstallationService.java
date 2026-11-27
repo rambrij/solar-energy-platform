@@ -2,6 +2,7 @@ package com.saumya.pos.installation;
 
 import com.saumya.pos.checkout.OrderHistoryService;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.shared.EventOutbox;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.dao.DuplicateKeyException;
@@ -31,13 +33,15 @@ public class InstallationService {
     private final JdbcTemplate db;
     private final AuthorizationContext authorization;
     private final OrderHistoryService orders;
+    private final EventOutbox events;
     private final Clock clock;
 
     public InstallationService(JdbcTemplate db,AuthorizationContext authorization,
-            OrderHistoryService orders,Clock clock) {
+            OrderHistoryService orders,EventOutbox events,Clock clock) {
         this.db=db;
         this.authorization=authorization;
         this.orders=orders;
+        this.events=events;
         this.clock=clock;
     }
 
@@ -157,6 +161,7 @@ public class InstallationService {
             """,Long.class,actor.tenantId(),orderId);
         append(actor,id,"CREATED","ASSIGNED","Installation job created",reason,false,now);
         append(actor,id,"ASSIGNED","ASSIGNED","Installation assigned to an engineer",reason,true,now);
+        publish(actor,id,orderId,"INSTALLATION.JOB_CREATED","ASSIGNED",now);
         return findVendor(actor,id);
     }
 
@@ -183,6 +188,8 @@ public class InstallationService {
         if(changed!=1)throw conflict("Installation changed; reload before saving");
         String event=instant(row.get("scheduled_at")).equals(schedule)?"ASSIGNED":"RESCHEDULED";
         append(actor,id,event,current,"Installation assignment or schedule updated",reason,true,now);
+        publish(actor,id,(String)row.get("order_id"),
+            "RESCHEDULED".equals(event)?"INSTALLATION.RESCHEDULED":"INSTALLATION.ASSIGNED",current,now);
         return findVendor(actor,id);
     }
 
@@ -222,6 +229,9 @@ public class InstallationService {
             Timestamp.from(now),actor.tenantId(),id,request.expectedVersion());
         if(changed!=1)throw conflict("Installation changed; reload before saving");
         append(actor,id,event,next,note,note,true,now);
+        String integrationType="COMPLETED".equals(next)?"INSTALLATION.COMMISSIONED"
+            :"CANCELLED".equals(next)?"INSTALLATION.CANCELLED":"INSTALLATION.STATUS_CHANGED";
+        publish(actor,id,(String)row.get("order_id"),integrationType,next,now);
         return findVendor(actor,id);
     }
 
@@ -304,6 +314,13 @@ public class InstallationService {
             """,Boolean.class,actor.tenantId(),username);
         if(!Boolean.TRUE.equals(active))
             throw bad("Assigned engineer must be an enabled employee with INSTALLATION_VIEW");
+    }
+
+    private void publish(AuthorizationContext.Context actor,long installation,String orderId,
+            String eventType,String status,Instant occurredAt) {
+        events.append(actor.tenantId(),actor.username(),"INSTALLATION",Long.toString(installation),
+            eventType,null,Map.of("installationId",installation,"orderId",orderId,
+                "status",status,"occurredAt",occurredAt.toString()));
     }
 
     private void append(AuthorizationContext.Context actor,long installation,String type,String status,

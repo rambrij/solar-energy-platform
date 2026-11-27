@@ -92,6 +92,7 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.retail.CashDrawerProjection",
                 "com.saumya.pos.retail.BranchProvisioningServiceImpl",
                 "com.saumya.pos.fulfillment.ShipmentService",
+                "com.saumya.pos.marketplace.MarketplaceEnquiryService",
                 "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed"
             );
         Map<String, String> jdbcSqlSources = Map.of(
@@ -104,6 +105,7 @@ class ModuleArchitectureTest {
             "com.saumya.pos.retail.CashDrawerProjection", "backend/src/main/java/com/saumya/pos/retail/CashDrawerProjection.java",
             "com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java",
             "com.saumya.pos.fulfillment.ShipmentService", "backend/src/main/java/com/saumya/pos/fulfillment/ShipmentService.java",
+            "com.saumya.pos.marketplace.MarketplaceEnquiryService", "backend/src/main/java/com/saumya/pos/marketplace/MarketplaceEnquiryService.java",
             "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed", "backend/src/main/resources/db/local-seed/local_demo_solar_catalog.sql"
         );
         assertThat(jdbcConsumers).as("every direct JDBC consumer has a query-level review")

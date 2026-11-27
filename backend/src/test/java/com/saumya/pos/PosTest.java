@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.context.TestPropertySource(properties={"payments.mock-enabled=true","management.health.mail.enabled=false"})
 @org.springframework.test.context.TestExecutionListeners(listeners=org.springframework.test.context.support.DependencyInjectionTestExecutionListener.class,inheritListeners=false)
 class PosTest {
- @org.springframework.test.context.bean.override.mockito.MockitoBean org.springframework.mail.javamail.JavaMailSender mailSender;
+ @org.springframework.beans.factory.annotation.Autowired org.springframework.mail.javamail.JavaMailSender mailSender;
  @Autowired com.saumya.pos.checkout.CheckoutReceiptService receiptReader;
  @Autowired PosService service; @Autowired JdbcTemplate db; @Autowired MockMvc mvc;
  @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
@@ -4456,4 +4456,13 @@ class PosTest {
   System.out.println("P002_ENDPOINT_FOREIGN_RESOURCE_SUMMARY|checks="+foreignResourceChecks+"|failures="+foreignResourceFailures+"|database=ROLLBACK_PER_PROBE");
  }
 
+
+ @org.springframework.boot.test.context.TestConfiguration
+ static class VerificationMailTestConfiguration {
+  @org.springframework.context.annotation.Bean
+  @org.springframework.context.annotation.Primary
+  org.springframework.mail.javamail.JavaMailSender verificationTestMailSender() {
+   return org.mockito.Mockito.mock(org.springframework.mail.javamail.JavaMailSender.class);
+  }
+ }
 }

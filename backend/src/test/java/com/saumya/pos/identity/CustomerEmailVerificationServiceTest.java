@@ -31,7 +31,7 @@ class CustomerEmailVerificationServiceTest {
   var tokenCapture=org.mockito.ArgumentCaptor.forClass(IdentityEmailVerificationToken.class);verify(tokens).saveAndFlush(tokenCapture.capture());
   var stored=tokenCapture.getValue();assertThat(stored.tokenHash()).isEqualTo(hash(raw)).isNotEqualTo(raw);
   assertThat(stored.expiresAt()).isEqualTo(NOW.plusSeconds(86400));
-  when(tokens.findById(stored.tokenHash())).thenReturn(Optional.of(stored));
+  when(tokens.findByTokenHash(stored.tokenHash())).thenReturn(Optional.of(stored));
   when(tokens.lockedByHash(stored.tokenHash())).thenReturn(Optional.of(stored));
   when(users.lockedById(user.id())).thenReturn(Optional.of(user));when(customers.profileCount(EMAIL)).thenReturn(1L);
   service.verify(raw);service.verify(raw);assertThat(user.emailVerified()).isTrue();assertThat(stored.consumedAt()).isEqualTo(NOW);
@@ -42,7 +42,7 @@ class CustomerEmailVerificationServiceTest {
  }
  @Test void expiredTokensAreRejected() throws Exception{
   String raw="A".repeat(43);var token=new IdentityEmailVerificationToken(hash(raw),17,NOW.minusSeconds(90000),NOW.minusSeconds(3600));
-  when(tokens.findById(hash(raw))).thenReturn(Optional.of(token));
+  when(tokens.findByTokenHash(hash(raw))).thenReturn(Optional.of(token));
   when(tokens.lockedByHash(hash(raw))).thenReturn(Optional.of(token));
   assertThatThrownBy(()->service.verify(raw)).isInstanceOf(ResponseStatusException.class)
    .hasFieldOrPropertyWithValue("status",org.springframework.http.HttpStatus.GONE);

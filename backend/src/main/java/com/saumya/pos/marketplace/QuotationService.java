@@ -168,6 +168,11 @@ public class QuotationService {
     }
 
     @Transactional(readOnly=true)
+    public List<CatalogService.ProductInfo> vendorCatalogue() {
+        return catalogue.quotationCatalogue();
+    }
+
+    @Transactional(readOnly=true)
     public List<View> vendorList() {
         var actor=authorization.current();
         actor.requireVendorMembership(); actor.requirePermission("LEAD_VIEW");

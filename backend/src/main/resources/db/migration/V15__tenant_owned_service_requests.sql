@@ -64,6 +64,7 @@ WHERE template_key IN ('SERVICE_MANAGER','SERVICE_ENGINEER');
 
 CREATE TABLE service_requests (
   id BIGINT NOT NULL AUTO_INCREMENT,
+  request_key CHAR(36) NOT NULL,
   tenant_id BIGINT NOT NULL,
   order_id VARCHAR(36) NOT NULL,
   installation_id BIGINT NULL,
@@ -82,6 +83,7 @@ CREATE TABLE service_requests (
   version BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   UNIQUE KEY uk_service_request_tenant_id (tenant_id,id),
+  UNIQUE KEY uk_service_request_tenant_request_key (tenant_id,request_key),
   KEY ix_service_request_order (tenant_id,order_id,created_at,id),
   KEY ix_service_request_assignment (tenant_id,assigned_to,status,updated_at,id),
   KEY ix_service_request_status (tenant_id,status,updated_at,id),

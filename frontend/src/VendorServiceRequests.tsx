@@ -99,7 +99,7 @@ export default function VendorServiceRequests(){
      <button className="secondary" disabled={busy||!(assignments[row.id]?.assignedTo??row.assignedTo)||!(assignments[row.id]?.reason??'').trim()}>Save assignment</button>
     </form>}
     {(canUpdate||canResolve)&&!['CLOSED'].includes(row.status)&&<form onSubmit={e=>{e.preventDefault();void update(row);}}>
-     <h5>Update case</h5><label>Next status<select required value={nextStatuses[row.id]??''} onChange={e=>setNextStatuses(v=>({...v,[row.id]:e.target.value}))}><option value="">Select next status</option>{nextOptions(row.status).filter(s=>s!=='RESOLVED'||canResolve).map(s=><option key={s} value={s}>{s.replaceAll('_',' ')}</option>)}</select></label>
+     <h5>Update case</h5><label>Next status<select required value={nextStatuses[row.id]??''} onChange={e=>setNextStatuses(v=>({...v,[row.id]:e.target.value}))}><option value="">Select next status</option>{nextOptions(row.status).filter(s=>['RESOLVED','CLOSED'].includes(s)?canResolve:canUpdate).map(s=><option key={s} value={s}>{s.replaceAll('_',' ')}</option>)}</select></label>
      <label>Customer-visible update<textarea required rows={2} maxLength={1000} value={notes[row.id]??''} onChange={e=>setNotes(v=>({...v,[row.id]:e.target.value}))}/></label>
      <button disabled={busy||!nextStatuses[row.id]||!(notes[row.id]??'').trim()}>Save case update</button>
     </form>}

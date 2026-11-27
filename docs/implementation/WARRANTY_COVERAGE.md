@@ -37,4 +37,23 @@ Flyway V16 creates `warranty_records` and append-only `warranty_events`. Composi
 - Vendor workspace → Fulfilment → Warranty Coverage
 - Customer workspace → Purchases → My Warranties
 
-The customer page shows only registered coverage and terms. No claim submission or claim-status UI is implied by this increment.
+The customer page shows only registered coverage and terms. Warranty claims are delivered as a separate V17 vertical slice documented below.
+
+## Warranty claims — V17
+
+### Customer API
+- `POST /api/v1/customer/warranty-claims` submits a claim for an active registered warranty owned through the authenticated customer's paid-online order history.
+- `GET /api/v1/customer/warranty-claims` and `GET /{id}` return only claims linked to the customer's paid-order references.
+- Customer evidence upload/download is claim-owner scoped; only customer-visible event and evidence metadata are returned.
+
+### Vendor API
+- `GET /api/v1/vendor/warranty-claims` and `GET /{id}` require SERVICE_VIEW; employees without SERVICE_ASSIGN see only their assigned claims.
+- `PATCH /{id}/assignment` requires SERVICE_ASSIGN and an enabled tenant employee with SERVICE_VIEW.
+- `PATCH /{id}/inspection` requires SERVICE_UPDATE and records an inspection summary plus a separately customer-visible note.
+- `PATCH /{id}/decision` and `PATCH /{id}/resolution` require SERVICE_RESOLVE. Approval must select REPAIR or REPLACEMENT; rejection requires a reason. Only approved work can be resolved.
+- Evidence upload/download is tenant and claim scoped. PDF, JPEG and PNG files are limited to 10 MB and stored using the existing MinIO object-storage integration.
+
+### State lifecycle
+`SUBMITTED → ASSIGNED → AWAITING_DECISION → REPAIR_IN_PROGRESS | REPLACEMENT_IN_PROGRESS → RESOLVED`, or `AWAITING_DECISION → REJECTED`.
+
+Claim events and evidence metadata are append-only. Claim updates use tenant-qualified row locks and optimistic versions; transactional outbox events are written with each change. A decision to REPAIR/REPLACEMENT records the approved workflow only; it does not execute refunds, external payments, inventory deductions or replacement orders.

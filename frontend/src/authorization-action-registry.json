@@ -33,7 +33,8 @@
         "vendor-quotations",
         "shipment-management",
         "vendor-profile",
-        "installation-management"
+        "installation-management",
+        "service-requests"
       ]
     },
     {
@@ -50,7 +51,8 @@
         "customer-purchases",
         "customer-quotations",
         "customer-profile",
-        "customer-installations"
+        "customer-installations",
+        "customer-service-requests"
       ]
     },
     {
@@ -152,7 +154,8 @@
       "items": [
         "customer-purchases",
         "customer-quotations",
-        "customer-installations"
+        "customer-installations",
+        "customer-service-requests"
       ]
     },
     {
@@ -169,7 +172,8 @@
       "items": [
         "vendor-customer-crm",
         "vendor-site-surveys",
-        "vendor-quotations"
+        "vendor-quotations",
+        "service-requests"
       ]
     },
     {
@@ -370,6 +374,16 @@
     {
       "id": "customer-installations",
       "path": "/marketplace/installations",
+      "group": "Purchases"
+    },
+    {
+      "id": "service-requests",
+      "path": "/vendor/service-requests",
+      "group": "Customer Management"
+    },
+    {
+      "id": "customer-service-requests",
+      "path": "/marketplace/service-requests",
       "group": "Purchases"
     }
   ],

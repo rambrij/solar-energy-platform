@@ -11,7 +11,7 @@ The Service module now provides tenant-configurable response and resolution targ
 - Warranty claims use NORMAL because the current warranty-claim aggregate has no priority field. This does not invent a second claim-priority workflow.
 - Targets are bounded to 1–525,600 minutes, and resolution cannot be shorter than response.
 - Policy edits require the existing SERVICE_ASSIGN permission and a reason. Reads use SERVICE_VIEW.
-- When a policy is first configured, existing open cases without an SLA clock are backfilled in bounded batches. New cases snapshot the configured targets when created.
+- When a policy is first configured, existing open cases without an SLA clock are backfilled in bounded batches starting at policy activation time. New cases snapshot the configured targets when created.
 - A policy edit never changes an existing case's response/resolution targets or due timestamps.
 - First vendor assignment, inspection, service progress, or engineer-visit scheduling records the first response. A terminal case transition closes the resolution clock.
 - A scheduled worker checks active vendor tenants every 60 seconds by default. Conditional tenant-qualified updates make each response/resolution breach idempotent across retries and concurrent workers.

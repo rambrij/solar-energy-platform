@@ -204,7 +204,7 @@ public class ServiceSlaService {
         if ("SERVICE_REQUEST".equals(type)) {
             while (true) {
                 List<Map<String, Object>> cases = db.queryForList("""
-                    SELECT r.id,r.created_at FROM service_requests r
+                    SELECT r.id FROM service_requests r
                     WHERE r.tenant_id=? AND r.priority=? AND r.status NOT IN ('RESOLVED','CLOSED')
                       AND NOT EXISTS (SELECT 1 FROM service_case_sla s
                         WHERE s.tenant_id=r.tenant_id AND s.service_request_id=r.id)
@@ -212,7 +212,7 @@ public class ServiceSlaService {
                     """, actor.tenantId(), tier);
                 for (Map<String, Object> row : cases) {
                     insertClock(actor.tenantId(), type, longValue(row.get("id")), null, tier,
-                        instant(row.get("created_at")), responseMinutes, resolutionMinutes,
+                        now, responseMinutes, resolutionMinutes,
                         "SYSTEM", "sla-policy-backfill", now);
                 }
                 if (cases.size() < 500) break;
@@ -220,7 +220,7 @@ public class ServiceSlaService {
         } else {
             while (true) {
                 List<Map<String, Object>> cases = db.queryForList("""
-                    SELECT c.id,c.submitted_at FROM warranty_claims c
+                    SELECT c.id FROM warranty_claims c
                     WHERE c.tenant_id=? AND c.status NOT IN ('REJECTED','RESOLVED')
                       AND NOT EXISTS (SELECT 1 FROM service_case_sla s
                         WHERE s.tenant_id=c.tenant_id AND s.warranty_claim_id=c.id)
@@ -228,7 +228,7 @@ public class ServiceSlaService {
                     """, actor.tenantId());
                 for (Map<String, Object> row : cases) {
                     insertClock(actor.tenantId(), type, null, longValue(row.get("id")), tier,
-                        instant(row.get("submitted_at")), responseMinutes, resolutionMinutes,
+                        now, responseMinutes, resolutionMinutes,
                         "SYSTEM", "sla-policy-backfill", now);
                 }
                 if (cases.size() < 500) break;

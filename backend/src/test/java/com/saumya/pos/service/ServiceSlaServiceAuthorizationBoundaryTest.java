@@ -96,7 +96,7 @@ class ServiceSlaServiceAuthorizationBoundaryTest {
         vendor(Set.of("SERVICE_ASSIGN"));
         when(db.queryForList(contains("SELECT response_target_minutes,resolution_target_minutes,version"),
             eq(7L),eq("SERVICE_REQUEST"),eq("HIGH"))).thenReturn(List.of());
-        when(db.queryForList(contains("SELECT r.id,r.created_at"),eq(7L),eq("HIGH"))).thenReturn(List.of());
+        when(db.queryForList(contains("SELECT r.id"),eq(7L),eq("HIGH"))).thenReturn(List.of());
         Map<String,Object> policy=new HashMap<>();
         policy.put("case_type","SERVICE_REQUEST");policy.put("priority","HIGH");
         policy.put("response_target_minutes",60);policy.put("resolution_target_minutes",240);

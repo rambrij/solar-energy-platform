@@ -289,9 +289,7 @@
       ]
     },
     "installation-management": {
-      "anyOf": [
-        "INSTALLATION_ASSIGN",
-        "INSTALLATION_UPDATE",
+      "allOf": [
         "INSTALLATION_VIEW"
       ]
     },

@@ -563,6 +563,36 @@
         "order.orderId()"
       ],
       "trustedTenantParameters": {}
+    },
+    {
+      "source": "com.saumya.pos.warranty.WarrantyClaimService",
+      "methods": [
+        "vendorList",
+        "vendorGet",
+        "assign",
+        "inspect",
+        "decide",
+        "resolve",
+        "uploadVendorEvidence",
+        "vendorEvidence",
+        "customerList",
+        "customerGet",
+        "submit",
+        "uploadCustomerEvidence",
+        "customerEvidence"
+      ],
+      "authority": "Vendor tenant scope is derived only from AuthorizationContext.current() after active vendor membership and SERVICE_VIEW/SERVICE_ASSIGN/SERVICE_UPDATE/SERVICE_RESOLVE checks. Customer tenant/order scope is derived only from OrderHistoryService.customerPaidOnlineOrderReferences for the authenticated global customer. Evidence keys are tenant/claim-qualified and only returned after the claim ownership/scope check.",
+      "evidence": [
+        "authorization.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "customerPaidOnlineOrderReferences(username)",
+        "customerOwned(username,id)",
+        "lock(tenant,id)",
+        "scope(actor,assignedTo)",
+        "tenants/{tenantId}/warranty-claims/{claimId}/evidence/{uuid}"
+      ],
+      "trustedTenantParameters": {}
     }
   ],
   "inheritedIdLookups": [

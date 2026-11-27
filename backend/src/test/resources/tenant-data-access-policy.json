@@ -1091,6 +1091,13 @@
       "variable": "tenant",
       "initializer": "revision.tenantId()",
       "authority": "The revision belongs to an authorized quotation through a composite tenant/quotation FK; the revision is loaded only after its parent quotation has been vendor-tenant or customer-owner scoped."
+    },
+    {
+      "class": "com.saumya.pos.marketplace.QuotationService",
+      "method": "document",
+      "variable": "tenant",
+      "initializer": "quote.tenantId()",
+      "authority": "The quotation root has already been loaded by a vendor tenant-qualified lock after LEAD_VIEW and lead-assignment validation, or by a customerId+quotationId owner-qualified lock after global customer identity resolution. The tenant is read only from that persisted authorized quotation row."
     }
   ]
 }

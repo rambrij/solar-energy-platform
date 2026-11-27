@@ -287,6 +287,18 @@
       "allOf": [
         "CUSTOMER"
       ]
+    },
+    "installation-management": {
+      "anyOf": [
+        "INSTALLATION_ASSIGN",
+        "INSTALLATION_UPDATE",
+        "INSTALLATION_VIEW"
+      ]
+    },
+    "customer-installations": {
+      "allOf": [
+        "CUSTOMER"
+      ]
     }
   },
   "controllerPolicies": {

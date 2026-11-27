@@ -383,7 +383,7 @@ async function collectControllerRoutes(directory){
    const classPrefix=classStart<0?source:source.slice(0,classStart);
    const classPolicy=[...classPrefix.matchAll(/@PreAuthorize\s*\(\s*"([^"]*)"/g)].at(-1)?.[1]??'';
    const base=source.match(/@RequestMapping\s*\(\s*["']([^"']*)["']/)?.[1]??'';
-   const pattern=/@(Get|Post|Put|Patch|Delete)Mapping\s*(?:\(\s*["']([^"']*)["'])?/g;
+   const pattern=/@(Get|Post|Put|Patch|Delete)Mapping\s*(?:\(\s*(?:(?:value|path)\s*=\s*)?["']([^"']*)["'])?/g;
    const matches=[...source.matchAll(pattern)];
    for(let i=0;i<matches.length;i++){
     const match=matches[i],suffix=match[2]??'';

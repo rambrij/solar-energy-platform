@@ -282,7 +282,8 @@ class RuntimeAuthorizationPersistedRoleTest {
             "report_export_audit", "vendor_payment_accounts", "vendor_payment_account_events", "vendor_payment_attempts", "installation_jobs", "installation_events", "tenant_profile_audit_events", "tenant_subscriptions",
             "subscription_invoices", "subscription_payments", "subscription_events",
             "catalog_promotions", "catalog_change_events", "receipt_document_audit",
-            "solar_packages", "solar_package_items", "product_image_metadata", "shipments", "shipment_events"
+            "solar_packages", "solar_package_items", "product_image_metadata", "shipments", "shipment_events",
+            "service_requests", "service_request_events"
         );
         Map<String, Long> before = new LinkedHashMap<>();
         for (String table : sideEffectTables) {

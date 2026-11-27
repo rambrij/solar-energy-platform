@@ -72,8 +72,10 @@ class ServiceSlaServiceAuthorizationBoundaryTest {
     }
 
     @Test void scheduledBreachIsTenantScopedAndEmitsOneOutboxEventPerBreach(){
-        var tenant=mock(TenantLifecycleService.TenantSummary.class);
-        when(tenant.id()).thenReturn(7L);
+        Instant now=clock.instant();
+        var tenant=new TenantLifecycleService.TenantSummary(7L,"vendor-7","Vendor 7","Vendor Legal",
+            "support@vendor.test","+910000000000","TAX-7","Mumbai","ACTIVE",7L,
+            "manager@vendor.test",now,now,0L,now);
         Map<String,Object> row=new HashMap<>();
         row.put("id",81L);row.put("case_type","SERVICE_REQUEST");row.put("service_request_id",21L);
         row.put("warranty_claim_id",null);row.put("priority","HIGH");

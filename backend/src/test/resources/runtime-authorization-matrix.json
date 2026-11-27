@@ -2177,6 +2177,24 @@
       "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_VISIT_OWNERSHIP",
       "assignment": "Foreign visit IDs return 404; customer timeline exposes only customer-visible visit events",
       "runtimeTest": "ServiceVisitServiceAuthorizationBoundaryTest#customerVisitLookupUsesOnlyAuthenticatedPaidOrderReferences"
+    },
+    "ServiceSlaController#dashboard": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_SERVICE_CASE_SCOPE",
+      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens to all active cases within the authenticated tenant; otherwise only cases assigned to the authenticated employee are returned",
+      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceViewCanReadSlaDashboardAndPolicies"
+    },
+    "ServiceSlaController#policies": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_SLA_POLICY_SCOPE",
+      "assignment": "SERVICE_VIEW; policy values are tenant-owned and do not expose another vendor's targets or actors",
+      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceViewCanReadSlaDashboardAndPolicies"
+    },
+    "ServiceSlaController#updatePolicy": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_SLA_POLICY_MUTATION_SCOPE",
+      "assignment": "SERVICE_ASSIGN; target bounds and response-before-resolution ordering enforced; a reason is mandatory; policy audit is append-only and active case snapshots are not rewritten",
+      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceAssignCanConfigureTenantSlaPolicy"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

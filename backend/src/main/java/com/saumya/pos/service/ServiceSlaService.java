@@ -195,8 +195,9 @@ public class ServiceSlaService {
 
         backfillUntrackedCases(actor, type, tier, input.responseTargetMinutes(),
             input.resolutionTargetMinutes(), now);
-        return policies().stream().filter(p -> p.caseType().equals(type) && p.priority().equals(tier))
-            .findFirst().orElseThrow();
+        long version = existing.isEmpty() ? 0 : longValue(existing.getFirst().get("version")) + 1;
+        return new Policy(type, tier, input.responseTargetMinutes(), input.resolutionTargetMinutes(),
+            true, version, now, actor.username());
     }
 
     private void backfillUntrackedCases(AuthorizationContext.Context actor, String type,

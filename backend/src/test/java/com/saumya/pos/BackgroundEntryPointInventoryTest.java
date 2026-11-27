@@ -47,7 +47,8 @@ class BackgroundEntryPointInventoryTest {
         }
         assertThat(scheduled).containsExactly("DraftExpiryJob#scheduledCleanup",
             "IntegrationOutboxWorker#scheduledDispatch",
-            "MockSubscriptionBillingJob#runDueBilling","SubscriptionGraceExpiryJob#expireGrace");
+            "MockSubscriptionBillingJob#runDueBilling","ServiceSlaEscalationWorker#scheduledEscalation",
+            "SubscriptionGraceExpiryJob#expireGrace");
         assertThat(events).containsExactly("CashDrawerProjection#record","CatalogAvailabilityService#changed","DraftSessionProjection#changed");
         assertThat(async).isEmpty();
         assertThat(messages).isEmpty();

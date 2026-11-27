@@ -690,8 +690,8 @@
         "authorization.current()",
         "requireVendorMembership()",
         "actor.tenantId()",
-        "OrderHistoryService customer paid-online order reference",
-        "TenantLifecycleService.activeVendors()",
+        "TenantLifecycleService.TenantSummary",
+        "tenant.id()",
         "WHERE tenant_id=?"
       ],
       "trustedTenantParameters": {

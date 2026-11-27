@@ -114,6 +114,7 @@ class ModuleArchitectureTest {
             Map.entry("com.saumya.pos.installation.InstallationService", "backend/src/main/java/com/saumya/pos/installation/InstallationService.java"),
             Map.entry("com.saumya.pos.service.ServiceRequestService", "backend/src/main/java/com/saumya/pos/service/ServiceRequestService.java"),
             Map.entry("com.saumya.pos.service.ServiceVisitService", "backend/src/main/java/com/saumya/pos/service/ServiceVisitService.java"),
+            Map.entry("com.saumya.pos.service.ServiceSlaService", "backend/src/main/java/com/saumya/pos/service/ServiceSlaService.java"),
             Map.entry("com.saumya.pos.warranty.WarrantyService", "backend/src/main/java/com/saumya/pos/warranty/WarrantyService.java"),
             Map.entry("com.saumya.pos.warranty.WarrantyClaimService", "backend/src/main/java/com/saumya/pos/warranty/WarrantyClaimService.java"),
             Map.entry("com.saumya.pos.marketplace.MarketplaceEnquiryService", "backend/src/main/java/com/saumya/pos/marketplace/MarketplaceEnquiryService.java"),

@@ -6,7 +6,8 @@ This folder contains practical guides derived from the approved Version 2.0 Prod
 |---|---|---|
 | [User Roles, Responsibilities and Journeys](./USER_ROLES_AND_JOURNEYS.md) | Platform Super Admin, Platform Support, Vendor Admin, vendor employees and customer capabilities; end-to-end online and POS journeys | Product, UX, onboarding, engineering, QA, vendors |
 | [Feature Lifecycles and State Transitions](./FEATURE_LIFECYCLES.md) | Lifecycle/state progression for tenant, subscription, identity, CRM, quotation, cart, orders, payments, inventory, POS, refunds, documents, service and notifications | Product, backend, frontend, database, QA, operations |
-| [Role-to-Feature Permission Matrix](./ROLE_PERMISSION_AND_ACCEPTANCE_MATRIX.md) | Role-to-feature access, separation of duties, sensitive action rules and authorization acceptance criteria | Security, backend, frontend, QA, tenant admins |\n| [Warranty Coverage Implementation](./implementation/WARRANTY_COVERAGE.md) | Vendor registration, customer ownership, immutable coverage terms and explicit claim-workflow boundary | Product, backend, frontend, QA, vendors |
+| [Role-to-Feature Permission Matrix](./ROLE_PERMISSION_AND_ACCEPTANCE_MATRIX.md) | Role-to-feature access, separation of duties, sensitive action rules and authorization acceptance criteria | Security, backend, frontend, QA, tenant admins |
+| [Warranty Coverage and Claims Implementation](./implementation/WARRANTY_COVERAGE.md) | Vendor coverage registration, customer claim submission, assignment, evidence, decisions and resolution | Product, backend, frontend, QA, vendors |
 
 ## Source of truth
 

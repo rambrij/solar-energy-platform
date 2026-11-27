@@ -33,6 +33,6 @@ it('shows an API denial without claiming that a survey was created',async()=>{
   throw new Error('Unexpected request '+path);
  });
  render(<VendorSiteSurveys/>);
- expect(await screen.findByRole('alert')).toHaveTextContent('Missing SITE_SURVEY_VIEW');
+ expect((await screen.findByRole('alert')).textContent).toContain('Missing LEAD_VIEW');
  expect(screen.queryByText('Site survey scheduled.')).toBeNull();
 });

@@ -1706,19 +1706,19 @@
     "VendorSiteSurveyController#create": {
       "actor": "VENDOR",
       "scope": "TENANT_OWNED_SITE_SURVEYS_AND_EXISTING_LEAD",
-      "assignment": "SITE_SURVEY_MANAGE; lead is locked by authenticated tenant ID; employees may schedule only their assigned leads; request contains no tenant or actor identity",
+      "assignment": "LEAD_UPDATE; lead is locked by authenticated tenant ID; employees may schedule only for assigned leads; managers with LEAD_ASSIGN may schedule for tenant leads",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; VendorSiteSurveyServiceAuthorizationBoundaryTest#employeeCannotScheduleSurveyAgainstAnotherEmployeesLead; VendorSiteSurveyServiceAuthorizationBoundaryTest#managerCanScheduleSurveyOnlyForLeadInItsAuthenticatedTenant"
     },
     "VendorSiteSurveyController#list": {
       "actor": "VENDOR",
       "scope": "TENANT_OWNED_SITE_SURVEYS",
-      "assignment": "SITE_SURVEY_VIEW; tenant managers may view all surveys in the authenticated tenant and employees may view only surveys assigned to their membership",
+      "assignment": "LEAD_VIEW; tenant managers with LEAD_ASSIGN may view all tenant surveys; employees without LEAD_ASSIGN see only their assigned surveys",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; VendorSiteSurveyServiceAuthorizationBoundaryTest#employeeListUsesOnlyAuthenticatedTenantAndOwnAssignment"
     },
     "VendorSiteSurveyController#update": {
       "actor": "VENDOR",
       "scope": "TENANT_OWNED_SITE_SURVEY",
-      "assignment": "SITE_SURVEY_MANAGE; survey row is locked by authenticated tenant ID; employees may update only their assigned surveys; expectedVersion rejects stale writes and terminal states cannot be changed",
+      "assignment": "LEAD_UPDATE; survey is locked by authenticated tenant ID; employees may update only assigned surveys; expectedVersion rejects stale writes and terminal states cannot change",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; VendorSiteSurveyServiceAuthorizationBoundaryTest#employeeCannotUpdateAnotherEmployeesSurvey"
     },
     "VendorTenantProfileController#read": {

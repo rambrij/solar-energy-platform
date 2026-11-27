@@ -169,7 +169,7 @@ export default function App() {
     <RouteOutlet id="employee-management" mode="pos"><VendorAccessAdmin mode="employees"/></RouteOutlet>
     <RouteOutlet id="vendor-profile" mode="pos"><VendorProfile/></RouteOutlet>
     <RouteOutlet id="vendor-customer-crm" mode="pos"><VendorCustomerCrm/></RouteOutlet>
-    {has("SITE_SURVEY_VIEW")&&<RouteOutlet id="vendor-site-surveys" mode="pos"><VendorSiteSurveys/></RouteOutlet>}
+    {has("LEAD_VIEW")&&<RouteOutlet id="vendor-site-surveys" mode="pos"><VendorSiteSurveys/></RouteOutlet>}
     <RouteOutlet id="shipment-management" mode="pos"><ShipmentManagement/></RouteOutlet>
     <RouteOutlet id="terminal-tender-review" mode="pos"><TerminalTenderReview onResolved={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>
   </Shell>;

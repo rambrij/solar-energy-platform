@@ -55,7 +55,7 @@ public class VendorAccessAuditService {
     public void recordSiteSurveyRead() {
         var actor=authorization.current();
         actor.requireVendorMembership();
-        actor.requirePermission("SITE_SURVEY_VIEW");
+        actor.requirePermission("LEAD_VIEW");
         events.save(new VendorAccessAuditEvent(actor.tenantId(),actor.username(),
             "SITE_SURVEY",null,"SITE_SURVEY_LIST_VIEWED","Tenant site survey list viewed"));
     }
@@ -64,7 +64,7 @@ public class VendorAccessAuditService {
     public void recordSiteSurveyMutation(long surveyId,String action,String reason) {
         var actor=authorization.current();
         actor.requireVendorMembership();
-        actor.requirePermission("SITE_SURVEY_MANAGE");
+        actor.requirePermission("LEAD_UPDATE");
         if(!java.util.Set.of("SITE_SURVEY_CREATED","SITE_SURVEY_UPDATED").contains(action))
             throw new IllegalArgumentException("Unsupported site survey audit action");
         if(reason==null||reason.isBlank()||reason.strip().length()>500)

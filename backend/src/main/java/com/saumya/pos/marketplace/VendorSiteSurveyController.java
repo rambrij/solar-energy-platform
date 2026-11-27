@@ -40,12 +40,12 @@ public class VendorSiteSurveyController {
         @NotBlank @Size(max=500) String reason) {}
 
     @GetMapping("/api/v1/vendor/site-surveys")
-    @PreAuthorize("hasAuthority('SITE_SURVEY_VIEW')")
+    @PreAuthorize("hasAuthority('LEAD_VIEW')")
     public List<VendorSiteSurveyService.View> list(){return service.list();}
 
     @PostMapping("/api/v1/vendor/leads/{leadId}/site-surveys")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('SITE_SURVEY_MANAGE')")
+    @PreAuthorize("hasAuthority('LEAD_UPDATE')")
     public VendorSiteSurveyService.View create(@PathVariable long leadId,
             @Valid @RequestBody(required=false) CreateRequest request) {
         if(request==null)throw new org.springframework.web.server.ResponseStatusException(
@@ -56,7 +56,7 @@ public class VendorSiteSurveyController {
     }
 
     @PatchMapping("/api/v1/vendor/site-surveys/{id}")
-    @PreAuthorize("hasAuthority('SITE_SURVEY_MANAGE')")
+    @PreAuthorize("hasAuthority('LEAD_UPDATE')")
     public VendorSiteSurveyService.View update(@PathVariable long id,
             @Valid @RequestBody(required=false) UpdateRequest request) {
         if(request==null)throw new org.springframework.web.server.ResponseStatusException(

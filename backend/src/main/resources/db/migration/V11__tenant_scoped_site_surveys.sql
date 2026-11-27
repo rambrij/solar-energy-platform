@@ -33,20 +33,3 @@ CREATE TABLE site_surveys (
   CONSTRAINT chk_site_survey_monthly_consumption CHECK (monthly_consumption_kwh IS NULL OR monthly_consumption_kwh > 0),
   CONSTRAINT chk_site_survey_capacity CHECK (proposed_capacity_kw IS NULL OR proposed_capacity_kw > 0)
 );
-
-INSERT INTO vendor_permission_catalogue(permission)
-VALUES ('SITE_SURVEY_MANAGE'),('SITE_SURVEY_VIEW');
-
-INSERT INTO vendor_role_permissions(tenant_id,role_id,permission,created_by)
-SELECT r.tenant_id,r.id,p.permission,r.updated_by
-FROM vendor_roles r
-CROSS JOIN (
-  SELECT 'SITE_SURVEY_VIEW' permission
-  UNION ALL SELECT 'SITE_SURVEY_MANAGE'
-) p
-LEFT JOIN vendor_role_permissions existing
-  ON existing.tenant_id=r.tenant_id
- AND existing.role_id=r.id
- AND existing.permission=p.permission
-WHERE r.template_key IN ('VENDOR_ADMIN','SALES_MANAGER','SALES_EXECUTIVE')
-  AND existing.permission IS NULL;

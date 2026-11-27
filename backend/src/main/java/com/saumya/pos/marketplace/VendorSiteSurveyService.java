@@ -48,7 +48,7 @@ public class VendorSiteSurveyService {
     public List<View> list() {
         var actor=authorization.current();
         actor.requireVendorMembership();
-        actor.requirePermission("SITE_SURVEY_VIEW");
+        actor.requirePermission("LEAD_VIEW");
         List<SiteSurvey> rows=actor.hasPermission("LEAD_ASSIGN")
             ?surveys.findTop100ByTenantIdOrderByScheduledAtDescIdDesc(actor.tenantId())
             :surveys.findTop100ByTenantIdAndAssignedToOrderByScheduledAtDescIdDesc(
@@ -60,7 +60,7 @@ public class VendorSiteSurveyService {
     public View create(long enquiryId,Create request) {
         var actor=authorization.current();
         actor.requireVendorMembership();
-        actor.requirePermission("SITE_SURVEY_MANAGE");
+        actor.requirePermission("LEAD_UPDATE");
         if(enquiryId<=0||request==null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Lead and survey details are required");
         String address=required(request.siteAddress(),500,"Site address");
@@ -90,7 +90,7 @@ public class VendorSiteSurveyService {
     public View update(long id,Update request) {
         var actor=authorization.current();
         actor.requireVendorMembership();
-        actor.requirePermission("SITE_SURVEY_MANAGE");
+        actor.requirePermission("LEAD_UPDATE");
         if(id<=0||request==null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Survey ID and update details are required");
         String status=request.status()==null?"":request.status().strip().toUpperCase(Locale.ROOT);

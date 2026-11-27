@@ -44,7 +44,7 @@ class VendorSiteSurveyServiceAuthorizationBoundaryTest {
     @Test void surveyReadRequiresDedicatedPermissionBeforeQuerying() {
         var authorization=mock(AuthorizationContext.class);
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-            "sales@vendor.test",71L,5L,"71:sales@vendor.test",Set.of("LEAD_VIEW"),false,false,true));
+            "sales@vendor.test",71L,5L,"71:sales@vendor.test",Set.of("CRM_NOTE_VIEW"),false,false,true));
         var surveys=mock(SiteSurveyRepository.class);
         var enquiries=mock(MarketplaceEnquiryRepository.class);
         var audit=mock(VendorAccessAuditService.class);
@@ -57,7 +57,7 @@ class VendorSiteSurveyServiceAuthorizationBoundaryTest {
     @Test void employeeListUsesOnlyAuthenticatedTenantAndOwnAssignment() {
         var authorization=mock(AuthorizationContext.class);
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
-            "sales@vendor.test",71L,5L,"71:sales@vendor.test",Set.of("SITE_SURVEY_VIEW"),false,false,true));
+            "sales@vendor.test",71L,5L,"71:sales@vendor.test",Set.of("LEAD_VIEW"),false,false,true));
         var surveys=mock(SiteSurveyRepository.class);
         when(surveys.findTop100ByTenantIdAndAssignedToOrderByScheduledAtDescIdDesc(71L,"sales@vendor.test"))
             .thenReturn(List.of());
@@ -73,7 +73,7 @@ class VendorSiteSurveyServiceAuthorizationBoundaryTest {
         var authorization=mock(AuthorizationContext.class);
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "sales@vendor.test",71L,5L,"71:sales@vendor.test",
-            Set.of("SITE_SURVEY_MANAGE"),false,false,true));
+            Set.of("LEAD_UPDATE"),false,false,true));
         var surveys=mock(SiteSurveyRepository.class);
         var enquiries=mock(MarketplaceEnquiryRepository.class);
         var lead=mock(MarketplaceEnquiry.class);
@@ -92,14 +92,14 @@ class VendorSiteSurveyServiceAuthorizationBoundaryTest {
         var authorization=mock(AuthorizationContext.class);
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "manager@vendor.test",71L,5L,"71:manager@vendor.test",
-            Set.of("SITE_SURVEY_MANAGE","LEAD_ASSIGN"),false,false,true));
+            Set.of("LEAD_UPDATE","LEAD_ASSIGN"),false,false,true));
         var surveys=mock(SiteSurveyRepository.class);
         var enquiries=mock(MarketplaceEnquiryRepository.class);
         var lead=mock(MarketplaceEnquiry.class);
         when(lead.assignedTo()).thenReturn("sales@vendor.test");
         when(lead.status()).thenReturn("QUALIFIED");
         when(enquiries.findByTenantIdAndIdForUpdate(71L,44L)).thenReturn(Optional.of(lead));
-        when(surveys.saveAndFlush(any())).thenAnswer(call->call.getArgument(0));
+        when(surveys.saveAndFlush(any())).thenAnswer(call->{ var saved=(com.saumya.pos.marketplace.internal.SiteSurvey)call.getArgument(0); org.springframework.test.util.ReflectionTestUtils.setField(saved,"id",9L); return saved; });
         var audit=mock(VendorAccessAuditService.class);
         var request=new VendorSiteSurveyService.Create("Factory roof",
             Instant.parse("2026-12-01T10:00:00Z"),"METAL",BigDecimal.valueOf(250),BigDecimal.valueOf(5),
@@ -108,14 +108,14 @@ class VendorSiteSurveyServiceAuthorizationBoundaryTest {
         assertThat(view.enquiryId()).isEqualTo(44L);
         assertThat(view.status()).isEqualTo("SCHEDULED");
         assertThat(view.assignedTo()).isEqualTo("sales@vendor.test");
-        verify(audit).recordSiteSurveyMutation(0L,"SITE_SURVEY_CREATED","Customer requested a site visit");
+        verify(audit).recordSiteSurveyMutation(9L,"SITE_SURVEY_CREATED","Customer requested a site visit");
     }
 
     @Test void employeeCannotUpdateAnotherEmployeesSurvey() {
         var authorization=mock(AuthorizationContext.class);
         when(authorization.current()).thenReturn(new AuthorizationContext.Context(
             "sales@vendor.test",71L,5L,"71:sales@vendor.test",
-            Set.of("SITE_SURVEY_MANAGE"),false,false,true));
+            Set.of("LEAD_UPDATE"),false,false,true));
         var surveys=mock(SiteSurveyRepository.class);
         var survey=mock(com.saumya.pos.marketplace.internal.SiteSurvey.class);
         when(survey.assignedTo()).thenReturn("other@vendor.test");

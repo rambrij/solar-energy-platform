@@ -312,6 +312,17 @@
       "allOf": [
         "CUSTOMER"
       ]
+    },
+    "warranty-management": {
+      "anyOf": [
+        "SERVICE_VIEW",
+        "SERVICE_CREATE"
+      ]
+    },
+    "customer-warranties": {
+      "allOf": [
+        "CUSTOMER"
+      ]
     }
   },
   "controllerPolicies": {

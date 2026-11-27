@@ -35,3 +35,10 @@ export async function downloadProtectedPdf(path:string, filename:string) {
     URL.revokeObjectURL(objectUrl);
   }
 }
+
+export async function marketplaceUpload(path:string,file:File){
+  const token=(await marketplaceApi('/api/v1/customer/csrf')).token;
+  const form=new FormData();form.append('file',file);
+  const response=await authenticatedFetch(path,{method:'POST',credentials:'same-origin',headers:{'X-XSRF-TOKEN':token},body:form});
+  return readJsonResponse(response,MarketplaceError);
+}

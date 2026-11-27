@@ -2732,6 +2732,30 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "POST /api/v1/customer/quotations/{id}/revisions/{revision}/decision"
+    },
+    {
+      "id": "vendor-payment-account-list",
+      "component": "VendorPaymentAccounts.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/payment-accounts",
+      "permissions": [
+        "TENANT_PROFILE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/payment-accounts"
+    },
+    {
+      "id": "vendor-payment-account-submit",
+      "component": "VendorPaymentAccounts.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/payment-accounts",
+      "permissions": [
+        "TENANT_PROFILE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/payment-accounts"
     }
   ],
   "buttons": [
@@ -3304,6 +3328,12 @@
       "component": "CustomerQuotations.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/customer/quotations/{id}/revisions/{revision}/decision"
+    },
+    {
+      "id": "vendor-payment-account-submit",
+      "component": "VendorPaymentAccounts.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/payment-accounts"
     }
   ],
   "dynamicRouteParameters": {

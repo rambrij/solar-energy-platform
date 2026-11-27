@@ -40,7 +40,7 @@ class CustomerEmailVerificationServiceTest {
   when(users.lockedByUsername(EMAIL)).thenReturn(Optional.empty());
   assertThatCode(()->service.resend(EMAIL)).doesNotThrowAnyException();verifyNoInteractions(mail,tokens);
  }
- @Test void expiredTokensAreRejected(){
+ @Test void expiredTokensAreRejected() throws Exception{
   String raw="A".repeat(43);var token=new IdentityEmailVerificationToken(hash(raw),17,NOW.minusSeconds(90000),NOW.minusSeconds(3600));
   when(tokens.findById(hash(raw))).thenReturn(Optional.of(token));
   when(tokens.lockedByHash(hash(raw))).thenReturn(Optional.of(token));

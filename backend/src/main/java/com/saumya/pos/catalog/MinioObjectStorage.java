@@ -52,19 +52,19 @@ public class MinioObjectStorage implements ObjectStoragePort {
     @Override public void put(String key,byte[] content,String contentType) {
         if(key==null||!key.matches(ALLOWED_KEY)||
            content==null||content.length==0||contentType==null)
-            throw new IllegalArgumentException("Tenant-scoped image object material required");
+            throw new IllegalArgumentException("Tenant-scoped object material required");
         try {
             MinioClient target=client();ensureBucket(target);
             target.putObject(PutObjectArgs.builder().bucket(bucket).object(key)
                 .stream(new ByteArrayInputStream(content),content.length,-1)
                 .contentType(contentType).build());
         } catch(ResponseStatusException ex){throw ex;}
-        catch(Exception ex){throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Product image storage is unavailable",ex);}
+        catch(Exception ex){throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Object storage is unavailable",ex);}
     }
 
     @Override public byte[] get(String key) {
         if(key==null||!key.matches("tenants/[1-9][0-9]*/products/[1-9][0-9]*/images/[0-9a-f-]{36}"))
-            throw new IllegalArgumentException("Tenant-scoped image key required");
+            throw new IllegalArgumentException("Tenant-scoped object key required");
         try(InputStream stream=client().getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
             byte[] bytes=stream.readNBytes(10*1024*1024+1);
             if(bytes.length>10*1024*1024)throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Stored object exceeds the configured limit");

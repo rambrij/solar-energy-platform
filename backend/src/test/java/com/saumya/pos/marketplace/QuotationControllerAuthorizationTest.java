@@ -48,6 +48,16 @@ class QuotationControllerAuthorizationTest {
     }
 
     @Test
+    void vendorQuotationDocumentRequiresLeadView() {
+        assertThat(policy("vendorDocument")).isEqualTo("hasAuthority('LEAD_VIEW')");
+    }
+
+    @Test
+    void customerQuotationDocumentRequiresCustomerIdentity() {
+        assertThat(policy("customerDocument")).isEqualTo("hasAuthority('CUSTOMER')");
+    }
+
+    @Test
     void customerDecisionIsOwnerBoundAndConvertsOnce() {
         Instant now=Instant.parse("2026-11-27T12:00:00Z");
         Quotation quotation=new Quotation(12,34,56,"vendor@example.test",now);

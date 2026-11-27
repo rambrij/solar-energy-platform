@@ -273,6 +273,16 @@
       "allOf": [
         "LEAD_VIEW"
       ]
+    },
+    "vendor-quotations": {
+      "allOf": [
+        "LEAD_VIEW"
+      ]
+    },
+    "customer-quotations": {
+      "allOf": [
+        "CUSTOMER"
+      ]
     }
   },
   "controllerPolicies": {
@@ -329,7 +339,7 @@
     "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_ORDER_SCOPE",
     "VendorSiteSurveyController": "VENDOR_TENANT_SITE_SURVEY_VIEW_AND_MANAGE_WITH_LEAD_ASSIGNMENT_SCOPE",
     "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
-    "QuotationController": "VENDOR_TENANT_LEAD_SCOPED_QUOTATION_CREATE_REVISE; CUSTOMER_GLOBAL_IDENTITY_OWNERSHIP_DECISION_AND_IDEMPOTENT_ORDER_CONVERSION"
+    "QuotationController": "VENDOR_TENANT_LEAD_SCOPED_QUOTATION_CATALOGUE_CREATE_REVISE; CUSTOMER_GLOBAL_IDENTITY_OWNERSHIP_DECISION_AND_IDEMPOTENT_ORDER_CONVERSION"
   },
   "customerPermissions": [
     "CUSTOMER"

@@ -567,19 +567,23 @@
     {
       "source": "com.saumya.pos.warranty.WarrantyClaimService",
       "methods": [
+        "submit",
         "vendorList",
-        "vendorGet",
+        "customerList",
+        "customerGet",
         "assign",
         "inspect",
         "decide",
         "resolve",
-        "uploadVendorEvidence",
-        "vendorEvidence",
-        "customerList",
-        "customerGet",
-        "submit",
-        "uploadCustomerEvidence",
-        "customerEvidence"
+        "upload",
+        "evidenceContent",
+        "customerOwned",
+        "load",
+        "lock",
+        "update",
+        "event",
+        "events",
+        "evidence"
       ],
       "authority": "Vendor tenant scope is derived only from AuthorizationContext.current() after active vendor membership and SERVICE_VIEW/SERVICE_ASSIGN/SERVICE_UPDATE/SERVICE_RESOLVE checks. Customer tenant/order scope is derived only from OrderHistoryService.customerPaidOnlineOrderReferences for the authenticated global customer. Evidence keys are tenant/claim-qualified and only returned after the claim ownership/scope check.",
       "evidence": [
@@ -592,7 +596,29 @@
         "scope(actor,assignedTo)",
         "tenants/{tenantId}/warranty-claims/{claimId}/evidence/{uuid}"
       ],
-      "trustedTenantParameters": {}
+      "trustedTenantParameters": {
+        "evidenceContent": [
+          "tenant"
+        ],
+        "load": [
+          "tenant"
+        ],
+        "lock": [
+          "tenant"
+        ],
+        "update": [
+          "tenant"
+        ],
+        "event": [
+          "tenant"
+        ],
+        "events": [
+          "tenant"
+        ],
+        "evidence": [
+          "tenant"
+        ]
+      }
     }
   ],
   "inheritedIdLookups": [
@@ -1274,6 +1300,13 @@
       "variable": "tenant",
       "initializer": "quote.tenantId()",
       "authority": "The quotation root has already been loaded by a vendor tenant-qualified lock after LEAD_VIEW and lead-assignment validation, or by a customerId+quotationId owner-qualified lock after global customer identity resolution. The tenant is read only from that persisted authorized quotation row."
+    },
+    {
+      "class": "com.saumya.pos.warranty.WarrantyClaimService",
+      "method": "upload",
+      "variable": "tenant",
+      "initializer": "((Number)row.get(\"tenant_id\")).longValue()",
+      "authority": "The tenant value is read from a warranty claim row previously loaded using authenticated customer paid-order ownership or the authenticated vendor tenant and assigned-claim scope; the row is locked/read before the evidence object key and metadata are written."
     }
   ]
 }

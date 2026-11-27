@@ -159,8 +159,8 @@ export default function App() {
     <RouteOutlet id="cashier-sales-insights" mode="pos"><CashierSalesInsights/></RouteOutlet>
     <RouteOutlet id="shift-history" mode="pos"><ShiftHistory revision={String(drawerRevision)}/></RouteOutlet>
     {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="category-management" mode="pos"><CategoryManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
-    {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="product-management" mode="pos"><ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>
-    <RouteOutlet id="solar-package-management" mode="pos"><SolarPackageManager/></RouteOutlet>}
+    {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="product-management" mode="pos"><ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
+    {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="solar-package-management" mode="pos"><SolarPackageManager/></RouteOutlet>}
     {account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission))&&<RouteOutlet id="stock-receiving" mode="pos"><StockReceiving key={`${account.username}:${account.tenantId}:${account.branchId}`} onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
     <RouteOutlet id="store-settings" mode="pos"><StoreSettings/></RouteOutlet>
     <RouteOutlet id="shift-reviews" mode="pos"><ShiftReviews/></RouteOutlet>

@@ -91,8 +91,10 @@ public class VendorPaymentAccountService {
         VendorPaymentAccount account=existing.get();
         if(account.version()!=request.expectedVersion())
             throw conflict("Merchant-account record changed; reload before saving");
+        if("SUSPENDED".equals(account.status()))
+            throw conflict("Suspended merchant accounts cannot be reactivated through vendor self-service");
         if(account.merchantAccountReference().equals(merchantReference)
-                &&"PENDING_VERIFICATION".equals(account.status()))
+                &&("PENDING_VERIFICATION".equals(account.status())||"VERIFIED".equals(account.status())))
             return view(account);
 
         boolean firstSubmission="PENDING_VERIFICATION".equals(account.status())

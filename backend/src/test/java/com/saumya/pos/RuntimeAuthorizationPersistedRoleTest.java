@@ -649,6 +649,7 @@ class RuntimeAuthorizationPersistedRoleTest {
             if (name.contains("requestid") || name.contains("uuid")) return "550e8400-e29b-41d4-a716-446655440000";
             if (name.contains("code") || name.contains("otp")) return "123456";
             if (name.contains("reason") || name.contains("purpose")) return "Runtime authorization matrix";
+            if (name.equals("priority")) return "NORMAL";
             if (name.contains("currency")) return "INR";
             if (name.contains("rolekey")) return "runtime-role";
             if (name.contains("slug")) return "runtime-slug";

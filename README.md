@@ -1,6 +1,6 @@
 # Saumya Solar Marketplace and POS
 
-A modular-monolith application for the solar marketplace, tenant-owned catalogues and inventory, customer carts and checkout drafts, store POS, returns/refunds, platform administration, and role-based authorization.
+A modular-monolith application for the solar marketplace, tenant-owned catalogues and inventory, customer carts and checkout drafts, store POS, returns/refunds, installation and service-request workflows, platform administration, and role-based authorization.
 
 ## Baseline status
 

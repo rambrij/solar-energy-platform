@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {vendorApi} from './api';
+import {downloadProtectedPdf} from './marketplaceApi';
 import {useSession} from './session';
 
 type Lead={id:number;status:string;contactName:string;productName:string|null;assignedTo:string|null};
@@ -47,6 +48,18 @@ export default function VendorQuotations(){
  },[]);
 
  useEffect(()=>{void refresh();},[refresh,account?.tenantId,account?.username]);
+
+ async function downloadRevision(quoteId:number,revisionNumber:number) {
+  setError('');
+  try {
+   await downloadProtectedPdf(
+    '/api/v1/vendor/quotations/'+quoteId+'/revisions/'+revisionNumber+'/document',
+    'quotation-'+quoteId+'-revision-'+revisionNumber+'.pdf'
+   );
+  } catch(e) {
+   setError((e as Error).message||'Quotation PDF could not be downloaded.');
+  }
+ }
 
  const selectedQuote=quotes.find(quote=>quote.id===selectedQuoteId)??null;
  const latest=selectedQuote?newest(selectedQuote):undefined;
@@ -97,6 +110,10 @@ export default function VendorQuotations(){
    {selectedQuote.revisions.slice().sort((a,b)=>a.revisionNumber-b.revisionNumber).map(revision=><article key={revision.id} className="quotation-revision">
     <h4>Revision {revision.revisionNumber} · {revision.status}</h4>
     <p>{revision.currency} {money(revision.total)} · Valid until {new Date(revision.validUntil).toLocaleString()}</p>
+    <button type="button" className="secondary" disabled={saving}
+      onClick={()=>void downloadRevision(selectedQuote.id,revision.revisionNumber)}>
+      Download PDF
+    </button>
     {revision.terms&&<p>{revision.terms}</p>}
     <ul>{revision.items.map(line=><li key={line.productId}>{line.name} × {line.quantity} · {money(line.unitPrice)} each + {money(line.tax)} tax · {money(line.total)}</li>)}</ul>
    </article>)}

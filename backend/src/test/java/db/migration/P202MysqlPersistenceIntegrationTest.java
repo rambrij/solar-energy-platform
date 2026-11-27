@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(15);
+            assertThat(applied).hasSize(16);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -62,6 +62,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(13).getVersion().getVersion()).isEqualTo("14");
             assertThat(applied.get(14).getScript()).isEqualTo("V15__tenant_owned_service_requests.sql");
             assertThat(applied.get(14).getVersion().getVersion()).isEqualTo("15");
+            assertThat(applied.get(15).getScript()).isEqualTo("V16__tenant_owned_warranty_coverage.sql");
+            assertThat(applied.get(15).getVersion().getVersion()).isEqualTo("16");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -69,7 +71,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16");
         });
     }
 
@@ -116,6 +118,13 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(indexHasLeadingTenant(db, schema, "subscription_invoices", "tenant_id")).isTrue();
             assertThat(indexHasLeadingTenant(db, schema, "service_requests", "tenant_id")).isTrue();
             assertThat(indexHasLeadingTenant(db, schema, "service_request_events", "tenant_id")).isTrue();
+            assertThat(indexHasLeadingTenant(db, schema, "warranty_records", "tenant_id")).isTrue();
+            assertThat(indexHasLeadingTenant(db, schema, "warranty_events", "tenant_id")).isTrue();
+            assertConstraint(db, schema, "warranty_records", "chk_warranty_coverage_dates", "CHECK");
+            assertConstraint(db, schema, "warranty_records", "fk_warranty_order_item", "FOREIGN KEY");
+            assertConstraint(db, schema, "warranty_records", "fk_warranty_installation", "FOREIGN KEY");
+            assertConstraint(db, schema, "warranty_records", "uk_warranty_order_item", "UNIQUE");
+            assertConstraint(db, schema, "warranty_events", "fk_warranty_event_record", "FOREIGN KEY");
             assertConstraint(db, schema, "service_requests", "chk_service_request_priority", "CHECK");
             assertConstraint(db, schema, "service_requests", "chk_service_request_status", "CHECK");
             assertConstraint(db, schema, "service_requests", "chk_service_request_resolution", "CHECK");
@@ -157,7 +166,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
                     "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "site_surveys", "quotations", "quotation_revisions", "quotation_lines", "quotation_audit_events", "vendor_payment_accounts", "vendor_payment_account_events",
-                    "installation_jobs", "installation_events", "service_requests", "service_request_events");
+                    "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns
@@ -351,6 +360,16 @@ class P202MysqlPersistenceIntegrationTest {
                     SELECT COUNT(*) FROM information_schema.triggers
                     WHERE trigger_schema=? AND event_object_table='service_request_events'
                       AND trigger_name IN ('trg_service_request_events_no_update','trg_service_request_events_no_delete')
+                    """, Integer.class, schema)).isEqualTo(2);
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.triggers
+                    WHERE trigger_schema=? AND event_object_table='warranty_records'
+                      AND trigger_name IN ('trg_warranty_records_no_update','trg_warranty_records_no_delete')
+                    """, Integer.class, schema)).isEqualTo(2);
+            assertThat(db.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.triggers
+                    WHERE trigger_schema=? AND event_object_table='warranty_events'
+                      AND trigger_name IN ('trg_warranty_events_no_update','trg_warranty_events_no_delete')
                     """, Integer.class, schema)).isEqualTo(2);
 
             assertConstraint(db, schema, "tenant_subscriptions", "uk_tenant_subscription_tenant_id", "UNIQUE");

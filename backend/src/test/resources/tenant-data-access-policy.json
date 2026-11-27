@@ -71,6 +71,11 @@
       "trustedSource": "Trusted integration worker claims a bounded set of technical event envelopes across tenants; every envelope carries tenant scope and dispatch must revalidate tenant lifecycle and aggregate authorization."
     },
     {
+      "operation": "OutboxMessageRepository#claimableForTypes",
+      "scope": "GLOBAL_DURABLE_EVENT_QUEUE_FILTERED_BY_REGISTERED_HANDLERS",
+      "trustedSource": "The trusted scheduled IntegrationOutboxWorker requests only its startup-validated event-handler types and claims a bounded set of technical event envelopes across tenants. This queue read returns event metadata/payload only; each event retains tenant_id, and a handler must validate tenant lifecycle and aggregate ownership before any tenant business-data operation. Event delivery is at-least-once and keyed by the immutable event ID."
+    },
+    {
       "operation": "PlatformAuditRepository#findAllByOrderByOccurredAtDescIdDesc",
       "scope": "PLATFORM_AUDIT_DIRECTORY",
       "trustedSource": "Platform audit endpoint guarded by PLATFORM_AUDIT_VIEW."

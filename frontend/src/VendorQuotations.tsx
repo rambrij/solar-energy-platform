@@ -64,8 +64,9 @@ export default function VendorQuotations(){
   setSaving(true);setError('');setNotice('');
   try{
    const payload={items:items.map(line=>({productId:Number(line.productId),quantity:line.quantity})),validityDays:Number(validityDays),terms:terms.trim()||null,reason:reason.trim()};
+   const revisionPath=selectedQuote?'/quotations/'+selectedQuote.id+'/revisions':'';
    const result=editing&&selectedQuote
-    ?await vendorApi('/quotations/'+selectedQuote.id+'/revisions','POST',payload) as Quote
+    ?await vendorApi(revisionPath,'POST',payload) as Quote
     :await vendorApi('/quotations','POST',{enquiryId:Number(leadId),...payload}) as Quote;
    setQuotes(current=>[result,...current.filter(quote=>quote.id!==result.id)]);
    setSelectedQuoteId(result.id);setEditing(false);setReason('');

@@ -2756,6 +2756,30 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "PUT /api/v1/vendor/payment-accounts"
+    },
+    {
+      "id": "vendor-quotation-document",
+      "component": "VendorQuotations.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/quotations/{id}/revisions/{revision}/document",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/quotations/{id}/revisions/{revision}/document"
+    },
+    {
+      "id": "customer-quotation-document",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/quotations/{id}/revisions/{revision}/document",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/quotations/{id}/revisions/{revision}/document"
     }
   ],
   "buttons": [
@@ -3334,6 +3358,18 @@
       "component": "VendorPaymentAccounts.tsx",
       "trigger": "submit",
       "backendOperation": "PUT /api/v1/vendor/payment-accounts"
+    },
+    {
+      "id": "vendor-quotation-document",
+      "component": "VendorQuotations.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/quotations/{id}/revisions/{revision}/document"
+    },
+    {
+      "id": "customer-quotation-document",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/quotations/{id}/revisions/{revision}/document"
     }
   ],
   "dynamicRouteParameters": {

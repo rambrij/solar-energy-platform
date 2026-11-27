@@ -3538,12 +3538,13 @@ class PosTest {
             new org.springframework.security.core.authority.SimpleGrantedAuthority("ACTOR_CONTEXT_PLATFORM")));
   asAuthentication(platform,()->memberships.provisionInitialVendorAdmin(1,1,admin));
   asAuthentication(platform,()->memberships.provisionInitialVendorAdmin(1,1,admin));
-  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=1 AND action='ROLE_TEMPLATE_APPLIED'",Integer.class)).isEqualTo(5);
+  assertThat(db.queryForObject("SELECT COUNT(*) FROM vendor_access_audit_events WHERE tenant_id=1 AND action='ROLE_TEMPLATE_APPLIED'",Integer.class)).isEqualTo(6);
   var roleService=applicationContext.getBean(com.saumya.pos.membership.VendorRoleService.class);
   String target="p102-worker@example.test";
   employee(target,1,1);
   Map<String,String> routes=Map.of("VENDOR_ADMIN","roles","POS_CASHIER","pos/products",
-      "INVENTORY_MANAGER","products","SALES_MANAGER","pos/reports/sales","ACCOUNTANT","pos/reports/cash-refunds");
+      "INVENTORY_MANAGER","products","SALES_MANAGER","pos/reports/sales","ACCOUNTANT","pos/reports/cash-refunds",
+      "SALES_EXECUTIVE","leads");
   for (var template : com.saumya.pos.membership.StandardRoleTemplates.ALL) {
    if(template.deferredReason()!=null){
     assertThat(template.permissions()).isEmpty();
@@ -3802,6 +3803,7 @@ class PosTest {
  }
 
  private String matrixPatternValue(String regex,String field){
+  if(regex.contains("CONTACTED")&&regex.contains("QUALIFIED")&&regex.contains("LOST"))return "CONTACTED";
   if(regex.contains("{64}")||regex.contains("64}"))return "0".repeat(64);
   if(regex.contains("{43}")||regex.contains("43}"))return "A".repeat(43);
   if(regex.contains("UPI")&&regex.contains("CARD"))return "UPI";

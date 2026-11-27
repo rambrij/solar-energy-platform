@@ -56,8 +56,10 @@ public class WarrantyClaimService {
         boolean customerVisible,String actorType,String actorId,Instant occurredAt){}
     public record Evidence(String id,String fileName,String contentType,long byteSize,String sha256,
         boolean customerVisible,String uploaderType,Instant createdAt){}
+    public record CustomerEvent(long id,String eventType,String fromStatus,String toStatus,String note,Instant occurredAt){}
+    public record CustomerEvidence(String id,String fileName,String contentType,long byteSize,Instant createdAt){}
     public record VendorDetail(Claim claim,List<Event> events,List<Evidence> evidence){}
-    public record CustomerDetail(CustomerClaim claim,List<Event> events,List<Evidence> evidence){}
+    public record CustomerDetail(CustomerClaim claim,List<CustomerEvent> events,List<CustomerEvidence> evidence){}
     public record EvidenceContent(String contentType,String fileName,byte[] content){}
 
     private AuthorizationContext.Context vendor(String permission){

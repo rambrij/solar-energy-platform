@@ -489,6 +489,36 @@
         "customer_id"
       ],
       "reason": "Global customer ID is resolved only after matching the authenticated CUSTOMER actor; customer job reads join orders through the composite tenant/order key."
+    },
+    {
+      "source": "com.saumya.pos.installation.InstallationService",
+      "methods": [
+        "eligibleOrders",
+        "vendorList",
+        "eligibleEngineers",
+        "create",
+        "assign",
+        "updateStatus",
+        "customerList",
+        "customerGet",
+        "vendorGet",
+        "findVendor",
+        "lockJob",
+        "requireActiveEngineer",
+        "append",
+        "events",
+        "customerEvents"
+      ],
+      "authority": "Vendor tenant parameters derive from AuthorizationContext.current().tenantId() after active membership and INSTALLATION_* checks. Customer tenant parameters derive from OrderHistoryService.CustomerOrderReference values built from the authenticated global customer and paid online order ownership.",
+      "evidence": [
+        "authorization.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "customerPaidOnlineOrderReferences(username)",
+        "order.tenantId()",
+        "order.orderId()"
+      ],
+      "trustedTenantParameters": {}
     }
   ],
   "inheritedIdLookups": [

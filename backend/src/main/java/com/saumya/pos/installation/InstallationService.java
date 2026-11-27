@@ -1,6 +1,6 @@
 package com.saumya.pos.installation;
 
-import com.saumya.pos.identity.CustomerAccess;
+import com.saumya.pos.checkout.OrderHistoryService;
 import com.saumya.pos.security.AuthorizationContext;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -30,14 +30,14 @@ import org.springframework.web.server.ResponseStatusException;
 public class InstallationService {
     private final JdbcTemplate db;
     private final AuthorizationContext authorization;
-    private final CustomerAccess customers;
+    private final OrderHistoryService orders;
     private final Clock clock;
 
     public InstallationService(JdbcTemplate db,AuthorizationContext authorization,
-            CustomerAccess customers,Clock clock) {
+            OrderHistoryService orders,Clock clock) {
         this.db=db;
         this.authorization=authorization;
-        this.customers=customers;
+        this.orders=orders;
         this.clock=clock;
     }
 
@@ -220,45 +220,43 @@ public class InstallationService {
 
     @Transactional(readOnly=true)
     public List<CustomerJob> customerList(String username) {
-        long customer=ordersCustomerId(username);
-        return db.queryForList("""
-            SELECT j.id,j.order_id,j.site_address,j.scheduled_at,j.status,
-                   j.created_at,j.updated_at,j.completed_at
-            FROM installation_jobs j
-            JOIN orders o ON o.tenant_id=j.tenant_id AND o.id=j.order_id
-            WHERE o.tenant_id=j.tenant_id AND o.customer_id=?
-              AND o.sales_channel='ONLINE' AND o.status='PAID'
-            ORDER BY j.scheduled_at DESC,j.id DESC
-            LIMIT 100
-            """,customer).stream().map(this::customerJob).toList();
+        var references=orders.customerPaidOnlineOrderReferences(username);
+        List<CustomerJob> result=new ArrayList<>();
+        for(var order:references) {
+            result.addAll(db.queryForList("""
+                SELECT id,order_id,site_address,scheduled_at,status,created_at,updated_at,completed_at
+                FROM installation_jobs WHERE tenant_id=? AND order_id=?
+                """,order.tenantId(),order.orderId()).stream().map(this::customerJob).toList());
+            if(result.size()>=100)break;
+        }
+        return result.stream().sorted(Comparator.comparing(CustomerJob::scheduledAt).reversed()
+            .thenComparing(Comparator.comparingLong(CustomerJob::id).reversed())).limit(100).toList();
     }
 
     @Transactional(readOnly=true)
     public CustomerDetail customerGet(String username,long id) {
         if(id<=0)throw missing();
-        long customer=ordersCustomerId(username);
-        Map<String,Object> row=db.queryForList("""
-            SELECT j.id,j.order_id,j.site_address,j.scheduled_at,j.status,
-                   j.created_at,j.updated_at,j.completed_at,j.tenant_id
-            FROM installation_jobs j
-            JOIN orders o ON o.tenant_id=j.tenant_id AND o.id=j.order_id
-            WHERE j.id=? AND j.tenant_id=o.tenant_id AND o.customer_id=?
-              AND o.sales_channel='ONLINE' AND o.status='PAID'
-            """,id,customer).stream().findFirst().orElseThrow(this::missing);
-        long tenant=((Number)row.get("tenant_id")).longValue();
-        return new CustomerDetail(customerJob(row),customerEvents(tenant,id));
+        OrderHistoryService.CustomerOrderReference owner=null;
+        Map<String,Object> row=null;
+        for(var reference:orders.customerPaidOnlineOrderReferences(username)) {
+            var matches=db.queryForList("""
+                SELECT id,order_id,site_address,scheduled_at,status,created_at,updated_at,completed_at
+                FROM installation_jobs WHERE tenant_id=? AND order_id=? AND id=?
+                """,reference.tenantId(),reference.orderId(),id);
+            if(!matches.isEmpty()) {
+                owner=reference;
+                row=matches.getFirst();
+                break;
+            }
+        }
+        if(owner==null||row==null)throw missing();
+        return new CustomerDetail(customerJob(row),customerEvents(owner,id));
     }
 
     @Transactional(readOnly=true)
     public Detail vendorGet(long id) {
         var actor=vendor("INSTALLATION_VIEW");
         return new Detail(findVendor(actor,id),events(actor,id));
-    }
-
-    private long ordersCustomerId(String username) {
-        // The order-history boundary validates username against the authenticated global
-        // CUSTOMER actor before returning any cross-vendor order references.
-        return customers.resolve(username);
     }
 
     private Job findVendor(AuthorizationContext.Context actor,long id) {
@@ -320,13 +318,14 @@ public class InstallationService {
                 (String)row.get("actor_username"),instant(row.get("occurred_at")))).toList();
     }
 
-    private List<CustomerEvent> customerEvents(long tenant,long installation) {
+    private List<CustomerEvent> customerEvents(
+            OrderHistoryService.CustomerOrderReference order,long installation) {
         return db.queryForList("""
             SELECT id,event_type,status,note,occurred_at
             FROM installation_events
             WHERE tenant_id=? AND installation_id=? AND customer_visible=TRUE
             ORDER BY occurred_at,id
-            """,tenant,installation).stream().map(row->new CustomerEvent(
+            """,order.tenantId(),installation).stream().map(row->new CustomerEvent(
                 ((Number)row.get("id")).longValue(),(String)row.get("event_type"),
                 (String)row.get("status"),(String)row.get("note"),
                 instant(row.get("occurred_at")))).toList();

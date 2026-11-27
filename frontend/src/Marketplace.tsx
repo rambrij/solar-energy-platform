@@ -8,6 +8,7 @@ import CustomerProfile from './CustomerProfile';
 import CustomerDashboard from './CustomerDashboard';
 import CustomerQuotations from './CustomerQuotations';
 import CustomerInstallations from './CustomerInstallations';
+import CustomerServiceRequests from './CustomerServiceRequests';
 import ProductDetails from './ProductDetails';
 import VendorDirectory from './VendorDirectory';
 import CategoryNav, { type CategoryChoice } from './CategoryNav';
@@ -170,6 +171,7 @@ export default function Marketplace() {
     <RouteOutlet id="customer-dashboard" mode="online"><CustomerDashboard/></RouteOutlet>
     <RouteOutlet id="customer-quotations" mode="online"><CustomerQuotations/></RouteOutlet>
     <RouteOutlet id="customer-installations" mode="online"><CustomerInstallations/></RouteOutlet>
+    <RouteOutlet id="customer-service-requests" mode="online"><CustomerServiceRequests/></RouteOutlet>
     <RouteOutlet id="customer-purchases" mode="online"><OrderHistory mode="online"/></RouteOutlet>
     <RouteOutlet id="customer-profile" mode="online"><CustomerProfile/></RouteOutlet>
     {restoreTarget && <RouteOutlet id="saved-vendor-carts" mode="online"><section role="dialog" aria-modal="true" aria-labelledby="restore-title"><h2 id="restore-title">Restore archived vendor cart?</h2>

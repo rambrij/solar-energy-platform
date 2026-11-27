@@ -542,6 +542,27 @@
           "tenantId"
         ]
       }
+    },
+    {
+      "source": "com.saumya.pos.warranty.WarrantyService",
+      "methods": [
+        "vendorList",
+        "eligibleOrders",
+        "eligibleItems",
+        "register",
+        "customerList",
+        "customerGet"
+      ],
+      "authority": "Vendor tenant parameters come only from AuthorizationContext.current().tenantId() after active vendor membership and SERVICE_VIEW/SERVICE_CREATE permission checks. Customer tenant/order parameters come only from OrderHistoryService.CustomerOrderReference values resolved for the authenticated global customer and paid-online order ownership. No request-supplied tenant identifier is accepted.",
+      "evidence": [
+        "authorization.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "customerPaidOnlineOrderReferences(username)",
+        "order.tenantId()",
+        "order.orderId()"
+      ],
+      "trustedTenantParameters": {}
     }
   ],
   "inheritedIdLookups": [

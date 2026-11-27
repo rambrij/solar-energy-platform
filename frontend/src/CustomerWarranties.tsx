@@ -2,7 +2,7 @@ import {useCallback,useEffect,useState} from 'react';
 import {marketplaceApi} from './marketplaceApi';
 
 type Warranty={id:number;orderId:string;productId:number;productName:string;installationId:number|null;coverageStartDate:string;coverageEndDate:string;termsSummary:string;registeredBy:string;registeredAt:string};
-type CustomerWarranty={warranty:Warranty;vendorName:string};
+type CustomerWarranty={id:number;orderId:string;productName:string;installationId:number|null;coverageStartDate:string;coverageEndDate:string;termsSummary:string;registeredAt:string;vendorName:string};
 
 export default function CustomerWarranties(){
  const [rows,setRows]=useState<CustomerWarranty[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
@@ -18,8 +18,8 @@ export default function CustomerWarranties(){
    <p>View warranty coverage registered by vendors for your paid online purchases.</p></header>
   {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading warranty coverage…</p>}
   {!loading&&rows.length===0&&!error&&<p>No warranty coverage has been registered for your eligible purchases yet.</p>}
-  {rows.length>0&&<ul>{rows.map(({warranty:w,vendorName})=><li key={w.id}>
-   <h3>{w.productName}</h3><p>Warranty #{w.id} · Order {w.orderId}</p><p>Vendor: {vendorName}</p>
+  {rows.length>0&&<ul>{rows.map(w=><li key={w.id}>
+   <h3>{w.productName}</h3><p>Warranty #{w.id} · Order {w.orderId}</p><p>Vendor: {w.vendorName}</p>
    <p><strong>Coverage:</strong> {w.coverageStartDate} to {w.coverageEndDate}</p>
    <p><strong>Terms:</strong> {w.termsSummary}</p>
    {w.installationId&&<p>Linked installation #{w.installationId}</p>}

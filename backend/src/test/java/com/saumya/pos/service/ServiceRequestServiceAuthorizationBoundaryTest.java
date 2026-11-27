@@ -52,13 +52,14 @@ class ServiceRequestServiceAuthorizationBoundaryTest {
     void customerListQueriesOnlyOrdersResolvedForTheAuthenticatedCustomer() {
         var reference=new OrderHistoryService.CustomerOrderReference("owned-order",7L,"Vendor A");
         when(orders.customerPaidOnlineOrderReferences("customer@example.test")).thenReturn(List.of(reference));
+        Map<String,Object> requestRow=new java.util.HashMap<>();
+        requestRow.put("id",17L);requestRow.put("order_id","owned-order");
+        requestRow.put("subject","Inverter issue");requestRow.put("description","Customer reports shutdown");
+        requestRow.put("priority","HIGH");requestRow.put("status","OPEN");
+        requestRow.put("created_at",java.sql.Timestamp.from(clock.instant()));
+        requestRow.put("updated_at",java.sql.Timestamp.from(clock.instant()));requestRow.put("resolved_at",null);
         when(db.queryForList(contains("FROM service_requests WHERE tenant_id=? AND order_id=?"),
-            eq(7L),eq("owned-order"))).thenReturn(List.of(Map.of(
-                "id",17L,"order_id","owned-order","subject","Inverter issue",
-                "description","Customer reports shutdown","priority","HIGH","status","OPEN",
-                "created_at",java.sql.Timestamp.from(clock.instant()),
-                "updated_at",java.sql.Timestamp.from(clock.instant()),
-                "resolved_at",null)));
+            eq(7L),eq("owned-order"))).thenReturn(List.of(requestRow));
         var rows=service().customerList("customer@example.test");
         assertThat(rows).hasSize(1);
         assertThat(rows.getFirst().orderId()).isEqualTo("owned-order");

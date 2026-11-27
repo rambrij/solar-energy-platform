@@ -358,14 +358,25 @@ public class WarrantyClaimService {
             Map.of("claimId",id,"status",status,"occurredAt",now.toString()));
     }
     private List<Event> events(long tenant,long id,boolean customer){
-        return db.queryForList("""
-            SELECT id,event_type,from_status,to_status,note,customer_visible,actor_type,actor_id,occurred_at
-            FROM warranty_claim_events WHERE tenant_id=? AND claim_id=? 
-            """+(customer?" AND customer_visible=TRUE":"")+" ORDER BY occurred_at,id",tenant,id).stream()
-            .map(r->new Event(((Number)r.get("id")).longValue(),(String)r.get("event_type"),(String)r.get("from_status"),
-                (String)r.get("to_status"),(String)r.get("note"),Boolean.TRUE.equals(r.get("customer_visible")),
-                (String)r.get("actor_type"),(String)r.get("actor_id"),instant(r.get("occurred_at")))).toList();
+        List<Map<String,Object>> rows;
+        if(customer){
+            rows=db.queryForList("""
+                SELECT id,event_type,from_status,to_status,note,customer_visible,actor_type,actor_id,occurred_at
+                FROM warranty_claim_events WHERE tenant_id=? AND claim_id=? AND customer_visible=TRUE
+                ORDER BY occurred_at,id
+                """,tenant,id);
+        }else{
+            rows=db.queryForList("""
+                SELECT id,event_type,from_status,to_status,note,customer_visible,actor_type,actor_id,occurred_at
+                FROM warranty_claim_events WHERE tenant_id=? AND claim_id=? ORDER BY occurred_at,id
+                """,tenant,id);
+        }
+        return rows.stream().map(r->new Event(((Number)r.get("id")).longValue(),(String)r.get("event_type"),
+            (String)r.get("from_status"),(String)r.get("to_status"),(String)r.get("note"),
+            Boolean.TRUE.equals(r.get("customer_visible")),(String)r.get("actor_type"),(String)r.get("actor_id"),
+            instant(r.get("occurred_at")))).toList();
     }
+
     private List<CustomerEvent> customerEvents(long tenant,long id){
         return events(tenant,id,true).stream().map(e->new CustomerEvent(e.id(),e.eventType(),e.fromStatus(),
             e.toStatus(),e.note(),e.occurredAt())).toList();
@@ -375,14 +386,24 @@ public class WarrantyClaimService {
             e.contentType(),e.byteSize(),e.createdAt())).toList();
     }
     private List<Evidence> evidence(long tenant,long id,boolean customer){
-        return db.queryForList("""
-            SELECT id,original_file_name,content_type,byte_size,sha256,customer_visible,uploader_type,created_at
-            FROM warranty_claim_evidence WHERE tenant_id=? AND claim_id=?
-            """+(customer?" AND customer_visible=TRUE":"")+" ORDER BY created_at,id",tenant,id).stream()
-            .map(r->new Evidence((String)r.get("id"),(String)r.get("original_file_name"),(String)r.get("content_type"),
-                ((Number)r.get("byte_size")).longValue(),(String)r.get("sha256"),Boolean.TRUE.equals(r.get("customer_visible")),
-                (String)r.get("uploader_type"),instant(r.get("created_at")))).toList();
+        List<Map<String,Object>> rows;
+        if(customer){
+            rows=db.queryForList("""
+                SELECT id,original_file_name,content_type,byte_size,sha256,customer_visible,uploader_type,created_at
+                FROM warranty_claim_evidence WHERE tenant_id=? AND claim_id=? AND customer_visible=TRUE
+                ORDER BY created_at,id
+                """,tenant,id);
+        }else{
+            rows=db.queryForList("""
+                SELECT id,original_file_name,content_type,byte_size,sha256,customer_visible,uploader_type,created_at
+                FROM warranty_claim_evidence WHERE tenant_id=? AND claim_id=? ORDER BY created_at,id
+                """,tenant,id);
+        }
+        return rows.stream().map(r->new Evidence((String)r.get("id"),(String)r.get("original_file_name"),
+            (String)r.get("content_type"),((Number)r.get("byte_size")).longValue(),(String)r.get("sha256"),
+            Boolean.TRUE.equals(r.get("customer_visible")),(String)r.get("uploader_type"),instant(r.get("created_at")))).toList();
     }
+
     private Claim claim(Map<String,Object> r){
         return new Claim(((Number)r.get("id")).longValue(),((Number)r.get("warranty_id")).longValue(),(String)r.get("order_id"),
             (String)r.get("product_name"),(String)r.get("subject"),(String)r.get("description"),(String)r.get("status"),

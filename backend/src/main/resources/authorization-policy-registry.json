@@ -55,8 +55,6 @@
     "ROLE_VIEW",
     "SHIPMENT_UPDATE",
     "SHIPMENT_VIEW",
-    "SITE_SURVEY_MANAGE",
-    "SITE_SURVEY_VIEW",
     "TENANT_PROFILE_UPDATE",
     "TENANT_PROFILE_VIEW",
     "USER_CREATE",
@@ -273,7 +271,7 @@
     },
     "vendor-site-surveys": {
       "allOf": [
-        "SITE_SURVEY_VIEW"
+        "LEAD_VIEW"
       ]
     }
   },
@@ -1058,26 +1056,6 @@
       "scope": "Authenticated vendor tenant and paid online orders",
       "ui": "Vendor fulfilment shipment queue",
       "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
-    },
-    {
-      "permission": "SITE_SURVEY_MANAGE",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "POST /api/v1/vendor/leads/{leadId}/site-surveys; PATCH /api/v1/vendor/site-surveys/{id}",
-      "service": "VendorSiteSurveyService",
-      "scope": "Tenant derived from authenticated membership; lead and survey row locked by tenant; employee can only operate on assigned leads/surveys; reason required and changes audited.",
-      "ui": "Vendor workspace > Customers & CRM > Site Surveys",
-      "test": "VendorSiteSurveyServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
-    },
-    {
-      "permission": "SITE_SURVEY_VIEW",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/site-surveys",
-      "service": "VendorSiteSurveyService",
-      "scope": "Tenant-scoped survey list; manager can view tenant surveys; sales employee sees only surveys assigned to their authenticated membership; read is audited.",
-      "ui": "Vendor workspace > Customers & CRM > Site Surveys",
-      "test": "VendorSiteSurveyServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
     },
     {
       "permission": "TENANT_PROFILE_UPDATE",

@@ -61,7 +61,7 @@ public class ProductImageController {
     private static ResponseEntity<byte[]> response(ProductImageService.ImageContent image){
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(image.contentType()))
             .cacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePublic())
-            .header(HttpHeaders.X_CONTENT_TYPE_OPTIONS,"nosniff")
+            .header("X-Content-Type-Options","nosniff")
             .body(image.content());
     }
 }

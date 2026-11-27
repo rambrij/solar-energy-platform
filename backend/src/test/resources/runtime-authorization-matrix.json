@@ -448,7 +448,7 @@
       "permission": "CUSTOMER",
       "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_SERVICE_REQUEST_OWNERSHIP",
       "expected": 404,
-      "test": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+      "test": "ServiceRequestServiceAuthorizationBoundaryTest#customerCannotReadAServiceRequestOutsideTheirOwnedPaidOrderReferences"
     },
     {
       "id": "P006-VENDOR-SERVICE-REQUEST-TENANT-SCOPE",
@@ -457,7 +457,7 @@
       "permission": "SERVICE_VIEW",
       "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
       "expected": 200,
-      "test": "ServiceRequestControllerAuthorizationTest#vendorListAndDetailRequireServiceView"
+      "test": "ServiceRequestServiceAuthorizationBoundaryTest#vendorViewWithoutAssignIsLimitedToCasesAssignedToTheAuthenticatedEmployee"
     }
   ],
   "notApplicableResources": [

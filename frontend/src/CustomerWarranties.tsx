@@ -1,7 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import {marketplaceApi} from './marketplaceApi';
 
-type Warranty={id:number;orderId:string;productId:number;productName:string;installationId:number|null;coverageStartDate:string;coverageEndDate:string;termsSummary:string;registeredBy:string;registeredAt:string};
 type CustomerWarranty={id:number;orderId:string;productName:string;installationId:number|null;coverageStartDate:string;coverageEndDate:string;termsSummary:string;registeredAt:string;vendorName:string};
 
 export default function CustomerWarranties(){

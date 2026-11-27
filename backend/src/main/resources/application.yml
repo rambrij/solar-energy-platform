@@ -39,11 +39,6 @@ subscriptions:
     retry-seconds: ${SUBSCRIPTIONS_MOCK_BILLING_RETRY_SECONDS:0}
 auth:
   jwt-secret: ${AUTH_JWT_SECRET:}
-spring:
-  servlet:
-    multipart:
-      max-file-size: 5MB
-      max-request-size: 6MB
 app:
   object-storage:
     endpoint: ${OBJECT_STORAGE_ENDPOINT:}

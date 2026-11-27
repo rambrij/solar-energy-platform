@@ -95,18 +95,18 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.marketplace.MarketplaceEnquiryService",
                 "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed"
             );
-        Map<String, String> jdbcSqlSources = Map.of(
-            "com.saumya.pos.membership.MembershipService", "backend/src/main/java/com/saumya/pos/membership/MembershipService.java",
-            "com.saumya.pos.membership.VendorRoleService", "backend/src/main/java/com/saumya/pos/membership/VendorRoleService.java",
-            "com.saumya.pos.retail.PosService", "backend/src/main/java/com/saumya/pos/retail/PosService.java",
-            "com.saumya.pos.membership.TenantEntitlementPolicy", "backend/src/main/java/com/saumya/pos/membership/TenantEntitlementPolicy.java",
-            "com.saumya.pos.membership.StandardRoleTemplates", "backend/src/main/java/com/saumya/pos/membership/StandardRoleTemplates.java",
-            "com.saumya.pos.retail.DraftSessionProjection", "backend/src/main/java/com/saumya/pos/retail/DraftSessionProjection.java",
-            "com.saumya.pos.retail.CashDrawerProjection", "backend/src/main/java/com/saumya/pos/retail/CashDrawerProjection.java",
-            "com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java",
-            "com.saumya.pos.fulfillment.ShipmentService", "backend/src/main/java/com/saumya/pos/fulfillment/ShipmentService.java",
-            "com.saumya.pos.marketplace.MarketplaceEnquiryService", "backend/src/main/java/com/saumya/pos/marketplace/MarketplaceEnquiryService.java",
-            "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed", "backend/src/main/resources/db/local-seed/local_demo_solar_catalog.sql"
+        Map<String, String> jdbcSqlSources = Map.ofEntries(
+            Map.entry("com.saumya.pos.membership.MembershipService", "backend/src/main/java/com/saumya/pos/membership/MembershipService.java"),
+            Map.entry("com.saumya.pos.membership.VendorRoleService", "backend/src/main/java/com/saumya/pos/membership/VendorRoleService.java"),
+            Map.entry("com.saumya.pos.retail.PosService", "backend/src/main/java/com/saumya/pos/retail/PosService.java"),
+            Map.entry("com.saumya.pos.membership.TenantEntitlementPolicy", "backend/src/main/java/com/saumya/pos/membership/TenantEntitlementPolicy.java"),
+            Map.entry("com.saumya.pos.membership.StandardRoleTemplates", "backend/src/main/java/com/saumya/pos/membership/StandardRoleTemplates.java"),
+            Map.entry("com.saumya.pos.retail.DraftSessionProjection", "backend/src/main/java/com/saumya/pos/retail/DraftSessionProjection.java"),
+            Map.entry("com.saumya.pos.retail.CashDrawerProjection", "backend/src/main/java/com/saumya/pos/retail/CashDrawerProjection.java"),
+            Map.entry("com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java"),
+            Map.entry("com.saumya.pos.fulfillment.ShipmentService", "backend/src/main/java/com/saumya/pos/fulfillment/ShipmentService.java"),
+            Map.entry("com.saumya.pos.marketplace.MarketplaceEnquiryService", "backend/src/main/java/com/saumya/pos/marketplace/MarketplaceEnquiryService.java"),
+            Map.entry("com.saumya.pos.catalog.LocalDemoSolarCatalogSeed", "backend/src/main/java/com/saumya/pos/catalog/LocalDemoSolarCatalogSeed.java")
         );
         assertThat(jdbcConsumers).as("every direct JDBC consumer has a query-level review")
             .containsExactlyInAnyOrderElementsOf(jdbcSqlSources.keySet());

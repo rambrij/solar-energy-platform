@@ -46,7 +46,7 @@ class LocalDemoCredentialsTest {
             "SELECT COUNT(*) FROM employee_role_assignments a JOIN vendor_roles r " +
             "ON r.tenant_id=a.tenant_id AND r.id=a.role_id WHERE a.active=TRUE " +
             "AND r.role_key LIKE 'standard:%'", Integer.class
-        )).isEqualTo(18);
+        )).isEqualTo(24);
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM employee_role_assignments a JOIN employees e ON e.username=a.username " +
             "WHERE e.username LIKE '%@somya.local' AND a.active=TRUE " +
@@ -79,10 +79,10 @@ class LocalDemoCredentialsTest {
         )).isEqualTo(9);
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM vendor_access_audit_events WHERE action='ROLE_TEMPLATE_APPLIED'", Integer.class
-        )).isEqualTo(18);
+        )).isEqualTo(24);
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM vendor_access_audit_events WHERE action='ROLE_ASSIGNED'", Integer.class
-        )).isEqualTo(18);
+        )).isEqualTo(24);
         assertThat(db.queryForObject(
             "SELECT COUNT(*) FROM vendor_access_audit_events WHERE action='REGISTER_ASSIGNED'", Integer.class
         )).isEqualTo(9);

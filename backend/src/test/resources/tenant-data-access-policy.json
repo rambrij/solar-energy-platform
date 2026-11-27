@@ -153,7 +153,7 @@
     {
       "operation": "TenantRepository#lockById",
       "scope": "PLATFORM_TENANT_DIRECTORY",
-      "trustedSource": "Platform tenant lifecycle operation; target tenant ID is a resource selector and service re-loads the tenant under platform authorization."
+      "trustedSource": "Platform tenant lifecycle operations require the matching PLATFORM_TENANT_* permission; vendor self-service profile updates separately require active AuthorizationContext vendor membership and TENANT_PROFILE_UPDATE, then lock only context.tenantId() (never a client-supplied selector)."
     },
     {
       "operation": "TenantRepository#search",
@@ -646,6 +646,16 @@
         "long id = access.resolve(username)",
         "access.lock(id)",
         "customers.findById(id)"
+      ]
+    },
+    {
+      "source": "com/saumya/pos/tenant/VendorTenantProfileService.java",
+      "repository": "TenantRepository#findById",
+      "scope": "AUTHENTICATED_VENDOR_MEMBERSHIP_TENANT",
+      "authority": "The tenant ID is not accepted from the request. AuthorizationContext.current() re-resolves active vendor membership; requireVendorMembership rejects platform/customer contexts and the lookup uses that context's tenant ID before returning profile fields.",
+      "evidence": [
+        "context.requireVendorMembership()",
+        "tenants.findById(context.tenantId())"
       ]
     }
   ],

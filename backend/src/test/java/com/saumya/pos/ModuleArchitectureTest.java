@@ -22,7 +22,7 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 class ModuleArchitectureTest {
     static final String[] MODULES = {
         "cart", "catalog", "checkout", "customer", "documents", "identity",
-        "inventory", "marketplace", "membership", "platform", "reporting",
+        "integration", "inventory", "marketplace", "membership", "platform", "reporting",
         "retail", "returns", "security", "shared", "subscription", "tenant"
     };
 

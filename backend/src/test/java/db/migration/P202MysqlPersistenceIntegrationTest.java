@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(9);
+            assertThat(applied).hasSize(10);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -50,6 +50,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(7).getVersion().getVersion()).isEqualTo("8");
             assertThat(applied.get(8).getScript()).isEqualTo("V9__tenant_scoped_lead_assignment_and_lifecycle.sql");
             assertThat(applied.get(8).getVersion().getVersion()).isEqualTo("9");
+            assertThat(applied.get(9).getScript()).isEqualTo("V10__transactional_outbox_and_inbox.sql");
+            assertThat(applied.get(9).getVersion().getVersion()).isEqualTo("10");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -57,7 +59,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
         });
     }
 
@@ -132,7 +134,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "employee_register_assignments", "vendor_access_audit_events",
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
-                    "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata");
+                    "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "integration_outbox", "integration_inbox");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns
@@ -141,7 +143,7 @@ class P202MysqlPersistenceIntegrationTest {
             // tenant_id is also an optional actor-context column on platform-owned
             // audit and refresh-token rows. Keep those explicitly classified rather
             // than incorrectly requiring NOT NULL on them.
-            Set<String> optionalScopeTables = Set.of("platform_audit_events", "identity_refresh_tokens");
+            Set<String> optionalScopeTables = Set.of("platform_audit_events", "identity_refresh_tokens", "integration_outbox", "integration_inbox");
             Set<String> classifiedTables = new HashSet<>(expectedTenantTables);
             classifiedTables.addAll(optionalScopeTables);
             assertThat(discovered).containsExactlyInAnyOrderElementsOf(classifiedTables);

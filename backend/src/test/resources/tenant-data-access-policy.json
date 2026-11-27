@@ -61,6 +61,16 @@
       "trustedSource": "Server-owned identity sequence row."
     },
     {
+      "operation": "InboxMessageRepository#findByConsumerKeyAndProviderEventId",
+      "scope": "PROVIDER_EVENT_DEDUPLICATION_NAMESPACE",
+      "trustedSource": "Server-configured consumer key and provider event ID identify an inbound delivery; InboxService cross-checks tenant, type and payload before acknowledging a duplicate. It does not return tenant business data."
+    },
+    {
+      "operation": "OutboxMessageRepository#claimable",
+      "scope": "GLOBAL_DURABLE_EVENT_QUEUE",
+      "trustedSource": "Trusted integration worker claims a bounded set of technical event envelopes across tenants; every envelope carries tenant scope and dispatch must revalidate tenant lifecycle and aggregate authorization."
+    },
+    {
       "operation": "PlatformAuditRepository#findAllByOrderByOccurredAtDescIdDesc",
       "scope": "PLATFORM_AUDIT_DIRECTORY",
       "trustedSource": "Platform audit endpoint guarded by PLATFORM_AUDIT_VIEW."

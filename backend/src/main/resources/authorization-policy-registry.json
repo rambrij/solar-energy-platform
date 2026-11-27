@@ -57,6 +57,11 @@
     "ROLE_CREATE",
     "ROLE_UPDATE",
     "ROLE_VIEW",
+    "SERVICE_ASSIGN",
+    "SERVICE_CREATE",
+    "SERVICE_RESOLVE",
+    "SERVICE_UPDATE",
+    "SERVICE_VIEW",
     "SHIPMENT_UPDATE",
     "SHIPMENT_VIEW",
     "TENANT_PROFILE_UPDATE",
@@ -297,6 +302,16 @@
       "allOf": [
         "CUSTOMER"
       ]
+    },
+    "service-requests": {
+      "allOf": [
+        "SERVICE_VIEW"
+      ]
+    },
+    "customer-service-requests": {
+      "allOf": [
+        "CUSTOMER"
+      ]
     }
   },
   "controllerPolicies": {
@@ -355,7 +370,8 @@
     "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
     "QuotationController": "VENDOR_TENANT_LEAD_SCOPED_QUOTATION_CATALOGUE_CREATE_REVISE_AND_DOCUMENT; CUSTOMER_GLOBAL_IDENTITY_OWNERSHIP_DECISION_AND_DOCUMENT; IDEMPOTENT_ORDER_CONVERSION",
     "VendorPaymentAccountController": "VENDOR_TENANT_PAYMENT_ACCOUNT_READ_AND_SUBMIT; PROVIDER_VERIFICATION_ONLY_FOR_STATUS_TRANSITIONS",
-    "InstallationController": "VENDOR_TENANT_PAID_ONLINE_ORDER_INSTALLATION_AND_ASSIGNED_ENGINEER_SCOPE; CUSTOMER_GLOBAL_IDENTITY_OWNED_PAID_ORDER_INSTALLATION_SCOPE"
+    "InstallationController": "VENDOR_TENANT_PAID_ONLINE_ORDER_INSTALLATION_AND_ASSIGNED_ENGINEER_SCOPE; CUSTOMER_GLOBAL_IDENTITY_OWNED_PAID_ORDER_INSTALLATION_SCOPE",
+    "ServiceRequestController": "VENDOR_TENANT_SERVICE_REQUEST_AND_CUSTOMER_ORDER_OWNER_SCOPE_WITH_IMMUTABLE_HISTORY"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -388,11 +404,6 @@
     "RETURN_APPROVE",
     "RETURN_RECEIVE",
     "RETURN_VIEW",
-    "SERVICE_ASSIGN",
-    "SERVICE_CREATE",
-    "SERVICE_RESOLVE",
-    "SERVICE_UPDATE",
-    "SERVICE_VIEW",
     "VENDOR_AUDIT_VIEW",
     "VENDOR_PAYMENT_RECONCILE",
     "VENDOR_PAYMENT_REFUND",
@@ -1099,6 +1110,56 @@
       "scope": "One tenant; delegated grants cannot exceed actor's effective role grants",
       "ui": "Vendor workspace > Access administration > roles, assignments and role audit history",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; VendorRoleServiceProvisioningTest; P101VendorRoleLifecycleTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "SERVICE_ASSIGN",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PATCH /api/v1/vendor/service-requests/{id}/assignment; GET /api/v1/vendor/service-requests/assignees",
+      "service": "ServiceRequestService",
+      "scope": "Authenticated tenant; active employee with SERVICE_VIEW; assigned engineers see only their own cases",
+      "ui": "Vendor workspace > Customer Management > Service requests",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest"
+    },
+    {
+      "permission": "SERVICE_CREATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "POST /api/v1/vendor/service-requests; GET /api/v1/vendor/service-requests/orders",
+      "service": "ServiceRequestService",
+      "scope": "Authenticated tenant; paid customer order; installation link resolved only within the same tenant and order",
+      "ui": "Vendor workspace > Customer Management > Service requests",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest"
+    },
+    {
+      "permission": "SERVICE_RESOLVE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PATCH /api/v1/vendor/service-requests/{id}/status",
+      "service": "ServiceRequestService",
+      "scope": "Tenant-qualified request lock and optimistic version; only permitted resolution and closure transitions; append-only event and outbox",
+      "ui": "Vendor workspace > Customer Management > Service requests",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest"
+    },
+    {
+      "permission": "SERVICE_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PATCH /api/v1/vendor/service-requests/{id}/status",
+      "service": "ServiceRequestService",
+      "scope": "Tenant-qualified request lock and optimistic version; validated forward status transitions; append-only event and outbox",
+      "ui": "Vendor workspace > Customer Management > Service requests",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest"
+    },
+    {
+      "permission": "SERVICE_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/service-requests; GET /api/v1/vendor/service-requests/{id}",
+      "service": "ServiceRequestService",
+      "scope": "Authenticated tenant; employees see only cases assigned to their username unless they hold SERVICE_ASSIGN",
+      "ui": "Vendor workspace > Customer Management > Service requests",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest"
     },
     {
       "permission": "SHIPMENT_UPDATE",

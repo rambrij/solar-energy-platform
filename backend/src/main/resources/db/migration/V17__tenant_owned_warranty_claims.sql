@@ -38,7 +38,9 @@ CREATE TABLE warranty_claims (
   CONSTRAINT chk_warranty_claim_decision_status CHECK (
     (status IN ('SUBMITTED','ASSIGNED','AWAITING_DECISION') AND decision IS NULL)
     OR (status='REJECTED' AND decision='REJECTED')
-    OR (status IN ('REPAIR_IN_PROGRESS','REPLACEMENT_IN_PROGRESS','RESOLVED') AND decision='APPROVED')
+    OR (status='REPAIR_IN_PROGRESS' AND decision='APPROVED' AND resolution_type='REPAIR')
+    OR (status='REPLACEMENT_IN_PROGRESS' AND decision='APPROVED' AND resolution_type='REPLACEMENT')
+    OR (status='RESOLVED' AND decision='APPROVED' AND resolution_type IN ('REPAIR','REPLACEMENT'))
   ),
   CONSTRAINT chk_warranty_claim_resolution CHECK (
     (status='RESOLVED' AND resolved_at IS NOT NULL)

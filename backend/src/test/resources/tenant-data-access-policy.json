@@ -471,6 +471,24 @@
           "tenant"
         ]
       }
+    },
+    {
+      "class": "com.saumya.pos.installation.InstallationService",
+      "method": "vendorList|eligibleOrders|create|assign|updateStatus|vendorGet",
+      "source": "AuthorizationContext.current().tenantId() after requireVendorMembership and the method-specific INSTALLATION_* permission",
+      "fields": [
+        "tenant_id"
+      ],
+      "reason": "Every vendor installation query and mutation is restricted to the active membership tenant; job writes use tenant-qualified keys and row locks."
+    },
+    {
+      "class": "com.saumya.pos.installation.InstallationService",
+      "method": "customerList|customerGet",
+      "source": "CustomerAccess.resolve(authenticatedUsername)",
+      "fields": [
+        "customer_id"
+      ],
+      "reason": "Global customer ID is resolved only after matching the authenticated CUSTOMER actor; customer job reads join orders through the composite tenant/order key."
     }
   ],
   "inheritedIdLookups": [

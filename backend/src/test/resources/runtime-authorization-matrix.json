@@ -1798,6 +1798,54 @@
       "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER_AND_SAVED_REVISION",
       "assignment": "CustomerAccess resolves the global customer identity; repository lookup requires customer ID and quotation ID; document access is audited",
       "runtimeTest": "QuotationControllerAuthorizationTest#customerQuotationDocumentRequiresCustomerIdentity"
+    },
+    "InstallationController#eligibleOrders": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_CUSTOMER_ORDERS_WITHOUT_INSTALLATION",
+      "assignment": "INSTALLATION_ASSIGN; all order reads include tenant_id, ONLINE, PAID, customer_id and no existing tenant/order installation",
+      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersRequiresInstallationAssign"
+    },
+    "InstallationController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER",
+      "assignment": "INSTALLATION_VIEW; INSTALLATION_ASSIGN widens list only inside authenticated tenant",
+      "runtimeTest": "InstallationControllerAuthorizationTest#vendorListRequiresInstallationView"
+    },
+    "InstallationController#vendorGet": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER",
+      "assignment": "INSTALLATION_VIEW; tenant-qualified job read; assignedTo must match actor unless INSTALLATION_ASSIGN",
+      "runtimeTest": "InstallationControllerAuthorizationTest#vendorGetRequiresInstallationView"
+    },
+    "InstallationController#create": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDER",
+      "assignment": "INSTALLATION_ASSIGN; paid online order locked within tenant; only one installation per tenant/order; assignee must be enabled tenant employee with active INSTALLATION_VIEW grant",
+      "runtimeTest": "InstallationControllerAuthorizationTest#createRequiresInstallationAssign"
+    },
+    "InstallationController#assign": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_INSTALLATION_ASSIGNMENT",
+      "assignment": "INSTALLATION_ASSIGN; tenant-qualified job row lock and optimistic version; assigned employee must hold active INSTALLATION_VIEW",
+      "runtimeTest": "InstallationControllerAuthorizationTest#assignRequiresInstallationAssign"
+    },
+    "InstallationController#updateStatus": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_INSTALLATION",
+      "assignment": "INSTALLATION_UPDATE; only assigned engineer or INSTALLATION_ASSIGN actor; completion additionally requires INSTALLATION_COMMISSION; transitions are optimistic and audited",
+      "runtimeTest": "InstallationControllerAuthorizationTest#updateStatusRequiresInstallationUpdate"
+    },
+    "InstallationController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "CustomerAccess resolves global customer ID; list joins tenant/order and returns only that customer's paid online installations",
+      "runtimeTest": "InstallationControllerAuthorizationTest#customerRoutesRequireCustomerActor"
+    },
+    "InstallationController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_INSTALLATION_OWNERSHIP",
+      "assignment": "CustomerAccess resolves global customer ID; job and its order are joined by tenant/order and customer_id; foreign IDs return 404",
+      "runtimeTest": "InstallationControllerAuthorizationTest#customerRoutesRequireCustomerActor"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

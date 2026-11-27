@@ -7,6 +7,10 @@
     "CRM_NOTE_UPDATE",
     "CRM_NOTE_VIEW",
     "CUSTOMER_RELATION_VIEW",
+    "INSTALLATION_ASSIGN",
+    "INSTALLATION_COMMISSION",
+    "INSTALLATION_UPDATE",
+    "INSTALLATION_VIEW",
     "INVENTORY_RECEIVE",
     "INVENTORY_VIEW",
     "LEAD_ASSIGN",
@@ -340,7 +344,8 @@
     "VendorSiteSurveyController": "VENDOR_TENANT_SITE_SURVEY_VIEW_AND_MANAGE_WITH_LEAD_ASSIGNMENT_SCOPE",
     "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
     "QuotationController": "VENDOR_TENANT_LEAD_SCOPED_QUOTATION_CATALOGUE_CREATE_REVISE_AND_DOCUMENT; CUSTOMER_GLOBAL_IDENTITY_OWNERSHIP_DECISION_AND_DOCUMENT; IDEMPOTENT_ORDER_CONVERSION",
-    "VendorPaymentAccountController": "VENDOR_TENANT_PAYMENT_ACCOUNT_READ_AND_SUBMIT; PROVIDER_VERIFICATION_ONLY_FOR_STATUS_TRANSITIONS"
+    "VendorPaymentAccountController": "VENDOR_TENANT_PAYMENT_ACCOUNT_READ_AND_SUBMIT; PROVIDER_VERIFICATION_ONLY_FOR_STATUS_TRANSITIONS",
+    "InstallationController": "VENDOR_TENANT_PAID_ONLINE_ORDER_INSTALLATION_AND_ASSIGNED_ENGINEER_SCOPE; CUSTOMER_GLOBAL_IDENTITY_OWNED_PAID_ORDER_INSTALLATION_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -349,10 +354,6 @@
     "CART_SUPPORT_VIEW",
     "CUSTOMER_RELATION_CREATE",
     "CUSTOMER_RELATION_UPDATE",
-    "INSTALLATION_ASSIGN",
-    "INSTALLATION_COMMISSION",
-    "INSTALLATION_UPDATE",
-    "INSTALLATION_VIEW",
     "INVENTORY_ADJUST",
     "INVENTORY_RESERVE",
     "INVENTORY_TRANSFER",
@@ -448,6 +449,46 @@
       "scope": "Tenant derived from active Vendor actor; only existing tenant_customers associations are returned.",
       "ui": "Vendor workspace > Customers & CRM",
       "test": "VendorCustomerCrmServiceAuthorizationBoundaryTest; VendorCustomerCrmControllerAuthorizationTest"
+    },
+    {
+      "permission": "INSTALLATION_ASSIGN",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/installations/orders; POST /api/v1/vendor/installations; PATCH /api/v1/vendor/installations/{id}/assignment",
+      "service": "InstallationService",
+      "scope": "Authenticated vendor tenant; source order must be paid, online and customer-owned; assignee must be enabled employee with INSTALLATION_VIEW",
+      "ui": "Vendor workspace > Fulfilment > Installations",
+      "test": "InstallationControllerAuthorizationTest; InstallationServiceAuthorizationBoundaryTest"
+    },
+    {
+      "permission": "INSTALLATION_COMMISSION",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PATCH /api/v1/vendor/installations/{id}/status",
+      "service": "InstallationService",
+      "scope": "Additional grant required to commission an IN_PROGRESS job as COMPLETED; completion timestamp and immutable event committed atomically",
+      "ui": "Vendor workspace > Fulfilment > Installations",
+      "test": "InstallationControllerAuthorizationTest; InstallationServiceAuthorizationBoundaryTest"
+    },
+    {
+      "permission": "INSTALLATION_UPDATE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "PATCH /api/v1/vendor/installations/{id}/status",
+      "service": "InstallationService",
+      "scope": "Tenant-qualified job lock and assigned engineer identity; optimistic version; only ASSIGNED to IN_PROGRESS and IN_PROGRESS to COMPLETED transitions",
+      "ui": "Vendor workspace > Fulfilment > Installations",
+      "test": "InstallationControllerAuthorizationTest; InstallationServiceAuthorizationBoundaryTest"
+    },
+    {
+      "permission": "INSTALLATION_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/installations; GET /api/v1/vendor/installations/{id}",
+      "service": "InstallationService",
+      "scope": "Authenticated tenant; employees see only jobs assigned to their username unless they hold INSTALLATION_ASSIGN",
+      "ui": "Vendor workspace > Fulfilment > Installations",
+      "test": "InstallationControllerAuthorizationTest; InstallationServiceAuthorizationBoundaryTest"
     },
     {
       "permission": "INVENTORY_RECEIVE",

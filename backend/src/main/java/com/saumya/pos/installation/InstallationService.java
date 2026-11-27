@@ -1,6 +1,5 @@
 package com.saumya.pos.installation;
 
-import com.saumya.pos.checkout.OrderHistoryService;
 import com.saumya.pos.identity.CustomerAccess;
 import com.saumya.pos.security.AuthorizationContext;
 import java.math.BigDecimal;

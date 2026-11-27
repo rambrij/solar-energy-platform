@@ -738,6 +738,8 @@ class RuntimeAuthorizationPersistedRoleTest {
     }
 
     private String sampleForPattern(String regex) {
+        if (regex.contains("SCHEDULED") && regex.contains("COMPLETED") && regex.contains("CANCELLED"))
+            return "COMPLETED";
         if (regex.contains("CONTACTED") && regex.contains("QUALIFIED") && regex.contains("LOST"))
             return "CONTACTED";
         if (regex.contains("0-9a-f") && regex.contains("{64}"))

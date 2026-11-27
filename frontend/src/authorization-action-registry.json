@@ -29,6 +29,7 @@
         "role-management",
         "employee-management",
         "vendor-customer-crm",
+        "vendor-site-surveys",
         "shipment-management",
         "vendor-profile"
       ]
@@ -160,7 +161,8 @@
       "id": "customer-management",
       "label": "Customer Management",
       "items": [
-        "vendor-customer-crm"
+        "vendor-customer-crm",
+        "vendor-site-surveys"
       ]
     },
     {
@@ -336,6 +338,11 @@
       "id": "solar-package-management",
       "path": "/vendor/pos/solar-packages",
       "group": "Catalogue & Inventory"
+    },
+    {
+      "id": "vendor-site-surveys",
+      "path": "/vendor/pos/site-surveys",
+      "group": "Customer Management"
     }
   ],
   "tabs": [
@@ -2579,6 +2586,54 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
+    },
+    {
+      "id": "vendor-site-survey-lead-list",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/leads",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/leads"
+    },
+    {
+      "id": "vendor-site-survey-list",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/site-surveys",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/site-surveys"
+    },
+    {
+      "id": "vendor-site-survey-create",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/leads/{leadId}/site-surveys",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/leads/{leadId}/site-surveys"
+    },
+    {
+      "id": "vendor-site-survey-update",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "button",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/site-surveys/{id}",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
     }
   ],
   "buttons": [
@@ -3121,6 +3176,18 @@
       "component": "SolarPackageManager.tsx",
       "trigger": "button",
       "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
+    },
+    {
+      "id": "vendor-site-survey-create",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/leads/{leadId}/site-surveys"
+    },
+    {
+      "id": "vendor-site-survey-update",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "button",
+      "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
     }
   ],
   "dynamicRouteParameters": {
@@ -3232,6 +3299,22 @@
       "actions": [
         "solar-package-update",
         "solar-package-create"
+      ]
+    },
+    "VendorSiteSurveys.tsx:47": {
+      "fn": "vendorApi",
+      "argument": "'/leads/'+leadId+'/site-surveys'",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-site-survey-create"
+      ]
+    },
+    "VendorSiteSurveys.tsx:65": {
+      "fn": "vendorApi",
+      "argument": "'/site-surveys/'+survey.id",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "vendor-site-survey-update"
       ]
     }
   },

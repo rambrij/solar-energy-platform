@@ -190,6 +190,16 @@ public class QuotationService {
         long tenant=quote.tenantId();
         QuotationRevision revision=revisions.lockRevision(tenant,quote.id(),revisionNumber).orElseThrow(this::missing);
         Instant now=clock.instant();
+        if("CONVERTED".equals(quote.status())
+                &&Objects.equals(quote.acceptedRevisionNumber(),revisionNumber)
+                &&Objects.equals(quote.acceptedByCustomerId(),customer)
+                &&"ACCEPTED".equals(revision.status())) {
+            var existingOrder=checkout.fromAcceptedQuotation(tenant,customer,quote.id(),revision.total(),
+                orderLineSnapshots(tenant,revision.id()));
+            if(!Objects.equals(existingOrder.id(),quote.convertedOrderId()))
+                throw new IllegalStateException("Quotation conversion idempotency key returned a different order");
+            return new CustomerDecision(view(quote),existingOrder);
+        }
         if(!"OPEN".equals(quote.status())||quote.latestRevisionNumber()!=revisionNumber
                 ||!"SENT".equals(revision.status())||!revision.validUntil().isAfter(now))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"This quotation revision is no longer valid");
@@ -198,20 +208,24 @@ public class QuotationService {
         if(!accept&&reason.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"A reason is required to reject a quotation");
         revision.decide(accept?"ACCEPTED":"REJECTED",customer,reason.isBlank()?null:reason,now);
         if(!accept) {
-            audit.save(new QuotationAuditEvent(quote.tenantId(),quote.id(),revision.id(),"CUSTOMER",username,
+            audit.save(new QuotationAuditEvent(tenant,quote.id(),revision.id(),"CUSTOMER",username,
                 customer,"QUOTATION_REJECTED",reason,now));
             return new CustomerDecision(view(quote),null);
         }
         quote.accept(revisionNumber,customer,now);
-        var snapshots=lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(tenant,revision.id());
-        var orderLines=snapshots.stream().map(line->new CheckoutService.QuotationLineSnapshot(
-            line.productId(),line.productNameSnapshot(),line.quantity(),line.listPrice(),line.unitPrice(),
-            line.discountPercent(),line.taxRate(),line.taxAmount(),line.lineTotal())).toList();
-        var order=checkout.fromAcceptedQuotation(tenant,customer,quote.id(),revision.total(),orderLines);
+        var order=checkout.fromAcceptedQuotation(tenant,customer,quote.id(),revision.total(),
+            orderLineSnapshots(tenant,revision.id()));
         quote.converted(order.id(),now);
-        audit.save(new QuotationAuditEvent(quote.tenantId(),quote.id(),revision.id(),"CUSTOMER",username,
+        audit.save(new QuotationAuditEvent(tenant,quote.id(),revision.id(),"CUSTOMER",username,
             customer,"QUOTATION_ACCEPTED_AND_CONVERTED", "Customer accepted the current quotation revision",now));
         return new CustomerDecision(view(quote),order);
+    }
+
+    private List<CheckoutService.QuotationLineSnapshot> orderLineSnapshots(long tenant,long revisionId) {
+        return lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(tenant,revisionId).stream()
+            .map(line->new CheckoutService.QuotationLineSnapshot(line.productId(),line.productNameSnapshot(),
+                line.quantity(),line.listPrice(),line.unitPrice(),line.discountPercent(),line.taxRate(),
+                line.taxAmount(),line.lineTotal())).toList();
     }
 
     @Transactional(readOnly=true)

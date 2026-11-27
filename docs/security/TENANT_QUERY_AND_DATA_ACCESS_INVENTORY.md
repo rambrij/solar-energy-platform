@@ -296,6 +296,16 @@ The vendor slug selects a public storefront and does not authorize vendor admini
 - Status changes require LEAD_UPDATE and either assignment ownership or lead-manager permission. Updates enforce an expected version, allowed state transitions and a non-empty reason.
 - The two direct JDBC lookups (`leadAssignees` and `isActiveLeadAssignee`) bind the authenticated tenant and join employee-role-permission data on tenant plus role identity. Read and mutation operations write vendor-private audit events in the same transaction.
 
+### 7.4 Warranty coverage flow
+
+`vendor JWT → AuthorizationContext.current() → active tenant membership + SERVICE_CREATE/SERVICE_VIEW → tenant-qualified paid ONLINE order item → immutable warranty record/event + transactional outbox`
+
+- Registration locks the paid ONLINE order in the authenticated tenant and verifies the requested product exists in that order. An optional installation link is resolved only for the same tenant/order.
+- Composite foreign keys bind the warranty to the tenant/order/product tuple, optional tenant-owned installation and registering employee. A unique key permits one registration per order item.
+- Customer warranty reads first resolve paid-online order references from the authenticated global customer identity, then query by the resolved tenant/order tuple. Guessed foreign warranty IDs return the same 404 as missing records.
+- Warranty terms and events are immutable at the database layer. Customer projections omit the vendor-private registration reason and employee username.
+- Direct JDBC usage is explicitly inventoried in `tenant-data-access-policy.json`; the SQL AST test verifies every tenant placeholder receives the authenticated tenant or a customer-owned order reference.
+
 ### 7.5 Platform flow
 
 `HTTP → platform JWT authorities → PlatformAuthorization / AuthorizationContext → platform controller/service → platform repository`

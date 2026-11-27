@@ -3,6 +3,7 @@ package com.saumya.pos.warranty;
 import com.saumya.pos.catalog.ObjectStoragePort;
 import com.saumya.pos.checkout.OrderHistoryService;
 import com.saumya.pos.security.AuthorizationContext;
+import com.saumya.pos.service.ServiceSlaService;
 import com.saumya.pos.shared.EventOutbox;
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;

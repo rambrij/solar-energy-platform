@@ -33,10 +33,12 @@ public class ApiProblemWriter {
             String code,String title,String detail)throws IOException{
         String correlationId=UUID.randomUUID().toString();
         ProblemDetail body=problem(request,status,code,title,detail,Map.of("correlationId",correlationId));
+        // Serialize before touching the servlet response so all headers are set before it is committed.
+        byte[] payload=mapper.writeValueAsBytes(body);
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         response.setHeader("X-Correlation-Id",correlationId);
-        mapper.writeValue(response.getOutputStream(),body);
+        response.getOutputStream().write(payload);
     }
 }

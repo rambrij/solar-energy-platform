@@ -24,8 +24,9 @@ class ApiProblemWriterTest {
         assertThat(body.path("status").asInt()).isEqualTo(403);
         assertThat(body.path("detail").asText()).isEqualTo("Not permitted.");
         assertThat(body.path("instance").asText()).isEqualTo("/api/v1/vendor/profile");
-        assertThat(body.path("correlationId").asText()).isEqualTo(response.getHeader("X-Correlation-Id"));
-        assertThat(body.path("correlationId").asText()).isNotBlank();
+        assertThat(body.path("correlationId").asText()).matches("[0-9a-f-]{36}");
+        assertThat(response.getHeaderNames()).anyMatch(name -> name.equalsIgnoreCase("X-Correlation-Id"));
+        assertThat(response.getHeader("X-Correlation-Id")).isEqualTo(body.path("correlationId").asText());
     }
 
     @Test void ignoresUnsafeProblemTypeCodes(){

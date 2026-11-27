@@ -39,7 +39,7 @@ public class WarrantyService {
     public record Warranty(long id,String orderId,long productId,String productName,
             Long installationId,LocalDate coverageStartDate,LocalDate coverageEndDate,
             String termsSummary,String registeredBy,Instant registeredAt) {}
-    public record CustomerWarranty(Warranty warranty,String vendorName) {}
+    public record CustomerWarranty(long id,String orderId,String productName,Long installationId,\n            LocalDate coverageStartDate,LocalDate coverageEndDate,String termsSummary,\n            Instant registeredAt,String vendorName) {}
     public record EligibleOrder(String orderId,Instant orderedAt) {}
     public record EligibleItem(long productId,String productName,int quantity) {}
 
@@ -165,7 +165,7 @@ public class WarrantyService {
                 WHERE w.tenant_id=? AND w.order_id=?
                 ORDER BY w.id
                 """,order.tenantId(),order.orderId()).stream()
-                .map(this::warranty).map(warranty->new CustomerWarranty(warranty,order.vendorName()))
+                .map(this::warranty).map(warranty->customerWarranty(warranty,order.vendorName()))
                 .forEach(result::add);
         }
         return List.copyOf(result);
@@ -183,9 +183,15 @@ public class WarrantyService {
                                   AND oi.product_id=w.product_id
                 WHERE w.tenant_id=? AND w.order_id=? AND w.id=?
                 """,order.tenantId(),order.orderId(),id);
-            if(!rows.isEmpty()) return new CustomerWarranty(warranty(rows.getFirst()),order.vendorName());
+            if(!rows.isEmpty()) return customerWarranty(warranty(rows.getFirst()),order.vendorName());
         }
         throw missing();
+    }
+
+    private CustomerWarranty customerWarranty(Warranty warranty,String vendorName) {
+        return new CustomerWarranty(warranty.id(),warranty.orderId(),warranty.productName(),
+            warranty.installationId(),warranty.coverageStartDate(),warranty.coverageEndDate(),
+            warranty.termsSummary(),warranty.registeredAt(),vendorName);
     }
 
     private Warranty warranty(Map<String,Object> row) {

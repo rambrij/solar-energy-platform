@@ -32,7 +32,7 @@ export default function VendorServiceVisits(){
  useEffect(()=>{void refresh();},[refresh,account?.tenantId,account?.username]);
  async function detail(id:number){
   try{
-   const result=await vendorApi('/service-visits/'+id) as Detail;
+   const result=await vendorApi(`/service-visits/${encodeURIComponent(id)}`) as Detail;
    setDetails(v=>({...v,[id]:result}));
   }catch(e){setError((e as Error).message||'Visit report could not be loaded.');}
  }
@@ -49,7 +49,7 @@ export default function VendorServiceVisits(){
   const a=reassign[v.id];if(!a?.assignee||!a.schedule||!a.reason.trim())return;
   setBusy(true);setError('');setNotice('');
   try{
-   await vendorApi('/service-visits/'+v.id+'/assignment','PATCH',{expectedVersion:v.version,assignedTo:a.assignee,scheduledAt:new Date(a.schedule).toISOString(),reason:a.reason.trim()});
+   await vendorApi(`/service-visits/${encodeURIComponent(v.id)}/assignment`,'PATCH',{expectedVersion:v.version,assignedTo:a.assignee,scheduledAt:new Date(a.schedule).toISOString(),reason:a.reason.trim()});
    setNotice('Visit assignment and schedule saved.');await refresh();await detail(v.id);
   }catch(e){setError((e as Error).message||'Assignment could not be saved.');}
   finally{setBusy(false);}
@@ -58,7 +58,7 @@ export default function VendorServiceVisits(){
   const status=next[v.id],note=(progress[v.id]??'').trim();if(!status||!note)return;
   setBusy(true);setError('');setNotice('');
   try{
-   await vendorApi('/service-visits/'+v.id+'/status','PATCH',{expectedVersion:v.version,status,note});
+   await vendorApi(`/service-visits/${encodeURIComponent(v.id)}/status`,'PATCH',{expectedVersion:v.version,status,note});
    setProgress(x=>({...x,[v.id]:''}));setNotice('Visit status updated.');await refresh();await detail(v.id);
   }catch(e){setError((e as Error).message||'Visit status could not be updated.');}
   finally{setBusy(false);}
@@ -67,7 +67,7 @@ export default function VendorServiceVisits(){
   const note=(report[v.id]??'').trim();if(!note)return;
   setBusy(true);setError('');setNotice('');
   try{
-   await vendorApi('/service-visits/'+v.id+'/notes','POST',{expectedVersion:v.version,note,customerVisible:visible[v.id]??true});
+   await vendorApi(`/service-visits/${encodeURIComponent(v.id)}/notes`,'POST',{expectedVersion:v.version,note,customerVisible:visible[v.id]??true});
    setReport(x=>({...x,[v.id]:''}));setNotice('Visit report note saved.');await refresh();await detail(v.id);
   }catch(e){setError((e as Error).message||'Visit note could not be saved.');}
   finally{setBusy(false);}

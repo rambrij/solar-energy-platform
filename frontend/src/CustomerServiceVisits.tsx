@@ -20,7 +20,7 @@ export default function CustomerServiceVisits(){
  useEffect(()=>{
   let active=true;
   if(selected===null){setDetail(null);return;}
-  void marketplaceApi('/api/v1/customer/service-visits/'+selected).then(value=>{if(active)setDetail(value as Detail);})
+  void marketplaceApi(`/api/v1/customer/service-visits/${encodeURIComponent(selected)}`).then(value=>{if(active)setDetail(value as Detail);})
    .catch(e=>{if(active)setError((e as Error).message||'Visit report could not be loaded.');});
   return()=>{active=false;};
  },[selected]);

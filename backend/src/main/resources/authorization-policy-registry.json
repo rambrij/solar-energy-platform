@@ -323,6 +323,16 @@
       "allOf": [
         "CUSTOMER"
       ]
+    },
+    "vendor-warranty-claims": {
+      "allOf": [
+        "SERVICE_VIEW"
+      ]
+    },
+    "customer-warranty-claims": {
+      "allOf": [
+        "CUSTOMER"
+      ]
     }
   },
   "controllerPolicies": {
@@ -383,7 +393,8 @@
     "VendorPaymentAccountController": "VENDOR_TENANT_PAYMENT_ACCOUNT_READ_AND_SUBMIT; PROVIDER_VERIFICATION_ONLY_FOR_STATUS_TRANSITIONS",
     "InstallationController": "VENDOR_TENANT_PAID_ONLINE_ORDER_INSTALLATION_AND_ASSIGNED_ENGINEER_SCOPE; CUSTOMER_GLOBAL_IDENTITY_OWNED_PAID_ORDER_INSTALLATION_SCOPE",
     "ServiceRequestController": "VENDOR_TENANT_SERVICE_REQUEST_AND_CUSTOMER_ORDER_OWNER_SCOPE_WITH_IMMUTABLE_HISTORY",
-    "WarrantyController": "VENDOR_TENANT_PAID_ORDER_ITEM_WARRANTY_AND_CUSTOMER_OWNED_WARRANTY_READ"
+    "WarrantyController": "VENDOR_TENANT_PAID_ORDER_ITEM_WARRANTY_AND_CUSTOMER_OWNED_WARRANTY_READ",
+    "WarrantyClaimController": "VENDOR_TENANT_CLAIM_ASSIGNMENT_AND_CUSTOMER_PAID_ORDER_OWNERSHIP_WITH_IMMUTABLE_EVENTS_AND_PRIVATE_EVIDENCE"
   },
   "customerPermissions": [
     "CUSTOMER"

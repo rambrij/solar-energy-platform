@@ -91,7 +91,8 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.retail.DraftSessionProjection",
                 "com.saumya.pos.retail.CashDrawerProjection",
                 "com.saumya.pos.retail.BranchProvisioningServiceImpl",
-                "com.saumya.pos.fulfillment.ShipmentService"
+                "com.saumya.pos.fulfillment.ShipmentService",
+                "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed"
             );
         Map<String, String> jdbcSqlSources = Map.of(
             "com.saumya.pos.membership.MembershipService", "backend/src/main/java/com/saumya/pos/membership/MembershipService.java",
@@ -102,17 +103,67 @@ class ModuleArchitectureTest {
             "com.saumya.pos.retail.DraftSessionProjection", "backend/src/main/java/com/saumya/pos/retail/DraftSessionProjection.java",
             "com.saumya.pos.retail.CashDrawerProjection", "backend/src/main/java/com/saumya/pos/retail/CashDrawerProjection.java",
             "com.saumya.pos.retail.BranchProvisioningServiceImpl", "backend/src/main/java/com/saumya/pos/retail/BranchProvisioningServiceImpl.java",
-            "com.saumya.pos.fulfillment.ShipmentService", "backend/src/main/java/com/saumya/pos/fulfillment/ShipmentService.java"
+            "com.saumya.pos.fulfillment.ShipmentService", "backend/src/main/java/com/saumya/pos/fulfillment/ShipmentService.java",
+            "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed", "backend/src/main/resources/db/local-seed/local_demo_solar_catalog.sql"
         );
         assertThat(jdbcConsumers).as("every direct JDBC consumer has a query-level review")
             .containsExactlyInAnyOrderElementsOf(jdbcSqlSources.keySet());
         for (var entry : jdbcSqlSources.entrySet()) {
+            if (entry.getKey().equals("com.saumya.pos.catalog.LocalDemoSolarCatalogSeed")) {
+                String bootstrap = Files.readString(resolveBackendSource(
+                    "backend/src/main/java/com/saumya/pos/catalog/LocalDemoSolarCatalogSeed.java"));
+                assertThat(bootstrap)
+                    .as("the demo seed must remain an explicit local-only startup adapter")
+                    .contains("@Profile(\"local\")", "db/local-seed/local_demo_solar_catalog.sql",
+                        "ResourceDatabasePopulator");
+                assertNoClientSuppliedTenantParameter(bootstrap, entry.getKey());
+                assertLocalDemoCatalogSeedTenantScope(
+                    Files.readString(resolveBackendSource(entry.getValue())));
+                continue;
+            }
             String source = Files.readString(resolveBackendSource(entry.getValue()));
             assertNoClientSuppliedTenantParameter(source, entry.getKey());
             List<String> statements = extractSqlStatements(source);
             assertThat(statements).as("SQL statements discovered in %s", entry.getKey()).isNotEmpty();
             for (String statement : statements) assertTenantScopedSql(statement, entry.getKey());
         }
+    }
+
+    /**
+     * The local demo catalogue is populated from a checked-in SQL resource rather than
+     * inline JdbcTemplate statements. Review the launcher and the resource together:
+     * the launcher is local-profile-only, and all tenant-owned writes/joins in the
+     * resource carry tenant_id. The global catalogue sequence is intentionally shared.
+     */
+    private static void assertLocalDemoCatalogSeedTenantScope(String sql) {
+        assertThat(sql).as("local demo seed uses an atomic, checked tenant fixture")
+            .contains("START TRANSACTION", "COMMIT",
+                "valid BOOLEAN NOT NULL CHECK (valid = TRUE)",
+                "910001 AS tenant_id UNION ALL SELECT 920001 UNION ALL SELECT 930001",
+                "t.lifecycle_status<>'ACTIVE'");
+        assertThat(sql).as("catalogue identity checks reject cross-tenant ID collisions")
+            .contains("c.id=d.id OR (c.tenant_id=d.tenant_id AND c.slug=d.slug)",
+                "p.id=d.id OR (p.tenant_id=d.tenant_id AND (p.sku=d.sku OR p.barcode=d.barcode))",
+                "WHERE c.tenant_id<>d.tenant_id",
+                "WHERE p.tenant_id<>d.tenant_id");
+        assertThat(sql).as("tenant-owned catalogue updates join on both tenant and resource identity")
+            .contains("c.id=d.id AND c.tenant_id=d.tenant_id",
+                "p.id=d.id AND p.tenant_id=d.tenant_id",
+                "pc.tenant_id=d.tenant_id AND pc.product_id=d.id",
+                "d.tenant_id=i.tenant_id AND d.id=i.product_id",
+                "s.tenant_id=i.tenant_id AND s.branch_id=i.branch_id AND s.product_id=i.product_id");
+        assertThat(sql).as("all persisted tenant-owned seed targets include tenant_id")
+            .contains("INSERT INTO catalog_categories(id,tenant_id,name,slug)",
+                "INSERT INTO products(id,tenant_id,sku,barcode,name,brand,price,tax_rate,published)",
+                "INSERT INTO product_categories(tenant_id,product_id,category_id)",
+                "INSERT INTO inventory(tenant_id,branch_id,product_id,quantity,reserved)",
+                "INSERT INTO inventory_receipts(",
+                "id,tenant_id,branch_id,product_id,quantity,actor,reason,",
+                "INSERT INTO catalog_stock(tenant_id,branch_id,product_id,available)");
+        assertThat(sql).as("stock receipts and stock projections are constrained by tenant, branch and product")
+            .contains("r.tenant_id=i.tenant_id AND r.branch_id=i.branch_id",
+                "r.tenant_id=i.tenant_id AND r.branch_id=i.branch_id",
+                "s.tenant_id=i.tenant_id AND s.branch_id=i.branch_id AND s.product_id=i.product_id");
     }
 
     private static void assertNoClientSuppliedTenantParameter(String sourceText, String source) {

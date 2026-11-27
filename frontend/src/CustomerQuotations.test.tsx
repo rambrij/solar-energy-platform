@@ -1,8 +1,8 @@
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import CustomerQuotations from './CustomerQuotations';
-const {apiMock}=vi.hoisted(()=>({apiMock:vi.fn()}));
-vi.mock('./marketplaceApi',()=>({marketplaceApi:apiMock}));
+const {apiMock,downloadMock}=vi.hoisted(()=>({apiMock:vi.fn(),downloadMock:vi.fn()}));
+vi.mock('./marketplaceApi',()=>({marketplaceApi:apiMock,downloadProtectedPdf:downloadMock}));
 const quote={id:12,enquiryId:8,status:'OPEN',acceptedRevisionNumber:null,convertedOrderId:null,version:0,revisions:[{id:19,revisionNumber:1,status:'SENT',currency:'INR',validUntil:'2099-01-01T00:00:00Z',subtotal:10000,taxTotal:1800,total:11800,terms:'Roof inspection before installation',sentAt:'2026-11-27T10:00:00Z',items:[{productId:3,name:'Solar inverter',quantity:1,listPrice:10000,unitPrice:10000,discountPercent:0,taxRate:18,tax:1800,total:11800}]}]};
 beforeEach(()=>{apiMock.mockImplementation((path:string,method='GET',body?:unknown)=>path==='/api/v1/customer/quotations'?Promise.resolve([quote]):Promise.resolve({quotation:{...quote,status:(body as {accept:boolean}).accept?'CONVERTED':'OPEN',acceptedRevisionNumber:1,convertedOrderId:(body as {accept:boolean}).accept?'order-12':null},order:(body as {accept:boolean}).accept?{id:'order-12',status:'DRAFT',total:11800,expiresAt:'2099-01-01T00:00:00Z',items:[]}:null}));});
 afterEach(()=>{cleanup();vi.clearAllMocks();});
@@ -31,4 +31,13 @@ it('requires a rejection reason and posts a rejection decision',async()=>{
   {accept:false,reason:'Please revise the installation scope'}
  ));
  expect(await screen.findByText('Quotation revision rejected.')).toBeTruthy();
+});
+
+it('downloads only the authenticated customer quotation revision document',async()=>{
+ render(<CustomerQuotations/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Download PDF'}));
+ await waitFor(()=>expect(downloadMock).toHaveBeenCalledWith(
+  '/api/v1/customer/quotations/12/revisions/1/document',
+  'quotation-12-revision-1.pdf'
+ ));
 });

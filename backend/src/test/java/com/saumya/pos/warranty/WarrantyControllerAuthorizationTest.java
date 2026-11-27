@@ -19,6 +19,16 @@ class WarrantyControllerAuthorizationTest {
     @Autowired MockMvc mvc;
     @MockBean WarrantyService warranties;
 
+    @Test @WithMockUser(authorities={"SERVICE_CREATE"})
+    void serviceCreateCanReadEligibleOrdersAndItems() throws Exception {
+        when(warranties.eligibleOrders()).thenReturn(List.of());
+        when(warranties.eligibleItems("order-1")).thenReturn(List.of());
+        mvc.perform(get("/api/v1/vendor/warranties/orders")).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/vendor/warranties/orders/order-1/items")).andExpect(status().isOk());
+        verify(warranties).eligibleOrders();
+        verify(warranties).eligibleItems("order-1");
+    }
+
     @Test @WithMockUser(authorities={"SERVICE_VIEW"})
     void serviceViewCanReadVendorWarrantyRegister() throws Exception {
         when(warranties.vendorList()).thenReturn(List.of());

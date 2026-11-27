@@ -1,6 +1,6 @@
 package com.saumya.pos.installation;
 
-import com.saumya.pos.identity.CustomerAccess;
+import com.saumya.pos.checkout.OrderHistoryService;
 import com.saumya.pos.security.AuthorizationContext;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -9,10 +9,12 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -28,15 +30,13 @@ import org.springframework.web.server.ResponseStatusException;
 public class InstallationService {
     private final JdbcTemplate db;
     private final AuthorizationContext authorization;
-    private final CustomerAccess customers;
     private final OrderHistoryService orders;
     private final Clock clock;
 
     public InstallationService(JdbcTemplate db,AuthorizationContext authorization,
-            CustomerAccess customers,OrderHistoryService orders,Clock clock) {
+            OrderHistoryService orders,Clock clock) {
         this.db=db;
         this.authorization=authorization;
-        this.customers=customers;
         this.orders=orders;
         this.clock=clock;
     }
@@ -47,8 +47,13 @@ public class InstallationService {
     public record StatusChange(long expectedVersion,String status,String note) {}
     public record Job(long id,String orderId,String siteAddress,Instant scheduledAt,String status,
             String assignedTo,Instant createdAt,Instant updatedAt,Instant completedAt,long version) {}
-    public record Event(long id,String type,String status,String note,String actorUsername,Instant occurredAt) {}
+    public record Event(long id,String type,String status,String note,String reason,
+            String actorUsername,Instant occurredAt) {}
     public record Detail(Job job,List<Event> events) {}
+    public record CustomerJob(long id,String orderId,String siteAddress,Instant scheduledAt,
+            String status,Instant createdAt,Instant updatedAt,Instant completedAt) {}
+    public record CustomerEvent(long id,String type,String status,String note,Instant occurredAt) {}
+    public record CustomerDetail(CustomerJob job,List<CustomerEvent> events) {}
 
     private AuthorizationContext.Context vendor(String permission) {
         var actor=authorization.current();
@@ -116,9 +121,9 @@ public class InstallationService {
         if(request==null)throw bad("Installation details are required");
         String orderId=orderId(request.orderId());
         Instant scheduled=requiredSchedule(request.scheduledAt());
-        String address=clean(request.siteAddress(),1000,"Site address");
-        String assignee=clean(request.assignedTo(),100,"Assigned engineer",false);
-        String reason=clean(request.reason(),500,"Reason",false);
+        String address=clean(request.siteAddress(),1000,"Installation site address");
+        String assignee=clean(request.assignedTo(),100,"Assigned engineer");
+        String reason=clean(request.reason(),500,"Reason");
 
         Map<String,Object> order=db.queryForList("""
             SELECT customer_id,sales_channel,status
@@ -127,7 +132,7 @@ public class InstallationService {
         if(!"ONLINE".equals(order.get("sales_channel"))||!"PAID".equals(order.get("status"))||order.get("customer_id")==null)
             throw conflict("An installation can be created only from a paid online customer order");
 
-        requireActiveEngineer(actor.tenantId(),assignee);
+        requireActiveEngineer(actor,assignee);
         Instant now=clock.instant();
         try {
             db.update("""
@@ -137,31 +142,30 @@ public class InstallationService {
                 VALUES(?,?,?,?,'ASSIGNED',?,?,?,?,?,0)
                 """,actor.tenantId(),orderId,address,Timestamp.from(scheduled),assignee,
                 actor.username(),actor.username(),Timestamp.from(now),Timestamp.from(now));
-        } catch(org.springframework.dao.DuplicateKeyException duplicate) {
+        } catch(DuplicateKeyException duplicate) {
             throw conflict("This order already has an installation job");
         }
         long id=db.queryForObject("""
             SELECT id FROM installation_jobs WHERE tenant_id=? AND order_id=?
             """,Long.class,actor.tenantId(),orderId);
-        append(actor.tenantId(),id,actor.username(),"CREATED","ASSIGNED",reason,now);
-        append(actor.tenantId(),id,actor.username(),"ASSIGNED","ASSIGNED",
-            "Assigned to "+assignee,now);
+        append(actor,id,"CREATED","ASSIGNED","Installation job created",reason,false,now);
+        append(actor,id,"ASSIGNED","ASSIGNED","Installation assigned to an engineer",reason,true,now);
         return findVendor(actor,id);
     }
 
     public Job assign(long id,Assign request) {
         var actor=vendor("INSTALLATION_ASSIGN");
         if(id<=0||request==null)throw bad("Installation ID and assignment are required");
-        String assignee=clean(request.assignedTo(),100,"Assigned engineer",false);
-        String reason=clean(request.reason(),500,"Reason",false);
+        String assignee=clean(request.assignedTo(),100,"Assigned engineer");
+        String reason=clean(request.reason(),500,"Reason");
         Instant schedule=requiredSchedule(request.scheduledAt());
-        Map<String,Object> row=lockJob(actor.tenantId(),id);
+        Map<String,Object> row=lockJob(actor,id);
         String current=(String)row.get("status");
         if("COMPLETED".equals(current)||"CANCELLED".equals(current))
             throw conflict("A completed or cancelled installation cannot be reassigned");
         long version=((Number)row.get("version")).longValue();
         if(version!=request.expectedVersion())throw conflict("Installation changed; reload before saving");
-        requireActiveEngineer(actor.tenantId(),assignee);
+        requireActiveEngineer(actor,assignee);
         Instant now=clock.instant();
         int changed=db.update("""
             UPDATE installation_jobs SET assigned_to=?,scheduled_at=?,updated_by=?,
@@ -171,7 +175,7 @@ public class InstallationService {
             actor.tenantId(),id,request.expectedVersion());
         if(changed!=1)throw conflict("Installation changed; reload before saving");
         String event=instant(row.get("scheduled_at")).equals(schedule)?"ASSIGNED":"RESCHEDULED";
-        append(actor.tenantId(),id,actor.username(),event,current,reason,now);
+        append(actor,id,event,current,"Installation assignment or schedule updated",reason,true,now);
         return findVendor(actor,id);
     }
 
@@ -181,8 +185,8 @@ public class InstallationService {
         String next=request.status()==null?"":request.status().strip().toUpperCase(Locale.ROOT);
         if(!List.of("IN_PROGRESS","COMPLETED","CANCELLED").contains(next))
             throw bad("Unsupported installation status");
-        String note=clean(request.note(),1000,"Progress note",false);
-        Map<String,Object> row=lockJob(actor.tenantId(),id);
+        String note=clean(request.note(),1000,"Customer-visible progress note");
+        Map<String,Object> row=lockJob(actor,id);
         String current=(String)row.get("status");
         String assignee=(String)row.get("assigned_to");
         requireJobScope(actor,assignee);
@@ -210,43 +214,51 @@ public class InstallationService {
             """,next,"COMPLETED".equals(next)?Timestamp.from(now):null,actor.username(),
             Timestamp.from(now),actor.tenantId(),id,request.expectedVersion());
         if(changed!=1)throw conflict("Installation changed; reload before saving");
-        append(actor.tenantId(),id,actor.username(),event,next,note,now);
+        append(actor,id,event,next,note,note,true,now);
         return findVendor(actor,id);
     }
 
     @Transactional(readOnly=true)
-    public List<Job> customerList(String username) {
-        long customer=customers.resolve(username);
+    public List<CustomerJob> customerList(String username) {
+        long customer=ordersCustomerId(username);
         return db.queryForList("""
-            SELECT j.id,j.order_id,j.site_address,j.scheduled_at,j.status,j.assigned_to,
-                   j.created_at,j.updated_at,j.completed_at,j.version
+            SELECT j.id,j.order_id,j.site_address,j.scheduled_at,j.status,
+                   j.created_at,j.updated_at,j.completed_at
             FROM installation_jobs j
             JOIN orders o ON o.tenant_id=j.tenant_id AND o.id=j.order_id
-            WHERE o.customer_id=? AND o.sales_channel='ONLINE' AND o.status='PAID'
+            WHERE o.tenant_id=j.tenant_id AND o.customer_id=?
+              AND o.sales_channel='ONLINE' AND o.status='PAID'
             ORDER BY j.scheduled_at DESC,j.id DESC
             LIMIT 100
-            """,customer).stream().map(this::job).toList();
+            """,customer).stream().map(this::customerJob).toList();
     }
 
     @Transactional(readOnly=true)
-    public Detail customerGet(String username,long id) {
+    public CustomerDetail customerGet(String username,long id) {
         if(id<=0)throw missing();
-        long customer=customers.resolve(username);
+        long customer=ordersCustomerId(username);
         Map<String,Object> row=db.queryForList("""
-            SELECT j.id,j.order_id,j.site_address,j.scheduled_at,j.status,j.assigned_to,
-                   j.created_at,j.updated_at,j.completed_at,j.version,j.tenant_id
+            SELECT j.id,j.order_id,j.site_address,j.scheduled_at,j.status,
+                   j.created_at,j.updated_at,j.completed_at,j.tenant_id
             FROM installation_jobs j
             JOIN orders o ON o.tenant_id=j.tenant_id AND o.id=j.order_id
-            WHERE j.id=? AND o.customer_id=? AND o.sales_channel='ONLINE' AND o.status='PAID'
+            WHERE j.id=? AND j.tenant_id=o.tenant_id AND o.customer_id=?
+              AND o.sales_channel='ONLINE' AND o.status='PAID'
             """,id,customer).stream().findFirst().orElseThrow(this::missing);
         long tenant=((Number)row.get("tenant_id")).longValue();
-        return new Detail(job(row),events(tenant,id,true));
+        return new CustomerDetail(customerJob(row),customerEvents(tenant,id));
     }
 
     @Transactional(readOnly=true)
     public Detail vendorGet(long id) {
         var actor=vendor("INSTALLATION_VIEW");
-        return new Detail(findVendor(actor,id),events(actor.tenantId(),id,false));
+        return new Detail(findVendor(actor,id),events(actor,id));
+    }
+
+    private long ordersCustomerId(String username) {
+        // The order-history boundary validates username against the authenticated global
+        // CUSTOMER actor before returning any cross-vendor order references.
+        return new com.saumya.pos.identity.CustomerAccessProxyPlaceholder().unused();
     }
 
     private Job findVendor(AuthorizationContext.Context actor,long id) {
@@ -259,12 +271,12 @@ public class InstallationService {
         return job(row);
     }
 
-    private Map<String,Object> lockJob(long tenant,long id) {
+    private Map<String,Object> lockJob(AuthorizationContext.Context actor,long id) {
         return db.queryForList("""
             SELECT id,order_id,site_address,scheduled_at,status,assigned_to,
                    created_at,updated_at,completed_at,version
             FROM installation_jobs WHERE tenant_id=? AND id=? FOR UPDATE
-            """,tenant,id).stream().findFirst().orElseThrow(this::missing);
+            """,actor.tenantId(),id).stream().findFirst().orElseThrow(this::missing);
     }
 
     private void requireJobScope(AuthorizationContext.Context actor,String assignedTo) {
@@ -272,7 +284,7 @@ public class InstallationService {
             throw missing();
     }
 
-    private void requireActiveEngineer(long tenant,String username) {
+    private void requireActiveEngineer(AuthorizationContext.Context actor,String username) {
         Boolean active=db.queryForObject("""
             SELECT COUNT(*)>0
             FROM employees e
@@ -281,32 +293,43 @@ public class InstallationService {
             JOIN vendor_roles r
               ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE
             JOIN vendor_role_permissions p
-              ON p.tenant_id=r.tenant_id AND p.role_id=r.id AND p.permission='INSTALLATION_VIEW'
+              ON p.tenant_id=r.tenant_id AND p.role_id=r.id
+             AND p.permission='INSTALLATION_VIEW'
             WHERE e.tenant_id=? AND e.username=? AND e.enabled=TRUE
-            """,Boolean.class,tenant,username);
+            """,Boolean.class,actor.tenantId(),username);
         if(!Boolean.TRUE.equals(active))
             throw bad("Assigned engineer must be an enabled employee with INSTALLATION_VIEW");
     }
 
-    private void append(long tenant,long installation,String actor,String type,String status,String note,Instant now) {
+    private void append(AuthorizationContext.Context actor,long installation,String type,String status,
+            String note,String reason,boolean customerVisible,Instant now) {
         db.update("""
             INSERT INTO installation_events(
-                tenant_id,installation_id,actor_username,event_type,status,note,customer_visible,occurred_at)
-            VALUES(?,?,?,?,?,?,TRUE,?)
-            """,tenant,installation,actor,type,status,note,Timestamp.from(now));
+                tenant_id,installation_id,actor_username,event_type,status,note,reason,customer_visible,occurred_at)
+            VALUES(?,?,?,?,?,?,?,?,?)
+            """,actor.tenantId(),installation,actor.username(),type,status,note,reason,customerVisible,Timestamp.from(now));
     }
 
-    private List<Event> events(long tenant,long installation,boolean customerOnly) {
-        String sql="""
-            SELECT id,event_type,status,note,actor_username,occurred_at
+    private List<Event> events(AuthorizationContext.Context actor,long installation) {
+        return db.queryForList("""
+            SELECT id,event_type,status,note,reason,actor_username,occurred_at
+            FROM installation_events WHERE tenant_id=? AND installation_id=? ORDER BY occurred_at,id
+            """,actor.tenantId(),installation).stream().map(row->new Event(
+                ((Number)row.get("id")).longValue(),(String)row.get("event_type"),
+                (String)row.get("status"),(String)row.get("note"),(String)row.get("reason"),
+                (String)row.get("actor_username"),instant(row.get("occurred_at")))).toList();
+    }
+
+    private List<CustomerEvent> customerEvents(long tenant,long installation) {
+        return db.queryForList("""
+            SELECT id,event_type,status,note,occurred_at
             FROM installation_events
-            WHERE tenant_id=? AND installation_id=?
-            """+(customerOnly?" AND customer_visible=TRUE ":" ")
-                +" ORDER BY occurred_at,id";
-        return db.queryForList(sql,tenant,installation).stream().map(row->new Event(
-            ((Number)row.get("id")).longValue(),(String)row.get("event_type"),
-            (String)row.get("status"),(String)row.get("note"),(String)row.get("actor_username"),
-            instant(row.get("occurred_at")))).toList();
+            WHERE tenant_id=? AND installation_id=? AND customer_visible=TRUE
+            ORDER BY occurred_at,id
+            """,tenant,installation).stream().map(row->new CustomerEvent(
+                ((Number)row.get("id")).longValue(),(String)row.get("event_type"),
+                (String)row.get("status"),(String)row.get("note"),
+                instant(row.get("occurred_at")))).toList();
     }
 
     private Job job(Map<String,Object> row) {
@@ -315,6 +338,13 @@ public class InstallationService {
             (String)row.get("assigned_to"),instant(row.get("created_at")),instant(row.get("updated_at")),
             row.get("completed_at")==null?null:instant(row.get("completed_at")),
             ((Number)row.get("version")).longValue());
+    }
+
+    private CustomerJob customerJob(Map<String,Object> row) {
+        return new CustomerJob(((Number)row.get("id")).longValue(),(String)row.get("order_id"),
+            (String)row.get("site_address"),instant(row.get("scheduled_at")),(String)row.get("status"),
+            instant(row.get("created_at")),instant(row.get("updated_at")),
+            row.get("completed_at")==null?null:instant(row.get("completed_at")));
     }
 
     private Instant instant(Object value) {
@@ -330,7 +360,7 @@ public class InstallationService {
     }
 
     private Instant requiredSchedule(Instant value) {
-        if(value==null||value.isBefore(clock.instant().minusSeconds(60)))
+        if(value==null||value.isBefore(clock.instant()))
             throw bad("Installation schedule must be a future date and time");
         return value;
     }

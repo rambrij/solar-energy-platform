@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"spring.datasource.url=${TEST_DB_URL:jdbc:h2:mem:pos;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}","spring.datasource.username=${TEST_DB_USER:sa}","spring.datasource.password=${TEST_DB_PASSWORD:}","checkout.cleanup-enabled=false"})
 @AutoConfigureMockMvc
 @org.springframework.test.context.ActiveProfiles("test")
-@org.springframework.test.context.TestPropertySource(properties="payments.mock-enabled=true")
+@org.springframework.test.context.TestPropertySource(properties={"payments.mock-enabled=true","management.health.mail.enabled=false"})
 @org.springframework.test.context.TestExecutionListeners(listeners=org.springframework.test.context.support.DependencyInjectionTestExecutionListener.class,inheritListeners=false)
 class PosTest {
  @org.springframework.boot.test.mock.mockito.MockBean org.springframework.mail.javamail.JavaMailSender mailSender;

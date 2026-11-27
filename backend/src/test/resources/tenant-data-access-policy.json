@@ -11,129 +11,14 @@
       "trustedSource": "Customer profile primary key is resolved from the authenticated username before use."
     },
     {
-      "operation": "IdentitySequenceRepository#locked",
-      "scope": "GLOBAL_IDENTITY_SEQUENCE",
-      "trustedSource": "Server-owned identity sequence row."
+      "operation": "CustomerRepository#profileCount",
+      "scope": "AUTHENTICATED_CUSTOMER_IDENTITY",
+      "trustedSource": "Counts profile for authenticated username during identity provisioning."
     },
     {
-      "operation": "PlatformGrantRepository#permissions",
-      "scope": "PLATFORM_IDENTITY_GRANTS",
-      "trustedSource": "Platform identity administration; username is resolved from authenticated platform identity."
-    },
-    {
-      "operation": "PlatformGrantRepository#usernames",
-      "scope": "PLATFORM_IDENTITY_DIRECTORY",
-      "trustedSource": "Platform identity administration endpoint; platform-only authorization."
-    },
-    {
-      "operation": "RetailSequenceRepository#register",
-      "scope": "GLOBAL_RETAIL_SEQUENCE",
-      "trustedSource": "Server-owned register sequence row; not tenant business data."
-    },
-    {
-      "operation": "RetailSequenceRepository#branch",
-      "scope": "GLOBAL_RETAIL_SEQUENCE",
-      "trustedSource": "Server-owned branch sequence row; not tenant business data."
-    },
-    {
-      "operation": "TenantRepository#findBySlug",
-      "scope": "PLATFORM_TENANT_DIRECTORY",
-      "trustedSource": "Public slug lookup is followed by lifecycle and tenant policy checks; platform directory operations are separately platform-authorized."
-    },
-    {
-      "operation": "TenantRepository#lockById",
-      "scope": "PLATFORM_TENANT_DIRECTORY",
-      "trustedSource": "Platform tenant lifecycle operation; target tenant ID is a resource selector and service re-loads the tenant under platform authorization."
-    },
-    {
-      "operation": "TenantRepository#findBySlugAndLifecycleStatus",
-      "scope": "PLATFORM_TENANT_DIRECTORY",
-      "trustedSource": "Platform tenant directory lookup."
-    },
-    {
-      "operation": "TenantRepository#findByLifecycleStatusAndSlugIsNotNullOrderByNameAscIdAsc",
-      "scope": "PLATFORM_TENANT_DIRECTORY",
-      "trustedSource": "Platform tenant directory listing; platform-only operation."
-    },
-    {
-      "operation": "TenantRepository#countByLifecycleStatus",
-      "scope": "PLATFORM_TENANT_DIRECTORY",
-      "trustedSource": "Platform aggregate count; platform-only operation."
-    },
-    {
-      "operation": "TenantSubscriptionRepository#countGroupedByStatus",
-      "scope": "PLATFORM_SUBSCRIPTION_STATUS_AGGREGATE",
-      "trustedSource": "TenantSubscriptionServiceImpl.statusCounts requires the authenticated platform actor and PLATFORM_ANALYTICS_VIEW before querying. Only subscription status and row count are returned."
-    },
-    {
-      "operation": "TenantSubscriptionRepository#lockMockBillingCandidates",
-      "scope": "LOCAL_MOCK_SUBSCRIPTION_BILLING",
-      "trustedSource": "The opted-in local/test scheduler uses the server clock and locks a bounded batch for active tenants. Invoice joins use both tenant and subscription IDs. Runtime billing and payment lookups are scoped to the locked row."
-    },
-    {
-      "operation": "TenantSubscriptionRepository#findTop100ByStatusAndGraceUntilLessThanEqualOrderByGraceUntilAscIdAsc",
-      "scope": "SYSTEM_SUBSCRIPTION_GRACE_EXPIRY",
-      "trustedSource": "Only the internal scheduled worker selects at most 100 expired GRACE_PERIOD subscriptions using the server clock and a write lock. No request parameters select records or set their scope."
-    },
-    {
-      "operation": "TenantRepository#search",
-      "scope": "PLATFORM_TENANT_DIRECTORY",
-      "trustedSource": "Platform tenant directory search; no vendor-private records are returned."
-    },
-    {
-      "operation": "TenantRepository#searchActiveVendors",
-      "scope": "PUBLISHED_VENDOR_DIRECTORY",
-      "trustedSource": "Published vendor directory; public discovery fields only."
-    },
-    {
-      "operation": "TenantSequenceRepository#locked",
-      "scope": "GLOBAL_TENANT_SEQUENCE",
-      "trustedSource": "Server-owned tenant identifier sequence row."
-    },
-    {
-      "operation": "PlatformAuditRepository#findAllByOrderByOccurredAtDescIdDesc",
-      "scope": "PLATFORM_AUDIT_DIRECTORY",
-      "trustedSource": "Platform audit endpoint guarded by PLATFORM_AUDIT_VIEW."
-    },
-    {
-      "operation": "PlatformSupportRepository#findById",
-      "scope": "PLATFORM_SUPPORT_GRANT_RESOURCE",
-      "trustedSource": "Only the platform support revocation service uses this row lock, after verifying the platform actor and PLATFORM_SUPPORT_ACCESS. Tenant scope comes from the saved grant."
-    },
-    {
-      "operation": "PlatformSupportRepository#findTop100ByOrderByGrantedAtDesc",
-      "scope": "PLATFORM_SUPPORT_DIRECTORY",
-      "trustedSource": "Platform support administration endpoint guarded by PLATFORM_SUPPORT_ACCESS."
-    },
-    {
-      "operation": "TenantSubscriptionRepository#findAllByOrderByCreatedAtDescIdDesc",
-      "scope": "PLATFORM_SUBSCRIPTION_DIRECTORY",
-      "trustedSource": "Platform subscription administration endpoint guarded by PLATFORM_SUBSCRIPTION_VIEW."
-    },
-    {
-      "operation": "SubscriptionPlanRepository#findByPlanKey",
-      "scope": "GLOBAL_SAAS_PLAN_CATALOGUE",
-      "trustedSource": "Platform-owned SaaS plan catalogue; no tenant-specific plan rows."
-    },
-    {
-      "operation": "SubscriptionPlanVersionRepository#findByPlanId",
-      "scope": "GLOBAL_SAAS_PLAN_CATALOGUE",
-      "trustedSource": "Plan ID is a platform-owned SaaS plan resource, not a tenant-owned entity."
-    },
-    {
-      "operation": "SubscriptionEventRepository#findBySubscriptionIdOrderByOccurredAtDescIdDesc",
-      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
-      "trustedSource": "Platform subscription event history; caller is platform-authorized and subscription ID is resolved in platform subscription workflow."
-    },
-    {
-      "operation": "SubscriptionInvoiceRepository#findBySubscriptionIdOrderByIssuedAtDescIdDesc",
-      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
-      "trustedSource": "Platform subscription invoice history; caller is platform-authorized."
-    },
-    {
-      "operation": "SubscriptionPaymentRepository#findByInvoiceIdOrderByCreatedAtDescIdDesc",
-      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
-      "trustedSource": "Platform subscription payment history; invoice ID is resolved from the platform-owned subscription."
+      "operation": "CustomerRepository#resolve",
+      "scope": "AUTHENTICATED_CUSTOMER_IDENTITY",
+      "trustedSource": "Resolves customer ID from authenticated username; native query joins users by username."
     },
     {
       "operation": "DraftRepository#findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc",
@@ -151,19 +36,14 @@
       "trustedSource": "Username is the authenticated global identity key."
     },
     {
+      "operation": "GlobalUserRepository#lockedById",
+      "scope": "ONE_TIME_EMAIL_VERIFICATION_TOKEN_OWNER",
+      "trustedSource": "User ID is read from the persisted SHA-256 verification-token row; the service checks token expiry/cancellation, locks the user and token, and verifies an enabled customer profile before marking the global identity verified."
+    },
+    {
       "operation": "GlobalUserRepository#lockedByUsername",
       "scope": "GLOBAL_IDENTITY_LOOKUP",
       "trustedSource": "Username is the authenticated global identity key; lock is used for identity lifecycle transitions."
-    },
-    {
-      "operation": "CustomerRepository#resolve",
-      "scope": "AUTHENTICATED_CUSTOMER_IDENTITY",
-      "trustedSource": "Resolves customer ID from authenticated username; native query joins users by username."
-    },
-    {
-      "operation": "CustomerRepository#profileCount",
-      "scope": "AUTHENTICATED_CUSTOMER_IDENTITY",
-      "trustedSource": "Counts profile for authenticated username during identity provisioning."
     },
     {
       "operation": "IdentityInvitationRepository#locked",
@@ -171,14 +51,139 @@
       "trustedSource": "SHA-256 token hash from one-time invitation token; expiry and single-use state are checked by service."
     },
     {
+      "operation": "IdentitySequenceRepository#locked",
+      "scope": "GLOBAL_IDENTITY_SEQUENCE",
+      "trustedSource": "Server-owned identity sequence row."
+    },
+    {
+      "operation": "PlatformAuditRepository#findAllByOrderByOccurredAtDescIdDesc",
+      "scope": "PLATFORM_AUDIT_DIRECTORY",
+      "trustedSource": "Platform audit endpoint guarded by PLATFORM_AUDIT_VIEW."
+    },
+    {
+      "operation": "PlatformGrantRepository#permissions",
+      "scope": "PLATFORM_IDENTITY_GRANTS",
+      "trustedSource": "Platform identity administration; username is resolved from authenticated platform identity."
+    },
+    {
+      "operation": "PlatformGrantRepository#usernames",
+      "scope": "PLATFORM_IDENTITY_DIRECTORY",
+      "trustedSource": "Platform identity administration endpoint; platform-only authorization."
+    },
+    {
       "operation": "PlatformMfaEnrollmentRepository#locked",
       "scope": "ONE_TIME_PLATFORM_MFA_TOKEN",
       "trustedSource": "SHA-256 token hash; one-time expiry and single-use checks are enforced by PlatformMfaService."
     },
     {
+      "operation": "PlatformSupportRepository#findById",
+      "scope": "PLATFORM_SUPPORT_GRANT_RESOURCE",
+      "trustedSource": "Only the platform support revocation service uses this row lock, after verifying the platform actor and PLATFORM_SUPPORT_ACCESS. Tenant scope comes from the saved grant."
+    },
+    {
+      "operation": "PlatformSupportRepository#findTop100ByOrderByGrantedAtDesc",
+      "scope": "PLATFORM_SUPPORT_DIRECTORY",
+      "trustedSource": "Platform support administration endpoint guarded by PLATFORM_SUPPORT_ACCESS."
+    },
+    {
       "operation": "RefreshSessionRepository#locked",
       "scope": "AUTHENTICATED_REFRESH_SESSION",
       "trustedSource": "SHA-256 refresh-token hash; session family, revocation and expiry are checked by AuthenticationService."
+    },
+    {
+      "operation": "RetailSequenceRepository#branch",
+      "scope": "GLOBAL_RETAIL_SEQUENCE",
+      "trustedSource": "Server-owned branch sequence row; not tenant business data."
+    },
+    {
+      "operation": "RetailSequenceRepository#register",
+      "scope": "GLOBAL_RETAIL_SEQUENCE",
+      "trustedSource": "Server-owned register sequence row; not tenant business data."
+    },
+    {
+      "operation": "SubscriptionEventRepository#findBySubscriptionIdOrderByOccurredAtDescIdDesc",
+      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
+      "trustedSource": "Platform subscription event history; caller is platform-authorized and subscription ID is resolved in platform subscription workflow."
+    },
+    {
+      "operation": "SubscriptionInvoiceRepository#findBySubscriptionIdOrderByIssuedAtDescIdDesc",
+      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
+      "trustedSource": "Platform subscription invoice history; caller is platform-authorized."
+    },
+    {
+      "operation": "SubscriptionPaymentRepository#findByInvoiceIdOrderByCreatedAtDescIdDesc",
+      "scope": "PLATFORM_SUBSCRIPTION_RESOURCE",
+      "trustedSource": "Platform subscription payment history; invoice ID is resolved from the platform-owned subscription."
+    },
+    {
+      "operation": "SubscriptionPlanRepository#findByPlanKey",
+      "scope": "GLOBAL_SAAS_PLAN_CATALOGUE",
+      "trustedSource": "Platform-owned SaaS plan catalogue; no tenant-specific plan rows."
+    },
+    {
+      "operation": "SubscriptionPlanVersionRepository#findByPlanId",
+      "scope": "GLOBAL_SAAS_PLAN_CATALOGUE",
+      "trustedSource": "Plan ID is a platform-owned SaaS plan resource, not a tenant-owned entity."
+    },
+    {
+      "operation": "TenantRepository#countByLifecycleStatus",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform aggregate count; platform-only operation."
+    },
+    {
+      "operation": "TenantRepository#findByLifecycleStatusAndSlugIsNotNullOrderByNameAscIdAsc",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform tenant directory listing; platform-only operation."
+    },
+    {
+      "operation": "TenantRepository#findBySlug",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Public slug lookup is followed by lifecycle and tenant policy checks; platform directory operations are separately platform-authorized."
+    },
+    {
+      "operation": "TenantRepository#findBySlugAndLifecycleStatus",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform tenant directory lookup."
+    },
+    {
+      "operation": "TenantRepository#lockById",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform tenant lifecycle operation; target tenant ID is a resource selector and service re-loads the tenant under platform authorization."
+    },
+    {
+      "operation": "TenantRepository#search",
+      "scope": "PLATFORM_TENANT_DIRECTORY",
+      "trustedSource": "Platform tenant directory search; no vendor-private records are returned."
+    },
+    {
+      "operation": "TenantRepository#searchActiveVendors",
+      "scope": "PUBLISHED_VENDOR_DIRECTORY",
+      "trustedSource": "Published vendor directory; public discovery fields only."
+    },
+    {
+      "operation": "TenantSequenceRepository#locked",
+      "scope": "GLOBAL_TENANT_SEQUENCE",
+      "trustedSource": "Server-owned tenant identifier sequence row."
+    },
+    {
+      "operation": "TenantSubscriptionRepository#countGroupedByStatus",
+      "scope": "PLATFORM_SUBSCRIPTION_STATUS_AGGREGATE",
+      "trustedSource": "TenantSubscriptionServiceImpl.statusCounts requires the authenticated platform actor and PLATFORM_ANALYTICS_VIEW before querying. Only subscription status and row count are returned."
+    },
+    {
+      "operation": "TenantSubscriptionRepository#findAllByOrderByCreatedAtDescIdDesc",
+      "scope": "PLATFORM_SUBSCRIPTION_DIRECTORY",
+      "trustedSource": "Platform subscription administration endpoint guarded by PLATFORM_SUBSCRIPTION_VIEW."
+    },
+    {
+      "operation": "TenantSubscriptionRepository#findTop100ByStatusAndGraceUntilLessThanEqualOrderByGraceUntilAscIdAsc",
+      "scope": "SYSTEM_SUBSCRIPTION_GRACE_EXPIRY",
+      "trustedSource": "Only the internal scheduled worker selects at most 100 expired GRACE_PERIOD subscriptions using the server clock and a write lock. No request parameters select records or set their scope."
+    },
+    {
+      "operation": "TenantSubscriptionRepository#lockMockBillingCandidates",
+      "scope": "LOCAL_MOCK_SUBSCRIPTION_BILLING",
+      "trustedSource": "The opted-in local/test scheduler uses the server clock and locks a bounded batch for active tenants. Invoice joins use both tenant and subscription IDs. Runtime billing and payment lookups are scoped to the locked row."
     }
   ],
   "compositeKeyMethods": [

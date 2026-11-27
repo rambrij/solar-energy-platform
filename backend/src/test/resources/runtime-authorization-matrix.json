@@ -1612,6 +1612,18 @@
       "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_SHIPMENTS",
       "assignment": "CUSTOMER_ID_FROM_AUTHENTICATED_GLOBAL_IDENTITY; PAID_ONLINE_ORDER_JOIN; CUSTOMER_SAFE_TRACKING_FIELDS_ONLY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "AuthenticationController#verifyEmail": {
+      "actor": "PUBLIC",
+      "scope": "ONE_TIME_EMAIL_VERIFICATION_TOKEN",
+      "assignment": "TOKEN_HASHED_AT_REST; 24_HOUR_EXPIRY; TOKEN_AND_OWNER_LOCKED; ENABLED_CUSTOMER_PROFILE_REQUIRED",
+      "runtimeTest": "PosTest#registrationRequiresEmailVerificationBeforeIssuingAnyCustomerSession; CustomerEmailVerificationServiceTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "AuthenticationController#resendVerification": {
+      "actor": "PUBLIC",
+      "scope": "GENERIC_EMAIL_VERIFICATION_RESEND",
+      "assignment": "EMAIL_NOT_DISCLOSED; 60_SECOND_COOLDOWN; NO_TOKEN_RETURNED; CUSTOMER_PROFILE_ONLY",
+      "runtimeTest": "CustomerEmailVerificationServiceTest; RuntimeAuthorizationEndpointInventoryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

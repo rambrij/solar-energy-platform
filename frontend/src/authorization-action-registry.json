@@ -30,6 +30,7 @@
         "employee-management",
         "vendor-customer-crm",
         "vendor-site-surveys",
+        "vendor-quotations",
         "shipment-management",
         "vendor-profile"
       ]
@@ -46,6 +47,7 @@
         "saved-vendor-carts",
         "customer-dashboard",
         "customer-purchases",
+        "customer-quotations",
         "customer-profile"
       ]
     },
@@ -146,7 +148,8 @@
       "id": "purchases",
       "label": "Purchases",
       "items": [
-        "customer-purchases"
+        "customer-purchases",
+        "customer-quotations"
       ]
     },
     {
@@ -162,7 +165,8 @@
       "label": "Customer Management",
       "items": [
         "vendor-customer-crm",
-        "vendor-site-surveys"
+        "vendor-site-surveys",
+        "vendor-quotations"
       ]
     },
     {
@@ -343,6 +347,16 @@
       "id": "vendor-site-surveys",
       "path": "/vendor/pos/site-surveys",
       "group": "Customer Management"
+    },
+    {
+      "id": "vendor-quotations",
+      "path": "/vendor/pos/quotations",
+      "group": "Customer Management"
+    },
+    {
+      "id": "customer-quotations",
+      "path": "/marketplace/quotations",
+      "group": "Purchases"
     }
   ],
   "tabs": [
@@ -2634,6 +2648,90 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
+    },
+    {
+      "id": "vendor-quotation-lead-list",
+      "component": "VendorQuotations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/leads",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/leads"
+    },
+    {
+      "id": "vendor-quotation-catalogue",
+      "component": "VendorQuotations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/quotation-catalogue",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/quotation-catalogue"
+    },
+    {
+      "id": "vendor-quotation-list",
+      "component": "VendorQuotations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/quotations",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/quotations"
+    },
+    {
+      "id": "vendor-quotation-create",
+      "component": "VendorQuotations.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/quotations",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/quotations"
+    },
+    {
+      "id": "vendor-quotation-revise",
+      "component": "VendorQuotations.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/quotations/{id}/revisions",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/quotations/{id}/revisions"
+    },
+    {
+      "id": "customer-quotation-list",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/quotations",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/quotations"
+    },
+    {
+      "id": "customer-quotation-decision",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/quotations/{id}/revisions/{revision}/decision",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/quotations/{id}/revisions/{revision}/decision"
     }
   ],
   "buttons": [
@@ -3188,6 +3286,24 @@
       "component": "VendorSiteSurveys.tsx",
       "trigger": "button",
       "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
+    },
+    {
+      "id": "vendor-quotation-create",
+      "component": "VendorQuotations.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/quotations"
+    },
+    {
+      "id": "vendor-quotation-revise",
+      "component": "VendorQuotations.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/quotations/{id}/revisions"
+    },
+    {
+      "id": "customer-quotation-decision",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/quotations/{id}/revisions/{revision}/decision"
     }
   ],
   "dynamicRouteParameters": {
@@ -3299,6 +3415,22 @@
       "actions": [
         "solar-package-update",
         "solar-package-create"
+      ]
+    },
+    "VendorQuotations.tsx:68": {
+      "fn": "vendorApi",
+      "argument": "'/quotations/'+selectedQuote.id+'/revisions'",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-quotation-revise"
+      ]
+    },
+    "CustomerQuotations.tsx:35": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/quotations/'+quote.id+'/revisions/'+revision.revisionNumber+'/decision'",
+      "methodArgument": "'POST'",
+      "actions": [
+        "customer-quotation-decision"
       ]
     }
   },

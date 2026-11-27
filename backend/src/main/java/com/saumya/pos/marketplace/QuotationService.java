@@ -195,7 +195,10 @@ public class QuotationService {
                 &&Objects.equals(quote.acceptedByCustomerId(),customer)
                 &&"ACCEPTED".equals(revision.status())) {
             var existingOrder=checkout.fromAcceptedQuotation(tenant,customer,quote.id(),revision.total(),
-                orderLineSnapshots(tenant,revision.id()));
+                lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(tenant,revision.id()).stream()
+                .map(line->new CheckoutService.QuotationLineSnapshot(line.productId(),line.productNameSnapshot(),
+                    line.quantity(),line.listPrice(),line.unitPrice(),line.discountPercent(),line.taxRate(),
+                    line.taxAmount(),line.lineTotal())).toList());
             if(!Objects.equals(existingOrder.id(),quote.convertedOrderId()))
                 throw new IllegalStateException("Quotation conversion idempotency key returned a different order");
             return new CustomerDecision(view(quote),existingOrder);
@@ -219,13 +222,6 @@ public class QuotationService {
         audit.save(new QuotationAuditEvent(tenant,quote.id(),revision.id(),"CUSTOMER",username,
             customer,"QUOTATION_ACCEPTED_AND_CONVERTED", "Customer accepted the current quotation revision",now));
         return new CustomerDecision(view(quote),order);
-    }
-
-    private List<CheckoutService.QuotationLineSnapshot> orderLineSnapshots(long tenant,long revisionId) {
-        return lines.findAllByTenantIdAndRevisionIdOrderByLineNumber(tenant,revisionId).stream()
-            .map(line->new CheckoutService.QuotationLineSnapshot(line.productId(),line.productNameSnapshot(),
-                line.quantity(),line.listPrice(),line.unitPrice(),line.discountPercent(),line.taxRate(),
-                line.taxAmount(),line.lineTotal())).toList();
     }
 
     @Transactional(readOnly=true)

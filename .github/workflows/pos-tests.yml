@@ -29,7 +29,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: P0-06 Platform Support grant/revoke acceptance (H2)
         if: matrix.database == 'h2'
-        run: mvn -B -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test
+        run: bash .github/scripts/maven-retry.sh mvn -B -Dmaven.wagon.http.retryHandler.count=3 -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test
       - name: Create isolated MySQL schema for immutable Platform Support audit acceptance
         if: matrix.database == 'mysql'
         run: mysql -h 127.0.0.1 -uroot -pdisposable-test-password -e 'CREATE DATABASE IF NOT EXISTS solar_support_acceptance'
@@ -39,22 +39,22 @@ jobs:
           TEST_DB_URL: jdbc:mysql://localhost:3306/solar_support_acceptance
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
-        run: mvn -B -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test
+        run: bash .github/scripts/maven-retry.sh mvn -B -Dmaven.wagon.http.retryHandler.count=3 -f backend/pom.xml '-Dtest=PlatformSupportRuntimeAuthorizationAcceptance' test
       - name: H2 suite
         if: matrix.database == 'h2'
-        run: mvn -B -f backend/pom.xml package
+        run: bash .github/scripts/maven-retry.sh mvn -B -Dmaven.wagon.http.retryHandler.count=3 -f backend/pom.xml package
       - name: MySQL suite
         if: matrix.database == 'mysql'
         env:
           TEST_DB_URL: jdbc:mysql://localhost:3306/solar_test
           TEST_DB_USER: root
           TEST_DB_PASSWORD: disposable-test-password
-        run: mvn -B -f backend/pom.xml package
-      - name: Publish tested backend JAR for browser E2E
-        if: success()
+        run: bash .github/scripts/maven-retry.sh mvn -B -Dmaven.wagon.http.retryHandler.count=3 -f backend/pom.xml test
+      - name: Publish H2-packaged backend JAR for browser E2E
+        if: matrix.database == 'h2' && success()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-jar-${{ matrix.database }}
+          name: backend-jar-h2
           path: backend/target/pos-2.0.0.jar
           if-no-files-found: error
           retention-days: 1
@@ -115,7 +115,7 @@ jobs:
       - name: Download the MySQL-tested backend JAR
         uses: actions/download-artifact@v4
         with:
-          name: backend-jar-mysql
+          name: backend-jar-h2
           path: backend/target
       - uses: actions/setup-node@v4
         with:

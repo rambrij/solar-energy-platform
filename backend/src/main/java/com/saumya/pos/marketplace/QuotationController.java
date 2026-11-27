@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 @RestController
 public class QuotationController {
     private final QuotationService quotations;
-    private final com.saumya.pos.documents.QuotationDocumentService documents;
+    private final QuotationDocumentService documents;
     public QuotationController(QuotationService quotations,
             com.saumya.pos.documents.QuotationDocumentService documents) {
         this.quotations=quotations;

@@ -20,11 +20,11 @@ export default function VendorPaymentAccounts(){
 
  const refresh=useCallback(async()=>{
   if(!canView)return;
-  setLoading(true);setError('');
+  setLoading(true);setError('');setAccounts([]);
   try{setAccounts(await vendorApi('/payment-accounts') as Account[]);}
   catch(e){setError((e as Error).message||'Merchant accounts could not be loaded.');}
   finally{setLoading(false);}
- },[canView]);
+ },[canView,account?.tenantId,account?.username]);
  useEffect(()=>{void refresh();},[refresh]);
 
  async function submit(event:FormEvent){

@@ -33,6 +33,7 @@ const pos: NavigationItem[] = [
   { id: 'vendor-profile', label: 'Vendor Profile', group: 'Administration', description: 'Manage your tenant-owned business profile and storefront contact details.', path: '/vendor/profile' },
   { id: 'vendor-customer-crm', label: 'Customers & CRM', group: 'Customer Management', description: 'Review verified customer relationships and vendor-private CRM notes.', path: '/vendor/customers' },
   { id: 'vendor-site-surveys', label: 'Site Surveys', group: 'Customer Management', description: 'Schedule and record site surveys linked to existing vendor leads.', path: '/vendor/pos/site-surveys' },
+  { id: 'vendor-quotations', label: 'Quotations', group: 'Customer Management', description: 'Create price-snapshotted quotations and manage revisions for assigned leads.', path: '/vendor/pos/quotations' },
   { id: 'shipment-management', label: 'Shipments', group: 'Fulfilment', description: 'Register tracking for paid online orders and append shipment events.', path: '/vendor/shipments' },
 ];
 
@@ -44,6 +45,7 @@ const online: NavigationItem[] = [
   { id: 'saved-vendor-carts', label: 'Saved Vendor Carts', group: 'Cart', description: 'Load and restore your archived vendor carts.', path: '/marketplace/saved-carts' },
   { id: 'customer-dashboard', label: 'My Dashboard', group: 'Account', description: 'See a private overview of your global account, vendor orders and current cart.', path: '/marketplace/dashboard' },
   { id: 'customer-purchases', label: 'Your Purchases', group: 'Purchases', description: 'Review your existing marketplace purchase history.', path: '/marketplace/purchases' },
+  { id: 'customer-quotations', label: 'My Quotations', group: 'Purchases', description: 'Review vendor quotations, compare revisions and accept or reject a valid offer.', path: '/marketplace/quotations' },
   { id: 'customer-profile', label: 'My Profile', group: 'Account', description: 'Manage your global customer display name and account details.', path: '/marketplace/profile' },
 ];
 

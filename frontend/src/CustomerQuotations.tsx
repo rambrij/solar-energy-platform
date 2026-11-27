@@ -32,9 +32,9 @@ export default function CustomerQuotations(){
   if(!revision||!accept&&!reason)return;
   setSavingId(quote.id);setError('');setNotice('');
   try{
+   const decisionPath='/api/v1/customer/quotations/'+quote.id+'/revisions/'+revision.revisionNumber+'/decision';
    const result=await marketplaceApi(
-    '/api/v1/customer/quotations/'+quote.id+'/revisions/'+revision.revisionNumber+'/decision',
-    'POST',{accept,reason:reason||null}
+    decisionPath,'POST',{accept,reason:reason||null}
    ) as DecisionResult;
    setQuotes(current=>current.map(item=>item.id===quote.id?result.quotation:item));
    if(result.order)setOrders(current=>({...current,[quote.id]:result.order!.id}));

@@ -10,7 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class MinioObjectStorage implements ObjectStoragePort {
-    private final String endpoint,accessKey,secretKey,bucket;
+    private static final String ALLOWED_KEY="(?:tenants/[1-9][0-9]*/products/[1-9][0-9]*/images/[0-9a-f-]{36}|tenants/[1-9][0-9]*/warranty-claims/[1-9][0-9]*/evidence/[0-9a-f-]{36})";\n    private final String endpoint,accessKey,secretKey,bucket;
     private volatile MinioClient client;
 
     public MinioObjectStorage(
@@ -49,7 +49,7 @@ public class MinioObjectStorage implements ObjectStoragePort {
     }
 
     @Override public void put(String key,byte[] content,String contentType) {
-        if(key==null||!key.matches("tenants/[1-9][0-9]*/products/[1-9][0-9]*/images/[0-9a-f-]{36}")||
+        if(key==null||!key.matches(ALLOWED_KEY)||
            content==null||content.length==0||contentType==null)
             throw new IllegalArgumentException("Tenant-scoped image object material required");
         try {
@@ -66,7 +66,7 @@ public class MinioObjectStorage implements ObjectStoragePort {
             throw new IllegalArgumentException("Tenant-scoped image key required");
         try(InputStream stream=client().getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
             byte[] bytes=stream.readAllBytes();
-            if(bytes.length>5*1024*1024)throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Stored product image exceeds the configured limit");
+            if(bytes.length>10*1024*1024)throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Stored object exceeds the configured limit");
             return bytes;
         } catch(ResponseStatusException ex){throw ex;}
         catch(Exception ex){throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Product image storage is unavailable",ex);}

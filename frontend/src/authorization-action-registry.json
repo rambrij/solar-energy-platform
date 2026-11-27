@@ -3669,6 +3669,42 @@
       "component": "CustomerInstallations.tsx",
       "trigger": "button",
       "backendOperation": "GET /api/v1/customer/installations/{id}"
+    },
+    {
+      "id": "vendor-service-request-create",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/service-requests"
+    },
+    {
+      "id": "vendor-service-request-detail",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/service-requests/{id}"
+    },
+    {
+      "id": "vendor-service-request-assignment",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/assignment"
+    },
+    {
+      "id": "vendor-service-request-status",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/status"
+    },
+    {
+      "id": "customer-service-request-create",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/customer/service-requests"
+    },
+    {
+      "id": "customer-service-request-detail",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/service-requests/{id}"
     }
   ],
   "dynamicRouteParameters": {

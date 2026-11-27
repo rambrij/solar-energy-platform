@@ -3224,6 +3224,15 @@
       "actions": [
         "vendor-role-access-history"
       ]
+    },
+    "SolarPackageManager.tsx:44": {
+      "fn": "vendorApi",
+      "argument": "selected?'/packages/'+selected.id:'/packages'",
+      "methodArgument": "selected?'PUT':'POST'",
+      "actions": [
+        "solar-package-update",
+        "solar-package-create"
+      ]
     }
   },
   "sessionApiOperations": [

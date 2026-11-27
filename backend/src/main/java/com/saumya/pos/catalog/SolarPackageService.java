@@ -144,7 +144,7 @@ public class SolarPackageService {
         var after=snapshot(entity,lines);
         events.saveAndFlush(new CatalogChangeEvent(context.tenantId(),context.username(),
             "SOLAR_PACKAGE_CREATE",id,request.reason().strip(),"",after,now));
-        return vendorView(entity);
+        return vendorView(context.tenantId(),entity);
     }
 
     @Transactional
@@ -172,7 +172,7 @@ public class SolarPackageService {
         items.saveAll(newLines);items.flush();
         events.saveAndFlush(new CatalogChangeEvent(context.tenantId(),context.username(),
             "SOLAR_PACKAGE_UPDATE",id,request.reason().strip(),before,snapshot(entity,newLines),clock.instant()));
-        return vendorView(entity);
+        return vendorView(context.tenantId(),entity);
     }
 
     private static String normalize(String value) {

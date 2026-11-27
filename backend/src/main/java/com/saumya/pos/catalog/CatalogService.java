@@ -42,6 +42,23 @@ public class CatalogService {
     public List<ProductInfo> products(String slug){long tenant=activeVendor(slug).id();return products.findByTenantIdAndPublishedTrueOrderById(tenant).stream().map(p->info(tenant,p)).toList();}
     public ProductInfo product(long tenant,long id){return info(tenant,products.findByTenantIdAndId(tenant,id).orElseThrow(this::missing));}
     public ProductInfo published(long tenant,long id){var p=product(tenant,id);if(!p.published())throw missing();return p;}
+    /** A vendor salesperson may snapshot an active tenant product into a quotation without requiring POS sale permission. */
+    @Transactional public ProductInfo lockForQuotation(long tenant,long id){
+        var actor=authorization.current();
+        actor.requireVendorMembership();actor.requireTenant(tenant);actor.requirePermission("LEAD_UPDATE");
+        var product=products.lockPublished(tenant,id).orElseThrow(this::missing);
+        entityManager.refresh(product,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if(!product.published())throw missing();
+        return info(tenant,product,true);
+    }
+    /** Published tenant products available to the authenticated lead/quotation workspace. */
+    public List<ProductInfo> quotationCatalogue(){
+        var actor=authorization.current();
+        actor.requireVendorMembership();actor.requirePermission("LEAD_VIEW");
+        return products.findByTenantIdAndPublishedTrueOrderById(actor.tenantId()).stream()
+            .map(product->info(actor.tenantId(),product)).toList();
+    }
+
     @Transactional public ProductInfo lockForSale(long tenant,long id){
         var actor=authorization.current();
         if(actor.isCustomer()){if(actor.isPlatformUser())throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Customer identity required");}

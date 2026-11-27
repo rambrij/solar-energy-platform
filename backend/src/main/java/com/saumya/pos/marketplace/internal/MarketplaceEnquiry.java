@@ -51,6 +51,7 @@ public class MarketplaceEnquiry {
 
     public Long id(){return id;}
     public long tenantId(){return tenantId;}
+    public Long customerId(){return customerId;}
     public Long productId(){return productId;}
     public String productNameSnapshot(){return productNameSnapshot;}
     public String contactName(){return contactName;}

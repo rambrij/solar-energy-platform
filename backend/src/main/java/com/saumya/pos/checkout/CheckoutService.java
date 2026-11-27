@@ -41,6 +41,7 @@ public class CheckoutService {
         if(ttl<60||ttl>3600)throw new IllegalArgumentException("Reservation TTL must be 60..3600 seconds");
         this.orders=orders;this.lines=lines;this.carts=carts;this.customers=customers;this.catalogue=catalogue;this.stock=stock;this.retail=retail;this.pricing=pricing;this.clock=clock;this.ttl=ttl;this.recoveryPolicy=recoveryPolicy;
     }
+    public record QuotationLineSnapshot(long productId,String name,int quantity,BigDecimal listPrice,BigDecimal unitPrice,BigDecimal discountPercent,BigDecimal taxRate,BigDecimal tax,BigDecimal total) {}
     public record Item(@Positive long productId,@Min(1) @Max(10000) int quantity) {}
     public record PosDraft(@NotBlank String sessionId,@NotEmpty @Size(max=100) List<@Valid Item> items,boolean invoiceRequested,SaleDiscountService.Request discounts,@Valid BuyerDetailsPolicy.Input buyer) {}
     public record OnlineDraft(@NotBlank @Size(max=36) String expectedCartId) {}
@@ -93,6 +94,84 @@ public class CheckoutService {
         var config=terminalPolicies.find(scope.tenant(),scope.branch()).orElseThrow(this::missing);buyers.capture(scope.tenant(),result.id(),buyer,config.buyerDetailsRequired()&&(config.invoiceRequired()||request.invoiceRequested()));
         retail.draftAudit(scope,"DRAFT_RESERVE",result.id());return result;
     }
+    /**
+     * Converts an already accepted, server-priced quotation into the normal ONLINE order draft.
+     * The quotation id is the stable idempotency namespace, so replay cannot create a second order.
+     * Caller must be the same authenticated global customer whose identity accepted the quote.
+     */
+    public Draft fromAcceptedQuotation(long tenant,long customer,long quotationId,
+            BigDecimal quotedTotal,List<QuotationLineSnapshot> snapshots){
+        var authentication=org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if(authentication==null||!authentication.isAuthenticated())
+            throw new ResponseStatusException(UNAUTHORIZED,"Authenticated customer required");
+        long resolved=customers.resolve(authentication.getName());
+        if(resolved!=customer)throw new ResponseStatusException(FORBIDDEN,"Quotation customer identity mismatch");
+        customers.lock(customer);
+        if(tenant<=0||quotationId<=0||snapshots==null||snapshots.isEmpty()||snapshots.size()>100
+                ||quotedTotal==null||quotedTotal.signum()<0)
+            throw new ResponseStatusException(BAD_REQUEST,"Accepted quotation snapshots are invalid");
+
+        String orderKey=key("QUOTATION:"+tenant+":"+quotationId,"accepted-quotation");
+        StringBuilder fingerprint=new StringBuilder("QUOTATION|").append(tenant).append('|')
+            .append(customer).append('|').append(quotationId).append('|').append(quotedTotal.toPlainString());
+        snapshots.stream().sorted(Comparator.comparingLong(QuotationLineSnapshot::productId)).forEach(line ->
+            fingerprint.append('|').append(line.productId()).append(':').append(line.quantity()).append(':')
+                .append(line.unitPrice()).append(':').append(line.taxRate()).append(':')
+                .append(line.tax()).append(':').append(line.total()).append(':').append(line.name()));
+        String requestHash=sha(fingerprint.toString());
+        var prior=orders.findByTenantIdAndKey(tenant,orderKey);
+        if(prior.isPresent()){
+            DraftOrder existing=prior.get();
+            if(!Objects.equals(existing.customer(),customer)||!"ONLINE".equals(existing.channel()))
+                throw missing();
+            return replay(existing,requestHash);
+        }
+
+        var vendor=catalogue.vendor(tenant);
+        if(!vendor.active())throw new ResponseStatusException(FORBIDDEN,"Vendor is not active for order conversion");
+        if(entitlements==null)throw new ResponseStatusException(FORBIDDEN,"Tenant entitlement policy unavailable");
+        entitlements.requireFeature(tenant,"ORDERS",true);
+        entitlements.requireFeature(tenant,"CATALOG",false);
+        long branch=catalogue.onlineBranch(tenant);
+        String owner="ONLINE:"+customer;
+        if(orders.existsByTenantIdAndDraftOwner(tenant,owner))
+            conflict("Resolve the existing reserved draft before converting this quotation");
+
+        String id=UUID.randomUUID().toString();
+        Instant expires=clock.instant().plusSeconds(ttl);
+        List<DraftLine> saved=new ArrayList<>();
+        Set<Long> seen=new HashSet<>();
+        BigDecimal calculatedTotal=BigDecimal.ZERO;
+        for(QuotationLineSnapshot line:snapshots.stream()
+                .sorted(Comparator.comparingLong(QuotationLineSnapshot::productId)).toList()){
+            if(line.productId()<=0||line.quantity()<1||line.quantity()>10000||!seen.add(line.productId()))
+                throw new ResponseStatusException(BAD_REQUEST,"Quotation contains an invalid or duplicate product line");
+            if(line.name()==null||line.name().isBlank()||line.name().length()>160
+                    ||line.listPrice()==null||line.unitPrice()==null||line.discountPercent()==null
+                    ||line.taxRate()==null||line.tax()==null||line.total()==null
+                    ||line.listPrice().signum()<0||line.unitPrice().signum()<0
+                    ||line.discountPercent().signum()<0||line.discountPercent().compareTo(new BigDecimal("100"))>0
+                    ||line.taxRate().signum()<0||line.taxRate().compareTo(new BigDecimal("100"))>0)
+                throw new ResponseStatusException(BAD_REQUEST,"Quotation line snapshot is invalid");
+
+            catalogue.lockForSale(tenant,line.productId()); // revalidate same-tenant product remains published
+            var amount=pricing.line(line.unitPrice(),line.taxRate(),line.quantity());
+            if(amount.tax().compareTo(line.tax())!=0||amount.total().compareTo(line.total())!=0)
+                throw new ResponseStatusException(CONFLICT,"Quotation price snapshot failed integrity validation");
+            calculatedTotal=calculatedTotal.add(line.total());
+            saved.add(new DraftLine(tenant,id,line.productId(),line.name(),line.quantity(),
+                line.unitPrice(),line.taxRate(),line.tax(),line.total(),line.listPrice(),line.discountPercent()));
+        }
+        if(calculatedTotal.compareTo(quotedTotal)!=0)
+            throw new ResponseStatusException(CONFLICT,"Quotation total does not match its immutable line snapshots");
+
+        var order=orders.saveAndFlush(new DraftOrder(id,tenant,customer,null,null,null,"ONLINE",
+            orderKey,requestHash,calculatedTotal,branch,owner,expires,false));
+        lines.saveAllAndFlush(saved);
+        for(var line:saved)stock.reserve(tenant,branch,line.product(),line.quantity(),id,expires);
+        return view(order);
+    }
+
     private Draft create(long tenant,Long customer,Long posBranch,String cashier,String session,String channel,String key,String hash,long branch,String owner,List<Item> items,boolean invoice,SaleDiscountService.Request discountRequest){
         if(items.isEmpty()||items.size()>100)throw new ResponseStatusException(BAD_REQUEST,"Draft requires 1..100 distinct products");
         if(orders.existsByTenantIdAndDraftOwner(tenant,owner))conflict("Resolve the existing reserved draft first");

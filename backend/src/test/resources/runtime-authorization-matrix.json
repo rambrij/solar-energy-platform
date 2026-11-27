@@ -458,6 +458,34 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
       "expected": 200,
       "test": "ServiceRequestServiceAuthorizationBoundaryTest#vendorViewWithoutAssignIsLimitedToCasesAssignedToTheAuthenticatedEmployee"
+    },
+    {
+      "id": "P006-VENDOR-WARRANTY-TENANT-REGISTER",
+      "actor": "VENDOR_ADMIN",
+      "endpoint": "POST /api/v1/vendor/warranties",
+      "permission": "SERVICE_CREATE",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_ORDER_ITEM",
+      "expected": 201,
+      "test": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty",
+      "sideEffect": "one immutable tenant-owned warranty record, one immutable registration event and one outbox event"
+    },
+    {
+      "id": "P006-CUSTOMER-OWN-WARRANTY",
+      "actor": "CUSTOMER",
+      "endpoint": "GET /api/v1/customer/warranties",
+      "permission": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "expected": 200,
+      "test": "WarrantyServiceAuthorizationBoundaryTest#customerListOnlyQueriesTenantOrderReferencesFromItsOwnPaidHistory"
+    },
+    {
+      "id": "P006-CUSTOMER-FOREIGN-WARRANTY-404",
+      "actor": "WRONG_CUSTOMER",
+      "endpoint": "GET /api/v1/customer/warranties/{id}",
+      "permission": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_WARRANTY_OWNERSHIP",
+      "expected": 404,
+      "test": "WarrantyServiceAuthorizationBoundaryTest#customerCannotReadWarrantyForAnOrderTheyDoNotOwn"
     }
   ],
   "notApplicableResources": [
@@ -1945,6 +1973,42 @@
       "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
       "assignment": "Authenticated customer actor must match Principal; order must appear in the customer's paid-online order references; tenant derived server-side; no vendor/customer cross-context",
       "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    "WarrantyController#eligibleOrders": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_CUSTOMER_ORDERS",
+      "assignment": "SERVICE_CREATE; only orders from the active vendor tenant that are PAID ONLINE and have a customer identity are returned",
+      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
+    },
+    "WarrantyController#eligibleItems": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_ORDER_ITEMS",
+      "assignment": "SERVICE_CREATE; order is validated inside the authenticated tenant before item snapshots are returned",
+      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
+    },
+    "WarrantyController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_WARRANTY_REGISTER",
+      "assignment": "SERVICE_VIEW; warranty records and product snapshots are filtered by the current tenant",
+      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceViewCanReadVendorWarrantyRegister"
+    },
+    "WarrantyController#register": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ORDER_ITEM",
+      "assignment": "SERVICE_CREATE; tenant-qualified paid ONLINE order is locked; item and optional installation are checked against the same tenant/order; unique order-item registration, immutable event and outbox append in one transaction",
+      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
+    },
+    "WarrantyController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "OrderHistoryService resolves paid ONLINE order references for the authenticated customer; each warranty query is tenant/order qualified",
+      "runtimeTest": "WarrantyServiceAuthorizationBoundaryTest#customerListOnlyQueriesTenantOrderReferencesFromItsOwnPaidHistory"
+    },
+    "WarrantyController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_WARRANTY_OWNERSHIP",
+      "assignment": "Warranty ID is resolved only inside the authenticated customer's paid ONLINE order references; foreign or unrelated IDs return 404",
+      "runtimeTest": "WarrantyServiceAuthorizationBoundaryTest#customerCannotReadWarrantyForAnOrderTheyDoNotOwn"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

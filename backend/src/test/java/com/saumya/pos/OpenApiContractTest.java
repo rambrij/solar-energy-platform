@@ -44,6 +44,8 @@ class OpenApiContractTest {
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/quotations/{id}/revisions")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/customer/quotations")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/customer/quotations/{id}/revisions/{revision}/decision")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/quotations/{id}/revisions/{revision}/document")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/customer/quotations/{id}/revisions/{revision}/document")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("components").path("securitySchemes").has("bearerAuth")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("components").path("securitySchemes").has("refreshCookie")).isTrue();
     }

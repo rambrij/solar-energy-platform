@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.*;
 class WarehouseInventoryControllerAuthorizationTest {
     @Test
     void everyWarehouseReadAndMutationHasItsDedicatedInventoryPermission() {
-        List<String> readMethods=List.of("warehouses","transfers","transfer");
+        List<String> readMethods=List.of("warehouses","warehouseStock","transfers","transfer");
         List<String> mutationMethods=List.of("createWarehouse","updateWarehouse","createTransfer","approve","dispatch","receive");
         for(String name:readMethods)assertPermission(name,"INVENTORY_VIEW");
         for(String name:mutationMethods)assertPermission(name,"INVENTORY_TRANSFER");

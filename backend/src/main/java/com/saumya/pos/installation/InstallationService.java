@@ -52,11 +52,13 @@ public class InstallationService {
             String assignedTo,Instant createdAt,Instant updatedAt,Instant completedAt,long version) {}
     public record Event(long id,String type,String status,String note,String reason,
             String actorUsername,Instant occurredAt) {}
-    public record Detail(Job job,List<Event> events) {}
+    public record InstallationSerialAsset(long id,long productId,String productName,String serialNumber,
+            long shipmentId,Instant recordedAt) {}
+    public record Detail(Job job,List<Event> events,List<InstallationSerialAsset> serialAssets) {}
     public record CustomerJob(long id,String orderId,String siteAddress,Instant scheduledAt,
             String status,Instant createdAt,Instant updatedAt,Instant completedAt) {}
     public record CustomerEvent(long id,String type,String status,String note,Instant occurredAt) {}
-    public record CustomerDetail(CustomerJob job,List<CustomerEvent> events) {}
+    public record CustomerDetail(CustomerJob job,List<CustomerEvent> events,List<InstallationSerialAsset> serialAssets) {}
 
     private AuthorizationContext.Context vendor(String permission) {
         var actor=authorization.current();
@@ -158,6 +160,7 @@ public class InstallationService {
         long id=db.queryForObject("""
             SELECT id FROM installation_jobs WHERE tenant_id=? AND order_id=?
             """,Long.class,actor.tenantId(),orderId);
+        linkSerialAssets(actor,id,orderId);
         append(actor,id,"CREATED","ASSIGNED","Installation job created",reason,false,now);
         append(actor,id,"ASSIGNED","ASSIGNED","Installation assigned to an engineer",reason,true,now);
         publish(actor,id,orderId,"INSTALLATION.JOB_CREATED","ASSIGNED",now);
@@ -228,6 +231,7 @@ public class InstallationService {
             Timestamp.from(now),actor.tenantId(),id,request.expectedVersion());
         if(changed!=1)throw conflict("Installation changed; reload before saving");
         append(actor,id,event,next,note,note,true,now);
+        if("COMPLETED".equals(next))recordSerialAssetCommission(actor,id,note);
         String integrationType="COMPLETED".equals(next)?"INSTALLATION.COMMISSIONED"
             :"CANCELLED".equals(next)?"INSTALLATION.CANCELLED":"INSTALLATION.STATUS_CHANGED";
         publish(actor,id,(String)row.get("order_id"),integrationType,next,now);
@@ -266,13 +270,46 @@ public class InstallationService {
             }
         }
         if(owner==null||row==null)throw missing();
-        return new CustomerDetail(customerJob(row),customerEvents(owner,id));
+        return new CustomerDetail(customerJob(row),customerEvents(owner,id),serialAssets(owner.tenantId(),id));
     }
 
     @Transactional(readOnly=true)
     public Detail vendorGet(long id) {
         var actor=vendor("INSTALLATION_VIEW");
-        return new Detail(findVendor(actor,id),events(actor,id));
+        return new Detail(findVendor(actor,id),events(actor,id),serialAssets(actor.tenantId(),id));
+    }
+
+
+    private List<InstallationSerialAsset> serialAssets(long tenant,long installationId) {
+        return db.query("""
+            SELECT a.id,a.product_id,p.name product_name,a.serial_number,a.shipment_id,a.recorded_at
+            FROM shipment_serial_assets a
+            JOIN products p ON p.tenant_id=a.tenant_id AND p.id=a.product_id
+            WHERE a.tenant_id=? AND a.installation_id=?
+            ORDER BY a.product_id,a.id
+            """,(rs,n)->new InstallationSerialAsset(rs.getLong("id"),rs.getLong("product_id"),
+                rs.getString("product_name"),rs.getString("serial_number"),rs.getLong("shipment_id"),
+                instant(rs.getObject("recorded_at"))),tenant,installationId);
+    }
+
+    private void linkSerialAssets(AuthorizationContext.Context actor,long installationId,String orderId) {
+        db.update("""
+            UPDATE shipment_serial_assets SET installation_id=?
+            WHERE tenant_id=? AND order_id=? AND installation_id IS NULL
+            """,installationId,actor.tenantId(),orderId);
+        db.update("""
+            INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail)
+            SELECT tenant_id,id,?,'INSTALLATION_LINKED',?
+            FROM shipment_serial_assets WHERE tenant_id=? AND installation_id=?
+            """,actor.username(),"Linked to installation "+installationId,actor.tenantId(),installationId);
+    }
+
+    private void recordSerialAssetCommission(AuthorizationContext.Context actor,long installationId,String note) {
+        db.update("""
+            INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail)
+            SELECT tenant_id,id,?,'INSTALLATION_COMMISSIONED',?
+            FROM shipment_serial_assets WHERE tenant_id=? AND installation_id=?
+            """,actor.username(),note,actor.tenantId(),installationId);
     }
 
     private Job findVendor(AuthorizationContext.Context actor,long id) {

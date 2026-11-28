@@ -3811,6 +3811,54 @@
       "method": "GET",
       "endpoint": "/api/v1/vendor/online-returns/policy",
       "backendOperation": "GET /api/v1/vendor/online-returns/policy"
+    },
+    {
+      "id": "vendor-service-sla-escalation-policies",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-sla/escalation-policies",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-sla/escalation-policies"
+    },
+    {
+      "id": "vendor-service-sla-escalation-queue",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-sla/escalations",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-sla/escalations"
+    },
+    {
+      "id": "vendor-service-sla-escalation-policy-save",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/service-sla/escalation-policies",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/service-sla/escalation-policies"
+    },
+    {
+      "id": "vendor-service-sla-escalation-acknowledge",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/service-sla/escalations/{id}/acknowledge",
+      "permissions": [
+        "SERVICE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/service-sla/escalations/{id}/acknowledge"
     }
   ],
   "buttons": [
@@ -4605,6 +4653,18 @@
       "component": "VendorOnlineReturns.tsx",
       "trigger": "submit",
       "backendOperation": "POST /api/v1/vendor/online-returns/{id}/decision"
+    },
+    {
+      "id": "vendor-service-sla-escalation-policy-save",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/service-sla/escalation-policies"
+    },
+    {
+      "id": "vendor-service-sla-escalation-acknowledge",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/service-sla/escalations/{id}/acknowledge"
     }
   ],
   "dynamicRouteParameters": {
@@ -4817,6 +4877,14 @@
         "transfer-cancel",
         "transfer-dispatch",
         "transfer-receive"
+      ]
+    },
+    "VendorServiceVisits.tsx:109": {
+      "fn": "vendorApi",
+      "argument": "'/service-sla/escalations/'+encodeURIComponent(id)+'/acknowledge'",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-service-sla-escalation-acknowledge"
       ]
     }
   },

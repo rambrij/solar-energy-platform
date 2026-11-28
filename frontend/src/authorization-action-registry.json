@@ -39,7 +39,8 @@
         "vendor-warranty-claims",
         "vendor-service-visits",
         "vendor-invoices",
-        "vendor-reports"
+        "vendor-reports",
+        "warehouse-transfers"
       ]
     },
     {
@@ -106,7 +107,8 @@
         "category-management",
         "product-management",
         "solar-package-management",
-        "stock-receiving"
+        "stock-receiving",
+        "warehouse-transfers"
       ]
     },
     {
@@ -424,6 +426,11 @@
       "group": "Customer Management"
     },
     {
+      "id": "vendor-reports",
+      "path": "/vendor/reports",
+      "group": "Reports"
+    },
+    {
       "id": "vendor-service-visits",
       "path": "/vendor/service-visits",
       "group": "Customer Management"
@@ -439,14 +446,14 @@
       "group": "Customer Management"
     },
     {
+      "id": "warehouse-transfers",
+      "path": "/vendor/pos/warehouses",
+      "group": "Catalogue & Inventory"
+    },
+    {
       "id": "warranty-management",
       "path": "/vendor/warranties",
       "group": "Fulfilment"
-    },
-    {
-      "id": "vendor-reports",
-      "path": "/vendor/reports",
-      "group": "Reports"
     }
   ],
   "tabs": [

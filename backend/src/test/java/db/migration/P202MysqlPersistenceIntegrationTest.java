@@ -210,6 +210,8 @@ class P202MysqlPersistenceIntegrationTest {
                     "service_sla_escalation_policies", "service_sla_escalations", "service_sla_escalation_events", "service_sla_escalation_policy_audit",
                     "warehouses", "warehouse_inventory", "inventory_transfers",
                     "inventory_transfer_events", "inventory_transfer_movements", "warehouse_audit_events",
+                    "inventory_serial_asset_positions", "inventory_transfer_serial_assets",
+                    "inventory_serial_asset_movements",
                     "online_return_policies", "online_return_policy_events", "online_returns",
                     "online_return_items", "online_return_events", "shipment_serial_assets", "installation_serial_asset_links", "shipment_serial_asset_events");
 

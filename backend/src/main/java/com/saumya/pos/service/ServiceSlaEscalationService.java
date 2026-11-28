@@ -239,10 +239,10 @@ public class ServiceSlaEscalationService {
             JOIN employee_role_assignments a ON a.tenant_id=e.tenant_id
                 AND a.branch_id=e.branch_id AND a.username=e.username AND a.active=TRUE
             JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE
-            WHERE t.id=? AND t.lifecycle_status='ACTIVE'
+            WHERE t.id=? AND e.tenant_id=? AND t.lifecycle_status='ACTIVE'
               AND (r.template_key=? OR r.role_key=? OR LOWER(r.role_key)=?)
             ORDER BY u.username LIMIT 50
-            """, String.class, tenantId, recipientRole, "standard:" + recipientRole,
+            """, String.class, tenantId, tenantId, recipientRole, "standard:" + recipientRole,
             recipientRole.toLowerCase(Locale.ROOT));
         return candidates.stream().map(String::strip)
             .filter(ServiceSlaEscalationService::isEmailAddress)

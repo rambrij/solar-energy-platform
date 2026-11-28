@@ -5,7 +5,7 @@ import {useSession} from './session';
 type Warehouse={id:number;branchId:number;code:string;name:string;active:boolean;version:number};
 type WarehouseStock={productId:number;sku:string;productName:string;onHand:number;reserved:number;damaged:number;available:number;version:number};
 type Transfer={id:string;sourceType:'BRANCH'|'WAREHOUSE';sourceWarehouseId:number|null;sourceBranchId:number;destinationType:'BRANCH'|'WAREHOUSE';destinationWarehouseId:number|null;destinationBranchId:number;productId:number;quantity:number;receivedQuantity:number;status:string;reason:string;createdBy:string;approvedBy:string|null;dispatchedBy:string|null;completedBy:string|null;createdAt:string;dispatchedAt:string|null;completedAt:string|null;version:number};
-type Detail={transfer:Transfer;events:{id:string;eventType:string;actorUsername:string;quantity:number|null;finalReceipt:boolean|null;detail:string;occurredAt:string}[]};
+type Detail={transfer:Transfer;events:{id:string;eventType:string;actorUsername:string;quantity:number|null;finalReceipt:boolean|null;detail:string;occurredAt:string}[];movements:{id:string;locationType:string;warehouseId:number|null;branchId:number;productId:number;movementType:string;quantityDelta:number;movementKey:string;actorUsername:string;occurredAt:string}[]};
 
 export default function WarehouseTransfers(){
  const {account}=useSession();
@@ -111,6 +111,7 @@ export default function WarehouseTransfers(){
     <button disabled={busy||Number(receiveQuantity)<1||!receiptReason.trim()}>Record receipt</button>
    </form>}
    <h4>Immutable transfer history</h4><ol>{detail.events.map(e=><li key={e.id}>{e.eventType} — {e.actorUsername} — {e.detail} — {new Date(e.occurredAt).toLocaleString()}</li>)}</ol>
+   <h4>Immutable stock movement ledger</h4>{detail.movements.length===0?<p>No stock movement has been posted yet.</p>:<ol>{detail.movements.map(m=><li key={m.id}>{m.movementType}: {m.quantityDelta>0?'+':''}{m.quantityDelta} units — {m.locationType} {m.warehouseId??m.branchId} — Product #{m.productId} — {m.actorUsername} — {new Date(m.occurredAt).toLocaleString()}</li>)}</ol>}
    <button type="button" onClick={()=>setDetail(undefined)}>Close details</button>
   </article>}
  </section>;

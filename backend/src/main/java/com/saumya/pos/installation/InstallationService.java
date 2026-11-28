@@ -285,7 +285,8 @@ public class InstallationService {
             SELECT a.id,a.product_id,p.name product_name,a.serial_number,a.shipment_id,a.recorded_at
             FROM shipment_serial_assets a
             JOIN products p ON p.tenant_id=a.tenant_id AND p.id=a.product_id
-            WHERE a.tenant_id=? AND a.installation_id=?
+            JOIN installation_serial_asset_links l ON l.tenant_id=a.tenant_id AND l.serial_asset_id=a.id
+            WHERE a.tenant_id=? AND l.installation_id=?
             ORDER BY a.product_id,a.id
             """,(rs,n)->new InstallationSerialAsset(rs.getLong("id"),rs.getLong("product_id"),
                 rs.getString("product_name"),rs.getString("serial_number"),rs.getLong("shipment_id"),
@@ -294,21 +295,29 @@ public class InstallationService {
 
     private void linkSerialAssets(AuthorizationContext.Context actor,long installationId,String orderId) {
         db.update("""
-            UPDATE shipment_serial_assets SET installation_id=?
-            WHERE tenant_id=? AND order_id=? AND installation_id IS NULL
-            """,installationId,actor.tenantId(),orderId);
+            INSERT INTO installation_serial_asset_links(tenant_id,serial_asset_id,order_id,installation_id,linked_by)
+            SELECT a.tenant_id,a.id,a.order_id,?,?
+            FROM shipment_serial_assets a
+            WHERE a.tenant_id=? AND a.order_id=?
+              AND NOT EXISTS (SELECT 1 FROM installation_serial_asset_links l
+                WHERE l.tenant_id=a.tenant_id AND l.serial_asset_id=a.id)
+            """,installationId,actor.username(),actor.tenantId(),orderId);
         db.update("""
             INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail)
-            SELECT tenant_id,id,?,'INSTALLATION_LINKED',?
-            FROM shipment_serial_assets WHERE tenant_id=? AND installation_id=?
+            SELECT a.tenant_id,a.id,?,'INSTALLATION_LINKED',?
+            FROM shipment_serial_assets a
+            JOIN installation_serial_asset_links l ON l.tenant_id=a.tenant_id AND l.serial_asset_id=a.id
+            WHERE a.tenant_id=? AND l.installation_id=?
             """,actor.username(),"Linked to installation "+installationId,actor.tenantId(),installationId);
     }
 
     private void recordSerialAssetCommission(AuthorizationContext.Context actor,long installationId,String note) {
         db.update("""
             INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail)
-            SELECT tenant_id,id,?,'INSTALLATION_COMMISSIONED',?
-            FROM shipment_serial_assets WHERE tenant_id=? AND installation_id=?
+            SELECT a.tenant_id,a.id,?,'INSTALLATION_COMMISSIONED',?
+            FROM shipment_serial_assets a
+            JOIN installation_serial_asset_links l ON l.tenant_id=a.tenant_id AND l.serial_asset_id=a.id
+            WHERE a.tenant_id=? AND l.installation_id=?
             """,actor.username(),note,actor.tenantId(),installationId);
     }
 

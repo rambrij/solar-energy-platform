@@ -7,5 +7,20 @@ class ShipmentControllerAuthorizationTest {
  @Test @WithMockUser(authorities={"POS_VIEW"}) void posViewDoesNotGrantShipmentView() throws Exception{mvc.perform(get("/api/v1/vendor/shipments")).andExpect(status().isForbidden());verifyNoInteractions(service);}
  @Test @WithMockUser(authorities={"SHIPMENT_UPDATE"}) void shipmentUpdateCanCreateAndAppend() throws Exception{when(service.createShipment(anyString(),anyString(),anyString(),any(),anyString())).thenReturn(null);mvc.perform(post("/api/v1/vendor/orders/order-1/shipments").contentType("application/json").content("{\"carrier\":\"Carrier\",\"trackingReference\":\"T-1\",\"reason\":\"Create shipment\"}")).andExpect(status().isCreated());}
  @Test @WithMockUser(authorities={"CUSTOMER"}) void customerActorCanReadOwnShipmentRoute() throws Exception{when(service.customerShipments(anyString(),anyString())).thenReturn(List.of());mvc.perform(get("/api/v1/customer/orders/order-1/shipments")).andExpect(status().isOk());}
+
+ @Test @WithMockUser(authorities={"SHIPMENT_UPDATE"}) void shipmentUpdateCanCaptureSerialAssets() throws Exception{
+  when(service.captureSerialAssets(eq(3L),eq(55L),anyList(),eq("Packing"))).thenReturn(List.of());
+  mvc.perform(post("/api/v1/vendor/shipments/3/serial-assets").contentType("application/json")
+   .content("{\"productId\":55,\"serialNumbers\":[\"SN-001\"],\"reason\":\"Packing\"}"))
+   .andExpect(status().isCreated());
+ }
+ @Test @WithMockUser(authorities={"SHIPMENT_VIEW"}) void shipmentViewCanReadSerialAssets() throws Exception{
+  when(service.vendorSerialAssets(3L)).thenReturn(List.of());
+  mvc.perform(get("/api/v1/vendor/shipments/3/serial-assets")).andExpect(status().isOk());
+ }
+ @Test @WithMockUser(authorities={"CUSTOMER"}) void customerCanReadOwnedOrderSerialAssets() throws Exception{
+  when(service.customerSerialAssets(anyString(),eq("order-1"))).thenReturn(List.of());
+  mvc.perform(get("/api/v1/customer/orders/order-1/serial-assets")).andExpect(status().isOk());
+ }
  @Test @WithMockUser(authorities={"SHIPMENT_VIEW"}) void vendorCannotUseCustomerRoute() throws Exception{mvc.perform(get("/api/v1/customer/orders/order-1/shipments")).andExpect(status().isForbidden());verifyNoInteractions(service);}
 }

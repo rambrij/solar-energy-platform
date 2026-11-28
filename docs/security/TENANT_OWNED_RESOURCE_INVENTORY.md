@@ -112,7 +112,9 @@ The table list is derived from the production Flyway SQL and Java migrations und
 | `catalog_categories` | Catalogue | TENANT | Yes, NOT NULL | Tenant-owned category; product-category join carries tenant in its key and FKs. |
 | `catalog_discount_policy` | Pricing/discount | TENANT | Yes, NOT NULL | Tenant-specific policy keyed by tenant identity; no cross-tenant policy row is shared. |
 | `tenant_subscriptions` | Platform billing association | TENANT | Yes, NOT NULL | Platform-managed billing record associated with one tenant; `UNIQUE(tenant_id,id)`, plan-version FK, one-effective-subscription generated-key constraint. |
-| `vendor_roles` | Vendor authorization | TENANT | Yes, NOT NULL | Tenant-specific role; `UNIQUE(tenant_id,id)`, `UNIQUE(tenant_id,role_key)`, tenant-scoped creator/updater FKs. |\n| `warehouses` | Warehouse operations | TENANT | Yes, NOT NULL | Tenant-owned warehouse assigned to one tenant branch; unique tenant/branch/ID and tenant/branch/code keys; creator/updater composite employee FKs. |\n| `inventory_transfers` | Inventory movement | TENANT | Yes, NOT NULL | Tenant-owned transfer aggregate; source/destination branches and optional warehouses are tenant-qualified, with composite warehouse/branch FKs and idempotency key scoped by tenant/source branch. |
+| `vendor_roles` | Vendor authorization | TENANT | Yes, NOT NULL | Tenant-specific role; `UNIQUE(tenant_id,id)`, `UNIQUE(tenant_id,role_key)`, tenant-scoped creator/updater FKs. |
+| `warehouses` | Warehouse operations | TENANT | Yes, NOT NULL | Tenant-owned warehouse assigned to one tenant branch; unique tenant/branch/ID and tenant/branch/code keys; creator/updater composite employee FKs. |
+| `inventory_transfers` | Inventory movement | TENANT | Yes, NOT NULL | Tenant-owned transfer aggregate; source/destination branches and optional warehouses are tenant-qualified, with composite warehouse/branch FKs and idempotency key scoped by tenant/source branch. |
 
 ### 3.5 Tenant-child tables — 43
 
@@ -157,7 +159,10 @@ The table list is derived from the production Flyway SQL and Java migrations und
 | `vendor_role_permissions` | Vendor authorization | TENANT_CHILD | Yes, NOT NULL | Composite PK and FKs to same-tenant role and employee actor; platform permission prefix is prohibited by check constraint. |
 | `employee_role_assignments` | Vendor authorization | TENANT_CHILD | Yes, NOT NULL | Composite FKs to same-tenant employee, branch and role; assignment/revocation actors are employee-scoped. |
 | `employee_register_assignments` | POS assignment | TENANT_CHILD | Yes, NOT NULL | Composite FKs to same-tenant employee and branch/register; assignment/revocation actors are employee-scoped. |
-| `vendor_access_audit_events` | Vendor authorization audit | TENANT_CHILD | Yes, NOT NULL | Tenant-scoped actor and optional subject composite FKs to employees; tenant-leading audit index. |\n| `warehouse_inventory` | Warehouse stock | TENANT_CHILD | Yes, NOT NULL | Composite tenant/warehouse/product primary key; FKs to same-tenant warehouse and product; on-hand, reserved and damaged quantities constrained. |\n| `inventory_transfer_events` | Inventory transfer history | TENANT_CHILD | Yes, NOT NULL | Tenant/transfer composite FK; actor is a same-tenant employee; append-only event table with unique idempotent receipt command keys. |\n| `warehouse_audit_events` | Warehouse audit | TENANT_CHILD | Yes, NOT NULL | Tenant/warehouse composite FK and tenant/employee actor FK; database triggers prohibit update/delete. |
+| `vendor_access_audit_events` | Vendor authorization audit | TENANT_CHILD | Yes, NOT NULL | Tenant-scoped actor and optional subject composite FKs to employees; tenant-leading audit index. |
+| `warehouse_inventory` | Warehouse stock | TENANT_CHILD | Yes, NOT NULL | Composite tenant/warehouse/product primary key; FKs to same-tenant warehouse and product; on-hand, reserved and damaged quantities constrained. |
+| `inventory_transfer_events` | Inventory transfer history | TENANT_CHILD | Yes, NOT NULL | Tenant/transfer composite FK; actor is a same-tenant employee; append-only event table with unique idempotent receipt command keys. |
+| `warehouse_audit_events` | Warehouse audit | TENANT_CHILD | Yes, NOT NULL | Tenant/warehouse composite FK and tenant/employee actor FK; database triggers prohibit update/delete. |
 
 ## 4. Parent-child and tenant boundary inventory
 
@@ -314,7 +319,8 @@ No invalid record may be silently deleted or rewritten. Backfill must derive own
 - V25–V28: discount policy, verified customer association, global identity and employee identity constraints.
 - V29–V38: branch/register, stock/catalog projections, inventory receiving, buyer snapshots, POS active-draft projection and platform identity grants.
 - V40–V41: platform/tenant/subscription foundation and later composite ownership constraints.
-- V43–V47: platform audit immutability, platform configuration/permissions, vendor roles, employee assignments, MFA and platform identity permissions.\n- V21: tenant-owned warehouses, separate warehouse balances, tenant-qualified transfer aggregates, immutable transfer events and warehouse audit events. V22 activates the SRS-approved INVENTORY_TRANSFER permission.
+- V43–V47: platform audit immutability, platform configuration/permissions, vendor roles, employee assignments, MFA and platform identity permissions.
+- V21: tenant-owned warehouses, separate warehouse balances, tenant-qualified transfer aggregates, immutable transfer events and warehouse audit events. V22 activates the SRS-approved INVENTORY_TRANSFER permission.
 
 Specific weak-FK evidence: `V32__cash_drawer_tender_projection.sql`, `V36__retail_active_draft_projection.sql`, `V40__platform_and_tenant_foundation.sql`, `V41__platform_provisioning_and_ownership_constraints.sql`.
 

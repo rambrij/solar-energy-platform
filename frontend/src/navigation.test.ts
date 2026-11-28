@@ -11,6 +11,7 @@ it('groups unique workspace destinations without exposing unrelated modules', ()
   expect(navigationItems('pos').some(item => item.id === 'vendor-customer-crm')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'shipment-management')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'vendor-profile')).toBe(true);
+  expect(navigationItems('pos').some(item => item.id === 'vendor-invoices')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'vendor-site-surveys')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'solar-package-management')).toBe(true);
   expect(navigationItems('pos').some(item => item.id === 'vendor-service-visits')).toBe(true);
@@ -22,6 +23,7 @@ it('resolves direct workspace paths and legacy section fragments', () => {
   expect(resolveWorkspaceRoute('pos', '/vendor/customers', '')).toBe('vendor-customer-crm');
   expect(resolveWorkspaceRoute('pos', '/vendor/shipments', '')).toBe('shipment-management');
   expect(resolveWorkspaceRoute('pos', '/vendor/profile', '')).toBe('vendor-profile');
+  expect(resolveWorkspaceRoute('pos', '/vendor/invoices', '')).toBe('vendor-invoices');
   expect(resolveWorkspaceRoute('pos', '/vendor/pos/site-surveys', '')).toBe('vendor-site-surveys');
   expect(resolveWorkspaceRoute('pos', '/vendor/pos/products', '')).toBe('product-management');
   expect(resolveWorkspaceRoute('pos', '/vendor/pos/solar-packages', '')).toBe('solar-package-management');

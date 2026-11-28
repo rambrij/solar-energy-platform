@@ -28,6 +28,7 @@ const pos: NavigationItem[] = [
   { id: 'sales-insights', label: 'Sales Insights', group: 'Reports', description: 'Review available sales reporting for this workspace.', path: '/vendor/pos/sales-insights' },
   { id: 'refund-insights', label: 'Refund Insights', group: 'Reports', description: 'Review available refund reporting for this workspace.', path: '/vendor/pos/refund-insights' },
   { id: 'cashier-sales-insights', label: 'Cashier Sales', group: 'Reports', description: 'Review existing cashier sales reporting.', path: '/vendor/pos/cashier-sales' },
+  { id: 'vendor-invoices', label: 'Invoice Register', group: 'Finance', description: 'Review invoices and confirmed payment totals for this vendor tenant.', path: '/vendor/invoices' },
   { id: 'role-management', label: 'Roles & Permissions', group: 'Administration', description: 'Manage tenant roles and their permission grants.', path: '/vendor/pos/roles' },
   { id: 'employee-management', label: 'Employees', group: 'Administration', description: 'Invite employees and manage roles, branch and register assignments.', path: '/vendor/pos/employees' },
   { id: 'vendor-profile', label: 'Vendor Profile', group: 'Administration', description: 'Manage your tenant-owned business profile and storefront contact details.', path: '/vendor/profile' },

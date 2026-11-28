@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "description": "Canonical assignable permission catalogue and endpoint inventory. Only vendorPermissions and platformPermissions are assignable; reserved, orphaned, conflicting and unknown identifiers are non-assignable. The same JSON resource drives backend registries, Flyway catalogue constraints, frontend checks and traceability tests.",
   "vendorPermissions": [
     "CATALOG_PROMOTION_MANAGE",
@@ -13,6 +13,7 @@
     "INSTALLATION_VIEW",
     "INVENTORY_RECEIVE",
     "INVENTORY_VIEW",
+    "INVOICE_VIEW",
     "LEAD_ASSIGN",
     "LEAD_UPDATE",
     "LEAD_VIEW",
@@ -128,6 +129,11 @@
         "CUSTOMER"
       ]
     },
+    "customer-installations": {
+      "allOf": [
+        "CUSTOMER"
+      ]
+    },
     "customer-profile": {
       "allOf": [
         "CUSTOMER"
@@ -138,12 +144,42 @@
         "CUSTOMER"
       ]
     },
+    "customer-quotations": {
+      "allOf": [
+        "CUSTOMER"
+      ]
+    },
+    "customer-service-requests": {
+      "allOf": [
+        "CUSTOMER"
+      ]
+    },
+    "customer-service-visits": {
+      "allOf": [
+        "CUSTOMER"
+      ]
+    },
+    "customer-warranties": {
+      "allOf": [
+        "CUSTOMER"
+      ]
+    },
+    "customer-warranty-claims": {
+      "allOf": [
+        "CUSTOMER"
+      ]
+    },
     "employee-management": {
       "anyOf": [
         "USER_VIEW",
         "USER_CREATE",
         "USER_UPDATE",
         "USER_DISABLE"
+      ]
+    },
+    "installation-management": {
+      "allOf": [
+        "INSTALLATION_VIEW"
       ]
     },
     "online-checkout": {
@@ -217,6 +253,11 @@
         "CUSTOMER"
       ]
     },
+    "service-requests": {
+      "allOf": [
+        "SERVICE_VIEW"
+      ]
+    },
     "shift-history": {
       "allOf": [
         "POS_VIEW"
@@ -273,14 +314,14 @@
         "CUSTOMER"
       ]
     },
+    "vendor-invoices": {
+      "allOf": [
+        "INVOICE_VIEW"
+      ]
+    },
     "vendor-profile": {
       "allOf": [
         "TENANT_PROFILE_VIEW"
-      ]
-    },
-    "vendor-site-surveys": {
-      "allOf": [
-        "LEAD_VIEW"
       ]
     },
     "vendor-quotations": {
@@ -288,40 +329,14 @@
         "LEAD_VIEW"
       ]
     },
-    "customer-quotations": {
-      "allOf": [
-        "CUSTOMER"
-      ]
-    },
-    "installation-management": {
-      "allOf": [
-        "INSTALLATION_VIEW"
-      ]
-    },
-    "customer-installations": {
-      "allOf": [
-        "CUSTOMER"
-      ]
-    },
-    "service-requests": {
+    "vendor-service-visits": {
       "allOf": [
         "SERVICE_VIEW"
       ]
     },
-    "customer-service-requests": {
+    "vendor-site-surveys": {
       "allOf": [
-        "CUSTOMER"
-      ]
-    },
-    "warranty-management": {
-      "anyOf": [
-        "SERVICE_VIEW",
-        "SERVICE_CREATE"
-      ]
-    },
-    "customer-warranties": {
-      "allOf": [
-        "CUSTOMER"
+        "LEAD_VIEW"
       ]
     },
     "vendor-warranty-claims": {
@@ -329,19 +344,10 @@
         "SERVICE_VIEW"
       ]
     },
-    "customer-warranty-claims": {
-      "allOf": [
-        "CUSTOMER"
-      ]
-    },
-    "vendor-service-visits": {
-      "allOf": [
-        "SERVICE_VIEW"
-      ]
-    },
-    "customer-service-visits": {
-      "allOf": [
-        "CUSTOMER"
+    "warranty-management": {
+      "anyOf": [
+        "SERVICE_VIEW",
+        "SERVICE_CREATE"
       ]
     }
   },
@@ -361,6 +367,7 @@
     "DiscountPolicyController": "VENDOR_POS_DISCOUNT_PERMISSION",
     "DraftRecoveryController": "CUSTOMER_OR_POS_OWNER_SCOPE",
     "IdentityInvitationController": "ONE_TIME_INVITATION_TOKEN",
+    "InstallationController": "VENDOR_TENANT_PAID_ONLINE_ORDER_INSTALLATION_AND_ASSIGNED_ENGINEER_SCOPE; CUSTOMER_GLOBAL_IDENTITY_OWNED_PAID_ORDER_INSTALLATION_SCOPE",
     "MarketplaceController": "PUBLIC_OR_CUSTOMER_OWNER",
     "MarketplaceEnquiryController": "PUBLIC_VENDOR_ENQUIRY_INTAKE_WITH_EXPLICIT_CONSENT_AND_RATE_LIMIT",
     "OnlineReceiptController": "CUSTOMER_ORDER_OWNER_SCOPE",
@@ -379,6 +386,7 @@
     "ProductImageController": "VENDOR_TENANT_PRODUCT_IMAGE_PERMISSION_AND_PUBLISHED_PRODUCT_PUBLIC_ACCESS",
     "PromotionController": "VENDOR_PROMOTION_PERMISSION",
     "PromotionHistoryController": "VENDOR_PROMOTION_PERMISSION",
+    "QuotationController": "VENDOR_TENANT_LEAD_SCOPED_QUOTATION_CATALOGUE_CREATE_REVISE_AND_DOCUMENT; CUSTOMER_GLOBAL_IDENTITY_OWNERSHIP_DECISION_AND_DOCUMENT; IDEMPOTENT_ORDER_CONVERSION",
     "ReceiptDocumentController": "RECEIPT_OWNER_AND_REPRINT_PERMISSION",
     "RefundHistoryController": "VENDOR_POS_REFUND_PERMISSION",
     "RefundReportController": "VENDOR_POS_REFUND_REPORT_PERMISSION",
@@ -389,24 +397,23 @@
     "ReturnQueueController": "VENDOR_POS_RETURN_QUEUE_PERMISSION",
     "SaleReceiptController": "VENDOR_RECEIPT_SCOPE",
     "SalesReportController": "VENDOR_REPORT_SCOPE",
+    "ServiceRequestController": "VENDOR_TENANT_SERVICE_REQUEST_AND_CUSTOMER_ORDER_OWNER_SCOPE_WITH_IMMUTABLE_HISTORY",
+    "ServiceSlaController": "VENDOR_TENANT_SERVICE_SLA_POLICY_AND_CASE_CLOCK_SCOPE_WITH_IMMUTABLE_BREACH_EVENTS",
+    "ServiceVisitController": "VENDOR_TENANT_ASSIGNED_ENGINEER_VISIT_FOR_ONE_WARRANTY_CLAIM_OR_SERVICE_REQUEST; CUSTOMER_GLOBAL_IDENTITY_PAID_ORDER_OWNED_VISIT_AND_CUSTOMER_VISIBLE_REPORT",
     "ShiftHistoryController": "CASHIER_OWN_SHIFT_SCOPE",
     "SolarPackageController": "VENDOR_TENANT_SOLAR_PACKAGE_PERMISSION_AND_PUBLISHED_PUBLIC_CATALOGUE",
     "StockReceivingController": "VENDOR_INVENTORY_PERMISSION",
     "VendorCustomerCrmController": "VENDOR_PRIVATE_CUSTOMER_CRM_SCOPE",
     "VendorDirectoryController": "PUBLIC_ACTIVE_VENDOR_DIRECTORY",
+    "VendorInvoiceController": "VENDOR_TENANT_INVOICE_REGISTER",
     "VendorLeadController": "VENDOR_TENANT_LEAD_VIEW_UPDATE_AND_ASSIGNMENT_SCOPE_WITH_AUDIT",
+    "VendorPaymentAccountController": "VENDOR_TENANT_PAYMENT_ACCOUNT_READ_AND_SUBMIT; PROVIDER_VERIFICATION_ONLY_FOR_STATUS_TRANSITIONS",
     "VendorRoleController": "VENDOR_ROLE_AND_EMPLOYEE_PERMISSION",
     "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_ORDER_SCOPE",
     "VendorSiteSurveyController": "VENDOR_TENANT_SITE_SURVEY_VIEW_AND_MANAGE_WITH_LEAD_ASSIGNMENT_SCOPE",
     "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
-    "QuotationController": "VENDOR_TENANT_LEAD_SCOPED_QUOTATION_CATALOGUE_CREATE_REVISE_AND_DOCUMENT; CUSTOMER_GLOBAL_IDENTITY_OWNERSHIP_DECISION_AND_DOCUMENT; IDEMPOTENT_ORDER_CONVERSION",
-    "VendorPaymentAccountController": "VENDOR_TENANT_PAYMENT_ACCOUNT_READ_AND_SUBMIT; PROVIDER_VERIFICATION_ONLY_FOR_STATUS_TRANSITIONS",
-    "InstallationController": "VENDOR_TENANT_PAID_ONLINE_ORDER_INSTALLATION_AND_ASSIGNED_ENGINEER_SCOPE; CUSTOMER_GLOBAL_IDENTITY_OWNED_PAID_ORDER_INSTALLATION_SCOPE",
-    "ServiceRequestController": "VENDOR_TENANT_SERVICE_REQUEST_AND_CUSTOMER_ORDER_OWNER_SCOPE_WITH_IMMUTABLE_HISTORY",
-    "WarrantyController": "VENDOR_TENANT_PAID_ORDER_ITEM_WARRANTY_AND_CUSTOMER_OWNED_WARRANTY_READ",
     "WarrantyClaimController": "VENDOR_TENANT_CLAIM_ASSIGNMENT_AND_CUSTOMER_PAID_ORDER_OWNERSHIP_WITH_IMMUTABLE_EVENTS_AND_PRIVATE_EVIDENCE",
-    "ServiceVisitController": "VENDOR_TENANT_ASSIGNED_ENGINEER_VISIT_FOR_ONE_WARRANTY_CLAIM_OR_SERVICE_REQUEST; CUSTOMER_GLOBAL_IDENTITY_PAID_ORDER_OWNED_VISIT_AND_CUSTOMER_VISIBLE_REPORT",
-    "ServiceSlaController": "VENDOR_TENANT_SERVICE_SLA_POLICY_AND_CASE_CLOCK_SCOPE_WITH_IMMUTABLE_BREACH_EVENTS"
+    "WarrantyController": "VENDOR_TENANT_PAID_ORDER_ITEM_WARRANTY_AND_CUSTOMER_OWNED_WARRANTY_READ"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -420,7 +427,6 @@
     "INVENTORY_TRANSFER",
     "INVOICE_CREATE",
     "INVOICE_SEND",
-    "INVOICE_VIEW",
     "INVOICE_VOID",
     "LEAD_CREATE",
     "ORDER_CANCEL",
@@ -565,6 +571,16 @@
       "scope": "Authenticated tenant and branch-scoped inventory records",
       "ui": "Inventory > Stock receiving > view receipts",
       "test": "PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "INVOICE_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/invoices",
+      "service": "VendorInvoiceRegisterService.list",
+      "scope": "Authenticated vendor tenant only; invoices, orders and confirmed payment attempts are joined by tenant_id and order_id; tenant is derived from active membership.",
+      "ui": "Vendor workspace > Finance > Invoice register",
+      "test": "VendorInvoiceRegisterServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest; OpenApiContractTest"
     },
     {
       "permission": "LEAD_ASSIGN",

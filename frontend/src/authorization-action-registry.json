@@ -37,7 +37,8 @@
         "service-requests",
         "warranty-management",
         "vendor-warranty-claims",
-        "vendor-service-visits"
+        "vendor-service-visits",
+        "vendor-invoices"
       ]
     },
     {
@@ -199,6 +200,21 @@
   ],
   "routes": [
     {
+      "id": "cash-refunds",
+      "path": "/vendor/pos/refunds",
+      "group": "After-Sale"
+    },
+    {
+      "id": "cashier-sales-insights",
+      "path": "/vendor/pos/cashier-sales",
+      "group": "Reports"
+    },
+    {
+      "id": "category-management",
+      "path": "/vendor/pos/categories",
+      "group": "Catalogue & Inventory"
+    },
+    {
       "id": "checkout",
       "path": "/vendor/pos",
       "group": "POS"
@@ -209,18 +225,73 @@
       "group": "POS"
     },
     {
-      "id": "reserved-pos-checkout",
-      "path": "/vendor/pos/held-bills",
-      "group": "POS"
+      "id": "customer-cart",
+      "path": "/marketplace/cart",
+      "group": "Cart"
+    },
+    {
+      "id": "customer-dashboard",
+      "path": "/marketplace/dashboard",
+      "group": "Account"
+    },
+    {
+      "id": "customer-installations",
+      "path": "/marketplace/installations",
+      "group": "Purchases"
+    },
+    {
+      "id": "customer-profile",
+      "path": "/marketplace/profile",
+      "group": "Account"
+    },
+    {
+      "id": "customer-purchases",
+      "path": "/marketplace/purchases",
+      "group": "Purchases"
+    },
+    {
+      "id": "customer-quotations",
+      "path": "/marketplace/quotations",
+      "group": "Purchases"
+    },
+    {
+      "id": "customer-service-requests",
+      "path": "/marketplace/service-requests",
+      "group": "Purchases"
+    },
+    {
+      "id": "customer-service-visits",
+      "path": "/marketplace/service-visits",
+      "group": "Purchases"
+    },
+    {
+      "id": "customer-warranties",
+      "path": "/marketplace/warranties",
+      "group": "Purchases"
+    },
+    {
+      "id": "customer-warranty-claims",
+      "path": "/marketplace/warranty-claims",
+      "group": "Purchases"
+    },
+    {
+      "id": "employee-management",
+      "path": "/vendor/pos/employees",
+      "group": "Administration"
+    },
+    {
+      "id": "installation-management",
+      "path": "/vendor/installations",
+      "group": "Fulfilment"
+    },
+    {
+      "id": "online-checkout",
+      "path": "/marketplace/reserved-cart",
+      "group": "Cart"
     },
     {
       "id": "order-history",
       "path": "/vendor/pos/sales-history",
-      "group": "POS"
-    },
-    {
-      "id": "sale-receipt",
-      "path": "/vendor/pos/receipt",
       "group": "POS"
     },
     {
@@ -229,29 +300,54 @@
       "group": "After-Sale"
     },
     {
-      "id": "cash-refunds",
-      "path": "/vendor/pos/refunds",
-      "group": "After-Sale"
-    },
-    {
-      "id": "category-management",
-      "path": "/vendor/pos/categories",
-      "group": "Catalogue & Inventory"
-    },
-    {
       "id": "product-management",
       "path": "/vendor/pos/products",
       "group": "Catalogue & Inventory"
     },
     {
-      "id": "stock-receiving",
-      "path": "/vendor/pos/stock",
-      "group": "Catalogue & Inventory"
+      "id": "promotion-history",
+      "path": "/vendor/pos/discount-audit",
+      "group": "Reports"
+    },
+    {
+      "id": "refund-insights",
+      "path": "/vendor/pos/refund-insights",
+      "group": "Reports"
     },
     {
       "id": "register",
       "path": "/vendor/pos/register",
       "group": "Store Management"
+    },
+    {
+      "id": "reserved-pos-checkout",
+      "path": "/vendor/pos/held-bills",
+      "group": "POS"
+    },
+    {
+      "id": "role-management",
+      "path": "/vendor/pos/roles",
+      "group": "Administration"
+    },
+    {
+      "id": "sale-receipt",
+      "path": "/vendor/pos/receipt",
+      "group": "POS"
+    },
+    {
+      "id": "sales-insights",
+      "path": "/vendor/pos/sales-insights",
+      "group": "Reports"
+    },
+    {
+      "id": "saved-vendor-carts",
+      "path": "/marketplace/saved-carts",
+      "group": "Cart"
+    },
+    {
+      "id": "service-requests",
+      "path": "/vendor/service-requests",
+      "group": "Customer Management"
     },
     {
       "id": "shift-history",
@@ -264,99 +360,9 @@
       "group": "Store Management"
     },
     {
-      "id": "terminal-tender-review",
-      "path": "/vendor/pos/terminal-verification",
-      "group": "Store Management"
-    },
-    {
-      "id": "store-settings",
-      "path": "/vendor/pos/settings",
-      "group": "Store Management"
-    },
-    {
-      "id": "promotion-history",
-      "path": "/vendor/pos/discount-audit",
-      "group": "Reports"
-    },
-    {
-      "id": "sales-insights",
-      "path": "/vendor/pos/sales-insights",
-      "group": "Reports"
-    },
-    {
-      "id": "refund-insights",
-      "path": "/vendor/pos/refund-insights",
-      "group": "Reports"
-    },
-    {
-      "id": "cashier-sales-insights",
-      "path": "/vendor/pos/cashier-sales",
-      "group": "Reports"
-    },
-    {
-      "id": "role-management",
-      "path": "/vendor/pos/roles",
-      "group": "Administration"
-    },
-    {
-      "id": "employee-management",
-      "path": "/vendor/pos/employees",
-      "group": "Administration"
-    },
-    {
-      "id": "vendor-directory",
-      "path": "/marketplace/vendors",
-      "group": "Shop"
-    },
-    {
-      "id": "storefront-products",
-      "path": "/marketplace/catalogue",
-      "group": "Shop"
-    },
-    {
-      "id": "customer-cart",
-      "path": "/marketplace/cart",
-      "group": "Cart"
-    },
-    {
-      "id": "online-checkout",
-      "path": "/marketplace/reserved-cart",
-      "group": "Cart"
-    },
-    {
-      "id": "saved-vendor-carts",
-      "path": "/marketplace/saved-carts",
-      "group": "Cart"
-    },
-    {
-      "id": "customer-purchases",
-      "path": "/marketplace/purchases",
-      "group": "Purchases"
-    },
-    {
-      "id": "customer-dashboard",
-      "path": "/marketplace/dashboard",
-      "group": "Account"
-    },
-    {
-      "id": "customer-profile",
-      "path": "/marketplace/profile",
-      "group": "Account"
-    },
-    {
-      "id": "vendor-customer-crm",
-      "path": "/vendor/customers",
-      "group": "Customer Management"
-    },
-    {
       "id": "shipment-management",
       "path": "/vendor/shipments",
       "group": "Fulfilment"
-    },
-    {
-      "id": "vendor-profile",
-      "path": "/vendor/profile",
-      "group": "Administration"
     },
     {
       "id": "solar-package-management",
@@ -364,9 +370,44 @@
       "group": "Catalogue & Inventory"
     },
     {
-      "id": "vendor-site-surveys",
-      "path": "/vendor/pos/site-surveys",
+      "id": "stock-receiving",
+      "path": "/vendor/pos/stock",
+      "group": "Catalogue & Inventory"
+    },
+    {
+      "id": "store-settings",
+      "path": "/vendor/pos/settings",
+      "group": "Store Management"
+    },
+    {
+      "id": "storefront-products",
+      "path": "/marketplace/catalogue",
+      "group": "Shop"
+    },
+    {
+      "id": "terminal-tender-review",
+      "path": "/vendor/pos/terminal-verification",
+      "group": "Store Management"
+    },
+    {
+      "id": "vendor-customer-crm",
+      "path": "/vendor/customers",
       "group": "Customer Management"
+    },
+    {
+      "id": "vendor-directory",
+      "path": "/marketplace/vendors",
+      "group": "Shop"
+    },
+    {
+      "id": "vendor-invoices",
+      "path": "/vendor/invoices",
+      "group": "Finance"
+    },
+    {
+      "id": "vendor-profile",
+      "path": "/vendor/profile",
+      "group": "Administration"
     },
     {
       "id": "vendor-quotations",
@@ -374,39 +415,14 @@
       "group": "Customer Management"
     },
     {
-      "id": "customer-quotations",
-      "path": "/marketplace/quotations",
-      "group": "Purchases"
-    },
-    {
-      "id": "installation-management",
-      "path": "/vendor/installations",
-      "group": "Fulfilment"
-    },
-    {
-      "id": "customer-installations",
-      "path": "/marketplace/installations",
-      "group": "Purchases"
-    },
-    {
-      "id": "service-requests",
-      "path": "/vendor/service-requests",
+      "id": "vendor-service-visits",
+      "path": "/vendor/service-visits",
       "group": "Customer Management"
     },
     {
-      "id": "customer-service-requests",
-      "path": "/marketplace/service-requests",
-      "group": "Purchases"
-    },
-    {
-      "id": "warranty-management",
-      "path": "/vendor/warranties",
-      "group": "Fulfilment"
-    },
-    {
-      "id": "customer-warranties",
-      "path": "/marketplace/warranties",
-      "group": "Purchases"
+      "id": "vendor-site-surveys",
+      "path": "/vendor/pos/site-surveys",
+      "group": "Customer Management"
     },
     {
       "id": "vendor-warranty-claims",
@@ -414,19 +430,9 @@
       "group": "Customer Management"
     },
     {
-      "id": "customer-warranty-claims",
-      "path": "/marketplace/warranty-claims",
-      "group": "Purchases"
-    },
-    {
-      "id": "vendor-service-visits",
-      "path": "/vendor/service-visits",
-      "group": "Customer Management"
-    },
-    {
-      "id": "customer-service-visits",
-      "path": "/marketplace/service-visits",
-      "group": "Purchases"
+      "id": "warranty-management",
+      "path": "/vendor/warranties",
+      "group": "Fulfilment"
     }
   ],
   "tabs": [

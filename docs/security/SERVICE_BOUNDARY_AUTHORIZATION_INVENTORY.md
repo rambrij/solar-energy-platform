@@ -33,6 +33,7 @@ No frontend changes or schema migrations are part of P0-02.
 |---|---|---|
 | CashierSalesService.report | POS_VIEW + POS_REPORT_VIEW + POS_CASHIER_REPORT_VIEW; @PreAuthorize and service guard | authenticated employee tenant/branch and actor |
 | SalesReportService.report | POS_VIEW + POS_REPORT_VIEW; @PreAuthorize and service guard | authenticated employee tenant/branch and actor |
+| VendorInvoiceRegisterService.list | INVOICE_VIEW; direct service guard | authenticated vendor tenant; no caller-supplied tenant or branch selector |
 | OrderHistoryService.customer/customerDetail | CUSTOMER + customer actor binding | authenticated customer identity |
 | OrderHistoryService.pos/posDetail | POS_VIEW + PosService.authorize | authenticated tenant/branch and actor |
 | DraftRecoveryService.customer | CUSTOMER + customer actor binding | authenticated customer identity |

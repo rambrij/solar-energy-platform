@@ -954,6 +954,60 @@
       "assignment": "TOKEN_HASH_AND_EXPIRY",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
+    "InstallationController#assign": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_INSTALLATION_ASSIGNMENT",
+      "assignment": "INSTALLATION_ASSIGN; tenant-qualified job row lock and optimistic version; assigned employee must hold active INSTALLATION_VIEW",
+      "runtimeTest": "InstallationControllerAuthorizationTest#managerCanCreateAndAssignInstallation"
+    },
+    "InstallationController#create": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDER",
+      "assignment": "INSTALLATION_ASSIGN; paid online order locked within tenant; only one installation per tenant/order; assignee must be enabled tenant employee with active INSTALLATION_VIEW grant",
+      "runtimeTest": "InstallationControllerAuthorizationTest#managerCanCreateAndAssignInstallation"
+    },
+    "InstallationController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_INSTALLATION_OWNERSHIP",
+      "assignment": "OrderHistoryService resolves the authenticated global customer into paid-online order references; job detail and events use the verified tenant/order composite key; foreign IDs return 404.",
+      "runtimeTest": "InstallationControllerAuthorizationTest#customerCanReadOwnInstallationRoutes"
+    },
+    "InstallationController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "OrderHistoryService resolves the authenticated global customer into paid-online order references; each installation read is scoped by the verified tenant/order composite key.",
+      "runtimeTest": "InstallationControllerAuthorizationTest#customerCanReadOwnInstallationRoutes"
+    },
+    "InstallationController#eligibleEngineers": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_INSTALLATION_VIEW",
+      "assignment": "INSTALLATION_ASSIGN; only enabled employees with an active persisted tenant role grant are returned",
+      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersAndEngineersRequireInstallationAssign"
+    },
+    "InstallationController#eligibleOrders": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_CUSTOMER_ORDERS_WITHOUT_INSTALLATION",
+      "assignment": "INSTALLATION_ASSIGN; all order reads include tenant_id, ONLINE, PAID, customer_id and no existing tenant/order installation",
+      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersAndEngineersRequireInstallationAssign"
+    },
+    "InstallationController#updateStatus": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_INSTALLATION",
+      "assignment": "INSTALLATION_UPDATE; only assigned engineer or INSTALLATION_ASSIGN actor; completion additionally requires INSTALLATION_COMMISSION; transitions are optimistic and audited",
+      "runtimeTest": "InstallationControllerAuthorizationTest#assignedEngineerCanSubmitProgress"
+    },
+    "InstallationController#vendorGet": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER",
+      "assignment": "INSTALLATION_VIEW; tenant-qualified job read; assignedTo must match actor unless INSTALLATION_ASSIGN",
+      "runtimeTest": "InstallationControllerAuthorizationTest#vendorGetRequiresInstallationView"
+    },
+    "InstallationController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER",
+      "assignment": "INSTALLATION_VIEW; INSTALLATION_ASSIGN widens list only inside authenticated tenant",
+      "runtimeTest": "InstallationControllerAuthorizationTest#vendorListRequiresInstallationView"
+    },
     "MarketplaceController#cart": {
       "actor": "CUSTOMER",
       "scope": "CUSTOMER_OWNED_SINGLE_VENDOR_CART",
@@ -1458,6 +1512,60 @@
       "assignment": "POS_BRANCH_SCOPE",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
+    "QuotationController#create": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_WITH_VERIFIED_CUSTOMER_ENQUIRY",
+      "assignment": "LEAD_UPDATE and assigned lead or LEAD_ASSIGN; enquiry must be linked to the global customer identity",
+      "runtimeTest": "QuotationControllerAuthorizationTest#createQuotationRequiresAssignedLeadAndTenantOwnedProducts"
+    },
+    "QuotationController#customerDocument": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER_AND_SAVED_REVISION",
+      "assignment": "CustomerAccess resolves the global customer identity; repository lookup requires customer ID and quotation ID; document access is audited",
+      "runtimeTest": "QuotationControllerAuthorizationTest#customerQuotationDocumentRequiresCustomerIdentity"
+    },
+    "QuotationController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER",
+      "assignment": "Repository query is keyed by authenticated customer ID and quotation ID; foreign quotations return 404",
+      "runtimeTest": "QuotationControllerAuthorizationTest#customerCannotReadAnotherCustomersQuotation"
+    },
+    "QuotationController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PROFILE_FROM_AUTHENTICATED_IDENTITY",
+      "assignment": "CustomerAccess.resolve binds all rows to the authenticated global customer ID",
+      "runtimeTest": "QuotationControllerAuthorizationTest#customerQuotationListReturnsOnlyAuthenticatedCustomerRows"
+    },
+    "QuotationController#decide": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER_AND_CURRENT_UNEXPIRED_REVISION",
+      "assignment": "Only the customer owner can accept/reject the latest SENT unexpired revision; conversion is transactional and idempotent",
+      "runtimeTest": "QuotationControllerAuthorizationTest#customerDecisionIsOwnerBoundAndConvertsOnce"
+    },
+    "QuotationController#revise": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_WITH_EXISTING_QUOTATION",
+      "assignment": "LEAD_UPDATE and assigned lead or LEAD_ASSIGN; only OPEN quotations may be revised",
+      "runtimeTest": "QuotationControllerAuthorizationTest#reviseQuotationRequiresTenantAndAssignedLeadScope"
+    },
+    "QuotationController#vendorCatalogue": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PUBLISHED_PRODUCT_CATALOGUE",
+      "assignment": "LEAD_VIEW; server-derived tenant comes from active vendor membership; only the tenant published catalogue projection is returned",
+      "runtimeTest": "QuotationControllerAuthorizationTest#quotationCatalogueRequiresLeadView"
+    },
+    "QuotationController#vendorDocument": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_QUOTATION_REVISION",
+      "assignment": "LEAD_VIEW; document data comes only from the tenant-owned quotation and saved revision; vendor must own or be assigned to the source lead",
+      "runtimeTest": "QuotationControllerAuthorizationTest#vendorQuotationDocumentRequiresLeadView"
+    },
+    "QuotationController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_SCOPE",
+      "assignment": "LEAD_VIEW; LEAD_ASSIGN widens visibility only within the authenticated tenant",
+      "runtimeTest": "QuotationControllerAuthorizationTest#vendorQuotationListRequiresLeadViewAndTenantAssignmentScope"
+    },
     "ReceiptDocumentController#generate": {
       "actor": "VENDOR",
       "scope": "TENANT_OWNED_RECEIPT",
@@ -1560,6 +1668,144 @@
       "assignment": "POS_REPORT_SCOPE",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
+    "ServiceRequestController#assign": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_ASSIGNMENT",
+      "assignment": "SERVICE_ASSIGN; tenant-qualified request row lock and optimistic version; assigned employee must hold active SERVICE_VIEW",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceAssignCanListAssigneesAndReassign"
+    },
+    "ServiceRequestController#customerCreate": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "Authenticated customer actor must match Principal; order must appear in the customer's paid-online order references; tenant derived server-side; no vendor/customer cross-context",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    "ServiceRequestController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_SERVICE_REQUEST_OWNERSHIP",
+      "assignment": "Request detail and customer-visible events use only verified tenant/order references; foreign request IDs return 404",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    "ServiceRequestController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "Each request query is scoped to the verified tenant/order composite references returned for the authenticated customer",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    "ServiceRequestController#eligibleAssignees": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_SERVICE_VIEW",
+      "assignment": "SERVICE_ASSIGN; only enabled employees with an active persisted tenant SERVICE_VIEW role grant are returned",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceAssignCanListAssigneesAndReassign"
+    },
+    "ServiceRequestController#eligibleCustomerOrders": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "OrderHistoryService resolves authenticated global customer into paid-online order references; no client-supplied tenant is accepted",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
+    },
+    "ServiceRequestController#eligibleVendorOrders": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDERS",
+      "assignment": "SERVICE_CREATE; order query is tenant-qualified and returns only paid orders with a customer identity",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorCanReadEligibleOrdersAndCreateServiceRequest"
+    },
+    "ServiceRequestController#updateStatus": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_SERVICE_REQUEST",
+      "assignment": "SERVICE_UPDATE for forward progress or SERVICE_RESOLVE for resolution/closure; tenant-qualified row lock, optimistic version, transition validation, immutable event and outbox",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceUpdateCanMoveRequestForwardButNotUseResolvePermissionOnItsOwn"
+    },
+    "ServiceRequestController#vendorCreate": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDER",
+      "assignment": "SERVICE_CREATE; order locked inside authenticated tenant; installation link is resolved using the same tenant and order; event and outbox append in the same transaction",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorCanReadEligibleOrdersAndCreateServiceRequest"
+    },
+    "ServiceRequestController#vendorGet": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
+      "assignment": "SERVICE_VIEW; tenant-qualified request read; assignedTo must match actor unless SERVICE_ASSIGN",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorListAndDetailRequireServiceView"
+    },
+    "ServiceRequestController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
+      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens listing only within the authenticated tenant; other employees see only cases assigned to their username",
+      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorListAndDetailRequireServiceView"
+    },
+    "ServiceSlaController#dashboard": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_SERVICE_CASE_SCOPE",
+      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens to all active cases within the authenticated tenant; otherwise only cases assigned to the authenticated employee are returned",
+      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceViewCanReadSlaDashboardAndPolicies"
+    },
+    "ServiceSlaController#policies": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_SLA_POLICY_SCOPE",
+      "assignment": "SERVICE_VIEW; policy values are tenant-owned and do not expose another vendor's targets or actors",
+      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceViewCanReadSlaDashboardAndPolicies"
+    },
+    "ServiceSlaController#updatePolicy": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_SLA_POLICY_MUTATION_SCOPE",
+      "assignment": "SERVICE_ASSIGN; target bounds and response-before-resolution ordering enforced; a reason is mandatory; policy audit is append-only and active case snapshots are not rewritten",
+      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceAssignCanConfigureTenantSlaPolicy"
+    },
+    "ServiceVisitController#assign": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
+      "assignment": "SERVICE_ASSIGN; tenant-qualified visit lock and optimistic version; active tenant employee with SERVICE_VIEW; completed/cancelled visits terminal",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#assignmentIsProtectedByServiceAssign"
+    },
+    "ServiceVisitController#create": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_CASE_OWNERSHIP",
+      "assignment": "SERVICE_ASSIGN; exactly one tenant-qualified warranty_claim_id or service_request_id; source case row locked; assignee enabled with active SERVICE_VIEW",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceAssignCanScheduleForEitherCaseTypeAndListAssignees"
+    },
+    "ServiceVisitController#customerGet": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_VISIT_OWNERSHIP",
+      "assignment": "Foreign visit IDs return 404; customer timeline exposes only customer-visible visit events",
+      "runtimeTest": "ServiceVisitServiceAuthorizationBoundaryTest#customerVisitLookupUsesOnlyAuthenticatedPaidOrderReferences"
+    },
+    "ServiceVisitController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_VISIT_OWNERSHIP",
+      "assignment": "OrderHistoryService resolves authenticated global customer into paid-online order references; visits are filtered through tenant/order ownership for either case type",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#customerCanReadOnlyOwnVisitRoutes"
+    },
+    "ServiceVisitController#eligibleAssignees": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_SERVICE_VIEW",
+      "assignment": "SERVICE_ASSIGN; only enabled employees with active persisted tenant SERVICE_VIEW grants are returned",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceAssignCanScheduleForEitherCaseTypeAndListAssignees"
+    },
+    "ServiceVisitController#recordNote": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
+      "assignment": "SERVICE_UPDATE; assigned engineer scope; expected version; immutable note event has explicit customerVisible flag",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#engineerCanRecordProgressAndCustomerVisibleNote"
+    },
+    "ServiceVisitController#updateStatus": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
+      "assignment": "SERVICE_UPDATE for progress; SERVICE_RESOLVE for completion; SERVICE_ASSIGN for cancellation; tenant-qualified lock, assignment scope and expected version",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#engineerCanRecordProgressAndCustomerVisibleNote"
+    },
+    "ServiceVisitController#vendorGet": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER_VISIT",
+      "assignment": "SERVICE_VIEW; tenant-qualified visit and assignedTo must match actor unless SERVICE_ASSIGN",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceViewCanReadVendorVisitQueue"
+    },
+    "ServiceVisitController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER_VISIT",
+      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens list only within the authenticated tenant; other employees see visits assigned to their username",
+      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceViewCanReadVendorVisitQueue"
+    },
     "ShiftHistoryController#history": {
       "actor": "VENDOR",
       "scope": "TENANT_BRANCH_REGISTER_HISTORY",
@@ -1632,6 +1878,12 @@
       "assignment": "NONE",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; RuntimeAuthorizationPersistedRoleTest"
     },
+    "VendorInvoiceController#list": {
+      "actor": "VENDOR",
+      "scope": "TENANT",
+      "assignment": "INVOICE_VIEW",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; VendorInvoiceRegisterServiceAuthorizationBoundaryTest"
+    },
     "VendorLeadController#assign": {
       "actor": "VENDOR",
       "scope": "ACTIVE_TENANT_LEAD_AND_EMPLOYEE",
@@ -1655,6 +1907,18 @@
       "scope": "ACTIVE_TENANT_LEAD",
       "assignment": "LEAD_UPDATE assigned-to-self or LEAD_ASSIGN tenant manager; optimistic version; mandatory reason; audit",
       "runtimeTest": "MarketplaceEnquiryServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "VendorPaymentAccountController#list": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAYMENT_ACCOUNT_COLLECTION",
+      "assignment": "TENANT_PROFILE_VIEW; tenant comes only from active vendor membership; provider references are masked",
+      "runtimeTest": "VendorPaymentAccountControllerAuthorizationTest#listRequiresTenantProfileView"
+    },
+    "VendorPaymentAccountController#submit": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PROVIDER_ACCOUNT",
+      "assignment": "TENANT_PROFILE_UPDATE; body cannot set verification state; account submission/resubmission is audited and remains pending until provider verification",
+      "runtimeTest": "VendorPaymentAccountControllerAuthorizationTest#submitRequiresTenantProfileUpdate"
     },
     "VendorRoleController#assignRegisters": {
       "actor": "VENDOR",
@@ -1824,239 +2088,23 @@
       "assignment": "TENANT_PROFILE_UPDATE; tenant row lock; expected version; append-only field-name audit",
       "runtimeTest": "VendorTenantProfileServiceTest; RuntimeAuthorizationPersistedRoleTest"
     },
-    "QuotationController#vendorList": {
+    "WarrantyClaimController#assign": {
       "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_SCOPE",
-      "assignment": "LEAD_VIEW; LEAD_ASSIGN widens visibility only within the authenticated tenant",
-      "runtimeTest": "QuotationControllerAuthorizationTest#vendorQuotationListRequiresLeadViewAndTenantAssignmentScope"
+      "scope": "AUTHENTICATED_VENDOR_TENANT_CLAIM_ASSIGNMENT",
+      "assignment": "SERVICE_ASSIGN; tenant-qualified row lock, expected version and active employee with SERVICE_VIEW",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceAssignCanAssignClaim"
     },
-    "QuotationController#create": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_WITH_VERIFIED_CUSTOMER_ENQUIRY",
-      "assignment": "LEAD_UPDATE and assigned lead or LEAD_ASSIGN; enquiry must be linked to the global customer identity",
-      "runtimeTest": "QuotationControllerAuthorizationTest#createQuotationRequiresAssignedLeadAndTenantOwnedProducts"
-    },
-    "QuotationController#revise": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_WITH_EXISTING_QUOTATION",
-      "assignment": "LEAD_UPDATE and assigned lead or LEAD_ASSIGN; only OPEN quotations may be revised",
-      "runtimeTest": "QuotationControllerAuthorizationTest#reviseQuotationRequiresTenantAndAssignedLeadScope"
-    },
-    "QuotationController#customerList": {
+    "WarrantyClaimController#customerEvidence": {
       "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PROFILE_FROM_AUTHENTICATED_IDENTITY",
-      "assignment": "CustomerAccess.resolve binds all rows to the authenticated global customer ID",
-      "runtimeTest": "QuotationControllerAuthorizationTest#customerQuotationListReturnsOnlyAuthenticatedCustomerRows"
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
+      "assignment": "Claim ownership is resolved before object storage; customer uploads are visible only within their claim",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerEvidenceUploadRequiresOwnClaimServicePath"
     },
-    "QuotationController#customerGet": {
+    "WarrantyClaimController#customerEvidenceContent": {
       "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER",
-      "assignment": "Repository query is keyed by authenticated customer ID and quotation ID; foreign quotations return 404",
-      "runtimeTest": "QuotationControllerAuthorizationTest#customerCannotReadAnotherCustomersQuotation"
-    },
-    "QuotationController#decide": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER_AND_CURRENT_UNEXPIRED_REVISION",
-      "assignment": "Only the customer owner can accept/reject the latest SENT unexpired revision; conversion is transactional and idempotent",
-      "runtimeTest": "QuotationControllerAuthorizationTest#customerDecisionIsOwnerBoundAndConvertsOnce"
-    },
-    "QuotationController#vendorCatalogue": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PUBLISHED_PRODUCT_CATALOGUE",
-      "assignment": "LEAD_VIEW; server-derived tenant comes from active vendor membership; only the tenant published catalogue projection is returned",
-      "runtimeTest": "QuotationControllerAuthorizationTest#quotationCatalogueRequiresLeadView"
-    },
-    "VendorPaymentAccountController#list": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PAYMENT_ACCOUNT_COLLECTION",
-      "assignment": "TENANT_PROFILE_VIEW; tenant comes only from active vendor membership; provider references are masked",
-      "runtimeTest": "VendorPaymentAccountControllerAuthorizationTest#listRequiresTenantProfileView"
-    },
-    "VendorPaymentAccountController#submit": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PROVIDER_ACCOUNT",
-      "assignment": "TENANT_PROFILE_UPDATE; body cannot set verification state; account submission/resubmission is audited and remains pending until provider verification",
-      "runtimeTest": "VendorPaymentAccountControllerAuthorizationTest#submitRequiresTenantProfileUpdate"
-    },
-    "QuotationController#vendorDocument": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_LEAD_QUOTATION_REVISION",
-      "assignment": "LEAD_VIEW; document data comes only from the tenant-owned quotation and saved revision; vendor must own or be assigned to the source lead",
-      "runtimeTest": "QuotationControllerAuthorizationTest#vendorQuotationDocumentRequiresLeadView"
-    },
-    "QuotationController#customerDocument": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_QUOTATION_OWNER_AND_SAVED_REVISION",
-      "assignment": "CustomerAccess resolves the global customer identity; repository lookup requires customer ID and quotation ID; document access is audited",
-      "runtimeTest": "QuotationControllerAuthorizationTest#customerQuotationDocumentRequiresCustomerIdentity"
-    },
-    "InstallationController#eligibleOrders": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_CUSTOMER_ORDERS_WITHOUT_INSTALLATION",
-      "assignment": "INSTALLATION_ASSIGN; all order reads include tenant_id, ONLINE, PAID, customer_id and no existing tenant/order installation",
-      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersAndEngineersRequireInstallationAssign"
-    },
-    "InstallationController#vendorList": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER",
-      "assignment": "INSTALLATION_VIEW; INSTALLATION_ASSIGN widens list only inside authenticated tenant",
-      "runtimeTest": "InstallationControllerAuthorizationTest#vendorListRequiresInstallationView"
-    },
-    "InstallationController#vendorGet": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER",
-      "assignment": "INSTALLATION_VIEW; tenant-qualified job read; assignedTo must match actor unless INSTALLATION_ASSIGN",
-      "runtimeTest": "InstallationControllerAuthorizationTest#vendorGetRequiresInstallationView"
-    },
-    "InstallationController#create": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDER",
-      "assignment": "INSTALLATION_ASSIGN; paid online order locked within tenant; only one installation per tenant/order; assignee must be enabled tenant employee with active INSTALLATION_VIEW grant",
-      "runtimeTest": "InstallationControllerAuthorizationTest#managerCanCreateAndAssignInstallation"
-    },
-    "InstallationController#assign": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_INSTALLATION_ASSIGNMENT",
-      "assignment": "INSTALLATION_ASSIGN; tenant-qualified job row lock and optimistic version; assigned employee must hold active INSTALLATION_VIEW",
-      "runtimeTest": "InstallationControllerAuthorizationTest#managerCanCreateAndAssignInstallation"
-    },
-    "InstallationController#updateStatus": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_INSTALLATION",
-      "assignment": "INSTALLATION_UPDATE; only assigned engineer or INSTALLATION_ASSIGN actor; completion additionally requires INSTALLATION_COMMISSION; transitions are optimistic and audited",
-      "runtimeTest": "InstallationControllerAuthorizationTest#assignedEngineerCanSubmitProgress"
-    },
-    "InstallationController#customerList": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
-      "assignment": "OrderHistoryService resolves the authenticated global customer into paid-online order references; each installation read is scoped by the verified tenant/order composite key.",
-      "runtimeTest": "InstallationControllerAuthorizationTest#customerCanReadOwnInstallationRoutes"
-    },
-    "InstallationController#customerGet": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_INSTALLATION_OWNERSHIP",
-      "assignment": "OrderHistoryService resolves the authenticated global customer into paid-online order references; job detail and events use the verified tenant/order composite key; foreign IDs return 404.",
-      "runtimeTest": "InstallationControllerAuthorizationTest#customerCanReadOwnInstallationRoutes"
-    },
-    "InstallationController#eligibleEngineers": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_INSTALLATION_VIEW",
-      "assignment": "INSTALLATION_ASSIGN; only enabled employees with an active persisted tenant role grant are returned",
-      "runtimeTest": "InstallationControllerAuthorizationTest#eligibleOrdersAndEngineersRequireInstallationAssign"
-    },
-    "ServiceRequestController#eligibleVendorOrders": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDERS",
-      "assignment": "SERVICE_CREATE; order query is tenant-qualified and returns only paid orders with a customer identity",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorCanReadEligibleOrdersAndCreateServiceRequest"
-    },
-    "ServiceRequestController#eligibleAssignees": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_SERVICE_VIEW",
-      "assignment": "SERVICE_ASSIGN; only enabled employees with an active persisted tenant SERVICE_VIEW role grant are returned",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceAssignCanListAssigneesAndReassign"
-    },
-    "ServiceRequestController#vendorList": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
-      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens listing only within the authenticated tenant; other employees see only cases assigned to their username",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorListAndDetailRequireServiceView"
-    },
-    "ServiceRequestController#vendorGet": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_SERVICE_EMPLOYEE",
-      "assignment": "SERVICE_VIEW; tenant-qualified request read; assignedTo must match actor unless SERVICE_ASSIGN",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorListAndDetailRequireServiceView"
-    },
-    "ServiceRequestController#vendorCreate": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_CUSTOMER_ORDER",
-      "assignment": "SERVICE_CREATE; order locked inside authenticated tenant; installation link is resolved using the same tenant and order; event and outbox append in the same transaction",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#vendorCanReadEligibleOrdersAndCreateServiceRequest"
-    },
-    "ServiceRequestController#assign": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_ASSIGNMENT",
-      "assignment": "SERVICE_ASSIGN; tenant-qualified request row lock and optimistic version; assigned employee must hold active SERVICE_VIEW",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceAssignCanListAssigneesAndReassign"
-    },
-    "ServiceRequestController#updateStatus": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_SERVICE_REQUEST",
-      "assignment": "SERVICE_UPDATE for forward progress or SERVICE_RESOLVE for resolution/closure; tenant-qualified row lock, optimistic version, transition validation, immutable event and outbox",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#serviceUpdateCanMoveRequestForwardButNotUseResolvePermissionOnItsOwn"
-    },
-    "ServiceRequestController#eligibleCustomerOrders": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
-      "assignment": "OrderHistoryService resolves authenticated global customer into paid-online order references; no client-supplied tenant is accepted",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
-    },
-    "ServiceRequestController#customerList": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
-      "assignment": "Each request query is scoped to the verified tenant/order composite references returned for the authenticated customer",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
-    },
-    "ServiceRequestController#customerGet": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_SERVICE_REQUEST_OWNERSHIP",
-      "assignment": "Request detail and customer-visible events use only verified tenant/order references; foreign request IDs return 404",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
-    },
-    "ServiceRequestController#customerCreate": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
-      "assignment": "Authenticated customer actor must match Principal; order must appear in the customer's paid-online order references; tenant derived server-side; no vendor/customer cross-context",
-      "runtimeTest": "ServiceRequestControllerAuthorizationTest#customerCanListCreateAndReadTheirOwnServiceRequestRoutes"
-    },
-    "WarrantyController#eligibleOrders": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_CUSTOMER_ORDERS",
-      "assignment": "SERVICE_CREATE; only orders from the active vendor tenant that are PAID ONLINE and have a customer identity are returned",
-      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
-    },
-    "WarrantyController#eligibleItems": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_ORDER_ITEMS",
-      "assignment": "SERVICE_CREATE; order is validated inside the authenticated tenant before item snapshots are returned",
-      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
-    },
-    "WarrantyController#vendorList": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_WARRANTY_REGISTER",
-      "assignment": "SERVICE_VIEW; warranty records and product snapshots are filtered by the current tenant",
-      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceViewCanReadVendorWarrantyRegister"
-    },
-    "WarrantyController#register": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ORDER_ITEM",
-      "assignment": "SERVICE_CREATE; tenant-qualified paid ONLINE order is locked; item and optional installation are checked against the same tenant/order; unique order-item registration, immutable event and outbox append in one transaction",
-      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
-    },
-    "WarrantyController#customerList": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
-      "assignment": "OrderHistoryService resolves paid ONLINE order references for the authenticated customer; each warranty query is tenant/order qualified",
-      "runtimeTest": "WarrantyServiceAuthorizationBoundaryTest#customerListOnlyQueriesTenantOrderReferencesFromItsOwnPaidHistory"
-    },
-    "WarrantyController#customerGet": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_WARRANTY_OWNERSHIP",
-      "assignment": "Warranty ID is resolved only inside the authenticated customer's paid ONLINE order references; foreign or unrelated IDs return 404",
-      "runtimeTest": "WarrantyServiceAuthorizationBoundaryTest#customerCannotReadWarrantyForAnOrderTheyDoNotOwn"
-    },
-    "WarrantyClaimController#submit": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_AND_ACTIVE_WARRANTY_OWNERSHIP",
-      "assignment": "Authenticated global customer paid-order references resolve the tenant; claim requires registered warranty coverage dates to include current date",
-      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerCanSubmitAndReadClaimRoutes"
-    },
-    "WarrantyClaimController#customerList": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
-      "assignment": "Only claims joined to warranty records on the authenticated customer's tenant/order references are returned",
-      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerCanSubmitAndReadClaimRoutes"
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
+      "assignment": "Authenticated customer order references resolve claim tenant; only customer-visible evidence object can be downloaded",
+      "runtimeTest": "WarrantyClaimServiceAuthorizationBoundaryTest#customerCannotReadClaimOutsideTheirPaidOrderHistory"
     },
     "WarrantyClaimController#customerGet": {
       "actor": "CUSTOMER",
@@ -2064,29 +2112,11 @@
       "assignment": "Foreign claim IDs return 404; customer-visible events and evidence only",
       "runtimeTest": "WarrantyClaimServiceAuthorizationBoundaryTest#customerCannotReadClaimOutsideTheirPaidOrderHistory"
     },
-    "WarrantyClaimController#vendorList": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_EMPLOYEE",
-      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens only within authenticated tenant, other staff see assigned claims only",
-      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceViewCanReadVendorClaims"
-    },
-    "WarrantyClaimController#vendorGet": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_EMPLOYEE",
-      "assignment": "Tenant-qualified claim; employee assignment required unless SERVICE_ASSIGN",
-      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceViewCanReadVendorClaims"
-    },
-    "WarrantyClaimController#assign": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_CLAIM_ASSIGNMENT",
-      "assignment": "SERVICE_ASSIGN; tenant-qualified row lock, expected version and active employee with SERVICE_VIEW",
-      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceAssignCanAssignClaim"
-    },
-    "WarrantyClaimController#inspect": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
-      "assignment": "SERVICE_UPDATE; tenant lock, assigned staff scope, expected version and immutable event; note visibility explicit",
-      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceUpdateCanRecordInspection"
+    "WarrantyClaimController#customerList": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "Only claims joined to warranty records on the authenticated customer's tenant/order references are returned",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerCanSubmitAndReadClaimRoutes"
     },
     "WarrantyClaimController#decide": {
       "actor": "VENDOR",
@@ -2094,17 +2124,23 @@
       "assignment": "SERVICE_RESOLVE; requires inspection decision state; approve requires repair/replacement action; reject requires reason",
       "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceResolveCanDecideAndResolveClaim"
     },
+    "WarrantyClaimController#inspect": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
+      "assignment": "SERVICE_UPDATE; tenant lock, assigned staff scope, expected version and immutable event; note visibility explicit",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceUpdateCanRecordInspection"
+    },
     "WarrantyClaimController#resolve": {
       "actor": "VENDOR",
       "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_CLAIM",
       "assignment": "SERVICE_RESOLVE; only approved repair/replacement can be resolved with version check",
       "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceResolveCanDecideAndResolveClaim"
     },
-    "WarrantyClaimController#customerEvidence": {
+    "WarrantyClaimController#submit": {
       "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
-      "assignment": "Claim ownership is resolved before object storage; customer uploads are visible only within their claim",
-      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerEvidenceUploadRequiresOwnClaimServicePath"
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_AND_ACTIVE_WARRANTY_OWNERSHIP",
+      "assignment": "Authenticated global customer paid-order references resolve the tenant; claim requires registered warranty coverage dates to include current date",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#customerCanSubmitAndReadClaimRoutes"
     },
     "WarrantyClaimController#vendorEvidence": {
       "actor": "VENDOR",
@@ -2118,83 +2154,53 @@
       "assignment": "SERVICE_VIEW; claim tenant and assignment are checked before tenant/claim-scoped object storage read",
       "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceViewCanReadVendorClaims"
     },
-    "WarrantyClaimController#customerEvidenceContent": {
+    "WarrantyClaimController#vendorGet": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_EMPLOYEE",
+      "assignment": "Tenant-qualified claim; employee assignment required unless SERVICE_ASSIGN",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceViewCanReadVendorClaims"
+    },
+    "WarrantyClaimController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_EMPLOYEE",
+      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens only within authenticated tenant, other staff see assigned claims only",
+      "runtimeTest": "WarrantyClaimControllerAuthorizationTest#serviceViewCanReadVendorClaims"
+    },
+    "WarrantyController#customerGet": {
       "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_CLAIM_OWNERSHIP",
-      "assignment": "Authenticated customer order references resolve claim tenant; only customer-visible evidence object can be downloaded",
-      "runtimeTest": "WarrantyClaimServiceAuthorizationBoundaryTest#customerCannotReadClaimOutsideTheirPaidOrderHistory"
+      "scope": "GLOBAL_CUSTOMER_WARRANTY_OWNERSHIP",
+      "assignment": "Warranty ID is resolved only inside the authenticated customer's paid ONLINE order references; foreign or unrelated IDs return 404",
+      "runtimeTest": "WarrantyServiceAuthorizationBoundaryTest#customerCannotReadWarrantyForAnOrderTheyDoNotOwn"
     },
-    "ServiceVisitController#vendorList": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER_VISIT",
-      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens list only within the authenticated tenant; other employees see visits assigned to their username",
-      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceViewCanReadVendorVisitQueue"
-    },
-    "ServiceVisitController#eligibleAssignees": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_EMPLOYEES_WITH_SERVICE_VIEW",
-      "assignment": "SERVICE_ASSIGN; only enabled employees with active persisted tenant SERVICE_VIEW grants are returned",
-      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceAssignCanScheduleForEitherCaseTypeAndListAssignees"
-    },
-    "ServiceVisitController#vendorGet": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_AND_ASSIGNED_ENGINEER_VISIT",
-      "assignment": "SERVICE_VIEW; tenant-qualified visit and assignedTo must match actor unless SERVICE_ASSIGN",
-      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceViewCanReadVendorVisitQueue"
-    },
-    "ServiceVisitController#create": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_CASE_OWNERSHIP",
-      "assignment": "SERVICE_ASSIGN; exactly one tenant-qualified warranty_claim_id or service_request_id; source case row locked; assignee enabled with active SERVICE_VIEW",
-      "runtimeTest": "ServiceVisitControllerAuthorizationTest#serviceAssignCanScheduleForEitherCaseTypeAndListAssignees"
-    },
-    "ServiceVisitController#assign": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
-      "assignment": "SERVICE_ASSIGN; tenant-qualified visit lock and optimistic version; active tenant employee with SERVICE_VIEW; completed/cancelled visits terminal",
-      "runtimeTest": "ServiceVisitControllerAuthorizationTest#assignmentIsProtectedByServiceAssign"
-    },
-    "ServiceVisitController#updateStatus": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
-      "assignment": "SERVICE_UPDATE for progress; SERVICE_RESOLVE for completion; SERVICE_ASSIGN for cancellation; tenant-qualified lock, assignment scope and expected version",
-      "runtimeTest": "ServiceVisitControllerAuthorizationTest#engineerCanRecordProgressAndCustomerVisibleNote"
-    },
-    "ServiceVisitController#recordNote": {
-      "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_VISIT",
-      "assignment": "SERVICE_UPDATE; assigned engineer scope; expected version; immutable note event has explicit customerVisible flag",
-      "runtimeTest": "ServiceVisitControllerAuthorizationTest#engineerCanRecordProgressAndCustomerVisibleNote"
-    },
-    "ServiceVisitController#customerList": {
+    "WarrantyController#customerList": {
       "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_VISIT_OWNERSHIP",
-      "assignment": "OrderHistoryService resolves authenticated global customer into paid-online order references; visits are filtered through tenant/order ownership for either case type",
-      "runtimeTest": "ServiceVisitControllerAuthorizationTest#customerCanReadOnlyOwnVisitRoutes"
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "OrderHistoryService resolves paid ONLINE order references for the authenticated customer; each warranty query is tenant/order qualified",
+      "runtimeTest": "WarrantyServiceAuthorizationBoundaryTest#customerListOnlyQueriesTenantOrderReferencesFromItsOwnPaidHistory"
     },
-    "ServiceVisitController#customerGet": {
-      "actor": "CUSTOMER",
-      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_VISIT_OWNERSHIP",
-      "assignment": "Foreign visit IDs return 404; customer timeline exposes only customer-visible visit events",
-      "runtimeTest": "ServiceVisitServiceAuthorizationBoundaryTest#customerVisitLookupUsesOnlyAuthenticatedPaidOrderReferences"
-    },
-    "ServiceSlaController#dashboard": {
+    "WarrantyController#eligibleItems": {
       "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_ACTIVE_SERVICE_CASE_SCOPE",
-      "assignment": "SERVICE_VIEW; SERVICE_ASSIGN widens to all active cases within the authenticated tenant; otherwise only cases assigned to the authenticated employee are returned",
-      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceViewCanReadSlaDashboardAndPolicies"
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_ORDER_ITEMS",
+      "assignment": "SERVICE_CREATE; order is validated inside the authenticated tenant before item snapshots are returned",
+      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
     },
-    "ServiceSlaController#policies": {
+    "WarrantyController#eligibleOrders": {
       "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_SLA_POLICY_SCOPE",
-      "assignment": "SERVICE_VIEW; policy values are tenant-owned and do not expose another vendor's targets or actors",
-      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceViewCanReadSlaDashboardAndPolicies"
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ONLINE_CUSTOMER_ORDERS",
+      "assignment": "SERVICE_CREATE; only orders from the active vendor tenant that are PAID ONLINE and have a customer identity are returned",
+      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
     },
-    "ServiceSlaController#updatePolicy": {
+    "WarrantyController#register": {
       "actor": "VENDOR",
-      "scope": "AUTHENTICATED_VENDOR_TENANT_SERVICE_SLA_POLICY_MUTATION_SCOPE",
-      "assignment": "SERVICE_ASSIGN; target bounds and response-before-resolution ordering enforced; a reason is mandatory; policy audit is append-only and active case snapshots are not rewritten",
-      "runtimeTest": "ServiceSlaControllerAuthorizationTest#serviceAssignCanConfigureTenantSlaPolicy"
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PAID_ORDER_ITEM",
+      "assignment": "SERVICE_CREATE; tenant-qualified paid ONLINE order is locked; item and optional installation are checked against the same tenant/order; unique order-item registration, immutable event and outbox append in one transaction",
+      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceCreateCanRegisterWarranty"
+    },
+    "WarrantyController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_WARRANTY_REGISTER",
+      "assignment": "SERVICE_VIEW; warranty records and product snapshots are filtered by the current tenant",
+      "runtimeTest": "WarrantyControllerAuthorizationTest#serviceViewCanReadVendorWarrantyRegister"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

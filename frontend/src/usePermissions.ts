@@ -77,6 +77,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'sales-insights':{allOf:['POS_VIEW','POS_REPORT_VIEW']},
  'refund-insights':{allOf:['POS_VIEW','POS_REPORT_VIEW','POS_REFUND_VIEW']},
  'cashier-sales-insights':{allOf:['POS_VIEW','POS_REPORT_VIEW','POS_CASHIER_REPORT_VIEW']},
+ 'vendor-invoices':{allOf:['INVOICE_VIEW']},
  'role-management':{anyOf:['ROLE_VIEW','ROLE_CREATE','ROLE_UPDATE','ROLE_ASSIGN']},
  'employee-management':{anyOf:['USER_VIEW','USER_CREATE','USER_UPDATE','USER_DISABLE']},
  'vendor-profile':{allOf:['TENANT_PROFILE_VIEW']},

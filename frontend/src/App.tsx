@@ -12,6 +12,7 @@ import OrderHistory from './OrderHistory';
 import SalesInsights from './SalesInsights';
 import RefundInsights from './RefundInsights';
 import CashierSalesInsights from './CashierSalesInsights';
+import VendorInvoiceRegister from './VendorInvoiceRegister';
 import type { Receipt } from './types';
 import SaleReceipt from './SaleReceipt';
 import ReceiptPdfCopy from './ReceiptPdfCopy';
@@ -165,6 +166,7 @@ export default function App() {
     <RouteOutlet id="sales-insights" mode="pos"><SalesInsights/></RouteOutlet>
     <RouteOutlet id="refund-insights" mode="pos"><RefundInsights/></RouteOutlet>
     <RouteOutlet id="cashier-sales-insights" mode="pos"><CashierSalesInsights/></RouteOutlet>
+    <RouteOutlet id="vendor-invoices" mode="pos"><VendorInvoiceRegister/></RouteOutlet>
     <RouteOutlet id="shift-history" mode="pos"><ShiftHistory revision={String(drawerRevision)}/></RouteOutlet>
     {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="category-management" mode="pos"><CategoryManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
     {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="product-management" mode="pos"><ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}

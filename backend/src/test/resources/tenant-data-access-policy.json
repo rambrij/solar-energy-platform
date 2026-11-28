@@ -2209,7 +2209,8 @@
       "trustedSource": "Cart and item saves use the authenticated customer and published vendor selection; child key contains tenant, cart and product.",
       "evidence": [
         "customers.resolve(context.username())",
-        "new CartItem.Key(vendor.id(),current.id(),request.productId())"
+        "new CartItem.Key(vendor.id(),current.id(),request.productId())",
+        "items.item(current.tenantId(),current.id(),product).ifPresent(items::delete)"
       ],
       "calls": [
         {
@@ -2218,6 +2219,10 @@
         },
         {
           "call": "items.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "items::delete",
           "expectedCallCount": 1
         }
       ]

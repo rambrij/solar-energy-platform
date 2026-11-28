@@ -333,32 +333,7 @@
         "tenant-qualified composite foreign keys",
         "tenant row lock before transfer mutations"
       ],
-      "trustedTenantParameters": {
-        "debitBranch": [
-          "tenant"
-        ],
-        "debitWarehouse": [
-          "tenant"
-        ],
-        "creditBranch": [
-          "tenant"
-        ],
-        "creditWarehouse": [
-          "tenant"
-        ],
-        "requireWarehouseCapacity": [
-          "tenant"
-        ],
-        "lockTenant": [
-          "tenant"
-        ],
-        "requireBranch": [
-          "tenant"
-        ],
-        "requirePosLocation": [
-          "tenant"
-        ]
-      }
+      "trustedTenantParameters": {}
     },
     {
       "source": "com.saumya.pos.marketplace.MarketplaceEnquiryService",

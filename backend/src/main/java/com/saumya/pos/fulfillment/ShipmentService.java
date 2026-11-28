@@ -107,7 +107,10 @@ public class ShipmentService {
 
  @PreAuthorize("hasAuthority('SHIPMENT_VIEW')")
  public List<SerialAsset> vendorSerialAssets(long shipmentId){
-  var c=vendor("SHIPMENT_VIEW");
+  return vendorSerialAssets(vendor("SHIPMENT_VIEW"),shipmentId);
+ }
+
+ private List<SerialAsset> vendorSerialAssets(AuthorizationContext.Context c,long shipmentId){
   if(shipmentId<1||db.queryForList("SELECT id FROM shipments WHERE tenant_id=? AND id=?",c.tenantId(),shipmentId).isEmpty())throw missing();
   return db.query("""
    SELECT a.id,a.product_id,p.name product_name,a.serial_number,a.order_id,a.shipment_id,l.installation_id,a.recorded_at

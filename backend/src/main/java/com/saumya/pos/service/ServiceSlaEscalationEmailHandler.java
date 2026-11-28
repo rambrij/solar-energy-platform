@@ -52,7 +52,7 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
     }
 
     @Override
-    public void handle(IntegrationOutboxService.Event event) throws Exception {
+    public void handle(IntegrationOutboxService.Event event) {
         if (event == null || event.tenant() == null || event.tenant() <= 0
                 || !EVENT_TYPE.equals(event.type()) || !isEventId(event.id())) {
             throw new IllegalArgumentException("A tenant-owned SLA escalation event is required");
@@ -106,15 +106,19 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
             This notification was sent to active, verified members of the configured tenant role.
             """.formatted(level, caseType, caseId, breachType, escalationId, escalatedAt, link);
         for (String recipient : recipients) {
-            MimeMessage message = mail.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
-            helper.setFrom(from);
-            helper.setTo(recipient);
-            helper.setSubject("Action required: service SLA escalation level " + level);
-            helper.setText(body, false);
-            message.setHeader("Message-ID", messageId);
-            message.setHeader("X-Idempotency-Key", event.id());
-            mail.send(message);
+            try {
+                MimeMessage message = mail.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+                helper.setFrom(from);
+                helper.setTo(recipient);
+                helper.setSubject("Action required: service SLA escalation level " + level);
+                helper.setText(body, false);
+                message.setHeader("Message-ID", messageId);
+                message.setHeader("X-Idempotency-Key", event.id());
+                mail.send(message);
+            } catch (Exception failure) {
+                throw new IllegalStateException("SLA escalation email delivery failed", failure);
+            }
         }
     }
 

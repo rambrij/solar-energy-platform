@@ -32,7 +32,7 @@ public class WarehouseInventoryService {
     }
 
     public record WarehouseView(long id,long branchId,String code,String name,boolean active,long version) {}
-    public record TransferView(String id,String sourceType,Long sourceWarehouseId,long sourceBranchId,
+    public record WarehouseStockView(long productId,String sku,String productName,int onHand,int reserved,int damaged,int available,long version) {}\n    public record TransferView(String id,String sourceType,Long sourceWarehouseId,long sourceBranchId,
         String destinationType,Long destinationWarehouseId,long destinationBranchId,long productId,
         int quantity,int receivedQuantity,String status,String reason,String createdBy,String approvedBy,
         String dispatchedBy,String completedBy,Instant createdAt,Instant dispatchedAt,Instant completedAt,long version) {}
@@ -59,6 +59,26 @@ public class WarehouseInventoryService {
             """,(rs,n)->new WarehouseView(rs.getLong("id"),rs.getLong("branch_id"),
             rs.getString("code"),rs.getString("name"),rs.getBoolean("active"),rs.getLong("version")),
             a.tenantId(),a.branchId());
+    }
+
+    @Transactional(readOnly=true)
+    @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
+    public List<WarehouseStockView> warehouseStock(long warehouseId) {
+        var a=actor("INVENTORY_VIEW");
+        if(warehouseId<1||jdbc.query("""
+            SELECT id FROM warehouses WHERE tenant_id=? AND branch_id=? AND id=?
+            """,(rs,n)->rs.getLong(1),a.tenantId(),a.branchId(),warehouseId).isEmpty())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Warehouse unavailable");
+        return jdbc.query("""
+            SELECT wi.product_id,p.sku,p.name,wi.on_hand,wi.reserved,wi.damaged,
+              wi.on_hand-wi.reserved-wi.damaged AS available,wi.version
+            FROM warehouse_inventory wi
+            JOIN products p ON p.tenant_id=wi.tenant_id AND p.id=wi.product_id
+            WHERE wi.tenant_id=? AND wi.warehouse_id=?
+            ORDER BY p.name,wi.product_id
+            """,(rs,n)->new WarehouseStockView(rs.getLong("product_id"),rs.getString("sku"),
+            rs.getString("name"),rs.getInt("on_hand"),rs.getInt("reserved"),rs.getInt("damaged"),
+            rs.getInt("available"),rs.getLong("version")),a.tenantId(),warehouseId);
     }
 
     @Transactional

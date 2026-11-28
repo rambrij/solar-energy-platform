@@ -3,7 +3,7 @@ import {marketplaceApi} from './marketplaceApi';
 
 type Job={id:number;orderId:string;siteAddress:string;scheduledAt:string;status:string;createdAt:string;updatedAt:string;completedAt:string|null};
 type Event={id:number;type:string;status:string;note:string;occurredAt:string};
-type Detail={job:Job;events:Event[]};
+type Detail={job:Job;events:Event[];serialAssets:{id:number;productId:number;productName:string;serialNumber:string;shipmentId:number;recordedAt:string}[]};
 
 export default function CustomerInstallations(){
  const [jobs,setJobs]=useState<Job[]>([]);
@@ -52,6 +52,8 @@ export default function CustomerInstallations(){
     <p><strong>{detail.job.status.replaceAll('_',' ')}</strong></p>
     <p>Site: {detail.job.siteAddress}</p>
     <p>Scheduled: {new Date(detail.job.scheduledAt).toLocaleString()}</p>
+    <h4>Serialized products installed</h4>
+    {detail.serialAssets.length===0?<p>No serialized product units have been linked to this installation yet.</p>:<ul>{detail.serialAssets.map(asset=><li key={asset.id}>{asset.productName} — Serial number {asset.serialNumber}</li>)}</ul>}
     <h4>Progress history</h4>
     {detail.events.length===0?<p>No progress updates have been shared yet.</p>:<ol>{detail.events.map(event=><li key={event.id}>
      <strong>{event.status.replaceAll('_',' ')}</strong> · {event.note}

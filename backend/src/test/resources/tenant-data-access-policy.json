@@ -2603,8 +2603,9 @@
       "scope": "PLATFORM_OPERATOR_MFA_ENROLLMENT_TOKEN",
       "trustedSource": "MFA enrollment tokens are issued for the target global identity only after platform authorization and are deleted after successful enrollment.",
       "evidence": [
-        "requirePlatform",
-        "new PlatformMfaEnrollmentToken(hashToken(token),target"
+        "actor.isPlatformUser()",
+        "new PlatformMfaEnrollmentToken(hashToken(token),target",
+        "actor.requirePermission(\"PLATFORM_IDENTITY_MANAGE\")"
       ],
       "calls": [
         {

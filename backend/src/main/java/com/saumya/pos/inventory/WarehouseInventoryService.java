@@ -1,6 +1,6 @@
-package com.saumycontext.pos.inventory;
+package com.saumya.pos.inventory;
 
-import com.saumycontext.pos.security.AuthorizationContext;
+import com.saumya.pos.security.AuthorizationContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -202,7 +202,7 @@ public class WarehouseInventoryService {
         String why=required(reason,500,"Reason");
         lockTenant(context.tenantId());
         requireBranch(context.tenantId(),destinationBranchId);
-        if("WAREHOUSE".equals(source))requireWarehouse(a,sourceWarehouseId,context.branchId(),true);
+        if("WAREHOUSE".equals(source))requireWarehouse(context,sourceWarehouseId,context.branchId(),true);
         if("WAREHOUSE".equals(destination))requireWarehouse(a,destinationWarehouseId,destinationBranchId,true);
         if("BRANCH".equals(destination))requirePosLocation(context.tenantId(),destinationBranchId);
         if("BRANCH".equals(source))requirePosLocation(context.tenantId(),context.branchId());

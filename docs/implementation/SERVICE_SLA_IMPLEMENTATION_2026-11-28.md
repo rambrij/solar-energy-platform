@@ -40,8 +40,13 @@ Composite tenant foreign keys constrain both case types and their SLA clocks. My
 ## Explicit limitations
 
 - These targets use elapsed calendar time, not configurable business hours, holidays or pause windows.
-- A breach creates a durable audit event and transactional outbox event. A dedicated email/SMS/WhatsApp delivery adapter and escalation-recipient policy are not part of this increment; an outbox event must not be described as a delivered notification.
+- A breach creates a durable audit event and transactional outbox event. Tenant escalation-recipient policies and a Spring Mail handler for `SERVICE_SLA.ESCALATED` now deliver plain-text email to active, verified employees with the configured tenant role. Outbox delivery is at-least-once; SMTP acceptance is not an exactly-once guarantee. SMS/WhatsApp delivery is not implemented.
 - Warranty claims remain at NORMAL priority until the claim domain itself formally introduces priority.
 - SLA clocks are independent of payment/refund, parts inventory and replacement-order execution.
 
 The Version 2.0 source-of-truth requirements documents are unchanged.
+
+
+## Email delivery follow-up — 28 November 2026
+
+The follow-on email delivery handler, tenant-scoped recipient resolution, retry behavior and limitations are documented in [Tenant SLA escalation email notifications](SERVICE_SLA_EMAIL_NOTIFICATIONS_2026-11-28.md). The Version 2.0 source-of-truth documents remain unchanged.

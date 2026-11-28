@@ -19,7 +19,8 @@ public class ServiceSlaEscalationController {
     public record PolicyRequest(@NotBlank @Size(max=24) String caseType,
         @NotBlank @Size(max=16) String priority, @NotBlank @Size(max=16) String breachType,
         @Min(1) @Max(5) int escalationLevel, @Min(0) @Max(525600) int afterMinutes,
-        @NotBlank @Size(max=64) String recipientRoleKey, boolean enabled) {}
+        @NotBlank @Size(max=64) String recipientRoleKey, boolean enabled,
+        @NotBlank @Size(max=500) String reason) {}
     public record AcknowledgeRequest(@NotBlank @Size(max=500) String note) {}
 
     @GetMapping("/escalation-policies")
@@ -31,7 +32,7 @@ public class ServiceSlaEscalationController {
     public ServiceSlaEscalationService.Policy savePolicy(@Valid @RequestBody PolicyRequest request) {
         return escalations.savePolicy(new ServiceSlaEscalationService.PolicyUpdate(
             request.caseType(), request.priority(), request.breachType(), request.escalationLevel(),
-            request.afterMinutes(), request.recipientRoleKey(), request.enabled()));
+            request.afterMinutes(), request.recipientRoleKey(), request.enabled(), request.reason()));
     }
 
     @GetMapping("/escalations")

@@ -40,6 +40,8 @@ subscriptions:
 auth:
   jwt-secret: ${AUTH_JWT_SECRET:}
 app:
+  rate-limit:
+    redis-enabled: ${REDIS_RATE_LIMIT_ENABLED:false}
   object-storage:
     endpoint: ${OBJECT_STORAGE_ENDPOINT:}
     access-key: ${OBJECT_STORAGE_ACCESS_KEY:}

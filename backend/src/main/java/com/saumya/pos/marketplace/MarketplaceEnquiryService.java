@@ -42,12 +42,23 @@ public class MarketplaceEnquiryService {
     private final TenantLifecycleService tenants;
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final RedisEnquiryRateLimiter redisRateLimiter;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    public MarketplaceEnquiryService(CatalogService catalogue,MarketplaceEnquiryRepository enquiries,
+            CustomerAccess customers,VendorCustomerService relationships,AuthorizationContext authorization,
+            VendorAccessAuditService audit,TenantLifecycleService tenants,JdbcTemplate jdbc,Clock clock,
+            RedisEnquiryRateLimiter redisRateLimiter) {
+        this.catalogue=catalogue;this.enquiries=enquiries;this.customers=customers;this.relationships=relationships;
+        this.authorization=authorization;this.audit=audit;this.tenants=tenants;this.jdbc=jdbc;this.clock=clock;
+        this.redisRateLimiter=redisRateLimiter;
+    }
+
+    /** Compatibility constructor for isolated service tests; production uses the injected Redis limiter. */
     public MarketplaceEnquiryService(CatalogService catalogue,MarketplaceEnquiryRepository enquiries,
             CustomerAccess customers,VendorCustomerService relationships,AuthorizationContext authorization,
             VendorAccessAuditService audit,TenantLifecycleService tenants,JdbcTemplate jdbc,Clock clock) {
-        this.catalogue=catalogue;this.enquiries=enquiries;this.customers=customers;this.relationships=relationships;
-        this.authorization=authorization;this.audit=audit;this.tenants=tenants;this.jdbc=jdbc;this.clock=clock;
+        this(catalogue,enquiries,customers,relationships,authorization,audit,tenants,jdbc,clock,null);
     }
 
     public record Submission(String contactName,String contactEmail,String contactPhone,String message,
@@ -70,9 +81,15 @@ public class MarketplaceEnquiryService {
         String requesterHash=hashAddress(remoteAddress);
         if(!tenants.lockActive(vendor.id())) throw new ResponseStatusException(NOT_FOUND,"Vendor unavailable");
         Instant now=clock.instant();
-        long recent=enquiries.countByTenantIdAndRequesterHashAndCreatedAtAfter(vendor.id(),requesterHash,now.minus(RATE_WINDOW));
-        if(recent>=MAX_REQUESTS_PER_WINDOW)
-            throw new ResponseStatusException(TOO_MANY_REQUESTS,"Too many enquiries from this connection. Please try again later");
+        if(redisRateLimiter!=null&&redisRateLimiter.enabled()) {
+            if(!redisRateLimiter.tryAcquire(vendor.id(),requesterHash,now))
+                throw new ResponseStatusException(TOO_MANY_REQUESTS,"Too many enquiries from this connection. Please try again later");
+        } else {
+            // Database fallback keeps isolated H2/MySQL tests and deployments without Redis functional.
+            long recent=enquiries.countByTenantIdAndRequesterHashAndCreatedAtAfter(vendor.id(),requesterHash,now.minus(RATE_WINDOW));
+            if(recent>=MAX_REQUESTS_PER_WINDOW)
+                throw new ResponseStatusException(TOO_MANY_REQUESTS,"Too many enquiries from this connection. Please try again later");
+        }
 
         Long productId=null;
         String productName=null;

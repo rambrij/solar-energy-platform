@@ -37,7 +37,7 @@ class ServiceSlaEscalationServiceTest {
         when(db.update(anyString(),any(Object[].class))).thenReturn(1);
 
         var saved=service().savePolicy(new ServiceSlaEscalationService.PolicyUpdate(
-            "SERVICE_REQUEST","HIGH","RESPONSE",1,30,"SERVICE_MANAGER",true));
+            "SERVICE_REQUEST","HIGH","RESPONSE",1,30,"SERVICE_MANAGER",true,"Approved escalation policy change"));
 
         assertThat(saved.id()).isEqualTo(31L);
         assertThat(saved.recipientRoleKey()).isEqualTo("SERVICE_MANAGER");

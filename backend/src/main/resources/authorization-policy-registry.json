@@ -873,11 +873,11 @@
       "permission": "POS_REFUND_VIEW",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/pos/refunds and /refunds/history",
-      "service": "CashRefundService; RefundHistoryService",
-      "scope": "Tenant-owned refund records; register/session scope where required",
-      "ui": "POS > Cash refunds; Refund insights",
-      "test": "RefundHistoryControllerAuthorizationTest; CashRefundControllerAuthorizationTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+      "endpoint": "GET /api/v1/vendor/pos/refunds and /refunds/history; GET /api/v1/vendor/reports/refunds",
+      "service": "CashRefundService; RefundHistoryService; VendorTenantRefundAnalyticsService",
+      "scope": "Tenant-owned POS refund records; register/session scope where required. Tenant-wide cash refund analytics derives tenant only from active AuthorizationContext membership and aggregates refund headers and lines separately.",
+      "ui": "POS > Cash refunds; POS > Refund insights; Vendor workspace > Reports > Vendor performance",
+      "test": "RefundHistoryControllerAuthorizationTest; CashRefundControllerAuthorizationTest; VendorTenantRefundAnalyticsServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest; OpenApiContractTest"
     },
     {
       "permission": "POS_REPORT_EXPORT",
@@ -893,11 +893,11 @@
       "permission": "POS_REPORT_VIEW",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/pos/reports/sales and /reports/cash-refunds",
-      "service": "SalesReportService; RefundReportService",
-      "scope": "Tenant and branch-scoped report aggregation",
-      "ui": "POS > Sales insights; Refund insights",
-      "test": "RefundReportControllerAuthorizationTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+      "endpoint": "GET /api/v1/vendor/pos/reports/sales; GET /api/v1/vendor/pos/reports/cash-refunds; GET /api/v1/vendor/reports/overview",
+      "service": "SalesReportService; RefundReportService; VendorTenantReportService",
+      "scope": "Branch-scoped POS reports use the authenticated tenant/branch; tenant-wide overview derives tenant only from active AuthorizationContext membership and queries independent aggregates.",
+      "ui": "POS > Sales insights; POS > Refund insights; Vendor workspace > Reports > Vendor performance",
+      "test": "SalesReportServiceTest; RefundReportControllerAuthorizationTest; VendorTenantReportServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest; OpenApiContractTest"
     },
     {
       "permission": "POS_RETURN_APPROVE",
@@ -1298,26 +1298,6 @@
       "scope": "One tenant; employee branch and register assignments remain additional controls",
       "ui": "Vendor workspace > Access administration > employee lifecycle",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
-    },
-    {
-      "permission": "POS_REPORT_VIEW",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/reports/overview",
-      "service": "VendorTenantReportService.report",
-      "scope": "Authenticated vendor membership tenant only; independent order, item, tender, outlet and distinct-customer aggregates.",
-      "ui": "Vendor workspace > Reports > Vendor performance",
-      "test": "VendorTenantReportServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest; OpenApiContractTest"
-    },
-    {
-      "permission": "POS_REFUND_VIEW",
-      "status": "IMPLEMENTED",
-      "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/reports/refunds",
-      "service": "VendorTenantRefundAnalyticsService.report",
-      "scope": "Authenticated vendor membership tenant only; independent POS cash refund header and line aggregates.",
-      "ui": "Vendor workspace > Reports > Vendor performance",
-      "test": "VendorTenantRefundAnalyticsServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest; OpenApiContractTest"
     }
   ],
   "frontendPlatformPages": {

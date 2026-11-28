@@ -235,6 +235,9 @@ The source inventory contains **65 service-type Java source files** (57 concrete
 | PaymentCheckoutService | tenderStatus, tender, finalizeTenders, status, start, confirm, unknown, reviewStatus, awaitingReview, finalizeVerified, verifyEvidence | Owned order plus customer/POS actor and operation-specific tender permissions |
 | SaleDiscountService | calculate | Internal checkout calculation; applied discounts require POS_DISCOUNT_APPLY, reason and tenant policy |
 | SalesReportService | report | POS_VIEW and POS_REPORT_VIEW |
+
+| VendorTenantReportService | report | POS_REPORT_VIEW; direct service guard; tenant-wide overview derives only the authenticated vendor membership tenant and performs separate order, item, tender, outlet and customer aggregates; no client tenant/branch selector |
+| VendorTenantRefundAnalyticsService | report | POS_REPORT_VIEW + POS_REFUND_VIEW; direct service guard; derives tenant only from authenticated membership and aggregates immutable POS cash-refund headers and lines separately |
 | VendorInvoiceRegisterService | list | INVOICE_VIEW; direct service guard | authenticated vendor membership and tenant derived from active AuthorizationContext; tenant predicates bind all invoice/order/confirmed-payment queries; date, channel and pagination filters are bounded |
 | TenderReviewService | review | Delegates to PaymentCheckoutService.verifyEvidence, which checks tender review permission and order scope |
 | VendorCustomerService | associate | Trusted internal call from CustomerAssociationService.approve only; exact `system:customer-association` principal plus `SYSTEM_CUSTOMER_ASSOCIATION` authority required before relationship repository access; MANDATORY transaction and original customer context restored by caller |

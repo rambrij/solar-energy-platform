@@ -5,15 +5,15 @@ type SerialAsset={id:number;productId:number;productName:string;serialNumber:str
 type Shipment={id:number;orderId:string;carrier:string;trackingReference:string;trackingUrl:string|null;createdAt:string;events:{id:number;eventCode:string;description:string;reason:string;actorUsername:string;occurredAt:string}[];serialAssets:SerialAsset[]};
 export default function ShipmentManagement(){
  const [eligible,setEligible]=useState<Eligible[]>([]),[shipments,setShipments]=useState<Shipment[]>([]),[selected,setSelected]=useState(''),[carrier,setCarrier]=useState(''),[reference,setReference]=useState(''),[url,setUrl]=useState(''),[reason,setReason]=useState(''),[code,setCode]=useState('PICKED_UP'),[description,setDescription]=useState(''),[serialProductId,setSerialProductId]=useState(''),[serialNumbers,setSerialNumbers]=useState(''),[serialReason,setSerialReason]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
- async function loadSerialAssets(id:number){return vendorApi('/shipments/'+id+'/serial-assets') as Promise<SerialAsset[]>;}
+ async function loadSerialAssets(shipmentId:number){return vendorApi('/shipments/'+shipmentId+'/serial-assets') as Promise<SerialAsset[]>;}
  async function load(){setBusy(true);setError('');try{const [orders,rows]=await Promise.all([vendorApi('/shipments/orders'),vendorApi('/shipments')]);const withSerials=await Promise.all((rows as Shipment[]).map(async row=>({...row,serialAssets:await loadSerialAssets(row.id).catch(()=>[])})));setEligible(orders);setShipments(withSerials);}catch{setError('Shipment workspace could not be loaded. Check shipment permissions and retry.');}finally{setBusy(false);}}
  useEffect(()=>{void load();},[]);
  async function create(event:React.FormEvent){event.preventDefault();setBusy(true);setError('');setNotice('');try{await vendorApi(`/orders/${encodeURIComponent(selected)}/shipments`,'POST',{carrier,trackingReference:reference,trackingUrl:url||null,reason});setCarrier('');setReference('');setUrl('');setReason('');setSelected('');setNotice('Shipment registered.');await load();}catch{setError('Shipment was not confirmed. Check the order and tracking details, then retry.');}finally{setBusy(false);}}
- async function captureSerials(id:number){
+ async function captureSerials(shipmentId:number){
   const serials=serialNumbers.split(/[\n,;]+/).map(value=>value.trim()).filter(Boolean);
   if(!serialProductId||serials.length===0||!serialReason.trim()){setError('Enter a product ID, at least one serial number and an audit reason.');return;}
   setBusy(true);setError('');setNotice('');
-  try{await vendorApi(`/shipments/${id}/serial-assets`,'POST',{productId:Number(serialProductId),serialNumbers:serials,reason:serialReason.trim()});setSerialNumbers('');setSerialReason('');setNotice('Serial numbers recorded and linked to the order.');await load();}
+  try{await vendorApi(`/shipments/${shipmentId}/serial-assets`,'POST',{productId:Number(serialProductId),serialNumbers:serials,reason:serialReason.trim()});setSerialNumbers('');setSerialReason('');setNotice('Serial numbers recorded and linked to the order.');await load();}
   catch(e){setError(e instanceof Error?e.message:'Serial numbers were not recorded. Check product quantity and duplicate serials.');}
   finally{setBusy(false);}
  }

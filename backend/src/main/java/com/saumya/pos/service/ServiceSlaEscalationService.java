@@ -251,7 +251,7 @@ public class ServiceSlaEscalationService {
 
     private static boolean isEmailAddress(String value) {
         return value != null && value.length() <= 100
-            && value.matches("^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$");
+            && value.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     }
 
     @Transactional(readOnly = true)

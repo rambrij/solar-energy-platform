@@ -56,6 +56,15 @@ class OpenApiContractTest {
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/installations/{id}")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/installations/{id}/assignment")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/installations/{id}/status")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/warehouses")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/warehouses/{id}")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/warehouses/{id}/stock")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/transfers")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/transfers/{id}")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/transfers/{id}/approve")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/transfers/{id}/cancel")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/transfers/{id}/dispatch")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/inventory/transfers/{id}/receive")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/customer/installations")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/customer/installations/{id}")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("components").path("securitySchemes").has("bearerAuth")).isTrue();

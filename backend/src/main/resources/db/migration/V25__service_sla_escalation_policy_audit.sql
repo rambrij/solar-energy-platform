@@ -1,7 +1,9 @@
 -- Immutable audit trail for every tenant SLA escalation policy change.
 ALTER TABLE service_sla_escalation_policies
-  ADD COLUMN updated_reason VARCHAR(500) NOT NULL DEFAULT 'Initial policy creation',
-  ADD UNIQUE KEY uk_service_sla_escalation_policy_tenant_id (tenant_id,id);
+  ADD COLUMN updated_reason VARCHAR(500) NOT NULL DEFAULT 'Initial policy creation';
+
+ALTER TABLE service_sla_escalation_policies
+  ADD CONSTRAINT uk_service_sla_escalation_policy_tenant_id UNIQUE (tenant_id,id);
 
 CREATE TABLE service_sla_escalation_policy_audit (
   id BIGINT NOT NULL AUTO_INCREMENT,

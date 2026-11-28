@@ -66,7 +66,11 @@ class InstallationServiceEventOutboxTest {
                     &&payload.get("orderId").equals("paid-order-1")
                     &&payload.get("status").equals("ASSIGNED")
                     &&payload.get("occurredAt").equals(now.toString())));
-        verify(db,times(3)).update(anyString(),any(Object[].class));
+        verify(db,times(5)).update(anyString(),any(Object[].class));
+        verify(db).update(contains("UPDATE shipment_serial_assets SET installation_id=?"),
+            eq(81L),eq(7L),eq("paid-order-1"));
+        verify(db).update(contains("INSTALLATION_LINKED"),eq("manager@vendor.test"),
+            eq("Linked to installation 81"),eq(7L),eq(81L));
         verifyNoInteractions(orders);
     }
 }

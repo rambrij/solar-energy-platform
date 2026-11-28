@@ -30,6 +30,7 @@ import CategoryManager from './CategoryManager';
 import ProductManager from './ProductManager';
 import SolarPackageManager from './SolarPackageManager';
 import StockReceiving from './StockReceiving';
+import WarehouseTransfers from './WarehouseTransfers';
 import VendorAccessAdmin from './VendorAccessAdmin';
 import VendorCustomerCrm from './VendorCustomerCrm';
 import VendorSiteSurveys from './VendorSiteSurveys';
@@ -174,6 +175,7 @@ export default function App() {
     {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="product-management" mode="pos"><ProductManager onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
     {account?.permissions.some(permission=>['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE'].includes(permission))&&<RouteOutlet id="solar-package-management" mode="pos"><SolarPackageManager/></RouteOutlet>}
     {account?.permissions.some(permission=>['INVENTORY_RECEIVE','INVENTORY_VIEW'].includes(permission))&&<RouteOutlet id="stock-receiving" mode="pos"><StockReceiving key={`${account.username}:${account.tenantId}:${account.branchId}`} onChanged={()=>setCatalogueRevision(value=>value+1)}/></RouteOutlet>}
+    {account?.permissions.some(permission=>['INVENTORY_TRANSFER','INVENTORY_VIEW'].includes(permission))&&<RouteOutlet id="warehouse-transfers" mode="pos"><WarehouseTransfers key={`${account.username}:${account.tenantId}:${account.branchId}`}/></RouteOutlet>}
     <RouteOutlet id="store-settings" mode="pos"><StoreSettings/></RouteOutlet>
     <RouteOutlet id="shift-reviews" mode="pos"><ShiftReviews/></RouteOutlet>
     <RouteOutlet id="role-management" mode="pos"><VendorAccessAdmin mode="roles"/></RouteOutlet>

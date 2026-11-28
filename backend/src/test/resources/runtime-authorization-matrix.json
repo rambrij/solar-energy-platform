@@ -2339,6 +2339,24 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_ESCALATION_ACKNOWLEDGEMENT_SCOPE",
       "assignment": "SERVICE_UPDATE; lock and acknowledge only the tenant-owned escalation, requiring a note and append-only event",
       "runtimeTest": "ServiceSlaEscalationControllerAuthorizationTest#serviceUpdateCanAcknowledgeEscalation"
+    },
+    "VendorShipmentController#serialAssets": {
+      "actor": "VENDOR",
+      "scope": "TENANT_SHIPMENT_SERIAL_ASSETS",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_VIEW",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "VendorShipmentController#captureSerialAssets": {
+      "actor": "VENDOR",
+      "scope": "TENANT_PAID_ORDER_LINE_SERIAL_ASSET_CAPTURE",
+      "assignment": "ACTIVE_VENDOR_MEMBERSHIP_AND_SHIPMENT_UPDATE",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "CustomerShipmentController#customerSerialAssets": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_OWNED_ORDER_SERIAL_ASSETS",
+      "assignment": "CUSTOMER_IDENTITY_AND_PAID_ORDER_OWNERSHIP",
+      "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

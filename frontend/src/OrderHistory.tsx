@@ -67,10 +67,12 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
         setDetail(value);
         if (mode === 'online' && value.order.channel === 'ONLINE') {
           try {
-            const [trackingRows,serialRows] = await Promise.all([
-              marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/shipments`) as Promise<Tracking[]>,
-              marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/serial-assets`) as Promise<CustomerSerialAsset[]>
+            const [trackingResponse,serialResponse] = await Promise.all([
+              marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/shipments`),
+              marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/serial-assets`)
             ]);
+            const trackingRows: Tracking[] = Array.isArray(trackingResponse)?trackingResponse:[];
+            const serialRows: CustomerSerialAsset[] = Array.isArray(serialResponse)?serialResponse:[];
             if (current === version.current) { setTracking(trackingRows); setSerialAssets(serialRows); }
           } catch {
             if (current === version.current) setTracking([]);

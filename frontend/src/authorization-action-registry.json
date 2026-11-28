@@ -4521,6 +4521,20 @@
         "vendor-service-request-detail"
       ]
     },
+    "VendorTenantReports.tsx:27": {
+      "fn": "vendorApi",
+      "argument": "'/reports/overview?'+params.toString()",
+      "actions": [
+        "vendor-tenant-overview-report"
+      ]
+    },
+    "VendorTenantReports.tsx:35": {
+      "fn": "vendorApi",
+      "argument": "'/reports/refunds?'+params.toString()",
+      "actions": [
+        "vendor-tenant-refund-report"
+      ]
+    },
     "VendorWarrantyClaims.tsx:18": {
       "fn": "vendorApi",
       "argument": "'/warranty-claims/'+id",

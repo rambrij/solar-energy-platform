@@ -72,8 +72,10 @@ public class VendorInvoiceRegisterService {
         long offsetLong = (long) requestedPage * requestedSize;
         if (offsetLong > Integer.MAX_VALUE)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page offset is too large");
-        List<Invoice> rows = invoices.page(actor.tenantId(), fromAt, untilAt,
-            channel, requestedSize, (int) offsetLong).stream().map(VendorInvoiceRegisterService::invoice).toList();
+        @SuppressWarnings("unchecked")
+        List<Object[]> pageRows = (List<Object[]>) invoices.page(actor.tenantId(), fromAt, untilAt,
+            channel, requestedSize, (int) offsetLong);
+        List<Invoice> rows = pageRows.stream().map(VendorInvoiceRegisterService::invoice).toList();
         long totalPageCount = totals.invoiceCount() == 0 ? 0
             : (totals.invoiceCount() + requestedSize - 1) / requestedSize;
         int totalPages = Math.toIntExact(totalPageCount);

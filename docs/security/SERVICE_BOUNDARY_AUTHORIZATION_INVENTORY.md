@@ -235,6 +235,7 @@ The source inventory contains **65 service-type Java source files** (57 concrete
 | PaymentCheckoutService | tenderStatus, tender, finalizeTenders, status, start, confirm, unknown, reviewStatus, awaitingReview, finalizeVerified, verifyEvidence | Owned order plus customer/POS actor and operation-specific tender permissions |
 | SaleDiscountService | calculate | Internal checkout calculation; applied discounts require POS_DISCOUNT_APPLY, reason and tenant policy |
 | SalesReportService | report | POS_VIEW and POS_REPORT_VIEW |
+| VendorInvoiceRegisterService | list | INVOICE_VIEW; direct service guard | authenticated vendor membership and tenant derived from active AuthorizationContext; tenant predicates bind all invoice/order/confirmed-payment queries; date, channel and pagination filters are bounded |
 | TenderReviewService | review | Delegates to PaymentCheckoutService.verifyEvidence, which checks tender review permission and order scope |
 | VendorCustomerService | associate | Trusted internal call from CustomerAssociationService.approve only; exact `system:customer-association` principal plus `SYSTEM_CUSTOMER_ASSOCIATION` authority required before relationship repository access; MANDATORY transaction and original customer context restored by caller |
 | ReceiptDocumentService | generate | POS receipt/reprint permissions and owned receipt |
@@ -317,7 +318,6 @@ The source inventory contains **65 service-type Java source files** (57 concrete
 - No `@Async`, message consumer, startup runner, outbox processor, webhook controller, or provider callback endpoint was found in the reviewed backend Java/controller tree. The payment module currently exposes authenticated application operations; it does not implement provider-to-server webhook callbacks. Do not add signature-validation logic for a nonexistent adapter.
 
 
-## 2026-11-23 — Latest branch-head regression evidence (status remains partial)
 
 The latest workflow [#45108345529](https://github.com/rambrij/solar-energy-platform/actions/runs/45108345529) completed SUCCESS on code commit `f429125f8e3f20c712e5a6b921687069e032c016` on `feature/develop-authorization-gap-analysis`. The dedicated **P0-02 service-boundary authorization acceptance** step passed on both H2 and MySQL 8.4. The full H2 and MySQL 8.4 suites each passed 737 tests (H2: 14 skipped; MySQL: 0 skipped), and frontend plus Playwright jobs passed. `ServiceBoundaryMethodInventoryTest` passed 2/2 on both database lanes. The P0-06 generated report also completed on both lanes: 41/41 actor scenarios, 18/18 actor-context cases, 130 missing-permission checks, 131 anonymous route checks, 66 VIEW-only mutation denials, and zero protected routes without persisted matching-actor authorization evidence.
 

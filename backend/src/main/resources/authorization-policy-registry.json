@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 2,
   "description": "Canonical assignable permission catalogue and endpoint inventory. Only vendorPermissions and platformPermissions are assignable; reserved, orphaned, conflicting and unknown identifiers are non-assignable. The same JSON resource drives backend registries, Flyway catalogue constraints, frontend checks and traceability tests.",
   "vendorPermissions": [
     "CATALOG_PROMOTION_MANAGE",

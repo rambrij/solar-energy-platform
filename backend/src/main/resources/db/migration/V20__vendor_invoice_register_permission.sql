@@ -7,8 +7,8 @@ LEFT JOIN vendor_role_permissions existing
   ON existing.tenant_id=r.tenant_id
  AND existing.role_id=r.id
  AND existing.permission='INVOICE_VIEW'
-WHERE r.template_key IN ('VENDOR_ADMIN','ACCOUNTANT')
-  AND r.template_version=1
+WHERE (r.role_key IN ('standard:VENDOR_ADMIN','standard:ACCOUNTANT')
+       OR (r.template_key IN ('VENDOR_ADMIN','ACCOUNTANT') AND r.template_version=1))
   AND existing.permission IS NULL;
 
 INSERT INTO vendor_access_audit_events
@@ -16,5 +16,5 @@ INSERT INTO vendor_access_audit_events
 SELECT r.tenant_id,r.updated_by,'ROLE',CAST(r.id AS CHAR),'INVOICE_VIEW_PERMISSION_MIGRATED',
        'Read-only tenant invoice register permission added to Vendor Admin and Accountant templates'
 FROM vendor_roles r
-WHERE r.template_key IN ('VENDOR_ADMIN','ACCOUNTANT')
-  AND r.template_version=1;
+WHERE r.role_key IN ('standard:VENDOR_ADMIN','standard:ACCOUNTANT')
+   OR (r.template_key IN ('VENDOR_ADMIN','ACCOUNTANT') AND r.template_version=1);

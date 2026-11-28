@@ -24,11 +24,12 @@ public interface VendorInvoiceRegisterRepository extends Repository<InvoiceSnaps
           ON pay.tenant_id=vi.tenant_id AND pay.order_id=vi.order_id
         WHERE vi.tenant_id=:tenant
           AND vi.issued_at>=:fromAt AND vi.issued_at<:untilAt
-          AND (:channel='ALL' OR o.sales_channel=:channel)
+          AND o.sales_channel = COALESCE(NULLIF(:channel,'ALL'),o.sales_channel)
         ORDER BY vi.issued_at DESC, vi.invoice_number DESC
         LIMIT :limit OFFSET :offset
         """, nativeQuery = true)
-    List<Object[]> page(
+    @SuppressWarnings("rawtypes")
+    List page(
         @Param("tenant") long tenant,
         @Param("fromAt") Timestamp fromAt,
         @Param("untilAt") Timestamp untilAt,
@@ -53,7 +54,7 @@ public interface VendorInvoiceRegisterRepository extends Repository<InvoiceSnaps
           ON pay.tenant_id=vi.tenant_id AND pay.order_id=vi.order_id
         WHERE vi.tenant_id=:tenant
           AND vi.issued_at>=:fromAt AND vi.issued_at<:untilAt
-          AND (:channel='ALL' OR o.sales_channel=:channel)
+          AND o.sales_channel = COALESCE(NULLIF(:channel,'ALL'),o.sales_channel)
         """, nativeQuery = true)
     Object[] totals(
         @Param("tenant") long tenant,

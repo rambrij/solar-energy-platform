@@ -151,7 +151,7 @@ CREATE TABLE inventory_transfer_movements (
   product_id BIGINT NOT NULL,
   movement_type VARCHAR(16) NOT NULL,
   quantity_delta INT NOT NULL,
-  movement_key VARCHAR(80) NOT NULL,
+  movement_key VARCHAR(100) NOT NULL,
   actor_username VARCHAR(100) NOT NULL,
   occurred_at TIMESTAMP(6) NOT NULL,
   PRIMARY KEY (id),

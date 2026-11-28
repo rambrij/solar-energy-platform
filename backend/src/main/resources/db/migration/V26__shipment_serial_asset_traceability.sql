@@ -58,3 +58,19 @@ CREATE TABLE shipment_serial_asset_events (
 
 /*!80000 CREATE TRIGGER trg_shipment_serial_asset_events_no_update BEFORE UPDATE ON shipment_serial_asset_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Shipment serial asset events are immutable' */;
 /*!80000 CREATE TRIGGER trg_shipment_serial_asset_events_no_delete BEFORE DELETE ON shipment_serial_asset_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Shipment serial asset events cannot be deleted' */;
+
+-- Serial identity is immutable; the only permitted update is a one-time installation link.
+ /*!80000 CREATE TRIGGER trg_shipment_serial_assets_immutable BEFORE UPDATE ON shipment_serial_assets FOR EACH ROW
+   BEGIN
+     IF NEW.tenant_id<>OLD.tenant_id OR NEW.shipment_id<>OLD.shipment_id OR NEW.order_id<>OLD.order_id
+       OR NEW.product_id<>OLD.product_id OR NEW.serial_number<>OLD.serial_number
+       OR NEW.recorded_by<>OLD.recorded_by OR NEW.reason<>OLD.reason OR NEW.recorded_at<>OLD.recorded_at
+       OR (OLD.installation_id IS NOT NULL AND NOT (NEW.installation_id <=> OLD.installation_id))
+       OR (OLD.installation_id IS NULL AND NEW.installation_id IS NULL)
+     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Serialized asset identity is immutable';
+     END IF;
+   END */
+ ;
+ /*!80000 CREATE TRIGGER trg_shipment_serial_assets_no_delete BEFORE DELETE ON shipment_serial_assets FOR EACH ROW
+   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Serialized assets cannot be deleted' */
+ ;

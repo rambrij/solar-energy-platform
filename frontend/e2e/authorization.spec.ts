@@ -613,7 +613,7 @@ test('Vendor Admin and Accountant: invoice register is tenant-scoped and loads t
 
   await page.getByRole('button', { name: 'Load invoice register' }).click();
   await expect(page.getByText(new RegExp(from))).toBeVisible();
-  await expect(page.getByText(/All channels/)).toBeVisible();
+  await expect(page.locator('.report-scope')).toContainText('All channels');
   await expect(page.getByRole('heading', { name: /No issued invoices in this period/ })
     .or(page.getByRole('columnheader', { name: 'Invoice' }))).toBeVisible();
 

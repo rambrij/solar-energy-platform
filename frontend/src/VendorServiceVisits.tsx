@@ -106,7 +106,7 @@ export default function VendorServiceVisits(){
   const note=(ackNotes[id]??'').trim();if(!note)return;
   setBusy(true);setError('');setNotice('');
   try{
-   await vendorApi('/service-sla/escalations/'+encodeURIComponent(id)+'/acknowledge','POST',{note});
+   await vendorApi(`/service-sla/escalations/${encodeURIComponent(id)}/acknowledge`,'POST',{note});
    setAckNotes(x=>({...x,[id]:''}));setNotice('Escalation acknowledged.');await refresh();
   }catch(x){setError((x as Error).message||'Escalation could not be acknowledged.');}
   finally{setBusy(false);}

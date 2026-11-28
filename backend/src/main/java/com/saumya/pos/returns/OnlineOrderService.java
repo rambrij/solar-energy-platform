@@ -31,7 +31,7 @@ import org.springframework.http.HttpStatus;
 class OnlineOrderService {
  private final JdbcTemplate db; private final AuthorizationContext auth; private final OrderHistoryService orders;
  private final CustomerAccess customers; private final EventOutbox outbox; private final Clock clock;
- OnlineReturnService(JdbcTemplate db,AuthorizationContext auth,OrderHistoryService orders,CustomerAccess customers,EventOutbox outbox,Clock clock){
+ OnlineOrderService(JdbcTemplate db,AuthorizationContext auth,OrderHistoryService orders,CustomerAccess customers,EventOutbox outbox,Clock clock){
   this.db=db;this.auth=auth;this.orders=orders;this.customers=customers;this.outbox=outbox;this.clock=clock;
  }
  record RequestItem(long productId,int quantity){}

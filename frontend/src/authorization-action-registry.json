@@ -3739,6 +3739,30 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "PATCH /api/v1/vendor/inventory/warehouses/{id}"
+    },
+    {
+      "id": "customer-online-returns-load",
+      "component": "CustomerOnlineReturns.tsx",
+      "trigger": "button",
+      "actor": "CUSTOMER",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "method": "GET",
+      "endpoint": "/api/v1/customer/online-returns",
+      "backendOperation": "GET /api/v1/customer/online-returns"
+    },
+    {
+      "id": "vendor-online-returns-load",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "button",
+      "actor": "VENDOR",
+      "permissions": [
+        "RETURN_VIEW"
+      ],
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/online-returns",
+      "backendOperation": "GET /api/v1/vendor/online-returns"
     }
   ],
   "buttons": [

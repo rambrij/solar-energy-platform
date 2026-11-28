@@ -112,7 +112,7 @@ CREATE TABLE inventory_transfers (
     quantity > 0 AND received_quantity >= 0 AND received_quantity <= quantity
   ),
   CONSTRAINT chk_inventory_transfer_status CHECK (
-    status IN ('DRAFT','APPROVED','IN_TRANSIT','PARTIALLY_RECEIVED','RECEIVED','RECEIVED_WITH_DISCREPANCY')
+    status IN ('DRAFT','APPROVED','IN_TRANSIT','PARTIALLY_RECEIVED','RECEIVED','RECEIVED_WITH_DISCREPANCY','CANCELLED')
   )
 );
 
@@ -136,7 +136,7 @@ CREATE TABLE inventory_transfer_events (
   CONSTRAINT fk_inventory_transfer_event_actor FOREIGN KEY (tenant_id,actor_username)
     REFERENCES employees(tenant_id,username),
   CONSTRAINT chk_inventory_transfer_event_type CHECK (
-    event_type IN ('CREATED','APPROVED','DISPATCHED','RECEIVED','RECEIVED_WITH_DISCREPANCY')
+    event_type IN ('CREATED','APPROVED','DISPATCHED','RECEIVED','RECEIVED_WITH_DISCREPANCY','CANCELLED')
   ),
   CONSTRAINT chk_inventory_transfer_event_quantity CHECK (quantity IS NULL OR quantity > 0)
 );

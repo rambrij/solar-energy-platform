@@ -446,3 +446,8 @@ The next work is targeted:
 - Approval selects REPAIR or REPLACEMENT. The decision records the authorized workflow only; it does not issue refunds, external payments, inventory movements or replacement orders.
 - Direct JDBC tenant provenance is inventoried in `tenant-data-access-policy.json` under `WarrantyClaimService`.
 
+
+
+## 2026-11-28 addendum — serial position and transfer access
+
+V28 adds three tenant-owned tables: `inventory_serial_asset_positions` (current location/reservation state), `inventory_transfer_serial_assets` (the exact inbound serials assigned to a transfer), and `inventory_serial_asset_movements` (append-only serial movement history). Runtime reads and writes are tenant-qualified and join the exact inbound serial identity, transfer and product. Position writes are transactional with the existing transfer state machine; movement rows are immutable. Shipment capture rejects reserved/in-transit positions and moves an available tracked serial to SHIPPED in the same transaction as the shipment asset record.

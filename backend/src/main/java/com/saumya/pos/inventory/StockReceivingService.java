@@ -12,6 +12,7 @@ import java.time.*;
 import java.util.List;
 import jakarta.validation.constraints.*;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
@@ -27,12 +28,17 @@ public class StockReceivingService {
  }
  private final StockReceiptRepository receipts;private final InventoryService stock;private final Clock clock;
  private final ProductSerialTrackingPolicy trackingPolicy;private final InventoryReceiptSerialAssetRepository serialAssets;
+ private final JdbcTemplate jdbc;
  @Autowired public StockReceivingService(StockReceiptRepository receipts,InventoryService stock,Clock clock,
+     ProductSerialTrackingPolicy trackingPolicy,InventoryReceiptSerialAssetRepository serialAssets,JdbcTemplate jdbc){
+  this.receipts=receipts;this.stock=stock;this.clock=clock;this.trackingPolicy=trackingPolicy;this.serialAssets=serialAssets;this.jdbc=jdbc;
+ }
+ public StockReceivingService(StockReceiptRepository receipts,InventoryService stock,Clock clock,
      ProductSerialTrackingPolicy trackingPolicy,InventoryReceiptSerialAssetRepository serialAssets){
-  this.receipts=receipts;this.stock=stock;this.clock=clock;this.trackingPolicy=trackingPolicy;this.serialAssets=serialAssets;
+  this(receipts,stock,clock,trackingPolicy,serialAssets,null);
  }
  public StockReceivingService(StockReceiptRepository receipts,InventoryService stock,Clock clock){
-  this(receipts,stock,clock,null,null);
+  this(receipts,stock,clock,null,null,null);
  }
  public record Input(@Positive long productId,@Min(1) @Max(1000000) int quantity,
      @NotBlank @Size(max=250) String reason,@Size(max=100) List<@NotBlank @Size(max=120) String> serialNumbers){
@@ -73,8 +79,26 @@ public class StockReceivingService {
   var saved=receipts.saveAndFlush(new StockReceipt(tenant,branch,input.productId(),input.quantity(),actor,input.reason().strip(),key,available,clock.instant()));
   if(!serialNumbers.isEmpty()){
    if(serialAssets==null)throw new IllegalStateException("Serial receiving persistence is unavailable");
-   try{serialAssets.saveAllAndFlush(serialNumbers.stream().map(serial->new InventoryReceiptSerialAsset(tenant,branch,saved.id(),input.productId(),serial,actor,clock.instant())).toList());}
-   catch(DataIntegrityViolationException duplicate){throw new ResponseStatusException(CONFLICT,"A serial number is already registered for this vendor",duplicate);}
+   try{
+    var stored=serialAssets.saveAllAndFlush(serialNumbers.stream().map(serial->new InventoryReceiptSerialAsset(
+        tenant,branch,saved.id(),input.productId(),serial,actor,clock.instant())).toList());
+    if(jdbc==null)throw new IllegalStateException("Serial position persistence is unavailable");
+    for(var asset:stored){
+     jdbc.update("""
+       INSERT INTO inventory_serial_asset_positions(tenant_id,serial_asset_id,product_id,location_type,
+         branch_id,warehouse_id,status,reserved_transfer_id,in_transit_transfer_id,version,updated_at)
+       VALUES(?,?,?,'BRANCH',?,NULL,'AVAILABLE',NULL,NULL,0,?)
+       """,tenant,asset.id(),input.productId(),branch,java.sql.Timestamp.from(clock.instant()));
+     jdbc.update("""
+       INSERT INTO inventory_serial_asset_movements(id,tenant_id,serial_asset_id,product_id,transfer_id,
+         from_location_type,from_branch_id,from_warehouse_id,to_location_type,to_branch_id,to_warehouse_id,
+         movement_type,movement_key,actor_username,detail,occurred_at)
+       VALUES(?,?,?,?,NULL,NULL,NULL,NULL,'BRANCH',?,NULL,'RECEIVED',?,?,?,?)
+       """,java.util.UUID.randomUUID().toString(),tenant,asset.id(),input.productId(),branch,
+       "RECEIPT:"+saved.id()+":"+asset.id(),actor,"Initial location established from stock receipt",
+       java.sql.Timestamp.from(clock.instant()));
+    }
+   }catch(DataIntegrityViolationException duplicate){throw new ResponseStatusException(CONFLICT,"A serial number is already registered for this vendor",duplicate);}
   }
   return view(tenant,branch,saved);
  }

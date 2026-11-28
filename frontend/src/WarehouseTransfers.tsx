@@ -5,7 +5,7 @@ import {useSession} from './session';
 type Warehouse={id:number;branchId:number;code:string;name:string;active:boolean;version:number};
 type WarehouseStock={productId:number;sku:string;productName:string;onHand:number;reserved:number;damaged:number;available:number;version:number};
 type Transfer={id:string;sourceType:'BRANCH'|'WAREHOUSE';sourceWarehouseId:number|null;sourceBranchId:number;destinationType:'BRANCH'|'WAREHOUSE';destinationWarehouseId:number|null;destinationBranchId:number;productId:number;quantity:number;receivedQuantity:number;status:string;reason:string;createdBy:string;approvedBy:string|null;dispatchedBy:string|null;completedBy:string|null;createdAt:string;dispatchedAt:string|null;completedAt:string|null;version:number};
-type Detail={transfer:Transfer;events:{id:string;eventType:string;actorUsername:string;quantity:number|null;finalReceipt:boolean|null;detail:string;occurredAt:string}[];movements:{id:string;locationType:string;warehouseId:number|null;branchId:number;productId:number;movementType:string;quantityDelta:number;movementKey:string;actorUsername:string;occurredAt:string}[]};
+type Detail={transfer:Transfer;events:{id:string;eventType:string;actorUsername:string;quantity:number|null;finalReceipt:boolean|null;detail:string;occurredAt:string}[];movements:{id:string;locationType:string;warehouseId:number|null;branchId:number;productId:number;movementType:string;quantityDelta:number;movementKey:string;actorUsername:string;occurredAt:string}[];serialAssets:{receiptSerialAssetId:number;serialNumber:string;state:string;receiptCommandKey:string|null}[]};
 
 export default function WarehouseTransfers(){
  const {account}=useSession();
@@ -15,6 +15,7 @@ export default function WarehouseTransfers(){
  const [sourceType,setSourceType]=useState<'BRANCH'|'WAREHOUSE'>('BRANCH'),[sourceWarehouseId,setSourceWarehouseId]=useState('');
  const [destinationType,setDestinationType]=useState<'BRANCH'|'WAREHOUSE'>('BRANCH'),[destinationWarehouseId,setDestinationWarehouseId]=useState('');
  const [destinationBranchId,setDestinationBranchId]=useState(String(account?.branchId??'')),[productId,setProductId]=useState(''),[quantity,setQuantity]=useState('1'),[reason,setReason]=useState('');
+ const [serialNumbersText,setSerialNumbersText]=useState(''),[receiveSerialNumbersText,setReceiveSerialNumbersText]=useState('');
  const [detail,setDetail]=useState<Detail>();
  const [stock,setStock]=useState<{warehouseId:number;items:WarehouseStock[]}>();
  const [editing,setEditing]=useState<Warehouse>(),[editName,setEditName]=useState(''),[editActive,setEditActive]=useState(true),[editReason,setEditReason]=useState('');
@@ -58,9 +59,10 @@ export default function WarehouseTransfers(){
    await vendorApi('/inventory/transfers','POST',{
     sourceType,sourceWarehouseId:sourceType==='WAREHOUSE'?Number(sourceWarehouseId):null,
     destinationType,destinationWarehouseId:destinationType==='WAREHOUSE'?Number(destinationWarehouseId):null,
-    destinationBranchId:Number(destinationBranchId),productId:Number(productId),quantity:Number(quantity),reason:reason.trim()
+    destinationBranchId:Number(destinationBranchId),productId:Number(productId),quantity:Number(quantity),reason:reason.trim(),
+    serialNumbers:serialNumbersText.split(/[\n,]/).map(value=>value.trim()).filter(Boolean)
    },crypto.randomUUID());
-   setNotice('Transfer created in DRAFT. A different authorized employee must approve it before dispatch.');setProductId('');setQuantity('1');setReason('');await load();
+   setNotice('Transfer created in DRAFT. A different authorized employee must approve it before dispatch.');setProductId('');setQuantity('1');setReason('');setSerialNumbersText('');await load();
   }catch(e){setError(e instanceof ApiError?e.message:'Transfer could not be created.');}
   finally{setBusy(false);}
  }
@@ -114,6 +116,8 @@ export default function WarehouseTransfers(){
    <label>Product ID<input required type="number" min="1" value={productId} onChange={e=>setProductId(e.target.value)}/></label>
    <label>Quantity<input required type="number" min="1" max="1000000" value={quantity} onChange={e=>setQuantity(e.target.value)}/></label>
    <label>Transfer reason<input required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+   <label>Serial numbers (one per unit for tracked products)<textarea rows={4} maxLength={13000} value={serialNumbersText} onChange={e=>setSerialNumbersText(e.target.value)} placeholder={'SN-001\nSN-002'}/></label>
+   <small>Leave blank for quantity-only products. Serial-tracked transfers accept at most 100 units.</small>
    <button disabled={busy||!destinationBranchId||!productId||Number(quantity)<1||!reason.trim()||(sourceType==='WAREHOUSE'&&!sourceWarehouseId)||(destinationType==='WAREHOUSE'&&!destinationWarehouseId)}>Create draft transfer</button>
   </form>}
   <h3>Transfers involving your assigned branch</h3>
@@ -128,13 +132,15 @@ export default function WarehouseTransfers(){
    {canTransfer&&detail.transfer.status==='DRAFT'&&detail.transfer.sourceBranchId===account?.branchId&&detail.transfer.createdBy!==account?.username&&<button disabled={busy} onClick={()=>void action('/inventory/transfers/'+detail.transfer.id+'/approve',{expectedVersion:detail.transfer.version,reason:'Approved after independent stock and destination review'})}>Approve transfer</button>}
    {canTransfer&&detail.transfer.sourceBranchId===account?.branchId&&(['DRAFT','APPROVED'].includes(detail.transfer.status))&&(detail.transfer.status==='APPROVED'||detail.transfer.createdBy===account?.username)&&<button disabled={busy} onClick={()=>void action('/inventory/transfers/'+detail.transfer.id+'/cancel',{expectedVersion:detail.transfer.version,reason:'Cancelled before dispatch'})}>Cancel transfer</button>}
    {canTransfer&&detail.transfer.status==='APPROVED'&&detail.transfer.sourceBranchId===account?.branchId&&<button disabled={busy} onClick={()=>void action('/inventory/transfers/'+detail.transfer.id+'/dispatch',{expectedVersion:detail.transfer.version,reason:'Dispatched after source stock verification'})}>Dispatch transfer</button>}
-   {canTransfer&&['IN_TRANSIT','PARTIALLY_RECEIVED'].includes(detail.transfer.status)&&detail.transfer.destinationBranchId===account?.branchId&&<form onSubmit={e=>{e.preventDefault();void action('/inventory/transfers/'+detail.transfer.id+'/receive',{expectedVersion:detail.transfer.version,quantity:Number(receiveQuantity),finalReceipt,commandKey:crypto.randomUUID(),reason:receiptReason.trim()});}}>
+   {canTransfer&&['IN_TRANSIT','PARTIALLY_RECEIVED'].includes(detail.transfer.status)&&detail.transfer.destinationBranchId===account?.branchId&&<form onSubmit={e=>{e.preventDefault();void action('/inventory/transfers/'+detail.transfer.id+'/receive',{expectedVersion:detail.transfer.version,quantity:Number(receiveQuantity),finalReceipt,commandKey:crypto.randomUUID(),reason:receiptReason.trim(),serialNumbers:receiveSerialNumbersText.split(/[\n,]/).map(value=>value.trim()).filter(Boolean)});}}>
     <h4>Receive stock</h4>
     <label>Quantity received<input required type="number" min="1" max={detail.transfer.quantity-detail.transfer.receivedQuantity} value={receiveQuantity} onChange={e=>setReceiveQuantity(e.target.value)}/></label>
     <label><input type="checkbox" checked={finalReceipt} onChange={e=>setFinalReceipt(e.target.checked)}/> Final receipt (close transfer and record any shortage as a discrepancy)</label>
+    <label>Serial numbers received (one per received unit)<textarea rows={4} maxLength={13000} value={receiveSerialNumbersText} onChange={e=>setReceiveSerialNumbersText(e.target.value)} placeholder={'SN-001\nSN-002'}/></label>
     <label>Receipt notes<input required maxLength={500} value={receiptReason} onChange={e=>setReceiptReason(e.target.value)}/></label>
     <button disabled={busy||Number(receiveQuantity)<1||!receiptReason.trim()}>Record receipt</button>
    </form>}
+   {detail.serialAssets.length>0&&<section aria-label="Serial asset transfer status"><h4>Serialized units</h4><ul>{detail.serialAssets.map(asset=><li key={asset.receiptSerialAssetId}>{asset.serialNumber} — {asset.state}</li>)}</ul></section>}
    <h4>Immutable transfer history</h4><ol>{detail.events.map(e=><li key={e.id}>{e.eventType} — {e.actorUsername} — {e.detail} — {new Date(e.occurredAt).toLocaleString()}</li>)}</ol>
    <h4>Immutable stock movement ledger</h4>{detail.movements.length===0?<p>No stock movement has been posted yet.</p>:<ol>{detail.movements.map(m=><li key={m.id}>{m.movementType}: {m.quantityDelta>0?'+':''}{m.quantityDelta} units — {m.locationType} {m.warehouseId??m.branchId} — Product #{m.productId} — {m.actorUsername} — {new Date(m.occurredAt).toLocaleString()}</li>)}</ol>}
    <button type="button" onClick={()=>setDetail(undefined)}>Close details</button>

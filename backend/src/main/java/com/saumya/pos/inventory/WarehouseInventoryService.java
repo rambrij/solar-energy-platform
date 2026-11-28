@@ -41,8 +41,9 @@ public class WarehouseInventoryService {
         Boolean finalReceipt,String detail,Instant occurredAt) {}
     public record TransferMovementView(String id,String locationType,Long warehouseId,long branchId,long productId,
         String movementType,int quantityDelta,String movementKey,String actorUsername,Instant occurredAt) {}
+    public record TransferSerialAssetView(long receiptSerialAssetId,String serialNumber,String status,String receiptCommandKey) {}
     public record TransferDetail(TransferView transfer,List<TransferEventView> events,
-        List<TransferMovementView> movements) {}
+        List<TransferMovementView> movements,List<TransferSerialAssetView> serialAssets) {}
 
     private AuthorizationContext.Context actor(String permission) {
         var context=authorization.current();
@@ -183,7 +184,14 @@ public class WarehouseInventoryService {
                     rs.getString("movement_type"),rs.getInt("quantity_delta"),rs.getString("movement_key"),
                     rs.getString("actor_username"),rs.getTimestamp("occurred_at").toInstant());
             },context.tenantId(),id);
-        return new TransferDetail(view,history,movements);
+        List<TransferSerialAssetView> serialAssets=jdbc.query("""
+            SELECT receipt_serial_asset_id,serial_number,state,receipt_command_key
+            FROM inventory_transfer_serial_assets WHERE tenant_id=? AND transfer_id=?
+            ORDER BY serial_number
+            """,(rs,n)->new TransferSerialAssetView(rs.getLong("receipt_serial_asset_id"),
+            rs.getString("serial_number"),rs.getString("state"),rs.getString("receipt_command_key")),
+            context.tenantId(),id);
+        return new TransferDetail(view,history,movements,serialAssets);
     }
 
     @Transactional
@@ -191,6 +199,15 @@ public class WarehouseInventoryService {
     public TransferView createTransfer(String key,String sourceType,Long sourceWarehouseId,
             String destinationType,Long destinationWarehouseId,long destinationBranchId,
             long productId,int quantity,String reason) {
+        return createTransfer(key,sourceType,sourceWarehouseId,destinationType,destinationWarehouseId,
+            destinationBranchId,productId,quantity,reason,List.of());
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
+    public TransferView createTransfer(String key,String sourceType,Long sourceWarehouseId,
+            String destinationType,Long destinationWarehouseId,long destinationBranchId,
+            long productId,int quantity,String reason,List<String> serialNumbers) {
         var context=actor("INVENTORY_TRANSFER");
         if(key==null||!key.matches("[A-Za-z0-9_-]{8,80}")||productId<1||quantity<1||quantity>1000000
             ||destinationBranchId<1)
@@ -200,6 +217,7 @@ public class WarehouseInventoryService {
             ||("WAREHOUSE".equals(destination)!=(destinationWarehouseId!=null)))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Warehouse IDs must match location types");
         String why=required(reason,500,"Reason");
+        List<String> serials=normalizeSerialNumbers(serialNumbers);
         lockTenant(context);
         requireBranch(context,destinationBranchId);
         if("WAREHOUSE".equals(source))requireWarehouse(context,sourceWarehouseId,context.branchId(),true);
@@ -211,9 +229,19 @@ public class WarehouseInventoryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Source and destination must differ");
         if("BRANCH".equals(destination)&&destinationBranchId==context.branchId()&&"BRANCH".equals(source))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Source and destination must differ");
-        Integer productCount=jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=? AND id=?",Integer.class,context.tenantId(),productId);
+        Integer productCount=jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=? AND id=?",
+            Integer.class,context.tenantId(),productId);
         if(productCount==null||productCount!=1)
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Product unavailable");
+        Integer tracking=jdbc.queryForObject(
+            "SELECT CASE WHEN serial_tracking_required=TRUE THEN 1 ELSE 0 END FROM products WHERE tenant_id=? AND id=?",
+            Integer.class,context.tenantId(),productId);
+        boolean tracked=tracking!=null&&tracking==1;
+        if(tracked&&(quantity>100||serials.size()!=quantity))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "A serial-tracked transfer requires exactly one serial number per unit (maximum 100)");
+        if(!tracked&&!serials.isEmpty())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Serial numbers are not enabled for this product");
         var previous=jdbc.query("""
             SELECT * FROM inventory_transfers WHERE tenant_id=? AND source_branch_id=? AND command_key=? FOR UPDATE
             """,(rs,n)->transfer(rs),context.tenantId(),context.branchId(),key);
@@ -223,7 +251,8 @@ public class WarehouseInventoryService {
                 ||!java.util.Objects.equals(old.sourceWarehouseId(),sourceWarehouseId)
                 ||!old.destinationType().equals(destination)
                 ||!java.util.Objects.equals(old.destinationWarehouseId(),destinationWarehouseId)
-                ||old.destinationBranchId()!=destinationBranchId||!old.reason().equals(why))
+                ||old.destinationBranchId()!=destinationBranchId||!old.reason().equals(why)
+                ||!serialNumbersForTransfer(context.tenantId(),old.id()).equals(serials))
                 throw new ResponseStatusException(HttpStatus.CONFLICT,"Idempotency key identifies a different transfer");
             return old;
         }
@@ -235,6 +264,7 @@ public class WarehouseInventoryService {
             VALUES(?,?,?,?,?,?,?,?,?,?,?,0,'DRAFT',?,?,?,0)
             """,id,context.tenantId(),key,source,sourceWarehouseId,context.branchId(),destination,destinationWarehouseId,
             destinationBranchId,productId,quantity,why,context.username(),now);
+        if(tracked)reserveSerialAssets(context,id,source,sourceWarehouseId,context.branchId(),productId,serials,why);
         appendEvent(context,id,"CREATED",null,null,null,why);
         return transferById(context,id);
     }
@@ -264,6 +294,7 @@ public class WarehouseInventoryService {
             conflict("Transfer changed; reload before cancellation");
         if("DRAFT".equals(status)&&!context.username().equals(row.get("created_by")))
             conflict("Only the creator may cancel a draft transfer");
+        releaseReservedSerialAssets(context,id,why);
         jdbc.update("UPDATE inventory_transfers SET status='CANCELLED',version=version+1 WHERE tenant_id=? AND id=? AND version=?",
             context.tenantId(),id,expectedVersion);
         appendEvent(context,id,"CANCELLED",null,null,null,why);
@@ -285,6 +316,7 @@ public class WarehouseInventoryService {
         else debitWarehouse(context,sourceWarehouse.longValue(),product,qty);
         recordMovement(context,id,sourceType,sourceWarehouse==null?null:sourceWarehouse.longValue(),
             sourceBranch,product,-qty,"DISPATCH_OUT","DISPATCH:"+id);
+        dispatchSerialAssets(context,id);
         java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
         jdbc.update("UPDATE inventory_transfers SET status='IN_TRANSIT',dispatched_by=?,dispatched_at=?,version=version+1 WHERE tenant_id=? AND id=? AND version=?",
             context.username(),now,context.tenantId(),id,expectedVersion);
@@ -295,16 +327,25 @@ public class WarehouseInventoryService {
     @Transactional
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public TransferView receive(String id,long expectedVersion,int quantity,boolean finalReceipt,String key,String reason) {
+        return receive(id,expectedVersion,quantity,finalReceipt,key,reason,List.of());
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
+    public TransferView receive(String id,long expectedVersion,int quantity,boolean finalReceipt,String key,
+            String reason,List<String> serialNumbers) {
         var context=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason");
         if(quantity<1||quantity>1000000||key==null||!key.matches("[A-Za-z0-9_-]{8,80}"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid receipt quantity and idempotency key are required");
+        List<String> serials=normalizeSerialNumbers(serialNumbers);
         lockTenant(context);
         Map<String,Object> row=transferRow(context,id); requireDestinationBranch(context,row);
         var prior=jdbc.query("SELECT quantity,is_final,detail FROM inventory_transfer_events WHERE tenant_id=? AND transfer_id=? AND command_key=?",
             (rs,n)->new Object[]{rs.getInt(1),rs.getBoolean(2),rs.getString(3)},context.tenantId(),id,key);
         if(!prior.isEmpty()){
             Object[] saved=prior.getFirst();
-            if(((Number)saved[0]).intValue()!=quantity||((Boolean)saved[1])!=finalReceipt||!why.equals(saved[2]))
+            if(((Number)saved[0]).intValue()!=quantity||((Boolean)saved[1])!=finalReceipt||!why.equals(saved[2])
+                ||!serialNumbersForReceipt(context.tenantId(),id,key).equals(serials))
                 conflict("Receipt key identifies a different command");
             return transferById(context,id);
         }
@@ -314,6 +355,23 @@ public class WarehouseInventoryService {
         int total=((Number)row.get("quantity")).intValue(),received=((Number)row.get("received_quantity")).intValue();
         if(quantity>total-received)conflict("Receipt exceeds outstanding transfer quantity");
         long product=((Number)row.get("product_id")).longValue();
+        List<Map<String,Object>> planned=jdbc.queryForList("""
+            SELECT receipt_serial_asset_id,serial_number,state FROM inventory_transfer_serial_assets
+            WHERE tenant_id=? AND transfer_id=? ORDER BY serial_number FOR UPDATE
+            """,context.tenantId(),id);
+        boolean tracked=!planned.isEmpty();
+        if(tracked&&serials.size()!=quantity)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "A serial-tracked transfer receipt requires exactly one serial number per received unit");
+        if(!tracked&&!serials.isEmpty())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Serial numbers are not enabled for this transfer");
+        if(tracked){
+            for(String serial:serials){
+                var asset=planned.stream().filter(a->serial.equals(a.get("serial_number"))).findFirst();
+                if(asset.isEmpty()||!"IN_TRANSIT".equals(asset.get().get("state")))
+                    conflict("Every received serial must belong to this transfer and still be in transit");
+            }
+        }
         String destinationType=String.valueOf(row.get("destination_type"));
         Number destinationWarehouse=(Number)row.get("destination_warehouse_id");
         long destinationBranch=((Number)row.get("destination_branch_id")).longValue();
@@ -321,11 +379,13 @@ public class WarehouseInventoryService {
         else creditWarehouse(context,destinationWarehouse.longValue(),product,quantity);
         recordMovement(context,id,destinationType,destinationWarehouse==null?null:destinationWarehouse.longValue(),
             destinationBranch,product,quantity,"RECEIPT_IN","RECEIPT:"+key);
+        if(tracked)receiveSerialAssets(context,id,serials,key,why,destinationType,destinationWarehouse,destinationBranch);
         int newReceived=received+quantity;
         boolean complete=finalReceipt||newReceived==total;
         boolean discrepancy=complete&&newReceived<total;
         String newStatus=discrepancy?"RECEIVED_WITH_DISCREPANCY":
             newReceived==total?"RECEIVED":"PARTIALLY_RECEIVED";
+        if(tracked&&discrepancy)markDiscrepantSerialAssets(context,id,why);
         java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
         jdbc.update("""
             UPDATE inventory_transfers SET received_quantity=?,status=?,
@@ -336,6 +396,197 @@ public class WarehouseInventoryService {
             context.tenantId(),id,expectedVersion);
         appendEvent(context,id,discrepancy?"RECEIVED_WITH_DISCREPANCY":"RECEIVED",quantity,complete,key,why);
         return transferById(context,id);
+    }
+
+    private List<String> normalizeSerialNumbers(List<String> values) {
+        if(values==null||values.isEmpty())return List.of();
+        if(values.size()>100)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"At most 100 serial numbers may be transferred at once");
+        var normalized=new java.util.ArrayList<String>();var unique=new java.util.HashSet<String>();
+        for(String value:values){
+            String serial=required(value,120,"Serial number").toUpperCase(Locale.ROOT);
+            if(serial.codePoints().anyMatch(Character::isISOControl)||!unique.add(serial))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Serial numbers must be unique printable values");
+            normalized.add(serial);
+        }
+        normalized.sort(String::compareTo);
+        return List.copyOf(normalized);
+    }
+
+    private List<String> serialNumbersForTransfer(long tenant,String transferId) {
+        return jdbc.query("SELECT serial_number FROM inventory_transfer_serial_assets WHERE tenant_id=? AND transfer_id=? ORDER BY serial_number",
+            (rs,n)->rs.getString(1),tenant,transferId);
+    }
+
+    private List<String> serialNumbersForReceipt(long tenant,String transferId,String key) {
+        return jdbc.query("SELECT serial_number FROM inventory_transfer_serial_assets WHERE tenant_id=? AND transfer_id=? AND receipt_command_key=? ORDER BY serial_number",
+            (rs,n)->rs.getString(1),tenant,transferId,key);
+    }
+
+    private void reserveSerialAssets(AuthorizationContext.Context context,String transferId,String sourceType,
+            Long sourceWarehouse,long sourceBranch,long product,List<String> serials,String reason) {
+        for(String serial:serials){
+            var rows=jdbc.query("""
+                SELECT p.serial_asset_id,p.location_type,p.branch_id,p.warehouse_id
+                FROM inventory_serial_asset_positions p
+                JOIN inventory_receipt_serial_assets a
+                  ON a.tenant_id=p.tenant_id AND a.id=p.serial_asset_id AND a.product_id=p.product_id
+                WHERE p.tenant_id=? AND p.product_id=? AND a.serial_number=? AND p.status='AVAILABLE'
+                  AND p.location_type=? AND p.branch_id=?
+                  AND ((? IS NULL AND p.warehouse_id IS NULL) OR p.warehouse_id=?)
+                FOR UPDATE
+                """,(rs,n)->new Object[]{rs.getLong("serial_asset_id"),rs.getString("location_type"),
+                    rs.getLong("branch_id"),(Number)rs.getObject("warehouse_id")},
+                context.tenantId(),product,serial,sourceType,sourceBranch,sourceWarehouse,sourceWarehouse);
+            if(rows.isEmpty())conflict("Serial "+serial+" is not available at the selected source location");
+            Object[] p=rows.getFirst();long assetId=((Number)p[0]).longValue();
+            jdbc.update("""
+                INSERT INTO inventory_transfer_serial_assets
+                  (tenant_id,transfer_id,receipt_serial_asset_id,product_id,serial_number,state,receipt_command_key)
+                VALUES(?,?,?,?,?,'RESERVED',NULL)
+                """,context.tenantId(),transferId,assetId,product,serial);
+            int updated=jdbc.update("""
+                UPDATE inventory_serial_asset_positions
+                SET status='RESERVED',reserved_transfer_id=?,version=version+1,updated_at=?
+                WHERE tenant_id=? AND serial_asset_id=? AND status='AVAILABLE'
+                """,transferId,java.sql.Timestamp.from(clock.instant()),context.tenantId(),assetId);
+            if(updated!=1)conflict("Serial "+serial+" is already reserved by another stock operation");
+            recordSerialMovement(context,assetId,product,transferId,String.valueOf(p[1]),
+                ((Number)p[2]).longValue(),(Number)p[3],"TRANSFER_RESERVED",
+                "RESERVE:"+transferId,"Reserved for transfer");
+        }
+    }
+
+    private void dispatchSerialAssets(AuthorizationContext.Context context,String transferId) {
+        var lines=jdbc.query("""
+            SELECT receipt_serial_asset_id,product_id,serial_number FROM inventory_transfer_serial_assets
+            WHERE tenant_id=? AND transfer_id=? AND state='RESERVED' ORDER BY serial_number FOR UPDATE
+            """,(rs,n)->new Object[]{rs.getLong(1),rs.getLong(2),rs.getString(3)},context.tenantId(),transferId);
+        for(Object[] line:lines){
+            long assetId=((Number)line[0]).longValue(),product=((Number)line[1]).longValue();
+            var positions=jdbc.query("""
+                SELECT location_type,branch_id,warehouse_id FROM inventory_serial_asset_positions
+                WHERE tenant_id=? AND serial_asset_id=? AND status='RESERVED' AND reserved_transfer_id=? FOR UPDATE
+                """,(rs,n)->new Object[]{rs.getString(1),rs.getLong(2),(Number)rs.getObject(3)},
+                context.tenantId(),assetId,transferId);
+            if(positions.isEmpty())conflict("A reserved serial is no longer available for dispatch");
+            Object[] position=positions.getFirst();
+            jdbc.update("""
+                UPDATE inventory_serial_asset_positions
+                SET location_type='IN_TRANSIT',warehouse_id=NULL,status='IN_TRANSIT',
+                    reserved_transfer_id=NULL,in_transit_transfer_id=?,version=version+1,updated_at=?
+                WHERE tenant_id=? AND serial_asset_id=? AND reserved_transfer_id=?
+                """,transferId,java.sql.Timestamp.from(clock.instant()),context.tenantId(),assetId,transferId);
+            jdbc.update("UPDATE inventory_transfer_serial_assets SET state='IN_TRANSIT' WHERE tenant_id=? AND transfer_id=? AND receipt_serial_asset_id=?",
+                context.tenantId(),transferId,assetId);
+            recordSerialMovement(context,assetId,product,transferId,(String)position[0],
+                ((Number)position[1]).longValue(),(Number)position[2],"TRANSFER_DISPATCHED",
+                "DISPATCH:"+transferId,"Serial dispatched","IN_TRANSIT",
+                ((Number)position[1]).longValue(),null);
+        }
+    }
+
+    private void releaseReservedSerialAssets(AuthorizationContext.Context context,String transferId,String reason) {
+        var lines=jdbc.query("""
+            SELECT receipt_serial_asset_id,product_id,serial_number FROM inventory_transfer_serial_assets
+            WHERE tenant_id=? AND transfer_id=? AND state='RESERVED' ORDER BY serial_number FOR UPDATE
+            """,(rs,n)->new Object[]{rs.getLong(1),rs.getLong(2),rs.getString(3)},context.tenantId(),transferId);
+        for(Object[] line:lines){
+            long assetId=((Number)line[0]).longValue(),product=((Number)line[1]).longValue();
+            var positions=jdbc.query("""
+                SELECT location_type,branch_id,warehouse_id FROM inventory_serial_asset_positions
+                WHERE tenant_id=? AND serial_asset_id=? AND status='RESERVED' AND reserved_transfer_id=? FOR UPDATE
+                """,(rs,n)->new Object[]{rs.getString(1),rs.getLong(2),(Number)rs.getObject(3)},
+                context.tenantId(),assetId,transferId);
+            if(positions.isEmpty())conflict("A reserved serial could not be released safely");
+            Object[] p=positions.getFirst();
+            jdbc.update("""
+                UPDATE inventory_serial_asset_positions SET status='AVAILABLE',reserved_transfer_id=NULL,
+                  version=version+1,updated_at=? WHERE tenant_id=? AND serial_asset_id=? AND reserved_transfer_id=?
+                """,java.sql.Timestamp.from(clock.instant()),context.tenantId(),assetId,transferId);
+            jdbc.update("""
+                UPDATE inventory_transfer_serial_assets SET state='CANCELLED'
+                WHERE tenant_id=? AND transfer_id=? AND receipt_serial_asset_id=?
+                """,context.tenantId(),transferId,assetId);
+            recordSerialMovement(context,assetId,product,transferId,(String)p[0],((Number)p[1]).longValue(),
+                (Number)p[2],"TRANSFER_CANCELLED","CANCEL:"+transferId,reason);
+        }
+    }
+
+    private void receiveSerialAssets(AuthorizationContext.Context context,String transferId,List<String> serials,
+            String receiptKey,String reason,String destinationType,Number destinationWarehouse,long destinationBranch) {
+        for(String serial:serials){
+            var rows=jdbc.query("""
+                SELECT a.receipt_serial_asset_id,a.product_id,p.location_type,p.branch_id,p.warehouse_id
+                FROM inventory_transfer_serial_assets a
+                JOIN inventory_serial_asset_positions p ON p.tenant_id=a.tenant_id
+                  AND p.serial_asset_id=a.receipt_serial_asset_id AND p.product_id=a.product_id
+                WHERE a.tenant_id=? AND a.transfer_id=? AND a.serial_number=? AND a.state='IN_TRANSIT'
+                  AND p.status='IN_TRANSIT' AND p.in_transit_transfer_id=? FOR UPDATE
+                """,(rs,n)->new Object[]{rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getLong(4),(Number)rs.getObject(5)},
+                context.tenantId(),transferId,serial,transferId);
+            if(rows.isEmpty())conflict("Serial "+serial+" is not awaiting receipt on this transfer");
+            Object[] p=rows.getFirst();long assetId=((Number)p[0]).longValue(),product=((Number)p[1]).longValue();
+            Long warehouseId=destinationWarehouse==null?null:destinationWarehouse.longValue();
+            jdbc.update("""
+                UPDATE inventory_serial_asset_positions SET location_type=?,branch_id=?,warehouse_id=?,status='AVAILABLE',
+                  in_transit_transfer_id=NULL,version=version+1,updated_at=?
+                WHERE tenant_id=? AND serial_asset_id=? AND in_transit_transfer_id=?
+                """,destinationType,destinationBranch,warehouseId,java.sql.Timestamp.from(clock.instant()),
+                context.tenantId(),assetId,transferId);
+            jdbc.update("""
+                UPDATE inventory_transfer_serial_assets SET state='RECEIVED',receipt_command_key=?
+                WHERE tenant_id=? AND transfer_id=? AND receipt_serial_asset_id=? AND state='IN_TRANSIT'
+                """,receiptKey,context.tenantId(),transferId,assetId);
+            recordSerialMovement(context,assetId,product,transferId,(String)p[2],((Number)p[3]).longValue(),
+                (Number)p[4],"TRANSFER_RECEIVED","RECEIPT:"+receiptKey+":"+assetId,reason,
+                destinationType,destinationBranch,warehouseId);
+        }
+    }
+
+    private void markDiscrepantSerialAssets(AuthorizationContext.Context context,String transferId,String reason) {
+        var lines=jdbc.query("""
+            SELECT a.receipt_serial_asset_id,a.product_id,p.location_type,p.branch_id,p.warehouse_id
+            FROM inventory_transfer_serial_assets a
+            JOIN inventory_serial_asset_positions p ON p.tenant_id=a.tenant_id
+              AND p.serial_asset_id=a.receipt_serial_asset_id AND p.product_id=a.product_id
+            WHERE a.tenant_id=? AND a.transfer_id=? AND a.state='IN_TRANSIT'
+              AND p.status='IN_TRANSIT' AND p.in_transit_transfer_id=? FOR UPDATE
+            """,(rs,n)->new Object[]{rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getLong(4),(Number)rs.getObject(5)},
+            context.tenantId(),transferId,transferId);
+        for(Object[] p:lines){
+            long assetId=((Number)p[0]).longValue(),product=((Number)p[1]).longValue();
+            jdbc.update("""
+                UPDATE inventory_serial_asset_positions SET location_type='DISCREPANCY',status='DISCREPANCY',
+                  in_transit_transfer_id=NULL,version=version+1,updated_at=?
+                WHERE tenant_id=? AND serial_asset_id=? AND in_transit_transfer_id=?
+                """,java.sql.Timestamp.from(clock.instant()),context.tenantId(),assetId,transferId);
+            jdbc.update("""
+                UPDATE inventory_transfer_serial_assets SET state='DISCREPANCY'
+                WHERE tenant_id=? AND transfer_id=? AND receipt_serial_asset_id=? AND state='IN_TRANSIT'
+                """,context.tenantId(),transferId,assetId);
+            recordSerialMovement(context,assetId,product,transferId,(String)p[2],((Number)p[3]).longValue(),
+                (Number)p[4],"TRANSFER_DISCREPANCY","DISCREPANCY:"+transferId+":"+assetId,reason,
+                "DISCREPANCY",((Number)p[3]).longValue(),null);
+        }
+    }
+
+    private void recordSerialMovement(AuthorizationContext.Context context,long assetId,long product,String transferId,
+            String fromType,long fromBranch,Number fromWarehouse,String movementType,String movementKey,String detail) {
+        recordSerialMovement(context,assetId,product,transferId,fromType,fromBranch,fromWarehouse,movementType,
+            movementKey,detail,fromType,fromBranch,fromWarehouse==null?null:fromWarehouse.longValue());
+    }
+
+    private void recordSerialMovement(AuthorizationContext.Context context,long assetId,long product,String transferId,
+            String fromType,long fromBranch,Number fromWarehouse,String movementType,String movementKey,String detail,
+            String toType,long toBranch,Long toWarehouse) {
+        jdbc.update("""
+            INSERT INTO inventory_serial_asset_movements(id,tenant_id,serial_asset_id,product_id,transfer_id,
+              from_location_type,from_branch_id,from_warehouse_id,to_location_type,to_branch_id,to_warehouse_id,
+              movement_type,movement_key,actor_username,detail,occurred_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,UUID.randomUUID().toString(),context.tenantId(),assetId,product,transferId,fromType,fromBranch,
+            fromWarehouse,toType,toBranch,toWarehouse,movementType,movementKey,context.username(),detail,
+            java.sql.Timestamp.from(clock.instant()));
     }
 
     private void debitBranch(AuthorizationContext.Context context,long branch,long product,int quantity) {

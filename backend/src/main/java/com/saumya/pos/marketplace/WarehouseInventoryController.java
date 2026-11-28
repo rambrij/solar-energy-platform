@@ -21,10 +21,21 @@ public class WarehouseInventoryController {
     public record CreateTransferRequest(@NotBlank @Pattern(regexp="BRANCH|WAREHOUSE") String sourceType,
         Long sourceWarehouseId,@NotBlank @Pattern(regexp="BRANCH|WAREHOUSE") String destinationType,
         Long destinationWarehouseId,@Positive long destinationBranchId,@Positive long productId,
-        @Min(1) @Max(1000000) int quantity,@NotBlank @Size(max=500) String reason) {}
+        @Min(1) @Max(1000000) int quantity,@NotBlank @Size(max=500) String reason,
+        @Size(max=100) List<@NotBlank @Size(max=120) String> serialNumbers) {
+        public CreateTransferRequest(String sourceType,Long sourceWarehouseId,String destinationType,
+            Long destinationWarehouseId,long destinationBranchId,long productId,int quantity,String reason){
+            this(sourceType,sourceWarehouseId,destinationType,destinationWarehouseId,destinationBranchId,productId,quantity,reason,List.of());
+        }
+    }
     public record TransferActionRequest(@Min(0) long expectedVersion,@NotBlank @Size(max=500) String reason) {}
     public record ReceiveRequest(@Min(0) long expectedVersion,@Min(1) @Max(1000000) int quantity,
-        boolean finalReceipt,@NotBlank @Size(max=80) String commandKey,@NotBlank @Size(max=500) String reason) {}
+        boolean finalReceipt,@NotBlank @Size(max=80) String commandKey,@NotBlank @Size(max=500) String reason,
+        @Size(max=100) List<@NotBlank @Size(max=120) String> serialNumbers) {
+        public ReceiveRequest(long expectedVersion,int quantity,boolean finalReceipt,String commandKey,String reason){
+            this(expectedVersion,quantity,finalReceipt,commandKey,reason,List.of());
+        }
+    }
 
     @GetMapping("/warehouses")
     @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
@@ -65,7 +76,7 @@ public class WarehouseInventoryController {
             @RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CreateTransferRequest request){
         return service.createTransfer(key,request.sourceType(),request.sourceWarehouseId(),
             request.destinationType(),request.destinationWarehouseId(),request.destinationBranchId(),
-            request.productId(),request.quantity(),request.reason());
+            request.productId(),request.quantity(),request.reason(),request.serialNumbers());
     }
 
     @PostMapping("/transfers/{id}/approve")
@@ -94,6 +105,6 @@ public class WarehouseInventoryController {
     public WarehouseInventoryService.TransferView receive(@PathVariable String id,
             @Valid @RequestBody ReceiveRequest request){
         return service.receive(id,request.expectedVersion(),request.quantity(),request.finalReceipt(),
-            request.commandKey(),request.reason());
+            request.commandKey(),request.reason(),request.serialNumbers());
     }
 }

@@ -344,3 +344,7 @@ The canonical database ownership inventory now classifies **71 production tables
 ## 11. 2026-11-28 addendum — inbound serialized stock identities
 
 V27 adds `products.serial_tracking_required` and tenant-child table `inventory_receipt_serial_assets`. Each inbound serial belongs to the same tenant, branch, receipt and product, and is recorded by a same-tenant employee. Vendor-scoped serial uniqueness and immutable update/delete triggers protect identity. Shipment serial assets may reference the inbound serial source through a same-tenant, same-product composite FK; one inbound identity can be linked to at most one shipment. The preceding 71-table totals are a historical snapshot before V27, not the refreshed production table count.
+
+| `inventory_serial_asset_positions` | Inventory / serialized stock | TENANT_CHILD | Yes, NOT NULL | Composite inbound-asset, tenant/branch/warehouse and tenant/product transfer FKs; current location and reservation projection. |
+| `inventory_transfer_serial_assets` | Inventory transfers | TENANT_CHILD | Yes, NOT NULL | Tenant/transfer/product and tenant/inbound-asset/product composite FKs; serial assignment/state for each transfer. |
+| `inventory_serial_asset_movements` | Inventory / serialized stock | TENANT_CHILD | Yes, NOT NULL | Tenant/inbound-asset/product, transfer and actor FKs; immutable serial movement history. |

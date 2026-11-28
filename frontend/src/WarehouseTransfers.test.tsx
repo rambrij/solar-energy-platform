@@ -62,7 +62,7 @@ it('creates a branch-to-branch transfer with an idempotency key',async()=>{
  await screen.findByRole('status');
  await waitFor(()=>expect(vendorApi).toHaveBeenCalledWith('/inventory/transfers','POST',{
   sourceType:'BRANCH',sourceWarehouseId:null,destinationType:'BRANCH',
-  destinationWarehouseId:null,destinationBranchId:20,productId:7,quantity:4,reason:'Replenishment'
+  destinationWarehouseId:null,destinationBranchId:20,productId:7,quantity:4,reason:'Replenishment',serialNumbers:[]
  },expect.any(String)));
 });
 

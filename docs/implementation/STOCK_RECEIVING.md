@@ -24,3 +24,8 @@ Outlet serialization and locked current reads protect command retries. The catal
 Products may opt into serial tracking. Existing products remain aggregate-quantity tracked. Once enabled, the setting cannot be disabled through product administration. A tracked receipt must contain exactly one distinct serial per received unit; a maximum of 100 serialized units may be recorded per receipt. Serials are normalized to uppercase, vendor-unique, and saved in the same transaction as the stock receipt. The idempotency replay compares the original serial list as well as product, quantity, actor and reason.
 
 The append-only `inventory_receipt_serial_assets` table ties each serial to its exact tenant, branch, receipt and product. For tracked products, shipment capture accepts only a serial registered at inbound receiving and prevents the same received unit from being shipped twice. Existing non-tracked products retain the previous shipment serial-capture behavior.
+
+
+## Serial-aware warehouse transfers (V28)
+
+Serial-tracked transfers reserve exact inbound serials at the source location when the draft is created. Approval remains maker/checker; dispatch moves reserved serial identities into transit in the same transaction as the aggregate stock debit. The destination must submit one exact serial per received unit. Idempotent partial receipts move only the serials named on that receipt. A final receipt that closes a shortage marks unresolved serials as DISCREPANCY instead of silently returning them to available stock. Cancelling an undispatched transfer releases its reservations. Quantity-only transfers for products without serial tracking remain unchanged.

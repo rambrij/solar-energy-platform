@@ -90,6 +90,12 @@ public class ShipmentService {
     long receiptSerialId=((Number)inbound.getFirst().get("id")).longValue();
     if(!db.queryForList("SELECT id FROM shipment_serial_assets WHERE tenant_id=? AND receipt_serial_asset_id=? FOR UPDATE",c.tenantId(),receiptSerialId).isEmpty())
      throw new ResponseStatusException(HttpStatus.CONFLICT,"Received serial has already been assigned to a shipment");
+    var positions=db.queryForList("""
+      SELECT location_type,branch_id,warehouse_id,status,reserved_transfer_id
+      FROM inventory_serial_asset_positions WHERE tenant_id=? AND serial_asset_id=? AND location_type='BRANCH' AND branch_id=? AND status='AVAILABLE' FOR UPDATE
+      """,c.tenantId(),receiptSerialId,c.branchId());
+    if(positions.isEmpty()||!"AVAILABLE".equals(positions.getFirst().get("status")))
+     throw new ResponseStatusException(HttpStatus.CONFLICT,"Serial is reserved, in transit or unavailable for shipment");
     receiptSerialIds.put(serial,receiptSerialId);
    }
   }
@@ -112,6 +118,24 @@ public class ShipmentService {
     }
     db.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,resource_type,resource_id,action,reason) VALUES(?,?,'SHIPMENT_SERIAL_ASSET',?,'SERIAL_ASSET_CAPTURED',?)",
      c.tenantId(),c.username(),Long.toString(assetId),reason);
+    Long receiptSerialId=receiptSerialIds.get(serial);
+    if(receiptSerialId!=null){
+     var position=db.queryForList("SELECT location_type,branch_id,warehouse_id FROM inventory_serial_asset_positions WHERE tenant_id=? AND serial_asset_id=? FOR UPDATE",c.tenantId(),receiptSerialId).getFirst();
+     int changed=db.update("""
+       UPDATE inventory_serial_asset_positions SET location_type='SHIPPED',warehouse_id=NULL,status='SHIPPED',
+         reserved_transfer_id=NULL,in_transit_transfer_id=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP(6)
+       WHERE tenant_id=? AND serial_asset_id=? AND status='AVAILABLE'
+       """,c.tenantId(),receiptSerialId);
+     if(changed!=1)throw new ResponseStatusException(HttpStatus.CONFLICT,"Serial became unavailable during shipment capture");
+     db.update("""
+       INSERT INTO inventory_serial_asset_movements(id,tenant_id,serial_asset_id,product_id,transfer_id,
+         from_location_type,from_branch_id,from_warehouse_id,to_location_type,to_branch_id,to_warehouse_id,
+         movement_type,movement_key,actor_username,detail,occurred_at)
+       VALUES(?,?,?, ?,NULL,?,?,?,'SHIPPED',?,NULL,'SHIPPED',?,?,?,CURRENT_TIMESTAMP(6))
+       """,UUID.randomUUID().toString(),c.tenantId(),receiptSerialId,productId,
+       position.get("location_type"),position.get("branch_id"),position.get("warehouse_id"),
+       position.get("branch_id"),"SHIPMENT:"+assetId,c.username(),"Serial allocated to customer shipment");
+    }
    }
   }catch(org.springframework.dao.DuplicateKeyException duplicate){
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Serial number is already registered for this vendor",duplicate);

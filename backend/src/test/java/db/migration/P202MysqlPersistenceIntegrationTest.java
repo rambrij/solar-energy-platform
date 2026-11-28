@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(27);
+            assertThat(applied).hasSize(28);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -86,6 +86,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(25).getVersion().getVersion()).isEqualTo("26");
             assertThat(applied.get(26).getScript()).isEqualTo("V27__inbound_serial_receiving.sql");
             assertThat(applied.get(26).getVersion().getVersion()).isEqualTo("27");
+            assertThat(applied.get(27).getScript()).isEqualTo("V28__serial_aware_warehouse_transfers.sql");
+            assertThat(applied.get(27).getVersion().getVersion()).isEqualTo("28");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -93,7 +95,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28");
         });
     }
 
@@ -110,7 +112,9 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_audit", "vendor_roles", "vendor_role_permissions",
                     "employee_role_assignments", "employee_register_assignments",
                     "tenant_subscriptions", "subscription_invoices", "subscription_payments",
-                    "subscription_events", "pos_stock_locations", "inventory_receipt_serial_assets")) {
+                    "subscription_events", "pos_stock_locations", "inventory_receipt_serial_assets",
+                    "inventory_serial_asset_positions", "inventory_transfer_serial_assets",
+                    "inventory_serial_asset_movements")) {
                 assertThat(db.queryForObject("""
                         SELECT is_nullable FROM information_schema.columns
                         WHERE table_schema=? AND table_name=? AND column_name='tenant_id'
@@ -124,6 +128,10 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(constraintCount(db, schema, "pos_stock_locations", "chk_pos_stock_location_code")).isEqualTo(1);
             assertThat(constraintCount(db, schema, "inventory_ledger", "fk_inventory_ledger_order_stock_branch")).isEqualTo(1);
             assertThat(constraintCount(db, schema, "stock_reservations", "fk_stock_reservations_order_stock_branch")).isEqualTo(1);
+            assertThat(constraintCount(db, schema, "inventory_serial_asset_positions", "fk_inventory_serial_asset_position_source")).isEqualTo(1);
+            assertThat(constraintCount(db, schema, "inventory_serial_asset_positions", "fk_inventory_serial_asset_position_reserved_transfer")).isEqualTo(1);
+            assertThat(constraintCount(db, schema, "inventory_transfer_serial_assets", "fk_inventory_transfer_serial_source")).isEqualTo(1);
+            assertThat(constraintCount(db, schema, "inventory_serial_asset_movements", "fk_inventory_serial_asset_movement_actor")).isEqualTo(1);
 
             assertThat(db.queryForObject("""
                     SELECT extra FROM information_schema.columns

@@ -27,6 +27,7 @@ public class ApiProblemWriter {
         if(request!=null&&request.getRequestURI()!=null)body.setInstance(URI.create(request.getRequestURI()));
         body.setProperty("code",safeCode);
         if(properties!=null)properties.forEach(body::setProperty);
+        body.setProperty("correlationId",UUID.randomUUID().toString());
         return body;
     }
 

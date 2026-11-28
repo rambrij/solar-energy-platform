@@ -12,7 +12,7 @@ CREATE TABLE shipment_serial_assets (
   serial_number VARCHAR(120) NOT NULL,
   recorded_by VARCHAR(100) NOT NULL,
   reason VARCHAR(500) NOT NULL,
-  recorded_at TIMESTAMP(6) NOT NULL,
+  recorded_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),
   UNIQUE KEY uk_shipment_serial_asset_tenant_id (tenant_id,id),
   UNIQUE KEY uk_shipment_serial_asset_tenant_serial (tenant_id,serial_number),
@@ -45,7 +45,7 @@ CREATE TABLE shipment_serial_asset_events (
   actor_username VARCHAR(100) NOT NULL,
   event_type VARCHAR(32) NOT NULL,
   detail VARCHAR(500) NOT NULL,
-  occurred_at TIMESTAMP(6) NOT NULL,
+  occurred_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),
   KEY ix_shipment_serial_asset_event_timeline (tenant_id,serial_asset_id,occurred_at,id),
   CONSTRAINT fk_shipment_serial_asset_event_asset

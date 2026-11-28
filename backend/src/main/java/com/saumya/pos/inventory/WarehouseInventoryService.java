@@ -32,7 +32,8 @@ public class WarehouseInventoryService {
     }
 
     public record WarehouseView(long id,long branchId,String code,String name,boolean active,long version) {}
-    public record WarehouseStockView(long productId,String sku,String productName,int onHand,int reserved,int damaged,int available,long version) {}\n    public record TransferView(String id,String sourceType,Long sourceWarehouseId,long sourceBranchId,
+    public record WarehouseStockView(long productId,String sku,String productName,int onHand,int reserved,int damaged,int available,long version) {}
+    public record TransferView(String id,String sourceType,Long sourceWarehouseId,long sourceBranchId,
         String destinationType,Long destinationWarehouseId,long destinationBranchId,long productId,
         int quantity,int receivedQuantity,String status,String reason,String createdBy,String approvedBy,
         String dispatchedBy,String completedBy,Instant createdAt,Instant dispatchedAt,Instant completedAt,long version) {}

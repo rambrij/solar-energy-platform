@@ -2213,6 +2213,60 @@
       "scope": "AUTHENTICATED_MEMBERSHIP_TENANT_ONLY",
       "assignment": "POS_REPORT_VIEW + POS_REFUND_VIEW; tenant resolved from AuthorizationContext",
       "runtimeTest": "VendorTenantRefundAnalyticsServiceAuthorizationBoundaryTest"
+    },
+    "WarehouseInventoryController#warehouses": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#createWarehouse": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#updateWarehouse": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#transfers": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#transfer": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#createTransfer": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#approve": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#dispatch": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#receive": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_OR_TRANSFER",
+      "assignment": "SOURCE_BRANCH_FOR_CREATE_APPROVE_DISPATCH; DESTINATION_BRANCH_FOR_RECEIVE; MAKER_CHECKER_APPROVAL",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

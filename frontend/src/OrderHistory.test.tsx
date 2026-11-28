@@ -132,3 +132,16 @@ it('does not request POS return status for an online order',async()=>{
  await screen.findByLabelText('Shipment tracking');
  expect(marketplaceApi).not.toHaveBeenCalledWith('/api/v1/customer/orders/'+order.id+'/returns');
 });
+
+it('shows serial numbers for the authenticated customer order only',async()=>{
+ vi.mocked(marketplaceApi).mockImplementation(async path=>{
+  if(path.endsWith('/shipments'))return [];
+  if(path.endsWith('/serial-assets'))return [{productId:44,productName:'Solar inverter',serialNumber:'SN-OWNED-44',recordedAt:'2026-11-28T10:00:00Z'}];
+  if(path.includes('/orders/'))return {order:{...order,channel:'ONLINE'},items:[],cashReceived:null,changeGiven:null,cancellationReason:null,statusChangedAt:order.createdAt};
+  return page;
+ });
+ render(<OrderHistory mode="online"/>);fireEvent.click(screen.getByText('Load order history'));
+ fireEvent.click(await screen.findByText('View order '+order.id));
+ await screen.findByText('Solar inverter — Serial number SN-OWNED-44');
+ expect(marketplaceApi).toHaveBeenCalledWith('/api/v1/customer/orders/'+order.id+'/serial-assets');
+});

@@ -73,3 +73,25 @@ it('hides mutation forms when the actor only has inventory view',async()=>{
  expect(screen.queryByRole('button',{name:'Create warehouse'})).toBeNull();
  expect(screen.queryByRole('button',{name:'Create draft transfer'})).toBeNull();
 });
+
+
+it('updates warehouse details and active state with optimistic version and audit reason',async()=>{
+ const warehouse={id:2,branchId:10,code:'MAIN',name:'Main Warehouse',active:true,version:3};
+ vi.mocked(vendorApi).mockImplementation(async(path,method)=>{
+  if(path==='/inventory/warehouses')return [warehouse];
+  if(path==='/inventory/transfers')return [];
+  if(path==='/inventory/warehouses/2'&&method==='PATCH')return {...warehouse,name:'Central Warehouse',active:false,version:4};
+  return {};
+ });
+ render(<WarehouseTransfers/>);
+ await screen.findByText('MAIN — Main Warehouse (Active)');
+ fireEvent.click(screen.getByRole('button',{name:'Edit warehouse'}));
+ fireEvent.change(screen.getByLabelText('Warehouse name'),{target:{value:'Central Warehouse'}});
+ fireEvent.click(screen.getByLabelText('Warehouse active'));
+ fireEvent.change(screen.getByLabelText('Change reason'),{target:{value:'Consolidated after stock reconciliation'}});
+ fireEvent.click(screen.getByRole('button',{name:'Save warehouse changes'}));
+ await screen.findByRole('status');
+ await waitFor(()=>expect(vendorApi).toHaveBeenCalledWith('/inventory/warehouses/2','PATCH',{
+  expectedVersion:3,name:'Central Warehouse',active:false,reason:'Consolidated after stock reconciliation'
+ }));
+});

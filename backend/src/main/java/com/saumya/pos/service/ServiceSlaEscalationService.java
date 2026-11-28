@@ -226,6 +226,34 @@ public class ServiceSlaEscalationService {
         }
     }
 
+    /** Resolves only active, verified email identities assigned the selected role in an active tenant. */
+    @Transactional(readOnly = true)
+    List<String> resolveEscalationRecipients(long tenantId, String recipientRoleKey) {
+        if (tenantId <= 0) throw new IllegalArgumentException("A persisted tenant is required");
+        String recipientRole = role(recipientRoleKey);
+        List<String> candidates = db.queryForList("""
+            SELECT DISTINCT u.username
+            FROM tenants t
+            JOIN employees e ON e.tenant_id=t.id AND e.enabled=TRUE
+            JOIN users u ON u.username=e.username AND u.enabled=TRUE AND u.email_verified=TRUE
+            JOIN employee_role_assignments a ON a.tenant_id=e.tenant_id
+                AND a.branch_id=e.branch_id AND a.username=e.username AND a.active=TRUE
+            JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE
+            WHERE t.id=? AND t.lifecycle_status='ACTIVE'
+              AND (r.template_key=? OR r.role_key=? OR LOWER(r.role_key)=?)
+            ORDER BY u.username LIMIT 50
+            """, String.class, tenantId, recipientRole, "standard:" + recipientRole,
+            recipientRole.toLowerCase(Locale.ROOT));
+        return candidates.stream().map(String::strip)
+            .filter(ServiceSlaEscalationService::isEmailAddress)
+            .distinct().toList();
+    }
+
+    private static boolean isEmailAddress(String value) {
+        return value != null && value.length() <= 100
+            && value.matches("^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$");
+    }
+
     @Transactional(readOnly = true)
     public List<Escalation> queue() {
         var current = actor("SERVICE_VIEW");

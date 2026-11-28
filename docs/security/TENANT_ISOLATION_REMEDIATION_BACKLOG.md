@@ -106,17 +106,19 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 
 **Priority: P2** — Verification gap
 
+**Implementation status: IN PROGRESS.** The shared two-vendor/two-customer fixture now exercises positive and rejected DML for cart items, order items and warehouse inventory in the H2 and MySQL backend lanes. Existing MySQL metadata checks cover the tenant-owned table census and composite-FK structure, while existing data-backed probes cover selected role and subscription relationships. This is an initial critical-family matrix, not yet an exhaustive negative-write matrix for every tenant-owned table.
+
 | Field | Detail |
 |---|---|
 | Affected module | Persistence integration/security test suite |
 | Tables | All 49 tenant-owned/TENANT_CHILD tables; priority to orders, order_items, products, carts, cart_items, inventory, stock_reservations, returns/refunds, subscriptions, POS projections |
-| Current behavior | 82 backend test classes exist and workflow has H2/MySQL 8.4 matrix. Existing tests cover many vertical slices, but no single comprehensive Vendor A/B and Customer A/B MySQL isolation suite was established from the reviewed tree. |
+| Current behavior | `P004TenantIsolationTest` uses the reusable `TenantIsolationFixture` for Vendor A/B and Customer A/B. This increment adds data-backed positive/negative controls for `cart_items`, `order_items` and `warehouse_inventory` in both database lanes. The MySQL-only P202 suite separately validates tenant-table discovery and composite-FK metadata, plus existing role/subscription cross-tenant probes. |
 | Expected behavior | Same-tenant inserts/reads work; cross-tenant composite FK writes, orphan children, null tenant and duplicate tenant-scoped keys fail. |
 | Security impact | Without database-backed negative tests, schema regressions or MySQL/H2 semantic differences can go undetected. |
 | Evidence | `.github/workflows/pos-tests.yml`; `backend/pom.xml`; existing tenant, POS, checkout, refund, customer, role and subscription tests. |
-| Recommended implementation | Create reusable two-tenant/two-customer fixture. Add migration-level tests for INV-DB-001..003 and table-family FK behavior. Keep H2 fast tests but rely on MySQL 8.4 for production FK semantics. |
+| Recommended implementation | Reuse `TenantIsolationFixture`; extend the table-family matrix to stock reservations, returns/refunds, receipts, POS projections, shipments and remaining operational children. Keep H2 fast tests and rely on MySQL 8.4 for production FK semantics. |
 | Migration required | No test-only migration; schema constraints are tracked separately. |
-| Tests required | All table-family tests listed in `TENANT_QUERY_AND_DATA_ACCESS_INVENTORY.md` §12. |
+| Tests required | Same-tenant positive control plus cross-tenant parent/product, orphan-parent, null-tenant and duplicate-key rejection for each applicable critical family in `TENANT_QUERY_AND_DATA_ACCESS_INVENTORY.md` §12. The current increment covers carts, order items and warehouse inventory; remaining families stay open. |
 | Dependencies | INV-DB-001..003; deterministic test fixture. |
 | Acceptance criteria | CI MySQL 8.4 job proves same-tenant success and cross-tenant/orphan rejection for critical resource families; no test is marked passed unless executed. |
 

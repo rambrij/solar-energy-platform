@@ -246,6 +246,156 @@ class P004TenantIsolationTest {
             Integer.class, VENDOR_A_TENANT, secondBranch, VENDOR_A_PRODUCT_ID)).isEqualTo(3);
     }
 
+
+    @Test
+    @DisplayName("Critical tenant-owned child tables reject cross-tenant, orphan, null-scope and duplicate writes")
+    void criticalTenantChildFamiliesEnforceDatabaseOwnershipInBothDirections() {
+        // Product SKU uniqueness is tenant-scoped: the same SKU may exist in
+        // another vendor, but a duplicate inside the owning tenant is rejected.
+        db.update("""
+            INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published)
+            VALUES(?,?,?,?,?,100,0,TRUE)
+            """, 9_871_403L, VENDOR_B_TENANT, "P004-A-ITEM", null, "Vendor B reused SKU");
+        assertThatThrownBy(() -> db.update("""
+            INSERT INTO products(id,tenant_id,sku,barcode,name,price,tax_rate,published)
+            VALUES(?,?,?,?,?,100,0,TRUE)
+            """, 9_871_404L, VENDOR_A_TENANT, "P004-A-ITEM", null, "Vendor A duplicate SKU"))
+            .isInstanceOf(DataIntegrityViolationException.class);
+
+        String cartA = "p004-cart-a";
+        String cartB = "p004-cart-b";
+        db.update("INSERT INTO carts(id,tenant_id,customer_id,state) VALUES(?,?,?,'ACTIVE')",
+            cartA, VENDOR_A_TENANT, CUSTOMER_A_ID);
+        db.update("INSERT INTO carts(id,tenant_id,customer_id,state) VALUES(?,?,?,'ACTIVE')",
+            cartB, VENDOR_B_TENANT, CUSTOMER_B_ID);
+        db.update("""
+            INSERT INTO cart_items(tenant_id,cart_id,product_id,quantity) VALUES(?,?,?,1)
+            """, VENDOR_A_TENANT, cartA, VENDOR_A_PRODUCT_ID);
+        db.update("""
+            INSERT INTO cart_items(tenant_id,cart_id,product_id,quantity) VALUES(?,?,?,1)
+            """, VENDOR_B_TENANT, cartB, VENDOR_B_PRODUCT_ID);
+
+        // A child must belong to both its tenant-scoped cart and its
+        // tenant-scoped product. Global customer identity does not weaken either FK.
+        assertThatThrownBy(() -> db.update("""
+            INSERT INTO cart_items(tenant_id,cart_id,product_id,quantity) VALUES(?,?,?,1)
+            """, VENDOR_A_TENANT, cartA, VENDOR_B_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update("""
+            INSERT INTO cart_items(tenant_id,cart_id,product_id,quantity) VALUES(?,?,?,1)
+            """, VENDOR_A_TENANT, cartB, VENDOR_A_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update("""
+            INSERT INTO cart_items(tenant_id,cart_id,product_id,quantity) VALUES(?,?,?,1)
+            """, VENDOR_A_TENANT, "p004-missing-cart", VENDOR_A_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update("""
+            INSERT INTO cart_items(tenant_id,cart_id,product_id,quantity) VALUES(?,?,?,1)
+            """, new Object[] {null, cartA, VENDOR_A_PRODUCT_ID}))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update("""
+            INSERT INTO cart_items(tenant_id,cart_id,product_id,quantity) VALUES(?,?,?,1)
+            """, VENDOR_A_TENANT, cartA, VENDOR_A_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+
+        String orderA = "p004-order-a";
+        String orderB = "p004-order-b";
+        db.update("""
+            INSERT INTO orders(id,tenant_id,customer_id,sales_channel,idempotency_key,request_hash,total,tax_invoice)
+            VALUES(?,?,?,'ONLINE',?,?,100.00,FALSE)
+            """, orderA, VENDOR_A_TENANT, CUSTOMER_A_ID, "p004-order-a-key", "a".repeat(64));
+        db.update("""
+            INSERT INTO orders(id,tenant_id,customer_id,sales_channel,idempotency_key,request_hash,total,tax_invoice)
+            VALUES(?,?,?,'ONLINE',?,?,200.00,FALSE)
+            """, orderB, VENDOR_B_TENANT, CUSTOMER_B_ID, "p004-order-b-key", "b".repeat(64));
+
+        String insertOrderItem = """
+            INSERT INTO order_items
+                (tenant_id,order_id,product_id,name,quantity,price,tax_rate,tax,total,
+                 list_price,discount,discount_percent,manual_discount)
+            VALUES(?,?,?,?,1,100.00,0.00,0.00,100.00,100.00,0.00,0.00,0.00)
+            """;
+        db.update(insertOrderItem, VENDOR_A_TENANT, orderA, VENDOR_A_PRODUCT_ID, "Vendor A item");
+        db.update(insertOrderItem, VENDOR_B_TENANT, orderB, VENDOR_B_PRODUCT_ID, "Vendor B item");
+
+        assertThatThrownBy(() -> db.update(insertOrderItem,
+            VENDOR_A_TENANT, orderA, VENDOR_B_PRODUCT_ID, "Foreign product"))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update(insertOrderItem,
+            VENDOR_A_TENANT, orderB, VENDOR_A_PRODUCT_ID, "Foreign order"))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update(insertOrderItem,
+            VENDOR_A_TENANT, "p004-missing-order", VENDOR_A_PRODUCT_ID, "Orphan order"))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update("""
+            INSERT INTO order_items
+                (tenant_id,order_id,product_id,name,quantity,price,tax_rate,tax,total,
+                 list_price,discount,discount_percent,manual_discount)
+            VALUES(NULL,?,?,?,1,100.00,0.00,0.00,100.00,100.00,0.00,0.00,0.00)
+            """, orderA, VENDOR_A_PRODUCT_ID, "Null tenant"))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update(insertOrderItem,
+            VENDOR_A_TENANT, orderA, VENDOR_A_PRODUCT_ID, "Duplicate order item"))
+            .isInstanceOf(DataIntegrityViolationException.class);
+
+        db.update("""
+            INSERT INTO warehouses
+                (tenant_id,branch_id,code,name,active,created_by,updated_by,created_at,updated_at)
+            VALUES(?,?,?, ?,TRUE,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            """, VENDOR_A_TENANT, VENDOR_A_BRANCH, "P004-WH-A", "Vendor A warehouse", VENDOR_A, VENDOR_A);
+        db.update("""
+            INSERT INTO warehouses
+                (tenant_id,branch_id,code,name,active,created_by,updated_by,created_at,updated_at)
+            VALUES(?,?,?, ?,TRUE,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            """, VENDOR_B_TENANT, VENDOR_B_BRANCH, "P004-WH-B", "Vendor B warehouse", VENDOR_B, VENDOR_B);
+        Long warehouseA = db.queryForObject(
+            "SELECT id FROM warehouses WHERE tenant_id=? AND code='P004-WH-A'", Long.class, VENDOR_A_TENANT);
+        Long warehouseB = db.queryForObject(
+            "SELECT id FROM warehouses WHERE tenant_id=? AND code='P004-WH-B'", Long.class, VENDOR_B_TENANT);
+
+        String insertWarehouseStock = """
+            INSERT INTO warehouse_inventory(tenant_id,warehouse_id,product_id,on_hand,reserved,damaged)
+            VALUES(?,?,?,10,0,0)
+            """;
+        db.update(insertWarehouseStock, VENDOR_A_TENANT, warehouseA, VENDOR_A_PRODUCT_ID);
+        db.update(insertWarehouseStock, VENDOR_B_TENANT, warehouseB, VENDOR_B_PRODUCT_ID);
+        assertThatThrownBy(() -> db.update(insertWarehouseStock,
+            VENDOR_A_TENANT, warehouseB, VENDOR_A_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update(insertWarehouseStock,
+            VENDOR_A_TENANT, warehouseA, VENDOR_B_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update(insertWarehouseStock,
+            VENDOR_A_TENANT, 9_879_999L, VENDOR_A_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update("""
+            INSERT INTO warehouse_inventory(tenant_id,warehouse_id,product_id,on_hand,reserved,damaged)
+            VALUES(NULL,?,?,10,0,0)
+            """, warehouseA, VENDOR_A_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> db.update(insertWarehouseStock,
+            VENDOR_A_TENANT, warehouseA, VENDOR_A_PRODUCT_ID))
+            .isInstanceOf(DataIntegrityViolationException.class);
+
+        // Pre-existing inventory rows and all positive controls remain intact
+        // after the rejected statements; no failed write leaves a partial child.
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM cart_items WHERE (tenant_id=? AND cart_id=?) OR (tenant_id=? AND cart_id=?)",
+            Integer.class, VENDOR_A_TENANT, cartA, VENDOR_B_TENANT, cartB)).isEqualTo(2);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM order_items WHERE (tenant_id=? AND order_id=?) OR (tenant_id=? AND order_id=?)",
+            Integer.class, VENDOR_A_TENANT, orderA, VENDOR_B_TENANT, orderB)).isEqualTo(2);
+        assertThat(db.queryForObject(
+            "SELECT COUNT(*) FROM warehouse_inventory WHERE (tenant_id=? AND warehouse_id=?) OR (tenant_id=? AND warehouse_id=?)",
+            Integer.class, VENDOR_A_TENANT, warehouseA, VENDOR_B_TENANT, warehouseB)).isEqualTo(2);
+        assertThat(db.queryForObject(
+            "SELECT quantity FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?",
+            Integer.class, VENDOR_A_TENANT, VENDOR_A_BRANCH, VENDOR_A_PRODUCT_ID)).isEqualTo(5);
+        assertThat(db.queryForObject(
+            "SELECT quantity FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?",
+            Integer.class, VENDOR_B_TENANT, VENDOR_B_BRANCH, VENDOR_B_PRODUCT_ID)).isEqualTo(7);
+    }
+
     private static final List<String> VENDOR_A_GRANTS = List.of(
         "ROLE_VIEW", "ROLE_UPDATE", "USER_VIEW", "ROLE_ASSIGN", "USER_UPDATE",
         "USER_DISABLE", "INVENTORY_VIEW");

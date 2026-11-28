@@ -574,7 +574,7 @@
       "permission": "INVENTORY_TRANSFER",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/inventory/warehouses; GET /api/v1/vendor/inventory/warehouses/{id}/stock; POST /api/v1/vendor/inventory/warehouses; PATCH /api/v1/vendor/inventory/warehouses/{id}; GET /api/v1/vendor/inventory/transfers; GET /api/v1/vendor/inventory/transfers/{id}; POST /api/v1/vendor/inventory/transfers; POST /api/v1/vendor/inventory/transfers/{id}/approve; POST /api/v1/vendor/inventory/transfers/{id}/dispatch; POST /api/v1/vendor/inventory/transfers/{id}/receive",
+      "endpoint": "GET /api/v1/vendor/inventory/warehouses; GET /api/v1/vendor/inventory/warehouses/{id}/stock; POST /api/v1/vendor/inventory/warehouses; PATCH /api/v1/vendor/inventory/warehouses/{id}; GET /api/v1/vendor/inventory/transfers; GET /api/v1/vendor/inventory/transfers/{id}; POST /api/v1/vendor/inventory/transfers; POST /api/v1/vendor/inventory/transfers/{id}/approve; POST /api/v1/vendor/inventory/transfers/{id}/dispatch; POST /api/v1/vendor/inventory/transfers/{id}/receive; POST /api/v1/vendor/inventory/transfers/{id}/cancel",
       "service": "WarehouseInventoryService",
       "scope": "Authenticated vendor tenant; source branch derived from active membership; destination branch and warehouses resolved through tenant-qualified lookups; maker-checker approval; immutable transfer events and signed stock movement ledger; idempotent receipts",
       "ui": "Vendor workspace > Catalogue & Inventory > Warehouses & Transfers",

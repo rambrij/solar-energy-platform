@@ -282,7 +282,10 @@ INSERT INTO demo_grants VALUES
  ('ACCOUNTANT','POS_VIEW'),
  ('ACCOUNTANT','POS_REPORT_VIEW'),
  ('ACCOUNTANT','POS_REFUND_VIEW'),
- ('ACCOUNTANT','INVOICE_VIEW');
+ ('ACCOUNTANT','INVOICE_VIEW'),
+ ('VENDOR_ADMIN','RETURN_APPROVE'),
+ ('VENDOR_ADMIN','RETURN_VIEW'),
+ ('INVENTORY_MANAGER','RETURN_VIEW');
 
 INSERT INTO vendor_roles(tenant_id,role_key,display_name,active,created_by,updated_by)
 SELECT a.tenant_id,CONCAT('demo-',REPLACE(a.username,'@','-')),a.role_name,TRUE,a.username,a.username

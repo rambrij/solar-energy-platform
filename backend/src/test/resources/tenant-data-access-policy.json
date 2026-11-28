@@ -747,6 +747,58 @@
         "order.orderId()"
       ],
       "trustedTenantParameters": {}
+    },
+    {
+      "source": "com.saumya.pos.returns.OnlineOrderService",
+      "methods": [
+        "days",
+        "delivered",
+        "eligibleItems",
+        "items",
+        "events",
+        "caseRows",
+        "appendEvent",
+        "createCustomer",
+        "vendorList",
+        "decide",
+        "policy",
+        "updatePolicy"
+      ],
+      "authority": "Online return customer tenant IDs are resolved from the authenticated customer's owned paid-online OrderHistoryService references; vendor tenant IDs come from AuthorizationContext after active vendor membership and RETURN_VIEW/RETURN_APPROVE. Helper tenant parameters are passed only from these trusted sources. The service never accepts tenant IDs from request DTOs.",
+      "evidence": [
+        "auth.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "customerPaidOnlineOrderReferences(username)",
+        "customerOrderTenant(username,orderId)",
+        "WHERE tenant_id=?"
+      ],
+      "trustedTenantParameters": {
+        "days": [
+          "tenant"
+        ],
+        "delivered": [
+          "tenant"
+        ],
+        "eligibleItems": [
+          "tenant"
+        ],
+        "items": [
+          "tenant"
+        ],
+        "events": [
+          "tenant"
+        ],
+        "caseRows": [
+          "tenant"
+        ],
+        "appendEvent": [
+          "tenant"
+        ],
+        "createCustomer": [
+          "tenant"
+        ]
+      }
     }
   ],
   "inheritedIdLookups": [

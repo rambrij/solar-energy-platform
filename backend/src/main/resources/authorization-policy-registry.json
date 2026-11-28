@@ -441,7 +441,7 @@
     "VendorTenantReportController": "VENDOR_MEMBERSHIP_DERIVED_TENANT_WIDE_REPORTING",
     "VendorTenantRefundAnalyticsController": "VENDOR_MEMBERSHIP_DERIVED_TENANT_WIDE_POS_REFUND_REPORTING",
     "WarehouseInventoryController": "VENDOR_INVENTORY_TRANSFER_AND_VIEW",
-    "OnlineReturnController": "Customer-owned delivered paid online orders; authenticated tenant-scoped vendor review and return-window configuration; no refunds or inventory mutations"
+    "OnlineOrderController": "Customer-owned delivered paid online orders; authenticated tenant-scoped vendor review and return-window configuration; no refunds or inventory mutations"
   },
   "customerPermissions": [
     "CUSTOMER"

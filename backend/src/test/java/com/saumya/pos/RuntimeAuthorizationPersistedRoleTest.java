@@ -512,7 +512,8 @@ class RuntimeAuthorizationPersistedRoleTest {
             "platform_support_access", "platform_configuration", "platform_audit_events",
             "report_export_audit", "vendor_payment_attempts", "tenant_subscriptions",
             "subscription_invoices", "subscription_payments", "subscription_events",
-            "catalog_promotions", "catalog_change_events", "receipt_document_audit"
+            "catalog_promotions", "catalog_change_events", "receipt_document_audit", "online_return_policies", "online_return_policy_events",
+            "online_returns", "online_return_items", "online_return_events"
         );
         Map<String, Long> countsBefore = new LinkedHashMap<>();
         for (String table : protectedTables) {
@@ -610,6 +611,20 @@ class RuntimeAuthorizationPersistedRoleTest {
                         && handler.getMethod().getName().equals("updateStatus")) {
                         request.contentType(APPLICATION_JSON).content(
                             "{\"expectedVersion\":0,\"status\":\"IN_PROGRESS\",\"note\":\"Runtime authorization probe\"}");
+                    }
+
+                    if (controllerType.getSimpleName().equals("OnlineOrderController")) {
+                        if (handler.getMethod().getName().equals("createCustomer")) {
+                            request.header("Idempotency-Key", "runtime-return-key-01")
+                                .contentType(APPLICATION_JSON).content(
+                                    "{\\"orderId\\":\\"order-1\\",\\"items\\":[{\\"productId\\":1,\\"quantity\\":1}],\\"reason\\":\\"Runtime authorization probe\\"}");
+                        } else if (handler.getMethod().getName().equals("vendorDecision")) {
+                            request.contentType(APPLICATION_JSON).content(
+                                "{\\"expectedVersion\\":0,\\"decision\\":\\"APPROVED\\",\\"reason\\":\\"Runtime authorization probe\\",\\"customerMessage\\":\\"Reviewed\\\"}");
+                        } else if (handler.getMethod().getName().equals("updatePolicy")) {
+                            request.contentType(APPLICATION_JSON).content(
+                                "{\\"expectedVersion\\":0,\\"returnWindowDays\\":14,\\"reason\\":\\"Runtime authorization probe\\"}");
+                        }
                     }
 
                     int expected = authenticatedIdentityOnly ? 200 : 403;

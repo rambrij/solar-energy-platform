@@ -16,15 +16,15 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(OnlineReturnController.class)
+@WebMvcTest(OnlineOrderController.class)
 @Import(AuthorizationTestSecurityConfiguration.class)
-class OnlineReturnControllerAuthorizationTest {
+class OnlineOrderControllerAuthorizationTest {
  @Autowired MockMvc mvc;
- @MockBean OnlineReturnService service;
+ @MockBean OnlineOrderService service;
 
  @Test @WithMockUser(username="customer@example.test",authorities={"CUSTOMER"})
  void customerActorCanReadAndSubmitOwnReturnRoutes() throws Exception {
-  when(service.customerWorkspace("customer@example.test")).thenReturn(new OnlineReturnService.Workspace(List.of(),List.of()));
+  when(service.customerWorkspace("customer@example.test")).thenReturn(new OnlineOrderService.Workspace(List.of(),List.of()));
   mvc.perform(get("/api/v1/customer/online-returns")).andExpect(status().isOk());
   mvc.perform(post("/api/v1/customer/online-returns").with(csrf()).header("Idempotency-Key","return-key-123")
    .contentType(MediaType.APPLICATION_JSON)
@@ -37,7 +37,7 @@ class OnlineReturnControllerAuthorizationTest {
  @Test @WithMockUser(username="vendor@example.test",authorities={"RETURN_VIEW","RETURN_APPROVE"})
  void vendorCanReadPolicyAndReviewQueue() throws Exception {
   when(service.vendorList()).thenReturn(List.of());
-  when(service.policy()).thenReturn(new OnlineReturnService.Policy(0,0));
+  when(service.policy()).thenReturn(new OnlineOrderService.Policy(0,0));
   mvc.perform(get("/api/v1/vendor/online-returns")).andExpect(status().isOk());
   mvc.perform(get("/api/v1/vendor/online-returns/policy")).andExpect(status().isOk());
   mvc.perform(put("/api/v1/vendor/online-returns/policy").with(csrf()).contentType(MediaType.APPLICATION_JSON)

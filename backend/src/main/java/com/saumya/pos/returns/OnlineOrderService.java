@@ -28,7 +28,7 @@ import org.springframework.http.HttpStatus;
 
 @Service
 @Transactional
-class OnlineReturnService {
+class OnlineOrderService {
  private final JdbcTemplate db; private final AuthorizationContext auth; private final OrderHistoryService orders;
  private final CustomerAccess customers; private final EventOutbox outbox; private final Clock clock;
  OnlineReturnService(JdbcTemplate db,AuthorizationContext auth,OrderHistoryService orders,CustomerAccess customers,EventOutbox outbox,Clock clock){
@@ -161,7 +161,7 @@ class OnlineReturnService {
   String orderId=request.orderId();
   if(orderId==null||!orderId.matches("[A-Za-z0-9-]{1,36}"))notFound();
   String reason=clean(request.reason(),250,"Return reason");
-  if(request.items()==null||request.items().isEmpty()||request.items().size()>100)bad("Select purchased items");
+  if(request.items()==null||request.items().isEmpty()||request.items().size()>100)bad("Choose purchased items");
   var chosen=request.items().stream().sorted(Comparator.comparingLong(RequestItem::productId)).toList();
   var seen=new HashSet<Long>();var fingerprint=new ArrayList<String>(List.of(orderId,reason));
   for(var item:chosen){
@@ -196,9 +196,9 @@ class OnlineReturnService {
   }
   String id=UUID.randomUUID().toString();Instant now=clock.instant();
   db.update("""
-   INSERT INTO online_returns(id,tenant_id,customer_id,order_id,idempotency_key,request_hash,reason,status,created_at,version)
+   INSERT INTO online_returns(tenant_id,id,customer_id,order_id,idempotency_key,request_hash,reason,status,created_at,version)
    VALUES(?,?,?,?,?,?,?,'REQUESTED',?,0)
-   """,id,tenant,customerId,orderId,key,requestHash,reason,Timestamp.from(now));
+   """,tenant,id,customerId,orderId,key,requestHash,reason,Timestamp.from(now));
   for(var item:chosen)db.update("""
    INSERT INTO online_return_items(tenant_id,return_id,order_id,product_id,product_name,quantity) VALUES(?,?,?,?,?,?)
    """,tenant,id,orderId,item.productId(),selected.get(item.productId()).get("name"),item.quantity());
@@ -251,26 +251,3 @@ class OnlineReturnService {
  }
 }
 
-@RestController
-class OnlineReturnController {
- private final OnlineReturnService service;
- OnlineReturnController(OnlineReturnService service){this.service=service;}
- record ItemRequest(@Positive long productId,@Min(1) @Max(10000) int quantity){}
- record CreateRequest(@NotBlank @Size(max=36) String orderId,@NotEmpty @Size(max=100) List<@NotNull @Valid ItemRequest> items,@NotBlank @Size(max=250) String reason){}
- record DecisionRequest(@Min(0) long expectedVersion,@NotBlank @Pattern(regexp="APPROVED|REJECTED") String decision,@NotBlank @Size(max=500) String reason,@NotBlank @Size(max=500) String customerMessage){}
- record PolicyRequest(@Min(0) long expectedVersion,@Min(0) @Max(365) int returnWindowDays,@NotBlank @Size(max=500) String reason){}
- @GetMapping("/api/v1/customer/online-returns") @PreAuthorize("hasAuthority('CUSTOMER')")
- OnlineReturnService.Workspace customerWorkspace(Principal actor){return service.customerWorkspace(actor.getName());}
- @PostMapping("/api/v1/customer/online-returns") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasAuthority('CUSTOMER')")
- OnlineReturnService.ReturnView createCustomer(Principal actor,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CreateRequest request){
-  return service.createCustomer(actor.getName(),key,new OnlineReturnService.Create(request.orderId(),request.items().stream().map(i->new OnlineReturnService.RequestItem(i.productId(),i.quantity())).toList(),request.reason()));
- }
- @GetMapping("/api/v1/vendor/online-returns") @PreAuthorize("hasAuthority('RETURN_VIEW')")
- List<OnlineReturnService.ReturnView> vendorList(){return service.vendorList();}
- @PostMapping("/api/v1/vendor/online-returns/{id}/decision") @PreAuthorize("hasAuthority('RETURN_APPROVE')")
- OnlineReturnService.ReturnView vendorDecision(@PathVariable String id,@Valid @RequestBody DecisionRequest r){return service.decide(id,new OnlineReturnService.Decision(r.expectedVersion(),r.decision(),r.reason(),r.customerMessage()));}
- @GetMapping("/api/v1/vendor/online-returns/policy") @PreAuthorize("hasAuthority('RETURN_VIEW')")
- OnlineReturnService.Policy vendorPolicy(){return service.policy();}
- @PutMapping("/api/v1/vendor/online-returns/policy") @PreAuthorize("hasAuthority('RETURN_APPROVE')")
- OnlineReturnService.Policy updatePolicy(@Valid @RequestBody PolicyRequest r){return service.updatePolicy(new OnlineReturnService.PolicyChange(r.expectedVersion(),r.returnWindowDays(),r.reason()));}
-}

@@ -122,6 +122,7 @@ class ModuleArchitectureTest {
             Map.entry("com.saumya.pos.marketplace.MarketplaceEnquiryService", "backend/src/main/java/com/saumya/pos/marketplace/MarketplaceEnquiryService.java"),
             Map.entry("com.saumya.pos.catalog.LocalDemoSolarCatalogSeed", "backend/src/main/resources/db/local-seed/local_demo_solar_catalog.sql"),
             Map.entry("com.saumya.pos.inventory.WarehouseInventoryService", "backend/src/main/java/com/saumya/pos/inventory/WarehouseInventoryService.java"),
+            Map.entry("com.saumya.pos.returns.OnlineOrderService", "backend/src/main/java/com/saumya/pos/returns/OnlineOrderService.java"),
             Map.entry("com.saumya.pos.returns.OnlineReturnService", "backend/src/main/java/com/saumya/pos/returns/OnlineReturnController.java")
         );
         assertThat(jdbcConsumers).as("every direct JDBC consumer has a query-level review")

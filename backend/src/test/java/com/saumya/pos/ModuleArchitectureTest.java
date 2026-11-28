@@ -99,7 +99,8 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.warranty.WarrantyService",
                 "com.saumya.pos.warranty.WarrantyClaimService",
                 "com.saumya.pos.marketplace.MarketplaceEnquiryService",
-                "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed"
+                "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed",
+                "com.saumya.pos.inventory.WarehouseInventoryService"
             );
         Map<String, String> jdbcSqlSources = Map.ofEntries(
             Map.entry("com.saumya.pos.membership.MembershipService", "backend/src/main/java/com/saumya/pos/membership/MembershipService.java"),

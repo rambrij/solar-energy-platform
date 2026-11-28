@@ -126,6 +126,8 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 
 **Priority: P2** — Hardening
 
+**Implementation status: IN PROGRESS.** The initial audit now records inherited repository writes (save/saveAll/saveAndFlush/saveAllAndFlush), generic deletes, delete method references and existsById callsites. CI compares the exact source/call/count inventory with reviewed ownership evidence; additions or count changes require an explicit scope review. This does not blanket-ban Spring Data CRUD or change persistence behavior.
+
 | Field | Detail |
 |---|---|
 | Affected module | All tenant-owned repository/service modules |
@@ -133,9 +135,9 @@ into actionable findings. It distinguishes a confirmed schema/integrity gap from
 | Expected behavior | Tenant-owned resources should use explicit tenant + resource/parent methods or composite keys, with ownership validation before mutations. Generic unscoped methods should be limited to global/platform data or documented trusted internal use. |
 | Security impact | Future code can accidentally introduce unscoped access if inherited CRUD is treated as safe by default. No single exploitable inherited-method call was established by interface declarations alone. |
 | Evidence | 62 repository interfaces in the current tree; examples include composite-key InvoiceSnapshot/BuyerSnapshot/CatalogStock and tenant-aware Product/Draft/Return repositories. |
-| Recommended implementation | Add ArchUnit/static checks for tenant-owned modules; document allowed generic method use; add tenant-aware methods where a concrete callsite needs them. Do not blanket-remove inherited repository methods or rewrite architecture. |
+| Recommended implementation | A fail-closed source inventory records exact service source, repository variable, generic CRUD method, expected call count, tenant/owner/platform scope and code evidence. New callsites or changed counts fail CI until reviewed. Existing scoped finder/composite-key patterns remain valid; do not blanket-remove inherited methods or rewrite architecture. |
 | Migration required | No. |
-| Tests required | Static architecture rule mutation tests; direct service tests for any changed callsite. |
+| Tests required | Static negative fixtures for generic save/saveAll/delete/entity-delete-method-reference/existsById usage; exact inventory parity and source-evidence checks; direct service tests only when a production callsite changes. |
 | Dependencies | P0-02 service boundary inventory; P2-04 architecture checks. |
 | Acceptance criteria | New unscoped tenant repository access fails CI or has a narrowly documented allow-list; current valid generic/composite-key behavior remains. |
 

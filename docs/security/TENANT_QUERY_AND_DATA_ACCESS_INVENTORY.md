@@ -129,6 +129,18 @@ Many tenant repositories extend `JpaRepository` and therefore inherit methods su
 - Use generic `findAll` only for genuinely global/platform-owned data or after a platform-wide policy check.
 - A generic `findById` on a globally unique UUID may still be safe after a scoped parent lookup, but the dependency should be explicit and tested.
 
+
+
+## 3.1 Inherited repository CRUD callsite review — INV-DB-006
+
+A separate fail-closed registry in the backend test policy now records the source class, repository variable, generic write/delete/existence method, expected call count, ownership scope and source evidence for inherited Spring Data CRUD calls.
+
+The review covers save, saveAll, saveAndFlush, saveAllAndFlush, delete, deleteById, bulk-delete entry points and existsById. Entity-delete method references such as repository::delete are included because they bypass a direct-call-only scan. The test verifies that each variable is declared with a repository interface type, then compares the observed set and exact counts against the reviewed registry.
+
+The registry is not an allow-all list: every entry requires a non-empty ownership scope, trusted-source explanation and evidence strings that must remain present in production source. Adding or expanding a generic CRUD call changes the observed inventory and fails CI until reviewed.
+
+This first audit increment does not rewrite any service, replace repository interfaces or add a migration. Existing findById, unscoped findAll() and bulk-delete controls remain enforced by their existing dedicated checks.
+
 ## 4. Explicit query and repository scope review
 
 ### 4.1 Catalogue search, count, pagination and product/category queries

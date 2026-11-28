@@ -2201,5 +2201,818 @@
       "initializer": "orderHistory.customerOrderTenant(username,orderId)",
       "authority": "OrderHistoryService.customerOrderTenant verifies the authenticated global customer owns the persisted order and derives tenant scope from that order; the customer request cannot provide a tenant identifier."
     }
+  ],
+  "inheritedRepositoryCrudAccess": [
+    {
+      "source": "com/saumya/pos/cart/CartService.java",
+      "scope": "CUSTOMER_CART_AND_PRODUCT_TENANT_KEYS",
+      "trustedSource": "Cart and item saves use the authenticated customer and published vendor selection; child key contains tenant, cart and product.",
+      "evidence": [
+        "customers.resolve(context.username())",
+        "new CartItem.Key(vendor.id(),current.id(),request.productId())"
+      ],
+      "calls": [
+        {
+          "call": "carts.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "items.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/CatalogAvailabilityService.java",
+      "scope": "PERSISTED_TENANT_BRANCH_PRODUCT_EVENT",
+      "trustedSource": "Projection row is keyed by the trusted stock-availability event tenant, branch and product.",
+      "evidence": [
+        "@EventListener",
+        "new CatalogStock.Key(event.tenant(),event.branch(),event.product())"
+      ],
+      "calls": [
+        {
+          "call": "stock.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/CategoryAdminService.java",
+      "scope": "AUTHORIZED_VENDOR_TENANT_CATEGORY_AUDIT",
+      "trustedSource": "Category changes and audit rows use the tenant and actor validated by the category authorization boundary.",
+      "evidence": [
+        "authorize(tenant,actor,",
+        "new CatalogChangeEvent(tenant,actor"
+      ],
+      "calls": [
+        {
+          "call": "events.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/DiscountPolicyService.java",
+      "scope": "AUTHORIZED_VENDOR_TENANT_POLICY",
+      "trustedSource": "The method requires a vendor membership, checks its tenant against the requested tenant and validates permission before persisting the policy.",
+      "evidence": [
+        "c.requireVendorMembership()",
+        "c.tenantId()!=tenant"
+      ],
+      "calls": [
+        {
+          "call": "policies.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/ProductAdminService.java",
+      "scope": "AUTHORIZED_VENDOR_PRODUCT_AND_COMPOSITE_CATEGORY",
+      "trustedSource": "Product mutations require the authenticated tenant; category assignment is addressed by a tenant/product composite key and audit snapshots retain the same tenant.",
+      "evidence": [
+        "context.requireTenant(tenant)",
+        "new ProductCategory.Key(tenant,p.id())"
+      ],
+      "calls": [
+        {
+          "call": "assignments.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "assignments::delete",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "events.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/ProductImageService.java",
+      "scope": "AUTHORIZED_VENDOR_PRODUCT_IMAGE",
+      "trustedSource": "Image metadata uses the authenticated vendor tenant and the previously authorized product; catalogue audit uses that same server actor context.",
+      "evidence": [
+        "context.tenantId()",
+        "new ProductImage(id,context.tenantId(),productId"
+      ],
+      "calls": [
+        {
+          "call": "images.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "events.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/PromotionService.java",
+      "scope": "AUTHORIZED_VENDOR_PRODUCT_PROMOTION",
+      "trustedSource": "Promotion and audit records use the authorized tenant/product aggregate and a reasoned actor context.",
+      "evidence": [
+        "new Promotion(tenant,product",
+        "new PromotionAudit(tenant,product"
+      ],
+      "calls": [
+        {
+          "call": "promotions.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "audit.save",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/catalog/SolarPackageService.java",
+      "scope": "AUTHORIZED_VENDOR_PACKAGE_AND_CHILD_LINES",
+      "trustedSource": "Package and line entities carry the authorized tenant; package-line replacements use the existing tenant-scoped package aggregate.",
+      "evidence": [
+        "context.tenantId()",
+        "items.saveAll(lines)"
+      ],
+      "calls": [
+        {
+          "call": "packages.saveAndFlush",
+          "expectedCallCount": 2
+        },
+        {
+          "call": "items.saveAll",
+          "expectedCallCount": 2
+        },
+        {
+          "call": "events.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/BuyerDetailsService.java",
+      "scope": "TENANT_ORDER_COMPOSITE_SNAPSHOT",
+      "trustedSource": "Buyer snapshots are created and deleted only with the owning order tenant and ID in their composite key.",
+      "evidence": [
+        "new BuyerSnapshot(tenant,order",
+        "new BuyerSnapshot.Key(tenant,id)"
+      ],
+      "calls": [
+        {
+          "call": "snapshots.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "snapshots.deleteById",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/CheckoutService.java",
+      "scope": "AUTHORIZED_CHECKOUT_AGGREGATE_TENANT",
+      "trustedSource": "Orders, order lines and payment attempts are created inside the authorized checkout transaction using server-resolved tenant, branch, customer and order ownership.",
+      "evidence": [
+        "new DraftOrder(id,tenant,customer",
+        "stock.reserve(tenant,branch"
+      ],
+      "calls": [
+        {
+          "call": "orders.saveAndFlush",
+          "expectedCallCount": 2
+        },
+        {
+          "call": "lines.saveAllAndFlush",
+          "expectedCallCount": 2
+        },
+        {
+          "call": "paymentAttempts.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/CustomerAssociationService.java",
+      "scope": "AUTHENTICATED_CUSTOMER_AND_ORDER_CHALLENGE",
+      "trustedSource": "The one-time challenge is bound to the persisted order tenant/order and authenticated customer interaction; the token hash is generated server-side.",
+      "evidence": [
+        "retail.requireOpen(scope",
+        "new CustomerChallenge(hash(token),order.tenant()"
+      ],
+      "calls": [
+        {
+          "call": "challenges.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/PaymentCheckoutService.java",
+      "scope": "AUTHORIZED_ORDER_PAYMENT_TENANT",
+      "trustedSource": "Payment attempts are constructed from the already-authorized order; mutations reuse the persisted order tenant and idempotency contract.",
+      "evidence": [
+        "payable(order)",
+        "new PaymentAttempt(order.tenant(),id"
+      ],
+      "calls": [
+        {
+          "call": "attempts.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/SaleDocumentsService.java",
+      "scope": "AUTHORIZED_POS_ORDER_DOCUMENT_OWNER",
+      "trustedSource": "Invoice snapshots use the authorized sale persisted tenant and order ID; they cannot be selected by a client tenant identifier.",
+      "evidence": [
+        "order.tenant()",
+        "new InvoiceSnapshot(order.tenant(),order.id()"
+      ],
+      "calls": [
+        {
+          "call": "invoices.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/checkout/VendorPaymentAccountService.java",
+      "scope": "AUTHORIZED_VENDOR_PAYMENT_ACCOUNT_TENANT",
+      "trustedSource": "The actor authenticated tenant and username are used for the payment-account aggregate and its audit event.",
+      "evidence": [
+        "actor.tenantId()",
+        "new VendorPaymentAccount(actor.tenantId()"
+      ],
+      "calls": [
+        {
+          "call": "accounts.saveAndFlush",
+          "expectedCallCount": 2
+        },
+        {
+          "call": "events.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/customer/VendorAccessAuditService.java",
+      "scope": "AUTHORIZED_VENDOR_LEAD_AND_SURVEY_AUDIT",
+      "trustedSource": "Every access audit row uses the actor tenant after vendor membership and permission checks; these are tenant-owned append-only audit records.",
+      "evidence": [
+        "actor.requireVendorMembership()",
+        "events.save(new VendorAccessAuditEvent(actor.tenantId()"
+      ],
+      "calls": [
+        {
+          "call": "events.save",
+          "expectedCallCount": 6
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/customer/VendorCustomerCrmService.java",
+      "scope": "AUTHORIZED_TENANT_CUSTOMER_RELATIONSHIP",
+      "trustedSource": "CRM notes are written only after checking the tenant/customer relationship; audit rows use the authenticated tenant and actor.",
+      "evidence": [
+        "requireRelationship(context.tenantId(), relationshipId)",
+        "new VendorCustomerCrmNote(context.tenantId()"
+      ],
+      "calls": [
+        {
+          "call": "crmNotes.saveAndFlush",
+          "expectedCallCount": 2
+        },
+        {
+          "call": "auditEvents.save",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/customer/VendorCustomerService.java",
+      "scope": "CONSENTED_TENANT_CUSTOMER_RELATIONSHIP",
+      "trustedSource": "The relationship is written only after the approved customer association is verified and the tenant/customer tuple is checked.",
+      "evidence": [
+        "existsByTenantAndCustomer(tenant,customer)",
+        "new VendorCustomer(tenant,customer"
+      ],
+      "calls": [
+        {
+          "call": "relationships.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/documents/ReceiptDocumentService.java",
+      "scope": "AUTHORIZED_POS_RECEIPT_SCOPE",
+      "trustedSource": "Receipt audit records use the authenticated POS scope tenant, branch and cashier and the already-authorized order.",
+      "evidence": [
+        "scope.tenant()",
+        "new ReceiptDocumentAudit(reference,scope.tenant()"
+      ],
+      "calls": [
+        {
+          "call": "audits.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/identity/AuthenticationService.java",
+      "scope": "GLOBAL_IDENTITY_AND_SESSION_OWNERSHIP",
+      "trustedSource": "Global user/customer rows are keyed by the verified global identity; refresh sessions are bound to that identity and actor context.",
+      "evidence": [
+        "new RefreshSession(hash(refresh)",
+        "new CustomerProfile(id,id)"
+      ],
+      "calls": [
+        {
+          "call": "sessions.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "users.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "customers.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "securityEvents.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/identity/CustomerEmailVerificationService.java",
+      "scope": "GLOBAL_IDENTITY_VERIFICATION_TOKEN",
+      "trustedSource": "Verification tokens are keyed by a one-time token hash and linked to the persisted global user ID; no tenant business rows are written.",
+      "evidence": [
+        "new IdentityEmailVerificationToken(hash(raw),user.id()",
+        "tokens.saveAndFlush(token)"
+      ],
+      "calls": [
+        {
+          "call": "tokens.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/identity/CustomerProfileService.java",
+      "scope": "AUTHENTICATED_GLOBAL_CUSTOMER_PROFILE",
+      "trustedSource": "Profile read/update resolves profile ID from authenticated customer username and locks that exact identity before saving.",
+      "evidence": [
+        "access.resolve(username)",
+        "access.lock(id)"
+      ],
+      "calls": [
+        {
+          "call": "customers.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/identity/IdentityProvisioningServiceImpl.java",
+      "scope": "GLOBAL_IDENTITY_INVITATION",
+      "trustedSource": "The provisioning service creates the global user by globally unique username, then issues a single-use invitation addressed to that same identity.",
+      "evidence": [
+        "sequences.locked()",
+        "invitations.saveAndFlush(new IdentityInvitation(hash(token),username"
+      ],
+      "calls": [
+        {
+          "call": "users.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "invitations.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/identity/PlatformMfaService.java",
+      "scope": "PLATFORM_OPERATOR_MFA_ENROLLMENT_TOKEN",
+      "trustedSource": "MFA enrollment tokens are issued for the target global identity only after platform authorization and are deleted after successful enrollment.",
+      "evidence": [
+        "requirePlatform",
+        "new PlatformMfaEnrollmentToken(hashToken(token),target"
+      ],
+      "calls": [
+        {
+          "call": "enrollmentTokens.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "enrollmentTokens.delete",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/integration/InboxService.java",
+      "scope": "PROVIDER_EVENT_DEDUPLICATION",
+      "trustedSource": "The inbox row uses the server-configured consumer/provider event key and trusted tenant carried by the validated inbound event; duplicate payloads are compared before dispatch.",
+      "evidence": [
+        "rows.findByConsumerKeyAndProviderEventId(consumer,providerId)",
+        "new InboxMessage(consumer,providerId,tenant"
+      ],
+      "calls": [
+        {
+          "call": "rows.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/integration/IntegrationOutboxService.java",
+      "scope": "TRANSACTIONAL_TENANT_EVENT_CONTEXT",
+      "trustedSource": "Outbox envelopes are appended within the business transaction and carry its tenant, actor, aggregate and immutable event identity.",
+      "evidence": [
+        "eventId, tenant, actor, aggregate",
+        "new OutboxMessage("
+      ],
+      "calls": [
+        {
+          "call": "rows.save",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/inventory/InventoryService.java",
+      "scope": "AUTHORIZED_TENANT_BRANCH_PRODUCT_STOCK",
+      "trustedSource": "Inventory balances, reservations, issues and return dispositions use the authorized tenant/branch/product tuple; return disposition uses a composite tenant/return/product key.",
+      "evidence": [
+        "context.requirePermission(\"INVENTORY_RECEIVE\")",
+        "new ReturnDisposition.Key(tenant,id,product)"
+      ],
+      "calls": [
+        {
+          "call": "balances.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "reservations.save",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "issues.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "returns.save",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "returns.existsById",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/inventory/StockReceivingService.java",
+      "scope": "AUTHORIZED_TENANT_BRANCH_RECEIPT_SERIALS",
+      "trustedSource": "Receipt and serial rows use tenant and branch from the authenticated vendor scope and are tied to the persisted receipt/product tuple.",
+      "evidence": [
+        "tenant,branch,input.productId()",
+        "serialAssets.saveAllAndFlush("
+      ],
+      "calls": [
+        {
+          "call": "receipts.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "serialAssets.saveAllAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/marketplace/MarketplaceEnquiryService.java",
+      "scope": "TENANT_ENQUIRY_AND_ASSIGNMENT",
+      "trustedSource": "Enquiry creation uses the resolved vendor tenant; status/assignment updates start from a tenant-scoped locked lead and are audited with the same tenant.",
+      "evidence": [
+        "new MarketplaceEnquiry(vendor.id()",
+        "lead.changeLeadStatus(status,actor.username()"
+      ],
+      "calls": [
+        {
+          "call": "enquiries.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/marketplace/QuotationService.java",
+      "scope": "TENANT_QUOTATION_REVISION_AND_CUSTOMER_OWNER",
+      "trustedSource": "Quotations, revisions, immutable lines and event history inherit the authorized tenant-owned lead/quotation or authenticated global customer ownership path.",
+      "evidence": [
+        "new Quotation(actor.tenantId()",
+        "new QuotationAuditEvent(tenant,quote.id()"
+      ],
+      "calls": [
+        {
+          "call": "quotations.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "audit.save",
+          "expectedCallCount": 5
+        },
+        {
+          "call": "revisions.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "lines.saveAllAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/marketplace/VendorSiteSurveyService.java",
+      "scope": "AUTHORIZED_TENANT_SITE_SURVEY",
+      "trustedSource": "Survey and update writes begin with the authenticated tenant-owned enquiry and active tenant employee assignment.",
+      "evidence": [
+        "new SiteSurvey(actor.tenantId(),enquiryId",
+        "audit.recordSiteSurveyMutation(saved.id()"
+      ],
+      "calls": [
+        {
+          "call": "surveys.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/membership/MembershipService.java",
+      "scope": "TENANT_EMPLOYEE_MEMBERSHIP_PROVISIONING",
+      "trustedSource": "Membership creation uses the authenticated platform/vendor provisioning workflow persisted tenant, branch and global identity username.",
+      "evidence": [
+        "new EmployeeMembership(actor,tenantId,branchId,true)",
+        "memberships.saveAndFlush("
+      ],
+      "calls": [
+        {
+          "call": "memberships.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/platform/PlatformAuditServiceImpl.java",
+      "scope": "PLATFORM_AUDIT_APPEND",
+      "trustedSource": "Only a platform-authorized audit write permission reaches the append-only platform audit repository; the event is not a tenant business record.",
+      "evidence": [
+        "PlatformAuthorization.require(writePermission(action),actor)",
+        "new PlatformAuditEvent(actor,action,type,resourceId,tenantId"
+      ],
+      "calls": [
+        {
+          "call": "repository.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/platform/PlatformConfigurationServiceImpl.java",
+      "scope": "PLATFORM_GLOBAL_CONFIGURATION",
+      "trustedSource": "Configuration mutations require the platform configuration permission and target a global platform-owned configuration key.",
+      "evidence": [
+        "PlatformAuthorization.require(\"PLATFORM_CONFIG_MANAGE\",null)",
+        "new PlatformConfigurationEntry(key,category,value,ref"
+      ],
+      "calls": [
+        {
+          "call": "repository.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/platform/PlatformSupportServiceImpl.java",
+      "scope": "PLATFORM_SUPPORT_GRANT",
+      "trustedSource": "Support grants are written only after the platform support access permission is validated; tenant is an explicitly authorized target, not the grant owner.",
+      "evidence": [
+        "requirePlatform(actor,\"PLATFORM_SUPPORT_ACCESS\")",
+        "new PlatformSupportGrant(tenantId,actor"
+      ],
+      "calls": [
+        {
+          "call": "repository.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/reporting/ReportExportService.java",
+      "scope": "AUTHORIZED_POS_EXPORT_SCOPE",
+      "trustedSource": "Export audit rows use the authenticated POS tenant/branch/cashier scope and are bound to the export digest and selected authorized report.",
+      "evidence": [
+        "s.tenant()",
+        "new ReportExportAudit(id,s.tenant(),s.branch()"
+      ],
+      "calls": [
+        {
+          "call": "audits.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/retail/BranchPolicyService.java",
+      "scope": "AUTHORIZED_BRANCH_POLICY_SCOPE",
+      "trustedSource": "Branch and register policy audit events use the authenticated tenant/branch scope after POS branch authorization.",
+      "evidence": [
+        "scope.tenant(), scope.branch()",
+        "new BranchSettingsEvent(scope.tenant(), scope.branch()"
+      ],
+      "calls": [
+        {
+          "call": "events.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/retail/BranchProvisioningServiceImpl.java",
+      "scope": "AUTHORIZED_TENANT_BRANCH_PROVISIONING",
+      "trustedSource": "Branch creation is invoked only through the authorized tenant provisioning path and the branch entity is initialized with that persisted tenant.",
+      "evidence": [
+        "new BranchConfiguration(id,tenantId,name)",
+        "branches.saveAndFlush("
+      ],
+      "calls": [
+        {
+          "call": "branches.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/returns/CashRefundService.java",
+      "scope": "AUTHORIZED_POS_REFUND_AND_RETURN",
+      "trustedSource": "Refund, refund-line and return audit entities copy tenant and branch from the authorized POS scope and tenant-scoped return quote.",
+      "evidence": [
+        "new CashRefund(id,scope.tenant()",
+        "new ReturnEvent(refund.tenant(),refund.returned()"
+      ],
+      "calls": [
+        {
+          "call": "events.save",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "refunds.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "amounts.saveAllAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/returns/ReturnService.java",
+      "scope": "AUTHORIZED_POS_RETURN_AGGREGATE",
+      "trustedSource": "Return case, return lines and events use tenant/branch/order derived from the authenticated POS scope and persisted sale aggregate.",
+      "evidence": [
+        "new ReturnCase(id,scope.tenant()",
+        "new ReturnEvent(c.tenant(),c.id()"
+      ],
+      "calls": [
+        {
+          "call": "events.save",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "cases.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "items.saveAllAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/subscription/MockSubscriptionBillingJob.java",
+      "scope": "TRUSTED_TENANT_SUBSCRIPTION_SCHEDULER",
+      "trustedSource": "The local mock billing worker claims an active tenant subscription and derives invoice/payment/event ownership from that locked persisted row.",
+      "evidence": [
+        "subscription.tenantId()",
+        "new SubscriptionPaymentRecord(tenantId"
+      ],
+      "calls": [
+        {
+          "call": "payments.save",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "invoices.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "events.save",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/subscription/SubscriptionGraceExpiryJob.java",
+      "scope": "TRUSTED_TENANT_GRACE_EXPIRY_WORKER",
+      "trustedSource": "The scheduled worker operates on persisted due tenant subscriptions and copies the tenant/subscription ID into the immutable event.",
+      "evidence": [
+        "subscription.tenantId()",
+        "new SubscriptionEvent("
+      ],
+      "calls": [
+        {
+          "call": "events.save",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/subscription/SubscriptionPlanServiceImpl.java",
+      "scope": "PLATFORM_GLOBAL_SAAS_PLAN_CATALOGUE",
+      "trustedSource": "Only authenticated platform plan administration can create/revise global plan definitions and immutable plan versions.",
+      "evidence": [
+        "requirePlatform(actor,\"PLATFORM_PLAN_MANAGE\")",
+        "new SubscriptionPlan(key,required(input.displayName()"
+      ],
+      "calls": [
+        {
+          "call": "plans.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "versions.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/subscription/TenantSubscriptionServiceImpl.java",
+      "scope": "PLATFORM_SUBSCRIPTION_ADMINISTRATION",
+      "trustedSource": "Subscription mutations are platform-authorized; events are appended with tenant and subscription ID read from the persisted subscription aggregate.",
+      "evidence": [
+        "requirePlatform(actor,\"PLATFORM_SUBSCRIPTION_ADJUST\")",
+        "new TenantSubscription(input.tenantId(),plan.id()"
+      ],
+      "calls": [
+        {
+          "call": "subscriptions.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "events.saveAndFlush",
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/tenant/TenantService.java",
+      "scope": "PLATFORM_TENANT_PROVISIONING",
+      "trustedSource": "Tenant creation requires PLATFORM_TENANT_CREATE and uses the server-owned tenant sequence; the row is a platform-owned tenant registry resource.",
+      "evidence": [
+        "requirePlatform(\"PLATFORM_TENANT_CREATE\")",
+        "new Tenant(id,slug,name,legal"
+      ],
+      "calls": [
+        {
+          "call": "tenants.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "source": "com/saumya/pos/tenant/VendorTenantProfileService.java",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_PROFILE",
+      "trustedSource": "Vendor profile updates are restricted to the tenant re-resolved from authenticated vendor membership; audit uses the same tenant and actor.",
+      "evidence": [
+        "context.requireVendorMembership()",
+        "context.tenantId()"
+      ],
+      "calls": [
+        {
+          "call": "tenants.saveAndFlush",
+          "expectedCallCount": 1
+        },
+        {
+          "call": "audit.saveAndFlush",
+          "expectedCallCount": 1
+        }
+      ]
+    }
   ]
 }

@@ -206,6 +206,120 @@ class RepositoryTenantAccessAnalysisTest {
         }
     }
 
+
+    private static final Set<String> INHERITED_REPOSITORY_CRUD_METHODS = Set.of(
+        "save", "saveAll", "saveAndFlush", "saveAllAndFlush",
+        "delete", "deleteAll", "deleteAllById", "deleteAllInBatch",
+        "deleteAllByIdInBatch", "deleteById", "existsById"
+    );
+
+    private static Set<String> repositoryVariables(String source) {
+        Set<String> variables = new TreeSet<>();
+        Matcher declarations = Pattern.compile(
+            "\\b[A-Z][A-Za-z0-9_]*Repository\\s+([A-Za-z_$][\\w$]*)\\b"
+        ).matcher(source);
+        while (declarations.find()) variables.add(declarations.group(1));
+        return variables;
+    }
+
+    private static Map<String, Integer> inheritedRepositoryCrudCalls(String source) {
+        Set<String> repositories = repositoryVariables(source);
+        Map<String, Integer> calls = new TreeMap<>();
+        for (String repository : repositories) {
+            String variable = Pattern.quote(repository);
+            String methods = INHERITED_REPOSITORY_CRUD_METHODS.stream()
+                .sorted()
+                .map(Pattern::quote)
+                .reduce((left, right) -> left + "|" + right)
+                .orElseThrow();
+            Matcher invocations = Pattern.compile(
+                "\\b" + variable + "\\s*\\.\\s*(" + methods + ")\\s*\\("
+            ).matcher(source);
+            while (invocations.find()) calls.merge(repository + "." + invocations.group(1), 1, Integer::sum);
+            Matcher methodReferences = Pattern.compile(
+                "\\b" + variable + "\\s*::\\s*(" + methods + ")\\b"
+            ).matcher(source);
+            while (methodReferences.find()) calls.merge(repository + "::" + methodReferences.group(1), 1, Integer::sum);
+        }
+        return calls;
+    }
+
+    @Test
+    void inheritedRepositoryCrudWritesAndExistenceChecksHaveReviewedScope() throws Exception {
+        JsonNode entries = policy().path("inheritedRepositoryCrudAccess");
+        assertThat(entries.isArray()).as("generic repository CRUD access inventory").isTrue();
+        Map<String, Map<String, Integer>> reviewed = new TreeMap<>();
+        for (JsonNode entry : entries) {
+            String sourceName = entry.path("source").asText();
+            assertThat(sourceName).isNotBlank();
+            assertThat(entry.path("scope").asText()).isNotBlank();
+            assertThat(entry.path("trustedSource").asText()).isNotBlank();
+            assertThat(entry.path("evidence").isArray()).isTrue();
+            Path file = sourceRoot().resolve(sourceName);
+            assertThat(Files.isRegularFile(file)).as("CRUD access source exists: %s", sourceName).isTrue();
+            String source = Files.readString(file);
+            for (JsonNode evidence : entry.path("evidence")) {
+                assertThat(source).as("CRUD ownership evidence for %s", sourceName).contains(evidence.asText());
+            }
+            Map<String, Integer> calls = new TreeMap<>();
+            for (JsonNode call : entry.path("calls")) {
+                String expression = call.path("call").asText();
+                int expectedCount = call.path("expectedCallCount").asInt(-1);
+                assertThat(expression).matches("[A-Za-z_$][\\w$]*(?:\\.|::)(?:save|saveAll|saveAndFlush|saveAllAndFlush|delete|deleteAll|deleteAllById|deleteAllInBatch|deleteAllByIdInBatch|deleteById|existsById)");
+                assertThat(expectedCount).as("expected call count for %s", expression).isPositive();
+                String repositoryVariable = expression.split("::|\\.")[0];
+                assertThat(repositoryVariables(source)).as("repository type declaration for %s in %s", expression, sourceName)
+                    .contains(repositoryVariable);
+                assertThat(calls.put(expression, expectedCount)).as("duplicate CRUD call %s in %s", expression, sourceName).isNull();
+            }
+            assertThat(calls).as("at least one reviewed inherited CRUD call in %s", sourceName).isNotEmpty();
+            assertThat(reviewed.put(sourceName, calls)).as("duplicate CRUD source %s", sourceName).isNull();
+        }
+
+        Map<String, Map<String, Integer>> observed = new TreeMap<>();
+        try (var files = Files.walk(sourceRoot())) {
+            for (Path file : files.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".java")).toList()) {
+                String source = Files.readString(file);
+                Map<String, Integer> calls = inheritedRepositoryCrudCalls(source);
+                if (!calls.isEmpty()) {
+                    String relative = sourceRoot().relativize(file).toString().replace('\\', '/');
+                    observed.put(relative, calls);
+                }
+            }
+        }
+        assertThat(observed.keySet())
+            .as("every source using inherited generic repository writes/existence checks needs a reviewed tenant/owner/global scope")
+            .containsExactlyInAnyOrderElementsOf(reviewed.keySet());
+        for (String sourceName : observed.keySet()) {
+            assertThat(observed.get(sourceName))
+                .as("generic repository CRUD operations and call counts must match the reviewed inventory for %s", sourceName)
+                .containsExactlyInAnyOrderEntriesOf(reviewed.get(sourceName));
+        }
+    }
+
+    @Test
+    void inheritedRepositoryCrudNegativeFixturesRecognizeWritesDeletesAndMethodReferences() {
+        String source = """
+            class Fixture {
+                private ProductRepository products;
+                private CategoryRepository categories;
+                void write(Product product) {
+                    products.save(product);
+                    products.saveAll(List.of(product));
+                    categories.delete(product);
+                    categories::delete;
+                    products.existsById(product.id());
+                }
+            }
+            """;
+        assertThat(repositoryVariables(source)).containsExactlyInAnyOrder("categories", "products");
+        assertThat(inheritedRepositoryCrudCalls(source)).containsEntry("products.save", 1)
+            .containsEntry("products.saveAll", 1)
+            .containsEntry("categories.delete", 1)
+            .containsEntry("categories::delete", 1)
+            .containsEntry("products.existsById", 1);
+    }
+
     private static boolean usesUnreviewedSqlExecutionApi(String source) {
         return Pattern.compile("(?is)\\b(?:JdbcClient|DatabaseClient|DSLContext|SimpleJdbcCall)\\b|"
             + "\\.\\s*(?:prepareStatement|createStatement|executeQuery|executeUpdate|executeLargeUpdate|executeBatch|executeLargeBatch|prepareCall|createNativeQuery|createStoredProcedureQuery|createSQLQuery)\\s*\\(")

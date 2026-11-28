@@ -38,7 +38,10 @@ public class WarehouseInventoryService {
         String dispatchedBy,String completedBy,Instant createdAt,Instant dispatchedAt,Instant completedAt,long version) {}
     public record TransferEventView(String id,String eventType,String actorUsername,Integer quantity,
         Boolean finalReceipt,String detail,Instant occurredAt) {}
-    public record TransferDetail(TransferView transfer,List<TransferEventView> events) {}
+    public record TransferMovementView(String id,String locationType,Long warehouseId,long branchId,long productId,
+        String movementType,int quantityDelta,String movementKey,String actorUsername,Instant occurredAt) {}
+    public record TransferDetail(TransferView transfer,List<TransferEventView> events,
+        List<TransferMovementView> movements) {}
 
     private AuthorizationContext.Context actor(String permission) {
         var context=authorization.current();
@@ -161,7 +164,19 @@ public class WarehouseInventoryService {
             rs.getString("actor_username"),(Integer)rs.getObject("quantity"),
             (Boolean)rs.getObject("is_final"),rs.getString("detail"),
             rs.getTimestamp("occurred_at").toInstant()),a.tenantId(),id);
-        return new TransferDetail(view,history);
+        List<TransferMovementView> movements=jdbc.query("""
+            SELECT id,location_type,warehouse_id,branch_id,product_id,movement_type,quantity_delta,
+              movement_key,actor_username,occurred_at
+            FROM inventory_transfer_movements WHERE tenant_id=? AND transfer_id=?
+            ORDER BY occurred_at,id
+            """,(rs,n)->{
+                Number warehouse=(Number)rs.getObject("warehouse_id");
+                return new TransferMovementView(rs.getString("id"),rs.getString("location_type"),
+                    warehouse==null?null:warehouse.longValue(),rs.getLong("branch_id"),rs.getLong("product_id"),
+                    rs.getString("movement_type"),rs.getInt("quantity_delta"),rs.getString("movement_key"),
+                    rs.getString("actor_username"),rs.getTimestamp("occurred_at").toInstant());
+            },a.tenantId(),id);
+        return new TransferDetail(view,history,movements);
     }
 
     @Transactional
@@ -238,8 +253,13 @@ public class WarehouseInventoryService {
         if(!"APPROVED".equals(row.get("status")))conflict("Only approved transfers can be dispatched");
         if(((Number)row.get("version")).longValue()!=expectedVersion)conflict("Transfer changed; reload before dispatch");
         int qty=((Number)row.get("quantity")).intValue(); long product=((Number)row.get("product_id")).longValue();
-        if("BRANCH".equals(row.get("source_type")))debitBranch(a.tenantId(),((Number)row.get("source_branch_id")).longValue(),product,qty);
-        else debitWarehouse(a.tenantId(),((Number)row.get("source_warehouse_id")).longValue(),product,qty);
+        long sourceBranch=((Number)row.get("source_branch_id")).longValue();
+        String sourceType=String.valueOf(row.get("source_type"));
+        Number sourceWarehouse=(Number)row.get("source_warehouse_id");
+        if("BRANCH".equals(sourceType))debitBranch(a.tenantId(),sourceBranch,product,qty);
+        else debitWarehouse(a.tenantId(),sourceWarehouse.longValue(),product,qty);
+        recordMovement(a,id,sourceType,sourceWarehouse==null?null:sourceWarehouse.longValue(),
+            sourceBranch,product,-qty,"DISPATCH_OUT","DISPATCH:"+id);
         java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
         jdbc.update("UPDATE inventory_transfers SET status='IN_TRANSIT',dispatched_by=?,dispatched_at=?,version=version+1 WHERE tenant_id=? AND id=? AND version=?",
             a.username(),now,a.tenantId(),id,expectedVersion);
@@ -269,8 +289,13 @@ public class WarehouseInventoryService {
         int total=((Number)row.get("quantity")).intValue(),received=((Number)row.get("received_quantity")).intValue();
         if(quantity>total-received)conflict("Receipt exceeds outstanding transfer quantity");
         long product=((Number)row.get("product_id")).longValue();
-        if("BRANCH".equals(row.get("destination_type")))creditBranch(a.tenantId(),a.branchId(),product,quantity);
-        else creditWarehouse(a.tenantId(),((Number)row.get("destination_warehouse_id")).longValue(),product,quantity);
+        String destinationType=String.valueOf(row.get("destination_type"));
+        Number destinationWarehouse=(Number)row.get("destination_warehouse_id");
+        long destinationBranch=((Number)row.get("destination_branch_id")).longValue();
+        if("BRANCH".equals(destinationType))creditBranch(a.tenantId(),destinationBranch,product,quantity);
+        else creditWarehouse(a.tenantId(),destinationWarehouse.longValue(),product,quantity);
+        recordMovement(a,id,destinationType,destinationWarehouse==null?null:destinationWarehouse.longValue(),
+            destinationBranch,product,quantity,"RECEIPT_IN","RECEIPT:"+key);
         int newReceived=received+quantity;
         boolean complete=finalReceipt||newReceived==total;
         boolean discrepancy=complete&&newReceived<total;
@@ -382,6 +407,17 @@ public class WarehouseInventoryService {
             """,UUID.randomUUID().toString(),a.tenantId(),id,a.username(),action,reason,before==null?null:String.valueOf(before),
             String.valueOf(after),java.sql.Timestamp.from(clock.instant()));
     }
+    private void recordMovement(AuthorizationContext.Context a,String transferId,String locationType,
+            Long warehouseId,long branchId,long productId,int quantityDelta,String movementType,String movementKey) {
+        jdbc.update("""
+            INSERT INTO inventory_transfer_movements(id,tenant_id,transfer_id,location_type,warehouse_id,
+              branch_id,product_id,movement_type,quantity_delta,movement_key,actor_username,occurred_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            """,UUID.randomUUID().toString(),a.tenantId(),transferId,locationType,warehouseId,branchId,
+            productId,movementType,quantityDelta,movementKey,a.username(),
+            java.sql.Timestamp.from(clock.instant()));
+    }
+
     private void appendEvent(AuthorizationContext.Context a,String id,String type,Integer quantity,Boolean finalReceipt,String key,String detail) {
         jdbc.update("""
             INSERT INTO inventory_transfer_events(id,tenant_id,transfer_id,event_type,actor_username,quantity,is_final,command_key,detail,occurred_at)

@@ -14,11 +14,14 @@ public class ServiceSlaEscalationWorker {
 
     private final TenantLifecycleService tenants;
     private final ServiceSlaService sla;
+    private final ServiceSlaEscalationService escalations;
     private final Clock clock;
 
-    public ServiceSlaEscalationWorker(TenantLifecycleService tenants, ServiceSlaService sla, Clock clock) {
+    public ServiceSlaEscalationWorker(TenantLifecycleService tenants, ServiceSlaService sla,
+            ServiceSlaEscalationService escalations, Clock clock) {
         this.tenants = tenants;
         this.sla = sla;
+        this.escalations = escalations;
         this.clock = clock;
     }
 
@@ -30,6 +33,7 @@ public class ServiceSlaEscalationWorker {
         for (var tenant : tenants.activeVendors()) {
             try {
                 sla.processDueForTenant(tenant, now);
+                escalations.processDueForTenant(tenant, now);
             } catch (RuntimeException failure) {
                 log.error("Service SLA escalation failed for tenant {} ({})",
                     tenant.id(), failure.getClass().getSimpleName());

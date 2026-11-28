@@ -77,7 +77,7 @@ class ServiceSlaEscalationServiceTest {
         var recipients=service().resolveEscalationRecipients(7L,"SERVICE_MANAGER");
 
         assertThat(recipients).containsExactly("manager.one@vendor.test","manager.two@vendor.test");
-        verify(db).queryForList(contains("t.lifecycle_status='ACTIVE'"), eq(String.class),
+        verify(db).queryForList(contains("EXISTS (SELECT 1 FROM tenants WHERE id=? AND lifecycle_status='ACTIVE')"), eq(String.class),
             eq(7L), eq(7L), eq("SERVICE_MANAGER"), eq("standard:SERVICE_MANAGER"), eq("service_manager"));
     }
 

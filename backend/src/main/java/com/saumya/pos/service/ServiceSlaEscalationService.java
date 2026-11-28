@@ -233,13 +233,13 @@ public class ServiceSlaEscalationService {
         String recipientRole = role(recipientRoleKey);
         List<String> candidates = db.queryForList("""
             SELECT DISTINCT u.username
-            FROM tenants t
-            JOIN employees e ON e.tenant_id=t.id AND e.enabled=TRUE
+            FROM employees e
             JOIN users u ON u.username=e.username AND u.enabled=TRUE AND u.email_verified=TRUE
             JOIN employee_role_assignments a ON a.tenant_id=e.tenant_id
                 AND a.branch_id=e.branch_id AND a.username=e.username AND a.active=TRUE
             JOIN vendor_roles r ON r.tenant_id=a.tenant_id AND r.id=a.role_id AND r.active=TRUE
-            WHERE t.id=? AND e.tenant_id=? AND t.lifecycle_status='ACTIVE'
+            WHERE e.tenant_id=? AND e.enabled=TRUE
+              AND EXISTS (SELECT 1 FROM tenants WHERE id=? AND lifecycle_status='ACTIVE')
               AND (r.template_key=? OR r.role_key=? OR LOWER(r.role_key)=?)
             ORDER BY u.username LIMIT 50
             """, String.class, tenantId, tenantId, recipientRole, "standard:" + recipientRole,

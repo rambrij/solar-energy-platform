@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(25);
+            assertThat(applied).hasSize(26);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -82,6 +82,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(23).getVersion().getVersion()).isEqualTo("24");
             assertThat(applied.get(24).getScript()).isEqualTo("V25__service_sla_escalation_policy_audit.sql");
             assertThat(applied.get(24).getVersion().getVersion()).isEqualTo("25");
+            assertThat(applied.get(25).getScript()).isEqualTo("V26__shipment_serial_asset_traceability.sql");
+            assertThat(applied.get(25).getVersion().getVersion()).isEqualTo("26");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -89,7 +91,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26");
         });
     }
 
@@ -174,7 +176,7 @@ class P202MysqlPersistenceIntegrationTest {
             JdbcTemplate db = jdbc(url, user, password);
 
             // Explicit ownership classification for every table containing tenant_id
-            // in the V1-V25 schema. Platform audit and refresh-token rows are shared
+            // in the V1-V26 schema. Platform audit and refresh-token rows are shared
             // actor-context tables; support-access rows are tenant-owned records.
             Set<String> expectedTenantTables = Set.of(
                     "branches", "employees", "registers", "pos_sessions", "products",
@@ -199,7 +201,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "warehouses", "warehouse_inventory", "inventory_transfers",
                     "inventory_transfer_events", "inventory_transfer_movements", "warehouse_audit_events",
                     "online_return_policies", "online_return_policy_events", "online_returns",
-                    "online_return_items", "online_return_events");
+                    "online_return_items", "online_return_events", "shipment_serial_assets", "installation_serial_asset_links", "shipment_serial_asset_events");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns

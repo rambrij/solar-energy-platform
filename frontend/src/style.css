@@ -1494,7 +1494,7 @@ p { line-height: 1.65; }
 .workspace-menu-group a:hover { background: #f5f8fa; color: #173e5e; }
 
 .navigation-active-mark { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #d8a21d; }
-.workspace-menu-foot { display: flex; align-items: center; gap: 8px; padding: 12px 17px; border-top: 1px solid #edf1f4; color: #718596; font-size: .65rem; }
+.workspace-menu-foot { display: flex; align-items: center; gap: 8px; padding: 12px 17px; border-top: 1px solid #edf1f4; color: #536a7d; font-size: .65rem; }
 .workspace-menu-foot .status-dot { width: 6px; height: 6px; }
 .workspace-menu-toggle { display: none; }
 .workspace-content { min-width: 0; padding-bottom: 30px; }

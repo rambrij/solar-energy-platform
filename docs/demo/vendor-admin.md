@@ -45,6 +45,13 @@ All three use the `VENDOR` actor and the persisted `VENDOR_ADMIN` role in their 
 
 The stock receipt shows availability immediately after that receipt. Subsequent sales or reservations can change the current balance.
 
+## Vendor profile and product images
+
+1. Sign in as the initial Vendor Admin for an active tenant. Tenant Admin and Vendor Admin refer to the same tenant-scoped role in this application.
+2. Open **Administration / Vendor Profile** and select **Load vendor profile**. With `TENANT_PROFILE_VIEW` and `TENANT_PROFILE_UPDATE`, edit the business name, contact details, address or tax identifier and select **Save business profile**. Refresh the public storefront to verify the public fields. If another user saved the profile first, reload its current version.
+3. Open **Catalogue & Inventory / Solar Packages & Images**. With `PRODUCT_VIEW`, choose a product in **Product image gallery**. With `PRODUCT_UPDATE`, select a PNG, JPEG or WebP image up to 5 MB, enter a description and a reason, and select **Upload product image**. The disposable object storage service must be healthy. Verify the preview in the vendor gallery and check the public product details after publishing the product.
+4. To take a product out of the public catalogue, open **Manage Products**, edit the product, clear **Published in vendor catalogue**, and save with a reason. Unpublishing an already published product requires `PRODUCT_ARCHIVE`. Use a received stock delivery to change available quantity.
+
 ## Employee and role lifecycle
 
 1. Open **Roles & Permissions** to inspect the seeded roles. To create a limited role, enter a role key, display name, only the needed permissions, and an audit reason. For example, a stock history viewer can use `INVENTORY_VIEW` without `INVENTORY_RECEIVE`. When editing an existing role, review **Permission changes** before saving. It compares the replacement set against the loaded role version and lists the grants that will be added or removed.
@@ -52,6 +59,8 @@ The stock receipt shows availability immediately after that receipt. Subsequent 
 3. In **Employees**, filter the directory by email, account status, or role where available. Choose **Manage** on the matching employee to review their assignments. **Save role assignments** saves the selected set, so include every role the employee should retain. Save POS register assignments separately where needed.
 4. Use **Preview effective permissions** to read the server-calculated grants. The result explicitly shows when the employee has no effective permissions. Review the saved branch and register assignments separately, then sign in as the employee in a separate browser session. Confirm the pages and actions match the assigned role. If you remove access, verify the affected operation is denied by the backend.
 5. Use **Disable** with an audit reason on a disposable employee if you want to demonstrate revocation. Keep at least one working administrator for the tenant.
+
+The invitation sets the initial password. An eligible pending invitation can be reissued from employee administration. The current workspace has no password change or reset action for active employees.
 
 Platform grants are outside this workflow. Vendor permissions depend on active memberships, tenant roles, entitlements, and applicable branch, register, and session assignments.
 

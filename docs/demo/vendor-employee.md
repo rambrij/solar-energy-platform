@@ -7,7 +7,7 @@ This guide covers only the employee roles that are currently provisioned with im
 ## 1. Prerequisites and sign-in
 
 1. Follow [Clean Development Database Setup](../implementation/CLEAN_DEVELOPMENT_DATABASE.md) for a fresh disposable database. Set `SPRING_PROFILES_ACTIVE=local` and start the stack with `docker compose up --build -d`.
-2. Choose an employee credential from the **Vendor employee credentials** table in [README.md](README.md). The supported demo roles are `POS_CASHIER`, `SALES_MANAGER`, `INVENTORY_MANAGER`, and `ACCOUNTANT`. Use the account for the vendor you intend to test.
+2. Choose an employee credential from the **Vendor employee credentials** table in [README.md](README.md). The demo includes cashier, sales, inventory, accounting and service roles. Use the account for the vendor you intend to test.
 3. Open [Vendor POS](http://localhost:8080/vendor/pos) or, with Vite, http://localhost:5173/vendor/pos. Sign in and choose **Vendor** if the actor selector is displayed.
 4. Verify the active tenant, branch and role before working. The role, its persisted permission grants, tenant entitlements, and applicable branch/register/session assignments jointly determine access. Do not use a Platform or Customer identity for vendor operations.
 
@@ -20,7 +20,7 @@ The [demo account matrix](README.md) lists the local usernames and credentials. 
 | Role | Current supported grants | Available workflow |
 | --- | --- | --- |
 | `POS_CASHIER` | `POS_VIEW`, `POS_SESSION_OPEN`, `POS_SESSION_CLOSE`, `POS_SALE_CREATE`, `POS_TENDER_CASH_RECORD`, `POS_TENDER_EXTERNAL_RECORD`, `POS_RECEIPT_VIEW` | Assigned register/session, walk-in sale, permitted cash/external tender actions, receipt and own shift controls |
-| `SALES_MANAGER` | `LEAD_VIEW`, `POS_VIEW`, `POS_REPORT_VIEW` | Read the current vendor lead inbox and view permitted POS sales reporting |
+| `SALES_MANAGER` | `LEAD_VIEW`, `LEAD_UPDATE`, `LEAD_ASSIGN`, `POS_VIEW`, `POS_REPORT_VIEW` | Manage the vendor lead inbox and view permitted POS sales reporting |
 | `INVENTORY_MANAGER` | `PRODUCT_VIEW`, `INVENTORY_VIEW`, `INVENTORY_RECEIVE` | Browse the vendor catalogue and receive stock for the assigned outlet |
 | `ACCOUNTANT` | `POS_VIEW`, `POS_REPORT_VIEW`, `POS_REFUND_VIEW` | View available POS/refund reporting and refund records; no refund approval or cash-refund recording grant is included |
 
@@ -46,17 +46,19 @@ The [demo account matrix](README.md) lists the local usernames and credentials. 
 
 **Prerequisite:** Use a seeded Sales Manager account for the tenant whose leads and reports you want to inspect.
 
-**Required role/permissions:** `SALES_MANAGER`: `LEAD_VIEW`, `POS_VIEW`, and `POS_REPORT_VIEW`.
+**Required role/permissions:** `SALES_MANAGER`: `LEAD_VIEW`, `LEAD_UPDATE`, `LEAD_ASSIGN`, `POS_VIEW`, and `POS_REPORT_VIEW`.
 
 **Navigation:** `Vendor -> Customer Management -> Customers & CRM` (`/vendor/customers`); `Vendor -> Reports -> Sales Insights` (`/vendor/pos/sales-insights`).
 
-1. Open **Customers & CRM** to view the lead list returned for the active vendor. The current employee permission snapshot includes `LEAD_VIEW`; it does not grant customer-relationship mutation or CRM-note access.
-2. Open **Sales Insights** to review the POS reporting available to the role. Select the period exposed by the report and verify the vendor context.
-3. Try a direct URL or action that requires a permission not in the role. The menu may be hidden, but the backend must also reject an unauthorized request.
+1. Open **Customers & CRM** to view the lead list returned for the active vendor. Submit a storefront enquiry for this vendor first if the list is empty.
+2. Choose **Change lead assignment**, select an enabled employee, enter a reason and save. Choose **Update lead status** to move a new lead to Contacted, then Qualified. A lead can also be marked Lost.
+3. In **Customer Management / Site Surveys**, select the lead and enter an address, date and reason. Add findings before marking the survey complete. **Quotations** uses the same lead scope and offers the existing send and revision workflow.
+4. Open **Sales Insights** to review the POS reporting available to the role. Select the period exposed by the report and verify the vendor context.
+5. Try a direct URL or action that requires a permission not in the role. The menu may be hidden, but the backend must also reject an unauthorized request.
 
 **Expected result:** Lead visibility and POS reports are limited to the signed-in vendor. The employee cannot view another vendor's lead records or CRM notes.
 
-**Validation and restrictions:** The current lead controller exposes a read-only vendor lead list. Lead assignment/updates, site surveys, quotations, quotation approval and conversion are not available as employee workflows in this implementation. Do not describe this role as supporting those operations.
+**Validation and restrictions:** A stale lead version returns HTTP 409. Use **Refresh enquiries** before retrying. A custom role with only `LEAD_VIEW` sees assigned leads and surveys. Assignment and updates require the grants above.
 
 ## 5. Inventory Manager
 
@@ -101,11 +103,15 @@ The [demo account matrix](README.md) lists the local usernames and credentials. 
 
 **Expected result:** A vendor employee cannot read, update, search, export or infer another tenant's products, stock, CRM notes, sales, receipts or refunds by changing a URL, resource ID or request payload. Unassigned roles and ungranted actions remain deny-by-default.
 
-## 8. Roles intentionally not available in the local demo
+## 8. Assigned sales and service work
 
-The seed includes identity fixtures for `SALES_EXECUTIVE`, `OPERATIONS_MANAGER`, `SERVICE_MANAGER`, `SERVICE_ENGINEER`, and `CONTENT_MANAGER`, but does not assign them active role grants. Their corresponding assignment-scoped APIs/workflows are not implemented. They are not test accounts for a successful feature journey and must not be assigned speculative permissions to make menus appear.
+1. Sign in as a seeded Sales Manager and assign a tenant enquiry to the Sales Executive. In a separate session, sign in as the Sales Executive and open **Customer Management / Customers & CRM**. With `LEAD_VIEW` and `LEAD_UPDATE`, the executive can review and progress their assigned lead. Assignment controls require `LEAD_ASSIGN`.
+2. Sign in as the Service Manager and open **Fulfilment / Service Requests**. Open an eligible case and use the available assignment action with `SERVICE_ASSIGN` to assign a Service Engineer.
+3. In a separate session, sign in as that Service Engineer. Open **Service Requests** to review the assigned case. Use permitted updates with `SERVICE_UPDATE`. A case assigned to a different engineer stays outside this session's scope.
 
-The current implementation also does not expose the complete Version 2.0 assisted-sales workflow (lead creation/assignment, site surveys, quotation revisions/approval/conversion), installation, warranty, service-ticket or advanced shipped-online return journeys. These remain explicit gaps or later-scope work; see the requirements-to-code report at the end of this task.
+### Unassigned demo roles
+
+The local `OPERATIONS_MANAGER` and `CONTENT_MANAGER` fixtures have no active role grants.
 
 ## 9. Related walkthroughs
 

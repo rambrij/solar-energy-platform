@@ -11,24 +11,24 @@ For employee-specific steps, supported role permissions, and current restriction
 
 ## Provisioning model
 
-The local Spring profile runs a Flyway callback after V1 is applied. The callback creates the three tenant fixtures and current demo identities, materializes the five supported version-1 standard roles per tenant, and explicitly assigns employees to their persisted roles.
+The local Spring profile runs a Flyway callback after V1 is applied. The callback creates the three tenant fixtures and current demo identities, materializes the supported standard roles per tenant, and explicitly assigns employees to their persisted roles.
 
 Authorization resolves active employee_role_assignments joined to active tenant-owned vendor_roles and vendor_role_permissions, then applies tenant entitlements and branch/register/session restrictions. Platform permissions remain in the separate global platform-authority store and are never inserted into vendor roles.
 
-Only these standard roles currently have implemented permission sets and receive assignments:
+The local fixture supports these standard role grants and assignments:
 
 - VENDOR_ADMIN
 - POS_CASHIER
 - SALES_MANAGER
+- SALES_EXECUTIVE
+- SERVICE_MANAGER
+- SERVICE_ENGINEER
 - INVENTORY_MANAGER
 - ACCOUNTANT
 
-The following employee identities are deny-by-default fixtures. Their templates are deferred because the corresponding assignment-scoped feature APIs are not implemented. They receive no role assignment and no effective vendor permissions:
+The following demo employee identities have no effective vendor permissions:
 
-- SALES_EXECUTIVE
 - OPERATIONS_MANAGER
-- SERVICE_MANAGER
-- SERVICE_ENGINEER
 - CONTENT_MANAGER
 
 ## Fresh local setup
@@ -59,33 +59,33 @@ If a disposable local database was seeded before the tenant-view, configuration,
 |---|---|---|---|
 | Saumya Solar Rooftops | VENDOR_ADMIN | saumya.admin@somya.local | Somya-Saumya-ADM-2026! |
 | Saumya Solar Rooftops | SALES_MANAGER | saumya.sales.manager@somya.local | Somya-Saumya-SM-2026! |
-| Saumya Solar Rooftops | SALES_EXECUTIVE (deferred; no role assignment) | saumya.sales.executive@somya.local | Somya-Saumya-SE-2026! |
+| Saumya Solar Rooftops | SALES_EXECUTIVE | saumya.sales.executive@somya.local | Somya-Saumya-SE-2026! |
 | Saumya Solar Rooftops | INVENTORY_MANAGER | saumya.inventory.manager@somya.local | Somya-Saumya-IM-2026! |
 | Saumya Solar Rooftops | POS_CASHIER | saumya.pos.cashier@somya.local | Somya-Saumya-POS-2026! |
 | Saumya Solar Rooftops | ACCOUNTANT | saumya.accountant@somya.local | Somya-Saumya-ACC-2026! |
 | Saumya Solar Rooftops | OPERATIONS_MANAGER (deferred; no role assignment) | saumya.operations.manager@somya.local | Somya-Saumya-OPS-2026! |
-| Saumya Solar Rooftops | SERVICE_MANAGER (deferred; no role assignment) | saumya.service.manager@somya.local | Somya-Saumya-SVCM-2026! |
-| Saumya Solar Rooftops | SERVICE_ENGINEER (deferred; no role assignment) | saumya.service.engineer@somya.local | Somya-Saumya-SVCE-2026! |
+| Saumya Solar Rooftops | SERVICE_MANAGER | saumya.service.manager@somya.local | Somya-Saumya-SVCM-2026! |
+| Saumya Solar Rooftops | SERVICE_ENGINEER | saumya.service.engineer@somya.local | Somya-Saumya-SVCE-2026! |
 | Saumya Solar Rooftops | CONTENT_MANAGER (deferred; no role assignment) | saumya.content.manager@somya.local | Somya-Saumya-CONTENT-2026! |
 | Helio Rural Energy | VENDOR_ADMIN | helio.admin@somya.local | Somya-Helio-ADM-2026! |
 | Helio Rural Energy | SALES_MANAGER | helio.sales.manager@somya.local | Somya-Helio-SM-2026! |
-| Helio Rural Energy | SALES_EXECUTIVE (deferred; no role assignment) | helio.sales.executive@somya.local | Somya-Helio-SE-2026! |
+| Helio Rural Energy | SALES_EXECUTIVE | helio.sales.executive@somya.local | Somya-Helio-SE-2026! |
 | Helio Rural Energy | INVENTORY_MANAGER | helio.inventory.manager@somya.local | Somya-Helio-IM-2026! |
 | Helio Rural Energy | POS_CASHIER | helio.pos.cashier@somya.local | Somya-Helio-POS-2026! |
 | Helio Rural Energy | ACCOUNTANT | helio.accountant@somya.local | Somya-Helio-ACC-2026! |
 | Helio Rural Energy | OPERATIONS_MANAGER (deferred; no role assignment) | helio.operations.manager@somya.local | Somya-Helio-OPS-2026! |
-| Helio Rural Energy | SERVICE_MANAGER (deferred; no role assignment) | helio.service.manager@somya.local | Somya-Helio-SVCM-2026! |
-| Helio Rural Energy | SERVICE_ENGINEER (deferred; no role assignment) | helio.service.engineer@somya.local | Somya-Helio-SVCE-2026! |
+| Helio Rural Energy | SERVICE_MANAGER | helio.service.manager@somya.local | Somya-Helio-SVCM-2026! |
+| Helio Rural Energy | SERVICE_ENGINEER | helio.service.engineer@somya.local | Somya-Helio-SVCE-2026! |
 | Helio Rural Energy | CONTENT_MANAGER (deferred; no role assignment) | helio.content.manager@somya.local | Somya-Helio-CONTENT-2026! |
 | Lumina Solar Lighting | VENDOR_ADMIN | lumina.admin@somya.local | Somya-Lumina-ADM-2026! |
 | Lumina Solar Lighting | SALES_MANAGER | lumina.sales.manager@somya.local | Somya-Lumina-SM-2026! |
-| Lumina Solar Lighting | SALES_EXECUTIVE (deferred; no role assignment) | lumina.sales.executive@somya.local | Somya-Lumina-SE-2026! |
+| Lumina Solar Lighting | SALES_EXECUTIVE | lumina.sales.executive@somya.local | Somya-Lumina-SE-2026! |
 | Lumina Solar Lighting | INVENTORY_MANAGER | lumina.inventory.manager@somya.local | Somya-Lumina-IM-2026! |
 | Lumina Solar Lighting | POS_CASHIER | lumina.pos.cashier@somya.local | Somya-Lumina-POS-2026! |
 | Lumina Solar Lighting | ACCOUNTANT | lumina.accountant@somya.local | Somya-Lumina-ACC-2026! |
 | Lumina Solar Lighting | OPERATIONS_MANAGER (deferred; no role assignment) | lumina.operations.manager@somya.local | Somya-Lumina-OPS-2026! |
-| Lumina Solar Lighting | SERVICE_MANAGER (deferred; no role assignment) | lumina.service.manager@somya.local | Somya-Lumina-SVCM-2026! |
-| Lumina Solar Lighting | SERVICE_ENGINEER (deferred; no role assignment) | lumina.service.engineer@somya.local | Somya-Lumina-SVCE-2026! |
+| Lumina Solar Lighting | SERVICE_MANAGER | lumina.service.manager@somya.local | Somya-Lumina-SVCM-2026! |
+| Lumina Solar Lighting | SERVICE_ENGINEER | lumina.service.engineer@somya.local | Somya-Lumina-SVCE-2026! |
 | Lumina Solar Lighting | CONTENT_MANAGER (deferred; no role assignment) | lumina.content.manager@somya.local | Somya-Lumina-CONTENT-2026! |
 
 ## Global customer credentials
@@ -105,11 +105,14 @@ The backend StandardRoleTemplates catalogue is the source for provisioning. Test
 |---|---|
 | VENDOR_ADMIN | CUSTOMER_RELATION_VIEW, CRM_NOTE_VIEW, CRM_NOTE_CREATE, CRM_NOTE_UPDATE, LEAD_VIEW; CATALOG_PROMOTION_MANAGE; INVENTORY_RECEIVE, INVENTORY_VIEW; POS_CASHIER_REPORT_VIEW, POS_CASH_IN, POS_CASH_OUT, POS_DISCOUNT_APPLY, POS_DISCOUNT_APPROVE, POS_DISCOUNT_OVERRIDE, POS_RECEIPT_REPRINT, POS_RECEIPT_VIEW, POS_REFUND_APPROVE, POS_REFUND_CASH_RECORD, POS_REFUND_PRINT, POS_REFUND_VIEW, POS_REPORT_EXPORT, POS_REPORT_VIEW, POS_RETURN_AUDIT_VIEW, POS_RETURN_APPROVE, POS_RETURN_CREATE, POS_RETURN_INSPECT, POS_RETURN_VIEW, POS_SAFE_DROP, POS_SALE_CANCEL, POS_SALE_CREATE, POS_SESSION_CLOSE, POS_SESSION_OPEN, POS_SESSION_REOPEN, POS_SETTINGS_MANAGE, POS_SHIFT_VARIANCE_APPROVE, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_TENDER_MANUAL_VERIFY, POS_VIEW; PRICE_UPDATE, PRICE_VIEW; PRODUCT_ARCHIVE, PRODUCT_CREATE, PRODUCT_UPDATE, PRODUCT_VIEW; SHIPMENT_UPDATE, SHIPMENT_VIEW; ROLE_ASSIGN, ROLE_CREATE, ROLE_UPDATE, ROLE_VIEW; USER_CREATE, USER_DISABLE, USER_UPDATE |
 | POS_CASHIER | POS_VIEW, POS_SESSION_OPEN, POS_SESSION_CLOSE, POS_SALE_CREATE, POS_TENDER_CASH_RECORD, POS_TENDER_EXTERNAL_RECORD, POS_RECEIPT_VIEW |
-| SALES_MANAGER | LEAD_VIEW, POS_VIEW, POS_REPORT_VIEW |
+| SALES_MANAGER | LEAD_VIEW, LEAD_UPDATE, LEAD_ASSIGN, POS_VIEW, POS_REPORT_VIEW |
+| SALES_EXECUTIVE | LEAD_VIEW, LEAD_UPDATE |
+| SERVICE_MANAGER | SERVICE_VIEW, SERVICE_CREATE, SERVICE_ASSIGN, SERVICE_UPDATE, SERVICE_RESOLVE |
+| SERVICE_ENGINEER | SERVICE_VIEW, SERVICE_UPDATE, SERVICE_RESOLVE |
 | INVENTORY_MANAGER | PRODUCT_VIEW, INVENTORY_VIEW, INVENTORY_RECEIVE |
 | ACCOUNTANT | POS_VIEW, POS_REPORT_VIEW, POS_REFUND_VIEW |
 
-The current `VENDOR_ADMIN` template includes customer-relationship/CRM grants (`CUSTOMER_RELATION_VIEW`, `CRM_NOTE_*`, `LEAD_VIEW`) and shipment grants (`SHIPMENT_VIEW`, `SHIPMENT_UPDATE`); the local Vendor Admin walkthrough covers those implemented surfaces. `SALES_MANAGER` currently includes `LEAD_VIEW` with its POS reporting grants. The `SALES_EXECUTIVE` template remains unassigned because assignment-scoped lead/quotation/vendor-order workflows are not implemented. `OPERATIONS_MANAGER` remains deferred even though Vendor Admin can register basic shipments: broader installation and operations workflows are unavailable. `SERVICE_MANAGER` and `SERVICE_ENGINEER` remain deferred because service-request and assigned service-work APIs are unavailable. Deferred templates stay deny-by-default and cannot be materialized or assigned.
+Use **Employees / Preview effective permissions** to confirm current grants for an individual account. Service and lead records also depend on resource assignments.
 
 ## Verify persisted RBAC
 

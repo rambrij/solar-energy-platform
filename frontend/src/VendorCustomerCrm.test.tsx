@@ -10,3 +10,19 @@ beforeEach(()=>{sessionMock.mockReturnValue({account:{username:'sales@vendor.tes
 afterEach(()=>{cleanup();vi.clearAllMocks();});
 it('loads linked customer relationships and their private notes',async()=>{render(<VendorCustomerCrm/>);expect(await screen.findByText('Customer 91')).toBeTruthy();expect(await screen.findByText('Asked for a rooftop survey')).toBeTruthy();expect(apiMock).toHaveBeenCalledWith('/customers');expect(apiMock).toHaveBeenCalledWith('/customers/rel-vendor-a-91/crm-notes');});
 it('creates a private note with a reason and reloads the note list',async()=>{render(<VendorCustomerCrm/>);await screen.findByText('Asked for a rooftop survey');fireEvent.change(screen.getByLabelText('Note'),{target:{value:'Survey scheduled'}});fireEvent.change(screen.getByLabelText('Reason for change'),{target:{value:'Customer follow-up'}});fireEvent.click(screen.getByRole('button',{name:'Add private note'}));await waitFor(()=>expect(apiMock).toHaveBeenCalledWith('/customers/rel-vendor-a-91/crm-notes','POST',{note:'Survey scheduled',reason:'Customer follow-up'}));expect(await screen.findByText('Private note added.')).toBeTruthy();});
+
+it('drops previously visible tenant leads when assignment access is revoked',async()=>{
+ const account={username:'sales@vendor.test',tenantId:7,permissions:['LEAD_VIEW','LEAD_ASSIGN']};
+ sessionMock.mockReturnValue({account});
+ apiMock.mockImplementation(path=>Promise.resolve(path==='/leads'?[{
+  id:81,contactName:'Unassigned enquiry',contactEmail:'customer@example.test',
+  createdAt:'2026-11-28T09:00:00Z',status:'NEW',assignedTo:null,version:0,
+ }]:[]));
+ const {rerender}=render(<VendorCustomerCrm/>);
+ await screen.findByText('Unassigned enquiry');
+ sessionMock.mockReturnValue({account:{...account,permissions:['LEAD_VIEW']}});
+ apiMock.mockResolvedValue([]);
+ rerender(<VendorCustomerCrm/>);
+ expect(screen.queryByText('Unassigned enquiry')).toBeNull();
+ await screen.findByText('No marketplace enquiries are available to your role.');
+});

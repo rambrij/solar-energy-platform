@@ -46,7 +46,7 @@ import VendorServiceVisits from './VendorServiceVisits';
 import VendorOnlineReturns from './VendorOnlineReturns';
 import BuyerDetailsForm,{type BuyerDetails} from './BuyerDetailsForm';
 import {useSession} from './session';
-import RouteOutlet from './RouteOutlet';
+import RouteOutlet, { useWorkspaceRoute } from './RouteOutlet';
 import { navigateWorkspace } from './navigation';
 
 
@@ -54,6 +54,9 @@ export default function App() {
   const {account}=useSession();
   const effectivePermissions=account?.permissions??[];
   const has=(permission:string)=>effectivePermissions.includes(permission);
+  const route=useWorkspaceRoute('pos');
+  const canViewPos=has('POS_VIEW');
+  const showSessionControls=canViewPos && ['checkout','current-sale','reserved-pos-checkout','register','pos-returns','cash-refunds'].includes(route);
   const canCreateSale=has('POS_SALE_CREATE');
   const canCompleteCashSale=['POS_SALE_CREATE','POS_TENDER_CASH_RECORD','POS_RECEIPT_VIEW'].every(has);
   const canApplyDiscount=has('POS_DISCOUNT_APPLY');
@@ -90,6 +93,7 @@ export default function App() {
   });
 
   useEffect(()=>{
+    if(!canViewPos)return;
     const stored=sessionStorage.getItem('pos-session-v1');
     if(!stored){setCheckingSession(false);return;}
     let active=true;
@@ -117,7 +121,7 @@ export default function App() {
       }
     });
     return()=>{active=false;};
-  },[checkRevision]);
+  },[canViewPos,checkRevision]);
   function activateSession(id:string,state='OPEN'){
     sessionStorage.setItem('pos-session-v1',id);setSession(id);setSessionState(state);setDiscounts({linePercent:{},billPercent:0,reason:''});setBuyer(undefined);
     setCheckingSession(false);setSessionCheckFailed(false);setError('');setCart({});setCash('');setProducts([]);
@@ -147,7 +151,7 @@ export default function App() {
       } else setError((e as Error).message+' Retry uses the same sale key. Do not collect cash again.');
     }finally{setBusy(false);}
   }
-  return <Shell mode="pos"><div className="workspace-session-strip"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>{session ? 'Live pricing & shared inventory' : 'Walk-in billing · No customer account required'}</span></div>
+  return <Shell mode="pos">{showSessionControls&&<><div className="workspace-session-strip"><span className={`badge ${sessionState === 'OPEN' && session ? 'status-paid' : ''}`}>{checkingSession ? 'Verifying session' : session ? `Session ${sessionState}` : 'Register setup'}</span><span>{session ? 'Live pricing & shared inventory' : 'Walk-in billing · No customer account required'}</span></div>
     {error && <p role="alert">{error}</p>}
     {checkingSession ? <section><p role="status">Checking saved cashier session…</p>{sessionCheckFailed&&<button onClick={()=>setCheckRevision(value=>value+1)}>Retry session check</button>}</section> : !session ? <SessionStart onSession={activateSession} requiredSessionId={(pending?.body as {sessionId?:string}|undefined)?.sessionId}/> : <>
       <div className="checkout-grid"><RouteOutlet id="checkout" mode="pos"><PosCatalogue key={session} locked={saleLocked} canCreateSale={canCreateSale} quantities={cart} revision={catalogueRevision} onProducts={refreshProducts} onPromotionHistory={canViewPromotionHistory?id=>{setPromotionProduct(id);navigateWorkspace('pos','promotion-history');}:undefined} onAdd={addProduct} onBusyChange={setBusy}/></RouteOutlet>
@@ -157,6 +161,7 @@ export default function App() {
       </section></RouteOutlet></div><RouteOutlet id="register" mode="pos"><div className="operations-grid" id="register"><CashDrawer key={session} session={session} revision={drawerRevision} disabled={refundPending||busy||!!pending||closePending} readOnly={sessionState!=='OPEN'} onPendingChange={setMovementPending} onBusyChange={setBusy}/>
       <ShiftClose key={`close-${session}`} session={session} disabled={refundPending||busy||!!pending||movementPending||reservedBlocked} onStateChange={setSessionState} onPendingChange={setClosePending} onBusyChange={setBusy}/>
       </div></RouteOutlet>{sessionState!=='OPEN'&&<button disabled={refundPending||busy||!!pending||movementPending||closePending||reservedBlocked} onClick={()=>{sessionStorage.removeItem('pos-session-v1');setSession('');setError('');}}>Choose another session</button>}
+    </>}
     </>}
     {receipt && <RouteOutlet id="sale-receipt" mode="pos"><SaleReceipt receipt={receipt} error={receiptError}>{canReprintReceipt&&<button disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Reprint copy</button>}{account?.permissions.includes('POS_RETURN_CREATE') && <button className="secondary" disabled={busy} onClick={()=>startReturn(receipt.id)}>Start a stock return</button>}{canReprintReceipt&&<button className="print-receipt" disabled={busy} onClick={async()=>{setBusy(true);try{displayReceipt(await api(`/receipts/${receipt.id}/reprint`,{}));setReceiptError('');setPrintRequested(true);}catch(e){setReceiptError((e as Error).message);}finally{setBusy(false);}}}>Print receipt copy</button>}<ReceiptPdfCopy orderId={receipt.id} disabled={busy}/></SaleReceipt></RouteOutlet>}
     <RouteOutlet id="order-history" mode="pos"><OrderHistory mode="pos" onReturn={has('POS_RETURN_CREATE')?startReturn:undefined} onReceipt={has('POS_RECEIPT_VIEW')?value=>{displayReceipt(value);navigateWorkspace('pos','sale-receipt');}:undefined}/></RouteOutlet>
@@ -183,8 +188,8 @@ export default function App() {
     <RouteOutlet id="employee-management" mode="pos"><VendorAccessAdmin mode="employees"/></RouteOutlet>
     <RouteOutlet id="vendor-profile" mode="pos"><VendorProfile/></RouteOutlet>
     <RouteOutlet id="vendor-customer-crm" mode="pos"><VendorCustomerCrm/></RouteOutlet>
-    {has("LEAD_VIEW")&&<RouteOutlet id="vendor-site-surveys" mode="pos"><VendorSiteSurveys/></RouteOutlet>}
-    {has("LEAD_VIEW")&&<RouteOutlet id="vendor-quotations" mode="pos"><VendorQuotations/></RouteOutlet>}
+    {has("LEAD_VIEW")&&<RouteOutlet id="vendor-site-surveys" mode="pos"><VendorSiteSurveys key={has("LEAD_ASSIGN")?"tenant-surveys":"assigned-surveys"}/></RouteOutlet>}
+    {has("LEAD_VIEW")&&<RouteOutlet id="vendor-quotations" mode="pos"><VendorQuotations key={has("LEAD_ASSIGN")?"tenant-quotations":"assigned-quotations"}/></RouteOutlet>}
     <RouteOutlet id="shipment-management" mode="pos"><ShipmentManagement/></RouteOutlet>
     <RouteOutlet id="installation-management" mode="pos"><InstallationManagement/></RouteOutlet>
     <RouteOutlet id="service-requests" mode="pos"><VendorServiceRequests/></RouteOutlet>

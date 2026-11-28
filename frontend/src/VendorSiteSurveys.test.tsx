@@ -1,9 +1,18 @@
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
-import {afterEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import VendorSiteSurveys from './VendorSiteSurveys';
 import {vendorApi} from './api';
+import {usePermissions} from './usePermissions';
 
 vi.mock('./api',()=>({vendorApi:vi.fn()}));
+vi.mock('./usePermissions',()=>({usePermissions:vi.fn()}));
+function grant(...grants:string[]){
+ vi.mocked(usePermissions).mockReturnValue({
+  hasPermission:permission=>grants.includes(permission),
+  permissions:{username:'sales@vendor.test'},
+ } as ReturnType<typeof usePermissions>);
+}
+beforeEach(()=>grant('LEAD_VIEW','LEAD_UPDATE'));
 afterEach(()=>{cleanup();vi.resetAllMocks();});
 
 it('loads tenant leads and surveys and schedules a survey against the selected lead',async()=>{
@@ -35,4 +44,41 @@ it('shows an API denial without claiming that a survey was created',async()=>{
  render(<VendorSiteSurveys/>);
  expect((await screen.findByRole('alert')).textContent).toContain('Missing LEAD_VIEW');
  expect(screen.queryByText('Site survey scheduled.')).toBeNull();
+});
+
+
+it('shows scheduled surveys without loading write options or rendering mutation controls for LEAD_VIEW',async()=>{
+ grant('LEAD_VIEW');
+ vi.mocked(vendorApi).mockResolvedValue([{
+  id:9,enquiryId:21,siteAddress:'12 Solar Park',scheduledAt:'2026-12-01T10:30:00Z',
+  status:'SCHEDULED',assignedTo:'sales@vendor.test',version:2,
+ }]);
+ render(<VendorSiteSurveys/>);
+ await screen.findByText('12 Solar Park');
+ for(const label of ['Schedule survey','Mark completed','Cancel survey']){
+  expect(screen.queryByText(label)).toBeNull();
+ }
+ expect(vendorApi).toHaveBeenCalledTimes(1);
+ expect(vendorApi).toHaveBeenCalledWith('/site-surveys');
+});
+
+it('requires completion findings and submits the current survey version',async()=>{
+ vi.mocked(vendorApi).mockImplementation(async path=>{
+  if(path==='/leads')return [];
+  if(path==='/site-surveys')return [{
+   id:9,enquiryId:21,siteAddress:'12 Solar Park',scheduledAt:'2026-12-01T10:30:00Z',
+   status:'SCHEDULED',assignedTo:'sales@vendor.test',version:2,
+  }];
+  if(path==='/site-surveys/9')return {};
+  throw new Error('Unexpected request '+path);
+ });
+ render(<VendorSiteSurveys/>);
+ const complete=await screen.findByRole('button',{name:'Mark completed'});
+ expect((complete as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.change(screen.getByLabelText('Findings'),{target:{value:'Roof suitable'}});
+ fireEvent.click(complete);
+ await screen.findByText('Survey marked complete.');
+ expect(vendorApi).toHaveBeenCalledWith('/site-surveys/9','PATCH',{
+  status:'COMPLETED',expectedVersion:2,findings:'Roof suitable',reason:'Site survey completed'
+ });
 });

@@ -2428,6 +2428,19 @@
       "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
     },
     {
+      "id": "product-image-preview",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/products/{productId}/images/{imageId}",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products/{productId}/images/{imageId}",
+      "implementationFile": "SolarPackageManager.tsx"
+    },
+    {
       "id": "product-image-list",
       "component": "SolarPackageManager.tsx",
       "trigger": "load",
@@ -3058,6 +3071,42 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/invoices"
+    },
+    {
+      "id": "vendor-lead-assignees",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/leads/assignees",
+      "permissions": [
+        "LEAD_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/leads/assignees"
+    },
+    {
+      "id": "vendor-lead-status",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/leads/{id}",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/leads/{id}"
+    },
+    {
+      "id": "vendor-lead-assignment",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/leads/{id}/assignment",
+      "permissions": [
+        "LEAD_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/leads/{id}/assignment"
     },
     {
       "id": "vendor-lead-inbox-read",
@@ -4367,6 +4416,18 @@
       "backendOperation": "POST /api/v1/auth/email-verification/resend"
     },
     {
+      "id": "vendor-lead-status",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/leads/{id}"
+    },
+    {
+      "id": "vendor-lead-assignment",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/leads/{id}/assignment"
+    },
+    {
       "id": "vendor-profile-read",
       "component": "VendorProfile.tsx",
       "trigger": "button",
@@ -4751,7 +4812,7 @@
         "pos-product-create"
       ]
     },
-    "SolarPackageManager.tsx:44": {
+    "SolarPackageManager.tsx:74": {
       "fn": "vendorApi",
       "argument": "selected?'/packages/'+selected.id:'/packages'",
       "methodArgument": "selected?'PUT':'POST'",

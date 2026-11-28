@@ -12,7 +12,6 @@ This backlog converts evidence from:
 
 - `docs/security/TENANT_OWNED_RESOURCE_INVENTORY.md`
 - `docs/security/TENANT_QUERY_AND_DATA_ACCESS_INVENTORY.md`
-- `docs/security/DEVELOP_AUTHORIZATION_GAP_ANALYSIS.md`
 - `docs/implementation/DEVELOP_AUTHORIZATION_IMPLEMENTATION_PLAN.md`
 
 into actionable findings. It distinguishes a confirmed schema/integrity gap from a demonstrated tenant data disclosure or mutation vulnerability.

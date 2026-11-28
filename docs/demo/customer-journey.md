@@ -34,8 +34,10 @@ The marketplace shell and vendor discovery are public. Cart, checkout, dashboard
 1. In the repository root .env, set SPRING_PROFILES_ACTIVE=local. Follow [Clean Development Database Setup](../implementation/CLEAN_DEVELOPMENT_DATABASE.md) only when the existing database volume is disposable or needs the documented reset.
 2. Start the local stack with docker compose up --build -d.
 3. Open the [Marketplace](http://localhost:8080/marketplace) or [vendor directory](http://localhost:8080/marketplace/vendors). When using Vite directly, open http://localhost:5173/marketplace/vendors.
-4. Use **Sign in / Register** in the header. Create a customer account with a unique email and a password that meets the form's minimum length, or use one of the seeded CUSTOMER accounts in the [local demo account matrix](README.md).
+4. Use **Sign in / Register** in the header. Create a customer account with a unique email and a password of at least 12 characters, or use one of the seeded CUSTOMER accounts in the [local demo account matrix](README.md).
 5. After signing in, confirm the header identifies the active actor as **Customer**. The customer workspace menu should show My Dashboard, Your Purchases, My Profile, cart and marketplace destinations.
+
+For a new account, open [Mailpit](http://localhost:8025), use the verification link sent to the registration address, and return to sign in. If the link has expired, use **Resend verification email**. Seeded customer accounts are ready for sign-in.
 
 ### Seeded customer test accounts
 
@@ -205,18 +207,14 @@ Public vendor-directory, catalogue, product-detail and enquiry APIs are separate
 - Receipt and order detail requests are customer-authorized; a guessed or substituted order reference must not reveal another customer's data.
 - The Platform actor is not a commercial customer or vendor. Platform support access is a separate, time-limited and audited operational capability.
 
-## 13. Capabilities not yet exposed as a customer journey
+## 13. Follow-up purchases and account limits
 
-The Version 2.0 requirements describe a broader portal than the current implementation. Do not demonstrate or document these as working customer features until their complete UI, API, authorization, persistence/integration and tests are delivered:
+1. For an offer sent by a vendor against your verified enquiry, open **Purchases / My Quotations**. Review the revision and its valid-until date, then accept or reject the current offer. Use the revision PDF action to keep a copy. Acceptance creates an unpaid reservation. Copy its order reference, open **Cart / Reserve Vendor Cart**, then use **Recover reservation by reference** to resume the reservation and check its payment options.
+2. For a paid eligible order, open **Purchases / My Installations** to see vendor-shared progress, or **Service & Support** to open a case and review updates. Open **Engineer Visits** after the vendor schedules a visit.
+3. Open **My Warranties** after the vendor registers coverage. Open **Warranty Claims** to submit an eligible claim and follow the outcome.
+4. Open **Online Returns** for a delivered order eligible under that vendor's return policy. Select the order and items and provide a reason, then use the same page to follow the vendor decision.
 
-- Installation planning, appointment/engineer assignment, commissioning evidence and customer installation status.
-- Warranty registration, warranty coverage/claims and warranty status.
-- Customer service requests, service visits, SLA status and notifications.
-- Advanced returns/refunds for shipped ONLINE orders and reverse logistics. The currently visible customer return projection is read-only and limited to paid, verified IN_STORE purchases in the existing POS return workflow.
-- Customer-controlled email change, email verification, mobile verification, recovery and account-level communication/consent preference management.
-- Live online payment-provider checkout, unless a separately approved production integration is implemented and configured. The test-payment sequence in this guide is a mock only.
-
-The SRS/HLD Version 2.0 places installation, warranty, service-ticket SLA and advanced online returns in later Operations scope. A customer-facing placeholder, a vendor-only workflow or a database entity is not evidence that the full customer capability is ready.
+These pages require the `CUSTOMER` actor and show records tied to the signed-in customer's own transactions. The current customer UI has no saved address book, checkout delivery-address form, email change, or password recovery. Live provider checkout requires separate approval and configuration.
 
 ## 14. Acceptance checklist for a customer demo
 

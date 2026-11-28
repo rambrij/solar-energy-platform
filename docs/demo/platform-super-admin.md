@@ -27,7 +27,12 @@
 
 Open **Tenants → Onboard a vendor tenant**. Enter a unique storefront slug, display name, legal name, and the initial Vendor Admin's email. Submission creates a pending tenant, initial branch, and Vendor Admin membership. Share a newly issued invitation token once through the approved secure channel so the nominated admin can accept the invitation. If the nominated identity is already active, use its existing credentials.
 
-In **Tenant directory**, enter a reason for each lifecycle change and select the action shown on the tenant row.
+1. Sign in as `PLATFORM_SUPER_ADMIN` with `PLATFORM_TENANT_CREATE` and the applicable lifecycle grants. Create the tenant using the form above. Creating the vendor means onboarding this ordinary commercial tenant.
+2. Create or choose a subscription plan and assign it using the steps below. Complete the local payment simulation if your tenant needs an active subscription to exercise the intended features.
+3. In **Tenant directory**, enter an audit reason for each lifecycle change and select the available action.
+4. The initial Vendor Admin opens **Vendor Invitation** at `/vendor/invitation`, pastes the token and chooses their initial password. The onboarding flow assigns `VENDOR_ADMIN`. A previously activated identity signs in with its existing password. The Platform workspace does not reset an active Vendor Admin password.
+5. In a separate browser session, sign in as the invited admin, select the Vendor actor if prompted and open **Administration / Vendor Profile**. Verify that the slug and tenant name match the new tenant. Use the Vendor Admin walkthrough to test catalogue access.
+
 
 | Current state | Available transitions |
 | --- | --- |

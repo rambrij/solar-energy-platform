@@ -104,13 +104,11 @@ There are 64 Markdown documents. Keep the approved source-of-truth documents and
 - saumya-solar-energy-solution-requirements.md
 - saumya-solar-production-ready-srs-hld.md
 - docs/implementation/DEVELOP_AUTHORIZATION_IMPLEMENTATION_PLAN.md
-- docs/security/DEVELOP_AUTHORIZATION_GAP_ANALYSIS.md
 
 Retain operational/security evidence including SERVICE_BOUNDARY_AUTHORIZATION_INVENTORY.md, TENANT_OWNED_RESOURCE_INVENTORY.md, TENANT_QUERY_AND_DATA_ACCESS_INVENTORY.md, PERMISSION_TRACEABILITY.md, P2-01/P2-02 evidence, the demo guide and domain API docs. Historical increment docs should be annotated or moved only after incoming references are checked and decisions are preserved.
 
 No duplicate-document deletion is justified by matching titles:
 
-- docs/implementation/DEVELOP_AUTHORIZATION_GAP_ANALYSIS.md and docs/security/DEVELOP_AUTHORIZATION_GAP_ANALYSIS.md differ materially in content and size.
 - docs/README.md and docs/implementation/README.md are different indexes.
 - docs/architecture/README.md and docs/security/README.md describe different documentation areas.
 

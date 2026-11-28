@@ -32,6 +32,17 @@ it('does not request customer identity for guest checkout',async()=>{
  await waitFor(()=>expect(api).toHaveBeenCalledWith('/sessions/active'));
  expect(vi.mocked(api).mock.calls.some(([path])=>path==='/products')).toBe(false);
 });
+it('keeps cashier setup out of the vendor profile on direct navigation and restores it when opening POS',async()=>{
+ vi.mocked(api).mockResolvedValue([]);
+ window.history.replaceState({},'','/vendor/profile');
+ render(<App/>);
+ expect(await screen.findByText('Load vendor profile')).toBeTruthy();
+ expect(screen.queryByText('Register setup')).toBeNull();
+ expect(api).not.toHaveBeenCalledWith('/sessions/active');
+ visitPos('/vendor/pos');
+ await waitFor(()=>expect(api).toHaveBeenCalledWith('/sessions/active'));
+ expect(screen.queryByText('Load vendor profile')).toBeNull();
+});
 it('clears a closed saved session without reopening it and offers authorized sessions',async()=>{
  sessionStorage.setItem('pos-session-v1','closed-shift');
  mockBackend(async(path)=>{
@@ -191,7 +202,14 @@ it('blocks other cash operations while a refund handover needs recovery',async()
 it('keeps selected bill lines across pages and includes a server-scanned off-page product in checkout',async()=>{
  sessionStorage.setItem('pos-session-v1','session');const products=Array.from({length:26},(_,i)=>({id:i+1,name:`Item ${String(i+1).padStart(2,'0')}`,sku:`SKU${i+1}`,barcode:`B${i+1}`,price:10,tax_rate:0,quantity:2}));
  mockBackend(async path=>{if(path==='/products')return products;if(path==='/sessions/session')return {state:'OPEN'};if(path==='/sales')throw new Error('Lost sale response');if(path.startsWith('/drafts'))return [];return {state:'OPEN',openingFloat:50,cashReceived:0,changeGiven:0,cashIn:0,cashOut:0,safeDrops:0,expectedCash:50,movements:[]};});
- render(<App/>);fireEvent.click(await screen.findByText('Add Item 01'));const input=screen.getByLabelText('Search name, SKU or scan barcode');fireEvent.change(input,{target:{value:'SKU26'}});fireEvent.submit(input.closest('form')!);await screen.findByText('Added Item 26');await screen.findByText('Next POS products');fireEvent.click(screen.getByText('Next POS products'));await screen.findByText('Add Item 25');visitPos('/vendor/pos/current-sale');expect((await screen.findByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1');expect((screen.getByLabelText('Quantity 26') as HTMLInputElement).value).toBe('1');await screen.findByLabelText('Cash received');fireEvent.change(screen.getByLabelText('Cash received'),{target:{value:'20'}});fireEvent.click(screen.getByText('Complete cash sale'));await screen.findByText('Retry same sale');const body=vi.mocked(api).mock.calls.find(([path])=>path==='/sales')![1] as {items:{productId:number;quantity:number}[]};expect(body.items).toEqual([{productId:1,quantity:1},{productId:26,quantity:1}]);
+ render(<App/>);fireEvent.click(await screen.findByText('Add Item 01'));const input=screen.getByLabelText('Search name, SKU or scan barcode');fireEvent.change(input,{target:{value:'SKU26'}});fireEvent.submit(input.closest('form')!);await screen.findByText('Added Item 26');
+ const nextPage=await waitFor(()=>{
+  expect(screen.getByText('26 products found')).toBeTruthy();
+  const button=screen.getByRole<HTMLButtonElement>('button',{name:'Next POS products'});
+  expect(button.disabled).toBe(false);
+  return button;
+ });
+ fireEvent.click(nextPage);await screen.findByText('Add Item 25');visitPos('/vendor/pos/current-sale');expect((await screen.findByLabelText('Quantity 1') as HTMLInputElement).value).toBe('1');expect((screen.getByLabelText('Quantity 26') as HTMLInputElement).value).toBe('1');await screen.findByLabelText('Cash received');fireEvent.change(screen.getByLabelText('Cash received'),{target:{value:'20'}});fireEvent.click(screen.getByText('Complete cash sale'));await screen.findByText('Retry same sale');const body=vi.mocked(api).mock.calls.find(([path])=>path==='/sales')![1] as {items:{productId:number;quantity:number}[]};expect(body.items).toEqual([{productId:1,quantity:1},{productId:26,quantity:1}]);
 });
 
 it('blocks short cash locally and submits an explicitly chosen exact amount',async()=>{

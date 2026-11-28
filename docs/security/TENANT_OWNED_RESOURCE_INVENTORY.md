@@ -309,7 +309,6 @@ No invalid record may be silently deleted or rewritten. Backfill must derive own
   - §10 global identity and tenant-customer relationship.
   - §12.3 subscription separation, §12.4 customer relationship privacy, §12.5 catalogue, §12.6 CRM, §12.7 checkout/cart, §12.10 orders/returns, §12.11 inventory, §12.13 documents, §12.14 reporting/audit.
 - `saumya-solar-energy-solution-requirements.md`: approved product/acceptance requirements; used alongside HLD, not overridden by implementation assumptions.
-- `docs/security/DEVELOP_AUTHORIZATION_GAP_ANALYSIS.md`: §3.5 domain/ownership observations, §5 P0 findings, §6 clarification register.
 - `docs/implementation/DEVELOP_AUTHORIZATION_IMPLEMENTATION_PLAN.md`: P0-01 scope and acceptance criteria.
 
 ### Migration evidence (principal files)

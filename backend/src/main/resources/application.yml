@@ -16,6 +16,11 @@ spring:
     url: ${DB_URL:jdbc:mysql://localhost:3306/solar}
     username: ${DB_USER:solar}
     password: ${DB_PASSWORD}
+    hikari:
+      data-source-properties:
+        # JdbcTemplate and Hibernate share the same UTC convention for persisted instants.
+        connectionTimeZone: '+00:00'
+        forceConnectionTimeZoneToSession: true
   jackson:
     deserialization:
       fail-on-unknown-properties: true

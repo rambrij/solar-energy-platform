@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react';
 import {vendorApi,vendorUpload} from './api';
-import {useSession} from './session';
+import {authenticatedFetch,useSession} from './session';
 
 type Product={id:number;sku:string;name:string;published:boolean;price:number|null;taxRate:number|null};
 type PackageItem={productId:number;sku:string;name:string;quantity:number;unitPrice:number|null;taxRate:number|null};
@@ -8,6 +8,36 @@ type SolarPackage={id:number;sku:string;name:string;description:string|null;syst
 type Image={id:string;contentType:string;byteSize:number;sha256:string;altText:string;createdAt:string;url:string};
 type Page<T>={items:T[];page:number;totalPages:number;totalElements:number};
 const empty={sku:'',name:'',description:'',capacity:'1.000',price:'0.00',tax:'0.00',published:false,reason:''};
+
+function VendorImagePreview({productId,image}: {productId:string;image:Image}) {
+ const [preview,setPreview]=useState('');
+ const [failed,setFailed]=useState(false);
+ useEffect(()=>{
+  const controller=new AbortController();
+  let objectUrl:string|undefined;
+  (async()=>{
+   try {
+    const response=await authenticatedFetch(`/api/v1/vendor/products/${encodeURIComponent(productId)}/images/${encodeURIComponent(image.id)}`,{
+     method:'GET',cache:'no-store',signal:controller.signal
+    });
+    if(!response.ok)throw new Error('Image preview could not be loaded.');
+    const blob=await response.blob();
+    if(controller.signal.aborted)return;
+    objectUrl=URL.createObjectURL(blob);
+    setPreview(objectUrl);
+   } catch {
+    if(!controller.signal.aborted)setFailed(true);
+   }
+  })();
+  return ()=>{
+   controller.abort();
+   if(objectUrl)URL.revokeObjectURL(objectUrl);
+  };
+ },[productId,image.id]);
+ if(failed)return <span>Preview unavailable{image.altText?': '+image.altText:''}</span>;
+ if(!preview)return <span role="status">Loading image preview…</span>;
+ return <img src={preview} alt={image.altText} width="112"/>;
+}
 
 export default function SolarPackageManager(){
  const {account}=useSession();
@@ -55,7 +85,7 @@ export default function SolarPackageManager(){
   finally{setBusy(false);}
  }
  async function uploadImage(){
-  if(!imageProduct||!file||!imageReason.trim())return;
+  if(!canUpdate||!imageProduct||!file||!imageReason.trim())return;
   setBusy(true);setError('');setNotice('');
   try{
    await vendorUpload(`/products/${encodeURIComponent(imageProduct)}/images`,file,alt,imageReason.trim());
@@ -65,7 +95,7 @@ export default function SolarPackageManager(){
   finally{setBusy(false);}
  }
  async function deactivateImage(imageId:string){
-  if(!imageProduct)return;
+  if(!canUpdate||!imageProduct)return;
   setBusy(true);setError('');
   try{
    await vendorApi(`/products/${encodeURIComponent(imageProduct)}/images/${encodeURIComponent(imageId)}`,'DELETE',{reason:'Removed from the vendor product gallery'});
@@ -103,14 +133,14 @@ export default function SolarPackageManager(){
   </form>
   <hr/>
   <h3>Product image gallery</h3>
-  <label>Select product<select value={imageProduct} onChange={e=>void loadImages(e.target.value)}><option value="">Choose a product</option>{products.map(product=><option key={product.id} value={product.id}>{product.name} ({product.sku})</option>)}</select></label>
-  {imageProduct&&<><ul>{images.map(image=><li key={image.id}><img src={image.url} alt={image.altText} width="112" loading="lazy"/><span>{image.contentType} · {Math.round(image.byteSize/1024)} KB</span><button type="button" disabled={busy||!canUpdate} onClick={()=>void deactivateImage(image.id)}>Remove image</button></li>)}</ul>
-   <form onSubmit={event=>{event.preventDefault();void uploadImage();}}>
+  <label>Select product<select disabled={busy} value={imageProduct} onChange={e=>void loadImages(e.target.value)}><option value="">Choose a product</option>{products.map(product=><option key={product.id} value={product.id}>{product.name} ({product.sku})</option>)}</select></label>
+  {imageProduct&&<><ul>{images.map(image=><li key={image.id}><VendorImagePreview productId={imageProduct} image={image}/><span>{image.contentType} · {Math.round(image.byteSize/1024)} KB</span>{canUpdate&&<button type="button" disabled={busy} onClick={()=>void deactivateImage(image.id)}>Remove image</button>}</li>)}</ul>
+   {canUpdate&&<form onSubmit={event=>{event.preventDefault();void uploadImage();}}>
     <label>Product image (PNG, JPEG or WebP, max 5 MB)<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setFile(e.target.files?.[0])}/></label>
     <label>Image description<input maxLength={180} value={alt} onChange={e=>setAlt(e.target.value)}/></label>
     <label>Upload reason<input required maxLength={250} value={imageReason} onChange={e=>setImageReason(e.target.value)}/></label>
     <button disabled={busy||!canUpdate||!file||!imageReason.trim()}>Upload product image</button>
-   </form>
+   </form>}
   </>}
  </section>;
 }

@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useState} from 'react';
 import type {FormEvent} from 'react';
 import {vendorApi} from './api';
+import {usePermissions} from './usePermissions';
 
 type Lead={id:number;status:string;contactName:string;productName:string|null;assignedTo:string|null};
 type Survey={id:number;enquiryId:number;siteAddress:string;scheduledAt:string;status:string;roofType:string|null;
@@ -8,6 +9,10 @@ type Survey={id:number;enquiryId:number;siteAddress:string;scheduledAt:string;st
  assignedTo:string;version:number};
 
 export default function VendorSiteSurveys(){
+ const {hasPermission,permissions}=usePermissions();
+ const canUpdate=hasPermission('LEAD_UPDATE');
+ const canManageUnassigned=hasPermission('LEAD_ASSIGN');
+ const canEditSurvey=(survey:Survey)=>canUpdate&&(canManageUnassigned||survey.assignedTo===permissions?.username);
  const [leads,setLeads]=useState<Lead[]>([]);
  const [surveys,setSurveys]=useState<Survey[]>([]);
  const [leadId,setLeadId]=useState('');
@@ -28,20 +33,20 @@ export default function VendorSiteSurveys(){
   setBusy(true);setError('');
   try{
    const [leadRows,surveyRows]=await Promise.all([
-    vendorApi('/leads') as Promise<Lead[]>,
+    canUpdate ? vendorApi('/leads') as Promise<Lead[]> : Promise.resolve([]),
     vendorApi('/site-surveys') as Promise<Survey[]>
    ]);
    setLeads(leadRows.filter(lead=>lead.status!=='LOST'));
    setSurveys(surveyRows);
   }catch(e){setError((e as Error).message||'Site surveys could not be loaded.');}
   finally{setBusy(false);}
- },[]);
+ },[canUpdate]);
 
  useEffect(()=>{void refresh();},[refresh]);
 
  async function schedule(event:FormEvent){
   event.preventDefault();
-  if(!leadId||!siteAddress.trim()||!scheduledAt||!reason.trim())return;
+  if(!canUpdate||!leadId||!siteAddress.trim()||!scheduledAt||!reason.trim())return;
   setSaving(true);setError('');setNotice('');
   try{
    await vendorApi(`/leads/${leadId}/site-surveys`,'POST',{
@@ -60,6 +65,7 @@ export default function VendorSiteSurveys(){
  }
 
  async function update(survey:Survey,status:'COMPLETED'|'CANCELLED'){
+  if(!canEditSurvey(survey)||(status==='COMPLETED'&&!findings[survey.id]?.trim()))return;
   setSaving(true);setError('');setNotice('');
   try{
    await vendorApi(`/site-surveys/${survey.id}`,'PATCH',{
@@ -78,7 +84,7 @@ export default function VendorSiteSurveys(){
   <p>Surveys are attached to this vendor’s existing leads. Employees see only work assigned to them; tenant managers can see all surveys for their tenant.</p>
   {error&&<p role="alert">{error}</p>}
   {notice&&<p role="status">{notice}</p>}
-  <form onSubmit={schedule}>
+  {canUpdate&&<form onSubmit={schedule}>
    <h3>Schedule a site survey</h3>
    <label>Lead
     <select required value={leadId} onChange={event=>setLeadId(event.target.value)}>
@@ -110,7 +116,7 @@ export default function VendorSiteSurveys(){
    <button type="submit" disabled={saving||busy||!leadId||!siteAddress.trim()||!scheduledAt||!reason.trim()}>
     {saving?'Saving…':'Schedule survey'}
    </button>
-  </form>
+  </form>}
   <h3>Scheduled and completed surveys</h3>
   {busy&&!surveys.length&&<p role="status">Loading site surveys…</p>}
   {!busy&&!surveys.length&&!error&&<p className="empty-state">No site surveys have been scheduled.</p>}
@@ -120,12 +126,12 @@ export default function VendorSiteSurveys(){
    <p>{new Date(survey.scheduledAt).toLocaleString()} · {survey.status}</p>
    <p>{survey.roofType||'Roof type not recorded'} · {survey.monthlyConsumptionKwh??'—'} kWh/month · {survey.proposedCapacityKw??'—'} kW</p>
    {survey.notes&&<p>{survey.notes}</p>}
-   {survey.status==='SCHEDULED'&&<>
+   {canEditSurvey(survey)&&survey.status==='SCHEDULED'&&<>
     <label>Findings
      <textarea maxLength={4000} value={findings[survey.id]??''}
       onChange={event=>setFindings(value=>({...value,[survey.id]:event.target.value}))}/>
     </label>
-    <button disabled={saving} onClick={()=>update(survey,'COMPLETED')}>Mark completed</button>
+    <button disabled={saving||!findings[survey.id]?.trim()} onClick={()=>update(survey,'COMPLETED')}>Mark completed</button>
     <button type="button" className="secondary" disabled={saving} onClick={()=>update(survey,'CANCELLED')}>Cancel survey</button>
    </>}
    {survey.findings&&<p>{survey.findings}</p>}

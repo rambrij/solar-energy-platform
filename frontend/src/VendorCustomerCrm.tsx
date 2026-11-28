@@ -39,7 +39,7 @@ export default function VendorCustomerCrm(){
   <h1 id="customer-crm-title">Customer relationships &amp; private CRM</h1>
   <p>Relationships and notes belong only to the active vendor tenant. Customers and other vendors cannot view this private workspace data.</p>
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-  {permissions.includes("LEAD_VIEW")&&<VendorLeadInbox/>}
+  {permissions.includes("LEAD_VIEW")&&<VendorLeadInbox key={permissions.includes("LEAD_ASSIGN")?"tenant-leads":"assigned-leads"}/>}
   {permissions.includes("CUSTOMER_RELATION_VIEW")&&<section aria-label="Vendor customer relationships"><h2>Linked customers</h2>
    {busy&&!customers.length&&<p role="status">Loading customer relationships…</p>}
    {!busy&&!customers.length&&<p className="empty-state">No verified customer relationships are available for this vendor.</p>}

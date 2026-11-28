@@ -2537,6 +2537,90 @@
       "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/tenders/{attemptId}/unknown"
     },
     {
+      "id": "transfer-approve",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "action",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/inventory/transfers/{id}/approve",
+      "permissions": [
+        "INVENTORY_TRANSFER"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/inventory/transfers/{id}/approve"
+    },
+    {
+      "id": "transfer-cancel",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "action",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/inventory/transfers/{id}/cancel",
+      "permissions": [
+        "INVENTORY_TRANSFER"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/inventory/transfers/{id}/cancel"
+    },
+    {
+      "id": "transfer-create",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "createTransfer",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/inventory/transfers",
+      "permissions": [
+        "INVENTORY_TRANSFER"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/inventory/transfers"
+    },
+    {
+      "id": "transfer-detail",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "openDetail",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/inventory/transfers/{id}",
+      "permissions": [
+        "INVENTORY_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/inventory/transfers/{id}"
+    },
+    {
+      "id": "transfer-dispatch",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "action",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/inventory/transfers/{id}/dispatch",
+      "permissions": [
+        "INVENTORY_TRANSFER"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/inventory/transfers/{id}/dispatch"
+    },
+    {
+      "id": "transfer-list",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/inventory/transfers",
+      "permissions": [
+        "INVENTORY_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/inventory/transfers"
+    },
+    {
+      "id": "transfer-receive",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "action",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/inventory/transfers/{id}/receive",
+      "permissions": [
+        "INVENTORY_TRANSFER"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/inventory/transfers/{id}/receive"
+    },
+    {
       "id": "vendor-category-list",
       "component": "ProductManager.tsx",
       "trigger": "load",
@@ -3522,6 +3606,31 @@
       "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
     },
     {
+      "id": "vendor-tenant-overview-report",
+      "component": "VendorTenantReports.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/reports/overview",
+      "permissions": [
+        "POS_REPORT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/reports/overview"
+    },
+    {
+      "id": "vendor-tenant-refund-report",
+      "component": "VendorTenantReports.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/reports/refunds",
+      "permissions": [
+        "POS_REPORT_VIEW",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/reports/refunds"
+    },
+    {
       "id": "vendor-warranty-items",
       "component": "VendorWarranties.tsx",
       "trigger": "change",
@@ -3570,29 +3679,52 @@
       "backendOperation": "POST /api/v1/vendor/warranties"
     },
     {
-      "id": "vendor-tenant-overview-report",
-      "component": "VendorTenantReports.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/reports/overview",
+      "id": "warehouse-create",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "createWarehouse",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/inventory/warehouses",
       "permissions": [
-        "POS_REPORT_VIEW"
+        "INVENTORY_TRANSFER"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/reports/overview"
+      "backendOperation": "POST /api/v1/vendor/inventory/warehouses"
     },
     {
-      "id": "vendor-tenant-refund-report",
-      "component": "VendorTenantReports.tsx",
+      "id": "warehouse-list",
+      "component": "WarehouseTransfers.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/reports/refunds",
+      "endpoint": "/api/v1/vendor/inventory/warehouses",
       "permissions": [
-        "POS_REPORT_VIEW",
-        "POS_REFUND_VIEW"
+        "INVENTORY_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/reports/refunds"
+      "backendOperation": "GET /api/v1/vendor/inventory/warehouses"
+    },
+    {
+      "id": "warehouse-stock-list",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "openWarehouseStock",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/inventory/warehouses/{id}/stock",
+      "permissions": [
+        "INVENTORY_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/inventory/warehouses/{id}/stock"
+    },
+    {
+      "id": "warehouse-update",
+      "component": "WarehouseTransfers.tsx",
+      "trigger": "updateWarehouse",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/inventory/warehouses/{id}",
+      "permissions": [
+        "INVENTORY_TRANSFER"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/inventory/warehouses/{id}"
     }
   ],
   "buttons": [

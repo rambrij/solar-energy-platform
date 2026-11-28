@@ -359,13 +359,14 @@ public class WarehouseInventoryService {
     private void creditBranch(AuthorizationContext.Context context,long branch,long product,int quantity) {
         jdbc.queryForObject("SELECT id FROM branches WHERE tenant_id=? AND id=? FOR UPDATE",Long.class,context.tenantId(),branch);
         requirePosLocation(context,branch);
-        jdbc.update("""
-            INSERT INTO inventory(tenant_id,branch_id,product_id,quantity,reserved)
-            SELECT ?,?,?,0,0 WHERE NOT EXISTS(
-              SELECT 1 FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=?)
-            """,context.tenantId(),branch,product,context.tenantId(),branch,product);
         var rows=jdbc.query("SELECT quantity,reserved FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=? FOR UPDATE",
             (rs,n)->new int[]{rs.getInt(1),rs.getInt(2)},context.tenantId(),branch,product);
+        if(rows.isEmpty()) {
+            jdbc.update("INSERT INTO inventory(tenant_id,branch_id,product_id,quantity,reserved) VALUES(?,?,?,0,0)",
+                context.tenantId(),branch,product);
+            rows=jdbc.query("SELECT quantity,reserved FROM inventory WHERE tenant_id=? AND branch_id=? AND product_id=? FOR UPDATE",
+                (rs,n)->new int[]{rs.getInt(1),rs.getInt(2)},context.tenantId(),branch,product);
+        }
         if(rows.isEmpty()||rows.getFirst()[0]>Integer.MAX_VALUE-quantity)conflict("Branch stock capacity exceeded");
         jdbc.update("UPDATE inventory SET quantity=quantity+? WHERE tenant_id=? AND branch_id=? AND product_id=?",
             quantity,context.tenantId(),branch,product);
@@ -373,13 +374,14 @@ public class WarehouseInventoryService {
     }
     private void creditWarehouse(AuthorizationContext.Context context,long warehouse,long product,int quantity) {
         jdbc.queryForObject("SELECT id FROM warehouses WHERE tenant_id=? AND id=? AND active=TRUE FOR UPDATE",Long.class,context.tenantId(),warehouse);
-        jdbc.update("""
-            INSERT INTO warehouse_inventory(tenant_id,warehouse_id,product_id,on_hand,reserved,damaged,version)
-            SELECT ?,?,?,0,0,0,0 WHERE NOT EXISTS(
-              SELECT 1 FROM warehouse_inventory WHERE tenant_id=? AND warehouse_id=? AND product_id=?)
-            """,context.tenantId(),warehouse,product,context.tenantId(),warehouse,product);
         var rows=jdbc.query("SELECT on_hand FROM warehouse_inventory WHERE tenant_id=? AND warehouse_id=? AND product_id=? FOR UPDATE",
             (rs,n)->rs.getInt(1),context.tenantId(),warehouse,product);
+        if(rows.isEmpty()) {
+            jdbc.update("INSERT INTO warehouse_inventory(tenant_id,warehouse_id,product_id,on_hand,reserved,damaged,version) VALUES(?,?,?,0,0,0,0)",
+                context.tenantId(),warehouse,product);
+            rows=jdbc.query("SELECT on_hand FROM warehouse_inventory WHERE tenant_id=? AND warehouse_id=? AND product_id=? FOR UPDATE",
+                (rs,n)->rs.getInt(1),context.tenantId(),warehouse,product);
+        }
         if(rows.isEmpty()||rows.getFirst()>Integer.MAX_VALUE-quantity)conflict("Warehouse stock capacity exceeded");
         jdbc.update("UPDATE warehouse_inventory SET on_hand=on_hand+?,version=version+1 WHERE tenant_id=? AND warehouse_id=? AND product_id=?",
             quantity,context.tenantId(),warehouse,product);

@@ -330,8 +330,7 @@
         "context.requirePermission(permission)",
         "context.tenantId()",
         "context.branchId()",
-        "tenant-qualified composite foreign keys",
-        "tenant row lock before transfer mutations"
+        "SELECT id FROM tenants WHERE id=? FOR UPDATE"
       ],
       "trustedTenantParameters": {}
     },

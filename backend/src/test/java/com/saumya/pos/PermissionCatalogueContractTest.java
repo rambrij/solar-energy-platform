@@ -20,7 +20,7 @@ class PermissionCatalogueContractTest {
     }
 
     @Test void canonicalAssignableCataloguesDriveBothRuntimeRegistriesAndTemplates() {
-        assertThat(PermissionCatalogue.version()).isEqualTo(2);
+        assertThat(PermissionCatalogue.version()).isEqualTo(3);
         assertThat(VendorPermissionRegistry.all()).containsExactlyInAnyOrderElementsOf(PermissionCatalogue.vendorPermissions());
         assertThat(PlatformPermissionRegistry.all()).containsExactlyInAnyOrderElementsOf(PermissionCatalogue.platformPermissions());
         assertThat(StandardRoleTemplates.implemented()).containsExactlyInAnyOrderElementsOf(PermissionCatalogue.vendorPermissions());

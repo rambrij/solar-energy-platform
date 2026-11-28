@@ -355,6 +355,12 @@
       "allOf": [
         "POS_REPORT_VIEW"
       ]
+    },
+    "warehouse-transfers": {
+      "anyOf": [
+        "INVENTORY_VIEW",
+        "INVENTORY_TRANSFER"
+      ]
     }
   },
   "controllerPolicies": {

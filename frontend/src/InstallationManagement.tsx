@@ -69,7 +69,7 @@ export default function InstallationManagement(){
   setError('');
   try{
    const result=await vendorApi('/installations/'+id) as Detail;
-   setDetails(current=>({...current,[id]:result}));
+   setDetails(current=>({...current,[id]:{...result,checklist:result.checklist??[]}}));
   }catch(e){setError((e as Error).message||'Installation history could not be loaded.');}
  }
 

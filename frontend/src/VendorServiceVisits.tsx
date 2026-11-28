@@ -17,7 +17,7 @@ export default function VendorServiceVisits(){
  const [visits,setVisits]=useState<Visit[]>([]),[claims,setClaims]=useState<CaseRow[]>([]),[requests,setRequests]=useState<CaseRow[]>([]);
  const [slaCases,setSlaCases]=useState<SlaCase[]>([]),[slaPolicies,setSlaPolicies]=useState<SlaPolicy[]>([]);
  const [escalationPolicies,setEscalationPolicies]=useState<EscalationPolicy[]>([]),[escalations,setEscalations]=useState<Escalation[]>([]);
- const [escalationDraft,setEscalationDraft]=useState({caseType:'SERVICE_REQUEST',priority:'NORMAL',breachType:'RESPONSE',escalationLevel:'1',afterMinutes:'0',recipientRoleKey:'SERVICE_MANAGER',enabled:true});
+ const [escalationDraft,setEscalationDraft]=useState({caseType:'SERVICE_REQUEST',priority:'NORMAL',breachType:'RESPONSE',escalationLevel:'1',afterMinutes:'0',recipientRoleKey:'SERVICE_MANAGER',enabled:true,reason:''});
  const [ackNotes,setAckNotes]=useState<Record<number,string>>({});
  const [slaDrafts,setSlaDrafts]=useState<Record<string,{response:string;resolution:string;reason:string}>>({});
  const [assignees,setAssignees]=useState<string[]>([]),[details,setDetails]=useState<Record<number,Detail>>({});
@@ -96,7 +96,7 @@ export default function VendorServiceVisits(){
    await vendorApi('/service-sla/escalation-policies','PUT',{
     caseType:escalationDraft.caseType,priority:escalationDraft.caseType==='WARRANTY_CLAIM'?'NORMAL':escalationDraft.priority,
     breachType:escalationDraft.breachType,escalationLevel:Number(escalationDraft.escalationLevel),
-    afterMinutes:Number(escalationDraft.afterMinutes),recipientRoleKey:escalationDraft.recipientRoleKey,enabled:escalationDraft.enabled
+    afterMinutes:Number(escalationDraft.afterMinutes),recipientRoleKey:escalationDraft.recipientRoleKey,enabled:escalationDraft.enabled,reason:escalationDraft.reason.trim()
    });
    setNotice('SLA escalation policy saved.');await refresh();
   }catch(x){setError((x as Error).message||'Escalation policy could not be saved.');}
@@ -163,8 +163,9 @@ export default function VendorServiceVisits(){
     <label>Escalation level<input type="number" min="1" max="5" required value={escalationDraft.escalationLevel} onChange={e=>setEscalationDraft(x=>({...x,escalationLevel:e.target.value}))}/></label>
     <label>Minutes after breach<input type="number" min="0" max="525600" required value={escalationDraft.afterMinutes} onChange={e=>setEscalationDraft(x=>({...x,afterMinutes:e.target.value}))}/></label>
     <label>Recipient role<select value={escalationDraft.recipientRoleKey} onChange={e=>setEscalationDraft(x=>({...x,recipientRoleKey:e.target.value}))}><option value="VENDOR_ADMIN">Vendor Admin</option><option value="SERVICE_MANAGER">Service Manager</option><option value="SERVICE_LEAD">Service Lead</option></select></label>
+    <label>Reason for policy change<input required maxLength={500} value={escalationDraft.reason} onChange={e=>setEscalationDraft(x=>({...x,reason:e.target.value}))}/></label>
     <label><input type="checkbox" checked={escalationDraft.enabled} onChange={e=>setEscalationDraft(x=>({...x,enabled:e.target.checked}))}/> Enabled</label>
-    <button disabled={busy}>Save escalation policy</button>
+    <button disabled={busy||!escalationDraft.reason.trim()}>Save escalation policy</button>
    </form>}
    <h4>Escalation queue</h4>
    {escalations.length===0?<p>No SLA escalations have been generated.</p>:escalations.map(e=><article key={e.id}>

@@ -86,9 +86,9 @@ it('updates warehouse details and active state with optimistic version and audit
  render(<WarehouseTransfers/>);
  await screen.findByText('MAIN — Main Warehouse (Active)');
  fireEvent.click(screen.getByRole('button',{name:'Edit warehouse'}));
- fireEvent.change(screen.getByLabelText('Warehouse name'),{target:{value:'Central Warehouse'}});
+ fireEvent.change(within(screen.getByRole('form',{name:'Edit warehouse'})).getByLabelText('Warehouse name'),{target:{value:'Central Warehouse'}});
  fireEvent.click(screen.getByLabelText('Warehouse active'));
- fireEvent.change(screen.getByLabelText('Change reason'),{target:{value:'Consolidated after stock reconciliation'}});
+ fireEvent.change(within(screen.getByRole('form',{name:'Edit warehouse'})).getByLabelText('Change reason'),{target:{value:'Consolidated after stock reconciliation'}});
  fireEvent.click(screen.getByRole('button',{name:'Save warehouse changes'}));
  await screen.findByRole('status');
  await waitFor(()=>expect(vendorApi).toHaveBeenCalledWith('/inventory/warehouses/2','PATCH',{

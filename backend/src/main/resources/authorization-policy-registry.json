@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "description": "Canonical assignable permission catalogue and endpoint inventory. Warehouse and transfer operations implement the existing SRS INVENTORY_TRANSFER permission; the same JSON resource drives backend registries, Flyway catalogue constraints, frontend checks and traceability tests.",
   "vendorPermissions": [
     "CATALOG_PROMOTION_MANAGE",
@@ -55,6 +55,8 @@
     "PRODUCT_CREATE",
     "PRODUCT_UPDATE",
     "PRODUCT_VIEW",
+    "RETURN_APPROVE",
+    "RETURN_VIEW",
     "ROLE_ASSIGN",
     "ROLE_CREATE",
     "ROLE_UPDATE",
@@ -361,6 +363,16 @@
         "INVENTORY_VIEW",
         "INVENTORY_TRANSFER"
       ]
+    },
+    "vendor-online-returns": {
+      "allOf": [
+        "RETURN_VIEW"
+      ]
+    },
+    "customer-online-returns": {
+      "allOf": [
+        "CUSTOMER"
+      ]
     }
   },
   "controllerPolicies": {
@@ -428,7 +440,8 @@
     "WarrantyController": "VENDOR_TENANT_PAID_ORDER_ITEM_WARRANTY_AND_CUSTOMER_OWNED_WARRANTY_READ",
     "VendorTenantReportController": "VENDOR_MEMBERSHIP_DERIVED_TENANT_WIDE_REPORTING",
     "VendorTenantRefundAnalyticsController": "VENDOR_MEMBERSHIP_DERIVED_TENANT_WIDE_POS_REFUND_REPORTING",
-    "WarehouseInventoryController": "VENDOR_INVENTORY_TRANSFER_AND_VIEW"
+    "WarehouseInventoryController": "VENDOR_INVENTORY_TRANSFER_AND_VIEW",
+    "OnlineReturnController": "Customer-owned delivered paid online orders; authenticated tenant-scoped vendor review and return-window configuration; no refunds or inventory mutations"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -456,9 +469,7 @@
     "QUOTATION_VIEW",
     "REPORT_EXPORT",
     "REPORT_VIEW",
-    "RETURN_APPROVE",
     "RETURN_RECEIVE",
-    "RETURN_VIEW",
     "VENDOR_AUDIT_VIEW",
     "VENDOR_PAYMENT_RECONCILE",
     "VENDOR_PAYMENT_REFUND",
@@ -1315,6 +1326,26 @@
       "scope": "One tenant; employee branch and register assignments remain additional controls",
       "ui": "Vendor workspace > Access administration > employee lifecycle",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "RETURN_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/online-returns; GET /api/v1/vendor/online-returns/policy",
+      "service": "OnlineReturnService",
+      "scope": "Authenticated tenant only; private review reason excluded from customer response",
+      "ui": "Vendor workspace > Online Returns",
+      "test": "OnlineReturnControllerAuthorizationTest"
+    },
+    {
+      "permission": "RETURN_APPROVE",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "POST /api/v1/vendor/online-returns/{id}/decision; PUT /api/v1/vendor/online-returns/policy",
+      "service": "OnlineReturnService",
+      "scope": "Tenant-qualified lock, optimistic version and append-only event; no payment or stock mutation",
+      "ui": "Vendor workspace > Online Returns",
+      "test": "OnlineReturnControllerAuthorizationTest"
     }
   ],
   "frontendPlatformPages": {

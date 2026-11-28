@@ -43,6 +43,7 @@ const pos: NavigationItem[] = [
   { id: 'warranty-management', label: 'Warranty Coverage', group: 'Fulfilment', description: 'Register and review immutable warranty coverage for paid customer order items.', path: '/vendor/warranties' },
   { id: 'vendor-warranty-claims', label: 'Warranty Claims', group: 'Customer Management', description: 'Triage claims, assign service staff, inspect and resolve approved repair or replacement work.', path: '/vendor/warranty-claims' },
   { id: 'vendor-service-visits', label: 'Engineer Visits', group: 'Customer Management', description: 'Schedule and manage engineer visits for warranty claims and general service requests.', path: '/vendor/service-visits' },
+  { id: 'vendor-online-returns', label: 'Online Returns', group: 'After-Sale', description: 'Review delivered online order return requests and configure the tenant return window.', path: '/vendor/online-returns' },
 ];
 
 const online: NavigationItem[] = [
@@ -56,6 +57,7 @@ const online: NavigationItem[] = [
   { id: 'customer-quotations', label: 'My Quotations', group: 'Purchases', description: 'Review vendor quotations, compare revisions and accept or reject a valid offer.', path: '/marketplace/quotations' },
   { id: 'customer-installations', label: 'My Installations', group: 'Purchases', description: 'See your solar installation schedule and vendor-shared progress history.', path: '/marketplace/installations' },
   { id: 'customer-service-requests', label: 'Service & Support', group: 'Purchases', description: 'Request help with your paid orders and follow vendor updates.', path: '/marketplace/service-requests' },
+  { id: 'customer-online-returns', label: 'Online Returns', group: 'Purchases', description: 'Request returns for eligible delivered online orders and follow vendor decisions.', path: '/marketplace/returns' },
   { id: 'customer-warranties', label: 'My Warranties', group: 'Purchases', description: 'Review warranty coverage registered for your paid purchases.', path: '/marketplace/warranties' },
   { id: 'customer-warranty-claims', label: 'Warranty Claims', group: 'Purchases', description: 'Submit claims against active coverage and follow vendor decisions and resolution.', path: '/marketplace/warranty-claims' },
   { id: 'customer-service-visits', label: 'Engineer Visits', group: 'Purchases', description: 'Follow engineer visit schedules and customer-shared reports for your cases.', path: '/marketplace/service-visits' },

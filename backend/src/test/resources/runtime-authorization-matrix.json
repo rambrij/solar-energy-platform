@@ -2279,6 +2279,42 @@
       "scope": "AUTHENTICATED_TENANT_AND_SOURCE_BRANCH; TENANT_QUALIFIED_TRANSFER",
       "assignment": "SOURCE_BRANCH_ONLY; DRAFT_CREATOR_OR_APPROVED_TRANSFER_MANAGER; UNDISPATCHED_STATE",
       "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "OnlineReturnController#customerWorkspace": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_OWNERSHIP",
+      "assignment": "CustomerAccess and OrderHistoryService resolve authenticated global customer; tenant is server-derived",
+      "runtimeTest": "OnlineReturnControllerAuthorizationTest"
+    },
+    "OnlineReturnController#createCustomer": {
+      "actor": "CUSTOMER",
+      "scope": "GLOBAL_CUSTOMER_PAID_ONLINE_ORDER_DELIVERED_SHIPMENT",
+      "assignment": "Authenticated customer owns paid ONLINE order; order row locked; vendor policy, delivered event and remaining quantities rechecked; idempotency key",
+      "runtimeTest": "OnlineReturnControllerAuthorizationTest"
+    },
+    "OnlineReturnController#vendorList": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ONLY",
+      "assignment": "RETURN_VIEW; all return/item/event queries constrain tenant_id to active membership",
+      "runtimeTest": "OnlineReturnControllerAuthorizationTest"
+    },
+    "OnlineReturnController#vendorDecision": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_RETURN",
+      "assignment": "RETURN_APPROVE; tenant-qualified row lock, expected version, internal reason, customer message and immutable event",
+      "runtimeTest": "OnlineReturnControllerAuthorizationTest"
+    },
+    "OnlineReturnController#vendorPolicy": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ONLY",
+      "assignment": "RETURN_VIEW; missing policy resolves to zero days (disabled)",
+      "runtimeTest": "OnlineReturnControllerAuthorizationTest"
+    },
+    "OnlineReturnController#updatePolicy": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ONLY",
+      "assignment": "RETURN_APPROVE; tenant lock, optimistic version, 0..365 days, reason and immutable policy event",
+      "runtimeTest": "OnlineReturnControllerAuthorizationTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

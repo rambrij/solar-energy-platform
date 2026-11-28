@@ -92,6 +92,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'warranty-management':{anyOf:['SERVICE_VIEW','SERVICE_CREATE']},
  'vendor-warranty-claims':{allOf:['SERVICE_VIEW']},
  'vendor-service-visits':{allOf:['SERVICE_VIEW']},
+ 'vendor-online-returns':{allOf:['RETURN_VIEW']},
  'vendor-directory':{anyOf:['CUSTOMER']},
  'storefront-products':{anyOf:['CUSTOMER']},
  'customer-cart':{anyOf:['CUSTOMER']},
@@ -106,6 +107,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'customer-service-visits':{allOf:['CUSTOMER']},
  'customer-quotations':{allOf:['CUSTOMER']},
  'customer-profile':{allOf:['CUSTOMER']},
+ 'customer-online-returns':{allOf:['CUSTOMER']},
 };
 
 export function hasNavigationPermission(itemId:string,userPermissions:string[]):boolean{

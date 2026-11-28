@@ -25,7 +25,7 @@ class LocalDemoFlywaySeedMySqlTest {
    var flyway = Flyway.configure().dataSource(targetUrl,user,password)
        .locations("classpath:db/migration","classpath:db/local-migration")
        .schemas(schema).defaultSchema(schema).createSchemas(false).load();
-   assertThat(flyway.migrate().migrationsExecuted).isEqualTo(22);
+   assertThat(flyway.migrate().migrationsExecuted).isEqualTo(23);
    assertThat(flyway.migrate().migrationsExecuted).isZero();
    var dataSource=new org.springframework.jdbc.datasource.DriverManagerDataSource(targetUrl,user,password);
    var seedScript=new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
@@ -42,8 +42,9 @@ class LocalDemoFlywaySeedMySqlTest {
    assertThat(count(db,"SELECT COUNT(*) FROM (SELECT tenant_id,sku FROM products WHERE tenant_id IN (910001,920001,930001) GROUP BY tenant_id,sku HAVING COUNT(*)>1) duplicate_skus")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'standard:%'")).isEqualTo(24);
    // V14 adds installation grants; V15 adds service grants; V20 adds invoice-view grants; V22 adds INVENTORY_TRANSFER for each seeded Vendor Admin and Inventory Manager role.
-   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(303);
+   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(312);
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions WHERE permission='INVENTORY_TRANSFER'")).isEqualTo(6);
+   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions WHERE permission IN ('RETURN_VIEW','RETURN_APPROVE')")).isEqualTo(9);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_role_assignments WHERE active=TRUE")).isEqualTo(24);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_register_assignments WHERE active=TRUE")).isEqualTo(9);
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_access_audit_events")).isGreaterThanOrEqualTo(39);

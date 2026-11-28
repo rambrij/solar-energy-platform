@@ -158,7 +158,7 @@ public class ServiceSlaEscalationService {
     }
 
     /** Idempotent scheduled pass. Unique escalation identity prevents duplicate notifications across workers. */
-    public void processDueForTenant(TenantLifecycleService.TenantSummary tenant, Instant now) {
+    public void processDueEscalationsForTenant(TenantLifecycleService.TenantSummary tenant, Instant now) {
         List<Map<String,Object>> breaches = db.queryForList("""
             SELECT s.id,s.case_type,s.service_request_id,s.warranty_claim_id,s.priority,
                    s.response_breached_at,s.resolution_breached_at

@@ -4878,14 +4878,6 @@
         "transfer-dispatch",
         "transfer-receive"
       ]
-    },
-    "VendorServiceVisits.tsx:109": {
-      "fn": "vendorApi",
-      "argument": "'/service-sla/escalations/'+encodeURIComponent(id)+'/acknowledge'",
-      "methodArgument": "'POST'",
-      "actions": [
-        "vendor-service-sla-escalation-acknowledge"
-      ]
     }
   },
   "sessionApiOperations": [

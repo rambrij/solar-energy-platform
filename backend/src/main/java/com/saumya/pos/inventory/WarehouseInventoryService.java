@@ -127,6 +127,12 @@ public class WarehouseInventoryService {
                 """,Integer.class,a.tenantId(),id,id);
             if(openTransfers!=null&&openTransfers>0)
                 conflict("Warehouse has an open transfer and cannot be deactivated");
+            Integer stockRows=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM warehouse_inventory
+                WHERE tenant_id=? AND warehouse_id=? AND on_hand>0
+                """,Integer.class,a.tenantId(),id);
+            if(stockRows!=null&&stockRows>0)
+                conflict("Warehouse with on-hand stock cannot be deactivated; transfer or reconcile stock first");
         }
         jdbc.update("""
             UPDATE warehouses SET name=?,active=?,updated_by=?,updated_at=?,version=version+1

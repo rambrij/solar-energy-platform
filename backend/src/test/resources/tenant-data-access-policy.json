@@ -544,6 +544,55 @@
       }
     },
     {
+      "source": "com.saumya.pos.returns.OnlineOrderService",
+      "methods": [
+        "days",
+        "delivered",
+        "eligibleItems",
+        "items",
+        "events",
+        "caseRows",
+        "appendEvent",
+        "vendorList",
+        "decide",
+        "policy",
+        "updatePolicy",
+        "createCustomer"
+      ],
+      "authority": "Online return customer tenant IDs are resolved from the authenticated customer's owned paid-online OrderHistoryService references; vendor tenant IDs come from AuthorizationContext after active vendor membership and RETURN_VIEW/RETURN_APPROVE. Helper tenant parameters are passed only from these trusted sources. The service never accepts tenant IDs from request DTOs.",
+      "evidence": [
+        "auth.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "customerPaidOnlineOrderReferences(username)",
+        "customerOrderTenant(username,orderId)",
+        "WHERE tenant_id=?"
+      ],
+      "trustedTenantParameters": {
+        "days": [
+          "tenant"
+        ],
+        "delivered": [
+          "tenant"
+        ],
+        "eligibleItems": [
+          "tenant"
+        ],
+        "items": [
+          "tenant"
+        ],
+        "events": [
+          "tenant"
+        ],
+        "caseRows": [
+          "tenant"
+        ],
+        "appendEvent": [
+          "tenant"
+        ]
+      }
+    },
+    {
       "source": "com.saumya.pos.service.ServiceRequestService",
       "methods": [
         "eligibleVendorOrders",
@@ -581,6 +630,35 @@
           "tenantId"
         ],
         "customerEvents": [
+          "tenantId"
+        ]
+      }
+    },
+    {
+      "source": "com.saumya.pos.service.ServiceSlaEscalationService",
+      "methods": [
+        "policies",
+        "savePolicy",
+        "processDueForTenant",
+        "createDueEscalations",
+        "queue",
+        "acknowledge"
+      ],
+      "authority": "Interactive policy, queue and acknowledgement SQL derives tenant scope from the active AuthorizationContext. Scheduled due processing receives a persisted TenantSummary from TenantLifecycleService.activeVendors; createDueEscalations receives only the tenant ID forwarded from that trusted TenantSummary. Every tenant-owned SQL statement binds tenant_id from these sources, never from request input.",
+      "evidence": [
+        "authorization.current()",
+        "current.tenantId()",
+        "current.username()",
+        "TenantLifecycleService.TenantSummary",
+        "tenant.id()",
+        "tenantId",
+        "WHERE tenant_id=?"
+      ],
+      "trustedTenantParameters": {
+        "processDueForTenant": [
+          "tenant"
+        ],
+        "createDueEscalations": [
           "tenantId"
         ]
       }
@@ -747,55 +825,6 @@
         "order.orderId()"
       ],
       "trustedTenantParameters": {}
-    },
-    {
-      "source": "com.saumya.pos.returns.OnlineOrderService",
-      "methods": [
-        "days",
-        "delivered",
-        "eligibleItems",
-        "items",
-        "events",
-        "caseRows",
-        "appendEvent",
-        "vendorList",
-        "decide",
-        "policy",
-        "updatePolicy",
-        "createCustomer"
-      ],
-      "authority": "Online return customer tenant IDs are resolved from the authenticated customer's owned paid-online OrderHistoryService references; vendor tenant IDs come from AuthorizationContext after active vendor membership and RETURN_VIEW/RETURN_APPROVE. Helper tenant parameters are passed only from these trusted sources. The service never accepts tenant IDs from request DTOs.",
-      "evidence": [
-        "auth.current()",
-        "requireVendorMembership()",
-        "actor.tenantId()",
-        "customerPaidOnlineOrderReferences(username)",
-        "customerOrderTenant(username,orderId)",
-        "WHERE tenant_id=?"
-      ],
-      "trustedTenantParameters": {
-        "days": [
-          "tenant"
-        ],
-        "delivered": [
-          "tenant"
-        ],
-        "eligibleItems": [
-          "tenant"
-        ],
-        "items": [
-          "tenant"
-        ],
-        "events": [
-          "tenant"
-        ],
-        "caseRows": [
-          "tenant"
-        ],
-        "appendEvent": [
-          "tenant"
-        ]
-      }
     }
   ],
   "inheritedIdLookups": [

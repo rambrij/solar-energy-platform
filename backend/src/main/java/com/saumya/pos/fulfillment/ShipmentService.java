@@ -84,14 +84,18 @@ public class ShipmentService {
   Long installationId=installationRows.isEmpty()?null:((Number)installationRows.getFirst().get("id")).longValue();
   try{
    for(String serial:normalized){
-    db.update("INSERT INTO shipment_serial_assets(tenant_id,shipment_id,order_id,product_id,installation_id,serial_number,recorded_by,reason) VALUES(?,?,?,?,?,?,?,?)",
-     c.tenantId(),shipmentId,orderId,productId,installationId,serial,c.username(),reason);
+    db.update("INSERT INTO shipment_serial_assets(tenant_id,shipment_id,order_id,product_id,serial_number,recorded_by,reason) VALUES(?,?,?,?,?,?,?)",
+     c.tenantId(),shipmentId,orderId,productId,serial,c.username(),reason);
     long assetId=db.queryForObject("SELECT id FROM shipment_serial_assets WHERE tenant_id=? AND serial_number=?",
      Long.class,c.tenantId(),serial);
     db.update("INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail) VALUES(?,?,?,'CAPTURED_AT_SHIPMENT',?)",
      c.tenantId(),assetId,c.username(),reason);
-    if(installationId!=null)db.update("INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail) VALUES(?,?,?,'INSTALLATION_LINKED',?)",
-     c.tenantId(),assetId,c.username(),"Linked to installation "+installationId);
+    if(installationId!=null){
+     db.update("INSERT INTO installation_serial_asset_links(tenant_id,serial_asset_id,order_id,installation_id,linked_by) VALUES(?,?,?,?,?)",
+      c.tenantId(),assetId,orderId,installationId,c.username());
+     db.update("INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail) VALUES(?,?,?,'INSTALLATION_LINKED',?)",
+      c.tenantId(),assetId,c.username(),"Linked to installation "+installationId);
+    }
     db.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,resource_type,resource_id,action,reason) VALUES(?,?,'SHIPMENT_SERIAL_ASSET',?,'SERIAL_ASSET_CAPTURED',?)",
      c.tenantId(),c.username(),Long.toString(assetId),reason);
    }
@@ -106,8 +110,9 @@ public class ShipmentService {
   var c=vendor("SHIPMENT_VIEW");
   if(shipmentId<1||db.queryForList("SELECT id FROM shipments WHERE tenant_id=? AND id=?",c.tenantId(),shipmentId).isEmpty())throw missing();
   return db.query("""
-   SELECT a.id,a.product_id,p.name product_name,a.serial_number,a.order_id,a.shipment_id,a.installation_id,a.recorded_at
+   SELECT a.id,a.product_id,p.name product_name,a.serial_number,a.order_id,a.shipment_id,l.installation_id,a.recorded_at
    FROM shipment_serial_assets a JOIN products p ON p.tenant_id=a.tenant_id AND p.id=a.product_id
+   LEFT JOIN installation_serial_asset_links l ON l.tenant_id=a.tenant_id AND l.serial_asset_id=a.id
    WHERE a.tenant_id=? AND a.shipment_id=? ORDER BY a.product_id,a.id
    """,(rs,n)->new SerialAsset(rs.getLong("id"),rs.getLong("product_id"),rs.getString("product_name"),
     rs.getString("serial_number"),rs.getString("order_id"),rs.getLong("shipment_id"),

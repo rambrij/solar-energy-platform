@@ -70,7 +70,6 @@ services:
       OBJECT_STORAGE_BUCKET: saumya-assets
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      REDIS_RATE_LIMIT_ENABLED: "true"
       DB_URL: jdbc:mysql://mysql:3306/solar
       DB_USER: solar
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}

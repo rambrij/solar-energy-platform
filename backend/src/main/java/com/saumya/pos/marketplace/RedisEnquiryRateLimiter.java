@@ -29,8 +29,11 @@ public class RedisEnquiryRateLimiter {
             local window = tonumber(ARGV[2])
             local oldest = now - window
             redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', oldest)
-            redis.call('ZADD', KEYS[1], 'NX', now, ARGV[3])
             local total = redis.call('ZCARD', KEYS[1])
+            if total < tonumber(ARGV[5]) then
+              redis.call('ZADD', KEYS[1], 'NX', now, ARGV[3])
+              total = total + 1
+            end
             redis.call('PEXPIRE', KEYS[1], ARGV[4])
             return total
             """);
@@ -57,7 +60,8 @@ public class RedisEnquiryRateLimiter {
                 Long.toString(now.toEpochMilli()),
                 Long.toString(WINDOW.toMillis()),
                 UUID.randomUUID().toString(),
-                Long.toString(WINDOW.plusMinutes(1).toMillis()));
+                Long.toString(WINDOW.plusMinutes(1).toMillis()),
+                Integer.toString(MAX_REQUESTS));
             if(count==null||count<0)
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Marketplace rate limiting is unavailable");
             return count<=MAX_REQUESTS;

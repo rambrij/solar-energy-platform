@@ -1,12 +1,12 @@
-package com.saumya.pos.inventory;
+package com.saumycontext.pos.inventory;
 
-import com.saumya.pos.security.AuthorizationContext;
-import java.time.Clock;
-import java.time.Instant;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import com.saumycontext.pos.security.AuthorizationContext;
+import javcontext.time.Clock;
+import javcontext.time.Instant;
+import javcontext.util.List;
+import javcontext.util.Locale;
+import javcontext.util.Map;
+import javcontext.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +44,7 @@ public class WarehouseInventoryService {
     public record TransferDetail(TransferView transfer,List<TransferEventView> events,
         List<TransferMovementView> movements) {}
 
-    private AuthorizationContext.Context actor(String permission) {
+    private AuthorizationContext.Context contextctor(String permission) {
         var context=authorization.current();
         context.requireVendorMembership();
         context.requirePermission(permission);
@@ -56,22 +56,22 @@ public class WarehouseInventoryService {
     @Transactional(readOnly=true)
     @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
     public List<WarehouseView> warehouses() {
-        var a=actor("INVENTORY_VIEW");
+        var context=actor("INVENTORY_VIEW");
         return jdbc.query("""
             SELECT id,branch_id,code,name,active,version FROM warehouses
             WHERE tenant_id=? AND branch_id=? ORDER BY code,id
             """,(rs,n)->new WarehouseView(rs.getLong("id"),rs.getLong("branch_id"),
             rs.getString("code"),rs.getString("name"),rs.getBoolean("active"),rs.getLong("version")),
-            a.tenantId(),a.branchId());
+            context.tenantId(),context.branchId());
     }
 
     @Transactional(readOnly=true)
     @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
     public List<WarehouseStockView> warehouseStock(long warehouseId) {
-        var a=actor("INVENTORY_VIEW");
+        var context=actor("INVENTORY_VIEW");
         if(warehouseId<1||jdbc.query("""
             SELECT id FROM warehouses WHERE tenant_id=? AND branch_id=? AND id=?
-            """,(rs,n)->rs.getLong(1),a.tenantId(),a.branchId(),warehouseId).isEmpty())
+            """,(rs,n)->rs.getLong(1),context.tenantId(),context.branchId(),warehouseId).isEmpty())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Warehouse unavailable");
         return jdbc.query("""
             SELECT wi.product_id,p.sku,p.name,wi.on_hand,wi.reserved,wi.damaged,
@@ -82,27 +82,27 @@ public class WarehouseInventoryService {
             ORDER BY p.name,wi.product_id
             """,(rs,n)->new WarehouseStockView(rs.getLong("product_id"),rs.getString("sku"),
             rs.getString("name"),rs.getInt("on_hand"),rs.getInt("reserved"),rs.getInt("damaged"),
-            rs.getInt("available"),rs.getLong("version")),a.tenantId(),warehouseId);
+            rs.getInt("available"),rs.getLong("version")),context.tenantId(),warehouseId);
     }
 
     @Transactional
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public WarehouseView createWarehouse(String code,String name,String reason) {
-        var a=actor("INVENTORY_TRANSFER");
+        var context=actor("INVENTORY_TRANSFER");
         String normalizedCode=required(code,40,"Warehouse code").toUpperCase(Locale.ROOT);
         if(!normalizedCode.matches("[A-Z0-9][A-Z0-9_-]{1,39}"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Warehouse code must use 2-40 uppercase letters, digits, _ or -");
         String normalizedName=required(name,160,"Warehouse name");
         String why=required(reason,500,"Reason");
-        lockTenant(a.tenantId());
-        requireWarehouseCapacity(a.tenantId());
+        lockTenant(context.tenantId());
+        requireWarehouseCapacity(context.tenantId());
         jdbc.update("""
             INSERT INTO warehouses(tenant_id,branch_id,code,name,active,created_by,updated_by,created_at,updated_at,version)
             VALUES(?,?,?,?,TRUE,?,?,?,?,0)
-            """,a.tenantId(),a.branchId(),normalizedCode,normalizedName,a.username(),a.username(),
-            java.sql.Timestamp.from(clock.instant()),java.sql.Timestamp.from(clock.instant()));
+            """,context.tenantId(),context.branchId(),normalizedCode,normalizedName,context.username(),context.username(),
+            javcontext.sql.Timestamp.from(clock.instant()),javcontext.sql.Timestamp.from(clock.instant()));
         long id=jdbc.queryForObject("SELECT id FROM warehouses WHERE tenant_id=? AND branch_id=? AND code=?",
-            Long.class,a.tenantId(),a.branchId(),normalizedCode);
+            Long.class,context.tenantId(),context.branchId(),normalizedCode);
         auditWarehouse(a,id,"CREATED",why,null,normalizedName);
         return warehouse(a,id);
     }
@@ -110,12 +110,12 @@ public class WarehouseInventoryService {
     @Transactional
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public WarehouseView updateWarehouse(long id,long expectedVersion,String name,Boolean active,String reason) {
-        var a=actor("INVENTORY_TRANSFER");
+        var context=actor("INVENTORY_TRANSFER");
         if(id<1||expectedVersion<0||active==null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Warehouse, version and active state are required");
         String normalizedName=required(name,160,"Warehouse name");
         String why=required(reason,500,"Reason");
-        lockTenant(a.tenantId());
+        lockTenant(context.tenantId());
         Map<String,Object> before=warehouseRow(a,id);
         if(((Number)before.get("version")).longValue()!=expectedVersion)
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Warehouse changed; reload before saving");
@@ -124,20 +124,20 @@ public class WarehouseInventoryService {
                 SELECT COUNT(*) FROM inventory_transfers
                 WHERE tenant_id=? AND status IN ('DRAFT','APPROVED','IN_TRANSIT','PARTIALLY_RECEIVED')
                   AND (source_warehouse_id=? OR destination_warehouse_id=?)
-                """,Integer.class,a.tenantId(),id,id);
+                """,Integer.class,context.tenantId(),id,id);
             if(openTransfers!=null&&openTransfers>0)
                 conflict("Warehouse has an open transfer and cannot be deactivated");
             Integer stockRows=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM warehouse_inventory
                 WHERE tenant_id=? AND warehouse_id=? AND on_hand>0
-                """,Integer.class,a.tenantId(),id);
+                """,Integer.class,context.tenantId(),id);
             if(stockRows!=null&&stockRows>0)
                 conflict("Warehouse with on-hand stock cannot be deactivated; transfer or reconcile stock first");
         }
         jdbc.update("""
             UPDATE warehouses SET name=?,active=?,updated_by=?,updated_at=?,version=version+1
             WHERE tenant_id=? AND branch_id=? AND id=? AND version=?
-            """,normalizedName,active,a.username(),java.sql.Timestamp.from(clock.instant()),a.tenantId(),a.branchId(),id,expectedVersion);
+            """,normalizedName,active,context.username(),javcontext.sql.Timestamp.from(clock.instant()),context.tenantId(),context.branchId(),id,expectedVersion);
         String action=Boolean.TRUE.equals(before.get("active"))&&!active?"DEACTIVATED":
             !Boolean.TRUE.equals(before.get("active"))&&active?"REACTIVATED":"UPDATED";
         auditWarehouse(a,id,action,why,before.get("name")+":"+before.get("active"),normalizedName+":"+active);
@@ -147,22 +147,22 @@ public class WarehouseInventoryService {
     @Transactional(readOnly=true)
     @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
     public List<TransferView> transfers() {
-        var a=actor("INVENTORY_VIEW");
+        var context=actor("INVENTORY_VIEW");
         return jdbc.query("""
             SELECT * FROM inventory_transfers
             WHERE tenant_id=? AND (source_branch_id=? OR destination_branch_id=?)
             ORDER BY created_at DESC,id DESC LIMIT 200
-            """,(rs,n)->transfer(rs),a.tenantId(),a.branchId(),a.branchId());
+            """,(rs,n)->transfer(rs),context.tenantId(),context.branchId(),context.branchId());
     }
 
     @Transactional(readOnly=true)
     @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
     public TransferDetail transfer(String id) {
-        var a=actor("INVENTORY_VIEW");
+        var context=actor("INVENTORY_VIEW");
         Map<String,Object> row=transferRow(a,id);
         requireVisibleBranch(a,row);
         TransferView view=jdbc.queryForObject("SELECT * FROM inventory_transfers WHERE tenant_id=? AND id=?",
-            (rs,n)->transfer(rs),a.tenantId(),id);
+            (rs,n)->transfer(rs),context.tenantId(),id);
         List<TransferEventView> history=jdbc.query("""
             SELECT id,event_type,actor_username,quantity,is_final,detail,occurred_at
             FROM inventory_transfer_events WHERE tenant_id=? AND transfer_id=?
@@ -170,7 +170,7 @@ public class WarehouseInventoryService {
             """,(rs,n)->new TransferEventView(rs.getString("id"),rs.getString("event_type"),
             rs.getString("actor_username"),(Integer)rs.getObject("quantity"),
             (Boolean)rs.getObject("is_final"),rs.getString("detail"),
-            rs.getTimestamp("occurred_at").toInstant()),a.tenantId(),id);
+            rs.getTimestamp("occurred_at").toInstant()),context.tenantId(),id);
         List<TransferMovementView> movements=jdbc.query("""
             SELECT id,location_type,warehouse_id,branch_id,product_id,movement_type,quantity_delta,
               movement_key,actor_username,occurred_at
@@ -182,7 +182,7 @@ public class WarehouseInventoryService {
                     warehouse==null?null:warehouse.longValue(),rs.getLong("branch_id"),rs.getLong("product_id"),
                     rs.getString("movement_type"),rs.getInt("quantity_delta"),rs.getString("movement_key"),
                     rs.getString("actor_username"),rs.getTimestamp("occurred_at").toInstant());
-            },a.tenantId(),id);
+            },context.tenantId(),id);
         return new TransferDetail(view,history,movements);
     }
 
@@ -191,7 +191,7 @@ public class WarehouseInventoryService {
     public TransferView createTransfer(String key,String sourceType,Long sourceWarehouseId,
             String destinationType,Long destinationWarehouseId,long destinationBranchId,
             long productId,int quantity,String reason) {
-        var a=actor("INVENTORY_TRANSFER");
+        var context=actor("INVENTORY_TRANSFER");
         if(key==null||!key.matches("[A-Za-z0-9_-]{8,80}")||productId<1||quantity<1||quantity>1000000
             ||destinationBranchId<1)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid idempotency key, product, quantity and destination are required");
@@ -200,41 +200,41 @@ public class WarehouseInventoryService {
             ||("WAREHOUSE".equals(destination)!=(destinationWarehouseId!=null)))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Warehouse IDs must match location types");
         String why=required(reason,500,"Reason");
-        lockTenant(a.tenantId());
-        requireBranch(a.tenantId(),destinationBranchId);
-        if("WAREHOUSE".equals(source))requireWarehouse(a,sourceWarehouseId,a.branchId(),true);
+        lockTenant(context.tenantId());
+        requireBranch(context.tenantId(),destinationBranchId);
+        if("WAREHOUSE".equals(source))requireWarehouse(a,sourceWarehouseId,context.branchId(),true);
         if("WAREHOUSE".equals(destination))requireWarehouse(a,destinationWarehouseId,destinationBranchId,true);
-        if("BRANCH".equals(destination))requirePosLocation(a.tenantId(),destinationBranchId);
-        if("BRANCH".equals(source))requirePosLocation(a.tenantId(),a.branchId());
+        if("BRANCH".equals(destination))requirePosLocation(context.tenantId(),destinationBranchId);
+        if("BRANCH".equals(source))requirePosLocation(context.tenantId(),context.branchId());
         if("WAREHOUSE".equals(source)&&"WAREHOUSE".equals(destination)
             &&sourceWarehouseId.equals(destinationWarehouseId))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Source and destination must differ");
-        if("BRANCH".equals(destination)&&destinationBranchId==a.branchId()&&"BRANCH".equals(source))
+        if("BRANCH".equals(destination)&&destinationBranchId==context.branchId()&&"BRANCH".equals(source))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Source and destination must differ");
-        Integer productCount=jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=? AND id=?",Integer.class,a.tenantId(),productId);
+        Integer productCount=jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=? AND id=?",Integer.class,context.tenantId(),productId);
         if(productCount==null||productCount!=1)
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Product unavailable");
         var previous=jdbc.query("""
             SELECT * FROM inventory_transfers WHERE tenant_id=? AND source_branch_id=? AND command_key=? FOR UPDATE
-            """,(rs,n)->transfer(rs),a.tenantId(),a.branchId(),key);
+            """,(rs,n)->transfer(rs),context.tenantId(),context.branchId(),key);
         if(!previous.isEmpty()){
             TransferView old=previous.getFirst();
             if(old.productId()!=productId||old.quantity()!=quantity||!old.sourceType().equals(source)
-                ||!java.util.Objects.equals(old.sourceWarehouseId(),sourceWarehouseId)
+                ||!javcontext.util.Objects.equals(old.sourceWarehouseId(),sourceWarehouseId)
                 ||!old.destinationType().equals(destination)
-                ||!java.util.Objects.equals(old.destinationWarehouseId(),destinationWarehouseId)
+                ||!javcontext.util.Objects.equals(old.destinationWarehouseId(),destinationWarehouseId)
                 ||old.destinationBranchId()!=destinationBranchId||!old.reason().equals(why))
                 throw new ResponseStatusException(HttpStatus.CONFLICT,"Idempotency key identifies a different transfer");
             return old;
         }
-        String id=UUID.randomUUID().toString(); java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
+        String id=UUID.randomUUID().toString(); javcontext.sql.Timestamp now=javcontext.sql.Timestamp.from(clock.instant());
         jdbc.update("""
             INSERT INTO inventory_transfers(id,tenant_id,command_key,source_type,source_warehouse_id,source_branch_id,
               destination_type,destination_warehouse_id,destination_branch_id,product_id,quantity,received_quantity,
               status,reason,created_by,created_at,version)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,0,'DRAFT',?,?,?,0)
-            """,id,a.tenantId(),key,source,sourceWarehouseId,a.branchId(),destination,destinationWarehouseId,
-            destinationBranchId,productId,quantity,why,a.username(),now);
+            """,id,context.tenantId(),key,source,sourceWarehouseId,context.branchId(),destination,destinationWarehouseId,
+            destinationBranchId,productId,quantity,why,context.username(),now);
         appendEvent(a,id,"CREATED",null,null,null,why);
         return transferById(a,id);
     }
@@ -242,30 +242,30 @@ public class WarehouseInventoryService {
     @Transactional
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public TransferView approve(String id,long expectedVersion,String reason) {
-        var a=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason"); lockTenant(a.tenantId());
+        var context=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason"); lockTenant(context.tenantId());
         Map<String,Object> row=transferRow(a,id); requireSourceBranch(a,row);
         if(!"DRAFT".equals(row.get("status")))conflict("Only draft transfers can be approved");
         if(((Number)row.get("version")).longValue()!=expectedVersion)conflict("Transfer changed; reload before approval");
-        if(a.username().equals(row.get("created_by")))conflict("A different authorized employee must approve the transfer");
+        if(context.username().equals(row.get("created_by")))conflict("A different authorized employee must approve the transfer");
         jdbc.update("UPDATE inventory_transfers SET status='APPROVED',approved_by=?,approved_at=?,version=version+1 WHERE tenant_id=? AND id=? AND version=?",
-            a.username(),java.sql.Timestamp.from(clock.instant()),a.tenantId(),id,expectedVersion);
+            context.username(),javcontext.sql.Timestamp.from(clock.instant()),context.tenantId(),id,expectedVersion);
         appendEvent(a,id,"APPROVED",null,null,null,why); return transferById(a,id);
     }
 
     @Transactional
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public TransferView cancel(String id,long expectedVersion,String reason) {
-        var a=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason"); lockTenant(a.tenantId());
+        var context=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason"); lockTenant(context.tenantId());
         Map<String,Object> row=transferRow(a,id); requireSourceBranch(a,row);
         String status=String.valueOf(row.get("status"));
         if(!List.of("DRAFT","APPROVED").contains(status))
             conflict("Only undispatched transfers can be cancelled");
         if(((Number)row.get("version")).longValue()!=expectedVersion)
             conflict("Transfer changed; reload before cancellation");
-        if("DRAFT".equals(status)&&!a.username().equals(row.get("created_by")))
+        if("DRAFT".equals(status)&&!context.username().equals(row.get("created_by")))
             conflict("Only the creator may cancel a draft transfer");
         jdbc.update("UPDATE inventory_transfers SET status='CANCELLED',version=version+1 WHERE tenant_id=? AND id=? AND version=?",
-            a.tenantId(),id,expectedVersion);
+            context.tenantId(),id,expectedVersion);
         appendEvent(a,id,"CANCELLED",null,null,null,why);
         return transferById(a,id);
     }
@@ -273,7 +273,7 @@ public class WarehouseInventoryService {
     @Transactional
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public TransferView dispatch(String id,long expectedVersion,String reason) {
-        var a=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason"); lockTenant(a.tenantId());
+        var context=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason"); lockTenant(context.tenantId());
         Map<String,Object> row=transferRow(a,id); requireSourceBranch(a,row);
         if(!"APPROVED".equals(row.get("status")))conflict("Only approved transfers can be dispatched");
         if(((Number)row.get("version")).longValue()!=expectedVersion)conflict("Transfer changed; reload before dispatch");
@@ -281,13 +281,13 @@ public class WarehouseInventoryService {
         long sourceBranch=((Number)row.get("source_branch_id")).longValue();
         String sourceType=String.valueOf(row.get("source_type"));
         Number sourceWarehouse=(Number)row.get("source_warehouse_id");
-        if("BRANCH".equals(sourceType))debitBranch(a.tenantId(),sourceBranch,product,qty);
-        else debitWarehouse(a.tenantId(),sourceWarehouse.longValue(),product,qty);
+        if("BRANCH".equals(sourceType))debitBranch(context.tenantId(),sourceBranch,product,qty);
+        else debitWarehouse(context.tenantId(),sourceWarehouse.longValue(),product,qty);
         recordMovement(a,id,sourceType,sourceWarehouse==null?null:sourceWarehouse.longValue(),
             sourceBranch,product,-qty,"DISPATCH_OUT","DISPATCH:"+id);
-        java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
+        javcontext.sql.Timestamp now=javcontext.sql.Timestamp.from(clock.instant());
         jdbc.update("UPDATE inventory_transfers SET status='IN_TRANSIT',dispatched_by=?,dispatched_at=?,version=version+1 WHERE tenant_id=? AND id=? AND version=?",
-            a.username(),now,a.tenantId(),id,expectedVersion);
+            context.username(),now,context.tenantId(),id,expectedVersion);
         appendEvent(a,id,"DISPATCHED",qty,null,null,why);
         return transferById(a,id);
     }
@@ -295,13 +295,13 @@ public class WarehouseInventoryService {
     @Transactional
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public TransferView receive(String id,long expectedVersion,int quantity,boolean finalReceipt,String key,String reason) {
-        var a=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason");
+        var context=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason");
         if(quantity<1||quantity>1000000||key==null||!key.matches("[A-Za-z0-9_-]{8,80}"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid receipt quantity and idempotency key are required");
-        lockTenant(a.tenantId());
+        lockTenant(context.tenantId());
         Map<String,Object> row=transferRow(a,id); requireDestinationBranch(a,row);
         var prior=jdbc.query("SELECT quantity,is_final,detail FROM inventory_transfer_events WHERE tenant_id=? AND transfer_id=? AND command_key=?",
-            (rs,n)->new Object[]{rs.getInt(1),rs.getBoolean(2),rs.getString(3)},a.tenantId(),id,key);
+            (rs,n)->new Object[]{rs.getInt(1),rs.getBoolean(2),rs.getString(3)},context.tenantId(),id,key);
         if(!prior.isEmpty()){
             Object[] saved=prior.getFirst();
             if(((Number)saved[0]).intValue()!=quantity||((Boolean)saved[1])!=finalReceipt||!why.equals(saved[2]))
@@ -317,8 +317,8 @@ public class WarehouseInventoryService {
         String destinationType=String.valueOf(row.get("destination_type"));
         Number destinationWarehouse=(Number)row.get("destination_warehouse_id");
         long destinationBranch=((Number)row.get("destination_branch_id")).longValue();
-        if("BRANCH".equals(destinationType))creditBranch(a.tenantId(),destinationBranch,product,quantity);
-        else creditWarehouse(a.tenantId(),destinationWarehouse.longValue(),product,quantity);
+        if("BRANCH".equals(destinationType))creditBranch(context.tenantId(),destinationBranch,product,quantity);
+        else creditWarehouse(context.tenantId(),destinationWarehouse.longValue(),product,quantity);
         recordMovement(a,id,destinationType,destinationWarehouse==null?null:destinationWarehouse.longValue(),
             destinationBranch,product,quantity,"RECEIPT_IN","RECEIPT:"+key);
         int newReceived=received+quantity;
@@ -326,14 +326,14 @@ public class WarehouseInventoryService {
         boolean discrepancy=complete&&newReceived<total;
         String newStatus=discrepancy?"RECEIVED_WITH_DISCREPANCY":
             newReceived==total?"RECEIVED":"PARTIALLY_RECEIVED";
-        java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
+        javcontext.sql.Timestamp now=javcontext.sql.Timestamp.from(clock.instant());
         jdbc.update("""
             UPDATE inventory_transfers SET received_quantity=?,status=?,
               completed_by=CASE WHEN ? THEN ? ELSE completed_by END,
               completed_at=CASE WHEN ? THEN ? ELSE completed_at END,version=version+1
             WHERE tenant_id=? AND id=? AND version=?
-            """,newReceived,newStatus,complete,a.username(),complete,complete?now:null,
-            a.tenantId(),id,expectedVersion);
+            """,newReceived,newStatus,complete,context.username(),complete,complete?now:null,
+            context.tenantId(),id,expectedVersion);
         appendEvent(a,id,discrepancy?"RECEIVED_WITH_DISCREPANCY":"RECEIVED",quantity,complete,key,why);
         return transferById(a,id);
     }
@@ -409,70 +409,70 @@ public class WarehouseInventoryService {
         Integer count=jdbc.queryForObject("SELECT COUNT(*) FROM pos_stock_locations WHERE tenant_id=? AND branch_id=? AND active=TRUE",Integer.class,tenant,branch);
         if(count==null||count!=1)throw new ResponseStatusException(HttpStatus.CONFLICT,"Branch has no active designated POS stock location");
     }
-    private void requireWarehouse(AuthorizationContext.Context a,Long id,long branch,boolean active) {
+    private void requireWarehouse(AuthorizationContext.Context context,Long id,long branch,boolean active) {
         if(id==null||jdbc.query("""
             SELECT id FROM warehouses WHERE tenant_id=? AND branch_id=? AND id=? AND (?=FALSE OR active=TRUE)
-            """,(rs,n)->rs.getLong(1),a.tenantId(),branch,id,active).isEmpty())
+            """,(rs,n)->rs.getLong(1),context.tenantId(),branch,id,active).isEmpty())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Warehouse unavailable");
     }
-    private Map<String,Object> warehouseRow(AuthorizationContext.Context a,long id) {
-        var rows=jdbc.queryForList("SELECT * FROM warehouses WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",a.tenantId(),a.branchId(),id);
+    private Map<String,Object> warehouseRow(AuthorizationContext.Context context,long id) {
+        var rows=jdbc.queryForList("SELECT * FROM warehouses WHERE tenant_id=? AND branch_id=? AND id=? FOR UPDATE",context.tenantId(),context.branchId(),id);
         if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Warehouse unavailable");
         return rows.getFirst();
     }
-    private WarehouseView warehouse(AuthorizationContext.Context a,long id) {
+    private WarehouseView warehouse(AuthorizationContext.Context context,long id) {
         return jdbc.queryForObject("SELECT id,branch_id,code,name,active,version FROM warehouses WHERE tenant_id=? AND branch_id=? AND id=?",
             (rs,n)->new WarehouseView(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getString(4),rs.getBoolean(5),rs.getLong(6)),
-            a.tenantId(),a.branchId(),id);
+            context.tenantId(),context.branchId(),id);
     }
-    private void auditWarehouse(AuthorizationContext.Context a,long id,String action,String reason,Object before,Object after) {
+    private void auditWarehouse(AuthorizationContext.Context context,long id,String action,String reason,Object before,Object after) {
         jdbc.update("""
             INSERT INTO warehouse_audit_events(id,tenant_id,warehouse_id,actor_username,action,reason,before_state,after_state,occurred_at)
             VALUES(?,?,?,?,?,?,?,?,?)
-            """,UUID.randomUUID().toString(),a.tenantId(),id,a.username(),action,reason,before==null?null:String.valueOf(before),
-            String.valueOf(after),java.sql.Timestamp.from(clock.instant()));
+            """,UUID.randomUUID().toString(),context.tenantId(),id,context.username(),action,reason,before==null?null:String.valueOf(before),
+            String.valueOf(after),javcontext.sql.Timestamp.from(clock.instant()));
     }
-    private void recordMovement(AuthorizationContext.Context a,String transferId,String locationType,
+    private void recordMovement(AuthorizationContext.Context context,String transferId,String locationType,
             Long warehouseId,long branchId,long productId,int quantityDelta,String movementType,String movementKey) {
         jdbc.update("""
             INSERT INTO inventory_transfer_movements(id,tenant_id,transfer_id,location_type,warehouse_id,
               branch_id,product_id,movement_type,quantity_delta,movement_key,actor_username,occurred_at)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-            """,UUID.randomUUID().toString(),a.tenantId(),transferId,locationType,warehouseId,branchId,
-            productId,movementType,quantityDelta,movementKey,a.username(),
-            java.sql.Timestamp.from(clock.instant()));
+            """,UUID.randomUUID().toString(),context.tenantId(),transferId,locationType,warehouseId,branchId,
+            productId,movementType,quantityDelta,movementKey,context.username(),
+            javcontext.sql.Timestamp.from(clock.instant()));
     }
 
-    private void appendEvent(AuthorizationContext.Context a,String id,String type,Integer quantity,Boolean finalReceipt,String key,String detail) {
+    private void appendEvent(AuthorizationContext.Context context,String id,String type,Integer quantity,Boolean finalReceipt,String key,String detail) {
         jdbc.update("""
             INSERT INTO inventory_transfer_events(id,tenant_id,transfer_id,event_type,actor_username,quantity,is_final,command_key,detail,occurred_at)
             VALUES(?,?,?,?,?,?,?,?,?,?)
-            """,UUID.randomUUID().toString(),a.tenantId(),id,type,a.username(),quantity,finalReceipt,key,detail,java.sql.Timestamp.from(clock.instant()));
+            """,UUID.randomUUID().toString(),context.tenantId(),id,type,context.username(),quantity,finalReceipt,key,detail,javcontext.sql.Timestamp.from(clock.instant()));
     }
-    private Map<String,Object> transferRow(AuthorizationContext.Context a,String id) {
+    private Map<String,Object> transferRow(AuthorizationContext.Context context,String id) {
         if(id==null||id.length()>36)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid transfer ID required");
-        var rows=jdbc.queryForList("SELECT * FROM inventory_transfers WHERE tenant_id=? AND id=?",a.tenantId(),id);
+        var rows=jdbc.queryForList("SELECT * FROM inventory_transfers WHERE tenant_id=? AND id=?",context.tenantId(),id);
         if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Transfer unavailable");
         return rows.getFirst();
     }
-    private void requireVisibleBranch(AuthorizationContext.Context a,Map<String,Object> row) {
-        if(!Long.valueOf(a.branchId()).equals(((Number)row.get("source_branch_id")).longValue())
-            &&!Long.valueOf(a.branchId()).equals(((Number)row.get("destination_branch_id")).longValue()))
+    private void requireVisibleBranch(AuthorizationContext.Context context,Map<String,Object> row) {
+        if(!Long.valueOf(context.branchId()).equals(((Number)row.get("source_branch_id")).longValue())
+            &&!Long.valueOf(context.branchId()).equals(((Number)row.get("destination_branch_id")).longValue()))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Transfer unavailable");
     }
-    private void requireSourceBranch(AuthorizationContext.Context a,Map<String,Object> row) {
-        if(((Number)row.get("source_branch_id")).longValue()!=a.branchId())
+    private void requireSourceBranch(AuthorizationContext.Context context,Map<String,Object> row) {
+        if(((Number)row.get("source_branch_id")).longValue()!=context.branchId())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Transfer unavailable");
     }
-    private void requireDestinationBranch(AuthorizationContext.Context a,Map<String,Object> row) {
-        if(((Number)row.get("destination_branch_id")).longValue()!=a.branchId())
+    private void requireDestinationBranch(AuthorizationContext.Context context,Map<String,Object> row) {
+        if(((Number)row.get("destination_branch_id")).longValue()!=context.branchId())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Transfer unavailable");
     }
-    private TransferView transferById(AuthorizationContext.Context a,String id) {
+    private TransferView transferById(AuthorizationContext.Context context,String id) {
         return jdbc.queryForObject("SELECT * FROM inventory_transfers WHERE tenant_id=? AND id=?",
-            (rs,n)->transfer(rs),a.tenantId(),id);
+            (rs,n)->transfer(rs),context.tenantId(),id);
     }
-    private TransferView transfer(java.sql.ResultSet rs) throws java.sql.SQLException {
+    private TransferView transfer(javcontext.sql.ResultSet rs) throws javcontext.sql.SQLException {
         Number sourceWarehouse=(Number)rs.getObject("source_warehouse_id");
         Number destinationWarehouse=(Number)rs.getObject("destination_warehouse_id");
         return new TransferView(rs.getString("id"),rs.getString("source_type"),

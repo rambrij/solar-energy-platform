@@ -1994,6 +1994,13 @@
       "variable": "tenant",
       "initializer": "((Number)row.get(\"tenant_id\")).longValue()",
       "authority": "The tenant value is read from a warranty claim row previously loaded using authenticated customer paid-order ownership or the authenticated vendor tenant and assigned-claim scope; the row is locked/read before the evidence object key and metadata are written."
+    },
+    {
+      "class": "com.saumya.pos.returns.OnlineOrderService",
+      "method": "createCustomer",
+      "variable": "tenant",
+      "initializer": "orders.customerOrderTenant(username,orderId)",
+      "authority": "OrderHistoryService resolves the authenticated global customer's paid ONLINE order by the customer's verified identity; the tenant is taken from that persisted owned order reference, never from request data, before locking and checking the tenant policy, shipment delivery, order lines and return records."
     }
   ]
 }

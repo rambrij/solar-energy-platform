@@ -9,7 +9,7 @@
 
 ## 1. Executive summary
 
-The reviewed baseline contained 65 tables. Additive migration V21 introduces five tenant-owned warehouse/transfer tables, bringing the current production migration set to **70 tables**. The five additions are classified in §§3.4–3.5 below:
+The reviewed baseline contained 65 tables. Additive migration V21 introduces six tenant-owned warehouse/transfer tables, bringing the current production migration set to **71 tables**. The five additions are classified in §§3.4–3.5 below:
 
 | Ownership class | Tables |
 |---|---:|
@@ -20,7 +20,7 @@ The reviewed baseline contained 65 tables. Additive migration V21 introduces fiv
 | TENANT_CHILD | 40 |
 | **Total** | **65** |
 
-There are **54 tenant-owned or tenant-child tables**. All 54 have a non-null `tenant_id` column in the current migration set. This is a schema-presence result, not a claim that all ownership relationships are fully constrained or that all runtime paths have passed isolation tests.
+There are **55 tenant-owned or tenant-child tables**. All 55 have a non-null `tenant_id` column in the current migration set. This is a schema-presence result, not a claim that all ownership relationships are fully constrained or that all runtime paths have passed isolation tests.
 
 The principal design is consistent with the approved shared-schema model:
 
@@ -116,7 +116,7 @@ The table list is derived from the production Flyway SQL and Java migrations und
 | `warehouses` | Warehouse operations | TENANT | Yes, NOT NULL | Tenant-owned warehouse assigned to one tenant branch; unique tenant/branch/ID and tenant/branch/code keys; creator/updater composite employee FKs. |
 | `inventory_transfers` | Inventory movement | TENANT | Yes, NOT NULL | Tenant-owned transfer aggregate; source/destination branches and optional warehouses are tenant-qualified, with composite warehouse/branch FKs and idempotency key scoped by tenant/source branch. |
 
-### 3.5 Tenant-child tables — 43
+### 3.5 Tenant-child tables — 44
 
 | Table | Module | Owner | tenant_id | Parent / relationship and key evidence |
 |---|---|---|---|---|
@@ -162,7 +162,7 @@ The table list is derived from the production Flyway SQL and Java migrations und
 | `vendor_access_audit_events` | Vendor authorization audit | TENANT_CHILD | Yes, NOT NULL | Tenant-scoped actor and optional subject composite FKs to employees; tenant-leading audit index. |
 | `warehouse_inventory` | Warehouse stock | TENANT_CHILD | Yes, NOT NULL | Composite tenant/warehouse/product primary key; FKs to same-tenant warehouse and product; on-hand, reserved and damaged quantities constrained. |
 | `inventory_transfer_events` | Inventory transfer history | TENANT_CHILD | Yes, NOT NULL | Tenant/transfer composite FK; actor is a same-tenant employee; append-only event table with unique idempotent receipt command keys. |
-| `warehouse_audit_events` | Warehouse audit | TENANT_CHILD | Yes, NOT NULL | Tenant/warehouse composite FK and tenant/employee actor FK; database triggers prohibit update/delete. |
+| `warehouse_audit_events` | Warehouse audit | TENANT_CHILD | Yes, NOT NULL | Tenant/warehouse composite FK and tenant/employee actor FK; database triggers prohibit update/delete. |\n| `inventory_transfer_movements` | Inventory movement ledger | TENANT_CHILD | Yes, NOT NULL | Tenant/transfer, tenant/branch, tenant/branch/warehouse, tenant/product and tenant/employee FKs; signed dispatch/receipt deltas are append-only and idempotent. |
 
 ## 4. Parent-child and tenant boundary inventory
 
@@ -320,7 +320,7 @@ No invalid record may be silently deleted or rewritten. Backfill must derive own
 - V29–V38: branch/register, stock/catalog projections, inventory receiving, buyer snapshots, POS active-draft projection and platform identity grants.
 - V40–V41: platform/tenant/subscription foundation and later composite ownership constraints.
 - V43–V47: platform audit immutability, platform configuration/permissions, vendor roles, employee assignments, MFA and platform identity permissions.
-- V21: tenant-owned warehouses, separate warehouse balances, tenant-qualified transfer aggregates, immutable transfer events and warehouse audit events. V22 activates the SRS-approved INVENTORY_TRANSFER permission.
+- V21: tenant-owned warehouses, separate warehouse balances, tenant-qualified transfer aggregates, immutable transfer events and signed stock-movement ledger entries, plus warehouse audit events. V22 activates the SRS-approved INVENTORY_TRANSFER permission.
 
 Specific weak-FK evidence: `V32__cash_drawer_tender_projection.sql`, `V36__retail_active_draft_projection.sql`, `V40__platform_and_tenant_foundation.sql`, `V41__platform_provisioning_and_ownership_constraints.sql`.
 
@@ -336,6 +336,6 @@ Specific weak-FK evidence: `V32__cash_drawer_tender_projection.sql`, `V36__retai
 
 ## 10. P0-01 conclusion
 
-The canonical database ownership inventory now classifies **70 production tables**: 6 GLOBAL, 1 CUSTOMER, 9 PLATFORM, 11 TENANT and 43 TENANT_CHILD. All 54 tenant-owned/child tables have a non-null tenant column. The three same-tenant FK gaps originally recorded as INV-DB-001..003 are implemented in V48 and pass the H2/MySQL 8.4 migration tests. The deployment database must still pass V48's read-only data preflight before that migration is applied.
+The canonical database ownership inventory now classifies **71 production tables**: 6 GLOBAL, 1 CUSTOMER, 9 PLATFORM, 11 TENANT and 44 TENANT_CHILD. All 55 tenant-owned/child tables have a non-null tenant column. The three same-tenant FK gaps originally recorded as INV-DB-001..003 are implemented in V48 and pass the H2/MySQL 8.4 migration tests. The deployment database must still pass V48's read-only data preflight before that migration is applied.
 
 **P0-01 is not declared fully accepted by this schema inventory alone.** The query/data-access inventory and P0-04 adversarial tests still track the broader Vendor A/B and Customer A/B read, write, search, count, export, document and child-resource matrix. Warehouse/stock-location, dual identity, multi-tenant membership and vendor subscription visibility remain explicit clarification items; no speculative schema was added.

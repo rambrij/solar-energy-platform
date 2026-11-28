@@ -607,6 +607,20 @@ class RuntimeAuthorizationPersistedRoleTest {
                     }
 
                     // Supply a valid DTO so request validation cannot mask method-security denial.
+                    if (controllerType.getSimpleName().equals("ServiceSlaEscalationController")
+                        && handler.getMethod().getName().equals("savePolicy")) {
+                        request.contentType(APPLICATION_JSON).content("""
+                            {"caseType":"SERVICE_REQUEST","priority":"NORMAL","breachType":"RESPONSE",
+                             "escalationLevel":1,"afterMinutes":30,"recipientRoleKey":"SERVICE_MANAGER",
+                             "enabled":true,"reason":"Runtime authorization probe"}
+                            """);
+                    }
+                    if (controllerType.getSimpleName().equals("ServiceSlaEscalationController")
+                        && handler.getMethod().getName().equals("acknowledge")) {
+                        request.contentType(APPLICATION_JSON).content(
+                            "{\"note\":\"Runtime authorization probe\"}");
+                    }
+
                     if (controllerType.getSimpleName().equals("ServiceVisitController")
                         && handler.getMethod().getName().equals("updateStatus")) {
                         request.contentType(APPLICATION_JSON).content(

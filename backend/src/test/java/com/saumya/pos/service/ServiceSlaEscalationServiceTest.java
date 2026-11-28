@@ -70,7 +70,7 @@ class ServiceSlaEscalationServiceTest {
 
     @Test void recipientResolutionRequiresAnActiveTenantVerifiedUserAndActiveRoleAssignment() {
         when(db.queryForList(contains("email_verified=TRUE"), eq(String.class),
-            eq(7L), eq("SERVICE_MANAGER"), eq("standard:SERVICE_MANAGER"),
+            eq(7L), eq(7L), eq("SERVICE_MANAGER"), eq("standard:SERVICE_MANAGER"),
             eq("service_manager")))
             .thenReturn(List.of("manager.one@vendor.test", "manager.two@vendor.test"));
 
@@ -78,7 +78,7 @@ class ServiceSlaEscalationServiceTest {
 
         assertThat(recipients).containsExactly("manager.one@vendor.test","manager.two@vendor.test");
         verify(db).queryForList(contains("t.lifecycle_status='ACTIVE'"), eq(String.class),
-            eq(7L), eq("SERVICE_MANAGER"), eq("standard:SERVICE_MANAGER"), eq("service_manager"));
+            eq(7L), eq(7L), eq("SERVICE_MANAGER"), eq("standard:SERVICE_MANAGER"), eq("service_manager"));
     }
 
     @Test void recipientResolutionRejectsAnInvalidRecipientRoleBeforeDatabaseAccess() {

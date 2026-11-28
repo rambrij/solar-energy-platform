@@ -40,7 +40,8 @@
         "vendor-service-visits",
         "vendor-invoices",
         "vendor-reports",
-        "warehouse-transfers"
+        "warehouse-transfers",
+        "vendor-online-returns"
       ]
     },
     {
@@ -61,7 +62,8 @@
         "customer-service-requests",
         "customer-warranties",
         "customer-warranty-claims",
-        "customer-service-visits"
+        "customer-service-visits",
+        "customer-online-returns"
       ]
     },
     {
@@ -97,7 +99,8 @@
       "label": "After-Sale",
       "items": [
         "pos-returns",
-        "cash-refunds"
+        "cash-refunds",
+        "vendor-online-returns"
       ]
     },
     {
@@ -169,7 +172,8 @@
         "customer-service-requests",
         "customer-warranties",
         "customer-warranty-claims",
-        "customer-service-visits"
+        "customer-service-visits",
+        "customer-online-returns"
       ]
     },
     {
@@ -454,6 +458,16 @@
       "id": "warranty-management",
       "path": "/vendor/warranties",
       "group": "Fulfilment"
+    },
+    {
+      "id": "vendor-online-returns",
+      "path": "/vendor/online-returns",
+      "group": "After-Sale"
+    },
+    {
+      "id": "customer-online-returns",
+      "path": "/marketplace/returns",
+      "group": "Purchases"
     }
   ],
   "tabs": [

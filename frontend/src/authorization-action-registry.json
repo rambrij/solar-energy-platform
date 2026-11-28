@@ -3015,6 +3015,18 @@
       "backendOperation": "PATCH /api/v1/vendor/installations/{id}/assignment"
     },
     {
+      "id": "vendor-installation-checklist-complete",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/installations/{id}/checklist/{itemKey}",
+      "permissions": [
+        "INSTALLATION_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/checklist/{itemKey}"
+    },
+    {
       "id": "vendor-installation-create",
       "component": "InstallationManagement.tsx",
       "trigger": "submit",
@@ -3948,502 +3960,10 @@
   ],
   "buttons": [
     {
-      "id": "pos-session-open",
-      "component": "SessionStart.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions"
-    },
-    {
-      "id": "pos-session-resume",
-      "component": "SessionStart.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/resume"
-    },
-    {
-      "id": "pos-session-close",
-      "component": "ShiftClose.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/close"
-    },
-    {
-      "id": "pos-variance-approve",
-      "component": "ShiftReviews.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/approve-variance"
-    },
-    {
-      "id": "pos-variance-return",
-      "component": "ShiftReviews.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/return-for-correction"
-    },
-    {
-      "id": "pos-cash-movement",
-      "component": "CashDrawer.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/cash-movements"
-    },
-    {
-      "id": "pos-sale-create",
-      "component": "App.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/sales"
-    },
-    {
-      "id": "pos-draft-create",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/drafts"
-    },
-    {
-      "id": "pos-draft-cancel",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/drafts/{id}/cancel"
-    },
-    {
-      "id": "pos-draft-finalize",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/drafts/{id}/finalize-cash"
-    },
-    {
-      "id": "pos-refund-pay",
-      "component": "CashRefunds.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/refunds"
-    },
-    {
-      "id": "pos-refund-copy",
-      "component": "CashRefundReceipt.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/refunds/{id}/copy"
-    },
-    {
-      "id": "pos-category-create",
-      "component": "CategoryManager.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/categories"
-    },
-    {
-      "id": "pos-category-update",
-      "component": "CategoryManager.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/categories/{id}"
-    },
-    {
-      "id": "pos-product-create",
-      "component": "ProductManager.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/products"
-    },
-    {
-      "id": "pos-product-update",
-      "component": "ProductManager.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/products/{id}"
-    },
-    {
-      "id": "pos-stock-receive",
-      "component": "StockReceiving.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/inventory/receipts"
-    },
-    {
-      "id": "pos-settings-update",
-      "component": "StoreSettings.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/settings"
-    },
-    {
-      "id": "customer-cart-add",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/cart/items"
-    },
-    {
-      "id": "customer-cart-remove",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "backendOperation": "DELETE /api/v1/customer/cart/items/{productId}"
-    },
-    {
-      "id": "customer-cart-switch",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/cart/switch"
-    },
-    {
-      "id": "customer-cart-quote",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/cart/quote"
-    },
-    {
-      "id": "customer-cart-restore",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/cart/restore"
-    },
-    {
-      "id": "customer-payment-create",
-      "component": "PaymentCheckout.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment"
-    },
-    {
-      "id": "platform-tenant-create",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/platform/tenants"
-    },
-    {
-      "id": "platform-tenant-update",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/platform/tenants/{id}"
-    },
-    {
-      "id": "platform-tenant-lifecycle",
-      "component": "PlatformApp.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/platform/tenants/{id}/lifecycle"
-    },
-    {
-      "id": "platform-plan-create",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/platform/subscription-plans"
-    },
-    {
-      "id": "platform-plan-revise",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/platform/subscription-plans/{id}/versions"
-    },
-    {
-      "id": "platform-plan-active",
-      "component": "PlatformApp.tsx",
-      "trigger": "button",
-      "backendOperation": "PATCH /api/v1/platform/subscription-plans/{id}/active"
-    },
-    {
-      "id": "platform-support-grant",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/platform/support-access"
-    },
-    {
-      "id": "platform-support-revoke",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/platform/support-access/{id}/revoke"
-    },
-    {
-      "id": "platform-config-update",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/platform/configuration"
-    },
-    {
-      "id": "platform-subscription-create",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/platform/tenants/{tenantId}/subscription"
-    },
-    {
-      "id": "platform-subscription-status",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/platform/subscriptions/{id}/status"
-    },
-    {
-      "id": "platform-subscription-events",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "button",
-      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/events"
-    },
-    {
-      "id": "platform-subscription-billing",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "button",
-      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/billing-history"
-    },
-    {
-      "id": "platform-subscription-invoice-document",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "button",
-      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document"
-    },
-    {
-      "id": "pos-catalogue-scan",
-      "component": "PosCatalogue.tsx",
-      "trigger": "submit",
-      "backendOperation": "GET /api/v1/vendor/pos/catalogue/scan"
-    },
-    {
-      "id": "pos-tender-review-apply",
-      "component": "TerminalTenderReview.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/payments/review/{id}"
-    },
-    {
-      "id": "pos-return-create",
-      "component": "PosReturns.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/returns"
-    },
-    {
-      "id": "pos-return-review",
-      "component": "PosReturns.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/review"
-    },
-    {
-      "id": "pos-return-inspect",
-      "component": "PosReturns.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/inspect"
-    },
-    {
-      "id": "pos-sales-export",
-      "component": "ReportExport.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/reports/sales/export"
-    },
-    {
-      "id": "pos-refunds-export",
-      "component": "ReportExport.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/reports/cash-refunds/export"
-    },
-    {
-      "id": "pos-receipt-reprint",
-      "component": "App.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/reprint"
-    },
-    {
-      "id": "pos-receipt-pdf",
-      "component": "ReceiptPdfCopy.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/document"
-    },
-    {
-      "id": "pos-discount-policy-update",
-      "component": "StoreSettings.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/discount-policy"
-    },
-    {
-      "id": "pos-register-create",
-      "component": "StoreSettings.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/pos/registers"
-    },
-    {
-      "id": "vendor-role-create",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/roles"
-    },
-    {
-      "id": "vendor-role-update",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/roles/{id}"
-    },
-    {
-      "id": "vendor-role-deactivate",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/roles/{id}/deactivate"
-    },
-    {
-      "id": "vendor-employee-create",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/employees"
-    },
-    {
-      "id": "vendor-employee-roles-assign",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "backendOperation": "PUT /api/v1/vendor/employees/{username}/roles"
-    },
-    {
-      "id": "vendor-employee-registers-assign",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "backendOperation": "PUT /api/v1/vendor/employees/{username}/registers"
-    },
-    {
-      "id": "vendor-employee-branch-update",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "backendOperation": "PATCH /api/v1/vendor/employees/{username}/branch"
-    },
-    {
-      "id": "vendor-employee-disable",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/employees/{username}/disable"
-    },
-    {
-      "id": "platform-identity-mfa-enroll",
-      "component": "PlatformIdentityAdmin.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/platform/identities/{username}/mfa-enrollment"
-    },
-    {
-      "id": "customer-receipt-copy",
-      "component": "OnlineReceipt.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-copy"
-    },
-    {
-      "id": "customer-draft-create",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/checkout/drafts"
-    },
-    {
-      "id": "customer-draft-cancel",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/cancel"
-    },
-    {
-      "id": "customer-pos-association-preview",
-      "component": "CustomerAssociation.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/pos-association/preview"
-    },
-    {
-      "id": "customer-pos-association-approve",
-      "component": "CustomerAssociation.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/pos-association/approve"
-    },
-    {
-      "id": "pos-order-history-receipt-read",
-      "component": "OrderHistory.tsx",
-      "trigger": "button",
-      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
-    },
-    {
-      "id": "pos-customer-association-create",
-      "component": "WalkInCustomer.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/customer-association"
-    },
-    {
-      "id": "customer-payment-confirm",
-      "component": "PaymentCheckout.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm"
-    },
-    {
-      "id": "auth-login",
-      "component": "LoginPanel.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/auth/login"
-    },
-    {
-      "id": "auth-register",
-      "component": "LoginPanel.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/auth/register"
-    },
-    {
       "id": "auth-context-switch",
       "component": "SessionControls.tsx",
       "trigger": "button",
       "backendOperation": "POST /api/v1/auth/context"
-    },
-    {
-      "id": "auth-logout",
-      "component": "SessionControls.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/auth/logout"
-    },
-    {
-      "id": "vendor-invitation-accept",
-      "component": "VendorInvitationAcceptance.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/auth/invitations/accept"
-    },
-    {
-      "id": "platform-mfa-enrollment-start",
-      "component": "PlatformMfaEnrollment.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/start"
-    },
-    {
-      "id": "platform-mfa-enrollment-complete",
-      "component": "PlatformMfaEnrollment.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/complete"
-    },
-    {
-      "id": "customer-profile-update",
-      "component": "CustomerProfile.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/customer/profile"
-    },
-    {
-      "id": "vendor-crm-note-create",
-      "component": "VendorCustomerCrm.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/customers/{customerId}/crm-notes"
-    },
-    {
-      "id": "vendor-crm-note-update",
-      "component": "VendorCustomerCrm.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}"
-    },
-    {
-      "id": "customer-security-revoke-other-sessions",
-      "component": "CustomerProfile.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/auth/sessions/revoke-others"
-    },
-    {
-      "id": "vendor-employee-reactivate",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/employees/{username}/reactivate"
-    },
-    {
-      "id": "vendor-employee-invitation-resend",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/vendor/employees/{username}/invitation/resend"
-    },
-    {
-      "id": "vendor-shipment-create",
-      "component": "ShipmentManagement.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/orders/{orderId}/shipments"
-    },
-    {
-      "id": "vendor-shipment-event-create",
-      "component": "ShipmentManagement.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/shipments/{shipmentId}/events"
-    },
-    {
-      "id": "marketplace-enquiry-submit",
-      "component": "MarketplaceEnquiryForm.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/marketplace/vendors/{slug}/enquiries"
-    },
-    {
-      "id": "customer-receipt-pdf-copy",
-      "component": "CustomerReceiptPdfCopy.tsx",
-      "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-document"
     },
     {
       "id": "auth-email-verification-resend",
@@ -4452,124 +3972,82 @@
       "backendOperation": "POST /api/v1/auth/email-verification/resend"
     },
     {
-      "id": "vendor-lead-status",
-      "component": "VendorLeadInbox.tsx",
+      "id": "auth-login",
+      "component": "LoginPanel.tsx",
       "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/leads/{id}"
+      "backendOperation": "POST /api/v1/auth/login"
     },
     {
-      "id": "vendor-lead-assignment",
-      "component": "VendorLeadInbox.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/leads/{id}/assignment"
-    },
-    {
-      "id": "vendor-profile-read",
-      "component": "VendorProfile.tsx",
+      "id": "auth-logout",
+      "component": "SessionControls.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/vendor/profile"
+      "backendOperation": "POST /api/v1/auth/logout"
     },
     {
-      "id": "vendor-profile-update",
-      "component": "VendorProfile.tsx",
+      "id": "auth-register",
+      "component": "LoginPanel.tsx",
       "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/profile"
+      "backendOperation": "POST /api/v1/auth/register"
     },
     {
-      "id": "solar-package-create",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/packages"
-    },
-    {
-      "id": "solar-package-update",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/packages/{id}"
-    },
-    {
-      "id": "product-image-upload",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/products/{productId}/images"
-    },
-    {
-      "id": "product-image-deactivate",
-      "component": "SolarPackageManager.tsx",
+      "id": "customer-cart-add",
+      "component": "Marketplace.tsx",
       "trigger": "button",
-      "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
+      "backendOperation": "POST /api/v1/customer/cart/items"
     },
     {
-      "id": "vendor-site-survey-create",
-      "component": "VendorSiteSurveys.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/leads/{leadId}/site-surveys"
-    },
-    {
-      "id": "vendor-site-survey-update",
-      "component": "VendorSiteSurveys.tsx",
+      "id": "customer-cart-quote",
+      "component": "Marketplace.tsx",
       "trigger": "button",
-      "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
+      "backendOperation": "POST /api/v1/customer/cart/quote"
     },
     {
-      "id": "vendor-quotation-create",
-      "component": "VendorQuotations.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/quotations"
-    },
-    {
-      "id": "vendor-quotation-revise",
-      "component": "VendorQuotations.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/quotations/{id}/revisions"
-    },
-    {
-      "id": "customer-quotation-decision",
-      "component": "CustomerQuotations.tsx",
+      "id": "customer-cart-remove",
+      "component": "Marketplace.tsx",
       "trigger": "button",
-      "backendOperation": "POST /api/v1/customer/quotations/{id}/revisions/{revision}/decision"
+      "backendOperation": "DELETE /api/v1/customer/cart/items/{productId}"
     },
     {
-      "id": "vendor-payment-account-submit",
-      "component": "VendorPaymentAccounts.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/payment-accounts"
-    },
-    {
-      "id": "vendor-quotation-document",
-      "component": "VendorQuotations.tsx",
+      "id": "customer-cart-restore",
+      "component": "Marketplace.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/vendor/quotations/{id}/revisions/{revision}/document"
+      "backendOperation": "POST /api/v1/customer/cart/restore"
     },
     {
-      "id": "customer-quotation-document",
-      "component": "CustomerQuotations.tsx",
+      "id": "customer-cart-switch",
+      "component": "Marketplace.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/customer/quotations/{id}/revisions/{revision}/document"
+      "backendOperation": "POST /api/v1/customer/cart/switch"
     },
     {
-      "id": "vendor-installation-create",
-      "component": "InstallationManagement.tsx",
+      "id": "customer-claim-evidence",
+      "component": "CustomerWarrantyClaims.tsx",
       "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/installations"
+      "backendOperation": "POST /api/v1/customer/warranty-claims/{id}/evidence"
     },
     {
-      "id": "vendor-installation-assignment",
-      "component": "InstallationManagement.tsx",
-      "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/assignment"
-    },
-    {
-      "id": "vendor-installation-status",
-      "component": "InstallationManagement.tsx",
-      "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/status"
-    },
-    {
-      "id": "vendor-installation-detail",
-      "component": "InstallationManagement.tsx",
+      "id": "customer-claim-evidence-download",
+      "component": "CustomerWarrantyClaims.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/vendor/installations/{id}"
+      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}"
+    },
+    {
+      "id": "customer-claim-submit",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/customer/warranty-claims"
+    },
+    {
+      "id": "customer-draft-cancel",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/cancel"
+    },
+    {
+      "id": "customer-draft-create",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts"
     },
     {
       "id": "customer-installation-detail",
@@ -4578,28 +4056,76 @@
       "backendOperation": "GET /api/v1/customer/installations/{id}"
     },
     {
-      "id": "vendor-service-request-create",
-      "component": "VendorServiceRequests.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/service-requests"
-    },
-    {
-      "id": "vendor-service-request-detail",
-      "component": "VendorServiceRequests.tsx",
+      "id": "customer-online-returns-load",
+      "component": "CustomerOnlineReturns.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/vendor/service-requests/{id}"
+      "backendOperation": "GET /api/v1/customer/online-returns"
     },
     {
-      "id": "vendor-service-request-assignment",
-      "component": "VendorServiceRequests.tsx",
+      "id": "customer-online-returns-submit",
+      "component": "CustomerOnlineReturns.tsx",
       "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/assignment"
+      "backendOperation": "POST /api/v1/customer/online-returns"
     },
     {
-      "id": "vendor-service-request-status",
-      "component": "VendorServiceRequests.tsx",
+      "id": "customer-payment-confirm",
+      "component": "PaymentCheckout.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm"
+    },
+    {
+      "id": "customer-payment-create",
+      "component": "PaymentCheckout.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment"
+    },
+    {
+      "id": "customer-pos-association-approve",
+      "component": "CustomerAssociation.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/pos-association/approve"
+    },
+    {
+      "id": "customer-pos-association-preview",
+      "component": "CustomerAssociation.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/pos-association/preview"
+    },
+    {
+      "id": "customer-profile-update",
+      "component": "CustomerProfile.tsx",
       "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/status"
+      "backendOperation": "PUT /api/v1/customer/profile"
+    },
+    {
+      "id": "customer-quotation-decision",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/quotations/{id}/revisions/{revision}/decision"
+    },
+    {
+      "id": "customer-quotation-document",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/quotations/{id}/revisions/{revision}/document"
+    },
+    {
+      "id": "customer-receipt-copy",
+      "component": "OnlineReceipt.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-copy"
+    },
+    {
+      "id": "customer-receipt-pdf-copy",
+      "component": "CustomerReceiptPdfCopy.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-document"
+    },
+    {
+      "id": "customer-security-revoke-other-sessions",
+      "component": "CustomerProfile.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/sessions/revoke-others"
     },
     {
       "id": "customer-service-request-create",
@@ -4614,10 +4140,328 @@
       "backendOperation": "GET /api/v1/customer/service-requests/{id}"
     },
     {
-      "id": "vendor-warranty-register",
-      "component": "VendorWarranties.tsx",
+      "id": "customer-service-visit-refresh",
+      "component": "CustomerServiceVisits.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/service-visits"
+    },
+    {
+      "id": "marketplace-enquiry-submit",
+      "component": "MarketplaceEnquiryForm.tsx",
       "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/warranties"
+      "backendOperation": "POST /api/v1/marketplace/vendors/{slug}/enquiries"
+    },
+    {
+      "id": "platform-config-update",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/platform/configuration"
+    },
+    {
+      "id": "platform-identity-mfa-enroll",
+      "component": "PlatformIdentityAdmin.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/platform/identities/{username}/mfa-enrollment"
+    },
+    {
+      "id": "platform-mfa-enrollment-complete",
+      "component": "PlatformMfaEnrollment.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/complete"
+    },
+    {
+      "id": "platform-mfa-enrollment-start",
+      "component": "PlatformMfaEnrollment.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/start"
+    },
+    {
+      "id": "platform-plan-active",
+      "component": "PlatformApp.tsx",
+      "trigger": "button",
+      "backendOperation": "PATCH /api/v1/platform/subscription-plans/{id}/active"
+    },
+    {
+      "id": "platform-plan-create",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/platform/subscription-plans"
+    },
+    {
+      "id": "platform-plan-revise",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/platform/subscription-plans/{id}/versions"
+    },
+    {
+      "id": "platform-subscription-billing",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/billing-history"
+    },
+    {
+      "id": "platform-subscription-create",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/platform/tenants/{tenantId}/subscription"
+    },
+    {
+      "id": "platform-subscription-events",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/events"
+    },
+    {
+      "id": "platform-subscription-invoice-document",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document"
+    },
+    {
+      "id": "platform-subscription-status",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/platform/subscriptions/{id}/status"
+    },
+    {
+      "id": "platform-support-grant",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/platform/support-access"
+    },
+    {
+      "id": "platform-support-revoke",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/platform/support-access/{id}/revoke"
+    },
+    {
+      "id": "platform-tenant-create",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/platform/tenants"
+    },
+    {
+      "id": "platform-tenant-lifecycle",
+      "component": "PlatformApp.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/platform/tenants/{id}/lifecycle"
+    },
+    {
+      "id": "platform-tenant-update",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/platform/tenants/{id}"
+    },
+    {
+      "id": "pos-cash-movement",
+      "component": "CashDrawer.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/cash-movements"
+    },
+    {
+      "id": "pos-catalogue-scan",
+      "component": "PosCatalogue.tsx",
+      "trigger": "submit",
+      "backendOperation": "GET /api/v1/vendor/pos/catalogue/scan"
+    },
+    {
+      "id": "pos-category-create",
+      "component": "CategoryManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/categories"
+    },
+    {
+      "id": "pos-category-update",
+      "component": "CategoryManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/categories/{id}"
+    },
+    {
+      "id": "pos-customer-association-create",
+      "component": "WalkInCustomer.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/customer-association"
+    },
+    {
+      "id": "pos-discount-policy-update",
+      "component": "StoreSettings.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/discount-policy"
+    },
+    {
+      "id": "pos-draft-cancel",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/drafts/{id}/cancel"
+    },
+    {
+      "id": "pos-draft-create",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/drafts"
+    },
+    {
+      "id": "pos-draft-finalize",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/drafts/{id}/finalize-cash"
+    },
+    {
+      "id": "pos-order-history-receipt-read",
+      "component": "OrderHistory.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
+    },
+    {
+      "id": "pos-product-create",
+      "component": "ProductManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/products"
+    },
+    {
+      "id": "pos-product-update",
+      "component": "ProductManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/products/{id}"
+    },
+    {
+      "id": "pos-receipt-pdf",
+      "component": "ReceiptPdfCopy.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/document"
+    },
+    {
+      "id": "pos-receipt-reprint",
+      "component": "App.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/reprint"
+    },
+    {
+      "id": "pos-refund-copy",
+      "component": "CashRefundReceipt.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/refunds/{id}/copy"
+    },
+    {
+      "id": "pos-refund-pay",
+      "component": "CashRefunds.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/refunds"
+    },
+    {
+      "id": "pos-refunds-export",
+      "component": "ReportExport.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/reports/cash-refunds/export"
+    },
+    {
+      "id": "pos-register-create",
+      "component": "StoreSettings.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/registers"
+    },
+    {
+      "id": "pos-return-create",
+      "component": "PosReturns.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/returns"
+    },
+    {
+      "id": "pos-return-inspect",
+      "component": "PosReturns.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/inspect"
+    },
+    {
+      "id": "pos-return-review",
+      "component": "PosReturns.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/review"
+    },
+    {
+      "id": "pos-sale-create",
+      "component": "App.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/sales"
+    },
+    {
+      "id": "pos-sales-export",
+      "component": "ReportExport.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/reports/sales/export"
+    },
+    {
+      "id": "pos-session-close",
+      "component": "ShiftClose.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/close"
+    },
+    {
+      "id": "pos-session-open",
+      "component": "SessionStart.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions"
+    },
+    {
+      "id": "pos-session-resume",
+      "component": "SessionStart.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/resume"
+    },
+    {
+      "id": "pos-settings-update",
+      "component": "StoreSettings.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/pos/settings"
+    },
+    {
+      "id": "pos-stock-receive",
+      "component": "StockReceiving.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/inventory/receipts"
+    },
+    {
+      "id": "pos-tender-review-apply",
+      "component": "TerminalTenderReview.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/payments/review/{id}"
+    },
+    {
+      "id": "pos-variance-approve",
+      "component": "ShiftReviews.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/approve-variance"
+    },
+    {
+      "id": "pos-variance-return",
+      "component": "ShiftReviews.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/return-for-correction"
+    },
+    {
+      "id": "product-image-deactivate",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "button",
+      "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
+    },
+    {
+      "id": "product-image-upload",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/products/{productId}/images"
+    },
+    {
+      "id": "solar-package-create",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/packages"
+    },
+    {
+      "id": "solar-package-update",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/packages/{id}"
     },
     {
       "id": "vendor-claim-assignment",
@@ -4626,22 +4470,10 @@
       "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/assignment"
     },
     {
-      "id": "vendor-claim-inspection",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/inspection"
-    },
-    {
       "id": "vendor-claim-decision",
       "component": "VendorWarrantyClaims.tsx",
       "trigger": "submit",
       "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/decision"
-    },
-    {
-      "id": "vendor-claim-resolution",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/resolution"
     },
     {
       "id": "vendor-claim-evidence",
@@ -4650,88 +4482,124 @@
       "backendOperation": "POST /api/v1/vendor/warranty-claims/{id}/evidence"
     },
     {
-      "id": "customer-claim-submit",
-      "component": "CustomerWarrantyClaims.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/customer/warranty-claims"
-    },
-    {
-      "id": "customer-claim-evidence",
-      "component": "CustomerWarrantyClaims.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/customer/warranty-claims/{id}/evidence"
-    },
-    {
       "id": "vendor-claim-evidence-download",
       "component": "VendorWarrantyClaims.tsx",
       "trigger": "button",
       "backendOperation": "GET /api/v1/vendor/warranty-claims/{id}/evidence/{evidenceId}"
     },
     {
-      "id": "customer-claim-evidence-download",
-      "component": "CustomerWarrantyClaims.tsx",
+      "id": "vendor-claim-inspection",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/inspection"
+    },
+    {
+      "id": "vendor-claim-resolution",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/resolution"
+    },
+    {
+      "id": "vendor-crm-note-create",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/customers/{customerId}/crm-notes"
+    },
+    {
+      "id": "vendor-crm-note-update",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}"
+    },
+    {
+      "id": "vendor-employee-branch-update",
+      "component": "VendorAccessAdmin.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}"
+      "backendOperation": "PATCH /api/v1/vendor/employees/{username}/branch"
     },
     {
-      "id": "vendor-service-visit-create",
-      "component": "VendorServiceVisits.tsx",
+      "id": "vendor-employee-create",
+      "component": "VendorAccessAdmin.tsx",
       "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/service-visits"
+      "backendOperation": "POST /api/v1/vendor/employees"
     },
     {
-      "id": "vendor-service-visit-detail",
-      "component": "VendorServiceVisits.tsx",
+      "id": "vendor-employee-disable",
+      "component": "VendorAccessAdmin.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/vendor/service-visits/{id}"
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/disable"
     },
     {
-      "id": "vendor-service-visit-assignment",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/assignment"
-    },
-    {
-      "id": "vendor-service-visit-status",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/status"
-    },
-    {
-      "id": "vendor-service-visit-note",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "backendOperation": "POST /api/v1/vendor/service-visits/{id}/notes"
-    },
-    {
-      "id": "vendor-service-visit-refresh",
-      "component": "VendorServiceVisits.tsx",
+      "id": "vendor-employee-invitation-resend",
+      "component": "VendorAccessAdmin.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/vendor/service-visits"
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/invitation/resend"
     },
     {
-      "id": "customer-service-visit-refresh",
-      "component": "CustomerServiceVisits.tsx",
+      "id": "vendor-employee-reactivate",
+      "component": "VendorAccessAdmin.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/customer/service-visits"
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/reactivate"
     },
     {
-      "id": "vendor-service-sla-policy-update",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/service-sla/policies"
-    },
-    {
-      "id": "customer-online-returns-load",
-      "component": "CustomerOnlineReturns.tsx",
+      "id": "vendor-employee-registers-assign",
+      "component": "VendorAccessAdmin.tsx",
       "trigger": "button",
-      "backendOperation": "GET /api/v1/customer/online-returns"
+      "backendOperation": "PUT /api/v1/vendor/employees/{username}/registers"
     },
     {
-      "id": "customer-online-returns-submit",
-      "component": "CustomerOnlineReturns.tsx",
+      "id": "vendor-employee-roles-assign",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "backendOperation": "PUT /api/v1/vendor/employees/{username}/roles"
+    },
+    {
+      "id": "vendor-installation-assignment",
+      "component": "InstallationManagement.tsx",
       "trigger": "submit",
-      "backendOperation": "POST /api/v1/customer/online-returns"
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/assignment"
+    },
+    {
+      "id": "vendor-installation-checklist-complete",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/checklist/{itemKey}"
+    },
+    {
+      "id": "vendor-installation-create",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/installations"
+    },
+    {
+      "id": "vendor-installation-detail",
+      "component": "InstallationManagement.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/installations/{id}"
+    },
+    {
+      "id": "vendor-installation-status",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/status"
+    },
+    {
+      "id": "vendor-invitation-accept",
+      "component": "VendorInvitationAcceptance.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/auth/invitations/accept"
+    },
+    {
+      "id": "vendor-lead-assignment",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/leads/{id}/assignment"
+    },
+    {
+      "id": "vendor-lead-status",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/leads/{id}"
     },
     {
       "id": "vendor-online-returns-load",
@@ -4752,16 +4620,166 @@
       "backendOperation": "POST /api/v1/vendor/online-returns/{id}/decision"
     },
     {
-      "id": "vendor-service-sla-escalation-policy-save",
-      "component": "VendorServiceVisits.tsx",
+      "id": "vendor-payment-account-submit",
+      "component": "VendorPaymentAccounts.tsx",
       "trigger": "submit",
-      "backendOperation": "PUT /api/v1/vendor/service-sla/escalation-policies"
+      "backendOperation": "PUT /api/v1/vendor/payment-accounts"
+    },
+    {
+      "id": "vendor-profile-read",
+      "component": "VendorProfile.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/profile"
+    },
+    {
+      "id": "vendor-profile-update",
+      "component": "VendorProfile.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/profile"
+    },
+    {
+      "id": "vendor-quotation-create",
+      "component": "VendorQuotations.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/quotations"
+    },
+    {
+      "id": "vendor-quotation-document",
+      "component": "VendorQuotations.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/quotations/{id}/revisions/{revision}/document"
+    },
+    {
+      "id": "vendor-quotation-revise",
+      "component": "VendorQuotations.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/quotations/{id}/revisions"
+    },
+    {
+      "id": "vendor-role-create",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/roles"
+    },
+    {
+      "id": "vendor-role-deactivate",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "backendOperation": "POST /api/v1/vendor/roles/{id}/deactivate"
+    },
+    {
+      "id": "vendor-role-update",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/roles/{id}"
+    },
+    {
+      "id": "vendor-service-request-assignment",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/assignment"
+    },
+    {
+      "id": "vendor-service-request-create",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/service-requests"
+    },
+    {
+      "id": "vendor-service-request-detail",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/service-requests/{id}"
+    },
+    {
+      "id": "vendor-service-request-status",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/status"
     },
     {
       "id": "vendor-service-sla-escalation-acknowledge",
       "component": "VendorServiceVisits.tsx",
       "trigger": "submit",
       "backendOperation": "POST /api/v1/vendor/service-sla/escalations/{id}/acknowledge"
+    },
+    {
+      "id": "vendor-service-sla-escalation-policy-save",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/service-sla/escalation-policies"
+    },
+    {
+      "id": "vendor-service-sla-policy-update",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/service-sla/policies"
+    },
+    {
+      "id": "vendor-service-visit-assignment",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/assignment"
+    },
+    {
+      "id": "vendor-service-visit-create",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "vendor-service-visit-detail",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/service-visits/{id}"
+    },
+    {
+      "id": "vendor-service-visit-note",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/service-visits/{id}/notes"
+    },
+    {
+      "id": "vendor-service-visit-refresh",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "vendor-service-visit-status",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/status"
+    },
+    {
+      "id": "vendor-shipment-create",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/orders/{orderId}/shipments"
+    },
+    {
+      "id": "vendor-shipment-event-create",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/shipments/{shipmentId}/events"
+    },
+    {
+      "id": "vendor-site-survey-create",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/leads/{leadId}/site-surveys"
+    },
+    {
+      "id": "vendor-site-survey-update",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "button",
+      "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
+    },
+    {
+      "id": "vendor-warranty-register",
+      "component": "VendorWarranties.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/warranties"
     }
   ],
   "dynamicRouteParameters": {

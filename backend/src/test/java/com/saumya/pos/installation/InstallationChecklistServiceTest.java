@@ -31,7 +31,7 @@ class InstallationChecklistServiceTest {
         when(authorization.current()).thenReturn(actor);
         var lockedJob=Map.<String,Object>of("id",81L,"order_id","paid-order-1","status","IN_PROGRESS",
             "assigned_to","engineer@vendor.test","version",2L);
-        when(db.queryForList(argThat(sql->sql.contains("FOR UPDATE")),eq(7L),eq(81L)))
+        when(db.queryForList(argThat(sql->sql!=null&&sql.contains("FOR UPDATE")),eq(7L),eq(81L)))
             .thenReturn(List.of(lockedJob));
         when(db.queryForList(contains("item_key,required,completed"),eq(7L),eq(81L),eq("CUSTOMER_HANDOVER_COMPLETED")))
             .thenReturn(List.of(Map.of("item_key","CUSTOMER_HANDOVER_COMPLETED","required",true,"completed",false)));
@@ -42,7 +42,7 @@ class InstallationChecklistServiceTest {
             "scheduled_at",Timestamp.from(now.plusSeconds(3600)),"status","IN_PROGRESS",
             "assigned_to","engineer@vendor.test","created_at",Timestamp.from(now.minusSeconds(3600)),
             "updated_at",Timestamp.from(now),"version",3L);
-        when(db.queryForList(argThat(sql->sql.contains("FROM installation_jobs")&&!sql.contains("FOR UPDATE")),
+        when(db.queryForList(argThat(sql->sql!=null&&sql.contains("FROM installation_jobs")&&!sql.contains("FOR UPDATE")),
             eq(7L),eq(81L))).thenReturn(List.of(updatedJob));
         when(db.queryForList(contains("FROM installation_events"),eq(7L),eq(81L))).thenReturn(List.of());
         when(db.queryForList(contains("ORDER BY sort_order,item_key"),eq(7L),eq(81L))).thenReturn(List.of(Map.of(

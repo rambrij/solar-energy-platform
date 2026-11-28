@@ -354,8 +354,7 @@ public class InstallationService {
     private void seedChecklist(AuthorizationContext.Context actor,long installationId) {
         for(var item:CHECKLIST_DEFINITIONS) {
             db.update("""
-                INSERT INTO installation_checklist_items(
-                    tenant_id,installation_id,item_key,label,sort_order,required)
+                INSERT INTO installation_checklist_items(tenant_id,installation_id,item_key,label,sort_order,required)
                 VALUES(?,?,?,?,?,TRUE)
                 """,actor.tenantId(),installationId,item.itemKey(),item.label(),item.sortOrder());
         }
@@ -377,8 +376,7 @@ public class InstallationService {
     private void appendChecklistEvent(AuthorizationContext.Context actor,long installationId,
             String itemKey,String eventType,String evidence,Instant now) {
         db.update("""
-            INSERT INTO installation_checklist_events(
-                tenant_id,installation_id,item_key,actor_username,event_type,evidence_note,occurred_at)
+            INSERT INTO installation_checklist_events(tenant_id,installation_id,item_key,actor_username,event_type,evidence_note,occurred_at)
             VALUES(?,?,?,?,?,?,?)
             """,actor.tenantId(),installationId,itemKey,actor.username(),eventType,evidence,Timestamp.from(now));
     }

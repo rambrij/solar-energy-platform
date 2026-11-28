@@ -2357,6 +2357,12 @@
       "scope": "GLOBAL_CUSTOMER_OWNED_ORDER_SERIAL_ASSETS",
       "assignment": "CUSTOMER_IDENTITY_AND_PAID_ORDER_OWNERSHIP",
       "runtimeTest": "RuntimeAuthorizationEndpointInventoryTest; ShipmentControllerAuthorizationTest; ShipmentServiceAuthorizationBoundaryTest"
+    },
+    "InstallationController#completeChecklistItem": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ASSIGNED_INSTALLATION",
+      "assignment": "INSTALLATION_UPDATE; tenant-qualified installation and checklist item locks; assigned engineer or INSTALLATION_ASSIGN actor only; optimistic version; immutable checklist history and transactional outbox; commissioning separately requires INSTALLATION_COMMISSION after required items are complete",
+      "runtimeTest": "InstallationControllerAuthorizationTest#assignedEngineerCanCompleteInstallationChecklistItems"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

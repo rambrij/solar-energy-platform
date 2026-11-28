@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(28);
+            assertThat(applied).hasSize(29);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -206,7 +206,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
                     "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "site_surveys", "quotations", "quotation_revisions", "quotation_lines", "quotation_audit_events", "vendor_payment_accounts", "vendor_payment_account_events",
-                    "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence", "service_visits", "service_visit_events", "service_sla_policies", "service_case_sla", "service_sla_events", "service_sla_policy_audit",
+                    "installation_jobs", "installation_events", "installation_checklist_items", "installation_checklist_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence", "service_visits", "service_visit_events", "service_sla_policies", "service_case_sla", "service_sla_events", "service_sla_policy_audit",
                     "service_sla_escalation_policies", "service_sla_escalations", "service_sla_escalation_events", "service_sla_escalation_policy_audit",
                     "warehouses", "warehouse_inventory", "inventory_transfers",
                     "inventory_transfer_events", "inventory_transfer_movements", "warehouse_audit_events",

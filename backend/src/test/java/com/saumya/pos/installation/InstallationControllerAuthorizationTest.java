@@ -107,6 +107,24 @@ class InstallationControllerAuthorizationTest {
         verifyNoInteractions(service);
     }
 
+    @Test @WithMockUser(authorities={"INSTALLATION_UPDATE"})
+    void assignedEngineerCanCompleteInstallationChecklistItems() throws Exception {
+        mvc.perform(patch("/api/v1/vendor/installations/1/checklist/SITE_READINESS")
+            .contentType("application/json")
+            .content("{\"expectedVersion\":1,\"evidenceNote\":\"Site readiness confirmed\"}"))
+            .andExpect(status().isOk());
+        verify(service).completeChecklistItem(eq(1L),eq("SITE_READINESS"),any());
+    }
+
+    @Test @WithMockUser(authorities={"INSTALLATION_VIEW"})
+    void installationViewCannotCompleteChecklistItems() throws Exception {
+        mvc.perform(patch("/api/v1/vendor/installations/1/checklist/SITE_READINESS")
+            .contentType("application/json")
+            .content("{\"expectedVersion\":1,\"evidenceNote\":\"Site readiness confirmed\"}"))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
     @Test @WithMockUser(authorities={"CUSTOMER"})
     void customerCanReadOwnInstallationRoutes() throws Exception {
         when(service.customerList(anyString())).thenReturn(List.of());

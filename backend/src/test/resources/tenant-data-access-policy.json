@@ -274,6 +274,7 @@
       "methods": [
         "append",
         "assign",
+        "completeChecklistItem",
         "create",
         "customerEvents",
         "customerGet",
@@ -290,11 +291,15 @@
         "updateStatus",
         "vendorList"
       ],
-      "authority": "Vendor tenant parameters derive from AuthorizationContext.current().tenantId() after active membership and INSTALLATION_* checks. Customer tenant parameters derive from OrderHistoryService.CustomerOrderReference values built from the authenticated global customer and paid online order ownership.",
+      "authority": "Vendor tenant parameters derive from AuthorizationContext.current().tenantId() after active membership and INSTALLATION_* checks. Checklist reads/writes lock the installation and checklist item under that tenant, require INSTALLATION_UPDATE and assigned-engineer or INSTALLATION_ASSIGN scope, and commissioning separately requires INSTALLATION_COMMISSION. Customer tenant parameters derive from authenticated paid online OrderHistoryService references.",
       "evidence": [
+        "INSTALLATION_COMMISSION",
+        "INSTALLATION_UPDATE",
         "actor.tenantId()",
         "authorization.current()",
         "customerPaidOnlineOrderReferences(username)",
+        "installation_checklist_events",
+        "installation_checklist_items",
         "order.orderId()",
         "order.tenantId()",
         "requireVendorMembership()",
@@ -1223,6 +1228,12 @@
         },
         {
           "caller": "com.saumya.pos.installation.InstallationService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.installation.InstallationService#completeChecklistItem",
           "expression": "actor.tenantId()",
           "argumentIndex": 0,
           "expectedCallCount": 1

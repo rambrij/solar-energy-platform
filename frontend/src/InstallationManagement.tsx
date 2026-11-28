@@ -4,7 +4,8 @@ import {useSession} from './session';
 
 type Job={id:number;orderId:string;siteAddress:string;scheduledAt:string;status:string;assignedTo:string;createdAt:string;updatedAt:string;completedAt:string|null;version:number};
 type Event={id:number;type:string;status:string;note:string;actorUsername:string;occurredAt:string};
-type Detail={job:Job;events:Event[];serialAssets:{id:number;productId:number;productName:string;serialNumber:string;shipmentId:number;recordedAt:string}[]};
+type ChecklistItem={itemKey:string;label:string;required:boolean;completed:boolean;completedBy:string|null;completedAt:string|null;evidenceNote:string|null};
+type Detail={job:Job;events:Event[];serialAssets:{id:number;productId:number;productName:string;serialNumber:string;shipmentId:number;recordedAt:string}[];checklist:ChecklistItem[]};
 type Eligible={orderId:string;orderedAt:string;total:number|string};
 
 const localDateTime=(value:string)=>new Date(value).toLocaleString();
@@ -26,6 +27,7 @@ export default function InstallationManagement(){
  const [reasons,setReasons]=useState('');
  const [assignments,setAssignments]=useState<Record<number,{assignedTo:string;scheduledAt:string;reason:string}>>({});
  const [notes,setNotes]=useState<Record<number,string>>({});
+ const [checklistNotes,setChecklistNotes]=useState<Record<number,Record<string,string>>>({});
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
@@ -84,6 +86,21 @@ export default function InstallationManagement(){
    setAssignments(current=>({...current,[job.id]:{...value,reason:''}}));
    await refresh();
   }catch(e){setError((e as Error).message||'Installation assignment was not updated.');}
+  finally{setBusy(false);}
+ }
+
+ async function completeChecklistItem(job:Job,item:ChecklistItem){
+  const evidenceNote=(checklistNotes[job.id]?.[item.itemKey]??'').trim();
+  if(!evidenceNote||item.completed)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   await vendorApi(`/installations/${job.id}/checklist/${item.itemKey}`,'PATCH',{
+    expectedVersion:details[job.id]?.job.version??job.version,evidenceNote
+   });
+   setChecklistNotes(current=>({...current,[job.id]:{...current[job.id],[item.itemKey]:''}}));
+   setNotice('Checklist evidence recorded.');
+   await refresh(); await showDetails(job.id);
+  }catch(e){setError((e as Error).message||'Checklist evidence was not recorded.');}
   finally{setBusy(false);}
  }
 
@@ -146,7 +163,16 @@ export default function InstallationManagement(){
     {details[job.id]&&<><ol>{details[job.id].events.map(event=><li key={event.id}>
       <strong>{event.type.replaceAll('_',' ')}</strong> · {event.status.replaceAll('_',' ')} · {event.note}
       <small> {localDateTime(event.occurredAt)}</small>
-    </li>)}</ol><section aria-label="Serialized products linked to installation"><h5>Serialized products</h5>{details[job.id].serialAssets.length===0?<p>No serial numbers linked to this installation.</p>:<ul>{details[job.id].serialAssets.map(asset=><li key={asset.id}>{asset.productName} — {asset.serialNumber} · Shipment #{asset.shipmentId}</li>)}</ul>}</section></>}
+    </li>)}</ol><section aria-label="Installation commissioning checklist"><h5>Commissioning checklist</h5>
+      <p>{details[job.id].checklist.filter(item=>item.required&&item.completed).length} of {details[job.id].checklist.filter(item=>item.required).length} required items completed.</p>
+      <ol>{details[job.id].checklist.map(item=><li key={item.itemKey}><strong>{item.label}</strong> — {item.completed?'Complete':'Pending'}
+       {item.completed&&<p>Evidence: {item.evidenceNote} <small>· {item.completedBy} · {item.completedAt?localDateTime(item.completedAt):''}</small></p>}
+       {!item.completed&&canUpdate&&job.status==='IN_PROGRESS'&&<form onSubmit={e=>{e.preventDefault();void completeChecklistItem(job,item);}}>
+        <label>Evidence note: {item.label}<textarea required rows={2} maxLength={1000} value={checklistNotes[job.id]?.[item.itemKey]??''}
+         onChange={e=>setChecklistNotes(current=>({...current,[job.id]:{...current[job.id],[item.itemKey]:e.target.value}}))}/></label>
+        <button disabled={busy||!(checklistNotes[job.id]?.[item.itemKey]??'').trim()}>Mark item complete</button>
+       </form>}
+      </li>)}</ol></section><section aria-label="Serialized products linked to installation"><h5>Serialized products</h5>{details[job.id].serialAssets.length===0?<p>No serial numbers linked to this installation.</p>:<ul>{details[job.id].serialAssets.map(asset=><li key={asset.id}>{asset.productName} — {asset.serialNumber} · Shipment #{asset.shipmentId}</li>)}</ul>}</section></>}
     {canAssign&&job.status!=='COMPLETED'&&job.status!=='CANCELLED'&&<form onSubmit={e=>{e.preventDefault();void changeAssignment(job);}}>
      <h5>Reassign or reschedule</h5>
      <label>Engineer

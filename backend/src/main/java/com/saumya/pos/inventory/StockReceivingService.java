@@ -3,8 +3,7 @@ import com.saumya.pos.inventory.internal.StockReceipt;
 import com.saumya.pos.inventory.internal.StockReceiptRepository;
 import com.saumya.pos.inventory.internal.InventoryReceiptSerialAsset;
 import com.saumya.pos.inventory.internal.InventoryReceiptSerialAssetRepository;
-import com.saumya.pos.catalog.internal.Product;
-import com.saumya.pos.catalog.internal.ProductRepository;
+import com.saumya.pos.inventory.ProductSerialTrackingPolicy;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,10 +26,10 @@ public class StockReceivingService {
   context.requirePermission(permission);
  }
  private final StockReceiptRepository receipts;private final InventoryService stock;private final Clock clock;
- private final ProductRepository products;private final InventoryReceiptSerialAssetRepository serialAssets;
+ private final ProductSerialTrackingPolicy trackingPolicy;private final InventoryReceiptSerialAssetRepository serialAssets;
  @Autowired public StockReceivingService(StockReceiptRepository receipts,InventoryService stock,Clock clock,
-     ProductRepository products,InventoryReceiptSerialAssetRepository serialAssets){
-  this.receipts=receipts;this.stock=stock;this.clock=clock;this.products=products;this.serialAssets=serialAssets;
+     ProductSerialTrackingPolicy trackingPolicy,InventoryReceiptSerialAssetRepository serialAssets){
+  this.receipts=receipts;this.stock=stock;this.clock=clock;this.trackingPolicy=trackingPolicy;this.serialAssets=serialAssets;
  }
  public StockReceivingService(StockReceiptRepository receipts,InventoryService stock,Clock clock){
   this(receipts,stock,clock,null,null);
@@ -67,8 +66,7 @@ public class StockReceivingService {
   List<String> serialNumbers=normalize(input.serialNumbers());
   var previous=receipts.findByTenantAndBranchAndKey(tenant,branch,key);
   if(previous.isPresent()){var row=previous.get();if(row.product()!=input.productId()||row.quantity()!=input.quantity()||!row.actor().equals(actor)||!row.reason().equals(input.reason().strip())||!serials(tenant,branch,row).equals(serialNumbers))throw new DomainProblem("IDEMPOTENCY_KEY_CONFLICT","Stock receiving key already identifies a different command");return view(tenant,branch,row);}
-  Product product=products==null?null:products.locked(tenant,input.productId()).orElseThrow(()->new ResponseStatusException(NOT_FOUND,"Product unavailable"));
-  boolean tracked=product!=null&&product.serialTrackingRequired();
+  boolean tracked=trackingPolicy!=null&&trackingPolicy.serialTrackingRequired(tenant,branch,actor,input.productId());
   if(!tracked&&!serialNumbers.isEmpty())throw new ResponseStatusException(BAD_REQUEST,"Serial numbers are not enabled for this product");
   if(tracked&&(input.quantity()>100||serialNumbers.size()!=input.quantity()))throw new ResponseStatusException(BAD_REQUEST,"A serial-tracked receipt requires one serial per received unit (maximum 100)");
   int available=stock.receive(tenant,branch,input.productId(),input.quantity());

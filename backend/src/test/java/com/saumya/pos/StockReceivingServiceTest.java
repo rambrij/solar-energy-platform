@@ -37,11 +37,9 @@ class StockReceivingServiceTest {
  }
 
  @Test void trackedReceiptRequiresExactlyOneDistinctSerialPerUnit(){
-  var productRepo=mock(com.saumya.pos.catalog.internal.ProductRepository.class);
-  var product=new com.saumya.pos.catalog.internal.Product(7,1);
-  product.edit("P7",null,"Panel",java.math.BigDecimal.ONE,java.math.BigDecimal.ZERO,true,true);
-  when(productRepo.locked(1,7)).thenReturn(Optional.of(product));
-  var service=new StockReceivingService(mock(StockReceiptRepository.class),mock(com.saumya.pos.inventory.InventoryService.class),Clock.systemUTC(),productRepo,mock(InventoryReceiptSerialAssetRepository.class));
+  var trackingPolicy=mock(com.saumya.pos.inventory.ProductSerialTrackingPolicy.class);
+  when(trackingPolicy.serialTrackingRequired(1,1,"actor",7)).thenReturn(true);
+  var service=new StockReceivingService(mock(StockReceiptRepository.class),mock(com.saumya.pos.inventory.InventoryService.class),Clock.systemUTC(),trackingPolicy,mock(InventoryReceiptSerialAssetRepository.class));
   authorize(service);
   assertThatThrownBy(()->service.receive(1,1,"actor","serial-key-01",new StockReceivingService.Input(7,2,"Delivery",java.util.List.of("SN-1"))))
    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)

@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(26);
+            assertThat(applied).hasSize(27);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -84,6 +84,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(24).getVersion().getVersion()).isEqualTo("25");
             assertThat(applied.get(25).getScript()).isEqualTo("V26__shipment_serial_asset_traceability.sql");
             assertThat(applied.get(25).getVersion().getVersion()).isEqualTo("26");
+            assertThat(applied.get(26).getScript()).isEqualTo("V27__inbound_serial_receiving.sql");
+            assertThat(applied.get(26).getVersion().getVersion()).isEqualTo("27");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -91,7 +93,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27");
         });
     }
 
@@ -108,7 +110,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_audit", "vendor_roles", "vendor_role_permissions",
                     "employee_role_assignments", "employee_register_assignments",
                     "tenant_subscriptions", "subscription_invoices", "subscription_payments",
-                    "subscription_events", "pos_stock_locations")) {
+                    "subscription_events", "pos_stock_locations", "inventory_receipt_serial_assets")) {
                 assertThat(db.queryForObject("""
                         SELECT is_nullable FROM information_schema.columns
                         WHERE table_schema=? AND table_name=? AND column_name='tenant_id'
@@ -188,7 +190,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_cash_refund_items", "report_export_audit", "receipt_document_audit",
                     "vendor_payment_attempts", "tenant_customers", "pos_customer_challenges",
                     "branch_settings_events", "catalog_stock", "catalog_change_events",
-                    "pos_drawer_tenders", "inventory_receipts", "order_buyer_snapshots",
+                    "pos_drawer_tenders", "inventory_receipts", "inventory_receipt_serial_assets", "order_buyer_snapshots",
                     "pos_active_drafts", "tenant_subscriptions", "subscription_invoices",
                     "subscription_payments", "subscription_events", "vendor_roles",
                     "vendor_role_permissions", "employee_role_assignments",
@@ -269,6 +271,9 @@ class P202MysqlPersistenceIntegrationTest {
             assertUniqueKey(db, schema, "registers", "tenant_id,branch_id,id");
             assertUniqueKey(db, schema, "pos_sessions", "tenant_id,branch_id,id");
             assertUniqueKey(db, schema, "products", "tenant_id,id");
+            assertUniqueKey(db, schema, "inventory_receipts", "tenant_id,branch_id,id,product_id");
+            assertUniqueKey(db, schema, "inventory_receipt_serial_assets", "tenant_id,id,product_id");
+            assertUniqueKey(db, schema, "inventory_receipt_serial_assets", "tenant_id,serial_number");
             assertUniqueKey(db, schema, "orders", "tenant_id,id");
             assertUniqueKey(db, schema, "orders", "tenant_id,branch_id,session_id,id");
             assertUniqueKey(db, schema, "orders", "tenant_id,branch_id,cashier,session_id,id");
@@ -297,6 +302,10 @@ class P202MysqlPersistenceIntegrationTest {
             assertUniqueKey(db, schema, "warehouses", "tenant_id,id");
             assertUniqueKey(db, schema, "warehouses", "tenant_id,branch_id,id");
             assertUniqueKey(db, schema, "inventory_transfers", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_receipt_serial_assets", "tenant_id,branch_id,receipt_id,product_id", "inventory_receipts", "tenant_id,branch_id,id,product_id");
+            assertForeignKey(db, schema, "inventory_receipt_serial_assets", "tenant_id,product_id", "products", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_receipt_serial_assets", "tenant_id,recorded_by", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "shipment_serial_assets", "tenant_id,receipt_serial_asset_id,product_id", "inventory_receipt_serial_assets", "tenant_id,id,product_id");
             assertForeignKey(db, schema, "marketplace_enquiries", "tenant_id,customer_id", "tenant_customers", "tenant_id,customer_id");
             assertForeignKey(db, schema, "marketplace_enquiries", "tenant_id,product_id", "products", "tenant_id,id");
             assertForeignKey(db, schema, "site_surveys", "tenant_id,enquiry_id", "marketplace_enquiries", "tenant_id,id");

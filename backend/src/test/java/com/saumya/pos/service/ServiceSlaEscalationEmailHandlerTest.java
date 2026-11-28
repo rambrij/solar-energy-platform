@@ -4,9 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saumya.pos.integration.IntegrationOutboxService;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
+import java.util.Properties;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -16,11 +17,12 @@ class ServiceSlaEscalationEmailHandlerTest {
     private final ServiceSlaEscalationService escalations = mock(ServiceSlaEscalationService.class);
     private final JavaMailSender mail = mock(JavaMailSender.class);
     private ServiceSlaEscalationEmailHandler handler() {
+        when(mail.createMimeMessage()).thenAnswer(ignored -> new MimeMessage(Session.getInstance(new Properties())));
         return new ServiceSlaEscalationEmailHandler(escalations, mail, new ObjectMapper(),
             "alerts@saumya.test", "https://marketplace.example.test");
     }
     private IntegrationOutboxService.Event event(Long tenant, String payload) {
-        return new IntegrationOutboxService.Event("event-1", tenant, "service-sla-worker",
+        return new IntegrationOutboxService.Event("00000000-0000-0000-0000-000000000001", tenant, "service-sla-worker",
             "SERVICE_SLA_ESCALATION", "41", "SERVICE_SLA.ESCALATED", 1, "corr-1",
             payload, Instant.parse("2026-11-28T10:00:00Z"));
     }
@@ -42,16 +44,20 @@ class ServiceSlaEscalationEmailHandlerTest {
 
         handler().handle(event(7L, payload()));
 
-        ArgumentCaptor<SimpleMailMessage> messages = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<MimeMessage> messages = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mail, times(2)).send(messages.capture());
         assertThat(messages.getAllValues()).hasSize(2);
-        assertThat(messages.getAllValues().get(0).getTo()).containsExactly("manager.one@vendor.test");
-        assertThat(messages.getAllValues().get(1).getTo()).containsExactly("manager.two@vendor.test");
+        assertThat(messages.getAllValues().get(0).getAllRecipients()[0].toString()).isEqualTo("manager.one@vendor.test");
+        assertThat(messages.getAllValues().get(1).getAllRecipients()[0].toString()).isEqualTo("manager.two@vendor.test");
         assertThat(messages.getAllValues()).allSatisfy(message -> {
-            assertThat(message.getFrom()).isEqualTo("alerts@saumya.test");
+            assertThat(message.getFrom()[0].toString()).isEqualTo("alerts@saumya.test");
             assertThat(message.getSubject()).contains("level 2");
-            assertThat(message.getText()).contains("SERVICE_REQUEST", "72", "RESPONSE", "41");
-            assertThat(message.getText()).contains("https://marketplace.example.test/vendor/service-visits");
+            try {
+                assertThat(message.getContent().toString()).contains("SERVICE_REQUEST", "72", "RESPONSE", "41");
+                assertThat(message.getContent().toString()).contains("https://marketplace.example.test/vendor/service-visits");
+                assertThat(message.getHeader("X-Idempotency-Key")).containsExactly("00000000-0000-0000-0000-000000000001");
+                assertThat(message.getMessageID()).isEqualTo("<00000000-0000-0000-0000-000000000001@saumya.test>");
+            } catch (Exception failure) { throw new AssertionError(failure); }
         });
         verify(escalations).resolveEscalationRecipients(7L, "SERVICE_MANAGER");
     }

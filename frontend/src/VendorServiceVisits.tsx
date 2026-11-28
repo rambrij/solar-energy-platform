@@ -7,6 +7,8 @@ type Event={id:number;eventType:string;toStatus:string;note:string;reason:string
 type Detail={visit:Visit;events:Event[]};
 type SlaPolicy={caseType:'SERVICE_REQUEST'|'WARRANTY_CLAIM';priority:string;responseTargetMinutes:number|null;resolutionTargetMinutes:number|null;configured:boolean;version:number};
 type SlaCase={caseType:'SERVICE_REQUEST'|'WARRANTY_CLAIM';caseId:number;orderId:string;subject:string;priority:string;caseStatus:string;assignedTo:string|null;openedAt:string;responseTargetMinutes:number|null;resolutionTargetMinutes:number|null;responseDueAt:string|null;resolutionDueAt:string|null;firstResponseAt:string|null;closedAt:string|null;responseBreachedAt:string|null;resolutionBreachedAt:string|null;responseState:string;resolutionState:string};
+type EscalationPolicy={id:number;caseType:'SERVICE_REQUEST'|'WARRANTY_CLAIM';priority:string;breachType:'RESPONSE'|'RESOLUTION';escalationLevel:number;afterMinutes:number;recipientRoleKey:string;enabled:boolean;version:number};
+type Escalation={id:number;slaId:number;caseType:'SERVICE_REQUEST'|'WARRANTY_CLAIM';caseId:number;breachType:'RESPONSE'|'RESOLUTION';escalationLevel:number;recipientRoleKey:string;status:'OPEN'|'ACKNOWLEDGED';escalatedAt:string;acknowledgedBy:string|null;acknowledgedAt:string|null;acknowledgementNote:string|null};
 const stamp=(v:string)=>new Date(v).toLocaleString();
 const transitions=(s:string)=>s==='SCHEDULED'?['IN_PROGRESS','CANCELLED']:s==='IN_PROGRESS'?['COMPLETED','CANCELLED']:[];
 export default function VendorServiceVisits(){
@@ -14,6 +16,9 @@ export default function VendorServiceVisits(){
  const canAssign=grants.has('SERVICE_ASSIGN'),canUpdate=grants.has('SERVICE_UPDATE'),canResolve=grants.has('SERVICE_RESOLVE');
  const [visits,setVisits]=useState<Visit[]>([]),[claims,setClaims]=useState<CaseRow[]>([]),[requests,setRequests]=useState<CaseRow[]>([]);
  const [slaCases,setSlaCases]=useState<SlaCase[]>([]),[slaPolicies,setSlaPolicies]=useState<SlaPolicy[]>([]);
+ const [escalationPolicies,setEscalationPolicies]=useState<EscalationPolicy[]>([]),[escalations,setEscalations]=useState<Escalation[]>([]);
+ const [escalationDraft,setEscalationDraft]=useState({caseType:'SERVICE_REQUEST',priority:'NORMAL',breachType:'RESPONSE',escalationLevel:'1',afterMinutes:'0',recipientRoleKey:'SERVICE_MANAGER',enabled:true});
+ const [ackNotes,setAckNotes]=useState<Record<number,string>>({});
  const [slaDrafts,setSlaDrafts]=useState<Record<string,{response:string;resolution:string;reason:string}>>({});
  const [assignees,setAssignees]=useState<string[]>([]),[details,setDetails]=useState<Record<number,Detail>>({});
  const [caseType,setCaseType]=useState<'WARRANTY_CLAIM'|'SERVICE_REQUEST'>('SERVICE_REQUEST'),[caseId,setCaseId]=useState('');
@@ -25,13 +30,14 @@ export default function VendorServiceVisits(){
  const refresh=useCallback(async()=>{
   setBusy(true);setError('');
   try{
-   const [v,c,r,a,sla,policies]=await Promise.all([
+   const [v,c,r,a,sla,policies,escalationRules,escalationQueue]=await Promise.all([
     vendorApi('/service-visits') as Promise<Visit[]>,vendorApi('/warranty-claims') as Promise<CaseRow[]>,
     vendorApi('/service-requests') as Promise<CaseRow[]>,canAssign?vendorApi('/service-visits/assignees') as Promise<string[]>:Promise.resolve([]),
-    vendorApi('/service-sla') as Promise<SlaCase[]>,vendorApi('/service-sla/policies') as Promise<SlaPolicy[]>
+    vendorApi('/service-sla') as Promise<SlaCase[]>,vendorApi('/service-sla/policies') as Promise<SlaPolicy[]>,
+    vendorApi('/service-sla/escalation-policies') as Promise<EscalationPolicy[]>,vendorApi('/service-sla/escalations') as Promise<Escalation[]>
    ]);
    setVisits(v);setClaims(c);setRequests(r);setAssignees(a);setAssignee(x=>x||a[0]||'');
-   setSlaCases(sla);setSlaPolicies(policies);
+   setSlaCases(sla);setSlaPolicies(policies);setEscalationPolicies(escalationRules);setEscalations(escalationQueue);
   }catch(e){setError((e as Error).message||'Engineer visits could not be loaded.');}
   finally{setBusy(false);}
  },[canAssign]);
@@ -83,6 +89,28 @@ export default function VendorServiceVisits(){
   }catch(e){setError((e as Error).message||'SLA policy could not be saved.');}
   finally{setBusy(false);}
  }
+
+ async function saveEscalationPolicy(e:FormEvent){
+  e.preventDefault();setBusy(true);setError('');setNotice('');
+  try{
+   await vendorApi('/service-sla/escalation-policies','PUT',{
+    caseType:escalationDraft.caseType,priority:escalationDraft.caseType==='WARRANTY_CLAIM'?'NORMAL':escalationDraft.priority,
+    breachType:escalationDraft.breachType,escalationLevel:Number(escalationDraft.escalationLevel),
+    afterMinutes:Number(escalationDraft.afterMinutes),recipientRoleKey:escalationDraft.recipientRoleKey,enabled:escalationDraft.enabled
+   });
+   setNotice('SLA escalation policy saved.');await refresh();
+  }catch(x){setError((x as Error).message||'Escalation policy could not be saved.');}
+  finally{setBusy(false);}
+ }
+ async function acknowledgeEscalation(id:number){
+  const note=(ackNotes[id]??'').trim();if(!note)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   await vendorApi('/service-sla/escalations/'+encodeURIComponent(id)+'/acknowledge','POST',{note});
+   setAckNotes(x=>({...x,[id]:''}));setNotice('Escalation acknowledged.');await refresh();
+  }catch(x){setError((x as Error).message||'Escalation could not be acknowledged.');}
+  finally{setBusy(false);}
+ }
  async function saveNote(v:Visit){
   const note=(report[v.id]??'').trim();if(!note)return;
   setBusy(true);setError('');setNotice('');
@@ -120,6 +148,34 @@ export default function VendorServiceVisits(){
      </form>:<p>{p.configured?`Response ${p.responseTargetMinutes} min · Resolution ${p.resolutionTargetMinutes} min`:'Awaiting service manager configuration'}</p>}
     </article>;
    })}
+
+   <h4>Escalation policies</h4>
+   <p>Rules create durable, idempotent escalation records after a response or resolution breach. Outbox events are emitted for configured recipient roles.</p>
+   {escalationPolicies.map(p=><article key={p.id}>
+    <strong>{p.caseType.replaceAll('_',' ')} · {p.priority} · {p.breachType} · Level {p.escalationLevel}</strong>
+    <p>{p.enabled?'Enabled':'Disabled'} · After {p.afterMinutes} minutes · Recipient role: {p.recipientRoleKey}</p>
+   </article>)}
+   {canAssign&&<form onSubmit={saveEscalationPolicy}>
+    <h5>Add or update escalation level</h5>
+    <label>Case type<select value={escalationDraft.caseType} onChange={e=>setEscalationDraft(x=>({...x,caseType:e.target.value,priority:e.target.value==='WARRANTY_CLAIM'?'NORMAL':x.priority}))}><option value="SERVICE_REQUEST">Service request</option><option value="WARRANTY_CLAIM">Warranty claim</option></select></label>
+    <label>Priority<select disabled={escalationDraft.caseType==='WARRANTY_CLAIM'} value={escalationDraft.priority} onChange={e=>setEscalationDraft(x=>({...x,priority:e.target.value}))}>{['LOW','NORMAL','HIGH','URGENT'].map(v=><option key={v}>{v}</option>)}</select></label>
+    <label>Breach type<select value={escalationDraft.breachType} onChange={e=>setEscalationDraft(x=>({...x,breachType:e.target.value}))}><option value="RESPONSE">Response</option><option value="RESOLUTION">Resolution</option></select></label>
+    <label>Escalation level<input type="number" min="1" max="5" required value={escalationDraft.escalationLevel} onChange={e=>setEscalationDraft(x=>({...x,escalationLevel:e.target.value}))}/></label>
+    <label>Minutes after breach<input type="number" min="0" max="525600" required value={escalationDraft.afterMinutes} onChange={e=>setEscalationDraft(x=>({...x,afterMinutes:e.target.value}))}/></label>
+    <label>Recipient role<select value={escalationDraft.recipientRoleKey} onChange={e=>setEscalationDraft(x=>({...x,recipientRoleKey:e.target.value}))}><option value="VENDOR_ADMIN">Vendor Admin</option><option value="SERVICE_MANAGER">Service Manager</option><option value="SERVICE_LEAD">Service Lead</option></select></label>
+    <label><input type="checkbox" checked={escalationDraft.enabled} onChange={e=>setEscalationDraft(x=>({...x,enabled:e.target.checked}))}/> Enabled</label>
+    <button disabled={busy}>Save escalation policy</button>
+   </form>}
+   <h4>Escalation queue</h4>
+   {escalations.length===0?<p>No SLA escalations have been generated.</p>:escalations.map(e=><article key={e.id}>
+    <strong>{e.status} · {e.caseType.replaceAll('_',' ')} #{e.caseId} · {e.breachType} · Level {e.escalationLevel}</strong>
+    <p>Recipient role: {e.recipientRoleKey} · Escalated {stamp(e.escalatedAt)}</p>
+    {e.status==='OPEN'&&canUpdate&&<form onSubmit={event=>{event.preventDefault();void acknowledgeEscalation(e.id);}}>
+     <label>Acknowledgement note<textarea required maxLength={500} rows={2} value={ackNotes[e.id]??''} onChange={event=>setAckNotes(x=>({...x,[e.id]:event.target.value}))}/></label>
+     <button disabled={busy||!(ackNotes[e.id]??'').trim()}>Acknowledge escalation</button>
+    </form>}
+    {e.status==='ACKNOWLEDGED'&&<p>Acknowledged by {e.acknowledgedBy} · {e.acknowledgementNote}</p>}
+   </article>)}
   </section>
   {canAssign&&<section aria-label="Schedule engineer visit"><h3>Schedule a visit</h3><form onSubmit={create}>
    <label>Case type<select value={caseType} onChange={e=>{setCaseType(e.target.value as typeof caseType);setCaseId('');}}><option value="SERVICE_REQUEST">General service request</option><option value="WARRANTY_CLAIM">Warranty claim</option></select></label>

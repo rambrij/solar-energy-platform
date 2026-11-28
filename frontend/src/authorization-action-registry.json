@@ -3763,6 +3763,42 @@
       "method": "GET",
       "endpoint": "/api/v1/vendor/online-returns",
       "backendOperation": "GET /api/v1/vendor/online-returns"
+    },
+    {
+      "id": "customer-online-returns-submit",
+      "component": "CustomerOnlineReturns.tsx",
+      "trigger": "submit",
+      "actor": "CUSTOMER",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "method": "POST",
+      "endpoint": "/api/v1/customer/online-returns",
+      "backendOperation": "POST /api/v1/customer/online-returns"
+    },
+    {
+      "id": "vendor-online-returns-policy-save",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "submit",
+      "actor": "VENDOR",
+      "permissions": [
+        "RETURN_APPROVE"
+      ],
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/online-returns/policy",
+      "backendOperation": "PUT /api/v1/vendor/online-returns/policy"
+    },
+    {
+      "id": "vendor-online-returns-review",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "submit",
+      "actor": "VENDOR",
+      "permissions": [
+        "RETURN_APPROVE"
+      ],
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/online-returns/{id}/decision",
+      "backendOperation": "POST /api/v1/vendor/online-returns/{id}/decision"
     }
   ],
   "buttons": [
@@ -4527,6 +4563,36 @@
       "component": "VendorServiceVisits.tsx",
       "trigger": "submit",
       "backendOperation": "PUT /api/v1/vendor/service-sla/policies"
+    },
+    {
+      "id": "customer-online-returns-load",
+      "component": "CustomerOnlineReturns.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/customer/online-returns"
+    },
+    {
+      "id": "customer-online-returns-submit",
+      "component": "CustomerOnlineReturns.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/customer/online-returns"
+    },
+    {
+      "id": "vendor-online-returns-load",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "button",
+      "backendOperation": "GET /api/v1/vendor/online-returns"
+    },
+    {
+      "id": "vendor-online-returns-policy-save",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/vendor/online-returns/policy"
+    },
+    {
+      "id": "vendor-online-returns-review",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "submit",
+      "backendOperation": "POST /api/v1/vendor/online-returns/{id}/decision"
     }
   ],
   "dynamicRouteParameters": {

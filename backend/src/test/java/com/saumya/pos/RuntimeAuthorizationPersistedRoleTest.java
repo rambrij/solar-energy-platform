@@ -616,14 +616,17 @@ class RuntimeAuthorizationPersistedRoleTest {
                     if (controllerType.getSimpleName().equals("OnlineOrderController")) {
                         if (handler.getMethod().getName().equals("createCustomer")) {
                             request.header("Idempotency-Key", "runtime-return-key-01")
-                                .contentType(APPLICATION_JSON).content(
-                                    "{\\"orderId\\":\\"order-1\\",\\"items\\":[{\\"productId\\":1,\\"quantity\\":1}],\\"reason\\":\\"Runtime authorization probe\\"}");
+                                .contentType(APPLICATION_JSON).content("""
+                                    {"orderId":"order-1","items":[{"productId":1,"quantity":1}],"reason":"Runtime authorization probe"}
+                                    """);
                         } else if (handler.getMethod().getName().equals("vendorDecision")) {
-                            request.contentType(APPLICATION_JSON).content(
-                                "{\\"expectedVersion\\":0,\\"decision\\":\\"APPROVED\\",\\"reason\\":\\"Runtime authorization probe\\",\\"customerMessage\\":\\"Reviewed\\\"}");
+                            request.contentType(APPLICATION_JSON).content("""
+                                {"expectedVersion":0,"decision":"APPROVED","reason":"Runtime authorization probe","customerMessage":"Reviewed"}
+                                """);
                         } else if (handler.getMethod().getName().equals("updatePolicy")) {
-                            request.contentType(APPLICATION_JSON).content(
-                                "{\\"expectedVersion\\":0,\\"returnWindowDays\\":14,\\"reason\\":\\"Runtime authorization probe\\"}");
+                            request.contentType(APPLICATION_JSON).content("""
+                                {"expectedVersion":0,"returnWindowDays":14,"reason":"Runtime authorization probe"}
+                                """);
                         }
                     }
 

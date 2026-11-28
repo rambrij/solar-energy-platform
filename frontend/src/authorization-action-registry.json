@@ -3799,6 +3799,18 @@
       "method": "POST",
       "endpoint": "/api/v1/vendor/online-returns/{id}/decision",
       "backendOperation": "POST /api/v1/vendor/online-returns/{id}/decision"
+    },
+    {
+      "id": "vendor-online-returns-policy-read",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "load",
+      "actor": "VENDOR",
+      "permissions": [
+        "RETURN_VIEW"
+      ],
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/online-returns/policy",
+      "backendOperation": "GET /api/v1/vendor/online-returns/policy"
     }
   ],
   "buttons": [

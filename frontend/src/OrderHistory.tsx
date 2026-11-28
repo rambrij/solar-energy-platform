@@ -8,6 +8,7 @@ import OnlineReceipt from './OnlineReceipt';
 type Order = { id: string; vendorName: string; channel: string; status: string; paymentState: string; createdAt: string; expiresAt: string | null; total: number; receiptNumber: number | null; taxInvoice: boolean };
 type Page = { items: Order[]; page: number; size: number; totalElements: number; totalPages: number };
 type Tracking = {id:number;carrier:string;trackingReference:string;trackingUrl:string|null;createdAt:string;events:{id:number;eventCode:string;description:string;occurredAt:string}[]};
+type CustomerSerialAsset={productId:number;productName:string;serialNumber:string;recordedAt:string};
 type CustomerReturnStatus = {id:string;state:string;requestedAt:string;reviewedAt:string|null;inspectedAt:string|null;cashRefundStatus:string;cashRefundAmount:number|null;cashRefundedAt:string|null;items:{name:string;quantity:number}[]};
 type CustomerReturnHistory = {orderId:string;returns:CustomerReturnStatus[]};
 type Detail = { order: Order; items: { productId: number; name: string; quantity: number; unitPrice: number; tax: number; total: number; discount?: number }[]; cashReceived: number | null; changeGiven: number | null; cancellationReason: string | null; statusChangedAt: string | null };
@@ -21,6 +22,7 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
   const canOpenPosReceipt=mode==='online'||!!account?.permissions.includes('POS_RECEIPT_VIEW');
   const [onlineReceipt,setOnlineReceipt]=useState<{orderId:string;channel:string}>();
   const [tracking,setTracking]=useState<Tracking[]>([]);
+  const [serialAssets,setSerialAssets]=useState<CustomerSerialAsset[]>([]);
   const [customerReturns,setCustomerReturns]=useState<CustomerReturnStatus[]>([]);
   const [customerReturnError,setCustomerReturnError]=useState('');
   const [customerReturnLoading,setCustomerReturnLoading]=useState(false);
@@ -58,15 +60,18 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
   }
   async function inspect(id: string) {
     const current = ++version.current; setBusy(true); setError(''); setDetail(undefined);
-    setTracking([]); setCustomerReturns([]); setCustomerReturnError(''); setCustomerReturnLoading(false);
+    setTracking([]); setSerialAssets([]); setCustomerReturns([]); setCustomerReturnError(''); setCustomerReturnLoading(false);
     try {
       const value: Detail = await request(`/${encodeURIComponent(id)}`);
       if (current === version.current) {
         setDetail(value);
         if (mode === 'online' && value.order.channel === 'ONLINE') {
           try {
-            const trackingRows: Tracking[] = await marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/shipments`);
-            if (current === version.current) setTracking(trackingRows);
+            const [trackingRows,serialRows] = await Promise.all([
+              marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/shipments`) as Promise<Tracking[]>,
+              marketplaceApi(`/api/v1/customer/orders/${encodeURIComponent(id)}/serial-assets`) as Promise<CustomerSerialAsset[]>
+            ]);
+            if (current === version.current) { setTracking(trackingRows); setSerialAssets(serialRows); }
           } catch {
             if (current === version.current) setTracking([]);
           }
@@ -103,7 +108,8 @@ export default function OrderHistory({ mode, onReceipt, onReturn }: { mode: 'pos
       {detail.cashReceived !== null && <p>Cash received {money(detail.cashReceived)} · Change {money(detail.changeGiven ?? 0)}</p>}
       {detail.cancellationReason && <p>Cancellation reason: {detail.cancellationReason}</p>}
       {detail.order.status === 'DRAFT' && <p>Unpaid reservation · Expires {date(detail.order.expiresAt)}. Manage it in reserved drafts above.</p>}
-      {mode==='online'&&detail.order.channel==='ONLINE'&&<section aria-label="Shipment tracking"><h4>Shipment tracking</h4>{tracking.length===0?<p>No shipment has been registered for this order yet.</p>:tracking.map(shipment=><article key={shipment.id}><h5>{shipment.carrier}</h5><p>Tracking reference: {shipment.trackingReference}</p>{shipment.trackingUrl&&<a href={shipment.trackingUrl} target="_blank" rel="noreferrer">Open carrier tracking</a>}<ol>{shipment.events.map(event=><li key={event.id}><strong>{event.eventCode.replaceAll('_',' ')}</strong> · {event.description} · {date(event.occurredAt)}</li>)}</ol></article>)}</section>}
+      {mode==='online'&&detail.order.channel==='ONLINE'&&<section aria-label="Serialized product traceability"><h4>Serialized product units</h4>{serialAssets.length===0?<p>No serial numbers have been recorded for this order yet.</p>:<ul>{serialAssets.map((asset,index)=><li key={asset.productId+'-'+asset.serialNumber+'-'+index}>{asset.productName} — Serial number {asset.serialNumber}</li>)}</ul>}</section>}
+    {mode==='online'&&detail.order.channel==='ONLINE'&&<section aria-label="Shipment tracking"><h4>Shipment tracking</h4>{tracking.length===0?<p>No shipment has been registered for this order yet.</p>:tracking.map(shipment=><article key={shipment.id}><h5>{shipment.carrier}</h5><p>Tracking reference: {shipment.trackingReference}</p>{shipment.trackingUrl&&<a href={shipment.trackingUrl} target="_blank" rel="noreferrer">Open carrier tracking</a>}<ol>{shipment.events.map(event=><li key={event.id}><strong>{event.eventCode.replaceAll('_',' ')}</strong> · {event.description} · {date(event.occurredAt)}</li>)}</ol></article>)}</section>}
       {mode==='online'&&detail.order.channel==='IN_STORE'&&detail.order.status==='PAID'&&<section aria-label="Return and refund status">
         <div className="section-heading"><h4>Return and refund status</h4></div>
         {customerReturnError

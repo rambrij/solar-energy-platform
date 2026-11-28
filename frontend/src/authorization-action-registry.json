@@ -4857,14 +4857,6 @@
         "solar-package-create"
       ]
     },
-    "StockReceiving.tsx:14": {
-      "fn": "vendorApi",
-      "argument": "kind==='products'?`/products?page=${page}&size=20${filter?`&q=${encodeURIComponent(filter)}`:''}`:`/inventory/receipts?page=${page}&size=20${filter?`&productId=${encodeURIComponent(filter)}`: ''}`",
-      "actions": [
-        "pos-stock-products-list",
-        "pos-stock-list"
-      ]
-    },
     "TerminalTenderReview.tsx:11": {
       "fn": "api",
       "argument": "id?`/payments/review/${encodeURIComponent(id)}`:'/payments/awaiting-review'",
@@ -4981,6 +4973,14 @@
       "argument": "path",
       "actions": [
         "vendor-shipment-serial-assets-list"
+      ]
+    },
+    "StockReceiving.tsx:15": {
+      "fn": "vendorApi",
+      "argument": "kind==='products'?`/products?page=${page}&size=20${filter?`&q=${encodeURIComponent(filter)}`:''}`:`/inventory/receipts?page=${page}&size=20${filter?`&productId=${encodeURIComponent(filter)}`: ''}`",
+      "actions": [
+        "pos-stock-products-list",
+        "pos-stock-list"
       ]
     }
   },

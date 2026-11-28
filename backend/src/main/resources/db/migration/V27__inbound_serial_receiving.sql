@@ -32,11 +32,16 @@ CREATE TABLE inventory_receipt_serial_assets (
 );
 
 ALTER TABLE shipment_serial_assets
-  ADD COLUMN receipt_serial_asset_id BIGINT NULL,
-  ADD CONSTRAINT uk_shipment_serial_asset_receipt_source UNIQUE (tenant_id,receipt_serial_asset_id),
+  ADD COLUMN receipt_serial_asset_id BIGINT NULL;
+
+ALTER TABLE shipment_serial_assets
+  ADD CONSTRAINT uk_shipment_serial_asset_receipt_source
+  UNIQUE (tenant_id,receipt_serial_asset_id);
+
+ALTER TABLE shipment_serial_assets
   ADD CONSTRAINT fk_shipment_serial_asset_receipt_source
-    FOREIGN KEY (tenant_id,receipt_serial_asset_id,product_id)
-    REFERENCES inventory_receipt_serial_assets (tenant_id,id,product_id);
+  FOREIGN KEY (tenant_id,receipt_serial_asset_id,product_id)
+  REFERENCES inventory_receipt_serial_assets (tenant_id,id,product_id);
 
 /*!80000 CREATE TRIGGER trg_inventory_receipt_serial_assets_no_update BEFORE UPDATE ON inventory_receipt_serial_assets FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Received serial identity is immutable' */;
 /*!80000 CREATE TRIGGER trg_inventory_receipt_serial_assets_no_delete BEFORE DELETE ON inventory_receipt_serial_assets FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Received serial identity is append-only' */;

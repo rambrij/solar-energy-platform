@@ -4692,7 +4692,15 @@
         "vendor-claim-resolution"
       ]
     },
-    "WarehouseTransfers.tsx:53": {
+    "WarehouseTransfers.tsx:47": {
+      "fn": "vendorApi",
+      "argument": "'/inventory/warehouses/'+editing.id",
+      "methodArgument": "'PATCH'",
+      "actions": [
+        "warehouse-update"
+      ]
+    },
+    "WarehouseTransfers.tsx:69": {
       "fn": "vendorApi",
       "argument": "path",
       "methodArgument": "'POST'",
@@ -4703,14 +4711,14 @@
         "transfer-receive"
       ]
     },
-    "WarehouseTransfers.tsx:59": {
+    "WarehouseTransfers.tsx:75": {
       "fn": "vendorApi",
       "argument": "'/inventory/warehouses/'+id",
       "actions": [
         "warehouse-stock-list"
       ]
     },
-    "WarehouseTransfers.tsx:65": {
+    "WarehouseTransfers.tsx:81": {
       "fn": "vendorApi",
       "argument": "'/inventory/transfers/'+encodeURIComponent(id)",
       "actions": [

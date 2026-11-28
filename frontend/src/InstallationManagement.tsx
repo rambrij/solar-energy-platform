@@ -4,7 +4,7 @@ import {useSession} from './session';
 
 type Job={id:number;orderId:string;siteAddress:string;scheduledAt:string;status:string;assignedTo:string;createdAt:string;updatedAt:string;completedAt:string|null;version:number};
 type Event={id:number;type:string;status:string;note:string;actorUsername:string;occurredAt:string};
-type Detail={job:Job;events:Event[]};
+type Detail={job:Job;events:Event[];serialAssets:{id:number;productId:number;productName:string;serialNumber:string;shipmentId:number;recordedAt:string}[]};
 type Eligible={orderId:string;orderedAt:string;total:number|string};
 
 const localDateTime=(value:string)=>new Date(value).toLocaleString();
@@ -143,10 +143,10 @@ export default function InstallationManagement(){
     <p><strong>{job.status.replaceAll('_',' ')}</strong> · Assigned to {job.assignedTo}</p>
     <p>{job.siteAddress}</p><p>Scheduled: {localDateTime(job.scheduledAt)}</p>
     <button type="button" className="secondary" disabled={busy} onClick={()=>void showDetails(job.id)}>View progress history</button>
-    {details[job.id]&&<ol>{details[job.id].events.map(event=><li key={event.id}>
+    {details[job.id]&&<><ol>{details[job.id].events.map(event=><li key={event.id}>
       <strong>{event.type.replaceAll('_',' ')}</strong> · {event.status.replaceAll('_',' ')} · {event.note}
       <small> {localDateTime(event.occurredAt)}</small>
-    </li>)}</ol>}
+    </li>)}</ol><section aria-label="Serialized products linked to installation"><h5>Serialized products</h5>{details[job.id].serialAssets.length===0?<p>No serial numbers linked to this installation.</p>:<ul>{details[job.id].serialAssets.map(asset=><li key={asset.id}>{asset.productName} — {asset.serialNumber} · Shipment #{asset.shipmentId}</li>)}</ul>}</section></>}
     {canAssign&&job.status!=='COMPLETED'&&job.status!=='CANCELLED'&&<form onSubmit={e=>{e.preventDefault();void changeAssignment(job);}}>
      <h5>Reassign or reschedule</h5>
      <label>Engineer

@@ -647,14 +647,14 @@
       ],
       "authority": "Interactive policy, queue and acknowledgement SQL derives tenant scope from the active AuthorizationContext. Scheduled due processing receives a persisted TenantSummary from TenantLifecycleService.activeVendors; createDueEscalations receives only the tenant ID forwarded from that trusted TenantSummary. Every tenant-owned SQL statement binds tenant_id from these sources, never from request input. Email recipient resolution receives tenant_id only from the persisted tenant-owned integration outbox event, checks that the tenant is ACTIVE, then joins enabled employees, enabled/verified global identities, active employee-role assignments and active tenant roles before returning usernames as email addresses.",
       "evidence": [
+        "TenantLifecycleService.TenantSummary",
+        "WHERE tenant_id=?",
         "authorization.current()",
         "current.tenantId()",
         "current.username()",
-        "TenantLifecycleService.TenantSummary",
+        "resolveEscalationRecipients",
         "tenant.id()",
-        "tenantId",
-        "WHERE tenant_id=?",
-        "IntegrationOutboxService.Event.tenant()"
+        "tenantId"
       ],
       "trustedTenantParameters": {
         "createDueEscalations": [

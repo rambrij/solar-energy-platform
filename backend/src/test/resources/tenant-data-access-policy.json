@@ -1170,6 +1170,24 @@
       ]
     },
     {
+      "callee": "com.saumya.pos.installation.InstallationService#serialAssets",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.installation.InstallationService#customerGet",
+          "expression": "owner.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.installation.InstallationService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
       "callee": "com.saumya.pos.marketplace.MarketplaceEnquiryService#isActiveLeadAssignee",
       "parameter": "tenant",
       "callers": [
@@ -2085,6 +2103,13 @@
       "variable": "tenant",
       "initializer": "orders.customerOrderTenant(username,orderId)",
       "authority": "OrderHistoryService resolves the authenticated global customer's paid ONLINE order by the customer's verified identity; the tenant is taken from that persisted owned order reference, never from request data, before locking and checking the tenant policy, shipment delivery, order lines and return records."
+    },
+    {
+      "class": "com.saumya.pos.fulfillment.ShipmentService",
+      "method": "customerSerialAssets",
+      "variable": "tenant",
+      "initializer": "orderHistory.customerOrderTenant(username,orderId)",
+      "authority": "OrderHistoryService.customerOrderTenant verifies the authenticated global customer owns the persisted order and derives tenant scope from that order; the customer request cannot provide a tenant identifier."
     }
   ]
 }

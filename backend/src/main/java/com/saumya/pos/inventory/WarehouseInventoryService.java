@@ -71,6 +71,7 @@ public class WarehouseInventoryService {
         String normalizedName=required(name,160,"Warehouse name");
         String why=required(reason,500,"Reason");
         lockTenant(a.tenantId());
+        requireWarehouseCapacity(a.tenantId());
         jdbc.update("""
             INSERT INTO warehouses(tenant_id,branch_id,code,name,active,created_by,updated_by,created_at,updated_at,version)
             VALUES(?,?,?,?,TRUE,?,?,?,?,0)
@@ -312,6 +313,19 @@ public class WarehouseInventoryService {
         if(rows.isEmpty()||rows.getFirst()>Integer.MAX_VALUE-quantity)conflict("Warehouse stock capacity exceeded");
         jdbc.update("UPDATE warehouse_inventory SET on_hand=on_hand+?,version=version+1 WHERE tenant_id=? AND warehouse_id=? AND product_id=?",
             quantity,tenant,warehouse,product);
+    }
+
+    private void requireWarehouseCapacity(long tenant) {
+        var limits=jdbc.query("""
+            SELECT v.max_warehouses FROM tenant_subscriptions s
+            JOIN subscription_plan_versions v ON v.plan_id=s.plan_id AND v.version=s.plan_version
+            WHERE s.tenant_id=? ORDER BY s.created_at DESC,s.id DESC LIMIT 1
+            """,(rs,n)->rs.getInt(1),tenant);
+        if(limits.isEmpty()||limits.getFirst()<1)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"The active tenant plan does not include warehouse capacity");
+        Integer current=jdbc.queryForObject("SELECT COUNT(*) FROM warehouses WHERE tenant_id=?",Integer.class,tenant);
+        if(current==null||current>=limits.getFirst())
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Tenant warehouse limit has been reached");
     }
 
     private void lockTenant(long tenant) {

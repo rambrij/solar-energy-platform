@@ -2315,6 +2315,30 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_ONLY",
       "assignment": "RETURN_APPROVE; tenant lock, optimistic version, 0..365 days, reason and immutable policy event",
       "runtimeTest": "OnlineReturnControllerAuthorizationTest"
+    },
+    "ServiceSlaEscalationController#policies": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SLA_ESCALATION_POLICY_SCOPE",
+      "assignment": "SERVICE_VIEW; return only escalation policies owned by the authenticated tenant",
+      "runtimeTest": "ServiceSlaEscalationControllerAuthorizationTest#serviceViewCanReadPoliciesAndEscalationQueue"
+    },
+    "ServiceSlaEscalationController#savePolicy": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SLA_ESCALATION_POLICY_MUTATION_SCOPE",
+      "assignment": "SERVICE_ASSIGN; policy levels, recipient role and delay are validated; mandatory reason is append-only audited",
+      "runtimeTest": "ServiceSlaEscalationControllerAuthorizationTest#serviceAssignCanSaveAnEscalationPolicy"
+    },
+    "ServiceSlaEscalationController#queue": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_SLA_ESCALATION_QUEUE_SCOPE",
+      "assignment": "SERVICE_VIEW; return only escalations belonging to the authenticated tenant and expose acknowledgement state",
+      "runtimeTest": "ServiceSlaEscalationControllerAuthorizationTest#serviceViewCanReadPoliciesAndEscalationQueue"
+    },
+    "ServiceSlaEscalationController#acknowledge": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_VENDOR_TENANT_ESCALATION_ACKNOWLEDGEMENT_SCOPE",
+      "assignment": "SERVICE_UPDATE; lock and acknowledge only the tenant-owned escalation, requiring a note and append-only event",
+      "runtimeTest": "ServiceSlaEscalationControllerAuthorizationTest#serviceUpdateCanAcknowledgeEscalation"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

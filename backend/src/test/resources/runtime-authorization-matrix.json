@@ -2273,6 +2273,12 @@
       "scope": "AUTHENTICATED_TENANT_AND_ACTIVE_BRANCH; TENANT_QUALIFIED_WAREHOUSE_AND_PRODUCT",
       "assignment": "ACTIVE_BRANCH_WAREHOUSE_ONLY",
       "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
+    },
+    "WarehouseInventoryController#cancel": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_TENANT_AND_SOURCE_BRANCH; TENANT_QUALIFIED_TRANSFER",
+      "assignment": "SOURCE_BRANCH_ONLY; DRAFT_CREATOR_OR_APPROVED_TRANSFER_MANAGER; UNDISPATCHED_STATE",
+      "runtimeTest": "WarehouseInventoryControllerAuthorizationTest; WarehouseInventoryServiceAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

@@ -48,6 +48,31 @@ class InstallationServiceAuthorizationBoundaryTest {
     }
 
     @Test
+    void engineerWithoutInstallationUpdateCannotCompleteChecklistBeforeAnyDatabaseOrOutboxAccess() {
+        vendorContext(Set.of("INSTALLATION_VIEW"));
+        assertThatThrownBy(()->service().completeChecklistItem(11,"SITE_READINESS",
+            new InstallationService.ChecklistCompletion(0,"Site readiness checked")))
+            .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(db,orders,eventOutbox);
+    }
+
+    @Test
+    void commissioningIsRejectedBeforeWritesWhileRequiredChecklistItemsRemain() {
+        vendorContext(Set.of("INSTALLATION_VIEW","INSTALLATION_UPDATE","INSTALLATION_COMMISSION"));
+        when(db.queryForList(contains("FOR UPDATE"),eq(7L),eq(11L))).thenReturn(List.of(Map.of(
+            "id",11L,"order_id","order-1","status","IN_PROGRESS",
+            "assigned_to","engineer@vendor.test","version",0L)));
+        when(db.queryForObject(contains("SELECT COUNT(*)"),eq(Integer.class),eq(7L),eq(11L)))
+            .thenReturn(2);
+        assertThatThrownBy(()->service().updateStatus(11,
+            new InstallationService.StatusChange(0,"COMPLETED","Commission checks recorded")))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                error->assertThat(error.getStatusCode().value()).isEqualTo(409));
+        verify(db,never()).update(anyString(),any(Object[].class));
+        verifyNoInteractions(eventOutbox);
+    }
+
+    @Test
     void customerListUsesOnlyPaidOrderReferencesReturnedForTheCustomer() {
         var reference=new OrderHistoryService.CustomerOrderReference("owned-order",7L,"Vendor");
         when(orders.customerPaidOnlineOrderReferences("customer@example.test")).thenReturn(List.of(reference));

@@ -54,7 +54,22 @@ public class InstallationService {
             String actorUsername,Instant occurredAt) {}
     public record InstallationSerialAsset(long id,long productId,String productName,String serialNumber,
             long shipmentId,Instant recordedAt) {}
-    public record Detail(Job job,List<Event> events,List<InstallationSerialAsset> serialAssets) {}
+    public record Detail(Job job,List<Event> events,List<InstallationSerialAsset> serialAssets,
+            List<ChecklistItem> checklist) {}
+    public record ChecklistCompletion(long expectedVersion,String evidenceNote) {}
+    public record ChecklistItem(String itemKey,String label,boolean required,boolean completed,
+            String completedBy,Instant completedAt,String evidenceNote) {}
+    private record ChecklistDefinition(String itemKey,String label,int sortOrder) {}
+    private static final List<ChecklistDefinition> CHECKLIST_DEFINITIONS=List.of(
+        new ChecklistDefinition("SITE_READINESS","Site readiness and customer access are confirmed against the approved survey and design",10),
+        new ChecklistDefinition("ORDER_EQUIPMENT_MATCH","Equipment and serialized products match the approved order and records",20),
+        new ChecklistDefinition("MOUNTING_MODULES_VERIFIED","Mounting system and modules are verified against the approved design by a qualified installer",30),
+        new ChecklistDefinition("ELECTRICAL_WORK_VERIFIED","Electrical connections and protection are verified by a qualified professional against the approved design",40),
+        new ChecklistDefinition("EARTHING_SAFETY_VERIFIED","Earthing and applicable safety checks are verified by a qualified professional",50),
+        new ChecklistDefinition("INVERTER_COMMISSIONING_VERIFIED","Inverter configuration and commissioning results are verified against the approved plan",60),
+        new ChecklistDefinition("MONITORING_CONNECTED","Monitoring and telemetry connectivity are confirmed",70),
+        new ChecklistDefinition("CUSTOMER_HANDOVER_COMPLETED","Customer handover and required documentation are completed",80)
+    );
     public record CustomerJob(long id,String orderId,String siteAddress,Instant scheduledAt,
             String status,Instant createdAt,Instant updatedAt,Instant completedAt) {}
     public record CustomerEvent(long id,String type,String status,String note,Instant occurredAt) {}
@@ -160,6 +175,7 @@ public class InstallationService {
         long id=db.queryForObject("""
             SELECT id FROM installation_jobs WHERE tenant_id=? AND order_id=?
             """,Long.class,actor.tenantId(),orderId);
+        seedChecklist(actor,id);
         linkSerialAssets(actor,id,orderId);
         append(actor,id,"CREATED","ASSIGNED","Installation job created",reason,false,now);
         append(actor,id,"ASSIGNED","ASSIGNED","Installation assigned to an engineer",reason,true,now);
@@ -195,6 +211,54 @@ public class InstallationService {
         return findVendor(actor,id);
     }
 
+    public Detail completeChecklistItem(long id,String itemKey,ChecklistCompletion request) {
+        var actor=vendor("INSTALLATION_UPDATE");
+        if(id<=0||request==null)throw bad("Installation ID and checklist evidence are required");
+        String key=itemKey==null?"":itemKey.strip().toUpperCase(Locale.ROOT);
+        if(!key.matches("[A-Z][A-Z0-9_]{2,63}"))throw bad("Checklist item is invalid");
+        String evidence=clean(request.evidenceNote(),1000,"Checklist evidence note");
+        Map<String,Object> row=lockJob(actor,id);
+        requireJobScope(actor,(String)row.get("assigned_to"));
+        if(!"IN_PROGRESS".equals(row.get("status")))
+            throw conflict("Start the installation before completing checklist items");
+        if(((Number)row.get("version")).longValue()!=request.expectedVersion())
+            throw conflict("Installation changed; reload before saving");
+        Map<String,Object> item=db.queryForList("""
+            SELECT item_key,required,completed
+            FROM installation_checklist_items
+            WHERE tenant_id=? AND installation_id=? AND item_key=? FOR UPDATE
+            """,actor.tenantId(),id,key).stream().findFirst().orElseThrow(this::missing);
+        if(Boolean.TRUE.equals(item.get("completed")))
+            throw conflict("This checklist item has already been completed");
+        Integer incomplete=db.queryForObject("""
+            SELECT COUNT(*) FROM installation_checklist_items
+            WHERE tenant_id=? AND installation_id=? AND required=TRUE AND completed=FALSE
+            """,Integer.class,actor.tenantId(),id);
+        if(incomplete==null||incomplete<1)
+            throw conflict("The required installation checklist is unavailable");
+        Instant now=clock.instant();
+        int itemChanged=db.update("""
+            UPDATE installation_checklist_items
+            SET completed=TRUE,completed_by=?,completed_at=?,evidence_note=?
+            WHERE tenant_id=? AND installation_id=? AND item_key=? AND completed=FALSE
+            """,actor.username(),Timestamp.from(now),evidence,actor.tenantId(),id,key);
+        if(itemChanged!=1)throw conflict("Checklist item changed; reload before saving");
+        int jobChanged=db.update("""
+            UPDATE installation_jobs SET updated_by=?,updated_at=?,version=version+1
+            WHERE tenant_id=? AND id=? AND version=? AND status='IN_PROGRESS'
+            """,actor.username(),Timestamp.from(now),actor.tenantId(),id,request.expectedVersion());
+        if(jobChanged!=1)throw conflict("Installation changed; reload before saving");
+        String orderId=(String)row.get("order_id");
+        appendChecklistEvent(actor,id,key,"ITEM_COMPLETED",evidence,now);
+        publishChecklist(actor,id,orderId,key,"INSTALLATION.CHECKLIST_ITEM_COMPLETED",now);
+        if(Boolean.TRUE.equals(item.get("required"))&&incomplete==1) {
+            appendChecklistEvent(actor,id,key,"CHECKLIST_SUBMITTED","All required checklist items completed",now);
+            publishChecklist(actor,id,orderId,key,"INSTALLATION.CHECKLIST_SUBMITTED",now);
+        }
+        return new Detail(findVendor(actor,id),events(actor,id),serialAssets(actor.tenantId(),id),
+            checklist(actor.tenantId(),id));
+    }
+
     public Job updateStatus(long id,StatusChange request) {
         var actor=vendor("INSTALLATION_UPDATE");
         if(id<=0||request==null)throw bad("Installation ID and status update are required");
@@ -214,6 +278,12 @@ public class InstallationService {
             event="STATUS_CHANGED";
         } else if("COMPLETED".equals(next)&&"IN_PROGRESS".equals(current)) {
             actor.requirePermission("INSTALLATION_COMMISSION");
+            Integer incomplete=db.queryForObject("""
+                SELECT COUNT(*) FROM installation_checklist_items
+                WHERE tenant_id=? AND installation_id=? AND required=TRUE AND completed=FALSE
+                """,Integer.class,actor.tenantId(),id);
+            if(incomplete==null||incomplete>0)
+                throw conflict("Complete every required commissioning checklist item before commissioning");
             event="COMMISSIONED";
         } else if("CANCELLED".equals(next)&&List.of("ASSIGNED","IN_PROGRESS").contains(current)) {
             actor.requirePermission("INSTALLATION_ASSIGN");
@@ -276,9 +346,49 @@ public class InstallationService {
     @Transactional(readOnly=true)
     public Detail vendorGet(long id) {
         var actor=vendor("INSTALLATION_VIEW");
-        return new Detail(findVendor(actor,id),events(actor,id),serialAssets(actor.tenantId(),id));
+        return new Detail(findVendor(actor,id),events(actor,id),serialAssets(actor.tenantId(),id),
+            checklist(actor.tenantId(),id));
     }
 
+
+    private void seedChecklist(AuthorizationContext.Context actor,long installationId) {
+        for(var item:CHECKLIST_DEFINITIONS) {
+            db.update("""
+                INSERT INTO installation_checklist_items(
+                    tenant_id,installation_id,item_key,label,sort_order,required)
+                VALUES(?,?,?,?,?,TRUE)
+                """,actor.tenantId(),installationId,item.itemKey(),item.label(),item.sortOrder());
+        }
+    }
+
+    private List<ChecklistItem> checklist(long tenant,long installationId) {
+        return db.queryForList("""
+            SELECT item_key,label,required,completed,completed_by,completed_at,evidence_note
+            FROM installation_checklist_items
+            WHERE tenant_id=? AND installation_id=?
+            ORDER BY sort_order,item_key
+            """,tenant,installationId).stream().map(row->new ChecklistItem(
+                (String)row.get("item_key"),(String)row.get("label"),Boolean.TRUE.equals(row.get("required")),
+                Boolean.TRUE.equals(row.get("completed")),(String)row.get("completed_by"),
+                row.get("completed_at")==null?null:instant(row.get("completed_at")),
+                (String)row.get("evidence_note"))).toList();
+    }
+
+    private void appendChecklistEvent(AuthorizationContext.Context actor,long installationId,
+            String itemKey,String eventType,String evidence,Instant now) {
+        db.update("""
+            INSERT INTO installation_checklist_events(
+                tenant_id,installation_id,item_key,actor_username,event_type,evidence_note,occurred_at)
+            VALUES(?,?,?,?,?,?,?)
+            """,actor.tenantId(),installationId,itemKey,actor.username(),eventType,evidence,Timestamp.from(now));
+    }
+
+    private void publishChecklist(AuthorizationContext.Context actor,long installationId,String orderId,
+            String itemKey,String eventType,Instant now) {
+        events.append(actor.tenantId(),actor.username(),"INSTALLATION",Long.toString(installationId),
+            eventType,null,Map.of("installationId",installationId,"orderId",orderId,
+                "itemKey",itemKey,"occurredAt",now.toString()));
+    }
 
     private List<InstallationSerialAsset> serialAssets(long tenant,long installationId) {
         return db.query("""

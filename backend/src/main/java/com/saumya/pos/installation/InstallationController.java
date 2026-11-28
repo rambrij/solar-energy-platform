@@ -23,6 +23,8 @@ public class InstallationController {
         @NotNull Instant scheduledAt,@NotBlank @Size(max=500) String reason) {}
     public record StatusRequest(long expectedVersion,
         @NotBlank @Size(max=20) String status,@NotBlank @Size(max=1000) String note) {}
+    public record ChecklistRequest(long expectedVersion,
+        @NotBlank @Size(max=1000) String evidenceNote) {}
 
     @GetMapping("/api/v1/vendor/installations/orders")
     @PreAuthorize("hasAuthority('INSTALLATION_ASSIGN')")
@@ -68,6 +70,16 @@ public class InstallationController {
             HttpStatus.BAD_REQUEST,"Installation status update is required");
         return installations.updateStatus(id,new InstallationService.StatusChange(
             request.expectedVersion(),request.status(),request.note()));
+    }
+
+    @PatchMapping("/api/v1/vendor/installations/{id}/checklist/{itemKey}")
+    @PreAuthorize("hasAuthority('INSTALLATION_UPDATE')")
+    public InstallationService.Detail completeChecklistItem(@PathVariable long id,@PathVariable String itemKey,
+            @Valid @RequestBody(required=false) ChecklistRequest request) {
+        if(request==null)throw new org.springframework.web.server.ResponseStatusException(
+            HttpStatus.BAD_REQUEST,"Checklist evidence is required");
+        return installations.completeChecklistItem(id,itemKey,
+            new InstallationService.ChecklistCompletion(request.expectedVersion(),request.evidenceNote()));
     }
 
     @GetMapping("/api/v1/customer/installations")

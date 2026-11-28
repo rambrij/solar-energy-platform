@@ -32,7 +32,7 @@ public class ServiceSlaEscalationWorker {
         var now = clock.instant();
         for (var tenant : tenants.activeVendors()) {
             try {
-                sla.processDueEscalationsForTenant(tenant, now);
+                sla.processDueForTenant(tenant, now);
                 escalations.processDueEscalationsForTenant(tenant, now);
             } catch (RuntimeException failure) {
                 log.error("Service SLA escalation failed for tenant {} ({})",

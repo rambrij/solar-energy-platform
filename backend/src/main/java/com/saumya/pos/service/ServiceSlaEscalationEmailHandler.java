@@ -59,6 +59,9 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
         } catch (JsonProcessingException failure) {
             throw new IllegalArgumentException("Invalid SLA escalation event payload", failure);
         }
+        if (payload == null || !payload.isObject()) {
+            throw new IllegalArgumentException("SLA escalation payload must be a JSON object");
+        }
         long escalationId = positiveLong(payload, "escalationId");
         String recipientRole = required(payload, "recipientRoleKey", 64);
         String caseType = enumValue(payload, "caseType", Set.of("SERVICE_REQUEST", "WARRANTY_CLAIM"));

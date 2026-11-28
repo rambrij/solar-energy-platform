@@ -588,3 +588,34 @@ test('Customer: signing out other devices revokes the other browser session and 
   }
 });
 
+
+
+test('Vendor Admin and Accountant: invoice register is tenant-scoped and loads through the Finance workspace', async ({ page }) => {
+  const today = new Date();
+  const to = today.toISOString().slice(0, 10);
+  const from = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const query = new URLSearchParams({ from, to, channel: 'ALL', page: '0', size: '50' }).toString();
+  const endpoint = '/api/v1/vendor/invoices?' + query;
+
+  const adminToken = await signIn(page, demo.vendorAdmin.username, demo.vendorAdmin.password);
+  await page.goto('/vendor/invoices');
+  await expect(page.getByRole('heading', { name: 'Invoice register', level: 2 })).toBeVisible();
+  const adminResponse = await apiAs(page, adminToken, endpoint);
+  expect(adminResponse.status).toBe(200);
+  const forgedTenant = await apiAs(page, adminToken, endpoint + '&tenantId=920001');
+  expect(forgedTenant.status).toBe(200);
+  expect(forgedTenant.body).toEqual(adminResponse.body);
+
+  await page.getByRole('button', { name: 'Load invoice register' }).click();
+  await expect(page.getByText(new RegExp(from))).toBeVisible();
+  await expect(page.getByText(/All channels/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /No issued invoices in this period/ })
+    .or(page.getByRole('columnheader', { name: 'Invoice' }))).toBeVisible();
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  const accountantToken = await signIn(page, demo.accountant.username, demo.accountant.password);
+  await page.goto('/vendor/invoices');
+  await expect(page.getByRole('heading', { name: 'Invoice register', level: 2 })).toBeVisible();
+  const accountantResponse = await apiAs(page, accountantToken, endpoint);
+  expect(accountantResponse.status).toBe(200);
+});

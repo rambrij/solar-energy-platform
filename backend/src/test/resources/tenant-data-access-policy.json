@@ -309,8 +309,7 @@
     {
       "source": "com.saumya.pos.inventory.StockReceivingService",
       "methods": [
-        "receive",
-        "list"
+        "receive"
       ],
       "authority": "Both entry points validate caller-supplied tenant and branch identifiers against AuthorizationContext.current() after requiring vendor membership; receive additionally validates actor identity and INVENTORY_RECEIVE before repository, inventory or serial-position writes; list requires INVENTORY_VIEW before tenant/branch-scoped receipt reads. Direct JDBC statements are limited to inserting tenant-owned serial positions and immutable movement rows for serials persisted by the same tenant/branch receipt transaction.",
       "evidence": [
@@ -327,9 +326,6 @@
       ],
       "trustedTenantParameters": {
         "receive": [
-          "tenant"
-        ],
-        "list": [
           "tenant"
         ]
       }

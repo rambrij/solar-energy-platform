@@ -38,7 +38,7 @@ class ServiceSlaEscalationEmailHandlerTest {
         assertThat(handler().eventTypes()).containsExactly("SERVICE_SLA.ESCALATED");
     }
 
-    @Test void sendsOnePlainTextMessageToEveryResolvedTenantRecipient() {
+    @Test void sendsOnePlainTextMessageToEveryResolvedTenantRecipient() throws Exception {
         when(escalations.resolveEscalationRecipients(7L, "SERVICE_MANAGER"))
             .thenReturn(List.of("manager.one@vendor.test", "manager.two@vendor.test"));
 

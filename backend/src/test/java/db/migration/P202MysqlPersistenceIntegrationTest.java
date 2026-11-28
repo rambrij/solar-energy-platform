@@ -164,7 +164,7 @@ class P202MysqlPersistenceIntegrationTest {
             JdbcTemplate db = jdbc(url, user, password);
 
             // Explicit ownership classification for every table containing tenant_id
-            // in the V1-V55 schema. Platform audit and refresh-token rows are shared
+            // in the V1-V22 schema. Platform audit and refresh-token rows are shared
             // actor-context tables; support-access rows are tenant-owned records.
             Set<String> expectedTenantTables = Set.of(
                     "branches", "employees", "registers", "pos_sessions", "products",
@@ -184,7 +184,9 @@ class P202MysqlPersistenceIntegrationTest {
                     "pos_stock_locations", "catalog_discount_policy", "pos_shift_reviews",
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
                     "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "site_surveys", "quotations", "quotation_revisions", "quotation_lines", "quotation_audit_events", "vendor_payment_accounts", "vendor_payment_account_events",
-                    "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence", "service_visits", "service_visit_events", "service_sla_policies", "service_case_sla", "service_sla_events", "service_sla_policy_audit");
+                    "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence", "service_visits", "service_visit_events", "service_sla_policies", "service_case_sla", "service_sla_events", "service_sla_policy_audit",
+                    "warehouses", "warehouse_inventory", "inventory_transfers",
+                    "inventory_transfer_events", "inventory_transfer_movements", "warehouse_audit_events");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns
@@ -275,6 +277,9 @@ class P202MysqlPersistenceIntegrationTest {
             assertUniqueKey(db, schema, "service_case_sla", "tenant_id,id");
             assertUniqueKey(db, schema, "service_case_sla", "tenant_id,service_request_id");
             assertUniqueKey(db, schema, "service_case_sla", "tenant_id,warranty_claim_id");
+            assertUniqueKey(db, schema, "warehouses", "tenant_id,id");
+            assertUniqueKey(db, schema, "warehouses", "tenant_id,branch_id,id");
+            assertUniqueKey(db, schema, "inventory_transfers", "tenant_id,id");
             assertForeignKey(db, schema, "marketplace_enquiries", "tenant_id,customer_id", "tenant_customers", "tenant_id,customer_id");
             assertForeignKey(db, schema, "marketplace_enquiries", "tenant_id,product_id", "products", "tenant_id,id");
             assertForeignKey(db, schema, "site_surveys", "tenant_id,enquiry_id", "marketplace_enquiries", "tenant_id,id");
@@ -293,6 +298,26 @@ class P202MysqlPersistenceIntegrationTest {
             assertForeignKey(db, schema, "vendor_payment_accounts", "tenant_id,updated_by", "employees", "tenant_id,username");
             assertForeignKey(db, schema, "vendor_payment_account_events", "tenant_id,account_id", "vendor_payment_accounts", "tenant_id,id");
             assertForeignKey(db, schema, "vendor_payment_account_events", "tenant_id,actor_username", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "warehouses", "tenant_id,branch_id", "branches", "tenant_id,id");
+            assertForeignKey(db, schema, "warehouses", "tenant_id,created_by", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "warehouses", "tenant_id,updated_by", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "warehouse_inventory", "tenant_id,warehouse_id", "warehouses", "tenant_id,id");
+            assertForeignKey(db, schema, "warehouse_inventory", "tenant_id,product_id", "products", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_transfers", "tenant_id,source_branch_id", "branches", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_transfers", "tenant_id,destination_branch_id", "branches", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_transfers", "tenant_id,source_branch_id,source_warehouse_id", "warehouses", "tenant_id,branch_id,id");
+            assertForeignKey(db, schema, "inventory_transfers", "tenant_id,destination_branch_id,destination_warehouse_id", "warehouses", "tenant_id,branch_id,id");
+            assertForeignKey(db, schema, "inventory_transfers", "tenant_id,product_id", "products", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_transfers", "tenant_id,created_by", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "inventory_transfer_events", "tenant_id,transfer_id", "inventory_transfers", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_transfer_events", "tenant_id,actor_username", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "inventory_transfer_movements", "tenant_id,transfer_id", "inventory_transfers", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_transfer_movements", "tenant_id,branch_id", "branches", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_transfer_movements", "tenant_id,branch_id,warehouse_id", "warehouses", "tenant_id,branch_id,id");
+            assertForeignKey(db, schema, "inventory_transfer_movements", "tenant_id,product_id", "products", "tenant_id,id");
+            assertForeignKey(db, schema, "inventory_transfer_movements", "tenant_id,actor_username", "employees", "tenant_id,username");
+            assertForeignKey(db, schema, "warehouse_audit_events", "tenant_id,warehouse_id", "warehouses", "tenant_id,id");
+            assertForeignKey(db, schema, "warehouse_audit_events", "tenant_id,actor_username", "employees", "tenant_id,username");
             assertForeignKey(db, schema, "service_visits", "tenant_id,warranty_claim_id", "warranty_claims", "tenant_id,id");
             assertForeignKey(db, schema, "service_visits", "tenant_id,service_request_id", "service_requests", "tenant_id,id");
             assertForeignKey(db, schema, "service_visits", "tenant_id,assigned_to", "employees", "tenant_id,username");

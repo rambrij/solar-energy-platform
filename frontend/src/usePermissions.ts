@@ -68,6 +68,7 @@ export const NAVIGATION_PERMISSIONS:Record<string,PermissionRequirement>={
  'product-management':{anyOf:['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE']},
  'solar-package-management':{anyOf:['PRODUCT_VIEW','PRODUCT_CREATE','PRODUCT_UPDATE']},
  'stock-receiving':{anyOf:['INVENTORY_VIEW','INVENTORY_RECEIVE']},
+ 'warehouse-transfers':{anyOf:['INVENTORY_VIEW','INVENTORY_TRANSFER']},
  'register':{allOf:['POS_VIEW']},
  'shift-history':{allOf:['POS_VIEW']},
  'shift-reviews':{anyOf:['POS_SHIFT_VARIANCE_APPROVE']},

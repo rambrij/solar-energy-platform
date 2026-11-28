@@ -203,7 +203,7 @@ public class WarehouseInventoryService {
         lockTenant(context.tenantId());
         requireBranch(context.tenantId(),destinationBranchId);
         if("WAREHOUSE".equals(source))requireWarehouse(context,sourceWarehouseId,context.branchId(),true);
-        if("WAREHOUSE".equals(destination))requireWarehouse(a,destinationWarehouseId,destinationBranchId,true);
+        if("WAREHOUSE".equals(destination))requireWarehouse(context,destinationWarehouseId,destinationBranchId,true);
         if("BRANCH".equals(destination))requirePosLocation(context.tenantId(),destinationBranchId);
         if("BRANCH".equals(source))requirePosLocation(context.tenantId(),context.branchId());
         if("WAREHOUSE".equals(source)&&"WAREHOUSE".equals(destination)

@@ -24,7 +24,7 @@ it('captures serial numbers against an existing shipment and reloads its asset l
  render(<ShipmentManagement/>);
  await screen.findByText('Carrier · paid-order');
  fireEvent.change(screen.getByLabelText('Product ID'),{target:{value:'44'}});
- fireEvent.change(screen.getByLabelText('Serial numbers (one per line or comma-separated)'),{target:{value:'SN-001\\nSN-002'}});
+ fireEvent.change(screen.getByLabelText('Serial numbers (one per line or comma-separated)'),{target:{value:'SN-001\nSN-002'}});
  fireEvent.change(screen.getByLabelText('Serial capture reason'),{target:{value:'Recorded during packing'}});
  fireEvent.click(screen.getByText('Record serial numbers'));
  await screen.findByText('Solar inverter — SN-001');

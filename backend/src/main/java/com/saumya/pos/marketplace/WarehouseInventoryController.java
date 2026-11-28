@@ -30,6 +30,12 @@ public class WarehouseInventoryController {
     @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
     public List<WarehouseInventoryService.WarehouseView> warehouses(){return service.warehouses();}
 
+    @GetMapping("/warehouses/{id}/stock")
+    @PreAuthorize("hasAuthority('INVENTORY_VIEW')")
+    public List<WarehouseInventoryService.WarehouseStockView> warehouseStock(@PathVariable long id){
+        return service.warehouseStock(id);
+    }
+
     @PostMapping("/warehouses")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")

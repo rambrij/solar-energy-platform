@@ -44,7 +44,7 @@ public class WarehouseInventoryService {
     public record TransferDetail(TransferView transfer,List<TransferEventView> events,
         List<TransferMovementView> movements) {}
 
-    private AuthorizationContext.Context contextctor(String permission) {
+    private AuthorizationContext.Context actor(String permission) {
         var context=authorization.current();
         context.requireVendorMembership();
         context.requirePermission(permission);

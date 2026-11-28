@@ -604,7 +604,12 @@ test('Vendor Admin and Accountant: invoice register is tenant-scoped and loads t
   expect(adminResponse.status).toBe(200);
   const forgedTenant = await apiAs(page, adminToken, endpoint + '&tenantId=920001');
   expect(forgedTenant.status).toBe(200);
-  expect(forgedTenant.body).toEqual(adminResponse.body);
+  expect(adminResponse.body.generatedAt).toEqual(expect.any(String));
+  expect(forgedTenant.body.generatedAt).toEqual(expect.any(String));
+  expect(forgedTenant.body).toMatchObject({
+    ...adminResponse.body,
+    generatedAt: expect.any(String)
+  });
 
   await page.getByRole('button', { name: 'Load invoice register' }).click();
   await expect(page.getByText(new RegExp(from))).toBeVisible();

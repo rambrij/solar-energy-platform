@@ -178,9 +178,9 @@ Many tenant repositories extend `JpaRepository` and therefore inherit methods su
 - `StockReceiptRepository` find and page methods scope by tenant + branch.
 - InventoryService reserve/release/consume/inspect-return operations receive tenant from the checkout/return service, authorize actor/channel/tenant/branch before ownership reads, and operate on tenant-keyed reservation/balance repositories. Order and approved-return ownership reads use the inventory-owned `InventoryOrderRepository` and `InventoryApprovedReturnRepository`; InventoryService no longer performs direct JDBC order/return lookups.
 - StockReceivingService checks vendor membership, tenant, branch and permission in its service guard before receiving or listing.
-- No warehouse aggregate or warehouse repository exists in the reviewed tree; inventory location is branch-scoped.
+- WarehouseInventoryService adds a separate tenant/warehouse/product balance table and tenant-qualified transfer operations. It derives tenant and source branch from AuthorizationContext, checks destination branch and warehouse through tenant-qualified lookups, locks the tenant/warehouse/branch and balance rows, and writes stock and immutable transfer events in one transaction. Cross-tenant and wrong-branch transfer IDs resolve as unavailable. Branch stock continues to use the existing `inventory` table and designated POS stock location.
 
-**Assessment:** current branch-level inventory path is scoped. Warehouse-level isolation cannot be certified because warehouse assignment is not implemented and RC-02 remains open.
+**Assessment:** current branch-level inventory path remains scoped. V21 adds branch-linked tenant warehouses and tenant-qualified transfer access; source operations require the authenticated source branch and receipt requires the authenticated destination branch. Full serialized-item traceability remains outside this transfer slice.
 
 ### 4.5 POS branch, register, session, shift and cash queries
 
@@ -429,7 +429,7 @@ The next work is targeted:
 1. V48 implements the three composite ownership constraints after a read-only pre-DDL validation; deployment still requires its preflight to pass against live rows.
 2. The payment review queue now uses the tenant-scoped finder and has a regression test preventing a global-ID lookup from returning.
 3. Complete the broader P0-02 service authorization and P0-04 adversarial tenant/customer test matrices.
-4. Resolve RC-01, RC-02, RC-08 and RC-09 before changing membership, warehouse or vendor billing APIs.
+4. Resolve RC-01, RC-08 and RC-09 before changing membership or vendor billing APIs. RC-02 was resolved for the explicitly requested later Operations scope by V21; branch/warehouse assignment remains enforced by server-side membership.
 5. Do not claim complete tenant isolation until MySQL integration tests validate same-tenant success, cross-tenant denial and database rejection across all relevant resource families.
 
 ### Warranty claims and evidence flow — V17

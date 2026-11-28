@@ -24,6 +24,8 @@ import org.springframework.util.StringUtils;
 @Component
 public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler {
     private static final String EVENT_TYPE = "SERVICE_SLA.ESCALATED";
+    private static final Set<String> RECIPIENT_ROLE_KEYS =
+        Set.of("VENDOR_ADMIN", "SERVICE_MANAGER", "SERVICE_LEAD");
     private final ServiceSlaEscalationService escalations;
     private final JavaMailSender mail;
     private final ObjectMapper mapper;
@@ -67,7 +69,7 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
             throw new IllegalArgumentException("SLA escalation payload must be a JSON object");
         }
         long escalationId = positiveLong(payload, "escalationId");
-        String recipientRole = required(payload, "recipientRoleKey", 64);
+        String recipientRole = enumValue(payload, "recipientRoleKey", RECIPIENT_ROLE_KEYS);
         String caseType = enumValue(payload, "caseType", Set.of("SERVICE_REQUEST", "WARRANTY_CLAIM"));
         String breachType = enumValue(payload, "breachType", Set.of("RESPONSE", "RESOLUTION"));
         long caseId = positiveLong(payload, "caseId");

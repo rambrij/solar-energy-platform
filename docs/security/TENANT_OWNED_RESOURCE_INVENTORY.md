@@ -162,7 +162,8 @@ The table list is derived from the production Flyway SQL and Java migrations und
 | `vendor_access_audit_events` | Vendor authorization audit | TENANT_CHILD | Yes, NOT NULL | Tenant-scoped actor and optional subject composite FKs to employees; tenant-leading audit index. |
 | `warehouse_inventory` | Warehouse stock | TENANT_CHILD | Yes, NOT NULL | Composite tenant/warehouse/product primary key; FKs to same-tenant warehouse and product; on-hand, reserved and damaged quantities constrained. |
 | `inventory_transfer_events` | Inventory transfer history | TENANT_CHILD | Yes, NOT NULL | Tenant/transfer composite FK; actor is a same-tenant employee; append-only event table with unique idempotent receipt command keys. |
-| `warehouse_audit_events` | Warehouse audit | TENANT_CHILD | Yes, NOT NULL | Tenant/warehouse composite FK and tenant/employee actor FK; database triggers prohibit update/delete. |\n| `inventory_transfer_movements` | Inventory movement ledger | TENANT_CHILD | Yes, NOT NULL | Tenant/transfer, tenant/branch, tenant/branch/warehouse, tenant/product and tenant/employee FKs; signed dispatch/receipt deltas are append-only and idempotent. |
+| `warehouse_audit_events` | Warehouse audit | TENANT_CHILD | Yes, NOT NULL | Tenant/warehouse composite FK and tenant/employee actor FK; database triggers prohibit update/delete. |
+| `inventory_transfer_movements` | Inventory movement ledger | TENANT_CHILD | Yes, NOT NULL | Tenant/transfer, tenant/branch, tenant/branch/warehouse, tenant/product and tenant/employee FKs; signed dispatch/receipt deltas are append-only and idempotent. |
 
 ## 4. Parent-child and tenant boundary inventory
 

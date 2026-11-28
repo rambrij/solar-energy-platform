@@ -94,6 +94,15 @@ public class WarehouseInventoryService {
         Map<String,Object> before=warehouseRow(a,id);
         if(((Number)before.get("version")).longValue()!=expectedVersion)
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Warehouse changed; reload before saving");
+        if(!active) {
+            Integer openTransfers=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM inventory_transfers
+                WHERE tenant_id=? AND status IN ('DRAFT','APPROVED','IN_TRANSIT','PARTIALLY_RECEIVED')
+                  AND (source_warehouse_id=? OR destination_warehouse_id=?)
+                """,Integer.class,a.tenantId(),id,id);
+            if(openTransfers!=null&&openTransfers>0)
+                conflict("Warehouse has an open transfer and cannot be deactivated");
+        }
         jdbc.update("""
             UPDATE warehouses SET name=?,active=?,updated_by=?,updated_at=?,version=version+1
             WHERE tenant_id=? AND branch_id=? AND id=? AND version=?
@@ -159,7 +168,9 @@ public class WarehouseInventoryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Source and destination must differ");
         if("BRANCH".equals(destination)&&destinationBranchId==a.branchId()&&"BRANCH".equals(source))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Source and destination must differ");
-        jdbc.queryForObject("SELECT id FROM products WHERE tenant_id=? AND id=?",Long.class,a.tenantId(),productId);
+        Integer productCount=jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE tenant_id=? AND id=?",Integer.class,a.tenantId(),productId);
+        if(productCount==null||productCount!=1)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Product unavailable");
         var previous=jdbc.query("""
             SELECT * FROM inventory_transfers WHERE tenant_id=? AND source_branch_id=? AND command_key=? FOR UPDATE
             """,(rs,n)->transfer(rs),a.tenantId(),a.branchId(),key);
@@ -223,10 +234,12 @@ public class WarehouseInventoryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid receipt quantity and idempotency key are required");
         lockTenant(a.tenantId());
         Map<String,Object> row=transferRow(a,id); requireDestinationBranch(a,row);
-        var prior=jdbc.query("SELECT quantity FROM inventory_transfer_events WHERE tenant_id=? AND transfer_id=? AND command_key=?",
-            (rs,n)->rs.getInt(1),a.tenantId(),id,key);
+        var prior=jdbc.query("SELECT quantity,is_final,detail FROM inventory_transfer_events WHERE tenant_id=? AND transfer_id=? AND command_key=?",
+            (rs,n)->new Object[]{rs.getInt(1),rs.getBoolean(2),rs.getString(3)},a.tenantId(),id,key);
         if(!prior.isEmpty()){
-            if(prior.getFirst()!=quantity)conflict("Receipt key identifies a different quantity");
+            Object[] saved=prior.getFirst();
+            if(((Number)saved[0]).intValue()!=quantity||((Boolean)saved[1])!=finalReceipt||!why.equals(saved[2]))
+                conflict("Receipt key identifies a different command");
             return transferById(a,id);
         }
         String status=String.valueOf(row.get("status"));
@@ -238,7 +251,8 @@ public class WarehouseInventoryService {
         if("BRANCH".equals(row.get("destination_type")))creditBranch(a.tenantId(),a.branchId(),product,quantity);
         else creditWarehouse(a.tenantId(),((Number)row.get("destination_warehouse_id")).longValue(),product,quantity);
         int newReceived=received+quantity;
-        boolean discrepancy=finalReceipt&&newReceived<total;
+        boolean complete=finalReceipt||newReceived==total;
+        boolean discrepancy=complete&&newReceived<total;
         String newStatus=discrepancy?"RECEIVED_WITH_DISCREPANCY":
             newReceived==total?"RECEIVED":"PARTIALLY_RECEIVED";
         Instant now=clock.instant();
@@ -247,9 +261,9 @@ public class WarehouseInventoryService {
               completed_by=CASE WHEN ? THEN ? ELSE completed_by END,
               completed_at=CASE WHEN ? THEN ? ELSE completed_at END,version=version+1
             WHERE tenant_id=? AND id=? AND version=?
-            """,newReceived,newStatus,finalReceipt,a.username(),finalReceipt?now:null,
+            """,newReceived,newStatus,complete,a.username(),complete,complete?now:null,
             a.tenantId(),id,expectedVersion);
-        appendEvent(a,id,discrepancy?"RECEIVED_WITH_DISCREPANCY":"RECEIVED",quantity,finalReceipt,key,why);
+        appendEvent(a,id,discrepancy?"RECEIVED_WITH_DISCREPANCY":"RECEIVED",quantity,complete,key,why);
         return transferById(a,id);
     }
 
@@ -364,8 +378,11 @@ public class WarehouseInventoryService {
             (rs,n)->transfer(rs),a.tenantId(),id);
     }
     private TransferView transfer(java.sql.ResultSet rs) throws java.sql.SQLException {
-        return new TransferView(rs.getString("id"),rs.getString("source_type"),(Long)rs.getObject("source_warehouse_id"),
-            rs.getLong("source_branch_id"),rs.getString("destination_type"),(Long)rs.getObject("destination_warehouse_id"),
+        Number sourceWarehouse=(Number)rs.getObject("source_warehouse_id");
+        Number destinationWarehouse=(Number)rs.getObject("destination_warehouse_id");
+        return new TransferView(rs.getString("id"),rs.getString("source_type"),
+            sourceWarehouse==null?null:sourceWarehouse.longValue(),rs.getLong("source_branch_id"),
+            rs.getString("destination_type"),destinationWarehouse==null?null:destinationWarehouse.longValue(),
             rs.getLong("destination_branch_id"),rs.getLong("product_id"),rs.getInt("quantity"),rs.getInt("received_quantity"),
             rs.getString("status"),rs.getString("reason"),rs.getString("created_by"),rs.getString("approved_by"),
             rs.getString("dispatched_by"),rs.getString("completed_by"),rs.getTimestamp("created_at").toInstant(),

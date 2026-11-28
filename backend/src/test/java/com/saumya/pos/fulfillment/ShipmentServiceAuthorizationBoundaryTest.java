@@ -19,6 +19,8 @@ class ShipmentServiceAuthorizationBoundaryTest {
   assertThatThrownBy(service::shipments).isInstanceOf(ResponseStatusException.class);
   assertThatThrownBy(()->service.createShipment("o","c","t",null,"r")).isInstanceOf(ResponseStatusException.class);
   assertThatThrownBy(()->service.addEvent(1,"IN_TRANSIT","moving","r")).isInstanceOf(ResponseStatusException.class);
+  assertThatThrownBy(()->service.captureSerialAssets(1,55,List.of("SN-1"),"r")).isInstanceOf(ResponseStatusException.class);
+  assertThatThrownBy(()->service.vendorSerialAssets(1)).isInstanceOf(ResponseStatusException.class);
   verifyNoInteractions(db);
  }
  @Test void customerTrackingUsesOnlyTheTenantFromAuthenticatedOwnedOrder(){
@@ -100,6 +102,26 @@ class ShipmentServiceAuthorizationBoundaryTest {
   verify(db,never()).update(contains("INSERT INTO shipment_serial_assets"),any(Object[].class));
  }
 
+
+ @Test void customerSerialLookupUsesOnlyTheTenantFromOwnedPaidOrder(){
+  var db=mock(JdbcTemplate.class);var history=mock(OrderHistoryService.class);
+  when(history.customerOrderTenant("buyer@test","owned")).thenReturn(7L);
+  when(db.query(contains("FROM shipment_serial_assets a"),any(org.springframework.jdbc.core.RowMapper.class),
+   eq(7L),eq("owned"),eq("owned"))).thenReturn(List.of(
+    new ShipmentService.CustomerSerialAsset(55,"Solar panel","SN-OWNED",Instant.parse("2026-11-28T10:00:00Z"))));
+  var result=new ShipmentService(db,mock(AuthorizationContext.class),history).customerSerialAssets("buyer@test","owned");
+  assertThat(result).hasSize(1);
+  assertThat(result.getFirst().serialNumber()).isEqualTo("SN-OWNED");
+  verify(history).customerOrderTenant("buyer@test","owned");
+ }
+
+ @Test void foreignCustomerSerialLookupStopsBeforeDatabaseAccess(){
+  var db=mock(JdbcTemplate.class);var history=mock(OrderHistoryService.class);
+  when(history.customerOrderTenant("buyer@test","foreign")).thenThrow(new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Order unavailable"));
+  assertThatThrownBy(()->new ShipmentService(db,mock(AuthorizationContext.class),history).customerSerialAssets("buyer@test","foreign"))
+   .isInstanceOf(ResponseStatusException.class);
+  verifyNoInteractions(db);
+ }
  @Test void foreignCustomerOrderIsRejectedBeforeShipmentLookup(){
   var db=mock(JdbcTemplate.class);var orderHistory=mock(OrderHistoryService.class);
   when(orderHistory.customerOrderTenant("buyer@test","foreign")).thenThrow(new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Order unavailable"));

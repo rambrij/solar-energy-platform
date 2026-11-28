@@ -4,6 +4,7 @@ import org.springframework.security.access.prepost.PreAuthorize;import org.sprin
 @RestController @RequestMapping("/api/v1/customer") @PreAuthorize("hasAuthority('CUSTOMER')")
 public class CustomerShipmentController {
  private final ShipmentService service;public CustomerShipmentController(ShipmentService service){this.service=service;}
+ @GetMapping("/orders/{orderId}/serial-assets") public List<ShipmentService.CustomerSerialAsset> customerSerialAssets(Principal p,@PathVariable String orderId){return service.customerSerialAssets(p.getName(),orderId);}
  @GetMapping("/orders/{orderId}/shipments") public List<ShipmentService.CustomerShipment> customerShipments(Principal p,@PathVariable String orderId){return service.customerShipments(p.getName(),orderId);}
  @GetMapping("/shipments") public List<ShipmentService.CustomerShipmentSummary> customerShipmentFeed(Principal p){return service.customerShipmentFeed(p.getName());}
 }

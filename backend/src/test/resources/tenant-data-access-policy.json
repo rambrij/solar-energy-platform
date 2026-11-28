@@ -337,33 +337,35 @@
     {
       "source": "com.saumya.pos.inventory.WarehouseInventoryService",
       "methods": [
-        "warehouses",
-        "warehouseStock",
-        "createWarehouse",
-        "updateWarehouse",
-        "transfers",
-        "transfer",
-        "createTransfer",
+        "appendEvent",
         "approve",
+        "auditWarehouse",
         "cancel",
-        "dispatch",
-        "receive",
-        "debitBranch",
-        "debitWarehouse",
+        "createTransfer",
+        "createWarehouse",
         "creditBranch",
         "creditWarehouse",
-        "requireWarehouseCapacity",
+        "debitBranch",
+        "debitWarehouse",
+        "dispatch",
         "lockTenant",
+        "receive",
+        "recordMovement",
         "requireBranch",
         "requirePosLocation",
         "requireWarehouse",
-        "warehouseRow",
-        "warehouse",
-        "auditWarehouse",
-        "appendEvent",
-        "recordMovement",
+        "requireWarehouseCapacity",
+        "serialNumbersForReceipt",
+        "serialNumbersForTransfer",
+        "transfer",
+        "transferById",
         "transferRow",
-        "transferById"
+        "transfers",
+        "updateWarehouse",
+        "warehouse",
+        "warehouseRow",
+        "warehouseStock",
+        "warehouses"
       ],
       "authority": "Every public entry point resolves AuthorizationContext.current(), requires vendor membership and the operation-specific INVENTORY_VIEW or INVENTORY_TRANSFER grant before SQL. The tenant and active source/destination branch come only from the authenticated AuthorizationContext; helper tenant parameters are passed only from that context.",
       "evidence": [
@@ -374,7 +376,14 @@
         "context.branchId()",
         "SELECT id FROM tenants WHERE id=? FOR UPDATE"
       ],
-      "trustedTenantParameters": {}
+      "trustedTenantParameters": {
+        "serialNumbersForTransfer": [
+          "tenant"
+        ],
+        "serialNumbersForReceipt": [
+          "tenant"
+        ]
+      }
     },
     {
       "source": "com.saumya.pos.marketplace.MarketplaceEnquiryService",
@@ -1210,6 +1219,54 @@
         {
           "caller": "com.saumya.pos.installation.InstallationService#vendorGet",
           "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.inventory.StockReceivingService#list",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.marketplace.StockReceivingController#list",
+          "expression": "scope.tenant()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.inventory.StockReceivingService#receive",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.marketplace.StockReceivingController#receive",
+          "expression": "scope.tenant()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.inventory.WarehouseInventoryService#serialNumbersForReceipt",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.inventory.WarehouseInventoryService#receive",
+          "expression": "context.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.inventory.WarehouseInventoryService#serialNumbersForTransfer",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.inventory.WarehouseInventoryService#createTransfer",
+          "expression": "context.tenantId()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }

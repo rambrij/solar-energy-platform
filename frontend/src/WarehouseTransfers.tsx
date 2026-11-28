@@ -17,6 +17,7 @@ export default function WarehouseTransfers(){
  const [destinationBranchId,setDestinationBranchId]=useState(String(account?.branchId??'')),[productId,setProductId]=useState(''),[quantity,setQuantity]=useState('1'),[reason,setReason]=useState('');
  const [detail,setDetail]=useState<Detail>();
  const [stock,setStock]=useState<{warehouseId:number;items:WarehouseStock[]}>();
+ const [editing,setEditing]=useState<Warehouse>(),[editName,setEditName]=useState(''),[editActive,setEditActive]=useState(true),[editReason,setEditReason]=useState('');
  const [receiveQuantity,setReceiveQuantity]=useState('1'),[finalReceipt,setFinalReceipt]=useState(true),[receiptReason,setReceiptReason]=useState('');
  const canView=!!account?.permissions.includes('INVENTORY_VIEW'),canTransfer=!!account?.permissions.includes('INVENTORY_TRANSFER');
 
@@ -34,6 +35,21 @@ export default function WarehouseTransfers(){
   event.preventDefault();setBusy(true);setError('');setNotice('');
   try{await vendorApi('/inventory/warehouses','POST',{code:code.trim(),name:name.trim(),reason:warehouseReason.trim()});setCode('');setName('');setWarehouseReason('');setNotice('Warehouse created.');await load();}
   catch(e){setError(e instanceof ApiError?e.message:'Warehouse could not be created.');}
+  finally{setBusy(false);}
+ }
+ function beginEdit(warehouse:Warehouse){
+  setEditing(warehouse);setEditName(warehouse.name);setEditActive(warehouse.active);setEditReason('');
+ }
+ async function saveWarehouse(event:FormEvent){
+  event.preventDefault();if(!editing)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   await vendorApi('/inventory/warehouses/'+editing.id,'PATCH',{
+    expectedVersion:editing.version,name:editName.trim(),active:editActive,reason:editReason.trim()
+   });
+   setNotice(editActive?'Warehouse updated.':'Warehouse deactivated.');
+   setEditing(undefined);setEditReason('');await load();
+  }catch(e){setError(e instanceof ApiError?e.message:'Warehouse could not be updated. Reload before retrying.');}
   finally{setBusy(false);}
  }
  async function createTransfer(event:React.FormEvent){
@@ -78,7 +94,15 @@ export default function WarehouseTransfers(){
    <button disabled={busy||!code.trim()||!name.trim()||!warehouseReason.trim()}>Create warehouse</button>
   </form>}
   <h3>Warehouses in your assigned branch</h3>
-  {warehouses.length===0?<p>No warehouses found for this branch.</p>:<ul>{warehouses.map(w=><li key={w.id}>{w.code} — {w.name} ({w.active?'Active':'Inactive'}) <button type="button" disabled={busy||!canView} onClick={()=>void openWarehouseStock(w.id)}>View stock</button></li>)}</ul>}
+  {warehouses.length===0?<p>No warehouses found for this branch.</p>:<ul>{warehouses.map(w=><li key={w.id}>{w.code} — {w.name} ({w.active?'Active':'Inactive'}) <button type="button" disabled={busy||!canView} onClick={()=>void openWarehouseStock(w.id)}>View stock</button> {canTransfer&&<button type="button" disabled={busy} onClick={()=>beginEdit(w)}>Edit warehouse</button>}</li>)}</ul>}
+  {editing&&canTransfer&&<form onSubmit={saveWarehouse} aria-label="Edit warehouse">
+   <h3>Edit {editing.code}</h3>
+   <label>Warehouse name<input required maxLength={160} value={editName} onChange={e=>setEditName(e.target.value)}/></label>
+   <label><input type="checkbox" checked={editActive} onChange={e=>setEditActive(e.target.checked)}/> Warehouse active</label>
+   <label>Change reason<input required maxLength={500} value={editReason} onChange={e=>setEditReason(e.target.value)}/></label>
+   <button disabled={busy||!editName.trim()||!editReason.trim()}>Save warehouse changes</button>
+   <button type="button" disabled={busy} onClick={()=>setEditing(undefined)}>Cancel edit</button>
+  </form>}
   {stock&&<section aria-label="Warehouse stock balances"><h3>Stock in warehouse #{stock.warehouseId}</h3>{stock.items.length===0?<p>No stock recorded in this warehouse.</p>:<table><thead><tr><th>Product</th><th>SKU</th><th>On hand</th><th>Reserved</th><th>Damaged</th><th>Available</th></tr></thead><tbody>{stock.items.map(item=><tr key={item.productId}><td>{item.productName}</td><td>{item.sku}</td><td>{item.onHand}</td><td>{item.reserved}</td><td>{item.damaged}</td><td>{item.available}</td></tr>)}</tbody></table>}</section>}
   {canTransfer&&<form onSubmit={createTransfer}>
    <h3>Create stock transfer</h3>

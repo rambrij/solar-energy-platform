@@ -64,8 +64,9 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
         String caseType = enumValue(payload, "caseType", Set.of("SERVICE_REQUEST", "WARRANTY_CLAIM"));
         String breachType = enumValue(payload, "breachType", Set.of("RESPONSE", "RESOLUTION"));
         long caseId = positiveLong(payload, "caseId");
-        int level = payload.path("level").asInt(-1);
-        if (level < 1 || level > 5) {
+        JsonNode levelNode = payload.path("level");
+        int level = levelNode.asInt(-1);
+        if (!levelNode.isIntegralNumber() || level < 1 || level > 5) {
             throw new IllegalArgumentException("Invalid SLA escalation level");
         }
         Instant escalatedAt;
@@ -81,7 +82,7 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
                 + recipientRole);
         }
 
-        String link = publicUrl + "/vendor/customer-management/engineer-visits";
+        String link = publicUrl + "/vendor/service-visits";
         for (String recipient : recipients) {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(from);
@@ -106,8 +107,9 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
     }
 
     private static long positiveLong(JsonNode payload, String field) {
-        long value = payload.path(field).asLong(-1);
-        if (value <= 0 || !payload.path(field).canConvertToLong()) {
+        JsonNode node = payload.path(field);
+        long value = node.asLong(-1);
+        if (!node.isIntegralNumber() || value <= 0 || !node.canConvertToLong()) {
             throw new IllegalArgumentException("Invalid SLA escalation field: " + field);
         }
         return value;

@@ -637,14 +637,15 @@
     {
       "source": "com.saumya.pos.service.ServiceSlaEscalationService",
       "methods": [
-        "policies",
-        "savePolicy",
-        "processDueEscalationsForTenant",
+        "acknowledge",
         "createDueEscalations",
+        "policies",
+        "processDueEscalationsForTenant",
         "queue",
-        "acknowledge"
+        "resolveEscalationRecipients",
+        "savePolicy"
       ],
-      "authority": "Interactive policy, queue and acknowledgement SQL derives tenant scope from the active AuthorizationContext. Scheduled due processing receives a persisted TenantSummary from TenantLifecycleService.activeVendors; createDueEscalations receives only the tenant ID forwarded from that trusted TenantSummary. Every tenant-owned SQL statement binds tenant_id from these sources, never from request input.",
+      "authority": "Interactive policy, queue and acknowledgement SQL derives tenant scope from the active AuthorizationContext. Scheduled due processing receives a persisted TenantSummary from TenantLifecycleService.activeVendors; createDueEscalations receives only the tenant ID forwarded from that trusted TenantSummary. Every tenant-owned SQL statement binds tenant_id from these sources, never from request input. Email recipient resolution receives tenant_id only from the persisted tenant-owned integration outbox event, checks that the tenant is ACTIVE, then joins enabled employees, enabled/verified global identities, active employee-role assignments and active tenant roles before returning usernames as email addresses.",
       "evidence": [
         "authorization.current()",
         "current.tenantId()",
@@ -652,7 +653,8 @@
         "TenantLifecycleService.TenantSummary",
         "tenant.id()",
         "tenantId",
-        "WHERE tenant_id=?"
+        "WHERE tenant_id=?",
+        "IntegrationOutboxService.Event.tenant()"
       ],
       "trustedTenantParameters": {
         "createDueEscalations": [
@@ -660,6 +662,9 @@
         ],
         "processDueEscalationsForTenant": [
           "tenant"
+        ],
+        "resolveEscalationRecipients": [
+          "tenantId"
         ]
       }
     },
@@ -1565,6 +1570,18 @@
         {
           "caller": "com.saumya.pos.service.ServiceSlaEscalationWorker#scheduledEscalation",
           "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaEscalationService#resolveEscalationRecipients",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaEscalationEmailHandler#handle",
+          "expression": "event.tenant()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }

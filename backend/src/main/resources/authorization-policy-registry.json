@@ -441,7 +441,8 @@
     "VendorTenantReportController": "VENDOR_MEMBERSHIP_DERIVED_TENANT_WIDE_REPORTING",
     "VendorTenantRefundAnalyticsController": "VENDOR_MEMBERSHIP_DERIVED_TENANT_WIDE_POS_REFUND_REPORTING",
     "WarehouseInventoryController": "VENDOR_INVENTORY_TRANSFER_AND_VIEW",
-    "OnlineOrderController": "Customer-owned delivered paid online orders; authenticated tenant-scoped vendor review and return-window configuration; no refunds or inventory mutations"
+    "OnlineOrderController": "Customer-owned delivered paid online orders; authenticated tenant-scoped vendor review and return-window configuration; no refunds or inventory mutations",
+    "ServiceSlaEscalationController": "VENDOR_TENANT_SERVICE_SLA_ESCALATION_POLICY_AND_ACKNOWLEDGEMENT_SCOPE"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -1201,11 +1202,11 @@
       "permission": "SERVICE_ASSIGN",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "PATCH /api/v1/vendor/service-requests/{id}/assignment; GET /api/v1/vendor/service-requests/assignees; GET /api/v1/vendor/service-visits/assignees; POST /api/v1/vendor/service-visits; PATCH /api/v1/vendor/service-visits/{id}/assignment; PATCH /api/v1/vendor/service-visits/{id}/status (cancellation); PUT /api/v1/vendor/service-sla/policies",
-      "service": "ServiceRequestService; ServiceVisitService; ServiceSlaService",
-      "scope": "Authenticated tenant; active employee with SERVICE_VIEW; assigned engineers see only their own cases; shared visit scheduling/reassignment/cancellation requires active same-tenant SERVICE_VIEW assignee; SLA policy changes require SERVICE_ASSIGN, tenant ownership, validated elapsed-minute targets and a mandatory reason; policy changes are append-only audited and do not rewrite existing case snapshots",
-      "ui": "Vendor workspace > Customer Management > Service requests; Vendor workspace > Customer Management > Engineer Visits; Vendor workspace > Customer Management > Engineer Visits > SLA policies",
-      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest; ServiceVisitControllerAuthorizationTest; ServiceVisitServiceAuthorizationBoundaryTest; ServiceSlaControllerAuthorizationTest; ServiceSlaServiceAuthorizationBoundaryTest"
+      "endpoint": "PATCH /api/v1/vendor/service-requests/{id}/assignment; GET /api/v1/vendor/service-requests/assignees; GET /api/v1/vendor/service-visits/assignees; POST /api/v1/vendor/service-visits; PATCH /api/v1/vendor/service-visits/{id}/assignment; PATCH /api/v1/vendor/service-visits/{id}/status (cancellation); PUT /api/v1/vendor/service-sla/policies; PUT /api/v1/vendor/service-sla/escalation-policies",
+      "service": "ServiceRequestService; ServiceVisitService; ServiceSlaService; ServiceSlaEscalationService",
+      "scope": "Authenticated tenant; active employee with SERVICE_VIEW; assigned engineers see only their own cases; shared visit scheduling/reassignment/cancellation requires active same-tenant SERVICE_VIEW assignee; SLA policy changes require SERVICE_ASSIGN, tenant ownership, validated elapsed-minute targets and a mandatory reason; policy changes are append-only audited and do not rewrite existing case snapshots; escalation policies are tenant-owned, role-targeted, bounded to five levels and idempotently materialized after a breach",
+      "ui": "Vendor workspace > Customer Management > Service requests; Vendor workspace > Customer Management > Engineer Visits; Vendor workspace > Customer Management > Engineer Visits > SLA policies; Vendor workspace > Customer Management > Engineer Visits > SLA escalation policies",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest; ServiceVisitControllerAuthorizationTest; ServiceVisitServiceAuthorizationBoundaryTest; ServiceSlaControllerAuthorizationTest; ServiceSlaServiceAuthorizationBoundaryTest; ServiceSlaEscalationControllerAuthorizationTest; ServiceSlaEscalationServiceTest"
     },
     {
       "permission": "SERVICE_CREATE",
@@ -1231,21 +1232,21 @@
       "permission": "SERVICE_UPDATE",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "PATCH /api/v1/vendor/service-requests/{id}/status; PATCH /api/v1/vendor/service-visits/{id}/status; POST /api/v1/vendor/service-visits/{id}/notes",
-      "service": "ServiceRequestService; ServiceVisitService",
-      "scope": "Tenant-qualified request lock and optimistic version; validated forward status transitions; append-only event and outbox; assigned engineer visit progress and customer-visible/internal report notes with optimistic version",
-      "ui": "Vendor workspace > Customer Management > Service requests; Vendor workspace > Customer Management > Engineer Visits",
-      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest; ServiceVisitControllerAuthorizationTest; ServiceVisitServiceAuthorizationBoundaryTest"
+      "endpoint": "PATCH /api/v1/vendor/service-requests/{id}/status; PATCH /api/v1/vendor/service-visits/{id}/status; POST /api/v1/vendor/service-visits/{id}/notes; POST /api/v1/vendor/service-sla/escalations/{id}/acknowledge",
+      "service": "ServiceRequestService; ServiceVisitService; ServiceSlaEscalationService",
+      "scope": "Tenant-qualified request lock and optimistic version; validated forward status transitions; append-only event and outbox; assigned engineer visit progress and customer-visible/internal report notes with optimistic version; acknowledgement requires SERVICE_UPDATE, tenant-qualified row lock, note and append-only event",
+      "ui": "Vendor workspace > Customer Management > Service requests; Vendor workspace > Customer Management > Engineer Visits; Vendor workspace > Customer Management > Engineer Visits > SLA escalation queue",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest; ServiceVisitControllerAuthorizationTest; ServiceVisitServiceAuthorizationBoundaryTest; ServiceSlaEscalationControllerAuthorizationTest; ServiceSlaEscalationServiceTest"
     },
     {
       "permission": "SERVICE_VIEW",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/service-requests; GET /api/v1/vendor/service-requests/{id}; GET /api/v1/vendor/warranties; GET /api/v1/vendor/service-visits; GET /api/v1/vendor/service-visits/{id}; GET /api/v1/vendor/service-sla; GET /api/v1/vendor/service-sla/policies",
-      "service": "ServiceRequestService; WarrantyService; ServiceVisitService; ServiceSlaService",
-      "scope": "Authenticated tenant; employees see only cases assigned to their username unless they hold SERVICE_ASSIGN; warranty register is filtered to authenticated tenant; tenant and assigned-engineer scope for vendor visit register and detail; SLA dashboard and policy reads are tenant-qualified; employees without SERVICE_ASSIGN see only assigned cases",
-      "ui": "Vendor workspace > Customer Management > Service requests; Vendor workspace > Fulfilment > Warranty Coverage; Vendor workspace > Customer Management > Engineer Visits; Vendor workspace > Customer Management > Engineer Visits > Service level agreements",
-      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest; WarrantyControllerAuthorizationTest; WarrantyServiceAuthorizationBoundaryTest; ServiceVisitControllerAuthorizationTest; ServiceVisitServiceAuthorizationBoundaryTest; ServiceSlaControllerAuthorizationTest; ServiceSlaServiceAuthorizationBoundaryTest"
+      "endpoint": "GET /api/v1/vendor/service-requests; GET /api/v1/vendor/service-requests/{id}; GET /api/v1/vendor/warranties; GET /api/v1/vendor/service-visits; GET /api/v1/vendor/service-visits/{id}; GET /api/v1/vendor/service-sla; GET /api/v1/vendor/service-sla/policies; GET /api/v1/vendor/service-sla/escalation-policies; GET /api/v1/vendor/service-sla/escalations",
+      "service": "ServiceRequestService; WarrantyService; ServiceVisitService; ServiceSlaService; ServiceSlaEscalationService",
+      "scope": "Authenticated tenant; employees see only cases assigned to their username unless they hold SERVICE_ASSIGN; warranty register is filtered to authenticated tenant; tenant and assigned-engineer scope for vendor visit register and detail; SLA dashboard and policy reads are tenant-qualified; employees without SERVICE_ASSIGN see only assigned cases; tenant-scoped escalation policy and queue reads; recipient role and acknowledgement metadata only",
+      "ui": "Vendor workspace > Customer Management > Service requests; Vendor workspace > Fulfilment > Warranty Coverage; Vendor workspace > Customer Management > Engineer Visits; Vendor workspace > Customer Management > Engineer Visits > Service level agreements; Vendor workspace > Customer Management > Engineer Visits > SLA escalation queue",
+      "test": "ServiceRequestControllerAuthorizationTest; ServiceRequestServiceAuthorizationBoundaryTest; WarrantyControllerAuthorizationTest; WarrantyServiceAuthorizationBoundaryTest; ServiceVisitControllerAuthorizationTest; ServiceVisitServiceAuthorizationBoundaryTest; ServiceSlaControllerAuthorizationTest; ServiceSlaServiceAuthorizationBoundaryTest; ServiceSlaEscalationControllerAuthorizationTest; ServiceSlaEscalationServiceTest"
     },
     {
       "permission": "SHIPMENT_UPDATE",

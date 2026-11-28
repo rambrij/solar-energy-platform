@@ -71,7 +71,7 @@ class ServiceSlaEscalationServiceTest {
     @Test void unrelatedPermissionCannotCreateEscalationPolicy(){
         actor(Set.of("SHIPMENT_UPDATE"));
         assertThatThrownBy(()->service().savePolicy(new ServiceSlaEscalationService.PolicyUpdate(
-            "SERVICE_REQUEST","NORMAL","RESPONSE",1,0,"SERVICE_MANAGER",true)))
+            "SERVICE_REQUEST","NORMAL","RESPONSE",1,0,"SERVICE_MANAGER",true,"Approved escalation policy change")))
             .isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(db,outbox);
     }
@@ -79,7 +79,7 @@ class ServiceSlaEscalationServiceTest {
     @Test void warrantyEscalationRejectsUnsupportedPriority(){
         actor(Set.of("SERVICE_ASSIGN"));
         assertThatThrownBy(()->service().savePolicy(new ServiceSlaEscalationService.PolicyUpdate(
-            "WARRANTY_CLAIM","URGENT","RESPONSE",1,0,"SERVICE_MANAGER",true)))
+            "WARRANTY_CLAIM","URGENT","RESPONSE",1,0,"SERVICE_MANAGER",true,"Approved escalation policy change")))
             .isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(db,outbox);
     }

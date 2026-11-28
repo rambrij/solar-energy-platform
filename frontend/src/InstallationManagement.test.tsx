@@ -19,7 +19,7 @@ it('creates a paid-order installation and records engineer progress',async()=>{
   if(path==='/installations')return jobs;
   if(path==='/installations/orders')return [{orderId:'paid-order-1',orderedAt:'2026-11-26T08:00:00Z',total:100000}];
   if(path==='/installations/engineers')return ['engineer@vendor.test'];
-  if(path==='/installations/1'&&method==='GET')return {job:jobs[0],events:[]};
+  if(path==='/installations/1'&&method==='GET')return {job:jobs[0],events:[],serialAssets:[]};
   if(path==='/installations/1/status'&&method==='PATCH'){
    jobs=[{...jobs[0],status:body.status,version:1,completedAt:body.status==='COMPLETED'?body.note:null}];return jobs[0];
   }

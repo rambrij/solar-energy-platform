@@ -2478,7 +2478,8 @@
       "trustedSource": "CRM notes are written only after checking the tenant/customer relationship; audit rows use the authenticated tenant and actor.",
       "evidence": [
         "requireRelationship(context.tenantId(), relationshipId)",
-        "new VendorCustomerCrmNote(context.tenantId()"
+        "new VendorCustomerCrmNote(",
+        "context.tenantId(), relationshipId, note"
       ],
       "calls": [
         {

@@ -9,16 +9,16 @@
 
 ## 1. Executive summary
 
-The reviewed baseline contained 65 tables. Additive migration V21 introduces six tenant-owned warehouse/transfer tables, bringing the current production migration set to **71 tables**. The five additions are classified in §§3.4–3.5 below:
+The reviewed baseline contained 65 tables. Additive migration V21 introduces six tenant-owned warehouse/transfer tables, bringing the current production migration set to **71 tables**. The six additions are classified in §§3.4–3.5 below:
 
 | Ownership class | Tables |
 |---|---:|
 | GLOBAL | 6 |
 | CUSTOMER | 1 |
 | PLATFORM | 9 |
-| TENANT | 9 |
-| TENANT_CHILD | 40 |
-| **Total** | **65** |
+| TENANT | 11 |
+| TENANT_CHILD | 44 |
+| **Total** | **71** |
 
 There are **55 tenant-owned or tenant-child tables**. All 55 have a non-null `tenant_id` column in the current migration set. This is a schema-presence result, not a claim that all ownership relationships are fully constrained or that all runtime paths have passed isolation tests.
 

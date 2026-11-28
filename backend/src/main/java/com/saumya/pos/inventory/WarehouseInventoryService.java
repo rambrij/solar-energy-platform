@@ -219,7 +219,7 @@ public class WarehouseInventoryService {
         int qty=((Number)row.get("quantity")).intValue(); long product=((Number)row.get("product_id")).longValue();
         if("BRANCH".equals(row.get("source_type")))debitBranch(a.tenantId(),((Number)row.get("source_branch_id")).longValue(),product,qty);
         else debitWarehouse(a.tenantId(),((Number)row.get("source_warehouse_id")).longValue(),product,qty);
-        Instant now=java.sql.Timestamp.from(clock.instant());
+        java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
         jdbc.update("UPDATE inventory_transfers SET status='IN_TRANSIT',dispatched_by=?,dispatched_at=?,version=version+1 WHERE tenant_id=? AND id=? AND version=?",
             a.username(),now,a.tenantId(),id,expectedVersion);
         appendEvent(a,id,"DISPATCHED",qty,null,null,why);
@@ -255,7 +255,7 @@ public class WarehouseInventoryService {
         boolean discrepancy=complete&&newReceived<total;
         String newStatus=discrepancy?"RECEIVED_WITH_DISCREPANCY":
             newReceived==total?"RECEIVED":"PARTIALLY_RECEIVED";
-        Instant now=java.sql.Timestamp.from(clock.instant());
+        java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
         jdbc.update("""
             UPDATE inventory_transfers SET received_quantity=?,status=?,
               completed_by=CASE WHEN ? THEN ? ELSE completed_by END,

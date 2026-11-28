@@ -19,6 +19,7 @@ const pos: NavigationItem[] = [
   { id: 'product-management', label: 'Manage Products', group: 'Catalogue & Inventory', description: 'Maintain the products available in the outlet catalogue.', path: '/vendor/pos/products' },
   { id: 'solar-package-management', label: 'Solar Packages & Images', group: 'Catalogue & Inventory', description: 'Build tenant-owned solar system packages and manage product image assets.', path: '/vendor/pos/solar-packages' },
   { id: 'stock-receiving', label: 'Receive Stock', group: 'Catalogue & Inventory', description: 'Record stock receipts using the existing inventory workflow.', path: '/vendor/pos/stock' },
+  { id: 'warehouse-transfers', label: 'Warehouses & Transfers', group: 'Catalogue & Inventory', description: 'Manage tenant warehouses and auditable branch/warehouse stock transfers.', path: '/vendor/pos/warehouses' },
   { id: 'register', label: 'Opening Float & Drawer', group: 'Store Management', description: 'Review the current drawer, cash movements and shift closing controls.', path: '/vendor/pos/register' },
   { id: 'shift-history', label: 'Drawer Records', group: 'Store Management', description: 'Review your recorded closed-shift drawer snapshots.', path: '/vendor/pos/drawer-records' },
   { id: 'shift-reviews', label: 'Supervisor Shift Review', group: 'Store Management', description: 'Review existing shifts awaiting supervisor action.', path: '/vendor/pos/shift-review' },

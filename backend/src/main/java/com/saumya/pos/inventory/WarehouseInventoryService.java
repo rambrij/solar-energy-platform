@@ -356,7 +356,7 @@ public class WarehouseInventoryService {
     }
     private Map<String,Object> transferRow(AuthorizationContext.Context a,String id) {
         if(id==null||id.length()>36)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid transfer ID required");
-        var rows=jdbc.queryForList("SELECT * FROM inventory_transfers WHERE tenant_id=? AND id=? FOR UPDATE",a.tenantId(),id);
+        var rows=jdbc.queryForList("SELECT * FROM inventory_transfers WHERE tenant_id=? AND id=?",a.tenantId(),id);
         if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Transfer unavailable");
         return rows.getFirst();
     }

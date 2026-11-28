@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {ApiError,vendorApi} from './api';
 import {useSession} from './session';
 
@@ -28,7 +28,7 @@ export default function WarehouseTransfers(){
  },[]);
  useEffect(()=>{if(canView)void load();},[canView,load]);
 
- async function createWarehouse(event:React.FormEvent){
+ async function createWarehouse(event:FormEvent){
   event.preventDefault();setBusy(true);setError('');setNotice('');
   try{await vendorApi('/inventory/warehouses','POST',{code:code.trim(),name:name.trim(),reason:warehouseReason.trim()});setCode('');setName('');setWarehouseReason('');setNotice('Warehouse created.');await load();}
   catch(e){setError(e instanceof ApiError?e.message:'Warehouse could not be created.');}

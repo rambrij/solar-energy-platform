@@ -36,7 +36,7 @@ class ServiceSlaEscalationControllerAuthorizationTest {
             1L,"SERVICE_REQUEST","HIGH","RESPONSE",1,30,"SERVICE_MANAGER",true,0));
         mvc.perform(put("/api/v1/vendor/service-sla/escalation-policies")
             .contentType("application/json")
-            .content("{\"caseType\":\"SERVICE_REQUEST\",\"priority\":\"HIGH\",\"breachType\":\"RESPONSE\",\"escalationLevel\":1,\"afterMinutes\":30,\"recipientRoleKey\":\"SERVICE_MANAGER\",\"enabled\":true}"))
+            .content("{\"caseType\":\"SERVICE_REQUEST\",\"priority\":\"HIGH\",\"breachType\":\"RESPONSE\",\"escalationLevel\":1,\"afterMinutes\":30,\"recipientRoleKey\":\"SERVICE_MANAGER\",\"enabled\":true,\"reason\":\"Approved escalation policy\"}"))
             .andExpect(status().isOk());
         verify(service).savePolicy(any());
     }
@@ -71,7 +71,7 @@ class ServiceSlaEscalationControllerAuthorizationTest {
     void invalidEscalationLevelIsRejectedByRequestValidation() throws Exception {
         mvc.perform(put("/api/v1/vendor/service-sla/escalation-policies")
             .contentType("application/json")
-            .content("{\"caseType\":\"SERVICE_REQUEST\",\"priority\":\"HIGH\",\"breachType\":\"RESPONSE\",\"escalationLevel\":8,\"afterMinutes\":30,\"recipientRoleKey\":\"SERVICE_MANAGER\",\"enabled\":true}"))
+            .content("{\"caseType\":\"SERVICE_REQUEST\",\"priority\":\"HIGH\",\"breachType\":\"RESPONSE\",\"escalationLevel\":8,\"afterMinutes\":30,\"recipientRoleKey\":\"SERVICE_MANAGER\",\"enabled\":true,\"reason\":\"Approved escalation policy\"}"))
             .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }

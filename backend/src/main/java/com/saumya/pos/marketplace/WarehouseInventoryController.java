@@ -75,6 +75,13 @@ public class WarehouseInventoryController {
         return service.approve(id,request.expectedVersion(),request.reason());
     }
 
+    @PostMapping("/transfers/{id}/cancel")
+    @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
+    public WarehouseInventoryService.TransferView cancel(@PathVariable String id,
+            @Valid @RequestBody TransferActionRequest request){
+        return service.cancel(id,request.expectedVersion(),request.reason());
+    }
+
     @PostMapping("/transfers/{id}/dispatch")
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public WarehouseInventoryService.TransferView dispatch(@PathVariable String id,

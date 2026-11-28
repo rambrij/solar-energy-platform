@@ -7,9 +7,12 @@ import com.saumya.pos.integration.IntegrationEventHandler;
 import com.saumya.pos.integration.IntegrationOutboxService;
 import java.time.Instant;
 import java.util.Set;
+import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -35,6 +38,7 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
         this.mail = mail;
         this.mapper = mapper;
         if (!StringUtils.hasText(from) || from.length() > 100
+                || !from.matches("^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$")
                 || from.codePoints().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("A valid escalation notification sender is required");
         }
@@ -48,9 +52,9 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
     }
 
     @Override
-    public void handle(IntegrationOutboxService.Event event) {
+    public void handle(IntegrationOutboxService.Event event) throws Exception {
         if (event == null || event.tenant() == null || event.tenant() <= 0
-                || !EVENT_TYPE.equals(event.type())) {
+                || !EVENT_TYPE.equals(event.type()) || !isEventId(event.id())) {
             throw new IllegalArgumentException("A tenant-owned SLA escalation event is required");
         }
         JsonNode payload;
@@ -86,26 +90,44 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
         }
 
         String link = publicUrl + "/vendor/service-visits";
+        String messageId = "<" + event.id() + "@" + senderDomain() + ">";
+        String body = """
+            A service case has reached SLA escalation level %d.
+
+            Case type: %s
+            Case reference: %d
+            Breach type: %s
+            Escalation reference: %d
+            Escalated at: %s
+
+            Review the case in your vendor workspace:
+            %s
+
+            This notification was sent to active, verified members of the configured tenant role.
+            """.formatted(level, caseType, caseId, breachType, escalationId, escalatedAt, link);
         for (String recipient : recipients) {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(from);
-            message.setTo(recipient);
-            message.setSubject("Action required: service SLA escalation level " + level);
-            message.setText("""
-                A service case has reached SLA escalation level %d.
-
-                Case type: %s
-                Case reference: %d
-                Breach type: %s
-                Escalation reference: %d
-                Escalated at: %s
-
-                Review the case in your vendor workspace:
-                %s
-
-                This notification was sent to active, verified members of the configured tenant role.
-                """.formatted(level, caseType, caseId, breachType, escalationId, escalatedAt, link));
+            MimeMessage message = mail.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+            helper.setFrom(from);
+            helper.setTo(recipient);
+            helper.setSubject("Action required: service SLA escalation level " + level);
+            helper.setText(body, false);
+            message.setHeader("Message-ID", messageId);
+            message.setHeader("X-Idempotency-Key", event.id());
             mail.send(message);
+        }
+    }
+
+    private String senderDomain() {
+        return from.substring(from.lastIndexOf('@') + 1);
+    }
+
+    private static boolean isEventId(String value) {
+        if (value == null) return false;
+        try {
+            return UUID.fromString(value).toString().equalsIgnoreCase(value);
+        } catch (IllegalArgumentException failure) {
+            return false;
         }
     }
 

@@ -1256,7 +1256,7 @@
       "service": "ShipmentService",
       "scope": "Authenticated vendor tenant; paid online order; append-only tracking events; serialized units must match paid order-item quantities and be unique within the tenant",
       "ui": "Vendor fulfilment shipment registration and tracking",
-      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest; ShipmentSerialAssetTraceabilityTest"
+      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
     },
     {
       "permission": "SHIPMENT_VIEW",
@@ -1266,7 +1266,7 @@
       "service": "ShipmentService",
       "scope": "Authenticated vendor tenant and paid online orders",
       "ui": "Vendor fulfilment shipment queue",
-      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest; ShipmentSerialAssetTraceabilityTest"
+      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
     },
     {
       "permission": "TENANT_PROFILE_UPDATE",

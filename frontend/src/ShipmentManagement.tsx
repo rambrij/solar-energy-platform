@@ -9,7 +9,7 @@ export default function ShipmentManagement(){
  useEffect(()=>{void load();},[]);
  async function create(event:React.FormEvent){event.preventDefault();setBusy(true);setError('');setNotice('');try{await vendorApi(`/orders/${encodeURIComponent(selected)}/shipments`,'POST',{carrier,trackingReference:reference,trackingUrl:url||null,reason});setCarrier('');setReference('');setUrl('');setReason('');setSelected('');setNotice('Shipment registered.');await load();}catch{setError('Shipment was not confirmed. Check the order and tracking details, then retry.');}finally{setBusy(false);}}
  async function captureSerials(id:number){
-  const serials=serialNumbers.split(/[\\n,;]+/).map(value=>value.trim()).filter(Boolean);
+  const serials=serialNumbers.split(/[\n,;]+/).map(value=>value.trim()).filter(Boolean);
   if(!serialProductId||serials.length===0||!serialReason.trim()){setError('Enter a product ID, at least one serial number and an audit reason.');return;}
   setBusy(true);setError('');setNotice('');
   try{await vendorApi(`/shipments/${id}/serial-assets`,'POST',{productId:Number(serialProductId),serialNumbers:serials,reason:serialReason.trim()});setSerialNumbers('');setSerialReason('');setNotice('Serial numbers recorded and linked to the order.');await load();}

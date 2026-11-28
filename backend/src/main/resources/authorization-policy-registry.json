@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "description": "Canonical assignable permission catalogue and endpoint inventory. Only vendorPermissions and platformPermissions are assignable; reserved, orphaned, conflicting and unknown identifiers are non-assignable. The same JSON resource drives backend registries, Flyway catalogue constraints, frontend checks and traceability tests.",
+  "version": 3,
+  "description": "Canonical assignable permission catalogue and endpoint inventory. Warehouse and transfer operations implement the existing SRS INVENTORY_TRANSFER permission; the same JSON resource drives backend registries, Flyway catalogue constraints, frontend checks and traceability tests.",
   "vendorPermissions": [
     "CATALOG_PROMOTION_MANAGE",
     "CRM_NOTE_CREATE",
@@ -12,6 +12,7 @@
     "INSTALLATION_UPDATE",
     "INSTALLATION_VIEW",
     "INVENTORY_RECEIVE",
+    "INVENTORY_TRANSFER",
     "INVENTORY_VIEW",
     "INVOICE_VIEW",
     "LEAD_ASSIGN",
@@ -431,7 +432,6 @@
     "CUSTOMER_RELATION_UPDATE",
     "INVENTORY_ADJUST",
     "INVENTORY_RESERVE",
-    "INVENTORY_TRANSFER",
     "INVOICE_CREATE",
     "INVOICE_SEND",
     "INVOICE_VOID",
@@ -568,6 +568,16 @@
       "scope": "Authenticated tenant and assigned branch stock location",
       "ui": "Inventory > Stock receiving > record receipt",
       "test": "PosTest#p006AccountantCanReadAssignedFinancialReportsButCannotReceiveInventory; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "INVENTORY_TRANSFER",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/inventory/warehouses; POST /api/v1/vendor/inventory/warehouses; PATCH /api/v1/vendor/inventory/warehouses/{id}; GET /api/v1/vendor/inventory/transfers; GET /api/v1/vendor/inventory/transfers/{id}; POST /api/v1/vendor/inventory/transfers; POST /api/v1/vendor/inventory/transfers/{id}/approve; POST /api/v1/vendor/inventory/transfers/{id}/dispatch; POST /api/v1/vendor/inventory/transfers/{id}/receive",
+      "service": "WarehouseInventoryService",
+      "scope": "Authenticated vendor tenant; source branch derived from active membership; destination branch and warehouses resolved through tenant-qualified lookups; maker-checker approval; immutable transfer events; idempotent receipts",
+      "ui": "Vendor workspace > Catalogue & Inventory > Warehouses & Transfers",
+      "test": "WarehouseInventoryServiceAuthorizationTest; WarehouseInventoryControllerAuthorizationTest; RuntimeAuthorizationEndpointInventoryTest"
     },
     {
       "permission": "INVENTORY_VIEW",

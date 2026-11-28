@@ -3803,6 +3803,7 @@ class PosTest {
  }
 
  private String matrixPatternValue(String regex,String field){
+  if(regex.contains("BRANCH")&&regex.contains("WAREHOUSE"))return "BRANCH";
   if(regex.contains("CONTACTED")&&regex.contains("QUALIFIED")&&regex.contains("LOST"))return "CONTACTED";
   if(regex.contains("{64}")||regex.contains("64}"))return "0".repeat(64);
   if(regex.contains("{43}")||regex.contains("43}"))return "A".repeat(43);

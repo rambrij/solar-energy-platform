@@ -44,7 +44,7 @@ export default function WarehouseTransfers(){
   event.preventDefault();if(!editing)return;
   setBusy(true);setError('');setNotice('');
   try{
-   await vendorApi('/inventory/warehouses/'+editing.id,'PATCH',{
+   await vendorApi(`/inventory/warehouses/${editing.id}`,'PATCH',{
     expectedVersion:editing.version,name:editName.trim(),active:editActive,reason:editReason.trim()
    });
    setNotice(editActive?'Warehouse updated.':'Warehouse deactivated.');
@@ -72,13 +72,13 @@ export default function WarehouseTransfers(){
  }
  async function openWarehouseStock(id:number){
   setBusy(true);setError('');
-  try{const items=await vendorApi('/inventory/warehouses/'+id+'/stock');setStock({warehouseId:id,items});}
+  try{const items=await vendorApi(`/inventory/warehouses/${id}/stock`);setStock({warehouseId:id,items});}
   catch(e){setError(e instanceof ApiError?e.message:'Warehouse stock unavailable.');}
   finally{setBusy(false);}
  }
  async function openDetail(id:string){
   setBusy(true);setError('');
-  try{const result=await vendorApi('/inventory/transfers/'+encodeURIComponent(id));setDetail(result);setReceiveQuantity(String(Math.max(1,result.transfer.quantity-result.transfer.receivedQuantity)));setFinalReceipt(true);setReceiptReason('');}
+  try{const result=await vendorApi(`/inventory/transfers/${encodeURIComponent(id)}`);setDetail(result);setReceiveQuantity(String(Math.max(1,result.transfer.quantity-result.transfer.receivedQuantity)));setFinalReceipt(true);setReceiptReason('');}
   catch(e){setError(e instanceof ApiError?e.message:'Transfer details unavailable.');}
   finally{setBusy(false);}
  }

@@ -327,6 +327,9 @@
       "trustedTenantParameters": {
         "receive": [
           "tenant"
+        ],
+        "list": [
+          "tenant"
         ]
       }
     },

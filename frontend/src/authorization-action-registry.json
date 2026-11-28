@@ -891,6 +891,30 @@
       "backendOperation": "GET /api/v1/customer/installations"
     },
     {
+      "id": "customer-online-returns-load",
+      "component": "CustomerOnlineReturns.tsx",
+      "trigger": "button",
+      "actor": "CUSTOMER",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "method": "GET",
+      "endpoint": "/api/v1/customer/online-returns",
+      "backendOperation": "GET /api/v1/customer/online-returns"
+    },
+    {
+      "id": "customer-online-returns-submit",
+      "component": "CustomerOnlineReturns.tsx",
+      "trigger": "submit",
+      "actor": "CUSTOMER",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "method": "POST",
+      "endpoint": "/api/v1/customer/online-returns",
+      "backendOperation": "POST /api/v1/customer/online-returns"
+    },
+    {
       "id": "customer-order-list",
       "component": "OrderHistory.tsx",
       "trigger": "load",
@@ -925,6 +949,18 @@
       ],
       "actor": "CUSTOMER",
       "backendOperation": "GET /api/v1/customer/orders/{orderId}/returns"
+    },
+    {
+      "id": "customer-order-serial-assets",
+      "component": "OrderHistory.tsx",
+      "trigger": "inspect",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{orderId}/serial-assets",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{orderId}/serial-assets"
     },
     {
       "id": "customer-order-shipment-tracking",
@@ -2428,6 +2464,18 @@
       "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
     },
     {
+      "id": "product-image-list",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/products/{productId}/images",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products/{productId}/images"
+    },
+    {
       "id": "product-image-preview",
       "component": "SolarPackageManager.tsx",
       "trigger": "load",
@@ -2439,18 +2487,6 @@
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/products/{productId}/images/{imageId}",
       "implementationFile": "SolarPackageManager.tsx"
-    },
-    {
-      "id": "product-image-list",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/products/{productId}/images",
-      "permissions": [
-        "PRODUCT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/products/{productId}/images"
     },
     {
       "id": "product-image-upload",
@@ -3085,18 +3121,6 @@
       "backendOperation": "GET /api/v1/vendor/leads/assignees"
     },
     {
-      "id": "vendor-lead-status",
-      "component": "VendorLeadInbox.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/leads/{id}",
-      "permissions": [
-        "LEAD_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/leads/{id}"
-    },
-    {
       "id": "vendor-lead-assignment",
       "component": "VendorLeadInbox.tsx",
       "trigger": "submit",
@@ -3119,6 +3143,66 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/leads"
+    },
+    {
+      "id": "vendor-lead-status",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/leads/{id}",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/leads/{id}"
+    },
+    {
+      "id": "vendor-online-returns-load",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "button",
+      "actor": "VENDOR",
+      "permissions": [
+        "RETURN_VIEW"
+      ],
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/online-returns",
+      "backendOperation": "GET /api/v1/vendor/online-returns"
+    },
+    {
+      "id": "vendor-online-returns-policy-read",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "load",
+      "actor": "VENDOR",
+      "permissions": [
+        "RETURN_VIEW"
+      ],
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/online-returns/policy",
+      "backendOperation": "GET /api/v1/vendor/online-returns/policy"
+    },
+    {
+      "id": "vendor-online-returns-policy-save",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "submit",
+      "actor": "VENDOR",
+      "permissions": [
+        "RETURN_APPROVE"
+      ],
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/online-returns/policy",
+      "backendOperation": "PUT /api/v1/vendor/online-returns/policy"
+    },
+    {
+      "id": "vendor-online-returns-review",
+      "component": "VendorOnlineReturns.tsx",
+      "trigger": "submit",
+      "actor": "VENDOR",
+      "permissions": [
+        "RETURN_APPROVE"
+      ],
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/online-returns/{id}/decision",
+      "backendOperation": "POST /api/v1/vendor/online-returns/{id}/decision"
     },
     {
       "id": "vendor-payment-account-list",
@@ -3426,6 +3510,54 @@
       "backendOperation": "GET /api/v1/vendor/service-sla"
     },
     {
+      "id": "vendor-service-sla-escalation-acknowledge",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/service-sla/escalations/{id}/acknowledge",
+      "permissions": [
+        "SERVICE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/service-sla/escalations/{id}/acknowledge"
+    },
+    {
+      "id": "vendor-service-sla-escalation-policies",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-sla/escalation-policies",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-sla/escalation-policies"
+    },
+    {
+      "id": "vendor-service-sla-escalation-policy-save",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/service-sla/escalation-policies",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/service-sla/escalation-policies"
+    },
+    {
+      "id": "vendor-service-sla-escalation-queue",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-sla/escalations",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-sla/escalations"
+    },
+    {
       "id": "vendor-service-sla-policies",
       "component": "VendorServiceVisits.tsx",
       "trigger": "load",
@@ -3621,6 +3753,30 @@
       "backendOperation": "GET /api/v1/vendor/shipments"
     },
     {
+      "id": "vendor-shipment-serial-assets-capture",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "captureSerials",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/shipments/{shipmentId}/serial-assets",
+      "permissions": [
+        "SHIPMENT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/shipments/{shipmentId}/serial-assets"
+    },
+    {
+      "id": "vendor-shipment-serial-assets-list",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/shipments/{shipmentId}/serial-assets",
+      "permissions": [
+        "SHIPMENT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/shipments/{shipmentId}/serial-assets"
+    },
+    {
       "id": "vendor-site-survey-create",
       "component": "VendorSiteSurveys.tsx",
       "trigger": "submit",
@@ -3788,126 +3944,6 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "PATCH /api/v1/vendor/inventory/warehouses/{id}"
-    },
-    {
-      "id": "customer-online-returns-load",
-      "component": "CustomerOnlineReturns.tsx",
-      "trigger": "button",
-      "actor": "CUSTOMER",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "method": "GET",
-      "endpoint": "/api/v1/customer/online-returns",
-      "backendOperation": "GET /api/v1/customer/online-returns"
-    },
-    {
-      "id": "vendor-online-returns-load",
-      "component": "VendorOnlineReturns.tsx",
-      "trigger": "button",
-      "actor": "VENDOR",
-      "permissions": [
-        "RETURN_VIEW"
-      ],
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/online-returns",
-      "backendOperation": "GET /api/v1/vendor/online-returns"
-    },
-    {
-      "id": "customer-online-returns-submit",
-      "component": "CustomerOnlineReturns.tsx",
-      "trigger": "submit",
-      "actor": "CUSTOMER",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "method": "POST",
-      "endpoint": "/api/v1/customer/online-returns",
-      "backendOperation": "POST /api/v1/customer/online-returns"
-    },
-    {
-      "id": "vendor-online-returns-policy-save",
-      "component": "VendorOnlineReturns.tsx",
-      "trigger": "submit",
-      "actor": "VENDOR",
-      "permissions": [
-        "RETURN_APPROVE"
-      ],
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/online-returns/policy",
-      "backendOperation": "PUT /api/v1/vendor/online-returns/policy"
-    },
-    {
-      "id": "vendor-online-returns-review",
-      "component": "VendorOnlineReturns.tsx",
-      "trigger": "submit",
-      "actor": "VENDOR",
-      "permissions": [
-        "RETURN_APPROVE"
-      ],
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/online-returns/{id}/decision",
-      "backendOperation": "POST /api/v1/vendor/online-returns/{id}/decision"
-    },
-    {
-      "id": "vendor-online-returns-policy-read",
-      "component": "VendorOnlineReturns.tsx",
-      "trigger": "load",
-      "actor": "VENDOR",
-      "permissions": [
-        "RETURN_VIEW"
-      ],
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/online-returns/policy",
-      "backendOperation": "GET /api/v1/vendor/online-returns/policy"
-    },
-    {
-      "id": "vendor-service-sla-escalation-policies",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-sla/escalation-policies",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-sla/escalation-policies"
-    },
-    {
-      "id": "vendor-service-sla-escalation-queue",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-sla/escalations",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-sla/escalations"
-    },
-    {
-      "id": "vendor-service-sla-escalation-policy-save",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/service-sla/escalation-policies",
-      "permissions": [
-        "SERVICE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/service-sla/escalation-policies"
-    },
-    {
-      "id": "vendor-service-sla-escalation-acknowledge",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/service-sla/escalations/{id}/acknowledge",
-      "permissions": [
-        "SERVICE_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/service-sla/escalations/{id}/acknowledge"
     }
   ],
   "buttons": [
@@ -4938,6 +4974,28 @@
         "transfer-cancel",
         "transfer-dispatch",
         "transfer-receive"
+      ]
+    },
+    "ShipmentManagement.tsx:8": {
+      "fn": "vendorApi",
+      "argument": "`/shipments/${row.id}/serial-assets`",
+      "actions": [
+        "vendor-shipment-serial-assets-list"
+      ]
+    },
+    "ShipmentManagement.tsx:15": {
+      "fn": "vendorApi",
+      "argument": "`/shipments/${id}/serial-assets`",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-shipment-serial-assets-capture"
+      ]
+    },
+    "OrderHistory.tsx:72": {
+      "fn": "marketplaceApi",
+      "argument": "`/api/v1/customer/orders/${encodeURIComponent(id)}/serial-assets`",
+      "actions": [
+        "customer-order-serial-assets"
       ]
     }
   },

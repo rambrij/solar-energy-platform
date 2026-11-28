@@ -130,9 +130,13 @@ public class ServiceSlaEscalationService {
             Map.of("caseType", type, "priority", priority, "breachType", breach,
                 "level", input.escalationLevel(), "afterMinutes", input.afterMinutes(),
                 "recipientRoleKey", recipient, "enabled", input.enabled()));
-        return policies().stream().filter(p -> p.caseType().equals(type) && p.priority().equals(priority)
-            && p.breachType().equals(breach) && p.escalationLevel() == input.escalationLevel())
-            .findFirst().orElseThrow();
+        Long policyId = db.queryForObject("""
+            SELECT id FROM service_sla_escalation_policies
+            WHERE tenant_id=? AND case_type=? AND priority=? AND breach_type=? AND escalation_level=?
+            """, Long.class, current.tenantId(), type, priority, breach, input.escalationLevel());
+        long version = existing.isEmpty() ? 0 : ((Number) existing.getFirst().get("version")).longValue() + 1;
+        return new Policy(policyId, type, priority, breach, input.escalationLevel(),
+            input.afterMinutes(), recipient, input.enabled(), version);
     }
 
     /** Idempotent scheduled pass. Unique escalation identity prevents duplicate notifications across workers. */
@@ -249,6 +253,21 @@ public class ServiceSlaEscalationService {
         outbox.append(current.tenantId(), current.username(), "SERVICE_SLA_ESCALATION",
             Long.toString(id), "SERVICE_SLA.ESCALATION_ACKNOWLEDGED", null,
             Map.of("escalationId", id, "acknowledgedAt", now.toString(), "note", acknowledgement));
-        return queue().stream().filter(e -> e.id() == id).findFirst().orElseThrow();
+        List<Map<String,Object>> updated = db.queryForList("""
+            SELECT e.id,e.service_case_sla_id,s.case_type,
+              COALESCE(s.service_request_id,s.warranty_claim_id) case_id,
+              e.breach_type,e.escalation_level,e.recipient_role_key,e.status,e.escalated_at,
+              e.acknowledged_by,e.acknowledged_at,e.acknowledgement_note
+            FROM service_sla_escalations e
+            JOIN service_case_sla s ON s.tenant_id=e.tenant_id AND s.id=e.service_case_sla_id
+            WHERE e.tenant_id=? AND e.id=?
+            """, current.tenantId(), id);
+        if (updated.isEmpty()) throw new IllegalStateException("Acknowledged escalation could not be reloaded");
+        Map<String,Object> row = updated.getFirst();
+        return new Escalation(number(row.get("id")), number(row.get("service_case_sla_id")),
+            (String) row.get("case_type"), number(row.get("case_id")), (String) row.get("breach_type"),
+            ((Number) row.get("escalation_level")).intValue(), (String) row.get("recipient_role_key"),
+            (String) row.get("status"), instant(row.get("escalated_at")), (String) row.get("acknowledged_by"),
+            instant(row.get("acknowledged_at")), (String) row.get("acknowledgement_note"));
     }
 }

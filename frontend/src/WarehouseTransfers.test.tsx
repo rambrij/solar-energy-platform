@@ -26,6 +26,7 @@ it('creates a warehouse with a reason and refreshes the scoped lists',async()=>{
  vi.mocked(vendorApi).mockImplementation(async(path,method)=>{
   if(path==='/inventory/warehouses'&&method==='POST')return {id:2,branchId:10,code:'MAIN',name:'Main Warehouse',active:true,version:0};
   if(path==='/inventory/warehouses')return [{id:2,branchId:10,code:'MAIN',name:'Main Warehouse',active:true,version:0}];
+  if(path==='/inventory/warehouses/2/stock')return [{productId:7,sku:'P7',productName:'Panel',onHand:5,reserved:1,damaged:0,available:4,version:1}];
   if(path==='/inventory/transfers')return [];
   return {};
  });
@@ -36,6 +37,9 @@ it('creates a warehouse with a reason and refreshes the scoped lists',async()=>{
  fireEvent.change(screen.getByLabelText('Reason'),{target:{value:'Approved storage location'}});
  fireEvent.click(screen.getByRole('button',{name:'Create warehouse'}));
  await screen.findByText('MAIN — Main Warehouse (Active)');
+ fireEvent.click(screen.getByRole('button',{name:'View stock'}));
+ await screen.findByText('Panel');
+ expect(vendorApi).toHaveBeenCalledWith('/inventory/warehouses/2/stock');
  expect(vendorApi).toHaveBeenCalledWith('/inventory/warehouses','POST',{
   code:'MAIN',name:'Main Warehouse',reason:'Approved storage location'
  });

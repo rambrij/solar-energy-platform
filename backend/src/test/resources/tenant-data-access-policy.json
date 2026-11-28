@@ -232,6 +232,155 @@
   ],
   "trustedTenantParameterSources": [
     {
+      "source": "com.saumya.pos.fulfillment.ShipmentService",
+      "methods": [
+        "eligibleOrders",
+        "shipments",
+        "createShipment",
+        "addEvent",
+        "events",
+        "customerShipments",
+        "customerEvents",
+        "customerShipmentFeed"
+      ],
+      "authority": "Vendor methods derive tenant from authenticated AuthorizationContext; customer methods derive paid ONLINE order references through OrderHistoryService using the authenticated global customer, then bind each trusted order tenant to shipment and event queries.",
+      "evidence": [
+        "auth.current()",
+        "requireVendorMembership()",
+        "c.tenantId()",
+        "events(long tenant,long id)",
+        "orderHistory.customerOrderTenant(username,orderId)",
+        "orderHistory.customerPaidOnlineOrderReferences(username)",
+        "order.tenantId()",
+        "customerEvents(long tenant,long shipmentId)"
+      ],
+      "trustedTenantParameters": {
+        "events": [
+          "tenant"
+        ],
+        "customerEvents": [
+          "tenant"
+        ]
+      }
+    },
+    {
+      "source": "com.saumya.pos.installation.InstallationService",
+      "methods": [
+        "eligibleOrders",
+        "vendorList",
+        "eligibleEngineers",
+        "create",
+        "assign",
+        "updateStatus",
+        "customerList",
+        "customerGet",
+        "findVendor",
+        "lockJob",
+        "requireActiveEngineer",
+        "append",
+        "events",
+        "customerEvents"
+      ],
+      "authority": "Vendor tenant parameters derive from AuthorizationContext.current().tenantId() after active membership and INSTALLATION_* checks. Customer tenant parameters derive from OrderHistoryService.CustomerOrderReference values built from the authenticated global customer and paid online order ownership.",
+      "evidence": [
+        "authorization.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "customerPaidOnlineOrderReferences(username)",
+        "order.tenantId()",
+        "order.orderId()"
+      ],
+      "trustedTenantParameters": {}
+    },
+    {
+      "source": "com.saumya.pos.inventory.WarehouseInventoryService",
+      "methods": [
+        "warehouses",
+        "warehouseStock",
+        "createWarehouse",
+        "updateWarehouse",
+        "transfers",
+        "transfer",
+        "createTransfer",
+        "approve",
+        "cancel",
+        "dispatch",
+        "receive",
+        "debitBranch",
+        "debitWarehouse",
+        "creditBranch",
+        "creditWarehouse",
+        "requireWarehouseCapacity",
+        "lockTenant",
+        "requireBranch",
+        "requirePosLocation",
+        "requireWarehouse",
+        "warehouseRow",
+        "warehouse",
+        "auditWarehouse",
+        "appendEvent",
+        "recordMovement",
+        "transferRow",
+        "transferById"
+      ],
+      "authority": "Every public entry point resolves AuthorizationContext.current(), requires vendor membership and the operation-specific INVENTORY_VIEW or INVENTORY_TRANSFER grant before SQL. The tenant and active source/destination branch come only from the authenticated AuthorizationContext; helper tenant parameters are passed only from that context.",
+      "evidence": [
+        "authorization.current()",
+        "context.requireVendorMembership()",
+        "context.requirePermission(permission)",
+        "context.tenantId()",
+        "context.branchId()",
+        "tenant-qualified composite foreign keys",
+        "tenant row lock before transfer mutations"
+      ],
+      "trustedTenantParameters": {
+        "debitBranch": [
+          "tenant"
+        ],
+        "debitWarehouse": [
+          "tenant"
+        ],
+        "creditBranch": [
+          "tenant"
+        ],
+        "creditWarehouse": [
+          "tenant"
+        ],
+        "requireWarehouseCapacity": [
+          "tenant"
+        ],
+        "lockTenant": [
+          "tenant"
+        ],
+        "requireBranch": [
+          "tenant"
+        ],
+        "requirePosLocation": [
+          "tenant"
+        ]
+      }
+    },
+    {
+      "source": "com.saumya.pos.marketplace.MarketplaceEnquiryService",
+      "methods": [
+        "leadAssignees",
+        "isActiveLeadAssignee"
+      ],
+      "authority": "Lead assignee reads derive tenant scope from the authenticated Vendor AuthorizationContext. isActiveLeadAssignee receives its tenant only from assignLead after the active Vendor membership and LEAD_ASSIGN checks; employee, assignment, role and permission joins retain tenant ownership.",
+      "evidence": [
+        "authorization.current()",
+        "actor.tenantId()",
+        "requirePermission(\"LEAD_ASSIGN\")",
+        "WHERE e.tenant_id=?",
+        "permission='LEAD_VIEW'"
+      ],
+      "trustedTenantParameters": {
+        "isActiveLeadAssignee": [
+          "tenant"
+        ]
+      }
+    },
+    {
       "source": "com.saumya.pos.membership.MembershipService",
       "methods": [
         "effectiveVendorPermissions",
@@ -250,6 +399,50 @@
         ],
         "provisionInitialVendorAdmin": [
           "tenantId"
+        ]
+      }
+    },
+    {
+      "source": "com.saumya.pos.membership.StandardRoleTemplates",
+      "methods": [
+        "lockTenant",
+        "initialize",
+        "insert"
+      ],
+      "authority": "Package-private provisioning helpers receive tenant only from authenticated MembershipService or VendorRoleService actor context.",
+      "evidence": [
+        "static void lockTenant",
+        "static long initialize",
+        "static long insert"
+      ],
+      "trustedTenantParameters": {
+        "lockTenant": [
+          "tenant"
+        ],
+        "initialize": [
+          "tenant"
+        ],
+        "insert": [
+          "tenant"
+        ]
+      }
+    },
+    {
+      "source": "com.saumya.pos.membership.TenantEntitlementPolicy",
+      "methods": [
+        "permissions"
+      ],
+      "authority": "Called by MembershipService with the tenant from the persisted active EmployeeMembership; no request DTO is accepted.",
+      "evidence": [
+        "permissions(long tenant",
+        "requireFeature(long tenant"
+      ],
+      "trustedTenantParameters": {
+        "permissions": [
+          "tenant"
+        ],
+        "requireFeature": [
+          "tenant"
         ]
       }
     },
@@ -286,48 +479,44 @@
       ]
     },
     {
-      "source": "com.saumya.pos.membership.TenantEntitlementPolicy",
+      "source": "com.saumya.pos.retail.BranchProvisioningServiceImpl",
       "methods": [
-        "permissions"
+        "createInitialBranch"
       ],
-      "authority": "Called by MembershipService with the tenant from the persisted active EmployeeMembership; no request DTO is accepted.",
+      "authority": "Provisioning is invoked from the platform tenant lifecycle workflow; tenantId is the platform-authorized tenant resource, not a vendor-supplied tenant field.",
       "evidence": [
-        "permissions(long tenant",
-        "requireFeature(long tenant"
+        "createInitialBranch(long tenantId",
+        "authorization",
+        "tenantId"
       ],
       "trustedTenantParameters": {
-        "permissions": [
-          "tenant"
-        ],
-        "requireFeature": [
-          "tenant"
+        "createInitialBranch": [
+          "tenantId"
         ]
       }
     },
     {
-      "source": "com.saumya.pos.membership.StandardRoleTemplates",
+      "source": "com.saumya.pos.retail.CashDrawerProjection",
       "methods": [
-        "lockTenant",
-        "initialize",
-        "insert"
+        "record"
       ],
-      "authority": "Package-private provisioning helpers receive tenant only from authenticated MembershipService or VendorRoleService actor context.",
+      "authority": "Projection writes are driven only by server-published drawer/tender domain events; tenant is copied from event aggregate metadata.",
       "evidence": [
-        "static void lockTenant",
-        "static long initialize",
-        "static long insert"
+        "@EventListener",
+        "event.tenant()"
+      ]
+    },
+    {
+      "source": "com.saumya.pos.retail.DraftSessionProjection",
+      "methods": [
+        "changed"
       ],
-      "trustedTenantParameters": {
-        "lockTenant": [
-          "tenant"
-        ],
-        "initialize": [
-          "tenant"
-        ],
-        "insert": [
-          "tenant"
-        ]
-      }
+      "authority": "Projection writes are driven only by server-published PosDraftStateChanged domain events; tenant is copied from event aggregate metadata.",
+      "evidence": [
+        "@EventListener",
+        "PosDraftStateChanged event",
+        "event.tenant()"
+      ]
     },
     {
       "source": "com.saumya.pos.retail.PosService",
@@ -381,127 +570,6 @@
       }
     },
     {
-      "source": "com.saumya.pos.retail.DraftSessionProjection",
-      "methods": [
-        "changed"
-      ],
-      "authority": "Projection writes are driven only by server-published PosDraftStateChanged domain events; tenant is copied from event aggregate metadata.",
-      "evidence": [
-        "@EventListener",
-        "PosDraftStateChanged event",
-        "event.tenant()"
-      ]
-    },
-    {
-      "source": "com.saumya.pos.retail.CashDrawerProjection",
-      "methods": [
-        "record"
-      ],
-      "authority": "Projection writes are driven only by server-published drawer/tender domain events; tenant is copied from event aggregate metadata.",
-      "evidence": [
-        "@EventListener",
-        "event.tenant()"
-      ]
-    },
-    {
-      "source": "com.saumya.pos.retail.BranchProvisioningServiceImpl",
-      "methods": [
-        "createInitialBranch"
-      ],
-      "authority": "Provisioning is invoked from the platform tenant lifecycle workflow; tenantId is the platform-authorized tenant resource, not a vendor-supplied tenant field.",
-      "evidence": [
-        "createInitialBranch(long tenantId",
-        "authorization",
-        "tenantId"
-      ],
-      "trustedTenantParameters": {
-        "createInitialBranch": [
-          "tenantId"
-        ]
-      }
-    },
-    {
-      "source": "com.saumya.pos.fulfillment.ShipmentService",
-      "methods": [
-        "eligibleOrders",
-        "shipments",
-        "createShipment",
-        "addEvent",
-        "events",
-        "customerShipments",
-        "customerEvents",
-        "customerShipmentFeed"
-      ],
-      "authority": "Vendor methods derive tenant from authenticated AuthorizationContext; customer methods derive paid ONLINE order references through OrderHistoryService using the authenticated global customer, then bind each trusted order tenant to shipment and event queries.",
-      "evidence": [
-        "auth.current()",
-        "requireVendorMembership()",
-        "c.tenantId()",
-        "events(long tenant,long id)",
-        "orderHistory.customerOrderTenant(username,orderId)",
-        "orderHistory.customerPaidOnlineOrderReferences(username)",
-        "order.tenantId()",
-        "customerEvents(long tenant,long shipmentId)"
-      ],
-      "trustedTenantParameters": {
-        "events": [
-          "tenant"
-        ],
-        "customerEvents": [
-          "tenant"
-        ]
-      }
-    },
-    {
-      "source": "com.saumya.pos.marketplace.MarketplaceEnquiryService",
-      "methods": [
-        "leadAssignees",
-        "isActiveLeadAssignee"
-      ],
-      "authority": "Lead assignee reads derive tenant scope from the authenticated Vendor AuthorizationContext. isActiveLeadAssignee receives its tenant only from assignLead after the active Vendor membership and LEAD_ASSIGN checks; employee, assignment, role and permission joins retain tenant ownership.",
-      "evidence": [
-        "authorization.current()",
-        "actor.tenantId()",
-        "requirePermission(\"LEAD_ASSIGN\")",
-        "WHERE e.tenant_id=?",
-        "permission='LEAD_VIEW'"
-      ],
-      "trustedTenantParameters": {
-        "isActiveLeadAssignee": [
-          "tenant"
-        ]
-      }
-    },
-    {
-      "source": "com.saumya.pos.installation.InstallationService",
-      "methods": [
-        "eligibleOrders",
-        "vendorList",
-        "eligibleEngineers",
-        "create",
-        "assign",
-        "updateStatus",
-        "customerList",
-        "customerGet",
-        "findVendor",
-        "lockJob",
-        "requireActiveEngineer",
-        "append",
-        "events",
-        "customerEvents"
-      ],
-      "authority": "Vendor tenant parameters derive from AuthorizationContext.current().tenantId() after active membership and INSTALLATION_* checks. Customer tenant parameters derive from OrderHistoryService.CustomerOrderReference values built from the authenticated global customer and paid online order ownership.",
-      "evidence": [
-        "authorization.current()",
-        "requireVendorMembership()",
-        "actor.tenantId()",
-        "customerPaidOnlineOrderReferences(username)",
-        "order.tenantId()",
-        "order.orderId()"
-      ],
-      "trustedTenantParameters": {}
-    },
-    {
       "source": "com.saumya.pos.service.ServiceRequestService",
       "methods": [
         "eligibleVendorOrders",
@@ -544,25 +612,93 @@
       }
     },
     {
-      "source": "com.saumya.pos.warranty.WarrantyService",
+      "source": "com.saumya.pos.service.ServiceSlaService",
       "methods": [
-        "vendorList",
-        "eligibleOrders",
-        "eligibleItems",
-        "register",
-        "customerList",
-        "customerGet"
+        "policies",
+        "updatePolicy",
+        "backfillUntrackedCases",
+        "startForServiceRequest",
+        "startForWarrantyClaim",
+        "insertClock",
+        "recordFirstResponse",
+        "closeCase",
+        "dashboard",
+        "processDueForTenant",
+        "markResponseBreach",
+        "markResolutionBreach",
+        "appendVendorEvent",
+        "appendSystemEvent"
       ],
-      "authority": "Vendor tenant parameters come only from AuthorizationContext.current().tenantId() after active vendor membership and SERVICE_VIEW/SERVICE_CREATE permission checks. Customer tenant/order parameters come only from OrderHistoryService.CustomerOrderReference values resolved for the authenticated global customer and paid-online order ownership. No request-supplied tenant identifier is accepted.",
+      "authority": "Service SLA reads and mutations are scoped by the active vendor AuthorizationContext or by a TenantSummary supplied from TenantLifecycleService.activeVendors to the scheduled worker. Service-case tenant identifiers passed from case creation are derived only from the already-authorized vendor actor or an authenticated customer's paid-online OrderHistoryService reference. Every SQL operation binds tenant_id from that trusted source; the scheduled worker only enumerates active persisted tenants.",
+      "evidence": [
+        "authorization.current()",
+        "requireVendorMembership()",
+        "actor.tenantId()",
+        "TenantLifecycleService.TenantSummary",
+        "tenant.id()",
+        "WHERE tenant_id=?"
+      ],
+      "trustedTenantParameters": {
+        "startForServiceRequest": [
+          "tenantId"
+        ],
+        "startForWarrantyClaim": [
+          "tenantId"
+        ],
+        "insertClock": [
+          "tenantId"
+        ]
+      }
+    },
+    {
+      "source": "com.saumya.pos.service.ServiceVisitService",
+      "methods": [
+        "eligibleAssignees",
+        "vendorList",
+        "create",
+        "assign",
+        "updateStatus",
+        "recordNote",
+        "customerList",
+        "customerGet",
+        "lockCase",
+        "requireActiveAssignee",
+        "lockVisit",
+        "loadVendor",
+        "appendEvent",
+        "vendorEvents",
+        "customerEvents"
+      ],
+      "authority": "Vendor visit tenant scope comes only from AuthorizationContext after active vendor membership and SERVICE_* checks. Customer visit tenant scope comes only from OrderHistoryService.CustomerOrderReference values resolved for the authenticated global customer and paid-online order ownership. Helper tenantId parameters are passed unchanged only from those authenticated contexts or owned order references.",
       "evidence": [
         "authorization.current()",
         "requireVendorMembership()",
         "actor.tenantId()",
         "customerPaidOnlineOrderReferences(username)",
         "order.tenantId()",
-        "order.orderId()"
+        "WHERE v.tenant_id=?",
+        "WHERE tenant_id=?"
       ],
-      "trustedTenantParameters": {}
+      "trustedTenantParameters": {
+        "lockCase": [
+          "tenantId"
+        ],
+        "lockVisit": [
+          "tenantId"
+        ],
+        "loadVendor": [
+          "tenantId"
+        ],
+        "appendEvent": [
+          "tenantId"
+        ],
+        "vendorEvents": [
+          "tenantId"
+        ],
+        "customerEvents": [
+          "tenantId"
+        ]
+      }
     },
     {
       "source": "com.saumya.pos.warranty.WarrantyClaimService",
@@ -618,93 +754,25 @@
       }
     },
     {
-      "source": "com.saumya.pos.service.ServiceVisitService",
+      "source": "com.saumya.pos.warranty.WarrantyService",
       "methods": [
-        "eligibleAssignees",
         "vendorList",
-        "create",
-        "assign",
-        "updateStatus",
-        "recordNote",
+        "eligibleOrders",
+        "eligibleItems",
+        "register",
         "customerList",
-        "customerGet",
-        "lockCase",
-        "requireActiveAssignee",
-        "lockVisit",
-        "loadVendor",
-        "appendEvent",
-        "vendorEvents",
-        "customerEvents"
+        "customerGet"
       ],
-      "authority": "Vendor visit tenant scope comes only from AuthorizationContext after active vendor membership and SERVICE_* checks. Customer visit tenant scope comes only from OrderHistoryService.CustomerOrderReference values resolved for the authenticated global customer and paid-online order ownership. Helper tenantId parameters are passed unchanged only from those authenticated contexts or owned order references.",
+      "authority": "Vendor tenant parameters come only from AuthorizationContext.current().tenantId() after active vendor membership and SERVICE_VIEW/SERVICE_CREATE permission checks. Customer tenant/order parameters come only from OrderHistoryService.CustomerOrderReference values resolved for the authenticated global customer and paid-online order ownership. No request-supplied tenant identifier is accepted.",
       "evidence": [
         "authorization.current()",
         "requireVendorMembership()",
         "actor.tenantId()",
         "customerPaidOnlineOrderReferences(username)",
         "order.tenantId()",
-        "WHERE v.tenant_id=?",
-        "WHERE tenant_id=?"
+        "order.orderId()"
       ],
-      "trustedTenantParameters": {
-        "lockCase": [
-          "tenantId"
-        ],
-        "lockVisit": [
-          "tenantId"
-        ],
-        "loadVendor": [
-          "tenantId"
-        ],
-        "appendEvent": [
-          "tenantId"
-        ],
-        "vendorEvents": [
-          "tenantId"
-        ],
-        "customerEvents": [
-          "tenantId"
-        ]
-      }
-    },
-    {
-      "source": "com.saumya.pos.service.ServiceSlaService",
-      "methods": [
-        "policies",
-        "updatePolicy",
-        "backfillUntrackedCases",
-        "startForServiceRequest",
-        "startForWarrantyClaim",
-        "insertClock",
-        "recordFirstResponse",
-        "closeCase",
-        "dashboard",
-        "processDueForTenant",
-        "markResponseBreach",
-        "markResolutionBreach",
-        "appendVendorEvent",
-        "appendSystemEvent"
-      ],
-      "authority": "Service SLA reads and mutations are scoped by the active vendor AuthorizationContext or by a TenantSummary supplied from TenantLifecycleService.activeVendors to the scheduled worker. Service-case tenant identifiers passed from case creation are derived only from the already-authorized vendor actor or an authenticated customer's paid-online OrderHistoryService reference. Every SQL operation binds tenant_id from that trusted source; the scheduled worker only enumerates active persisted tenants.",
-      "evidence": [
-        "authorization.current()",
-        "requireVendorMembership()",
-        "actor.tenantId()",
-        "TenantLifecycleService.TenantSummary",
-        "tenant.id()",
-        "WHERE tenant_id=?"
-      ],
-      "trustedTenantParameters": {
-        "startForServiceRequest": [
-          "tenantId"
-        ],
-        "startForWarrantyClaim": [
-          "tenantId"
-        ],
-        "insertClock": [
-          "tenantId"
-        ]
-      }
+      "trustedTenantParameters": {}
     }
   ],
   "inheritedIdLookups": [

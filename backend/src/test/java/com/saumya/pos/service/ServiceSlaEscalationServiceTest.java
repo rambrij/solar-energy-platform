@@ -72,7 +72,7 @@ class ServiceSlaEscalationServiceTest {
         when(db.queryForList(contains("email_verified=TRUE"), eq(String.class),
             eq(7L), eq(7L), eq("SERVICE_MANAGER"), eq("standard:SERVICE_MANAGER"),
             eq("service_manager")))
-            .thenReturn(List.of("manager.one@vendor.test", "manager.two@vendor.test"));
+            .thenReturn(List.of("manager.one@vendor.test", "not-an-email", "manager.two@vendor.test"));
 
         var recipients=service().resolveEscalationRecipients(7L,"SERVICE_MANAGER");
 

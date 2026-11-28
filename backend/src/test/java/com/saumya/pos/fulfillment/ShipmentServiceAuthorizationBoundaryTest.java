@@ -48,6 +48,58 @@ class ShipmentServiceAuthorizationBoundaryTest {
   verify(history).customerPaidOnlineOrderReferences("buyer@test");
   verify(db).queryForList(contains("FROM shipments WHERE tenant_id=? AND order_id=?"),eq(7L),eq("owned-order"));
  }
+
+ @Test void shipmentSerialCaptureEnforcesPaidOrderQuantityAndTenantScopedShipment(){
+  var db=mock(JdbcTemplate.class);var auth=mock(AuthorizationContext.class);
+  when(auth.current()).thenReturn(new AuthorizationContext.Context("manager@vendor.test",7L,2L,"7:manager",Set.of("SHIPMENT_UPDATE","SHIPMENT_VIEW"),false,false,true));
+  when(db.queryForList(contains("SELECT order_id FROM shipments"),eq(7L),eq(9L)))
+   .thenReturn(List.of(Map.of("order_id","paid-order")));
+  when(db.queryForList(contains("SELECT sales_channel,status FROM orders"),eq(7L),eq("paid-order")))
+   .thenReturn(List.of(Map.of("sales_channel","ONLINE","status","PAID")));
+  when(db.query(contains("SELECT quantity FROM order_items"),any(org.springframework.jdbc.core.RowMapper.class),
+   eq(7L),eq("paid-order"),eq(55L))).thenReturn(List.of(2));
+  when(db.queryForObject(contains("SELECT COUNT(*) FROM shipment_serial_assets"),eq(Integer.class),
+   eq(7L),eq("paid-order"),eq(55L))).thenReturn(0);
+  when(db.queryForList(contains("SELECT id FROM installation_jobs"),eq(7L),eq("paid-order"))).thenReturn(List.of());
+  when(db.queryForObject(contains("SELECT id FROM shipment_serial_assets"),eq(Long.class),
+   eq(7L),eq("SN-001"))).thenReturn(101L);
+  when(db.queryForList(contains("SELECT id FROM shipments WHERE tenant_id=? AND id=?"),eq(7L),eq(9L)))
+   .thenReturn(List.of(Map.of("id",9L)));
+  when(db.query(contains("SELECT a.id"),any(org.springframework.jdbc.core.RowMapper.class),eq(7L),eq(9L)))
+   .thenReturn(List.of(new ShipmentService.SerialAsset(101,55,"Solar panel","SN-001","paid-order",9,null,Instant.parse("2026-11-28T10:00:00Z"))));
+  var service=new ShipmentService(db,auth,mock(OrderHistoryService.class));
+  var saved=service.captureSerialAssets(9,55,List.of("SN-001"),"Captured during packing");
+  assertThat(saved).hasSize(1);
+  assertThat(saved.getFirst().serialNumber()).isEqualTo("SN-001");
+  verify(db).update(contains("INSERT INTO shipment_serial_assets"),eq(7L),eq(9L),eq("paid-order"),eq(55L),isNull(),eq("SN-001"),eq("manager@vendor.test"),eq("Captured during packing"));
+ }
+
+ @Test void shipmentSerialCaptureRejectsDuplicateValuesBeforeWriting(){
+  var db=mock(JdbcTemplate.class);var auth=mock(AuthorizationContext.class);
+  when(auth.current()).thenReturn(new AuthorizationContext.Context("manager@vendor.test",7L,2L,"7:manager",Set.of("SHIPMENT_UPDATE"),false,false,true));
+  when(db.queryForList(contains("SELECT order_id FROM shipments"),eq(7L),eq(9L))).thenReturn(List.of(Map.of("order_id","paid-order")));
+  when(db.queryForList(contains("SELECT sales_channel,status FROM orders"),eq(7L),eq("paid-order"))).thenReturn(List.of(Map.of("sales_channel","ONLINE","status","PAID")));
+  when(db.query(contains("SELECT quantity FROM order_items"),any(org.springframework.jdbc.core.RowMapper.class),eq(7L),eq("paid-order"),eq(55L))).thenReturn(List.of(2));
+  when(db.queryForObject(contains("SELECT COUNT(*) FROM shipment_serial_assets"),eq(Integer.class),eq(7L),eq("paid-order"),eq(55L))).thenReturn(0);
+  var service=new ShipmentService(db,auth,mock(OrderHistoryService.class));
+  assertThatThrownBy(()->service.captureSerialAssets(9,55,List.of("SN-001"," sn-001 "),"Packing"))
+   .isInstanceOfSatisfying(ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(400));
+  verify(db,never()).update(contains("INSERT INTO shipment_serial_assets"),any(Object[].class));
+ }
+
+ @Test void shipmentSerialCaptureRejectsUnitsBeyondPaidOrderLineQuantity(){
+  var db=mock(JdbcTemplate.class);var auth=mock(AuthorizationContext.class);
+  when(auth.current()).thenReturn(new AuthorizationContext.Context("manager@vendor.test",7L,2L,"7:manager",Set.of("SHIPMENT_UPDATE"),false,false,true));
+  when(db.queryForList(contains("SELECT order_id FROM shipments"),eq(7L),eq(9L))).thenReturn(List.of(Map.of("order_id","paid-order")));
+  when(db.queryForList(contains("SELECT sales_channel,status FROM orders"),eq(7L),eq("paid-order"))).thenReturn(List.of(Map.of("sales_channel","ONLINE","status","PAID")));
+  when(db.query(contains("SELECT quantity FROM order_items"),any(org.springframework.jdbc.core.RowMapper.class),eq(7L),eq("paid-order"),eq(55L))).thenReturn(List.of(1));
+  when(db.queryForObject(contains("SELECT COUNT(*) FROM shipment_serial_assets"),eq(Integer.class),eq(7L),eq("paid-order"),eq(55L))).thenReturn(1);
+  var service=new ShipmentService(db,auth,mock(OrderHistoryService.class));
+  assertThatThrownBy(()->service.captureSerialAssets(9,55,List.of("SN-002"),"Packing"))
+   .isInstanceOfSatisfying(ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(409));
+  verify(db,never()).update(contains("INSERT INTO shipment_serial_assets"),any(Object[].class));
+ }
+
  @Test void foreignCustomerOrderIsRejectedBeforeShipmentLookup(){
   var db=mock(JdbcTemplate.class);var orderHistory=mock(OrderHistoryService.class);
   when(orderHistory.customerOrderTenant("buyer@test","foreign")).thenThrow(new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Order unavailable"));

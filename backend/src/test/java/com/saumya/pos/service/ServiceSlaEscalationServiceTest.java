@@ -68,6 +68,25 @@ class ServiceSlaEscalationServiceTest {
             eq("9"),eq("SERVICE_SLA.ESCALATION_ACKNOWLEDGED"),isNull(),anyMap());
     }
 
+    @Test void recipientResolutionRequiresAnActiveTenantVerifiedUserAndActiveRoleAssignment() {
+        when(db.queryForList(contains("email_verified=TRUE"), eq(String.class),
+            eq(7L), eq("SERVICE_MANAGER"), eq("standard:SERVICE_MANAGER"),
+            eq("service_manager")))
+            .thenReturn(List.of("manager.one@vendor.test", "manager.two@vendor.test"));
+
+        var recipients=service().resolveEscalationRecipients(7L,"SERVICE_MANAGER");
+
+        assertThat(recipients).containsExactly("manager.one@vendor.test","manager.two@vendor.test");
+        verify(db).queryForList(contains("t.lifecycle_status='ACTIVE'"), eq(String.class),
+            eq(7L), eq("SERVICE_MANAGER"), eq("standard:SERVICE_MANAGER"), eq("service_manager"));
+    }
+
+    @Test void recipientResolutionRejectsAnInvalidRecipientRoleBeforeDatabaseAccess() {
+        assertThatThrownBy(()->service().resolveEscalationRecipients(7L,"PLATFORM_ADMIN"))
+            .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(db);
+    }
+
     @Test void unrelatedPermissionCannotCreateEscalationPolicy(){
         actor(Set.of("SHIPMENT_UPDATE"));
         assertThatThrownBy(()->service().savePolicy(new ServiceSlaEscalationService.PolicyUpdate(

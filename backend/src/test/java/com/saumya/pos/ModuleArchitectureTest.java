@@ -96,6 +96,7 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.service.ServiceRequestService",
                 "com.saumya.pos.service.ServiceVisitService",
                 "com.saumya.pos.service.ServiceSlaService",
+                "com.saumya.pos.service.ServiceSlaEscalationService",
                 "com.saumya.pos.warranty.WarrantyService",
                 "com.saumya.pos.warranty.WarrantyClaimService",
                 "com.saumya.pos.marketplace.MarketplaceEnquiryService",

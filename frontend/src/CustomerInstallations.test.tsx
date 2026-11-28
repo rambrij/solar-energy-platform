@@ -9,7 +9,7 @@ it('shows customer-owned installation status and only customer-visible timeline'
  const job={id:4,orderId:'owned-order',siteAddress:'Solar site, Mumbai',scheduledAt:'2026-12-12T08:00:00Z',status:'IN_PROGRESS',assignedTo:'engineer@vendor.test',createdAt:'2026-11-27T08:00:00Z',updatedAt:'2026-11-28T08:00:00Z',completedAt:null,version:1};
  vi.mocked(marketplaceApi).mockImplementation(async(path)=>{
   if(path==='/api/v1/customer/installations')return [job];
-  if(path==='/api/v1/customer/installations/4')return {job,events:[{id:1,type:'STATUS_CHANGED',status:'IN_PROGRESS',note:'Installation has started',occurredAt:'2026-11-28T08:00:00Z'}]};
+  if(path==='/api/v1/customer/installations/4')return {job,events:[{id:1,type:'STATUS_CHANGED',status:'IN_PROGRESS',note:'Installation has started',occurredAt:'2026-11-28T08:00:00Z'}],serialAssets:[{id:5,productId:12,productName:'Solar panel',serialNumber:'SN-CUSTOMER-1',shipmentId:9,recordedAt:'2026-11-27T08:00:00Z'}]}};
   return [];
  });
  render(<CustomerInstallations/>);

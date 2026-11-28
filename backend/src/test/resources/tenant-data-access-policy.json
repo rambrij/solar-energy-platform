@@ -1067,24 +1067,96 @@
   ],
   "trustedTenantParameterFlows": [
     {
-      "callee": "com.saumya.pos.subscription.TenantSubscriptionServiceImpl#scopedMockInvoice",
-      "parameter": "tenantId",
+      "callee": "com.saumya.pos.cart.CartService#requireFeature",
+      "parameter": "tenant",
       "callers": [
         {
-          "caller": "com.saumya.pos.subscription.TenantSubscriptionServiceImpl#mockInvoice",
-          "expression": "subscription.tenantId()",
-          "argumentIndex": 2,
+          "caller": "com.saumya.pos.cart.CartService#view",
+          "expression": "cart.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#put",
+          "expression": "vendor.id()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#remove",
+          "expression": "current.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#switchVendor",
+          "expression": "current.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#quote",
+          "expression": "current.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.cart.CartService#restore",
+          "expression": "archived.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.checkout.CheckoutService#fromAcceptedQuotation",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.marketplace.QuotationService#decide",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.fulfillment.ShipmentService#customerEvents",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.fulfillment.ShipmentService#customerShipments",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.fulfillment.ShipmentService#customerShipmentFeed",
+          "expression": "tenant",
+          "argumentIndex": 0,
           "expectedCallCount": 1
         }
       ]
     },
     {
-      "callee": "com.saumya.pos.subscription.MockSubscriptionBillingJob#process",
-      "parameter": "tenantId",
+      "callee": "com.saumya.pos.fulfillment.ShipmentService#events",
+      "parameter": "tenant",
       "callers": [
         {
-          "caller": "com.saumya.pos.subscription.MockSubscriptionBillingJob#runDueBilling",
-          "expression": "subscription.tenantId()",
+          "caller": "com.saumya.pos.fulfillment.ShipmentService#view",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.marketplace.MarketplaceEnquiryService#isActiveLeadAssignee",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.marketplace.MarketplaceEnquiryService#assignLead",
+          "expression": "actor.tenantId()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }
@@ -1110,24 +1182,6 @@
           "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
           "expression": "tenant.id()",
           "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.membership.StandardRoleTemplates#lockTenant",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
-          "expression": "tenantId",
-          "argumentIndex": 1,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.membership.VendorRoleService#applyTemplate",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 1,
           "expectedCallCount": 1
         }
       ]
@@ -1163,6 +1217,24 @@
       ]
     },
     {
+      "callee": "com.saumya.pos.membership.StandardRoleTemplates#lockTenant",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.membership.MembershipService#provisionInitialVendorAdmin",
+          "expression": "tenantId",
+          "argumentIndex": 1,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.membership.VendorRoleService#applyTemplate",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 1,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
       "callee": "com.saumya.pos.membership.TenantEntitlementPolicy#permissions",
       "parameter": "tenant",
       "callers": [
@@ -1181,24 +1253,42 @@
       ]
     },
     {
+      "callee": "com.saumya.pos.membership.TenantEntitlementPolicy#requireFeature",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.cart.CartService#requireFeature",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.checkout.CheckoutService#online",
+          "expression": "vendor.id()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        },
+        {
+          "caller": "com.saumya.pos.checkout.PaymentCheckoutService#requireOnlineEntitlement",
+          "expression": "order.tenant()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        },
+        {
+          "caller": "com.saumya.pos.checkout.CheckoutService#fromAcceptedQuotation",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
       "callee": "com.saumya.pos.retail.BranchProvisioningServiceImpl#createInitialBranch",
       "parameter": "tenantId",
       "callers": [
         {
           "caller": "com.saumya.pos.platform.PlatformAdminService#onboard",
           "expression": "tenant.id()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.retail.PosService#requireOpenForCustomer",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.checkout.CustomerAssociationService#approve",
-          "expression": "order.tenant()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }
@@ -1247,145 +1337,157 @@
       ]
     },
     {
-      "callee": "com.saumya.pos.cart.CartService#requireFeature",
+      "callee": "com.saumya.pos.retail.PosService#requireOpenForCustomer",
       "parameter": "tenant",
       "callers": [
         {
-          "caller": "com.saumya.pos.cart.CartService#view",
-          "expression": "cart.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.cart.CartService#put",
-          "expression": "vendor.id()",
-          "argumentIndex": 0,
-          "expectedCallCount": 2
-        },
-        {
-          "caller": "com.saumya.pos.cart.CartService#remove",
-          "expression": "current.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.cart.CartService#switchVendor",
-          "expression": "current.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.cart.CartService#quote",
-          "expression": "current.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.cart.CartService#restore",
-          "expression": "archived.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 2
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.membership.TenantEntitlementPolicy#requireFeature",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.cart.CartService#requireFeature",
-          "expression": "tenant",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.checkout.CheckoutService#online",
-          "expression": "vendor.id()",
-          "argumentIndex": 0,
-          "expectedCallCount": 2
-        },
-        {
-          "caller": "com.saumya.pos.checkout.PaymentCheckoutService#requireOnlineEntitlement",
+          "caller": "com.saumya.pos.checkout.CustomerAssociationService#approve",
           "expression": "order.tenant()",
           "argumentIndex": 0,
-          "expectedCallCount": 2
-        },
-        {
-          "caller": "com.saumya.pos.checkout.CheckoutService#fromAcceptedQuotation",
-          "expression": "tenant",
-          "argumentIndex": 0,
-          "expectedCallCount": 2
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.fulfillment.ShipmentService#events",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.fulfillment.ShipmentService#view",
-          "expression": "tenant",
-          "argumentIndex": 0,
           "expectedCallCount": 1
         }
       ]
     },
     {
-      "callee": "com.saumya.pos.fulfillment.ShipmentService#customerEvents",
+      "callee": "com.saumya.pos.returns.OnlineOrderService#appendEvent",
       "parameter": "tenant",
       "callers": [
         {
-          "caller": "com.saumya.pos.fulfillment.ShipmentService#customerShipments",
-          "expression": "tenant",
+          "caller": "com.saumya.pos.returns.OnlineOrderService#createCustomer",
           "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.fulfillment.ShipmentService#customerShipmentFeed",
           "expression": "tenant",
-          "argumentIndex": 0,
           "expectedCallCount": 1
         }
       ]
     },
     {
-      "callee": "com.saumya.pos.marketplace.MarketplaceEnquiryService#isActiveLeadAssignee",
+      "callee": "com.saumya.pos.returns.OnlineOrderService#appendEvent",
       "parameter": "tenant",
       "callers": [
         {
-          "caller": "com.saumya.pos.marketplace.MarketplaceEnquiryService#assignLead",
+          "caller": "com.saumya.pos.returns.OnlineOrderService#decide",
+          "argumentIndex": 0,
           "expression": "actor.tenantId()",
-          "argumentIndex": 0,
           "expectedCallCount": 1
         }
       ]
     },
     {
-      "callee": "com.saumya.pos.checkout.CheckoutService#fromAcceptedQuotation",
+      "callee": "com.saumya.pos.returns.OnlineOrderService#caseRows",
       "parameter": "tenant",
       "callers": [
         {
-          "caller": "com.saumya.pos.marketplace.QuotationService#decide",
-          "expression": "tenant",
+          "caller": "com.saumya.pos.returns.OnlineOrderService#customerWorkspace",
           "argumentIndex": 0,
-          "expectedCallCount": 2
+          "expression": "ref.tenantId()",
+          "expectedCallCount": 1
         }
       ]
     },
     {
-      "callee": "com.saumya.pos.service.ServiceRequestService#create",
-      "parameter": "tenantId",
+      "callee": "com.saumya.pos.returns.OnlineOrderService#days",
+      "parameter": "tenant",
       "callers": [
         {
-          "caller": "com.saumya.pos.service.ServiceRequestService#createForVendor",
-          "expression": "actor.tenantId()",
+          "caller": "com.saumya.pos.returns.OnlineOrderService#eligible",
           "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceRequestService#createForCustomer",
           "expression": "order.tenantId()",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.returns.OnlineOrderService#days",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.returns.OnlineOrderService#createCustomer",
           "argumentIndex": 0,
+          "expression": "tenant",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.returns.OnlineOrderService#delivered",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.returns.OnlineOrderService#eligible",
+          "argumentIndex": 0,
+          "expression": "order.tenantId()",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.returns.OnlineOrderService#delivered",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.returns.OnlineOrderService#createCustomer",
+          "argumentIndex": 0,
+          "expression": "tenant",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.returns.OnlineOrderService#eligibleItems",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.returns.OnlineOrderService#eligible",
+          "argumentIndex": 0,
+          "expression": "order.tenantId()",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.returns.OnlineOrderService#events",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.returns.OnlineOrderService#customerView",
+          "argumentIndex": 0,
+          "expression": "tenant",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.returns.OnlineOrderService#events",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.returns.OnlineOrderService#vendorView",
+          "argumentIndex": 0,
+          "expression": "tenant",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.returns.OnlineOrderService#items",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.returns.OnlineOrderService#customerView",
+          "argumentIndex": 0,
+          "expression": "tenant",
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.returns.OnlineOrderService#items",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.returns.OnlineOrderService#vendorView",
+          "argumentIndex": 0,
+          "expression": "tenant",
           "expectedCallCount": 1
         }
       ]
@@ -1415,12 +1517,312 @@
       ]
     },
     {
+      "callee": "com.saumya.pos.service.ServiceRequestService#create",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceRequestService#createForVendor",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceRequestService#createForCustomer",
+          "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
       "callee": "com.saumya.pos.service.ServiceRequestService#customerEvents",
       "parameter": "tenantId",
       "callers": [
         {
           "caller": "com.saumya.pos.service.ServiceRequestService#customerGet",
           "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaEscalationService#createDueEscalations",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaEscalationService#processDueForTenant",
+          "expression": "tenant.id()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaEscalationService#processDueForTenant",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaEscalationWorker#scheduledEscalation",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaService#insertClock",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaService#backfillUntrackedCases",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaService#startForServiceRequest",
+          "expression": "tenantId",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceSlaService#startForWarrantyClaim",
+          "expression": "tenantId",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaService#startForServiceRequest",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceRequestService#create",
+          "expression": "tenantId",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceSlaService#startForWarrantyClaim",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#submit",
+          "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#appendEvent",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#create",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 2
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#updateStatus",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#recordNote",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#customerEvents",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#customerGet",
+          "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#loadVendor",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#findVendor",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#lockCase",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#create",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#lockVisit",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#updateStatus",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#recordNote",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.service.ServiceVisitService#vendorEvents",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.service.ServiceVisitService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.subscription.MockSubscriptionBillingJob#process",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.subscription.MockSubscriptionBillingJob#runDueBilling",
+          "expression": "subscription.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.subscription.TenantSubscriptionServiceImpl#scopedMockInvoice",
+      "parameter": "tenantId",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.subscription.TenantSubscriptionServiceImpl#mockInvoice",
+          "expression": "subscription.tenantId()",
+          "argumentIndex": 2,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#event",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#assign",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#inspect",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#decide",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#resolve",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#submit",
+          "expression": "order.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#upload",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#events",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#customerEvents",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorGet",
+          "expression": "actor.tenantId()",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        }
+      ]
+    },
+    {
+      "callee": "com.saumya.pos.warranty.WarrantyClaimService#evidence",
+      "parameter": "tenant",
+      "callers": [
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#customerEvidence",
+          "expression": "tenant",
+          "argumentIndex": 0,
+          "expectedCallCount": 1
+        },
+        {
+          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorGet",
+          "expression": "actor.tenantId()",
           "argumentIndex": 0,
           "expectedCallCount": 1
         }
@@ -1554,384 +1956,6 @@
           "caller": "com.saumya.pos.warranty.WarrantyClaimService#resolve",
           "expression": "actor.tenantId()",
           "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.warranty.WarrantyClaimService#event",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#assign",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#inspect",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#decide",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#resolve",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#submit",
-          "expression": "order.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#upload",
-          "expression": "tenant",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.warranty.WarrantyClaimService#events",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#customerEvents",
-          "expression": "tenant",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorGet",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.warranty.WarrantyClaimService#evidence",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#customerEvidence",
-          "expression": "tenant",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#vendorGet",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceVisitService#lockCase",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#create",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceVisitService#lockVisit",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#assign",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#updateStatus",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#recordNote",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceVisitService#loadVendor",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#vendorGet",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#findVendor",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceVisitService#appendEvent",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#create",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 2
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#assign",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#updateStatus",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#recordNote",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceVisitService#vendorEvents",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#vendorGet",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceVisitService#customerEvents",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.service.ServiceVisitService#customerGet",
-          "expression": "order.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceSlaService#startForServiceRequest",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.service.ServiceRequestService#create",
-          "expression": "tenantId",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceSlaService#startForWarrantyClaim",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.warranty.WarrantyClaimService#submit",
-          "expression": "order.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.service.ServiceSlaService#insertClock",
-      "parameter": "tenantId",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.service.ServiceSlaService#backfillUntrackedCases",
-          "expression": "actor.tenantId()",
-          "argumentIndex": 0,
-          "expectedCallCount": 2
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceSlaService#startForServiceRequest",
-          "expression": "tenantId",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        },
-        {
-          "caller": "com.saumya.pos.service.ServiceSlaService#startForWarrantyClaim",
-          "expression": "tenantId",
-          "argumentIndex": 0,
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#days",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#eligible",
-          "argumentIndex": 0,
-          "expression": "order.tenantId()",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#days",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#createCustomer",
-          "argumentIndex": 0,
-          "expression": "tenant",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#delivered",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#eligible",
-          "argumentIndex": 0,
-          "expression": "order.tenantId()",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#delivered",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#createCustomer",
-          "argumentIndex": 0,
-          "expression": "tenant",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#eligibleItems",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#eligible",
-          "argumentIndex": 0,
-          "expression": "order.tenantId()",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#items",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#customerView",
-          "argumentIndex": 0,
-          "expression": "tenant",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#items",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#vendorView",
-          "argumentIndex": 0,
-          "expression": "tenant",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#events",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#customerView",
-          "argumentIndex": 0,
-          "expression": "tenant",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#events",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#vendorView",
-          "argumentIndex": 0,
-          "expression": "tenant",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#caseRows",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#customerWorkspace",
-          "argumentIndex": 0,
-          "expression": "ref.tenantId()",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#appendEvent",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#createCustomer",
-          "argumentIndex": 0,
-          "expression": "tenant",
-          "expectedCallCount": 1
-        }
-      ]
-    },
-    {
-      "callee": "com.saumya.pos.returns.OnlineOrderService#appendEvent",
-      "parameter": "tenant",
-      "callers": [
-        {
-          "caller": "com.saumya.pos.returns.OnlineOrderService#decide",
-          "argumentIndex": 0,
-          "expression": "actor.tenantId()",
           "expectedCallCount": 1
         }
       ]

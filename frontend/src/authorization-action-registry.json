@@ -4978,17 +4978,9 @@
     },
     "ShipmentManagement.tsx:8": {
       "fn": "vendorApi",
-      "argument": "`/shipments/${row.id}/serial-assets`",
+      "argument": "'/shipments/'+id+'/serial-assets'",
       "actions": [
         "vendor-shipment-serial-assets-list"
-      ]
-    },
-    "ShipmentManagement.tsx:15": {
-      "fn": "vendorApi",
-      "argument": "`/shipments/${id}/serial-assets`",
-      "methodArgument": "'POST'",
-      "actions": [
-        "vendor-shipment-serial-assets-capture"
       ]
     },
     "OrderHistory.tsx:72": {
@@ -4996,6 +4988,14 @@
       "argument": "`/api/v1/customer/orders/${encodeURIComponent(id)}/serial-assets`",
       "actions": [
         "customer-order-serial-assets"
+      ]
+    },
+    "ShipmentManagement.tsx:16": {
+      "fn": "vendorApi",
+      "argument": "`/shipments/${id}/serial-assets`",
+      "methodArgument": "'POST'",
+      "actions": [
+        "vendor-shipment-serial-assets-capture"
       ]
     }
   },

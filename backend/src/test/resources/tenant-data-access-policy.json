@@ -234,25 +234,31 @@
     {
       "source": "com.saumya.pos.fulfillment.ShipmentService",
       "methods": [
-        "eligibleOrders",
-        "shipments",
-        "createShipment",
         "addEvent",
-        "events",
-        "customerShipments",
+        "captureSerialAssets",
+        "createShipment",
         "customerEvents",
-        "customerShipmentFeed"
+        "customerSerialAssets",
+        "customerShipmentFeed",
+        "customerShipments",
+        "eligibleOrders",
+        "events",
+        "shipments",
+        "vendorSerialAssets"
       ],
-      "authority": "Vendor methods derive tenant from authenticated AuthorizationContext; customer methods derive paid ONLINE order references through OrderHistoryService using the authenticated global customer, then bind each trusted order tenant to shipment and event queries.",
+      "authority": "Vendor methods derive tenant from authenticated AuthorizationContext; customer methods derive paid ONLINE order references through OrderHistoryService using the authenticated global customer, then bind each trusted order tenant to shipment and event queries. Serial capture and vendor listing derive tenant from the active vendor AuthorizationContext; customer serial lookup derives tenant only from the authenticated customer's paid-order ownership resolver.",
       "evidence": [
         "auth.current()",
-        "requireVendorMembership()",
         "c.tenantId()",
+        "captureSerialAssets",
+        "customerEvents(long tenant,long shipmentId)",
+        "customerSerialAssets",
         "events(long tenant,long id)",
+        "order.tenantId()",
         "orderHistory.customerOrderTenant(username,orderId)",
         "orderHistory.customerPaidOnlineOrderReferences(username)",
-        "order.tenantId()",
-        "customerEvents(long tenant,long shipmentId)"
+        "requireVendorMembership()",
+        "vendorSerialAssets"
       ],
       "trustedTenantParameters": {
         "events": [
@@ -266,29 +272,33 @@
     {
       "source": "com.saumya.pos.installation.InstallationService",
       "methods": [
-        "eligibleOrders",
-        "vendorList",
-        "eligibleEngineers",
-        "create",
-        "assign",
-        "updateStatus",
-        "customerList",
-        "customerGet",
-        "findVendor",
-        "lockJob",
-        "requireActiveEngineer",
         "append",
+        "assign",
+        "create",
+        "customerEvents",
+        "customerGet",
+        "customerList",
+        "eligibleEngineers",
+        "eligibleOrders",
         "events",
-        "customerEvents"
+        "findVendor",
+        "linkSerialAssets",
+        "lockJob",
+        "recordSerialAssetCommission",
+        "requireActiveEngineer",
+        "serialAssets",
+        "updateStatus",
+        "vendorList"
       ],
       "authority": "Vendor tenant parameters derive from AuthorizationContext.current().tenantId() after active membership and INSTALLATION_* checks. Customer tenant parameters derive from OrderHistoryService.CustomerOrderReference values built from the authenticated global customer and paid online order ownership.",
       "evidence": [
-        "authorization.current()",
-        "requireVendorMembership()",
         "actor.tenantId()",
+        "authorization.current()",
         "customerPaidOnlineOrderReferences(username)",
+        "order.orderId()",
         "order.tenantId()",
-        "order.orderId()"
+        "requireVendorMembership()",
+        "serialAssets(long tenant,long installationId)"
       ],
       "trustedTenantParameters": {}
     },

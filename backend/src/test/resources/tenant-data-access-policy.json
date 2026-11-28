@@ -761,7 +761,8 @@
         "vendorList",
         "decide",
         "policy",
-        "updatePolicy"
+        "updatePolicy",
+        "createCustomer"
       ],
       "authority": "Online return customer tenant IDs are resolved from the authenticated customer's owned paid-online OrderHistoryService references; vendor tenant IDs come from AuthorizationContext after active vendor membership and RETURN_VIEW/RETURN_APPROVE. Helper tenant parameters are passed only from these trusted sources. The service never accepts tenant IDs from request DTOs.",
       "evidence": [

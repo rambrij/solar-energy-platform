@@ -4334,6 +4334,22 @@ class PosTest {
        request.cookie(new jakarta.servlet.http.Cookie(key,"A".repeat(43)));
       }
      }
+     if(controllerType.getSimpleName().equals("OnlineOrderController")){
+      if(handler.getMethod().getName().equals("createCustomer")){
+       request.header("Idempotency-Key","p006-online-return-key")
+        .contentType("application/json").content("""
+         {"orderId":"order-1","items":[{"productId":1,"quantity":1}],"reason":"P006 authorization probe"}
+         """);
+      }else if(handler.getMethod().getName().equals("vendorDecision")){
+       request.contentType("application/json").content("""
+        {"expectedVersion":0,"decision":"APPROVED","reason":"P006 authorization probe","customerMessage":"Reviewed"}
+        """);
+      }else if(handler.getMethod().getName().equals("updatePolicy")){
+       request.contentType("application/json").content("""
+        {"expectedVersion":0,"returnWindowDays":14,"reason":"P006 authorization probe"}
+        """);
+      }
+     }
      var response=performInRollbackTransaction(request);
      // P0-02 negative persisted-actor matrix: execute the same live request
      // with a real token from the wrong actor domain. The request is wrapped

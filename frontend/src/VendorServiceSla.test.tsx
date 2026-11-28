@@ -37,7 +37,7 @@ it('configures an escalation rule and acknowledges an open escalation',async()=>
   return [];
  });
  render(<VendorServiceVisits/>);
- expect(await screen.findByText(/SERVICE_REQUEST #21/)).toBeTruthy();
+ expect(await screen.findByText(/SERVICE REQUEST #21/)).toBeTruthy();
  fireEvent.change(screen.getByLabelText('Acknowledgement note'),{target:{value:'I have taken ownership'}});
  fireEvent.click(screen.getByRole('button',{name:'Acknowledge escalation'}));
  await waitFor(()=>expect(vendorApi).toHaveBeenCalledWith('/service-sla/escalations/9/acknowledge','POST',{note:'I have taken ownership'}));

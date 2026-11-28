@@ -639,7 +639,7 @@
       "methods": [
         "policies",
         "savePolicy",
-        "processDueForTenant",
+        "processDueEscalationsForTenant",
         "createDueEscalations",
         "queue",
         "acknowledge"
@@ -655,11 +655,11 @@
         "WHERE tenant_id=?"
       ],
       "trustedTenantParameters": {
-        "processDueForTenant": [
-          "tenant"
-        ],
         "createDueEscalations": [
           "tenantId"
+        ],
+        "processDueEscalationsForTenant": [
+          "tenant"
         ]
       }
     },
@@ -1559,7 +1559,7 @@
       ]
     },
     {
-      "callee": "com.saumya.pos.service.ServiceSlaEscalationService#processDueForTenant",
+      "callee": "com.saumya.pos.service.ServiceSlaEscalationService#processDueEscalationsForTenant",
       "parameter": "tenant",
       "callers": [
         {

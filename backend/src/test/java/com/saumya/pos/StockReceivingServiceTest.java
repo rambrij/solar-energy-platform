@@ -36,4 +36,30 @@ class StockReceivingServiceTest {
   verifyNoInteractions(repository,inventory);
  }
 
+ @Test void trackedReceiptRequiresExactlyOneDistinctSerialPerUnit(){
+  var productRepo=mock(com.saumya.pos.catalog.internal.ProductRepository.class);
+  var product=new com.saumya.pos.catalog.internal.Product(7,1);
+  product.edit("P7",null,"Panel",java.math.BigDecimal.ONE,java.math.BigDecimal.ZERO,true,true);
+  when(productRepo.locked(1,7)).thenReturn(Optional.of(product));
+  var service=new StockReceivingService(mock(StockReceiptRepository.class),mock(com.saumya.pos.inventory.InventoryService.class),Clock.systemUTC(),productRepo,mock(InventoryReceiptSerialAssetRepository.class));
+  authorize(service);
+  assertThatThrownBy(()->service.receive(1,1,"actor","serial-key-01",new StockReceivingService.Input(7,2,"Delivery",java.util.List.of("SN-1"))))
+   .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+   .satisfies(e->assertThat(((org.springframework.web.server.ResponseStatusException)e).getStatusCode().value()).isEqualTo(400));
+  assertThatThrownBy(()->service.receive(1,1,"actor","serial-key-02",new StockReceivingService.Input(7,2,"Delivery",java.util.List.of("SN-1"," sn-1 "))))
+   .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+   .satisfies(e->assertThat(((org.springframework.web.server.ResponseStatusException)e).getStatusCode().value()).isEqualTo(400));
+ }
+ @Test void identicalSerializedRetryComparesAndReturnsThePersistedSerials(){
+  var saved=new StockReceipt(1,1,7,2,"actor","Delivery","serial-key-03",8,java.time.Instant.EPOCH);
+  var receiptRepo=mock(StockReceiptRepository.class);when(receiptRepo.findByTenantAndBranchAndKey(1,1,"serial-key-03")).thenReturn(Optional.of(saved));
+  var serialRepo=mock(InventoryReceiptSerialAssetRepository.class);
+  var one=mock(InventoryReceiptSerialAsset.class);when(one.serialNumber()).thenReturn("SN-1");
+  var two=mock(InventoryReceiptSerialAsset.class);when(two.serialNumber()).thenReturn("SN-2");
+  when(serialRepo.findByTenantAndBranchAndReceiptIdOrderByIdAsc(1,1,saved.id())).thenReturn(java.util.List.of(one,two));
+  var service=new StockReceivingService(receiptRepo,null,Clock.systemUTC(),null,serialRepo);authorize(service);
+  var view=service.receive(1,1,"actor","serial-key-03",new StockReceivingService.Input(7,2,"Delivery",java.util.List.of("sn-1","SN-2")));
+  assertThat(view.serialNumbers()).containsExactly("SN-1","SN-2");
+  verify(receiptRepo,never()).saveAndFlush(any());
+ }
 }

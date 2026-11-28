@@ -339,3 +339,8 @@ Specific weak-FK evidence: `V32__cash_drawer_tender_projection.sql`, `V36__retai
 The canonical database ownership inventory now classifies **71 production tables**: 6 GLOBAL, 1 CUSTOMER, 9 PLATFORM, 11 TENANT and 44 TENANT_CHILD. All 55 tenant-owned/child tables have a non-null tenant column. The three same-tenant FK gaps originally recorded as INV-DB-001..003 are implemented in V48 and pass the H2/MySQL 8.4 migration tests. The deployment database must still pass V48's read-only data preflight before that migration is applied.
 
 **P0-01 is not declared fully accepted by this schema inventory alone.** The query/data-access inventory and P0-04 adversarial tests still track the broader Vendor A/B and Customer A/B read, write, search, count, export, document and child-resource matrix. Warehouse/stock-location, dual identity, multi-tenant membership and vendor subscription visibility remain explicit clarification items; no speculative schema was added.
+
+
+## 11. 2026-11-28 addendum — inbound serialized stock identities
+
+V27 adds `products.serial_tracking_required` and tenant-child table `inventory_receipt_serial_assets`. Each inbound serial belongs to the same tenant, branch, receipt and product, and is recorded by a same-tenant employee. Vendor-scoped serial uniqueness and immutable update/delete triggers protect identity. Shipment serial assets may reference the inbound serial source through a same-tenant, same-product composite FK; one inbound identity can be linked to at most one shipment. The preceding 71-table totals are a historical snapshot before V27, not the refreshed production table count.

@@ -13,12 +13,14 @@ public class Product {
     @Column(nullable=false,precision=19,scale=2) private BigDecimal price;
     @Column(name="tax_rate",nullable=false,precision=5,scale=2) private BigDecimal taxRate;
     @Column(nullable=false) private boolean published;
+    @Column(name="serial_tracking_required",nullable=false) private boolean serialTrackingRequired;
     protected Product() {}
     public Product(long id,long tenant){this.id=id;this.tenantId=tenant;}
     public long version(){return version;}
-    public void edit(String sku,String barcode,String name,BigDecimal price,BigDecimal taxRate,boolean published){this.sku=sku;this.barcode=barcode;this.name=name;this.price=price;this.taxRate=taxRate;this.published=published;}
+    public void edit(String sku,String barcode,String name,BigDecimal price,BigDecimal taxRate,boolean published){edit(sku,barcode,name,price,taxRate,published,false);}
+    public void edit(String sku,String barcode,String name,BigDecimal price,BigDecimal taxRate,boolean published,boolean serialTrackingRequired){this.sku=sku;this.barcode=barcode;this.name=name;this.price=price;this.taxRate=taxRate;this.published=published;this.serialTrackingRequired=serialTrackingRequired;}
 
     public String brand(){return brand;}
     public Long id(){return id;} public String sku(){return sku;} public String barcode(){return barcode;} public String name(){return name;}
-    public BigDecimal price(){return price;} public BigDecimal taxRate(){return taxRate;} public boolean published(){return published;}
+    public BigDecimal price(){return price;} public BigDecimal taxRate(){return taxRate;} public boolean published(){return published;} public boolean serialTrackingRequired(){return serialTrackingRequired;}
 }

@@ -17,3 +17,10 @@ Inventory owns balances and receipt persistence. Its existing synchronous availa
 The existing shell adds Receive stock under Manage. Product choices require `PRODUCT_VIEW`; receipts and receiving actions retain their independent inventory permissions. Uncertain commands are saved per account and outlet in session storage, lock new submission, and retry the original key/body.
 
 Outlet serialization and locked current reads protect command retries. The catalogue projection refreshes a locked row before applying the authoritative event, including when the same persistence context previously loaded an older value.
+
+
+## Optional inbound serial tracking (V27)
+
+Products may opt into serial tracking. Existing products remain aggregate-quantity tracked. Once enabled, the setting cannot be disabled through product administration. A tracked receipt must contain exactly one distinct serial per received unit; a maximum of 100 serialized units may be recorded per receipt. Serials are normalized to uppercase, vendor-unique, and saved in the same transaction as the stock receipt. The idempotency replay compares the original serial list as well as product, quantity, actor and reason.
+
+The append-only `inventory_receipt_serial_assets` table ties each serial to its exact tenant, branch, receipt and product. For tracked products, shipment capture accepts only a serial registered at inbound receiving and prevents the same received unit from being shipped twice. Existing non-tracked products retain the previous shipment serial-capture behavior.

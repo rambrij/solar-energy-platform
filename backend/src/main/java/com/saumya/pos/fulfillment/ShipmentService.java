@@ -84,8 +84,8 @@ public class ShipmentService {
   Long installationId=installationRows.isEmpty()?null:((Number)installationRows.getFirst().get("id")).longValue();
   try{
    for(String serial:normalized){
-    db.update("INSERT INTO shipment_serial_assets(tenant_id,shipment_id,order_id,product_id,serial_number,recorded_by,reason) VALUES(?,?,?,?,?,?,?)",
-     c.tenantId(),shipmentId,orderId,productId,serial,c.username(),reason);
+    db.update("INSERT INTO shipment_serial_assets(tenant_id,shipment_id,order_id,product_id,serial_number,recorded_by,reason,receipt_serial_asset_id) VALUES(?,?,?,?,?,?,?,?)",
+     c.tenantId(),shipmentId,orderId,productId,serial,c.username(),reason,receiptSerialIds.get(serial));
     long assetId=db.queryForObject("SELECT id FROM shipment_serial_assets WHERE tenant_id=? AND serial_number=?",
      Long.class,c.tenantId(),serial);
     db.update("INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail) VALUES(?,?,?,'CAPTURED_AT_SHIPMENT',?)",

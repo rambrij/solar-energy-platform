@@ -73,7 +73,7 @@ class ShipmentServiceAuthorizationBoundaryTest {
   var saved=service.captureSerialAssets(9,55,List.of("SN-001"),"Captured during packing");
   assertThat(saved).hasSize(1);
   assertThat(saved.getFirst().serialNumber()).isEqualTo("SN-001");
-  verify(db).update(contains("INSERT INTO shipment_serial_assets"),eq(7L),eq(9L),eq("paid-order"),eq(55L),eq("SN-001"),eq("manager@vendor.test"),eq("Captured during packing"));
+  verify(db).update(contains("INSERT INTO shipment_serial_assets"),eq(7L),eq(9L),eq("paid-order"),eq(55L),eq("SN-001"),eq("manager@vendor.test"),eq("Captured during packing"),isNull());
  }
 
  @Test void shipmentSerialCaptureRejectsDuplicateValuesBeforeWriting(){

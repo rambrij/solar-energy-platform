@@ -40,7 +40,7 @@ public class ServiceSlaEscalationService {
             int escalationLevel, int afterMinutes, String recipientRoleKey,
             boolean enabled, long version) {}
     public record PolicyUpdate(String caseType, String priority, String breachType,
-            int escalationLevel, int afterMinutes, String recipientRoleKey, boolean enabled) {}
+            int escalationLevel, int afterMinutes, String recipientRoleKey, boolean enabled, String reason) {}
     public record Escalation(long id, long slaId, String caseType, long caseId,
             String breachType, int escalationLevel, String recipientRoleKey,
             String status, Instant escalatedAt, String acknowledgedBy,
@@ -98,6 +98,7 @@ public class ServiceSlaEscalationService {
         String priority = normalize(input.priority(), PRIORITIES, "priority");
         String breach = normalize(input.breachType(), BREACHES, "breach type");
         String recipient = role(input.recipientRoleKey());
+        String reason = note(input.reason());
         if ("WARRANTY_CLAIM".equals(type) && !"NORMAL".equals(priority))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Warranty claims currently use NORMAL priority");
         if (input.escalationLevel() < 1 || input.escalationLevel() > 5
@@ -105,31 +106,48 @@ public class ServiceSlaEscalationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Escalation level must be 1-5 and delay 0-525600 minutes");
         Instant now = clock.instant();
         List<Map<String,Object>> existing = db.queryForList("""
-            SELECT id,version FROM service_sla_escalation_policies
+            SELECT id,version,after_minutes,recipient_role_key,enabled FROM service_sla_escalation_policies
             WHERE tenant_id=? AND case_type=? AND priority=? AND breach_type=? AND escalation_level=? FOR UPDATE
             """, current.tenantId(), type, priority, breach, input.escalationLevel());
         if (existing.isEmpty()) {
             db.update("""
                 INSERT INTO service_sla_escalation_policies(tenant_id,case_type,priority,breach_type,
-                    escalation_level,after_minutes,recipient_role_key,enabled,created_by,updated_by,created_at,updated_at,version)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0)
+                    escalation_level,after_minutes,recipient_role_key,enabled,created_by,updated_by,created_at,updated_at,updated_reason,version)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0)
                 """, current.tenantId(), type, priority, breach, input.escalationLevel(),
                 input.afterMinutes(), recipient, input.enabled(), current.username(), current.username(),
-                Timestamp.from(now), Timestamp.from(now));
+                Timestamp.from(now), Timestamp.from(now), reason);
         } else {
             db.update("""
                 UPDATE service_sla_escalation_policies SET after_minutes=?,recipient_role_key=?,
-                    enabled=?,updated_by=?,updated_at=?,version=version+1
+                    enabled=?,updated_by=?,updated_at=?,updated_reason=?,version=version+1
                 WHERE tenant_id=? AND id=?
                 """, input.afterMinutes(), recipient, input.enabled(), current.username(),
-                Timestamp.from(now), current.tenantId(), existing.getFirst().get("id"));
+                Timestamp.from(now), reason, current.tenantId(), existing.getFirst().get("id"));
         }
+        Long auditPolicyId = db.queryForObject("""
+            SELECT id FROM service_sla_escalation_policies
+            WHERE tenant_id=? AND case_type=? AND priority=? AND breach_type=? AND escalation_level=?
+            """, Long.class, current.tenantId(), type, priority, breach, input.escalationLevel());
+        if (auditPolicyId == null) throw new IllegalStateException("Escalation policy ID was not generated");
+        String changeType = existing.isEmpty() ? "CREATED" : "UPDATED";
+        Map<String,Object> previous = existing.isEmpty() ? Map.of() : existing.getFirst();
+        db.update("""
+            INSERT INTO service_sla_escalation_policy_audit(tenant_id,policy_id,case_type,priority,
+                breach_type,escalation_level,change_type,previous_after_minutes,
+                previous_recipient_role_key,previous_enabled,after_minutes,recipient_role_key,
+                enabled,actor_username,reason,occurred_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, current.tenantId(), auditPolicyId, type, priority, breach, input.escalationLevel(),
+            changeType, previous.get("after_minutes"), previous.get("recipient_role_key"),
+            previous.get("enabled"), input.afterMinutes(), recipient, input.enabled(),
+            current.username(), reason, Timestamp.from(now));
         outbox.append(current.tenantId(), current.username(), "SERVICE_SLA_ESCALATION_POLICY",
             type + ":" + priority + ":" + breach + ":" + input.escalationLevel(),
             "SERVICE_SLA_ESCALATION_POLICY.SAVED", null,
             Map.of("caseType", type, "priority", priority, "breachType", breach,
                 "level", input.escalationLevel(), "afterMinutes", input.afterMinutes(),
-                "recipientRoleKey", recipient, "enabled", input.enabled()));
+                "recipientRoleKey", recipient, "enabled", input.enabled(), "reason", reason));
         Long policyId = db.queryForObject("""
             SELECT id FROM service_sla_escalation_policies
             WHERE tenant_id=? AND case_type=? AND priority=? AND breach_type=? AND escalation_level=?

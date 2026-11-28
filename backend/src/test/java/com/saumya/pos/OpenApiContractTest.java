@@ -36,6 +36,8 @@ class OpenApiContractTest {
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/auth/email-verification/verify")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/profile")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/invoices")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/reports/overview")).isTrue();
+        org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/reports/refunds")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/payment-accounts")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/leads")).isTrue();
         org.assertj.core.api.Assertions.assertThat(spec.path("paths").has("/api/v1/vendor/site-surveys")).isTrue();

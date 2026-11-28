@@ -17,4 +17,18 @@ public interface RefundReportRepository extends Repository<CashRefund,String> {
   group by cast(r.paid as LocalDate),r.cashier
   """)
  List<RefundLineAggregate> lines(long tenant,long branch,Instant from,Instant until);
+ @Query("""
+  select new com.saumya.pos.returns.internal.VendorTenantRefundHeaderAggregate(cast(r.paid as LocalDate),count(r),sum(r.amount))
+  from CashRefund r where r.tenant=:tenant and r.paid>=:from and r.paid<:until
+  group by cast(r.paid as LocalDate)
+  """)
+ List<VendorTenantRefundHeaderAggregate> headersForTenant(long tenant,Instant from,Instant until);
+ @Query("""
+  select new com.saumya.pos.returns.internal.VendorTenantRefundLineAggregate(cast(r.paid as LocalDate),sum(i.net),sum(i.tax),sum(i.quantity))
+  from CashRefundItem i join CashRefund r on r.id=i.id.refund and r.tenant=i.id.tenant
+  where r.tenant=:tenant and r.paid>=:from and r.paid<:until
+  group by cast(r.paid as LocalDate)
+  """)
+ List<VendorTenantRefundLineAggregate> linesForTenant(long tenant,Instant from,Instant until);
 }
+

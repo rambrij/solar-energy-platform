@@ -349,6 +349,11 @@
         "SERVICE_VIEW",
         "SERVICE_CREATE"
       ]
+    },
+    "vendor-reports": {
+      "allOf": [
+        "POS_REPORT_VIEW"
+      ]
     }
   },
   "controllerPolicies": {
@@ -413,7 +418,9 @@
     "VendorSiteSurveyController": "VENDOR_TENANT_SITE_SURVEY_VIEW_AND_MANAGE_WITH_LEAD_ASSIGNMENT_SCOPE",
     "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
     "WarrantyClaimController": "VENDOR_TENANT_CLAIM_ASSIGNMENT_AND_CUSTOMER_PAID_ORDER_OWNERSHIP_WITH_IMMUTABLE_EVENTS_AND_PRIVATE_EVIDENCE",
-    "WarrantyController": "VENDOR_TENANT_PAID_ORDER_ITEM_WARRANTY_AND_CUSTOMER_OWNED_WARRANTY_READ"
+    "WarrantyController": "VENDOR_TENANT_PAID_ORDER_ITEM_WARRANTY_AND_CUSTOMER_OWNED_WARRANTY_READ",
+    "VendorTenantReportController": "VENDOR_MEMBERSHIP_DERIVED_TENANT_WIDE_REPORTING",
+    "VendorTenantRefundAnalyticsController": "VENDOR_MEMBERSHIP_DERIVED_TENANT_WIDE_POS_REFUND_REPORTING"
   },
   "customerPermissions": [
     "CUSTOMER"
@@ -1291,6 +1298,26 @@
       "scope": "One tenant; employee branch and register assignments remain additional controls",
       "ui": "Vendor workspace > Access administration > employee lifecycle",
       "test": "VendorRoleControllerAuthorizationTest; VendorRoleServiceAuthorizationBoundaryTest; PosTest#p006EveryApplicableLiveEndpointExecutesWithMatchingPersistedActor"
+    },
+    {
+      "permission": "POS_REPORT_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/reports/overview",
+      "service": "VendorTenantReportService.report",
+      "scope": "Authenticated vendor membership tenant only; independent order, item, tender, outlet and distinct-customer aggregates.",
+      "ui": "Vendor workspace > Reports > Vendor performance",
+      "test": "VendorTenantReportServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest; OpenApiContractTest"
+    },
+    {
+      "permission": "POS_REFUND_VIEW",
+      "status": "IMPLEMENTED",
+      "actor": "VENDOR",
+      "endpoint": "GET /api/v1/vendor/reports/refunds",
+      "service": "VendorTenantRefundAnalyticsService.report",
+      "scope": "Authenticated vendor membership tenant only; independent POS cash refund header and line aggregates.",
+      "ui": "Vendor workspace > Reports > Vendor performance",
+      "test": "VendorTenantRefundAnalyticsServiceAuthorizationBoundaryTest; RuntimeAuthorizationEndpointInventoryTest; OpenApiContractTest"
     }
   ],
   "frontendPlatformPages": {

@@ -2201,6 +2201,18 @@
       "scope": "AUTHENTICATED_VENDOR_TENANT_WARRANTY_REGISTER",
       "assignment": "SERVICE_VIEW; warranty records and product snapshots are filtered by the current tenant",
       "runtimeTest": "WarrantyControllerAuthorizationTest#serviceViewCanReadVendorWarrantyRegister"
+    },
+    "VendorTenantReportController#report": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_MEMBERSHIP_TENANT_ONLY",
+      "assignment": "POS_REPORT_VIEW; tenant resolved from AuthorizationContext; no branch/register assignment or client tenant selector",
+      "runtimeTest": "VendorTenantReportServiceAuthorizationBoundaryTest"
+    },
+    "VendorTenantRefundAnalyticsController#report": {
+      "actor": "VENDOR",
+      "scope": "AUTHENTICATED_MEMBERSHIP_TENANT_ONLY",
+      "assignment": "POS_REPORT_VIEW + POS_REFUND_VIEW; tenant resolved from AuthorizationContext",
+      "runtimeTest": "VendorTenantRefundAnalyticsServiceAuthorizationBoundaryTest"
     }
   },
   "operationPolicyKey": "ControllerSimpleName#JavaMethodName"

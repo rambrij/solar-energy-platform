@@ -126,7 +126,8 @@
         "promotion-history",
         "sales-insights",
         "refund-insights",
-        "cashier-sales-insights"
+        "cashier-sales-insights",
+        "vendor-reports"
       ]
     },
     {
@@ -440,6 +441,11 @@
       "id": "warranty-management",
       "path": "/vendor/warranties",
       "group": "Fulfilment"
+    },
+    {
+      "id": "vendor-reports",
+      "path": "/vendor/reports",
+      "group": "Reports"
     }
   ],
   "tabs": [
@@ -3554,6 +3560,31 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "POST /api/v1/vendor/warranties"
+    },
+    {
+      "id": "vendor-tenant-overview-report",
+      "component": "VendorTenantReports.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/reports/overview",
+      "permissions": [
+        "POS_REPORT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/reports/overview"
+    },
+    {
+      "id": "vendor-tenant-refund-report",
+      "component": "VendorTenantReports.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/reports/refunds",
+      "permissions": [
+        "POS_REPORT_VIEW",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/reports/refunds"
     }
   ],
   "buttons": [

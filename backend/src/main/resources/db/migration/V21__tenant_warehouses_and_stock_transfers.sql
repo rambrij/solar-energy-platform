@@ -141,6 +141,43 @@ CREATE TABLE inventory_transfer_events (
   CONSTRAINT chk_inventory_transfer_event_quantity CHECK (quantity IS NULL OR quantity > 0)
 );
 
+CREATE TABLE inventory_transfer_movements (
+  id VARCHAR(36) NOT NULL,
+  tenant_id BIGINT NOT NULL,
+  transfer_id VARCHAR(36) NOT NULL,
+  location_type VARCHAR(12) NOT NULL,
+  warehouse_id BIGINT NULL,
+  branch_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  movement_type VARCHAR(16) NOT NULL,
+  quantity_delta INT NOT NULL,
+  movement_key VARCHAR(80) NOT NULL,
+  actor_username VARCHAR(100) NOT NULL,
+  occurred_at TIMESTAMP(6) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_inventory_transfer_movement_tenant_id (tenant_id,id),
+  UNIQUE KEY uk_inventory_transfer_movement_command (tenant_id,transfer_id,movement_key),
+  KEY ix_inventory_transfer_movement_location (tenant_id,location_type,warehouse_id,branch_id,product_id,occurred_at),
+  CONSTRAINT fk_inventory_transfer_movement_transfer FOREIGN KEY (tenant_id,transfer_id)
+    REFERENCES inventory_transfers(tenant_id,id),
+  CONSTRAINT fk_inventory_transfer_movement_branch FOREIGN KEY (tenant_id,branch_id)
+    REFERENCES branches(tenant_id,id),
+  CONSTRAINT fk_inventory_transfer_movement_warehouse FOREIGN KEY (tenant_id,branch_id,warehouse_id)
+    REFERENCES warehouses(tenant_id,branch_id,id),
+  CONSTRAINT fk_inventory_transfer_movement_product FOREIGN KEY (tenant_id,product_id)
+    REFERENCES products(tenant_id,id),
+  CONSTRAINT fk_inventory_transfer_movement_actor FOREIGN KEY (tenant_id,actor_username)
+    REFERENCES employees(tenant_id,username),
+  CONSTRAINT chk_inventory_transfer_movement_location CHECK (
+    (location_type='WAREHOUSE' AND warehouse_id IS NOT NULL)
+    OR (location_type='BRANCH' AND warehouse_id IS NULL)
+  ),
+  CONSTRAINT chk_inventory_transfer_movement_type CHECK (
+    (movement_type='DISPATCH_OUT' AND quantity_delta<0)
+    OR (movement_type='RECEIPT_IN' AND quantity_delta>0)
+  )
+);
+
 CREATE TABLE warehouse_audit_events (
   id VARCHAR(36) NOT NULL,
   tenant_id BIGINT NOT NULL,
@@ -164,3 +201,5 @@ CREATE TABLE warehouse_audit_events (
 /*!80000 CREATE TRIGGER trg_inventory_transfer_events_no_delete BEFORE DELETE ON inventory_transfer_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Inventory transfer events cannot be deleted' */;
 /*!80000 CREATE TRIGGER trg_warehouse_audit_events_no_update BEFORE UPDATE ON warehouse_audit_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Warehouse audit events are immutable' */;
 /*!80000 CREATE TRIGGER trg_warehouse_audit_events_no_delete BEFORE DELETE ON warehouse_audit_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Warehouse audit events cannot be deleted' */;
+/*!80000 CREATE TRIGGER trg_inventory_transfer_movements_no_update BEFORE UPDATE ON inventory_transfer_movements FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Inventory transfer movements are immutable' */;
+/*!80000 CREATE TRIGGER trg_inventory_transfer_movements_no_delete BEFORE DELETE ON inventory_transfer_movements FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Inventory transfer movements cannot be deleted' */;

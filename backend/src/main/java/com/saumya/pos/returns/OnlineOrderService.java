@@ -74,7 +74,9 @@ class OnlineOrderService {
   catch(Exception e){throw new IllegalStateException(e);}
  }
  private int days(long tenant,boolean lock){
-  var rows=db.queryForList("SELECT return_window_days FROM online_return_policies WHERE tenant_id=?"+(lock?" FOR UPDATE":""),tenant);
+  var rows=lock
+   ?db.queryForList("SELECT return_window_days FROM online_return_policies WHERE tenant_id=? FOR UPDATE",tenant)
+   :db.queryForList("SELECT return_window_days FROM online_return_policies WHERE tenant_id=?",tenant);
   return rows.isEmpty()?0:((Number)rows.getFirst().get("return_window_days")).intValue();
  }
  private Instant delivered(long tenant,String order){

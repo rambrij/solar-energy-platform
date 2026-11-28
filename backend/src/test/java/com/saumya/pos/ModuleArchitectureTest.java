@@ -101,7 +101,6 @@ class ModuleArchitectureTest {
                 "com.saumya.pos.marketplace.MarketplaceEnquiryService",
                 "com.saumya.pos.catalog.LocalDemoSolarCatalogSeed",
                 "com.saumya.pos.inventory.WarehouseInventoryService",
-                "com.saumya.pos.returns.OnlineReturnService"
             );
         Map<String, String> jdbcSqlSources = Map.ofEntries(
             Map.entry("com.saumya.pos.membership.MembershipService", "backend/src/main/java/com/saumya/pos/membership/MembershipService.java"),
@@ -123,7 +122,6 @@ class ModuleArchitectureTest {
             Map.entry("com.saumya.pos.catalog.LocalDemoSolarCatalogSeed", "backend/src/main/resources/db/local-seed/local_demo_solar_catalog.sql"),
             Map.entry("com.saumya.pos.inventory.WarehouseInventoryService", "backend/src/main/java/com/saumya/pos/inventory/WarehouseInventoryService.java"),
             Map.entry("com.saumya.pos.returns.OnlineOrderService", "backend/src/main/java/com/saumya/pos/returns/OnlineOrderService.java"),
-            Map.entry("com.saumya.pos.returns.OnlineReturnService", "backend/src/main/java/com/saumya/pos/returns/OnlineReturnController.java")
         );
         assertThat(jdbcConsumers).as("every direct JDBC consumer has a query-level review")
             .containsExactlyInAnyOrderElementsOf(jdbcSqlSources.keySet());

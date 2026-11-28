@@ -26,3 +26,19 @@ it('loads the tenant SLA dashboard and saves a reasoned response/resolution poli
  }));
  expect(await screen.findByText(/SLA policy saved/)).toBeTruthy();
 });
+
+it('configures an escalation rule and acknowledges an open escalation',async()=>{
+ const open={id:9,slaId:81,caseType:'SERVICE_REQUEST',caseId:21,breachType:'RESPONSE',escalationLevel:1,recipientRoleKey:'SERVICE_MANAGER',status:'OPEN',escalatedAt:'2026-11-28T00:00:00Z',acknowledgedBy:null,acknowledgedAt:null,acknowledgementNote:null};
+ vi.mocked(vendorApi).mockImplementation(async(path,method='GET')=>{
+  if(path==='/service-visits'||path==='/warranty-claims'||path==='/service-requests'||path==='/service-visits/assignees'||path==='/service-sla'||path==='/service-sla/policies'||path==='/service-sla/escalation-policies')return [];
+  if(path==='/service-sla/escalations')return [open];
+  if(path==='/service-sla/escalation-policies'&&method==='PUT')return {...open,id:31};
+  if(path==='/service-sla/escalations/9/acknowledge'&&method==='POST')return {...open,status:'ACKNOWLEDGED',acknowledgedBy:'manager@vendor.test',acknowledgementNote:'I have taken ownership'};
+  return [];
+ });
+ render(<VendorServiceVisits/>);
+ expect(await screen.findByText(/SERVICE_REQUEST #21/)).toBeTruthy();
+ fireEvent.change(screen.getByLabelText('Acknowledgement note'),{target:{value:'I have taken ownership'}});
+ fireEvent.click(screen.getByRole('button',{name:'Acknowledge escalation'}));
+ await waitFor(()=>expect(vendorApi).toHaveBeenCalledWith('/service-sla/escalations/9/acknowledge','POST',{note:'I have taken ownership'}));
+});

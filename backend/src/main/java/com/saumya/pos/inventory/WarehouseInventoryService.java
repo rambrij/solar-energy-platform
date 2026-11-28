@@ -228,7 +228,7 @@ public class WarehouseInventoryService {
             VALUES(?,?,?,?,?,?,?,?,?,?,?,0,'DRAFT',?,?,?,0)
             """,id,a.tenantId(),key,source,sourceWarehouseId,a.branchId(),destination,destinationWarehouseId,
             destinationBranchId,productId,quantity,why,a.username(),now);
-        appendEvent(a,id,"CREATED",null,null,key,why);
+        appendEvent(a,id,"CREATED",null,null,null,why);
         return transferById(a,id);
     }
 

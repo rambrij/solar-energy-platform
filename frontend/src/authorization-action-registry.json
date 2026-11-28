@@ -508,113 +508,1053 @@
   ],
   "actions": [
     {
-      "id": "pos-session-open",
-      "component": "SessionStart.tsx",
+      "id": "auth-context-switch",
+      "component": "SessionControls.tsx",
+      "trigger": "button",
+      "actor": "SESSION",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/context",
+      "backendOperation": "POST /api/v1/auth/context"
+    },
+    {
+      "id": "auth-email-verification-resend",
+      "component": "LoginPanel.tsx",
+      "trigger": "button",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/email-verification/resend",
+      "backendOperation": "POST /api/v1/auth/email-verification/resend"
+    },
+    {
+      "id": "auth-email-verification-verify",
+      "component": "CustomerEmailVerification.tsx",
+      "trigger": "load",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/email-verification/verify",
+      "backendOperation": "POST /api/v1/auth/email-verification/verify"
+    },
+    {
+      "id": "auth-login",
+      "component": "LoginPanel.tsx",
+      "trigger": "submit",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/login",
+      "backendOperation": "POST /api/v1/auth/login"
+    },
+    {
+      "id": "auth-logout",
+      "component": "SessionControls.tsx",
+      "trigger": "button",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/logout",
+      "backendOperation": "POST /api/v1/auth/logout"
+    },
+    {
+      "id": "auth-register",
+      "component": "LoginPanel.tsx",
+      "trigger": "submit",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/register",
+      "backendOperation": "POST /api/v1/auth/register"
+    },
+    {
+      "id": "auth-session-me",
+      "component": "usePermissions.ts",
+      "trigger": "session-bootstrap",
+      "actor": "SESSION",
+      "permissions": [],
+      "method": "GET",
+      "endpoint": "/api/v1/auth/me",
+      "backendOperation": "GET /api/v1/auth/me"
+    },
+    {
+      "id": "auth-session-refresh",
+      "component": "AuthenticationBoundary.tsx",
+      "trigger": "session-bootstrap",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/refresh",
+      "backendOperation": "POST /api/v1/auth/refresh"
+    },
+    {
+      "id": "customer-cart-add",
+      "component": "Marketplace.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/cart/items",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/cart/items"
+    },
+    {
+      "id": "customer-cart-history",
+      "component": "Marketplace.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/cart/history",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/cart/history"
+    },
+    {
+      "id": "customer-cart-quote",
+      "component": "Marketplace.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/cart/quote",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/cart/quote"
+    },
+    {
+      "id": "customer-cart-read",
+      "component": "Marketplace.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/cart",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/cart"
+    },
+    {
+      "id": "customer-cart-remove",
+      "component": "Marketplace.tsx",
+      "trigger": "button",
+      "method": "DELETE",
+      "endpoint": "/api/v1/customer/cart/items/{productId}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "DELETE /api/v1/customer/cart/items/{productId}"
+    },
+    {
+      "id": "customer-cart-restore",
+      "component": "Marketplace.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/cart/restore",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/cart/restore"
+    },
+    {
+      "id": "customer-cart-switch",
+      "component": "Marketplace.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/cart/switch",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/cart/switch"
+    },
+    {
+      "id": "customer-claim-detail",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "detail",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranty-claims/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}"
+    },
+    {
+      "id": "customer-claim-eligible-warranties",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranties",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranties"
+    },
+    {
+      "id": "customer-claim-evidence",
+      "component": "CustomerWarrantyClaims.tsx",
       "trigger": "submit",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sessions",
+      "endpoint": "/api/v1/customer/warranty-claims/{id}/evidence",
       "permissions": [
-        "POS_SESSION_OPEN"
+        "CUSTOMER"
       ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions"
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/warranty-claims/{id}/evidence"
     },
     {
-      "id": "pos-session-active",
-      "component": "SessionStart.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/sessions/active",
-      "permissions": [
-        "POS_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/sessions/active"
-    },
-    {
-      "id": "pos-session-read",
-      "component": "App.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/sessions/{id}",
-      "permissions": [
-        "POS_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/sessions/{id}"
-    },
-    {
-      "id": "pos-session-resume",
-      "component": "SessionStart.tsx",
+      "id": "customer-claim-evidence-download",
+      "component": "CustomerWarrantyClaims.tsx",
+      "implementationFile": "evidenceDownload.ts",
       "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sessions/{id}/resume",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}",
       "permissions": [
-        "POS_VIEW",
-        "POS_SESSION_OPEN"
+        "CUSTOMER"
       ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/resume"
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}"
     },
     {
-      "id": "pos-session-close",
-      "component": "ShiftClose.tsx",
+      "id": "customer-claim-list",
+      "component": "CustomerWarrantyClaims.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranty-claims",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranty-claims"
+    },
+    {
+      "id": "customer-claim-submit",
+      "component": "CustomerWarrantyClaims.tsx",
       "trigger": "submit",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sessions/{id}/close",
+      "endpoint": "/api/v1/customer/warranty-claims",
       "permissions": [
-        "POS_SESSION_CLOSE"
+        "CUSTOMER"
       ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/close"
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/warranty-claims"
     },
     {
-      "id": "pos-session-close-status",
-      "component": "ShiftClose.tsx",
+      "id": "customer-dashboard-cart-read",
+      "component": "CustomerDashboard.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/sessions/{id}/close-status",
+      "endpoint": "/api/v1/customer/cart",
       "permissions": [
-        "POS_VIEW"
+        "CUSTOMER"
       ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/sessions/{id}/close-status"
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/cart"
     },
     {
-      "id": "pos-variance-list",
-      "component": "ShiftReviews.tsx",
+      "id": "customer-dashboard-order-list",
+      "component": "CustomerDashboard.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/sessions/pending-variances",
+      "endpoint": "/api/v1/customer/orders",
       "permissions": [
-        "POS_SHIFT_VARIANCE_APPROVE"
+        "CUSTOMER"
       ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/sessions/pending-variances"
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders"
     },
     {
-      "id": "pos-variance-approve",
-      "component": "ShiftReviews.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sessions/{id}/approve-variance",
+      "id": "customer-dashboard-profile-read",
+      "component": "CustomerDashboard.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/profile",
       "permissions": [
-        "POS_SHIFT_VARIANCE_APPROVE"
+        "CUSTOMER"
       ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/approve-variance"
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/profile"
     },
     {
-      "id": "pos-variance-return",
-      "component": "ShiftReviews.tsx",
+      "id": "customer-directory",
+      "component": "VendorDirectory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/marketplace/directory",
+      "permissions": [],
+      "actor": "PUBLIC",
+      "backendOperation": "GET /api/v1/marketplace/directory"
+    },
+    {
+      "id": "customer-draft-cancel",
+      "component": "ReservedDrafts.tsx",
       "trigger": "button",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sessions/{id}/return-for-correction",
+      "endpoint": "/api/v1/customer/checkout/drafts/{id}/cancel",
       "permissions": [
-        "POS_SHIFT_VARIANCE_APPROVE"
+        "CUSTOMER"
       ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/return-for-correction"
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/cancel"
+    },
+    {
+      "id": "customer-draft-create",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/checkout/drafts",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts"
+    },
+    {
+      "id": "customer-draft-list",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/checkout/drafts",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/checkout/drafts"
+    },
+    {
+      "id": "customer-draft-recovery",
+      "component": "DraftReferenceRecovery.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/checkout/drafts/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/checkout/drafts/{id}"
+    },
+    {
+      "id": "customer-installation-detail",
+      "component": "CustomerInstallations.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/installations/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/installations/{id}"
+    },
+    {
+      "id": "customer-installation-list",
+      "component": "CustomerInstallations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/installations",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/installations"
+    },
+    {
+      "id": "customer-order-list",
+      "component": "OrderHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders"
+    },
+    {
+      "id": "customer-order-read",
+      "component": "OrderHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{id}"
+    },
+    {
+      "id": "customer-order-return-status",
+      "component": "OrderHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{orderId}/returns",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{orderId}/returns"
+    },
+    {
+      "id": "customer-order-shipment-tracking",
+      "component": "OrderHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{orderId}/shipments",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{orderId}/shipments"
+    },
+    {
+      "id": "customer-payment-confirm",
+      "component": "PaymentCheckout.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/checkout/drafts/{id}/payment/mock-confirm",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm"
+    },
+    {
+      "id": "customer-payment-create",
+      "component": "PaymentCheckout.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/checkout/drafts/{id}/payment",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment"
+    },
+    {
+      "id": "customer-payment-read",
+      "component": "PaymentCheckout.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/checkout/drafts/{id}/payment",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/checkout/drafts/{id}/payment"
+    },
+    {
+      "id": "customer-pos-association-approve",
+      "component": "CustomerAssociation.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/pos-association/approve",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/pos-association/approve"
+    },
+    {
+      "id": "customer-pos-association-preview",
+      "component": "CustomerAssociation.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/pos-association/preview",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/pos-association/preview"
+    },
+    {
+      "id": "customer-product-detail",
+      "component": "ProductDetails.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/marketplace/vendors/{slug}/products/{id}",
+      "permissions": [],
+      "actor": "PUBLIC",
+      "backendOperation": "GET /api/v1/marketplace/vendors/{slug}/products/{id}"
+    },
+    {
+      "id": "customer-profile-read",
+      "component": "CustomerProfile.tsx",
+      "trigger": "load",
+      "backendOperation": "GET /api/v1/customer/profile",
+      "actor": "CUSTOMER",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "method": "GET",
+      "endpoint": "/api/v1/customer/profile"
+    },
+    {
+      "id": "customer-profile-update",
+      "component": "CustomerProfile.tsx",
+      "trigger": "submit",
+      "backendOperation": "PUT /api/v1/customer/profile",
+      "actor": "CUSTOMER",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "method": "PUT",
+      "endpoint": "/api/v1/customer/profile"
+    },
+    {
+      "id": "customer-quotation-decision",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/quotations/{id}/revisions/{revision}/decision",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/quotations/{id}/revisions/{revision}/decision"
+    },
+    {
+      "id": "customer-quotation-document",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/quotations/{id}/revisions/{revision}/document",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/quotations/{id}/revisions/{revision}/document"
+    },
+    {
+      "id": "customer-quotation-list",
+      "component": "CustomerQuotations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/quotations",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/quotations"
+    },
+    {
+      "id": "customer-receipt-copy",
+      "component": "OnlineReceipt.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/orders/{id}/receipt-copy",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-copy"
+    },
+    {
+      "id": "customer-receipt-pdf-copy",
+      "component": "CustomerReceiptPdfCopy.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/orders/{id}/receipt-document",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-document",
+      "implementationFile": "customerReceiptPdfApi.ts"
+    },
+    {
+      "id": "customer-receipt-read",
+      "component": "OnlineReceipt.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/orders/{id}/receipt",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/orders/{id}/receipt"
+    },
+    {
+      "id": "customer-security-revoke-other-sessions",
+      "component": "CustomerProfile.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/auth/sessions/revoke-others",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/auth/sessions/revoke-others"
+    },
+    {
+      "id": "customer-service-request-create",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/customer/service-requests",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "POST /api/v1/customer/service-requests"
+    },
+    {
+      "id": "customer-service-request-detail",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-requests/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-requests/{id}"
+    },
+    {
+      "id": "customer-service-request-eligible-orders",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-requests/orders",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-requests/orders"
+    },
+    {
+      "id": "customer-service-request-list",
+      "component": "CustomerServiceRequests.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-requests",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-requests"
+    },
+    {
+      "id": "customer-service-visit-detail",
+      "component": "CustomerServiceVisits.tsx",
+      "trigger": "detail",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-visits/{id}",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-visits/{id}"
+    },
+    {
+      "id": "customer-service-visit-list",
+      "component": "CustomerServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-visits",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-visits"
+    },
+    {
+      "id": "customer-service-visit-refresh",
+      "component": "CustomerServiceVisits.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/service-visits",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/service-visits"
+    },
+    {
+      "id": "customer-shipment-feed-read",
+      "component": "CustomerDashboard.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/shipments",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/shipments"
+    },
+    {
+      "id": "customer-vendor-catalogue-search",
+      "component": "Marketplace.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/marketplace/vendors/{slug}/catalogue",
+      "permissions": [],
+      "actor": "PUBLIC",
+      "backendOperation": "GET /api/v1/marketplace/vendors/{slug}/catalogue"
+    },
+    {
+      "id": "customer-vendors",
+      "component": "Marketplace.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/marketplace/vendors",
+      "permissions": [],
+      "actor": "PUBLIC",
+      "backendOperation": "GET /api/v1/marketplace/vendors"
+    },
+    {
+      "id": "customer-warranty-list",
+      "component": "CustomerWarranties.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/customer/warranties",
+      "permissions": [
+        "CUSTOMER"
+      ],
+      "actor": "CUSTOMER",
+      "backendOperation": "GET /api/v1/customer/warranties"
+    },
+    {
+      "id": "marketplace-enquiry-submit",
+      "component": "MarketplaceEnquiryForm.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/marketplace/vendors/{slug}/enquiries",
+      "permissions": [],
+      "actor": "PUBLIC",
+      "backendOperation": "POST /api/v1/marketplace/vendors/{slug}/enquiries"
+    },
+    {
+      "id": "platform-audit-list",
+      "component": "PlatformApp.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/audit",
+      "permissions": [
+        "PLATFORM_AUDIT_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/audit"
+    },
+    {
+      "id": "platform-config-read",
+      "component": "PlatformApp.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/configuration",
+      "permissions": [
+        "PLATFORM_CONFIG_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/configuration"
+    },
+    {
+      "id": "platform-config-update",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/platform/configuration",
+      "permissions": [
+        "PLATFORM_CONFIG_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "PUT /api/v1/platform/configuration"
+    },
+    {
+      "id": "platform-dashboard",
+      "component": "PlatformApp.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/dashboard",
+      "permissions": [
+        "PLATFORM_ANALYTICS_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/dashboard"
+    },
+    {
+      "id": "platform-health",
+      "component": "PlatformHealthWidget.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/health",
+      "permissions": [
+        "PLATFORM_ANALYTICS_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/health"
+    },
+    {
+      "id": "platform-identity-list",
+      "component": "PlatformIdentityAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/identities",
+      "permissions": [
+        "PLATFORM_IDENTITY_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/identities"
+    },
+    {
+      "id": "platform-identity-mfa-enroll",
+      "component": "PlatformIdentityAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/identities/{username}/mfa-enrollment",
+      "permissions": [
+        "PLATFORM_IDENTITY_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/identities/{username}/mfa-enrollment"
+    },
+    {
+      "id": "platform-mfa-enrollment-complete",
+      "component": "PlatformMfaEnrollment.tsx",
+      "trigger": "button",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/platform-mfa/enrollment/complete",
+      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/complete"
+    },
+    {
+      "id": "platform-mfa-enrollment-start",
+      "component": "PlatformMfaEnrollment.tsx",
+      "trigger": "button",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/platform-mfa/enrollment/start",
+      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/start"
+    },
+    {
+      "id": "platform-plan-active",
+      "component": "PlatformApp.tsx",
+      "trigger": "button",
+      "method": "PATCH",
+      "endpoint": "/api/v1/platform/subscription-plans/{id}/active",
+      "permissions": [
+        "PLATFORM_PLAN_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "PATCH /api/v1/platform/subscription-plans/{id}/active"
+    },
+    {
+      "id": "platform-plan-create",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/subscription-plans",
+      "permissions": [
+        "PLATFORM_PLAN_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/subscription-plans"
+    },
+    {
+      "id": "platform-plan-list",
+      "component": "PlatformApp.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/subscription-plans",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_VIEW",
+        "PLATFORM_PLAN_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/subscription-plans",
+      "permissionMode": "ANY"
+    },
+    {
+      "id": "platform-plan-revise",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/platform/subscription-plans/{id}/versions",
+      "permissions": [
+        "PLATFORM_PLAN_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "PUT /api/v1/platform/subscription-plans/{id}/versions"
+    },
+    {
+      "id": "platform-subscription-billing",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/subscriptions/{id}/billing-history",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/billing-history"
+    },
+    {
+      "id": "platform-subscription-create",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/tenants/{tenantId}/subscription",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_ADJUST"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/tenants/{tenantId}/subscription"
+    },
+    {
+      "id": "platform-subscription-events",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/subscriptions/{id}/events",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/events"
+    },
+    {
+      "id": "platform-subscription-invoice-document",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "implementationFile": "PlatformSubscriptions.tsx",
+      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document"
+    },
+    {
+      "id": "platform-subscription-list",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/subscriptions",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/subscriptions"
+    },
+    {
+      "id": "platform-subscription-plan-options",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/subscription-plans",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_VIEW",
+        "PLATFORM_PLAN_MANAGE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/subscription-plans",
+      "permissionMode": "ANY"
+    },
+    {
+      "id": "platform-subscription-status",
+      "component": "PlatformSubscriptions.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/subscriptions/{id}/status",
+      "permissions": [
+        "PLATFORM_SUBSCRIPTION_ADJUST"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/subscriptions/{id}/status"
+    },
+    {
+      "id": "platform-support-grant",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/support-access",
+      "permissions": [
+        "PLATFORM_SUPPORT_ACCESS"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/support-access"
+    },
+    {
+      "id": "platform-support-list",
+      "component": "PlatformApp.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/support-access",
+      "permissions": [
+        "PLATFORM_SUPPORT_ACCESS"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/support-access"
+    },
+    {
+      "id": "platform-support-revoke",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/support-access/{id}/revoke",
+      "permissions": [
+        "PLATFORM_SUPPORT_ACCESS"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/support-access/{id}/revoke"
+    },
+    {
+      "id": "platform-tenant-create",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/tenants",
+      "permissions": [
+        "PLATFORM_TENANT_CREATE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/tenants"
+    },
+    {
+      "id": "platform-tenant-lifecycle",
+      "component": "PlatformApp.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/platform/tenants/{id}/lifecycle",
+      "permissions": [
+        "PLATFORM_TENANT_UPDATE",
+        "PLATFORM_TENANT_SUSPEND",
+        "PLATFORM_TENANT_CLOSE",
+        "PLATFORM_TENANT_REACTIVATE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "POST /api/v1/platform/tenants/{id}/lifecycle",
+      "permissionMode": "ANY"
+    },
+    {
+      "id": "platform-tenant-list",
+      "component": "PlatformApp.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/platform/tenants",
+      "permissions": [
+        "PLATFORM_TENANT_VIEW"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "GET /api/v1/platform/tenants"
+    },
+    {
+      "id": "platform-tenant-update",
+      "component": "PlatformApp.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/platform/tenants/{id}",
+      "permissions": [
+        "PLATFORM_TENANT_UPDATE"
+      ],
+      "actor": "PLATFORM",
+      "backendOperation": "PATCH /api/v1/platform/tenants/{id}"
     },
     {
       "id": "pos-cash-movement",
@@ -629,32 +1569,126 @@
       "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/cash-movements"
     },
     {
-      "id": "pos-reconciliation",
-      "component": "CashDrawer.tsx",
+      "id": "pos-cashier-sales-report",
+      "component": "CashierSalesInsights.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/sessions/{id}/reconciliation",
+      "endpoint": "/api/v1/vendor/pos/reports/cashier-sales",
       "permissions": [
         "POS_VIEW",
-        "POS_REPORT_VIEW"
+        "POS_REPORT_VIEW",
+        "POS_CASHIER_REPORT_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/sessions/{id}/reconciliation",
-      "permissionMode": "ANY"
+      "backendOperation": "GET /api/v1/vendor/pos/reports/cashier-sales"
     },
     {
-      "id": "pos-sale-create",
-      "component": "App.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sales",
+      "id": "pos-catalogue-scan",
+      "component": "PosCatalogue.tsx",
+      "trigger": "submit",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/catalogue/scan",
       "permissions": [
-        "POS_SALE_CREATE",
-        "POS_TENDER_CASH_RECORD",
-        "POS_RECEIPT_VIEW"
+        "POS_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sales"
+      "backendOperation": "GET /api/v1/vendor/pos/catalogue/scan"
+    },
+    {
+      "id": "pos-catalogue-search",
+      "component": "PosCatalogue.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/catalogue",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/catalogue"
+    },
+    {
+      "id": "pos-category-create",
+      "component": "CategoryManager.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/categories",
+      "permissions": [
+        "PRODUCT_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/categories"
+    },
+    {
+      "id": "pos-category-list",
+      "component": "CategoryManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/categories",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/categories"
+    },
+    {
+      "id": "pos-category-update",
+      "component": "CategoryManager.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/categories/{id}",
+      "permissions": [
+        "PRODUCT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/categories/{id}"
+    },
+    {
+      "id": "pos-customer-association-create",
+      "component": "WalkInCustomer.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/customer-association",
+      "permissions": [
+        "POS_SALE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/customer-association"
+    },
+    {
+      "id": "pos-discount-policy-read",
+      "component": "StoreSettings.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/discount-policy",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/discount-policy"
+    },
+    {
+      "id": "pos-discount-policy-update",
+      "component": "StoreSettings.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/discount-policy",
+      "permissions": [
+        "POS_DISCOUNT_OVERRIDE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/discount-policy"
+    },
+    {
+      "id": "pos-draft-cancel",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/drafts/{id}/cancel",
+      "permissions": [
+        "POS_SALE_CANCEL"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/drafts/{id}/cancel"
     },
     {
       "id": "pos-draft-create",
@@ -668,30 +1702,6 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "POST /api/v1/vendor/pos/drafts"
-    },
-    {
-      "id": "pos-draft-list",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/drafts",
-      "permissions": [
-        "POS_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/drafts"
-    },
-    {
-      "id": "pos-draft-cancel",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/drafts/{id}/cancel",
-      "permissions": [
-        "POS_SALE_CANCEL"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/drafts/{id}/cancel"
     },
     {
       "id": "pos-draft-finalize",
@@ -708,6 +1718,30 @@
       "backendOperation": "POST /api/v1/vendor/pos/drafts/{id}/finalize-cash"
     },
     {
+      "id": "pos-draft-list",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/drafts",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/drafts"
+    },
+    {
+      "id": "pos-draft-recovery",
+      "component": "DraftReferenceRecovery.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/drafts/{id}",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/drafts/{id}"
+    },
+    {
       "id": "pos-order-history",
       "component": "OrderHistory.tsx",
       "trigger": "load",
@@ -720,34 +1754,119 @@
       "backendOperation": "GET /api/v1/vendor/pos/orders"
     },
     {
-      "id": "pos-refund-quote",
-      "component": "CashRefunds.tsx",
-      "trigger": "load",
+      "id": "pos-order-history-receipt-read",
+      "component": "OrderHistory.tsx",
+      "trigger": "button",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/refunds/quote/{returnId}",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}",
       "permissions": [
-        "POS_VIEW",
-        "POS_REFUND_VIEW",
-        "POS_REFUND_APPROVE",
-        "POS_REFUND_CASH_RECORD"
+        "POS_RECEIPT_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/refunds/quote/{returnId}"
+      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
     },
     {
-      "id": "pos-refund-pay",
-      "component": "CashRefunds.tsx",
-      "trigger": "button",
+      "id": "pos-product-create",
+      "component": "ProductManager.tsx",
+      "trigger": "submit",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/refunds",
+      "endpoint": "/api/v1/vendor/products",
       "permissions": [
-        "POS_VIEW",
-        "POS_REFUND_VIEW",
-        "POS_REFUND_APPROVE",
-        "POS_REFUND_CASH_RECORD"
+        "PRODUCT_CREATE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/refunds"
+      "backendOperation": "POST /api/v1/vendor/products"
+    },
+    {
+      "id": "pos-product-list",
+      "component": "ProductManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/products",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products"
+    },
+    {
+      "id": "pos-product-update",
+      "component": "ProductManager.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/products/{id}",
+      "permissions": [
+        "PRODUCT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/products/{id}"
+    },
+    {
+      "id": "pos-promotion-history",
+      "component": "PromotionHistory.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/promotions/{product}/history",
+      "permissions": [
+        "POS_VIEW",
+        "CATALOG_PROMOTION_MANAGE",
+        "POS_DISCOUNT_APPROVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/promotions/{product}/history"
+    },
+    {
+      "id": "pos-receipt-pdf",
+      "component": "ReceiptPdfCopy.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}/document",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RECEIPT_VIEW",
+        "POS_RECEIPT_REPRINT"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/document",
+      "implementationFile": "receiptDocumentApi.ts"
+    },
+    {
+      "id": "pos-receipt-read",
+      "component": "SaleReceipt.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}",
+      "permissions": [
+        "POS_RECEIPT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
+    },
+    {
+      "id": "pos-receipt-reprint",
+      "component": "App.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}/reprint",
+      "permissions": [
+        "POS_RECEIPT_REPRINT"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/reprint"
+    },
+    {
+      "id": "pos-reconciliation",
+      "component": "CashDrawer.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/sessions/{id}/reconciliation",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/sessions/{id}/reconciliation",
+      "permissionMode": "ANY"
     },
     {
       "id": "pos-refund-copy",
@@ -778,125 +1897,102 @@
       "permissionMode": "ALL"
     },
     {
-      "id": "pos-return-queue",
-      "component": "ReturnQueue.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/returns/queue",
+      "id": "pos-refund-pay",
+      "component": "CashRefunds.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/refunds",
       "permissions": [
         "POS_VIEW",
-        "POS_RETURN_VIEW"
+        "POS_REFUND_VIEW",
+        "POS_REFUND_APPROVE",
+        "POS_REFUND_CASH_RECORD"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/returns/queue"
+      "backendOperation": "POST /api/v1/vendor/pos/refunds"
     },
     {
-      "id": "pos-category-list",
-      "component": "CategoryManager.tsx",
+      "id": "pos-refund-quote",
+      "component": "CashRefunds.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/categories",
+      "endpoint": "/api/v1/vendor/pos/refunds/quote/{returnId}",
       "permissions": [
-        "PRODUCT_VIEW"
+        "POS_VIEW",
+        "POS_REFUND_VIEW",
+        "POS_REFUND_APPROVE",
+        "POS_REFUND_CASH_RECORD"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/categories"
+      "backendOperation": "GET /api/v1/vendor/pos/refunds/quote/{returnId}"
     },
     {
-      "id": "pos-category-create",
-      "component": "CategoryManager.tsx",
+      "id": "pos-refund-read",
+      "component": "RefundJournal.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/refunds/{id}",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/refunds/{id}"
+    },
+    {
+      "id": "pos-refund-report",
+      "component": "RefundInsights.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/reports/cash-refunds",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/reports/cash-refunds"
+    },
+    {
+      "id": "pos-refund-return-lookup",
+      "component": "CashRefunds.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/refunds/return/{id}",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REFUND_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/refunds/return/{id}"
+    },
+    {
+      "id": "pos-refunds-export",
+      "component": "ReportExport.tsx",
       "trigger": "submit",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/categories",
+      "endpoint": "/api/v1/vendor/pos/reports/cash-refunds/export",
       "permissions": [
-        "PRODUCT_CREATE"
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_REPORT_EXPORT",
+        "POS_REFUND_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/categories"
+      "backendOperation": "POST /api/v1/vendor/pos/reports/cash-refunds/export",
+      "implementationFile": "reportExportApi.ts"
     },
     {
-      "id": "pos-category-update",
-      "component": "CategoryManager.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/categories/{id}",
-      "permissions": [
-        "PRODUCT_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/categories/{id}"
-    },
-    {
-      "id": "pos-product-list",
-      "component": "ProductManager.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/products",
-      "permissions": [
-        "PRODUCT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/products"
-    },
-    {
-      "id": "solar-package-product-source-list",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/products",
-      "permissions": [
-        "PRODUCT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/products"
-    },
-    {
-      "id": "pos-product-create",
-      "component": "ProductManager.tsx",
+      "id": "pos-register-create",
+      "component": "StoreSettings.tsx",
       "trigger": "submit",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/products",
+      "endpoint": "/api/v1/vendor/pos/registers",
       "permissions": [
-        "PRODUCT_CREATE"
+        "POS_SETTINGS_MANAGE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/products"
-    },
-    {
-      "id": "pos-product-update",
-      "component": "ProductManager.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/products/{id}",
-      "permissions": [
-        "PRODUCT_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/products/{id}"
-    },
-    {
-      "id": "pos-stock-list",
-      "component": "StockReceiving.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/inventory/receipts",
-      "permissions": [
-        "INVENTORY_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/inventory/receipts"
-    },
-    {
-      "id": "pos-stock-receive",
-      "component": "StockReceiving.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/inventory/receipts",
-      "permissions": [
-        "INVENTORY_RECEIVE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/inventory/receipts"
+      "backendOperation": "POST /api/v1/vendor/pos/registers"
     },
     {
       "id": "pos-register-list",
@@ -910,6 +2006,242 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/pos/registers"
+    },
+    {
+      "id": "pos-reserved-draft-receipt-read",
+      "component": "ReservedDrafts.tsx",
+      "trigger": "load-and-recovery",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/receipts/{id}",
+      "permissions": [
+        "POS_RECEIPT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
+    },
+    {
+      "id": "pos-return-audit-events",
+      "component": "ReturnAuditTimeline.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns/{id}/events",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_AUDIT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns/{id}/events"
+    },
+    {
+      "id": "pos-return-create",
+      "component": "PosReturns.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/returns",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/returns"
+    },
+    {
+      "id": "pos-return-inspect",
+      "component": "PosReturns.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/returns/{id}/inspect",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_INSPECT"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/inspect"
+    },
+    {
+      "id": "pos-return-list",
+      "component": "PosReturns.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns"
+    },
+    {
+      "id": "pos-return-queue",
+      "component": "ReturnQueue.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns/queue",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns/queue"
+    },
+    {
+      "id": "pos-return-read",
+      "component": "PosReturns.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns/{id}",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns/{id}"
+    },
+    {
+      "id": "pos-return-review",
+      "component": "PosReturns.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/returns/{id}/review",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_APPROVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/review"
+    },
+    {
+      "id": "pos-return-sale-lookup",
+      "component": "PosReturns.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/returns/sale/{orderId}",
+      "permissions": [
+        "POS_VIEW",
+        "POS_RETURN_VIEW",
+        "POS_RETURN_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/returns/sale/{orderId}"
+    },
+    {
+      "id": "pos-sale-create",
+      "component": "App.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sales",
+      "permissions": [
+        "POS_SALE_CREATE",
+        "POS_TENDER_CASH_RECORD",
+        "POS_RECEIPT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sales"
+    },
+    {
+      "id": "pos-sales-export",
+      "component": "ReportExport.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/reports/sales/export",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW",
+        "POS_REPORT_EXPORT"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/reports/sales/export",
+      "implementationFile": "reportExportApi.ts"
+    },
+    {
+      "id": "pos-sales-report",
+      "component": "SalesInsights.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/reports/sales",
+      "permissions": [
+        "POS_VIEW",
+        "POS_REPORT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/reports/sales"
+    },
+    {
+      "id": "pos-session-active",
+      "component": "SessionStart.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/sessions/active",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/sessions/active"
+    },
+    {
+      "id": "pos-session-close",
+      "component": "ShiftClose.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sessions/{id}/close",
+      "permissions": [
+        "POS_SESSION_CLOSE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/close"
+    },
+    {
+      "id": "pos-session-close-status",
+      "component": "ShiftClose.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/sessions/{id}/close-status",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/sessions/{id}/close-status"
+    },
+    {
+      "id": "pos-session-open",
+      "component": "SessionStart.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sessions",
+      "permissions": [
+        "POS_SESSION_OPEN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions"
+    },
+    {
+      "id": "pos-session-read",
+      "component": "App.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/sessions/{id}",
+      "permissions": [
+        "POS_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/sessions/{id}"
+    },
+    {
+      "id": "pos-session-resume",
+      "component": "SessionStart.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sessions/{id}/resume",
+      "permissions": [
+        "POS_VIEW",
+        "POS_SESSION_OPEN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/resume"
     },
     {
       "id": "pos-settings-read",
@@ -936,470 +2268,6 @@
       "backendOperation": "POST /api/v1/vendor/pos/settings"
     },
     {
-      "id": "customer-directory",
-      "component": "VendorDirectory.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/marketplace/directory",
-      "permissions": [],
-      "actor": "PUBLIC",
-      "backendOperation": "GET /api/v1/marketplace/directory"
-    },
-    {
-      "id": "customer-vendors",
-      "component": "Marketplace.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/marketplace/vendors",
-      "permissions": [],
-      "actor": "PUBLIC",
-      "backendOperation": "GET /api/v1/marketplace/vendors"
-    },
-    {
-      "id": "customer-cart-read",
-      "component": "Marketplace.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/cart",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/cart"
-    },
-    {
-      "id": "customer-cart-add",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/cart/items",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/cart/items"
-    },
-    {
-      "id": "customer-cart-remove",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "method": "DELETE",
-      "endpoint": "/api/v1/customer/cart/items/{productId}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "DELETE /api/v1/customer/cart/items/{productId}"
-    },
-    {
-      "id": "customer-cart-switch",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/cart/switch",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/cart/switch"
-    },
-    {
-      "id": "customer-cart-quote",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/cart/quote",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/cart/quote"
-    },
-    {
-      "id": "customer-cart-history",
-      "component": "Marketplace.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/cart/history",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/cart/history"
-    },
-    {
-      "id": "customer-cart-restore",
-      "component": "Marketplace.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/cart/restore",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/cart/restore"
-    },
-    {
-      "id": "customer-payment-read",
-      "component": "PaymentCheckout.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/checkout/drafts/{id}/payment",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/checkout/drafts/{id}/payment"
-    },
-    {
-      "id": "customer-payment-create",
-      "component": "PaymentCheckout.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/checkout/drafts/{id}/payment",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment"
-    },
-    {
-      "id": "platform-dashboard",
-      "component": "PlatformApp.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/dashboard",
-      "permissions": [
-        "PLATFORM_ANALYTICS_VIEW"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/dashboard"
-    },
-    {
-      "id": "platform-tenant-list",
-      "component": "PlatformApp.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/tenants",
-      "permissions": [
-        "PLATFORM_TENANT_VIEW"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/tenants"
-    },
-    {
-      "id": "platform-tenant-create",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/platform/tenants",
-      "permissions": [
-        "PLATFORM_TENANT_CREATE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/tenants"
-    },
-    {
-      "id": "platform-tenant-update",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/platform/tenants/{id}",
-      "permissions": [
-        "PLATFORM_TENANT_UPDATE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "PATCH /api/v1/platform/tenants/{id}"
-    },
-    {
-      "id": "platform-tenant-lifecycle",
-      "component": "PlatformApp.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/platform/tenants/{id}/lifecycle",
-      "permissions": [
-        "PLATFORM_TENANT_UPDATE",
-        "PLATFORM_TENANT_SUSPEND",
-        "PLATFORM_TENANT_CLOSE",
-        "PLATFORM_TENANT_REACTIVATE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/tenants/{id}/lifecycle",
-      "permissionMode": "ANY"
-    },
-    {
-      "id": "platform-plan-list",
-      "component": "PlatformApp.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/subscription-plans",
-      "permissions": [
-        "PLATFORM_SUBSCRIPTION_VIEW",
-        "PLATFORM_PLAN_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/subscription-plans",
-      "permissionMode": "ANY"
-    },
-    {
-      "id": "platform-plan-create",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/platform/subscription-plans",
-      "permissions": [
-        "PLATFORM_PLAN_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/subscription-plans"
-    },
-    {
-      "id": "platform-plan-revise",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/platform/subscription-plans/{id}/versions",
-      "permissions": [
-        "PLATFORM_PLAN_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "PUT /api/v1/platform/subscription-plans/{id}/versions"
-    },
-    {
-      "id": "platform-plan-active",
-      "component": "PlatformApp.tsx",
-      "trigger": "button",
-      "method": "PATCH",
-      "endpoint": "/api/v1/platform/subscription-plans/{id}/active",
-      "permissions": [
-        "PLATFORM_PLAN_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "PATCH /api/v1/platform/subscription-plans/{id}/active"
-    },
-    {
-      "id": "platform-audit-list",
-      "component": "PlatformApp.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/audit",
-      "permissions": [
-        "PLATFORM_AUDIT_VIEW"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/audit"
-    },
-    {
-      "id": "platform-support-list",
-      "component": "PlatformApp.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/support-access",
-      "permissions": [
-        "PLATFORM_SUPPORT_ACCESS"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/support-access"
-    },
-    {
-      "id": "platform-support-grant",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/platform/support-access",
-      "permissions": [
-        "PLATFORM_SUPPORT_ACCESS"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/support-access"
-    },
-    {
-      "id": "platform-support-revoke",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/platform/support-access/{id}/revoke",
-      "permissions": [
-        "PLATFORM_SUPPORT_ACCESS"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/support-access/{id}/revoke"
-    },
-    {
-      "id": "platform-config-read",
-      "component": "PlatformApp.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/configuration",
-      "permissions": [
-        "PLATFORM_CONFIG_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/configuration"
-    },
-    {
-      "id": "platform-config-update",
-      "component": "PlatformApp.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/platform/configuration",
-      "permissions": [
-        "PLATFORM_CONFIG_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "PUT /api/v1/platform/configuration"
-    },
-    {
-      "id": "platform-subscription-list",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/subscriptions",
-      "permissions": [
-        "PLATFORM_SUBSCRIPTION_VIEW"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/subscriptions"
-    },
-    {
-      "id": "platform-subscription-create",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/platform/tenants/{tenantId}/subscription",
-      "permissions": [
-        "PLATFORM_SUBSCRIPTION_ADJUST"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/tenants/{tenantId}/subscription"
-    },
-    {
-      "id": "platform-subscription-status",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/platform/subscriptions/{id}/status",
-      "permissions": [
-        "PLATFORM_SUBSCRIPTION_ADJUST"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/subscriptions/{id}/status"
-    },
-    {
-      "id": "platform-subscription-events",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/subscriptions/{id}/events",
-      "permissions": [
-        "PLATFORM_SUBSCRIPTION_VIEW"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/events"
-    },
-    {
-      "id": "platform-subscription-billing",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/subscriptions/{id}/billing-history",
-      "permissions": [
-        "PLATFORM_SUBSCRIPTION_VIEW"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/billing-history"
-    },
-    {
-      "id": "platform-subscription-invoice-document",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document",
-      "permissions": [
-        "PLATFORM_SUBSCRIPTION_VIEW"
-      ],
-      "actor": "PLATFORM",
-      "implementationFile": "PlatformSubscriptions.tsx",
-      "backendOperation": "GET /api/v1/platform/subscriptions/{id}/invoices/{invoiceId}/document"
-    },
-    {
-      "id": "platform-identity-list",
-      "component": "PlatformIdentityAdmin.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/identities",
-      "permissions": [
-        "PLATFORM_IDENTITY_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/identities"
-    },
-    {
-      "id": "pos-catalogue-search",
-      "component": "PosCatalogue.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/catalogue",
-      "permissions": [
-        "POS_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/catalogue"
-    },
-    {
-      "id": "pos-catalogue-scan",
-      "component": "PosCatalogue.tsx",
-      "trigger": "submit",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/catalogue/scan",
-      "permissions": [
-        "POS_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/catalogue/scan"
-    },
-    {
-      "id": "pos-promotion-history",
-      "component": "PromotionHistory.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/promotions/{product}/history",
-      "permissions": [
-        "POS_VIEW",
-        "CATALOG_PROMOTION_MANAGE",
-        "POS_DISCOUNT_APPROVE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/promotions/{product}/history"
-    },
-    {
-      "id": "pos-sales-report",
-      "component": "SalesInsights.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/reports/sales",
-      "permissions": [
-        "POS_VIEW",
-        "POS_REPORT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/reports/sales"
-    },
-    {
-      "id": "pos-cashier-sales-report",
-      "component": "CashierSalesInsights.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/reports/cashier-sales",
-      "permissions": [
-        "POS_VIEW",
-        "POS_REPORT_VIEW",
-        "POS_CASHIER_REPORT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/reports/cashier-sales"
-    },
-    {
       "id": "pos-shift-history",
       "component": "ShiftHistory.tsx",
       "trigger": "load",
@@ -1412,16 +2280,40 @@
       "backendOperation": "GET /api/v1/vendor/pos/sessions/history"
     },
     {
-      "id": "pos-tender-review-read",
-      "component": "TerminalTenderReview.tsx",
+      "id": "pos-stock-list",
+      "component": "StockReceiving.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/payments/review/{id}",
+      "endpoint": "/api/v1/vendor/inventory/receipts",
       "permissions": [
-        "POS_TENDER_MANUAL_VERIFY"
+        "INVENTORY_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/payments/review/{id}"
+      "backendOperation": "GET /api/v1/vendor/inventory/receipts"
+    },
+    {
+      "id": "pos-stock-products-list",
+      "component": "StockReceiving.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/products",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products"
+    },
+    {
+      "id": "pos-stock-receive",
+      "component": "StockReceiving.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/inventory/receipts",
+      "permissions": [
+        "INVENTORY_RECEIVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/inventory/receipts"
     },
     {
       "id": "pos-tender-review-apply",
@@ -1436,206 +2328,792 @@
       "backendOperation": "POST /api/v1/vendor/pos/payments/review/{id}"
     },
     {
-      "id": "pos-return-sale-lookup",
-      "component": "PosReturns.tsx",
+      "id": "pos-tender-review-awaiting-read",
+      "component": "TerminalTenderReview.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/returns/sale/{orderId}",
+      "endpoint": "/api/v1/vendor/pos/payments/awaiting-review",
       "permissions": [
-        "POS_VIEW",
-        "POS_RETURN_VIEW",
-        "POS_RETURN_CREATE"
+        "POS_TENDER_MANUAL_VERIFY"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/returns/sale/{orderId}"
+      "backendOperation": "GET /api/v1/vendor/pos/payments/awaiting-review"
     },
     {
-      "id": "pos-return-read",
-      "component": "PosReturns.tsx",
+      "id": "pos-tender-review-read",
+      "component": "TerminalTenderReview.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/returns/{id}",
+      "endpoint": "/api/v1/vendor/pos/payments/review/{id}",
       "permissions": [
-        "POS_VIEW",
-        "POS_RETURN_VIEW"
+        "POS_TENDER_MANUAL_VERIFY"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/returns/{id}"
+      "backendOperation": "GET /api/v1/vendor/pos/payments/review/{id}"
     },
     {
-      "id": "pos-return-list",
-      "component": "PosReturns.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/returns",
-      "permissions": [
-        "POS_VIEW",
-        "POS_RETURN_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/returns"
-    },
-    {
-      "id": "pos-return-create",
-      "component": "PosReturns.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/returns",
-      "permissions": [
-        "POS_VIEW",
-        "POS_RETURN_VIEW",
-        "POS_RETURN_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/returns"
-    },
-    {
-      "id": "pos-return-review",
-      "component": "PosReturns.tsx",
+      "id": "pos-variance-approve",
+      "component": "ShiftReviews.tsx",
       "trigger": "button",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/returns/{id}/review",
+      "endpoint": "/api/v1/vendor/pos/sessions/{id}/approve-variance",
       "permissions": [
-        "POS_VIEW",
-        "POS_RETURN_VIEW",
-        "POS_RETURN_APPROVE"
+        "POS_SHIFT_VARIANCE_APPROVE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/review"
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/approve-variance"
     },
     {
-      "id": "pos-return-inspect",
-      "component": "PosReturns.tsx",
+      "id": "pos-variance-list",
+      "component": "ShiftReviews.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/sessions/pending-variances",
+      "permissions": [
+        "POS_SHIFT_VARIANCE_APPROVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/pos/sessions/pending-variances"
+    },
+    {
+      "id": "pos-variance-return",
+      "component": "ShiftReviews.tsx",
       "trigger": "button",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/returns/{id}/inspect",
+      "endpoint": "/api/v1/vendor/pos/sessions/{id}/return-for-correction",
       "permissions": [
-        "POS_VIEW",
-        "POS_RETURN_VIEW",
-        "POS_RETURN_INSPECT"
+        "POS_SHIFT_VARIANCE_APPROVE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/returns/{id}/inspect"
+      "backendOperation": "POST /api/v1/vendor/pos/sessions/{id}/return-for-correction"
     },
     {
-      "id": "pos-return-audit-events",
-      "component": "ReturnAuditTimeline.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/returns/{id}/events",
-      "permissions": [
-        "POS_VIEW",
-        "POS_RETURN_VIEW",
-        "POS_RETURN_AUDIT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/returns/{id}/events"
-    },
-    {
-      "id": "pos-sales-export",
-      "component": "ReportExport.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/reports/sales/export",
-      "permissions": [
-        "POS_VIEW",
-        "POS_REPORT_VIEW",
-        "POS_REPORT_EXPORT"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/reports/sales/export",
-      "implementationFile": "reportExportApi.ts"
-    },
-    {
-      "id": "pos-refunds-export",
-      "component": "ReportExport.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/reports/cash-refunds/export",
-      "permissions": [
-        "POS_VIEW",
-        "POS_REPORT_VIEW",
-        "POS_REPORT_EXPORT",
-        "POS_REFUND_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/reports/cash-refunds/export",
-      "implementationFile": "reportExportApi.ts"
-    },
-    {
-      "id": "pos-receipt-read",
-      "component": "SaleReceipt.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/receipts/{id}",
-      "permissions": [
-        "POS_RECEIPT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
-    },
-    {
-      "id": "pos-receipt-reprint",
-      "component": "App.tsx",
+      "id": "product-image-deactivate",
+      "component": "SolarPackageManager.tsx",
       "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/receipts/{id}/reprint",
+      "method": "DELETE",
+      "endpoint": "/api/v1/vendor/products/{productId}/images/{imageId}",
       "permissions": [
-        "POS_RECEIPT_REPRINT"
+        "PRODUCT_UPDATE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/reprint"
+      "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
     },
     {
-      "id": "pos-receipt-pdf",
-      "component": "ReceiptPdfCopy.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/receipts/{id}/document",
-      "permissions": [
-        "POS_VIEW",
-        "POS_RECEIPT_VIEW",
-        "POS_RECEIPT_REPRINT"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/receipts/{id}/document",
-      "implementationFile": "receiptDocumentApi.ts"
-    },
-    {
-      "id": "pos-discount-policy-read",
-      "component": "StoreSettings.tsx",
+      "id": "product-image-list",
+      "component": "SolarPackageManager.tsx",
       "trigger": "load",
       "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/discount-policy",
+      "endpoint": "/api/v1/vendor/products/{productId}/images",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products/{productId}/images"
+    },
+    {
+      "id": "product-image-upload",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/products/{productId}/images",
+      "permissions": [
+        "PRODUCT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/products/{productId}/images"
+    },
+    {
+      "id": "solar-package-create",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/packages",
+      "permissions": [
+        "PRODUCT_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/packages"
+    },
+    {
+      "id": "solar-package-list",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/packages",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/packages"
+    },
+    {
+      "id": "solar-package-product-source-list",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/products",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/products"
+    },
+    {
+      "id": "solar-package-update",
+      "component": "SolarPackageManager.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/packages/{id}",
+      "permissions": [
+        "PRODUCT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/packages/{id}"
+    },
+    {
+      "id": "split-tender-balance",
+      "component": "SplitTenderCheckout.tsx",
+      "trigger": "load-and-refresh",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders",
       "permissions": [
         "POS_VIEW"
       ],
       "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/discount-policy"
+      "backendOperation": "GET /api/v1/vendor/pos/sales/{id}/tenders"
     },
     {
-      "id": "pos-discount-policy-update",
-      "component": "StoreSettings.tsx",
-      "trigger": "submit",
+      "id": "split-tender-finalize",
+      "component": "SplitTenderCheckout.tsx",
+      "trigger": "finalize",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/discount-policy",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/finalize",
       "permissions": [
-        "POS_DISCOUNT_OVERRIDE"
+        "POS_SALE_CREATE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/discount-policy"
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/finalize"
     },
     {
-      "id": "pos-register-create",
-      "component": "StoreSettings.tsx",
-      "trigger": "submit",
+      "id": "split-tender-record",
+      "component": "SplitTenderCheckout.tsx",
+      "trigger": "record-tender",
       "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/registers",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders",
       "permissions": [
-        "POS_SETTINGS_MANAGE"
+        "POS_SALE_CREATE",
+        "POS_TENDER_CASH_RECORD",
+        "POS_TENDER_EXTERNAL_RECORD"
+      ],
+      "permissionMode": "CONDITIONAL",
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/tenders"
+    },
+    {
+      "id": "split-tender-unknown-outcome",
+      "component": "SplitTenderCheckout.tsx",
+      "trigger": "mark-outcome-unknown",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders/{attemptId}/unknown",
+      "permissions": [
+        "POS_TENDER_EXTERNAL_RECORD"
       ],
       "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/registers"
+      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/tenders/{attemptId}/unknown"
+    },
+    {
+      "id": "vendor-category-list",
+      "component": "ProductManager.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/categories",
+      "permissions": [
+        "PRODUCT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/categories"
+    },
+    {
+      "id": "vendor-claim-assignees",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests/assignees",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests/assignees"
+    },
+    {
+      "id": "vendor-claim-assignment",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/warranty-claims/{id}/assignment",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/assignment"
+    },
+    {
+      "id": "vendor-claim-decision",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/warranty-claims/{id}/decision",
+      "permissions": [
+        "SERVICE_RESOLVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/decision"
+    },
+    {
+      "id": "vendor-claim-detail",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "detail",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranty-claims/{id}",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranty-claims/{id}"
+    },
+    {
+      "id": "vendor-claim-evidence",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/warranty-claims/{id}/evidence",
+      "permissions": [
+        "SERVICE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/warranty-claims/{id}/evidence"
+    },
+    {
+      "id": "vendor-claim-evidence-download",
+      "component": "VendorWarrantyClaims.tsx",
+      "implementationFile": "evidenceDownload.ts",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranty-claims/{id}/evidence/{evidenceId}",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranty-claims/{id}/evidence/{evidenceId}"
+    },
+    {
+      "id": "vendor-claim-inspection",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/warranty-claims/{id}/inspection",
+      "permissions": [
+        "SERVICE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/inspection"
+    },
+    {
+      "id": "vendor-claim-list",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranty-claims",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranty-claims"
+    },
+    {
+      "id": "vendor-claim-resolution",
+      "component": "VendorWarrantyClaims.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/warranty-claims/{id}/resolution",
+      "permissions": [
+        "SERVICE_RESOLVE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/resolution"
+    },
+    {
+      "id": "vendor-crm-note-create",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes",
+      "permissions": [
+        "CRM_NOTE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/customers/{customerId}/crm-notes"
+    },
+    {
+      "id": "vendor-crm-note-list",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes",
+      "permissions": [
+        "CRM_NOTE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/customers/{customerId}/crm-notes"
+    },
+    {
+      "id": "vendor-crm-note-update",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes/{noteId}",
+      "permissions": [
+        "CRM_NOTE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}"
+    },
+    {
+      "id": "vendor-crm-relationship-list",
+      "component": "VendorCustomerCrm.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/customers",
+      "permissions": [
+        "CUSTOMER_RELATION_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/customers"
+    },
+    {
+      "id": "vendor-employee-access-history",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees/{username}/access-history",
+      "permissions": [
+        "USER_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees/{username}/access-history"
+    },
+    {
+      "id": "vendor-employee-branch-update",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/employees/{username}/branch",
+      "permissions": [
+        "USER_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/employees/{username}/branch"
+    },
+    {
+      "id": "vendor-employee-branches",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees/branches",
+      "permissions": [
+        "USER_VIEW",
+        "USER_CREATE",
+        "USER_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees/branches",
+      "permissionMode": "ANY"
+    },
+    {
+      "id": "vendor-employee-create",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/employees",
+      "permissions": [
+        "USER_CREATE",
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/employees"
+    },
+    {
+      "id": "vendor-employee-disable",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/employees/{username}/disable",
+      "permissions": [
+        "USER_DISABLE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/disable"
+    },
+    {
+      "id": "vendor-employee-effective-permissions",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees/{username}/effective-permissions",
+      "permissions": [
+        "USER_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees/{username}/effective-permissions"
+    },
+    {
+      "id": "vendor-employee-invitation-resend",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/employees/{username}/invitation/resend",
+      "permissions": [
+        "USER_CREATE",
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/invitation/resend"
+    },
+    {
+      "id": "vendor-employee-invitation-status",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees/{username}/invitation",
+      "permissions": [
+        "USER_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees/{username}/invitation"
+    },
+    {
+      "id": "vendor-employee-list",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/employees",
+      "permissions": [
+        "USER_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/employees"
+    },
+    {
+      "id": "vendor-employee-reactivate",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/employees/{username}/reactivate",
+      "permissions": [
+        "USER_UPDATE",
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/employees/{username}/reactivate"
+    },
+    {
+      "id": "vendor-employee-registers-assign",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/employees/{username}/registers",
+      "permissions": [
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/employees/{username}/registers"
+    },
+    {
+      "id": "vendor-employee-roles-assign",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/employees/{username}/roles",
+      "permissions": [
+        "ROLE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/employees/{username}/roles"
+    },
+    {
+      "id": "vendor-installation-assignment",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/installations/{id}/assignment",
+      "permissions": [
+        "INSTALLATION_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/assignment"
+    },
+    {
+      "id": "vendor-installation-create",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/installations",
+      "permissions": [
+        "INSTALLATION_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/installations"
+    },
+    {
+      "id": "vendor-installation-detail",
+      "component": "InstallationManagement.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/installations/{id}",
+      "permissions": [
+        "INSTALLATION_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/installations/{id}"
+    },
+    {
+      "id": "vendor-installation-eligible-orders",
+      "component": "InstallationManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/installations/orders",
+      "permissions": [
+        "INSTALLATION_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/installations/orders"
+    },
+    {
+      "id": "vendor-installation-engineers",
+      "component": "InstallationManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/installations/engineers",
+      "permissions": [
+        "INSTALLATION_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/installations/engineers"
+    },
+    {
+      "id": "vendor-installation-list",
+      "component": "InstallationManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/installations",
+      "permissions": [
+        "INSTALLATION_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/installations"
+    },
+    {
+      "id": "vendor-installation-status",
+      "component": "InstallationManagement.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/installations/{id}/status",
+      "permissions": [
+        "INSTALLATION_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/status"
+    },
+    {
+      "id": "vendor-invitation-accept",
+      "component": "VendorInvitationAcceptance.tsx",
+      "trigger": "submit",
+      "actor": "PUBLIC",
+      "permissions": [],
+      "method": "POST",
+      "endpoint": "/api/v1/auth/invitations/accept",
+      "backendOperation": "POST /api/v1/auth/invitations/accept"
+    },
+    {
+      "id": "vendor-invoice-register",
+      "component": "VendorInvoiceRegister.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/invoices",
+      "permissions": [
+        "INVOICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/invoices"
+    },
+    {
+      "id": "vendor-lead-inbox-read",
+      "component": "VendorLeadInbox.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/leads",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/leads"
+    },
+    {
+      "id": "vendor-payment-account-list",
+      "component": "VendorPaymentAccounts.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/payment-accounts",
+      "permissions": [
+        "TENANT_PROFILE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/payment-accounts"
+    },
+    {
+      "id": "vendor-payment-account-submit",
+      "component": "VendorPaymentAccounts.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/payment-accounts",
+      "permissions": [
+        "TENANT_PROFILE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/payment-accounts"
+    },
+    {
+      "id": "vendor-profile-read",
+      "component": "VendorProfile.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/profile",
+      "permissions": [
+        "TENANT_PROFILE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/profile"
+    },
+    {
+      "id": "vendor-profile-update",
+      "component": "VendorProfile.tsx",
+      "trigger": "submit",
+      "method": "PUT",
+      "endpoint": "/api/v1/vendor/profile",
+      "permissions": [
+        "TENANT_PROFILE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PUT /api/v1/vendor/profile"
+    },
+    {
+      "id": "vendor-quotation-catalogue",
+      "component": "VendorQuotations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/quotation-catalogue",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/quotation-catalogue"
+    },
+    {
+      "id": "vendor-quotation-create",
+      "component": "VendorQuotations.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/quotations",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/quotations"
+    },
+    {
+      "id": "vendor-quotation-document",
+      "component": "VendorQuotations.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/quotations/{id}/revisions/{revision}/document",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/quotations/{id}/revisions/{revision}/document"
+    },
+    {
+      "id": "vendor-quotation-lead-list",
+      "component": "VendorQuotations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/leads",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/leads"
+    },
+    {
+      "id": "vendor-quotation-list",
+      "component": "VendorQuotations.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/quotations",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/quotations"
+    },
+    {
+      "id": "vendor-quotation-revise",
+      "component": "VendorQuotations.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/quotations/{id}/revisions",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/quotations/{id}/revisions"
+    },
+    {
+      "id": "vendor-role-access-history",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/roles/{id}/access-history",
+      "permissions": [
+        "ROLE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/roles/{id}/access-history"
+    },
+    {
+      "id": "vendor-role-create",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/roles",
+      "permissions": [
+        "ROLE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/roles"
+    },
+    {
+      "id": "vendor-role-deactivate",
+      "component": "VendorAccessAdmin.tsx",
+      "trigger": "button",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/roles/{id}/deactivate",
+      "permissions": [
+        "ROLE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/roles/{id}/deactivate"
     },
     {
       "id": "vendor-role-list",
@@ -1677,18 +3155,6 @@
       "backendOperation": "GET /api/v1/vendor/roles/{id}"
     },
     {
-      "id": "vendor-role-create",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/roles",
-      "permissions": [
-        "ROLE_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/roles"
-    },
-    {
       "id": "vendor-role-update",
       "component": "VendorAccessAdmin.tsx",
       "trigger": "submit",
@@ -1701,1302 +3167,6 @@
       "backendOperation": "PUT /api/v1/vendor/roles/{id}"
     },
     {
-      "id": "vendor-role-deactivate",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/roles/{id}/deactivate",
-      "permissions": [
-        "ROLE_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/roles/{id}/deactivate"
-    },
-    {
-      "id": "vendor-employee-list",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/employees",
-      "permissions": [
-        "USER_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/employees"
-    },
-    {
-      "id": "vendor-employee-branches",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/employees/branches",
-      "permissions": [
-        "USER_VIEW",
-        "USER_CREATE",
-        "USER_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/employees/branches",
-      "permissionMode": "ANY"
-    },
-    {
-      "id": "vendor-employee-create",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/employees",
-      "permissions": [
-        "USER_CREATE",
-        "ROLE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/employees"
-    },
-    {
-      "id": "vendor-employee-roles-assign",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/employees/{username}/roles",
-      "permissions": [
-        "ROLE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/employees/{username}/roles"
-    },
-    {
-      "id": "vendor-employee-registers-assign",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/employees/{username}/registers",
-      "permissions": [
-        "ROLE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/employees/{username}/registers"
-    },
-    {
-      "id": "vendor-employee-branch-update",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/employees/{username}/branch",
-      "permissions": [
-        "USER_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/employees/{username}/branch"
-    },
-    {
-      "id": "vendor-employee-disable",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/employees/{username}/disable",
-      "permissions": [
-        "USER_DISABLE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/employees/{username}/disable"
-    },
-    {
-      "id": "vendor-employee-effective-permissions",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/employees/{username}/effective-permissions",
-      "permissions": [
-        "USER_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/employees/{username}/effective-permissions"
-    },
-    {
-      "id": "platform-health",
-      "component": "PlatformHealthWidget.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/health",
-      "permissions": [
-        "PLATFORM_ANALYTICS_VIEW"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/health"
-    },
-    {
-      "id": "platform-identity-mfa-enroll",
-      "component": "PlatformIdentityAdmin.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/platform/identities/{username}/mfa-enrollment",
-      "permissions": [
-        "PLATFORM_IDENTITY_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "POST /api/v1/platform/identities/{username}/mfa-enrollment"
-    },
-    {
-      "id": "customer-order-list",
-      "component": "OrderHistory.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/orders",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/orders"
-    },
-    {
-      "id": "customer-order-read",
-      "component": "OrderHistory.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/orders/{id}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/orders/{id}"
-    },
-    {
-      "id": "customer-receipt-read",
-      "component": "OnlineReceipt.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/orders/{id}/receipt",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/orders/{id}/receipt"
-    },
-    {
-      "id": "customer-receipt-copy",
-      "component": "OnlineReceipt.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/orders/{id}/receipt-copy",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-copy"
-    },
-    {
-      "id": "customer-receipt-pdf-copy",
-      "component": "CustomerReceiptPdfCopy.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/orders/{id}/receipt-document",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/orders/{id}/receipt-document",
-      "implementationFile": "customerReceiptPdfApi.ts"
-    },
-    {
-      "id": "customer-draft-list",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/checkout/drafts",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/checkout/drafts"
-    },
-    {
-      "id": "customer-draft-create",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/checkout/drafts",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/checkout/drafts"
-    },
-    {
-      "id": "customer-draft-cancel",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/checkout/drafts/{id}/cancel",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/cancel"
-    },
-    {
-      "id": "pos-refund-read",
-      "component": "RefundJournal.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/refunds/{id}",
-      "permissions": [
-        "POS_VIEW",
-        "POS_REFUND_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/refunds/{id}"
-    },
-    {
-      "id": "pos-refund-report",
-      "component": "RefundInsights.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/reports/cash-refunds",
-      "permissions": [
-        "POS_VIEW",
-        "POS_REPORT_VIEW",
-        "POS_REFUND_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/reports/cash-refunds"
-    },
-    {
-      "id": "pos-draft-recovery",
-      "component": "DraftReferenceRecovery.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/drafts/{id}",
-      "permissions": [
-        "POS_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/drafts/{id}"
-    },
-    {
-      "id": "customer-draft-recovery",
-      "component": "DraftReferenceRecovery.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/checkout/drafts/{id}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/checkout/drafts/{id}"
-    },
-    {
-      "id": "customer-product-detail",
-      "component": "ProductDetails.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/marketplace/vendors/{slug}/products/{id}",
-      "permissions": [],
-      "actor": "PUBLIC",
-      "backendOperation": "GET /api/v1/marketplace/vendors/{slug}/products/{id}"
-    },
-    {
-      "id": "pos-refund-return-lookup",
-      "component": "CashRefunds.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/refunds/return/{id}",
-      "permissions": [
-        "POS_VIEW",
-        "POS_REFUND_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/refunds/return/{id}"
-    },
-    {
-      "id": "customer-pos-association-preview",
-      "component": "CustomerAssociation.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/pos-association/preview",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/pos-association/preview"
-    },
-    {
-      "id": "customer-pos-association-approve",
-      "component": "CustomerAssociation.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/pos-association/approve",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/pos-association/approve"
-    },
-    {
-      "id": "customer-vendor-catalogue-search",
-      "component": "Marketplace.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/marketplace/vendors/{slug}/catalogue",
-      "permissions": [],
-      "actor": "PUBLIC",
-      "backendOperation": "GET /api/v1/marketplace/vendors/{slug}/catalogue"
-    },
-    {
-      "id": "pos-order-history-receipt-read",
-      "component": "OrderHistory.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/receipts/{id}",
-      "permissions": [
-        "POS_RECEIPT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
-    },
-    {
-      "id": "platform-subscription-plan-options",
-      "component": "PlatformSubscriptions.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/platform/subscription-plans",
-      "permissions": [
-        "PLATFORM_SUBSCRIPTION_VIEW",
-        "PLATFORM_PLAN_MANAGE"
-      ],
-      "actor": "PLATFORM",
-      "backendOperation": "GET /api/v1/platform/subscription-plans",
-      "permissionMode": "ANY"
-    },
-    {
-      "id": "vendor-category-list",
-      "component": "ProductManager.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/categories",
-      "permissions": [
-        "PRODUCT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/categories"
-    },
-    {
-      "id": "pos-reserved-draft-receipt-read",
-      "component": "ReservedDrafts.tsx",
-      "trigger": "load-and-recovery",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/receipts/{id}",
-      "permissions": [
-        "POS_RECEIPT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/receipts/{id}"
-    },
-    {
-      "id": "split-tender-balance",
-      "component": "SplitTenderCheckout.tsx",
-      "trigger": "load-and-refresh",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders",
-      "permissions": [
-        "POS_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/sales/{id}/tenders"
-    },
-    {
-      "id": "split-tender-record",
-      "component": "SplitTenderCheckout.tsx",
-      "trigger": "record-tender",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders",
-      "permissions": [
-        "POS_SALE_CREATE",
-        "POS_TENDER_CASH_RECORD",
-        "POS_TENDER_EXTERNAL_RECORD"
-      ],
-      "permissionMode": "CONDITIONAL",
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/tenders"
-    },
-    {
-      "id": "split-tender-finalize",
-      "component": "SplitTenderCheckout.tsx",
-      "trigger": "finalize",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sales/{id}/finalize",
-      "permissions": [
-        "POS_SALE_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/finalize"
-    },
-    {
-      "id": "split-tender-unknown-outcome",
-      "component": "SplitTenderCheckout.tsx",
-      "trigger": "mark-outcome-unknown",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sales/{id}/tenders/{attemptId}/unknown",
-      "permissions": [
-        "POS_TENDER_EXTERNAL_RECORD"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/tenders/{attemptId}/unknown"
-    },
-    {
-      "id": "pos-customer-association-create",
-      "component": "WalkInCustomer.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/pos/sales/{id}/customer-association",
-      "permissions": [
-        "POS_SALE_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/pos/sales/{id}/customer-association"
-    },
-    {
-      "id": "pos-stock-products-list",
-      "component": "StockReceiving.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/products",
-      "permissions": [
-        "PRODUCT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/products"
-    },
-    {
-      "id": "pos-tender-review-awaiting-read",
-      "component": "TerminalTenderReview.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/pos/payments/awaiting-review",
-      "permissions": [
-        "POS_TENDER_MANUAL_VERIFY"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/pos/payments/awaiting-review"
-    },
-    {
-      "id": "customer-payment-confirm",
-      "component": "PaymentCheckout.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/checkout/drafts/{id}/payment/mock-confirm",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/checkout/drafts/{id}/payment/mock-confirm"
-    },
-    {
-      "id": "auth-login",
-      "component": "LoginPanel.tsx",
-      "trigger": "submit",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/login",
-      "backendOperation": "POST /api/v1/auth/login"
-    },
-    {
-      "id": "auth-register",
-      "component": "LoginPanel.tsx",
-      "trigger": "submit",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/register",
-      "backendOperation": "POST /api/v1/auth/register"
-    },
-    {
-      "id": "auth-session-refresh",
-      "component": "AuthenticationBoundary.tsx",
-      "trigger": "session-bootstrap",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/refresh",
-      "backendOperation": "POST /api/v1/auth/refresh"
-    },
-    {
-      "id": "auth-context-switch",
-      "component": "SessionControls.tsx",
-      "trigger": "button",
-      "actor": "SESSION",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/context",
-      "backendOperation": "POST /api/v1/auth/context"
-    },
-    {
-      "id": "auth-logout",
-      "component": "SessionControls.tsx",
-      "trigger": "button",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/logout",
-      "backendOperation": "POST /api/v1/auth/logout"
-    },
-    {
-      "id": "vendor-invitation-accept",
-      "component": "VendorInvitationAcceptance.tsx",
-      "trigger": "submit",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/invitations/accept",
-      "backendOperation": "POST /api/v1/auth/invitations/accept"
-    },
-    {
-      "id": "platform-mfa-enrollment-start",
-      "component": "PlatformMfaEnrollment.tsx",
-      "trigger": "button",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/platform-mfa/enrollment/start",
-      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/start"
-    },
-    {
-      "id": "platform-mfa-enrollment-complete",
-      "component": "PlatformMfaEnrollment.tsx",
-      "trigger": "button",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/platform-mfa/enrollment/complete",
-      "backendOperation": "POST /api/v1/auth/platform-mfa/enrollment/complete"
-    },
-    {
-      "id": "auth-session-me",
-      "component": "usePermissions.ts",
-      "trigger": "session-bootstrap",
-      "actor": "SESSION",
-      "permissions": [],
-      "method": "GET",
-      "endpoint": "/api/v1/auth/me",
-      "backendOperation": "GET /api/v1/auth/me"
-    },
-    {
-      "id": "customer-profile-read",
-      "component": "CustomerProfile.tsx",
-      "trigger": "load",
-      "backendOperation": "GET /api/v1/customer/profile",
-      "actor": "CUSTOMER",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "method": "GET",
-      "endpoint": "/api/v1/customer/profile"
-    },
-    {
-      "id": "customer-profile-update",
-      "component": "CustomerProfile.tsx",
-      "trigger": "submit",
-      "backendOperation": "PUT /api/v1/customer/profile",
-      "actor": "CUSTOMER",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "method": "PUT",
-      "endpoint": "/api/v1/customer/profile"
-    },
-    {
-      "id": "vendor-crm-relationship-list",
-      "component": "VendorCustomerCrm.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/customers",
-      "permissions": [
-        "CUSTOMER_RELATION_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/customers"
-    },
-    {
-      "id": "vendor-crm-note-list",
-      "component": "VendorCustomerCrm.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes",
-      "permissions": [
-        "CRM_NOTE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/customers/{customerId}/crm-notes"
-    },
-    {
-      "id": "vendor-crm-note-create",
-      "component": "VendorCustomerCrm.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes",
-      "permissions": [
-        "CRM_NOTE_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/customers/{customerId}/crm-notes"
-    },
-    {
-      "id": "vendor-crm-note-update",
-      "component": "VendorCustomerCrm.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/customers/{customerId}/crm-notes/{noteId}",
-      "permissions": [
-        "CRM_NOTE_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/customers/{customerId}/crm-notes/{noteId}"
-    },
-    {
-      "id": "customer-dashboard-profile-read",
-      "component": "CustomerDashboard.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/profile",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/profile"
-    },
-    {
-      "id": "customer-dashboard-order-list",
-      "component": "CustomerDashboard.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/orders",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/orders"
-    },
-    {
-      "id": "customer-dashboard-cart-read",
-      "component": "CustomerDashboard.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/cart",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/cart"
-    },
-    {
-      "id": "customer-security-revoke-other-sessions",
-      "component": "CustomerProfile.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/auth/sessions/revoke-others",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/auth/sessions/revoke-others"
-    },
-    {
-      "id": "vendor-employee-reactivate",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/employees/{username}/reactivate",
-      "permissions": [
-        "USER_UPDATE",
-        "ROLE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/employees/{username}/reactivate"
-    },
-    {
-      "id": "vendor-employee-invitation-status",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/employees/{username}/invitation",
-      "permissions": [
-        "USER_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/employees/{username}/invitation"
-    },
-    {
-      "id": "vendor-employee-invitation-resend",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/employees/{username}/invitation/resend",
-      "permissions": [
-        "USER_CREATE",
-        "ROLE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/employees/{username}/invitation/resend"
-    },
-    {
-      "id": "vendor-employee-access-history",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/employees/{username}/access-history",
-      "permissions": [
-        "USER_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/employees/{username}/access-history"
-    },
-    {
-      "id": "vendor-role-access-history",
-      "component": "VendorAccessAdmin.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/roles/{id}/access-history",
-      "permissions": [
-        "ROLE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/roles/{id}/access-history"
-    },
-    {
-      "id": "vendor-shipment-eligible-orders",
-      "component": "ShipmentManagement.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/shipments/orders",
-      "permissions": [
-        "SHIPMENT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/shipments/orders"
-    },
-    {
-      "id": "vendor-shipment-list",
-      "component": "ShipmentManagement.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/shipments",
-      "permissions": [
-        "SHIPMENT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/shipments"
-    },
-    {
-      "id": "vendor-shipment-create",
-      "component": "ShipmentManagement.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/orders/{orderId}/shipments",
-      "permissions": [
-        "SHIPMENT_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/orders/{orderId}/shipments"
-    },
-    {
-      "id": "vendor-shipment-event-create",
-      "component": "ShipmentManagement.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/shipments/{shipmentId}/events",
-      "permissions": [
-        "SHIPMENT_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/shipments/{shipmentId}/events"
-    },
-    {
-      "id": "customer-order-shipment-tracking",
-      "component": "OrderHistory.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/orders/{orderId}/shipments",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/orders/{orderId}/shipments"
-    },
-    {
-      "id": "customer-order-return-status",
-      "component": "OrderHistory.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/orders/{orderId}/returns",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/orders/{orderId}/returns"
-    },
-    {
-      "id": "marketplace-enquiry-submit",
-      "component": "MarketplaceEnquiryForm.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/marketplace/vendors/{slug}/enquiries",
-      "permissions": [],
-      "actor": "PUBLIC",
-      "backendOperation": "POST /api/v1/marketplace/vendors/{slug}/enquiries"
-    },
-    {
-      "id": "vendor-lead-inbox-read",
-      "component": "VendorLeadInbox.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/leads",
-      "permissions": [
-        "LEAD_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/leads"
-    },
-    {
-      "id": "customer-shipment-feed-read",
-      "component": "CustomerDashboard.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/shipments",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/shipments"
-    },
-    {
-      "id": "auth-email-verification-verify",
-      "component": "CustomerEmailVerification.tsx",
-      "trigger": "load",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/email-verification/verify",
-      "backendOperation": "POST /api/v1/auth/email-verification/verify"
-    },
-    {
-      "id": "auth-email-verification-resend",
-      "component": "LoginPanel.tsx",
-      "trigger": "button",
-      "actor": "PUBLIC",
-      "permissions": [],
-      "method": "POST",
-      "endpoint": "/api/v1/auth/email-verification/resend",
-      "backendOperation": "POST /api/v1/auth/email-verification/resend"
-    },
-    {
-      "id": "vendor-profile-read",
-      "component": "VendorProfile.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/profile",
-      "permissions": [
-        "TENANT_PROFILE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/profile"
-    },
-    {
-      "id": "vendor-profile-update",
-      "component": "VendorProfile.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/profile",
-      "permissions": [
-        "TENANT_PROFILE_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/profile"
-    },
-    {
-      "id": "solar-package-list",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/packages",
-      "permissions": [
-        "PRODUCT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/packages"
-    },
-    {
-      "id": "solar-package-create",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/packages",
-      "permissions": [
-        "PRODUCT_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/packages"
-    },
-    {
-      "id": "solar-package-update",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/packages/{id}",
-      "permissions": [
-        "PRODUCT_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/packages/{id}"
-    },
-    {
-      "id": "product-image-list",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/products/{productId}/images",
-      "permissions": [
-        "PRODUCT_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/products/{productId}/images"
-    },
-    {
-      "id": "product-image-upload",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/products/{productId}/images",
-      "permissions": [
-        "PRODUCT_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/products/{productId}/images"
-    },
-    {
-      "id": "product-image-deactivate",
-      "component": "SolarPackageManager.tsx",
-      "trigger": "button",
-      "method": "DELETE",
-      "endpoint": "/api/v1/vendor/products/{productId}/images/{imageId}",
-      "permissions": [
-        "PRODUCT_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "DELETE /api/v1/vendor/products/{productId}/images/{imageId}"
-    },
-    {
-      "id": "vendor-site-survey-lead-list",
-      "component": "VendorSiteSurveys.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/leads",
-      "permissions": [
-        "LEAD_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/leads"
-    },
-    {
-      "id": "vendor-site-survey-list",
-      "component": "VendorSiteSurveys.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/site-surveys",
-      "permissions": [
-        "LEAD_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/site-surveys"
-    },
-    {
-      "id": "vendor-site-survey-create",
-      "component": "VendorSiteSurveys.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/leads/{leadId}/site-surveys",
-      "permissions": [
-        "LEAD_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/leads/{leadId}/site-surveys"
-    },
-    {
-      "id": "vendor-site-survey-update",
-      "component": "VendorSiteSurveys.tsx",
-      "trigger": "button",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/site-surveys/{id}",
-      "permissions": [
-        "LEAD_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
-    },
-    {
-      "id": "vendor-quotation-lead-list",
-      "component": "VendorQuotations.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/leads",
-      "permissions": [
-        "LEAD_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/leads"
-    },
-    {
-      "id": "vendor-quotation-catalogue",
-      "component": "VendorQuotations.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/quotation-catalogue",
-      "permissions": [
-        "LEAD_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/quotation-catalogue"
-    },
-    {
-      "id": "vendor-quotation-list",
-      "component": "VendorQuotations.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/quotations",
-      "permissions": [
-        "LEAD_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/quotations"
-    },
-    {
-      "id": "vendor-quotation-create",
-      "component": "VendorQuotations.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/quotations",
-      "permissions": [
-        "LEAD_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/quotations"
-    },
-    {
-      "id": "vendor-quotation-revise",
-      "component": "VendorQuotations.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/quotations/{id}/revisions",
-      "permissions": [
-        "LEAD_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/quotations/{id}/revisions"
-    },
-    {
-      "id": "customer-quotation-list",
-      "component": "CustomerQuotations.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/quotations",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/quotations"
-    },
-    {
-      "id": "customer-quotation-decision",
-      "component": "CustomerQuotations.tsx",
-      "trigger": "button",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/quotations/{id}/revisions/{revision}/decision",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/quotations/{id}/revisions/{revision}/decision"
-    },
-    {
-      "id": "vendor-payment-account-list",
-      "component": "VendorPaymentAccounts.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/payment-accounts",
-      "permissions": [
-        "TENANT_PROFILE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/payment-accounts"
-    },
-    {
-      "id": "vendor-payment-account-submit",
-      "component": "VendorPaymentAccounts.tsx",
-      "trigger": "submit",
-      "method": "PUT",
-      "endpoint": "/api/v1/vendor/payment-accounts",
-      "permissions": [
-        "TENANT_PROFILE_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PUT /api/v1/vendor/payment-accounts"
-    },
-    {
-      "id": "vendor-quotation-document",
-      "component": "VendorQuotations.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/quotations/{id}/revisions/{revision}/document",
-      "permissions": [
-        "LEAD_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/quotations/{id}/revisions/{revision}/document"
-    },
-    {
-      "id": "customer-quotation-document",
-      "component": "CustomerQuotations.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/quotations/{id}/revisions/{revision}/document",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/quotations/{id}/revisions/{revision}/document"
-    },
-    {
-      "id": "vendor-installation-eligible-orders",
-      "component": "InstallationManagement.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/installations/orders",
-      "permissions": [
-        "INSTALLATION_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/installations/orders"
-    },
-    {
-      "id": "vendor-installation-engineers",
-      "component": "InstallationManagement.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/installations/engineers",
-      "permissions": [
-        "INSTALLATION_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/installations/engineers"
-    },
-    {
-      "id": "vendor-installation-list",
-      "component": "InstallationManagement.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/installations",
-      "permissions": [
-        "INSTALLATION_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/installations"
-    },
-    {
-      "id": "vendor-installation-create",
-      "component": "InstallationManagement.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/installations",
-      "permissions": [
-        "INSTALLATION_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/installations"
-    },
-    {
-      "id": "vendor-installation-assignment",
-      "component": "InstallationManagement.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/installations/{id}/assignment",
-      "permissions": [
-        "INSTALLATION_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/assignment"
-    },
-    {
-      "id": "vendor-installation-status",
-      "component": "InstallationManagement.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/installations/{id}/status",
-      "permissions": [
-        "INSTALLATION_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/installations/{id}/status"
-    },
-    {
-      "id": "vendor-installation-detail",
-      "component": "InstallationManagement.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/installations/{id}",
-      "permissions": [
-        "INSTALLATION_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/installations/{id}"
-    },
-    {
-      "id": "customer-installation-list",
-      "component": "CustomerInstallations.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/installations",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/installations"
-    },
-    {
-      "id": "customer-installation-detail",
-      "component": "CustomerInstallations.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/installations/{id}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/installations/{id}"
-    },
-    {
-      "id": "vendor-service-request-list",
-      "component": "VendorServiceRequests.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-requests",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-requests"
-    },
-    {
-      "id": "vendor-service-request-eligible-orders",
-      "component": "VendorServiceRequests.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-requests/orders",
-      "permissions": [
-        "SERVICE_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-requests/orders"
-    },
-    {
       "id": "vendor-service-request-assignees",
       "component": "VendorServiceRequests.tsx",
       "trigger": "load",
@@ -3007,6 +3177,18 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "GET /api/v1/vendor/service-requests/assignees"
+    },
+    {
+      "id": "vendor-service-request-assignment",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/service-requests/{id}/assignment",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/assignment"
     },
     {
       "id": "vendor-service-request-create",
@@ -3033,16 +3215,28 @@
       "backendOperation": "GET /api/v1/vendor/service-requests/{id}"
     },
     {
-      "id": "vendor-service-request-assignment",
+      "id": "vendor-service-request-eligible-orders",
       "component": "VendorServiceRequests.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/service-requests/{id}/assignment",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests/orders",
       "permissions": [
-        "SERVICE_ASSIGN"
+        "SERVICE_CREATE"
       ],
       "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/assignment"
+      "backendOperation": "GET /api/v1/vendor/service-requests/orders"
+    },
+    {
+      "id": "vendor-service-request-list",
+      "component": "VendorServiceRequests.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests"
     },
     {
       "id": "vendor-service-request-status",
@@ -3057,455 +3251,6 @@
       "actor": "VENDOR",
       "backendOperation": "PATCH /api/v1/vendor/service-requests/{id}/status",
       "permissionMode": "ANY"
-    },
-    {
-      "id": "customer-service-request-list",
-      "component": "CustomerServiceRequests.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/service-requests",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/service-requests"
-    },
-    {
-      "id": "customer-service-request-eligible-orders",
-      "component": "CustomerServiceRequests.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/service-requests/orders",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/service-requests/orders"
-    },
-    {
-      "id": "customer-service-request-create",
-      "component": "CustomerServiceRequests.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/service-requests",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/service-requests"
-    },
-    {
-      "id": "customer-service-request-detail",
-      "component": "CustomerServiceRequests.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/service-requests/{id}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/service-requests/{id}"
-    },
-    {
-      "id": "vendor-warranty-list",
-      "component": "VendorWarranties.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/warranties",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/warranties"
-    },
-    {
-      "id": "vendor-warranty-orders",
-      "component": "VendorWarranties.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/warranties/orders",
-      "permissions": [
-        "SERVICE_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/warranties/orders"
-    },
-    {
-      "id": "vendor-warranty-items",
-      "component": "VendorWarranties.tsx",
-      "trigger": "change",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/warranties/orders/{orderId}/items",
-      "permissions": [
-        "SERVICE_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/warranties/orders/{orderId}/items"
-    },
-    {
-      "id": "vendor-warranty-register",
-      "component": "VendorWarranties.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/warranties",
-      "permissions": [
-        "SERVICE_CREATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/warranties"
-    },
-    {
-      "id": "customer-warranty-list",
-      "component": "CustomerWarranties.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/warranties",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/warranties"
-    },
-    {
-      "id": "vendor-claim-list",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/warranty-claims",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/warranty-claims"
-    },
-    {
-      "id": "vendor-claim-detail",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "detail",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/warranty-claims/{id}",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/warranty-claims/{id}"
-    },
-    {
-      "id": "vendor-claim-assignment",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/warranty-claims/{id}/assignment",
-      "permissions": [
-        "SERVICE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/assignment"
-    },
-    {
-      "id": "vendor-claim-inspection",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/warranty-claims/{id}/inspection",
-      "permissions": [
-        "SERVICE_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/inspection"
-    },
-    {
-      "id": "vendor-claim-decision",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/warranty-claims/{id}/decision",
-      "permissions": [
-        "SERVICE_RESOLVE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/decision"
-    },
-    {
-      "id": "vendor-claim-resolution",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/warranty-claims/{id}/resolution",
-      "permissions": [
-        "SERVICE_RESOLVE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/warranty-claims/{id}/resolution"
-    },
-    {
-      "id": "vendor-claim-evidence",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/warranty-claims/{id}/evidence",
-      "permissions": [
-        "SERVICE_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/warranty-claims/{id}/evidence"
-    },
-    {
-      "id": "customer-claim-list",
-      "component": "CustomerWarrantyClaims.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/warranty-claims",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/warranty-claims"
-    },
-    {
-      "id": "customer-claim-submit",
-      "component": "CustomerWarrantyClaims.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/warranty-claims",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/warranty-claims"
-    },
-    {
-      "id": "customer-claim-evidence",
-      "component": "CustomerWarrantyClaims.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/customer/warranty-claims/{id}/evidence",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "POST /api/v1/customer/warranty-claims/{id}/evidence"
-    },
-    {
-      "id": "customer-claim-detail",
-      "component": "CustomerWarrantyClaims.tsx",
-      "trigger": "detail",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/warranty-claims/{id}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}"
-    },
-    {
-      "id": "vendor-claim-evidence-download",
-      "component": "VendorWarrantyClaims.tsx",
-      "implementationFile": "evidenceDownload.ts",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/warranty-claims/{id}/evidence/{evidenceId}",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/warranty-claims/{id}/evidence/{evidenceId}"
-    },
-    {
-      "id": "customer-claim-evidence-download",
-      "component": "CustomerWarrantyClaims.tsx",
-      "implementationFile": "evidenceDownload.ts",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/warranty-claims/{id}/evidence/{evidenceId}"
-    },
-    {
-      "id": "vendor-claim-assignees",
-      "component": "VendorWarrantyClaims.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-requests/assignees",
-      "permissions": [
-        "SERVICE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-requests/assignees"
-    },
-    {
-      "id": "customer-claim-eligible-warranties",
-      "component": "CustomerWarrantyClaims.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/warranties",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/warranties"
-    },
-    {
-      "id": "vendor-service-visit-list",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-visits",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-visits"
-    },
-    {
-      "id": "vendor-service-visit-claims",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/warranty-claims",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/warranty-claims"
-    },
-    {
-      "id": "vendor-service-visit-requests",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-requests",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-requests"
-    },
-    {
-      "id": "vendor-service-visit-assignees",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-visits/assignees",
-      "permissions": [
-        "SERVICE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-visits/assignees"
-    },
-    {
-      "id": "vendor-service-visit-create",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/service-visits",
-      "permissions": [
-        "SERVICE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/service-visits"
-    },
-    {
-      "id": "vendor-service-visit-detail",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-visits/{id}",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-visits/{id}"
-    },
-    {
-      "id": "vendor-service-visit-assignment",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/service-visits/{id}/assignment",
-      "permissions": [
-        "SERVICE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/assignment"
-    },
-    {
-      "id": "vendor-service-visit-status",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "method": "PATCH",
-      "endpoint": "/api/v1/vendor/service-visits/{id}/status",
-      "permissions": [
-        "SERVICE_UPDATE",
-        "SERVICE_RESOLVE",
-        "SERVICE_ASSIGN"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/status",
-      "permissionMode": "ANY"
-    },
-    {
-      "id": "vendor-service-visit-note",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "submit",
-      "method": "POST",
-      "endpoint": "/api/v1/vendor/service-visits/{id}/notes",
-      "permissions": [
-        "SERVICE_UPDATE"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "POST /api/v1/vendor/service-visits/{id}/notes"
-    },
-    {
-      "id": "vendor-service-visit-refresh",
-      "component": "VendorServiceVisits.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/vendor/service-visits",
-      "permissions": [
-        "SERVICE_VIEW"
-      ],
-      "actor": "VENDOR",
-      "backendOperation": "GET /api/v1/vendor/service-visits"
-    },
-    {
-      "id": "customer-service-visit-list",
-      "component": "CustomerServiceVisits.tsx",
-      "trigger": "load",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/service-visits",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/service-visits"
-    },
-    {
-      "id": "customer-service-visit-detail",
-      "component": "CustomerServiceVisits.tsx",
-      "trigger": "detail",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/service-visits/{id}",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/service-visits/{id}"
-    },
-    {
-      "id": "customer-service-visit-refresh",
-      "component": "CustomerServiceVisits.tsx",
-      "trigger": "button",
-      "method": "GET",
-      "endpoint": "/api/v1/customer/service-visits",
-      "permissions": [
-        "CUSTOMER"
-      ],
-      "actor": "CUSTOMER",
-      "backendOperation": "GET /api/v1/customer/service-visits"
     },
     {
       "id": "vendor-service-sla-dashboard",
@@ -3542,6 +3287,273 @@
       ],
       "actor": "VENDOR",
       "backendOperation": "PUT /api/v1/vendor/service-sla/policies"
+    },
+    {
+      "id": "vendor-service-visit-assignees",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-visits/assignees",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-visits/assignees"
+    },
+    {
+      "id": "vendor-service-visit-assignment",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/service-visits/{id}/assignment",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/assignment"
+    },
+    {
+      "id": "vendor-service-visit-claims",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranty-claims",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranty-claims"
+    },
+    {
+      "id": "vendor-service-visit-create",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/service-visits",
+      "permissions": [
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "vendor-service-visit-detail",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-visits/{id}",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-visits/{id}"
+    },
+    {
+      "id": "vendor-service-visit-list",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-visits",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "vendor-service-visit-note",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/service-visits/{id}/notes",
+      "permissions": [
+        "SERVICE_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/service-visits/{id}/notes"
+    },
+    {
+      "id": "vendor-service-visit-refresh",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "button",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-visits",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-visits"
+    },
+    {
+      "id": "vendor-service-visit-requests",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/service-requests",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/service-requests"
+    },
+    {
+      "id": "vendor-service-visit-status",
+      "component": "VendorServiceVisits.tsx",
+      "trigger": "submit",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/service-visits/{id}/status",
+      "permissions": [
+        "SERVICE_UPDATE",
+        "SERVICE_RESOLVE",
+        "SERVICE_ASSIGN"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/service-visits/{id}/status",
+      "permissionMode": "ANY"
+    },
+    {
+      "id": "vendor-shipment-create",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/orders/{orderId}/shipments",
+      "permissions": [
+        "SHIPMENT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/orders/{orderId}/shipments"
+    },
+    {
+      "id": "vendor-shipment-eligible-orders",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/shipments/orders",
+      "permissions": [
+        "SHIPMENT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/shipments/orders"
+    },
+    {
+      "id": "vendor-shipment-event-create",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/shipments/{shipmentId}/events",
+      "permissions": [
+        "SHIPMENT_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/shipments/{shipmentId}/events"
+    },
+    {
+      "id": "vendor-shipment-list",
+      "component": "ShipmentManagement.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/shipments",
+      "permissions": [
+        "SHIPMENT_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/shipments"
+    },
+    {
+      "id": "vendor-site-survey-create",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/leads/{leadId}/site-surveys",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/leads/{leadId}/site-surveys"
+    },
+    {
+      "id": "vendor-site-survey-lead-list",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/leads",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/leads"
+    },
+    {
+      "id": "vendor-site-survey-list",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/site-surveys",
+      "permissions": [
+        "LEAD_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/site-surveys"
+    },
+    {
+      "id": "vendor-site-survey-update",
+      "component": "VendorSiteSurveys.tsx",
+      "trigger": "button",
+      "method": "PATCH",
+      "endpoint": "/api/v1/vendor/site-surveys/{id}",
+      "permissions": [
+        "LEAD_UPDATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "PATCH /api/v1/vendor/site-surveys/{id}"
+    },
+    {
+      "id": "vendor-warranty-items",
+      "component": "VendorWarranties.tsx",
+      "trigger": "change",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranties/orders/{orderId}/items",
+      "permissions": [
+        "SERVICE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranties/orders/{orderId}/items"
+    },
+    {
+      "id": "vendor-warranty-list",
+      "component": "VendorWarranties.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranties",
+      "permissions": [
+        "SERVICE_VIEW"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranties"
+    },
+    {
+      "id": "vendor-warranty-orders",
+      "component": "VendorWarranties.tsx",
+      "trigger": "load",
+      "method": "GET",
+      "endpoint": "/api/v1/vendor/warranties/orders",
+      "permissions": [
+        "SERVICE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "GET /api/v1/vendor/warranties/orders"
+    },
+    {
+      "id": "vendor-warranty-register",
+      "component": "VendorWarranties.tsx",
+      "trigger": "submit",
+      "method": "POST",
+      "endpoint": "/api/v1/vendor/warranties",
+      "permissions": [
+        "SERVICE_CREATE"
+      ],
+      "actor": "VENDOR",
+      "backendOperation": "POST /api/v1/vendor/warranties"
     }
   ],
   "buttons": [

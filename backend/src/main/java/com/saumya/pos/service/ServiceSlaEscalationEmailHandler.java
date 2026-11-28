@@ -38,7 +38,7 @@ public class ServiceSlaEscalationEmailHandler implements IntegrationEventHandler
         this.mail = mail;
         this.mapper = mapper;
         if (!StringUtils.hasText(from) || from.length() > 100
-                || !from.matches("^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$")
+                || !from.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
                 || from.codePoints().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("A valid escalation notification sender is required");
         }

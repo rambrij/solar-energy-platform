@@ -42,6 +42,7 @@ CREATE TABLE service_sla_escalations (
   acknowledged_at TIMESTAMP(6) NULL,
   acknowledgement_note VARCHAR(500) NULL,
   PRIMARY KEY (id),
+  UNIQUE KEY uk_service_sla_escalation_tenant_id (tenant_id,id),
   UNIQUE KEY uk_service_sla_escalation_level (tenant_id,service_case_sla_id,breach_type,escalation_level),
   KEY ix_service_sla_escalation_queue (tenant_id,status,escalated_at,id),
   CONSTRAINT fk_service_sla_escalation_clock FOREIGN KEY (tenant_id,service_case_sla_id)

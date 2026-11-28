@@ -15,7 +15,7 @@ The backend contains **62 Spring Data repository interfaces** in the current rev
 3. `CustomerRepository.resolve` — resolves the authenticated username to the global customer profile.
 4. `CustomerRepository.profileCount` — counts global customer profiles for the authenticated username.
 
-The source tree also has six confirmed direct `JdbcTemplate` persistence/access components:
+The source tree also has seven confirmed direct `JdbcTemplate` persistence/access components:
 
 - `MembershipService`
 - `PosService`
@@ -24,7 +24,7 @@ The source tree also has six confirmed direct `JdbcTemplate` persistence/access 
 - `CashDrawerProjection`
 - `DraftSessionProjection`
 
-The six classes include parameterized tenant-aware SQL. `PosService` is the largest direct SQL surface and includes tenant, branch, cashier, register, assignment and session predicates. Role SQL uses tenant_id in role, permission, employee, assignment and audit operations. Projection listeners use persisted event payloads and write tenant-scoped projection keys.
+The seven classes include parameterized tenant-aware SQL. `PosService` is the largest direct SQL surface and includes tenant, branch, cashier, register, assignment and session predicates. Role SQL uses tenant_id in role, permission, employee, assignment and audit operations. Projection listeners use persisted event payloads and write tenant-scoped projection keys.
 
 Other persistence mechanisms include JPA derived finder methods, `JpaSpecificationExecutor`, `EntityManager` locks/refresh/persist operations, and a scheduled reservation cleanup worker. No QueryDSL, Criteria API query builder or stored procedure call was identified in the reviewed persistence path. Specifications are used in order history and refund history.
 
@@ -252,7 +252,7 @@ There are four native `@Query` declarations: two catalogue queries and two custo
 | `VendorRoleService` | vendor_roles, vendor_role_permissions, employees, employee_role_assignments, employee_register_assignments, branches, registers, vendor_access_audit_events | SELECT/INSERT/UPDATE/DELETE | Current authenticated tenant; role delegation and branch/register ownership checks. |
 | `TenantEntitlementPolicy` | tenant_subscriptions, subscription_plan_versions | SELECT | Tenant ID passed by validated membership/service; subscription query filtered by tenant. |
 | `CashDrawerProjection` | pos_drawer_tenders | INSERT | In-process CashTenderRecorded event emitted during transaction; V48 enforces same-tenant branch/session/order composite FKs after pre-DDL validation. |
-| `DraftSessionProjection` | pos_active_drafts | INSERT/DELETE | In-process PosDraftStateChanged event emitted from persisted order; database lacks FK to referenced order (INV-DB-002). |
+| `DraftSessionProjection` | pos_active_drafts | INSERT/DELETE | In-process PosDraftStateChanged event emitted from persisted order; V48 adds the composite same-tenant order FK. |\n| `WarehouseInventoryService` | warehouses, warehouse_inventory, inventory_transfers, inventory_transfer_events, inventory_transfer_movements, warehouse_audit_events, branches, products, inventory, tenants, tenant_subscriptions, subscription_plan_versions | SELECT/INSERT/UPDATE | Active vendor tenant and branch derived from AuthorizationContext; all warehouse/transfer/product lookups are tenant-qualified; source branch authorizes create/approve/cancel/dispatch and destination branch authorizes receipt; row locks and tenant serialization protect stock changes; movement and audit events are append-only. |
 
 All inspected SQL uses parameter binding rather than string-concatenated client input. This does not by itself establish correct authorization; tenant/actor derivation and ownership validation remain necessary.
 

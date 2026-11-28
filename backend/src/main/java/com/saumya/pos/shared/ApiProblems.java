@@ -5,6 +5,8 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -84,6 +86,18 @@ public class ApiProblems {
     ResponseEntity<ProblemDetail> notFound(NoResourceFoundException error, HttpServletRequest request) {
         return response(request, HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
             "Resource not found", "The requested resource does not exist.", null);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ProblemDetail> denied(AccessDeniedException error, HttpServletRequest request) {
+        return response(request, HttpStatus.FORBIDDEN, "FORBIDDEN", "Forbidden",
+            "The authenticated actor is not permitted to perform this operation.", null);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<ProblemDetail> unauthenticated(AuthenticationException error, HttpServletRequest request) {
+        return response(request, HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "Unauthorized",
+            "Authentication is required.", null);
     }
 
     @ExceptionHandler(ResponseStatusException.class)

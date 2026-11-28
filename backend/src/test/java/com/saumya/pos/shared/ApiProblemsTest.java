@@ -8,6 +8,28 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 class ApiProblemsTest {
+    @Test void methodSecurityDenialsRemain403ProblemResponses() {
+        var problems = new ApiProblems(new ApiProblemWriter(new com.fasterxml.jackson.databind.ObjectMapper()));
+        var response = problems.denied(new org.springframework.security.access.AccessDeniedException("internal"),
+            new MockHttpServletRequest("GET", "/api/v1/platform/dashboard"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody().getType().toString()).isEqualTo("urn:solar:problem:FORBIDDEN");
+        assertThat(response.getBody().getStatus()).isEqualTo(403);
+        assertThat(response.getHeaders().getFirst("X-Correlation-Id")).matches("[0-9a-f-]{36}");
+    }
+
+    @Test void authenticationFailuresRemain401ProblemResponses() {
+        var problems = new ApiProblems(new ApiProblemWriter(new com.fasterxml.jackson.databind.ObjectMapper()));
+        var response = problems.unauthenticated(new org.springframework.security.authentication.BadCredentialsException("internal"),
+            new MockHttpServletRequest("GET", "/api/v1/vendor/invoices"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody().getType().toString()).isEqualTo("urn:solar:problem:UNAUTHENTICATED");
+        assertThat(response.getBody().getStatus()).isEqualTo(401);
+        assertThat(response.getHeaders().getFirst("X-Correlation-Id")).matches("[0-9a-f-]{36}");
+    }
+
     @Test void unexpectedExceptionsReturnGenericRfc9457ProblemWithoutLeakingExceptionText() {
         var problems = new ApiProblems(new ApiProblemWriter(new com.fasterxml.jackson.databind.ObjectMapper()));
         var request = new MockHttpServletRequest("GET", "/api/v1/vendor/invoices");

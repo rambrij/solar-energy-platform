@@ -44,15 +44,14 @@ class ServiceSlaEscalationEmailHandlerTest {
 
         ArgumentCaptor<SimpleMailMessage> messages = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mail, times(2)).send(messages.capture());
-        assertThat(messages.getAllValues()).extracting(SimpleMailMessage::getTo)
-            .containsExactly(
-                new String[]{"manager.one@vendor.test"},
-                new String[]{"manager.two@vendor.test"});
+        assertThat(messages.getAllValues()).hasSize(2);
+        assertThat(messages.getAllValues().get(0).getTo()).containsExactly("manager.one@vendor.test");
+        assertThat(messages.getAllValues().get(1).getTo()).containsExactly("manager.two@vendor.test");
         assertThat(messages.getAllValues()).allSatisfy(message -> {
             assertThat(message.getFrom()).isEqualTo("alerts@saumya.test");
             assertThat(message.getSubject()).contains("level 2");
             assertThat(message.getText()).contains("SERVICE_REQUEST", "72", "RESPONSE", "41");
-            assertThat(message.getText()).contains("https://marketplace.example.test/vendor/customer-management/engineer-visits");
+            assertThat(message.getText()).contains("https://marketplace.example.test/vendor/service-visits");
         });
         verify(escalations).resolveEscalationRecipients(7L, "SERVICE_MANAGER");
     }

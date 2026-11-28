@@ -4691,6 +4691,31 @@
         "vendor-claim-decision",
         "vendor-claim-resolution"
       ]
+    },
+    "WarehouseTransfers.tsx:53": {
+      "fn": "vendorApi",
+      "argument": "path",
+      "methodArgument": "'POST'",
+      "actions": [
+        "transfer-approve",
+        "transfer-cancel",
+        "transfer-dispatch",
+        "transfer-receive"
+      ]
+    },
+    "WarehouseTransfers.tsx:59": {
+      "fn": "vendorApi",
+      "argument": "'/inventory/warehouses/'+id",
+      "actions": [
+        "warehouse-stock-list"
+      ]
+    },
+    "WarehouseTransfers.tsx:65": {
+      "fn": "vendorApi",
+      "argument": "'/inventory/transfers/'+encodeURIComponent(id)",
+      "actions": [
+        "transfer-detail"
+      ]
     }
   },
   "sessionApiOperations": [

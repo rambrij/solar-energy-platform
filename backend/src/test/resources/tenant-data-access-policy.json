@@ -1551,7 +1551,7 @@
       "parameter": "tenantId",
       "callers": [
         {
-          "caller": "com.saumya.pos.service.ServiceSlaEscalationService#processDueForTenant",
+          "caller": "com.saumya.pos.service.ServiceSlaEscalationService#processDueEscalationsForTenant",
           "expression": "tenant.id()",
           "argumentIndex": 0,
           "expectedCallCount": 2

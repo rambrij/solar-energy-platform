@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(23);
+            assertThat(applied).hasSize(25);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -78,6 +78,10 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(21).getVersion().getVersion()).isEqualTo("22");
             assertThat(applied.get(22).getScript()).isEqualTo("V23__tenant_online_returns_and_vendor_review.sql");
             assertThat(applied.get(22).getVersion().getVersion()).isEqualTo("23");
+            assertThat(applied.get(23).getScript()).isEqualTo("V24__tenant_service_sla_escalations.sql");
+            assertThat(applied.get(23).getVersion().getVersion()).isEqualTo("24");
+            assertThat(applied.get(24).getScript()).isEqualTo("V25__service_sla_escalation_policy_audit.sql");
+            assertThat(applied.get(24).getVersion().getVersion()).isEqualTo("25");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -85,7 +89,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25");
         });
     }
 
@@ -170,7 +174,7 @@ class P202MysqlPersistenceIntegrationTest {
             JdbcTemplate db = jdbc(url, user, password);
 
             // Explicit ownership classification for every table containing tenant_id
-            // in the V1-V23 schema. Platform audit and refresh-token rows are shared
+            // in the V1-V25 schema. Platform audit and refresh-token rows are shared
             // actor-context tables; support-access rows are tenant-owned records.
             Set<String> expectedTenantTables = Set.of(
                     "branches", "employees", "registers", "pos_sessions", "products",
@@ -191,6 +195,7 @@ class P202MysqlPersistenceIntegrationTest {
                     "platform_support_access", "stock_reservations", "vendor_customer_crm_notes",
                     "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "site_surveys", "quotations", "quotation_revisions", "quotation_lines", "quotation_audit_events", "vendor_payment_accounts", "vendor_payment_account_events",
                     "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence", "service_visits", "service_visit_events", "service_sla_policies", "service_case_sla", "service_sla_events", "service_sla_policy_audit",
+                    "service_sla_escalation_policies", "service_sla_escalations", "service_sla_escalation_events", "service_sla_escalation_policy_audit",
                     "warehouses", "warehouse_inventory", "inventory_transfers",
                     "inventory_transfer_events", "inventory_transfer_movements", "warehouse_audit_events",
                     "online_return_policies", "online_return_policy_events", "online_returns",

@@ -4978,7 +4978,7 @@
     },
     "ShipmentManagement.tsx:8": {
       "fn": "vendorApi",
-      "argument": "'/shipments/'+id+'/serial-assets'",
+      "argument": "'/shipments/'+shipmentId+'/serial-assets'",
       "actions": [
         "vendor-shipment-serial-assets-list"
       ]
@@ -4992,7 +4992,7 @@
     },
     "ShipmentManagement.tsx:16": {
       "fn": "vendorApi",
-      "argument": "`/shipments/${id}/serial-assets`",
+      "argument": "`/shipments/${shipmentId}/serial-assets`",
       "methodArgument": "'POST'",
       "actions": [
         "vendor-shipment-serial-assets-capture"

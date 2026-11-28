@@ -41,8 +41,8 @@ class LocalDemoFlywaySeedMySqlTest {
    assertThat(count(db,"SELECT COUNT(*) FROM products p LEFT JOIN product_categories pc ON pc.tenant_id=p.tenant_id AND pc.product_id=p.id LEFT JOIN catalog_categories c ON c.tenant_id=pc.tenant_id AND c.id=pc.category_id WHERE p.tenant_id IN (910001,920001,930001) AND (pc.product_id IS NULL OR c.id IS NULL)")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM (SELECT tenant_id,sku FROM products WHERE tenant_id IN (910001,920001,930001) GROUP BY tenant_id,sku HAVING COUNT(*)>1) duplicate_skus")).isZero();
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_roles WHERE role_key LIKE 'standard:%'")).isEqualTo(24);
-   // V14 adds installation grants; V15 adds five admin, five manager and three engineer grants per tenant. V20 grants invoice-register read access to Admin and Accountant.
-   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(291);
+   // V14 adds installation grants; V15 adds service grants; V20 adds one invoice-view grant for each seeded Admin and Accountant role. V20 grants invoice-register read access to Admin and Accountant.
+   assertThat(count(db,"SELECT COUNT(*) FROM vendor_role_permissions")).isEqualTo(297);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_role_assignments WHERE active=TRUE")).isEqualTo(24);
    assertThat(count(db,"SELECT COUNT(*) FROM employee_register_assignments WHERE active=TRUE")).isEqualTo(9);
    assertThat(count(db,"SELECT COUNT(*) FROM vendor_access_audit_events")).isGreaterThanOrEqualTo(39);

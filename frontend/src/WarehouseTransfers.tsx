@@ -52,7 +52,7 @@ export default function WarehouseTransfers(){
   }catch(e){setError(e instanceof ApiError?e.message:'Warehouse could not be updated. Reload before retrying.');}
   finally{setBusy(false);}
  }
- async function createTransfer(event:React.FormEvent){
+ async function createTransfer(event:FormEvent){
   event.preventDefault();setBusy(true);setError('');setNotice('');
   try{
    await vendorApi('/inventory/transfers','POST',{

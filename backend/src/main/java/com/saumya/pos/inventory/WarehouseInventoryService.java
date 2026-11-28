@@ -247,6 +247,24 @@ public class WarehouseInventoryService {
 
     @Transactional
     @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
+    public TransferView cancel(String id,long expectedVersion,String reason) {
+        var a=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason"); lockTenant(a.tenantId());
+        Map<String,Object> row=transferRow(a,id); requireSourceBranch(a,row);
+        String status=String.valueOf(row.get("status"));
+        if(!List.of("DRAFT","APPROVED").contains(status))
+            conflict("Only undispatched transfers can be cancelled");
+        if(((Number)row.get("version")).longValue()!=expectedVersion)
+            conflict("Transfer changed; reload before cancellation");
+        if("DRAFT".equals(status)&&!a.username().equals(row.get("created_by")))
+            conflict("Only the creator may cancel a draft transfer");
+        jdbc.update("UPDATE inventory_transfers SET status='CANCELLED',version=version+1 WHERE tenant_id=? AND id=? AND version=?",
+            a.tenantId(),id,expectedVersion);
+        appendEvent(a,id,"CANCELLED",null,null,null,why);
+        return transferById(a,id);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('INVENTORY_TRANSFER')")
     public TransferView dispatch(String id,long expectedVersion,String reason) {
         var a=actor("INVENTORY_TRANSFER"); String why=required(reason,500,"Reason"); lockTenant(a.tenantId());
         Map<String,Object> row=transferRow(a,id); requireSourceBranch(a,row);

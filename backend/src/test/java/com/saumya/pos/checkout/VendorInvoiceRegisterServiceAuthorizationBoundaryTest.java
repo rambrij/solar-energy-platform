@@ -62,7 +62,7 @@ class VendorInvoiceRegisterServiceAuthorizationBoundaryTest {
             "accountant@vendor.test", 71L, 5L, "71:accountant@vendor.test",
             Set.of("INVOICE_VIEW"), false, false, true));
         when(repository.totals(eq(71L), any(Timestamp.class), any(Timestamp.class), eq("ONLINE")))
-            .thenReturn(new Object[]{1L, new BigDecimal("110.00"), new BigDecimal("110.00"), 1L, 0L});
+            .thenReturn(List.<Object[]>of(new Object[]{1L, new BigDecimal("110.00"), new BigDecimal("110.00"), 1L, 0L}));
         when(repository.page(eq(71L), any(Timestamp.class), any(Timestamp.class),
             eq("ONLINE"), eq(10), eq(0))).thenReturn(List.<Object[]>of(new Object[]{
                 "order-1", "INV-1", "Vendor A", "Online", new BigDecimal("110.00"),

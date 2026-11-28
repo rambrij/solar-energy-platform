@@ -65,7 +65,11 @@ public class VendorInvoiceRegisterService {
 
         Timestamp fromAt = Timestamp.from(from.atStartOfDay(ZoneOffset.UTC).toInstant());
         Timestamp untilAt = Timestamp.from(to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant());
-        Object[] aggregate = invoices.totals(actor.tenantId(), fromAt, untilAt, channel);
+        @SuppressWarnings("unchecked")
+        List<Object[]> aggregateRows = (List<Object[]>) invoices.totals(actor.tenantId(), fromAt, untilAt, channel);
+        Object[] aggregate = aggregateRows.isEmpty()
+            ? new Object[]{0L, BigDecimal.ZERO, BigDecimal.ZERO, 0L, 0L}
+            : aggregateRows.getFirst();
         Totals totals = new Totals(number(aggregate, 0).longValue(), money(aggregate, 1),
             money(aggregate, 2), number(aggregate, 3).longValue(), number(aggregate, 4).longValue());
 

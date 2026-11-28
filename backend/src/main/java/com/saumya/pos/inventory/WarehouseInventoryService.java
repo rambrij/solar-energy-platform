@@ -392,7 +392,7 @@ public class WarehouseInventoryService {
             WHERE s.tenant_id=? ORDER BY s.created_at DESC,s.id DESC LIMIT 1
             """,(rs,n)->rs.getInt(1),context.tenantId());
         if(limits.isEmpty()||limits.getFirst()<1)
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"The active context.tenantId() plan does not include warehouse capacity");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"The active tenant plan does not include warehouse capacity");
         Integer current=jdbc.queryForObject("SELECT COUNT(*) FROM warehouses WHERE tenant_id=?",Integer.class,context.tenantId());
         if(current==null||current>=limits.getFirst())
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Tenant warehouse limit has been reached");

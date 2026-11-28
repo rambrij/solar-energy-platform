@@ -13,6 +13,9 @@ public class ShipmentService {
  public record Shipment(long id,String orderId,String carrier,String trackingReference,String trackingUrl,Instant createdAt,List<Event> events){}
  public record CustomerShipment(long id,String carrier,String trackingReference,String trackingUrl,Instant createdAt,List<CustomerEvent> events){}
  public record CustomerShipmentSummary(String orderId,String vendorName,long id,String carrier,String trackingReference,String trackingUrl,Instant createdAt,List<CustomerEvent> events){}
+ public record SerialAsset(long id,long productId,String productName,String serialNumber,String orderId,long shipmentId,Long installationId,Instant recordedAt){}
+ public record CustomerSerialAsset(long productId,String productName,String serialNumber,Instant recordedAt){}
+
  private AuthorizationContext.Context vendor(String p){var c=auth.current();c.requireVendorMembership();c.requirePermission(p);return c;}
  private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Shipment or order unavailable");}
  private String clean(String s,int n,String label){String v=s==null?"":s.strip();if(v.isEmpty()||v.length()>n||v.codePoints().anyMatch(Character::isISOControl))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,label+" is invalid");return v;}
@@ -46,6 +49,83 @@ public class ShipmentService {
   db.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,resource_type,resource_id,action,reason) VALUES(?,?,'SHIPMENT',?,'SHIPMENT_EVENT_ADDED',?)",c.tenantId(),c.username(),Long.toString(id),reason);
   var r=db.queryForList("SELECT id,event_code,description,reason,actor_username,occurred_at FROM shipment_events WHERE tenant_id=? AND shipment_id=? AND id=?",c.tenantId(),id,eventId).getFirst();
   return new Event(eventId,code,description,reason,c.username(),time(r.get("occurred_at")));
+ }
+
+ @Transactional @PreAuthorize("hasAuthority('SHIPMENT_UPDATE')")
+ public List<SerialAsset> captureSerialAssets(long shipmentId,long productId,List<String> serialNumbers,String reason0){
+  var c=vendor("SHIPMENT_UPDATE");
+  if(shipmentId<1||productId<1||serialNumbers==null||serialNumbers.isEmpty()||serialNumbers.size()>100)
+   throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Shipment, product and 1-100 serial numbers are required");
+  String reason=clean(reason0,500,"Reason");
+  var shipments=db.queryForList("SELECT order_id FROM shipments WHERE tenant_id=? AND id=? FOR UPDATE",c.tenantId(),shipmentId);
+  if(shipments.isEmpty())throw missing();
+  String orderId=(String)shipments.getFirst().get("order_id");
+  var orders=db.queryForList("SELECT sales_channel,status FROM orders WHERE tenant_id=? AND id=? FOR UPDATE",c.tenantId(),orderId);
+  if(orders.isEmpty()||!"ONLINE".equals(orders.getFirst().get("sales_channel"))||!"PAID".equals(orders.getFirst().get("status")))
+   throw new ResponseStatusException(HttpStatus.CONFLICT,"Serial numbers can be captured only for a paid online order");
+  var lines=db.query("SELECT quantity FROM order_items WHERE tenant_id=? AND order_id=? AND product_id=? FOR UPDATE",
+   (rs,n)->rs.getInt(1),c.tenantId(),orderId,productId);
+  if(lines.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Order product unavailable");
+  int ordered=lines.getFirst();
+  Integer existing=db.queryForObject("SELECT COUNT(*) FROM shipment_serial_assets WHERE tenant_id=? AND order_id=? AND product_id=?",
+   Integer.class,c.tenantId(),orderId,productId);
+  if(existing==null||serialNumbers.size()>ordered-existing)
+   throw new ResponseStatusException(HttpStatus.CONFLICT,"Serial count exceeds the unassigned ordered quantity");
+  var normalized=new ArrayList<String>();
+  var unique=new HashSet<String>();
+  for(String value:serialNumbers){
+   String serial=clean(value,120,"Serial number");
+   String key=serial.toUpperCase(Locale.ROOT);
+   if(!unique.add(key))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Duplicate serial number in this request");
+   normalized.add(serial);
+  }
+  var installationRows=db.queryForList("SELECT id FROM installation_jobs WHERE tenant_id=? AND order_id=?",
+   c.tenantId(),orderId);
+  Long installationId=installationRows.isEmpty()?null:((Number)installationRows.getFirst().get("id")).longValue();
+  try{
+   for(String serial:normalized){
+    db.update("INSERT INTO shipment_serial_assets(tenant_id,shipment_id,order_id,product_id,installation_id,serial_number,recorded_by,reason) VALUES(?,?,?,?,?,?,?,?)",
+     c.tenantId(),shipmentId,orderId,productId,installationId,serial,c.username(),reason);
+    long assetId=db.queryForObject("SELECT id FROM shipment_serial_assets WHERE tenant_id=? AND serial_number=?",
+     Long.class,c.tenantId(),serial);
+    db.update("INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail) VALUES(?,?,?,'CAPTURED_AT_SHIPMENT',?)",
+     c.tenantId(),assetId,c.username(),reason);
+    if(installationId!=null)db.update("INSERT INTO shipment_serial_asset_events(tenant_id,serial_asset_id,actor_username,event_type,detail) VALUES(?,?,?,'INSTALLATION_LINKED',?)",
+     c.tenantId(),assetId,c.username(),"Linked to installation "+installationId);
+    db.update("INSERT INTO vendor_access_audit_events(tenant_id,actor_username,resource_type,resource_id,action,reason) VALUES(?,?,'SHIPMENT_SERIAL_ASSET',?,'SERIAL_ASSET_CAPTURED',?)",
+     c.tenantId(),c.username(),Long.toString(assetId),reason);
+   }
+  }catch(org.springframework.dao.DuplicateKeyException duplicate){
+   throw new ResponseStatusException(HttpStatus.CONFLICT,"Serial number is already registered for this vendor",duplicate);
+  }
+  return vendorSerialAssets(c,shipmentId);
+ }
+
+ @PreAuthorize("hasAuthority('SHIPMENT_VIEW')")
+ public List<SerialAsset> vendorSerialAssets(long shipmentId){
+  var c=vendor("SHIPMENT_VIEW");
+  if(shipmentId<1||db.queryForList("SELECT id FROM shipments WHERE tenant_id=? AND id=?",c.tenantId(),shipmentId).isEmpty())throw missing();
+  return db.query("""
+   SELECT a.id,a.product_id,p.name product_name,a.serial_number,a.order_id,a.shipment_id,a.installation_id,a.recorded_at
+   FROM shipment_serial_assets a JOIN products p ON p.tenant_id=a.tenant_id AND p.id=a.product_id
+   WHERE a.tenant_id=? AND a.shipment_id=? ORDER BY a.product_id,a.id
+   """,(rs,n)->new SerialAsset(rs.getLong("id"),rs.getLong("product_id"),rs.getString("product_name"),
+    rs.getString("serial_number"),rs.getString("order_id"),rs.getLong("shipment_id"),
+    (Long)rs.getObject("installation_id"),time(rs.getObject("recorded_at"))),c.tenantId(),shipmentId);
+ }
+
+ @PreAuthorize("hasAuthority('CUSTOMER')")
+ public List<CustomerSerialAsset> customerSerialAssets(String username,String orderId){
+  if(orderId==null||!orderId.matches("[A-Za-z0-9-]{1,36}"))throw missing();
+  long tenant=orderHistory.customerOrderTenant(username,orderId);
+  return db.query("""
+   SELECT p.id product_id,p.name product_name,a.serial_number,a.recorded_at
+   FROM shipment_serial_assets a JOIN products p ON p.tenant_id=a.tenant_id AND p.id=a.product_id
+   JOIN shipments s ON s.tenant_id=a.tenant_id AND s.id=a.shipment_id
+   WHERE a.tenant_id=? AND a.order_id=? AND s.order_id=?
+   ORDER BY p.name,a.id
+   """,(rs,n)->new CustomerSerialAsset(rs.getLong("product_id"),rs.getString("product_name"),
+    rs.getString("serial_number"),time(rs.getObject("recorded_at"))),tenant,orderId,orderId);
  }
  private List<CustomerEvent> customerEvents(long tenant,long shipmentId){
   return db.queryForList("SELECT id,event_code,description,occurred_at FROM shipment_events WHERE tenant_id=? AND shipment_id=? ORDER BY occurred_at,id",tenant,shipmentId)

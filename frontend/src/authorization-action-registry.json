@@ -38,7 +38,8 @@
         "warranty-management",
         "vendor-warranty-claims",
         "vendor-service-visits",
-        "vendor-invoices"
+        "vendor-invoices",
+        "vendor-reports"
       ]
     },
     {

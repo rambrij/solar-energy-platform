@@ -13,6 +13,7 @@ CREATE TABLE warehouses (
   version BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   UNIQUE KEY uk_warehouses_tenant_id (tenant_id,id),
+  UNIQUE KEY uk_warehouses_tenant_branch_id (tenant_id,branch_id,id),
   UNIQUE KEY uk_warehouses_tenant_branch_code (tenant_id,branch_id,code),
   KEY ix_warehouses_tenant_branch_active (tenant_id,branch_id,active,code),
   CONSTRAINT fk_warehouses_branch FOREIGN KEY (tenant_id,branch_id)
@@ -80,10 +81,10 @@ CREATE TABLE inventory_transfers (
     REFERENCES branches(tenant_id,id),
   CONSTRAINT fk_inventory_transfer_destination_branch FOREIGN KEY (tenant_id,destination_branch_id)
     REFERENCES branches(tenant_id,id),
-  CONSTRAINT fk_inventory_transfer_source_warehouse FOREIGN KEY (tenant_id,source_warehouse_id)
-    REFERENCES warehouses(tenant_id,id),
-  CONSTRAINT fk_inventory_transfer_destination_warehouse FOREIGN KEY (tenant_id,destination_warehouse_id)
-    REFERENCES warehouses(tenant_id,id),
+  CONSTRAINT fk_inventory_transfer_source_warehouse FOREIGN KEY (tenant_id,source_branch_id,source_warehouse_id)
+    REFERENCES warehouses(tenant_id,branch_id,id),
+  CONSTRAINT fk_inventory_transfer_destination_warehouse FOREIGN KEY (tenant_id,destination_branch_id,destination_warehouse_id)
+    REFERENCES warehouses(tenant_id,branch_id,id),
   CONSTRAINT fk_inventory_transfer_product FOREIGN KEY (tenant_id,product_id)
     REFERENCES products(tenant_id,id),
   CONSTRAINT fk_inventory_transfer_created_by FOREIGN KEY (tenant_id,created_by)

@@ -12,7 +12,7 @@ class WarehouseInventoryControllerAuthorizationTest {
     @Test
     void everyWarehouseReadAndMutationHasItsDedicatedInventoryPermission() {
         List<String> readMethods=List.of("warehouses","warehouseStock","transfers","transfer");
-        List<String> mutationMethods=List.of("createWarehouse","updateWarehouse","createTransfer","approve","dispatch","receive");
+        List<String> mutationMethods=List.of("createWarehouse","updateWarehouse","createTransfer","approve","cancel","dispatch","receive");
         for(String name:readMethods)assertPermission(name,"INVENTORY_VIEW");
         for(String name:mutationMethods)assertPermission(name,"INVENTORY_TRANSFER");
     }

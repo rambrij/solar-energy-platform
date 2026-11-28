@@ -196,6 +196,13 @@
         "installation-management",
         "warranty-management"
       ]
+    },
+    {
+      "id": "finance",
+      "label": "Finance",
+      "items": [
+        "vendor-invoices"
+      ]
     }
   ],
   "routes": [

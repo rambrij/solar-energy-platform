@@ -4349,6 +4349,42 @@
         "pos-category-create"
       ]
     },
+    "CustomerInstallations.tsx:28": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/installations/'+selected",
+      "actions": [
+        "customer-installation-detail"
+      ]
+    },
+    "CustomerQuotations.tsx:48": {
+      "fn": "marketplaceApi",
+      "argument": "decisionPath",
+      "methodArgument": "'POST'",
+      "actions": [
+        "customer-quotation-decision"
+      ]
+    },
+    "CustomerServiceRequests.tsx:37": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/service-requests/'+id",
+      "actions": [
+        "customer-service-request-detail"
+      ]
+    },
+    "CustomerWarrantyClaims.tsx:16": {
+      "fn": "marketplaceApi",
+      "argument": "'/api/v1/customer/warranty-claims/'+id",
+      "actions": [
+        "customer-claim-detail"
+      ]
+    },
+    "InstallationManagement.tsx:69": {
+      "fn": "vendorApi",
+      "argument": "'/installations/'+id",
+      "actions": [
+        "vendor-installation-detail"
+      ]
+    },
     "PaymentCheckout.tsx:15": {
       "fn": "marketplaceApi",
       "argument": "'/api/v1/customer/checkout'+base+suffix",
@@ -4368,6 +4404,15 @@
         "pos-product-create"
       ]
     },
+    "SolarPackageManager.tsx:44": {
+      "fn": "vendorApi",
+      "argument": "selected?'/packages/'+selected.id:'/packages'",
+      "methodArgument": "selected?'PUT':'POST'",
+      "actions": [
+        "solar-package-update",
+        "solar-package-create"
+      ]
+    },
     "StockReceiving.tsx:14": {
       "fn": "vendorApi",
       "argument": "kind==='products'?`/products?page=${page}&size=20${filter?`&q=${encodeURIComponent(filter)}`:''}`:`/inventory/receipts?page=${page}&size=20${filter?`&productId=${encodeURIComponent(filter)}`: ''}`",
@@ -4382,6 +4427,21 @@
       "actions": [
         "pos-tender-review-read",
         "pos-tender-review-awaiting-read"
+      ]
+    },
+    "VendorAccessAdmin.tsx:198": {
+      "fn": "vendorApi",
+      "argument": "'/roles/'.concat(encodeURIComponent(roleId),'/access-history')",
+      "actions": [
+        "vendor-role-access-history"
+      ]
+    },
+    "VendorAccessAdmin.tsx:86": {
+      "fn": "vendorApi",
+      "argument": "'/roles/'+role.id",
+      "methodArgument": "'PUT'",
+      "actions": [
+        "vendor-role-update"
       ]
     },
     "VendorCustomerCrm.tsx:33": {
@@ -4407,28 +4467,11 @@
         "vendor-crm-note-list"
       ]
     },
-    "VendorAccessAdmin.tsx:86": {
+    "VendorInvoiceRegister.tsx:28": {
       "fn": "vendorApi",
-      "argument": "'/roles/'+role.id",
-      "methodArgument": "'PUT'",
+      "argument": "'/invoices?'+params.toString()",
       "actions": [
-        "vendor-role-update"
-      ]
-    },
-    "VendorAccessAdmin.tsx:198": {
-      "fn": "vendorApi",
-      "argument": "'/roles/'.concat(encodeURIComponent(roleId),'/access-history')",
-      "actions": [
-        "vendor-role-access-history"
-      ]
-    },
-    "SolarPackageManager.tsx:44": {
-      "fn": "vendorApi",
-      "argument": "selected?'/packages/'+selected.id:'/packages'",
-      "methodArgument": "selected?'PUT':'POST'",
-      "actions": [
-        "solar-package-update",
-        "solar-package-create"
+        "vendor-invoice-register"
       ]
     },
     "VendorQuotations.tsx:82": {
@@ -4439,40 +4482,11 @@
         "vendor-quotation-revise"
       ]
     },
-    "CustomerQuotations.tsx:48": {
-      "fn": "marketplaceApi",
-      "argument": "decisionPath",
-      "methodArgument": "'POST'",
-      "actions": [
-        "customer-quotation-decision"
-      ]
-    },
-    "InstallationManagement.tsx:69": {
-      "fn": "vendorApi",
-      "argument": "'/installations/'+id",
-      "actions": [
-        "vendor-installation-detail"
-      ]
-    },
-    "CustomerInstallations.tsx:28": {
-      "fn": "marketplaceApi",
-      "argument": "'/api/v1/customer/installations/'+selected",
-      "actions": [
-        "customer-installation-detail"
-      ]
-    },
     "VendorServiceRequests.tsx:47": {
       "fn": "vendorApi",
       "argument": "'/service-requests/'+id",
       "actions": [
         "vendor-service-request-detail"
-      ]
-    },
-    "CustomerServiceRequests.tsx:37": {
-      "fn": "marketplaceApi",
-      "argument": "'/api/v1/customer/service-requests/'+id",
-      "actions": [
-        "customer-service-request-detail"
       ]
     },
     "VendorWarrantyClaims.tsx:18": {
@@ -4491,13 +4505,6 @@
         "vendor-claim-inspection",
         "vendor-claim-decision",
         "vendor-claim-resolution"
-      ]
-    },
-    "CustomerWarrantyClaims.tsx:16": {
-      "fn": "marketplaceApi",
-      "argument": "'/api/v1/customer/warranty-claims/'+id",
-      "actions": [
-        "customer-claim-detail"
       ]
     }
   },

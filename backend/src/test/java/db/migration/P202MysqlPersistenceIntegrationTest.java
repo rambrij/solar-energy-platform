@@ -72,6 +72,10 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(18).getVersion().getVersion()).isEqualTo("19");
             assertThat(applied.get(19).getScript()).isEqualTo("V20__vendor_invoice_register_permission.sql");
             assertThat(applied.get(19).getVersion().getVersion()).isEqualTo("20");
+            assertThat(applied.get(20).getScript()).isEqualTo("V21__tenant_warehouses_and_stock_transfers.sql");
+            assertThat(applied.get(20).getVersion().getVersion()).isEqualTo("21");
+            assertThat(applied.get(21).getScript()).isEqualTo("V22__vendor_inventory_transfer_permission.sql");
+            assertThat(applied.get(21).getVersion().getVersion()).isEqualTo("22");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -79,7 +83,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22");
         });
     }
 

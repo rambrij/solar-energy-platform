@@ -107,6 +107,18 @@ class WarehouseInventoryServiceLifecycleTest {
         assertThat(jdbc.queryForObject(
             "SELECT COUNT(*) FROM warehouse_audit_events WHERE tenant_id=1 AND warehouse_id=?",
             Integer.class, warehouse.id())).isEqualTo(1);
+
+        // A warehouse with stock must remain active until the stock is transferred or reconciled.
+        assertThatThrownBy(() -> tx.execute(status ->
+            service.updateWarehouse(warehouse.id(), warehouse.version(), "Main Warehouse",
+                false, "Attempted closure with stock")))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+            .satisfies(error -> assertThat(
+                ((org.springframework.web.server.ResponseStatusException) error).getStatusCode().value())
+                .isEqualTo(409));
+        assertThat(jdbc.queryForObject(
+            "SELECT active FROM warehouses WHERE tenant_id=1 AND id=?",
+            Boolean.class, warehouse.id())).isTrue();
     }
 
     @Test

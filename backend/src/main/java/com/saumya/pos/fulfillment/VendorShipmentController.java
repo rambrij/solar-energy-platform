@@ -5,8 +5,11 @@ public class VendorShipmentController {
  private final ShipmentService service;public VendorShipmentController(ShipmentService service){this.service=service;}
  public record Create(@NotBlank @Size(max=120) String carrier,@NotBlank @Size(max=160) String trackingReference,@Size(max=1000) String trackingUrl,@NotBlank @Size(max=500) String reason){}
  public record EventCreate(@NotBlank @Size(max=40) String eventCode,@NotBlank @Size(max=500) String description,@NotBlank @Size(max=500) String reason){}
+ public record SerialAssetCapture(@Positive long productId,@NotEmpty @Size(max=100) List<@NotBlank @Size(max=120) String> serialNumbers,@NotBlank @Size(max=500) String reason){}
  @GetMapping("/shipments/orders") @PreAuthorize("hasAuthority('SHIPMENT_VIEW')") public List<ShipmentService.EligibleOrder> eligibleOrders(){return service.eligibleOrders();}
  @GetMapping("/shipments") @PreAuthorize("hasAuthority('SHIPMENT_VIEW')") public List<ShipmentService.Shipment> shipments(){return service.shipments();}
  @PostMapping("/orders/{orderId}/shipments") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasAuthority('SHIPMENT_UPDATE')") public ShipmentService.Shipment create(@PathVariable String orderId,@Valid @RequestBody Create r){return service.createShipment(orderId,r.carrier(),r.trackingReference(),r.trackingUrl(),r.reason());}
+ @GetMapping("/shipments/{shipmentId}/serial-assets") @PreAuthorize("hasAuthority('SHIPMENT_VIEW')") public List<ShipmentService.SerialAsset> serialAssets(@PathVariable long shipmentId){return service.vendorSerialAssets(shipmentId);}
+ @PostMapping("/shipments/{shipmentId}/serial-assets") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasAuthority('SHIPMENT_UPDATE')") public List<ShipmentService.SerialAsset> captureSerialAssets(@PathVariable long shipmentId,@Valid @RequestBody SerialAssetCapture request){return service.captureSerialAssets(shipmentId,request.productId(),request.serialNumbers(),request.reason());}
  @PostMapping("/shipments/{shipmentId}/events") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasAuthority('SHIPMENT_UPDATE')") public ShipmentService.Event event(@PathVariable long shipmentId,@Valid @RequestBody EventCreate r){return service.addEvent(shipmentId,r.eventCode(),r.description(),r.reason());}
 }

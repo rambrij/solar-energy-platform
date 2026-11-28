@@ -387,7 +387,7 @@
     "CustomerProfileController": "CUSTOMER_GLOBAL_PROFILE_OWNER_SCOPE",
     "CustomerReceiptDocumentController": "CUSTOMER_ORDER_OWNER_SCOPE",
     "CustomerReturnController": "CUSTOMER_ORDER_RETURN_OWNER_SCOPE",
-    "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_OWNER_SCOPE",
+    "CustomerShipmentController": "CUSTOMER_ORDER_SHIPMENT_AND_SERIAL_ASSET_OWNER_SCOPE",
     "DiscountPolicyController": "VENDOR_POS_DISCOUNT_PERMISSION",
     "DraftRecoveryController": "CUSTOMER_OR_POS_OWNER_SCOPE",
     "IdentityInvitationController": "ONE_TIME_INVITATION_TOKEN",
@@ -433,7 +433,7 @@
     "VendorLeadController": "VENDOR_TENANT_LEAD_VIEW_UPDATE_AND_ASSIGNMENT_SCOPE_WITH_AUDIT",
     "VendorPaymentAccountController": "VENDOR_TENANT_PAYMENT_ACCOUNT_READ_AND_SUBMIT; PROVIDER_VERIFICATION_ONLY_FOR_STATUS_TRANSITIONS",
     "VendorRoleController": "VENDOR_ROLE_AND_EMPLOYEE_PERMISSION",
-    "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_ORDER_SCOPE",
+    "VendorShipmentController": "VENDOR_SHIPMENT_TENANT_AND_PAID_ORDER_SCOPE_WITH_SERIAL_ASSET_QUANTITY_AND_DUPLICATE_VALIDATION",
     "VendorSiteSurveyController": "VENDOR_TENANT_SITE_SURVEY_VIEW_AND_MANAGE_WITH_LEAD_ASSIGNMENT_SCOPE",
     "VendorTenantProfileController": "VENDOR_TENANT_PROFILE_PERMISSION_AND_MEMBERSHIP_DERIVED_TENANT_SCOPE",
     "WarrantyClaimController": "VENDOR_TENANT_CLAIM_ASSIGNMENT_AND_CUSTOMER_PAID_ORDER_OWNERSHIP_WITH_IMMUTABLE_EVENTS_AND_PRIVATE_EVIDENCE",
@@ -1252,21 +1252,21 @@
       "permission": "SHIPMENT_UPDATE",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "POST /api/v1/vendor/orders/{orderId}/shipments; POST /api/v1/vendor/shipments/{shipmentId}/events",
+      "endpoint": "POST /api/v1/vendor/orders/{orderId}/shipments; POST /api/v1/vendor/shipments/{shipmentId}/events; POST /api/v1/vendor/shipments/{shipmentId}/serial-assets",
       "service": "ShipmentService",
-      "scope": "Authenticated vendor tenant; paid online order; append-only tracking events",
+      "scope": "Authenticated vendor tenant; paid online order; append-only tracking events; serialized units must match paid order-item quantities and be unique within the tenant",
       "ui": "Vendor fulfilment shipment registration and tracking",
-      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
+      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest; ShipmentSerialAssetTraceabilityTest"
     },
     {
       "permission": "SHIPMENT_VIEW",
       "status": "IMPLEMENTED",
       "actor": "VENDOR",
-      "endpoint": "GET /api/v1/vendor/shipments/orders; GET /api/v1/vendor/shipments",
+      "endpoint": "GET /api/v1/vendor/shipments/orders; GET /api/v1/vendor/shipments; GET /api/v1/vendor/shipments/{shipmentId}/serial-assets",
       "service": "ShipmentService",
       "scope": "Authenticated vendor tenant and paid online orders",
       "ui": "Vendor fulfilment shipment queue",
-      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest"
+      "test": "ShipmentServiceAuthorizationBoundaryTest; ShipmentControllerAuthorizationTest; ShipmentSerialAssetTraceabilityTest"
     },
     {
       "permission": "TENANT_PROFILE_UPDATE",

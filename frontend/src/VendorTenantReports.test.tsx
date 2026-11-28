@@ -8,6 +8,18 @@ vi.mock('./api',()=>({vendorApi:vi.fn()}));
 vi.mock('./usePermissions',()=>({usePermissions:vi.fn()}));
 afterEach(()=>{cleanup();vi.resetAllMocks();});
 
+const permissionState=(hasPermission:(permission:string)=>boolean):ReturnType<typeof usePermissions>=>({
+ permissions:null,
+ loading:false,
+ error:null,
+ hasPermission,
+ hasAnyPermission:(...permissions)=>permissions.some(hasPermission),
+ hasAllPermissions:(...permissions)=>permissions.every(hasPermission),
+ isPlatformUser:false,
+ isCustomer:false,
+ isVendorEmployee:true
+});
+
 const overview={
  from:'2026-11-28',to:'2026-11-28',generatedAt:'2026-11-28T01:00:00Z',
  totals:{paidOrders:3,sales:1500,tax:250,beforeTax:1250,cashReceived:300,changeGiven:0,cashApplied:300,units:5,invoices:3,distinctCustomers:2,unpaidOrders:0,unpaidAmount:0,cancelledOrders:0,expiredOrders:0,discounts:20},
@@ -20,7 +32,7 @@ const overview={
 const refunds={from:'2026-11-28',to:'2026-11-28',generatedAt:'2026-11-28T01:00:00Z',totals:{refunds:1,units:1,cash:50,beforeTax:45,tax:5},days:[{date:'2026-11-28',totals:{refunds:1,units:1,cash:50,beforeTax:45,tax:5}}]};
 function setDates(){fireEvent.change(screen.getByLabelText('Activity from (UTC)'),{target:{value:'2026-11-28'}});fireEvent.change(screen.getByLabelText('Activity to (UTC)'),{target:{value:'2026-11-28'}});}
 it('loads tenant-wide metrics and separate refund data for users with refund permission',async()=>{
- vi.mocked(usePermissions).mockReturnValue({hasPermission:()=>true} as ReturnType<typeof usePermissions>);
+ vi.mocked(usePermissions).mockReturnValue(permissionState(()=>true));
  vi.mocked(vendorApi).mockImplementation(async path=>path.startsWith('/reports/refunds')?refunds:overview);
  render(<VendorTenantReports/>);setDates();fireEvent.click(screen.getByText('Load vendor reports'));
  await waitFor(()=>expect(vendorApi).toHaveBeenCalledTimes(2));
@@ -31,7 +43,7 @@ it('loads tenant-wide metrics and separate refund data for users with refund per
  expect(screen.getByText(/Paid POS cash refunds/)).toBeTruthy();
 });
 it('does not request refund data when the actor lacks POS_REFUND_VIEW',async()=>{
- vi.mocked(usePermissions).mockReturnValue({hasPermission:(p:string)=>p!=='POS_REFUND_VIEW'} as ReturnType<typeof usePermissions>);
+ vi.mocked(usePermissions).mockReturnValue(permissionState(p=>p!=='POS_REFUND_VIEW'));
  vi.mocked(vendorApi).mockResolvedValue(overview);
  render(<VendorTenantReports/>);setDates();fireEvent.click(screen.getByText('Load vendor reports'));
  await waitFor(()=>expect(vendorApi).toHaveBeenCalledTimes(1));
@@ -39,7 +51,7 @@ it('does not request refund data when the actor lacks POS_REFUND_VIEW',async()=>
  expect(screen.queryByText(/Paid POS cash refunds/)).toBeNull();
 });
 it('rejects reversed and overlong date ranges without an API call',()=>{
- vi.mocked(usePermissions).mockReturnValue({hasPermission:()=>false} as ReturnType<typeof usePermissions>);
+ vi.mocked(usePermissions).mockReturnValue(permissionState(()=>false));
  render(<VendorTenantReports/>);
  fireEvent.change(screen.getByLabelText('Activity from (UTC)'),{target:{value:'2026-11-29'}});
  fireEvent.change(screen.getByLabelText('Activity to (UTC)'),{target:{value:'2026-11-28'}});

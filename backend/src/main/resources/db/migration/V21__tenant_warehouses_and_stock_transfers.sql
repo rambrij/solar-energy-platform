@@ -21,7 +21,7 @@ CREATE TABLE warehouses (
     REFERENCES employees(tenant_id,username),
   CONSTRAINT fk_warehouses_updated_by FOREIGN KEY (tenant_id,updated_by)
     REFERENCES employees(tenant_id,username),
-  CONSTRAINT chk_warehouses_code CHECK (code REGEXP '^[A-Z0-9][A-Z0-9_-]{1,39}$'),
+  CONSTRAINT chk_warehouses_code CHECK (CHAR_LENGTH(code) BETWEEN 2 AND 40 AND code=UPPER(code)),
   CONSTRAINT chk_warehouses_name CHECK (CHAR_LENGTH(TRIM(name)) BETWEEN 1 AND 160)
 );
 

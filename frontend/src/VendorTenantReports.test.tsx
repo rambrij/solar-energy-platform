@@ -24,8 +24,8 @@ it('loads tenant-wide metrics and separate refund data for users with refund per
  vi.mocked(vendorApi).mockImplementation(async path=>path.startsWith('/reports/refunds')?refunds:overview);
  render(<VendorTenantReports/>);setDates();fireEvent.click(screen.getByText('Load vendor reports'));
  await waitFor(()=>expect(vendorApi).toHaveBeenCalledTimes(2));
- expect(vendorApi).toHaveBeenNthCalledWith(1,'/reports/overview?from=2026-11-28&to=2026-11-28','GET');
- expect(vendorApi).toHaveBeenNthCalledWith(2,'/reports/refunds?from=2026-11-28&to=2026-11-28','GET');
+ expect(vendorApi).toHaveBeenNthCalledWith(1,'/reports/overview?from=2026-11-28&to=2026-11-28');
+ expect(vendorApi).toHaveBeenNthCalledWith(2,'/reports/refunds?from=2026-11-28&to=2026-11-28');
  expect(await screen.findByText('Solar Panel')).toBeTruthy();
  expect(screen.getByText('Outlet A')).toBeTruthy();
  expect(screen.getByText(/Paid POS cash refunds/)).toBeTruthy();
@@ -35,7 +35,7 @@ it('does not request refund data when the actor lacks POS_REFUND_VIEW',async()=>
  vi.mocked(vendorApi).mockResolvedValue(overview);
  render(<VendorTenantReports/>);setDates();fireEvent.click(screen.getByText('Load vendor reports'));
  await waitFor(()=>expect(vendorApi).toHaveBeenCalledTimes(1));
- expect(vendorApi).toHaveBeenCalledWith('/reports/overview?from=2026-11-28&to=2026-11-28','GET');
+ expect(vendorApi).toHaveBeenCalledWith('/reports/overview?from=2026-11-28&to=2026-11-28');
  expect(screen.queryByText(/Paid POS cash refunds/)).toBeNull();
 });
 it('rejects reversed and overlong date ranges without an API call',()=>{

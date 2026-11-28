@@ -4840,13 +4840,6 @@
         "customer-claim-detail"
       ]
     },
-    "InstallationManagement.tsx:69": {
-      "fn": "vendorApi",
-      "argument": "'/installations/'+id",
-      "actions": [
-        "vendor-installation-detail"
-      ]
-    },
     "PaymentCheckout.tsx:15": {
       "fn": "marketplaceApi",
       "argument": "'/api/v1/customer/checkout'+base+suffix",
@@ -4999,6 +4992,13 @@
         "transfer-cancel",
         "transfer-dispatch",
         "transfer-receive"
+      ]
+    },
+    "InstallationManagement.tsx:71": {
+      "fn": "vendorApi",
+      "argument": "'/installations/'+id",
+      "actions": [
+        "vendor-installation-detail"
       ]
     }
   },

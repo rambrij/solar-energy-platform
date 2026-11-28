@@ -1,12 +1,12 @@
 package com.saumycontext.pos.inventory;
 
 import com.saumycontext.pos.security.AuthorizationContext;
-import javcontext.time.Clock;
-import javcontext.time.Instant;
-import javcontext.util.List;
-import javcontext.util.Locale;
-import javcontext.util.Map;
-import javcontext.util.UUID;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -100,7 +100,7 @@ public class WarehouseInventoryService {
             INSERT INTO warehouses(tenant_id,branch_id,code,name,active,created_by,updated_by,created_at,updated_at,version)
             VALUES(?,?,?,?,TRUE,?,?,?,?,0)
             """,context.tenantId(),context.branchId(),normalizedCode,normalizedName,context.username(),context.username(),
-            javcontext.sql.Timestamp.from(clock.instant()),javcontext.sql.Timestamp.from(clock.instant()));
+            java.sql.Timestamp.from(clock.instant()),java.sql.Timestamp.from(clock.instant()));
         long id=jdbc.queryForObject("SELECT id FROM warehouses WHERE tenant_id=? AND branch_id=? AND code=?",
             Long.class,context.tenantId(),context.branchId(),normalizedCode);
         auditWarehouse(a,id,"CREATED",why,null,normalizedName);
@@ -137,7 +137,7 @@ public class WarehouseInventoryService {
         jdbc.update("""
             UPDATE warehouses SET name=?,active=?,updated_by=?,updated_at=?,version=version+1
             WHERE tenant_id=? AND branch_id=? AND id=? AND version=?
-            """,normalizedName,active,context.username(),javcontext.sql.Timestamp.from(clock.instant()),context.tenantId(),context.branchId(),id,expectedVersion);
+            """,normalizedName,active,context.username(),java.sql.Timestamp.from(clock.instant()),context.tenantId(),context.branchId(),id,expectedVersion);
         String action=Boolean.TRUE.equals(before.get("active"))&&!active?"DEACTIVATED":
             !Boolean.TRUE.equals(before.get("active"))&&active?"REACTIVATED":"UPDATED";
         auditWarehouse(a,id,action,why,before.get("name")+":"+before.get("active"),normalizedName+":"+active);
@@ -220,14 +220,14 @@ public class WarehouseInventoryService {
         if(!previous.isEmpty()){
             TransferView old=previous.getFirst();
             if(old.productId()!=productId||old.quantity()!=quantity||!old.sourceType().equals(source)
-                ||!javcontext.util.Objects.equals(old.sourceWarehouseId(),sourceWarehouseId)
+                ||!java.util.Objects.equals(old.sourceWarehouseId(),sourceWarehouseId)
                 ||!old.destinationType().equals(destination)
-                ||!javcontext.util.Objects.equals(old.destinationWarehouseId(),destinationWarehouseId)
+                ||!java.util.Objects.equals(old.destinationWarehouseId(),destinationWarehouseId)
                 ||old.destinationBranchId()!=destinationBranchId||!old.reason().equals(why))
                 throw new ResponseStatusException(HttpStatus.CONFLICT,"Idempotency key identifies a different transfer");
             return old;
         }
-        String id=UUID.randomUUID().toString(); javcontext.sql.Timestamp now=javcontext.sql.Timestamp.from(clock.instant());
+        String id=UUID.randomUUID().toString(); java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
         jdbc.update("""
             INSERT INTO inventory_transfers(id,tenant_id,command_key,source_type,source_warehouse_id,source_branch_id,
               destination_type,destination_warehouse_id,destination_branch_id,product_id,quantity,received_quantity,
@@ -248,7 +248,7 @@ public class WarehouseInventoryService {
         if(((Number)row.get("version")).longValue()!=expectedVersion)conflict("Transfer changed; reload before approval");
         if(context.username().equals(row.get("created_by")))conflict("A different authorized employee must approve the transfer");
         jdbc.update("UPDATE inventory_transfers SET status='APPROVED',approved_by=?,approved_at=?,version=version+1 WHERE tenant_id=? AND id=? AND version=?",
-            context.username(),javcontext.sql.Timestamp.from(clock.instant()),context.tenantId(),id,expectedVersion);
+            context.username(),java.sql.Timestamp.from(clock.instant()),context.tenantId(),id,expectedVersion);
         appendEvent(a,id,"APPROVED",null,null,null,why); return transferById(a,id);
     }
 
@@ -285,7 +285,7 @@ public class WarehouseInventoryService {
         else debitWarehouse(context.tenantId(),sourceWarehouse.longValue(),product,qty);
         recordMovement(a,id,sourceType,sourceWarehouse==null?null:sourceWarehouse.longValue(),
             sourceBranch,product,-qty,"DISPATCH_OUT","DISPATCH:"+id);
-        javcontext.sql.Timestamp now=javcontext.sql.Timestamp.from(clock.instant());
+        java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
         jdbc.update("UPDATE inventory_transfers SET status='IN_TRANSIT',dispatched_by=?,dispatched_at=?,version=version+1 WHERE tenant_id=? AND id=? AND version=?",
             context.username(),now,context.tenantId(),id,expectedVersion);
         appendEvent(a,id,"DISPATCHED",qty,null,null,why);
@@ -326,7 +326,7 @@ public class WarehouseInventoryService {
         boolean discrepancy=complete&&newReceived<total;
         String newStatus=discrepancy?"RECEIVED_WITH_DISCREPANCY":
             newReceived==total?"RECEIVED":"PARTIALLY_RECEIVED";
-        javcontext.sql.Timestamp now=javcontext.sql.Timestamp.from(clock.instant());
+        java.sql.Timestamp now=java.sql.Timestamp.from(clock.instant());
         jdbc.update("""
             UPDATE inventory_transfers SET received_quantity=?,status=?,
               completed_by=CASE WHEN ? THEN ? ELSE completed_by END,
@@ -430,7 +430,7 @@ public class WarehouseInventoryService {
             INSERT INTO warehouse_audit_events(id,tenant_id,warehouse_id,actor_username,action,reason,before_state,after_state,occurred_at)
             VALUES(?,?,?,?,?,?,?,?,?)
             """,UUID.randomUUID().toString(),context.tenantId(),id,context.username(),action,reason,before==null?null:String.valueOf(before),
-            String.valueOf(after),javcontext.sql.Timestamp.from(clock.instant()));
+            String.valueOf(after),java.sql.Timestamp.from(clock.instant()));
     }
     private void recordMovement(AuthorizationContext.Context context,String transferId,String locationType,
             Long warehouseId,long branchId,long productId,int quantityDelta,String movementType,String movementKey) {
@@ -440,14 +440,14 @@ public class WarehouseInventoryService {
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
             """,UUID.randomUUID().toString(),context.tenantId(),transferId,locationType,warehouseId,branchId,
             productId,movementType,quantityDelta,movementKey,context.username(),
-            javcontext.sql.Timestamp.from(clock.instant()));
+            java.sql.Timestamp.from(clock.instant()));
     }
 
     private void appendEvent(AuthorizationContext.Context context,String id,String type,Integer quantity,Boolean finalReceipt,String key,String detail) {
         jdbc.update("""
             INSERT INTO inventory_transfer_events(id,tenant_id,transfer_id,event_type,actor_username,quantity,is_final,command_key,detail,occurred_at)
             VALUES(?,?,?,?,?,?,?,?,?,?)
-            """,UUID.randomUUID().toString(),context.tenantId(),id,type,context.username(),quantity,finalReceipt,key,detail,javcontext.sql.Timestamp.from(clock.instant()));
+            """,UUID.randomUUID().toString(),context.tenantId(),id,type,context.username(),quantity,finalReceipt,key,detail,java.sql.Timestamp.from(clock.instant()));
     }
     private Map<String,Object> transferRow(AuthorizationContext.Context context,String id) {
         if(id==null||id.length()>36)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Valid transfer ID required");
@@ -472,7 +472,7 @@ public class WarehouseInventoryService {
         return jdbc.queryForObject("SELECT * FROM inventory_transfers WHERE tenant_id=? AND id=?",
             (rs,n)->transfer(rs),context.tenantId(),id);
     }
-    private TransferView transfer(javcontext.sql.ResultSet rs) throws javcontext.sql.SQLException {
+    private TransferView transfer(java.sql.ResultSet rs) throws java.sql.SQLException {
         Number sourceWarehouse=(Number)rs.getObject("source_warehouse_id");
         Number destinationWarehouse=(Number)rs.getObject("destination_warehouse_id");
         return new TransferView(rs.getString("id"),rs.getString("source_type"),

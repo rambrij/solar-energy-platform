@@ -63,6 +63,9 @@ public class ShipmentService {
   var orders=db.queryForList("SELECT sales_channel,status FROM orders WHERE tenant_id=? AND id=? FOR UPDATE",c.tenantId(),orderId);
   if(orders.isEmpty()||!"ONLINE".equals(orders.getFirst().get("sales_channel"))||!"PAID".equals(orders.getFirst().get("status")))
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Serial numbers can be captured only for a paid online order");
+  var productPolicy=db.queryForList("SELECT serial_tracking_required FROM products WHERE tenant_id=? AND id=? FOR UPDATE",c.tenantId(),productId);
+  Object trackingValue=productPolicy.isEmpty()?Boolean.FALSE:productPolicy.getFirst().get("serial_tracking_required");
+  boolean serialTrackingRequired=Boolean.TRUE.equals(trackingValue)||(trackingValue instanceof Number number&&number.intValue()!=0);
   var lines=db.query("SELECT quantity FROM order_items WHERE tenant_id=? AND order_id=? AND product_id=? FOR UPDATE",
    (rs,n)->rs.getInt(1),c.tenantId(),orderId,productId);
   if(lines.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Order product unavailable");
@@ -78,6 +81,17 @@ public class ShipmentService {
    String key=serial.toUpperCase(Locale.ROOT);
    if(!unique.add(key))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Duplicate serial number in this request");
    normalized.add(serial);
+  }
+  Map<String,Long> receiptSerialIds=new HashMap<>();
+  if(serialTrackingRequired){
+   for(String serial:normalized){
+    var inbound=db.queryForList("SELECT id FROM inventory_receipt_serial_assets WHERE tenant_id=? AND product_id=? AND serial_number=? FOR UPDATE",c.tenantId(),productId,serial.toUpperCase(Locale.ROOT));
+    if(inbound.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"Serial-tracked products can only ship units registered during stock receiving");
+    long receiptSerialId=((Number)inbound.getFirst().get("id")).longValue();
+    if(!db.queryForList("SELECT id FROM shipment_serial_assets WHERE tenant_id=? AND receipt_serial_asset_id=? FOR UPDATE",c.tenantId(),receiptSerialId).isEmpty())
+     throw new ResponseStatusException(HttpStatus.CONFLICT,"Received serial has already been assigned to a shipment");
+    receiptSerialIds.put(serial,receiptSerialId);
+   }
   }
   var installationRows=db.queryForList("SELECT id FROM installation_jobs WHERE tenant_id=? AND order_id=?",
    c.tenantId(),orderId);

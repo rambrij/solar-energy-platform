@@ -35,7 +35,7 @@ export default function ShipmentManagement(){
     <form onSubmit={e=>{e.preventDefault();void captureSerials(s.id);}}>
      <label>Product ID<input required type="number" min="1" value={serialProductId} onChange={e=>setSerialProductId(e.target.value)}/></label>
      <label>Serial numbers (one per line or comma-separated)<textarea required value={serialNumbers} onChange={e=>setSerialNumbers(e.target.value)} rows={3}/></label>
-     <label>Audit reason<input required maxLength={500} value={serialReason} onChange={e=>setSerialReason(e.target.value)}/></label>
+     <label>Serial capture reason<input required maxLength={500} value={serialReason} onChange={e=>setSerialReason(e.target.value)}/></label>
      <button disabled={busy||!serialProductId||!serialNumbers.trim()||!serialReason.trim()}>Record serial numbers</button>
     </form>
    </section>

@@ -300,7 +300,11 @@
         "requireVendorMembership()",
         "serialAssets(long tenant,long installationId)"
       ],
-      "trustedTenantParameters": {}
+      "trustedTenantParameters": {
+        "serialAssets": [
+          "tenant"
+        ]
+      }
     },
     {
       "source": "com.saumya.pos.inventory.WarehouseInventoryService",

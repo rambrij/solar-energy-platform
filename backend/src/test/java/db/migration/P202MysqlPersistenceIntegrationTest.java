@@ -31,7 +31,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
 
             var applied = Arrays.stream(flyway.info().applied()).toList();
-            assertThat(applied).hasSize(22);
+            assertThat(applied).hasSize(23);
             assertThat(applied.get(0).getScript()).isEqualTo("V1__base_schema.sql");
             assertThat(applied.get(0).getVersion().getVersion()).isEqualTo("1");
             assertThat(applied.get(1).getScript()).isEqualTo("V2__vendor_private_crm_notes.sql");
@@ -76,6 +76,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertThat(applied.get(20).getVersion().getVersion()).isEqualTo("21");
             assertThat(applied.get(21).getScript()).isEqualTo("V22__vendor_inventory_transfer_permission.sql");
             assertThat(applied.get(21).getVersion().getVersion()).isEqualTo("22");
+            assertThat(applied.get(22).getScript()).isEqualTo("V23__tenant_online_returns_and_vendor_review.sql");
+            assertThat(applied.get(22).getVersion().getVersion()).isEqualTo("23");
 
             // A second application startup must be a no-op and validation must
             // still pass with the exact same applied migration set.
@@ -83,7 +85,7 @@ class P202MysqlPersistenceIntegrationTest {
             flyway.validate();
             assertThat(Arrays.stream(flyway.info().applied())
                     .map(migration -> migration.getVersion().getVersion()).toList())
-                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22");
+                    .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23");
         });
     }
 
@@ -168,7 +170,7 @@ class P202MysqlPersistenceIntegrationTest {
             JdbcTemplate db = jdbc(url, user, password);
 
             // Explicit ownership classification for every table containing tenant_id
-            // in the V1-V22 schema. Platform audit and refresh-token rows are shared
+            // in the V1-V23 schema. Platform audit and refresh-token rows are shared
             // actor-context tables; support-access rows are tenant-owned records.
             Set<String> expectedTenantTables = Set.of(
                     "branches", "employees", "registers", "pos_sessions", "products",
@@ -190,7 +192,9 @@ class P202MysqlPersistenceIntegrationTest {
                     "shipments", "shipment_events", "marketplace_enquiries", "tenant_profile_audit_events", "solar_packages", "solar_package_items", "product_image_metadata", "site_surveys", "quotations", "quotation_revisions", "quotation_lines", "quotation_audit_events", "vendor_payment_accounts", "vendor_payment_account_events",
                     "installation_jobs", "installation_events", "service_requests", "service_request_events", "warranty_records", "warranty_events", "warranty_claims", "warranty_claim_events", "warranty_claim_evidence", "service_visits", "service_visit_events", "service_sla_policies", "service_case_sla", "service_sla_events", "service_sla_policy_audit",
                     "warehouses", "warehouse_inventory", "inventory_transfers",
-                    "inventory_transfer_events", "inventory_transfer_movements", "warehouse_audit_events");
+                    "inventory_transfer_events", "inventory_transfer_movements", "warehouse_audit_events",
+                    "online_return_policies", "online_return_policy_events", "online_returns",
+                    "online_return_items", "online_return_events");
 
             Set<String> discovered = new HashSet<>(db.queryForList("""
                     SELECT DISTINCT table_name FROM information_schema.columns
@@ -269,6 +273,8 @@ class P202MysqlPersistenceIntegrationTest {
             assertUniqueKey(db, schema, "subscription_invoices", "tenant_id,id");
             assertUniqueKey(db, schema, "vendor_roles", "tenant_id,id");
             assertUniqueKey(db, schema, "marketplace_enquiries", "tenant_id,id");
+            assertUniqueKey(db, schema, "online_returns", "tenant_id,id");
+            assertUniqueKey(db, schema, "online_return_items", "tenant_id,return_id,product_id");
             assertUniqueKey(db, schema, "site_surveys", "tenant_id,id");
             assertUniqueKey(db, schema, "quotations", "tenant_id,id");
             assertUniqueKey(db, schema, "vendor_payment_accounts", "tenant_id,id");

@@ -351,7 +351,7 @@ Platform-wide reads (tenant directory, platform audit, plans, subscriptions, sup
 | Path | Trigger | Payload/scope | Persistence and guard |
 |---|---|---|---|
 | Stock availability projection | `StockAvailabilityChanged` from InventoryService | tenant + branch + product + available | `CatalogAvailabilityService` uses composite CatalogStock key and updates projection in same transaction. |
-| POS draft projection | `PosDraftStateChanged` from checkout | tenant + branch + cashier + session + order + state | `DraftSessionProjection` writes/deletes by the full tenant/session/order tuple. DB lacks order FK (INV-DB-002). |
+| POS draft projection | `PosDraftStateChanged` from checkout | tenant + branch + cashier + session + order + state | `DraftSessionProjection` writes/deletes by the full tenant/session/order tuple. V48 adds a composite same-tenant order FK after pre-DDL ownership validation. |
 | Cash drawer tender projection | `CashTenderRecorded` from confirmed cash checkout | tenant + branch + session + order + tender amounts | `CashDrawerProjection` validates amounts and inserts event values in the same transaction; V48 enforces same-tenant branch/session/order FKs. |
 | Reservation cleanup | `@Scheduled` sweep every configured delay | Loads up to 100 expired DRAFT orders globally; each row supplies persisted tenant + order ID | Calls `CheckoutService.expire(tenant,id)`; service locks by tenant + ID and releases tenant/order reservations. Trusted system worker, not user-selected tenant. |
 | Payment/webhook | Payment adapter boundary exists | Provider/merchant/order/tenant context | No fully approved production provider/webhook integration was established; do not mark provider signature/replay/amount validation complete. |
@@ -423,7 +423,7 @@ GitHub Actions run [#44017985492](https://github.com/rambrij/solar-energy-platfo
 
 ## 14. P0-01 query/data-access conclusion
 
-The reviewed backend has a substantial tenant-scoped persistence foundation: 62 repository interfaces (including two inventory-owned read-only ownership projections), 64 explicit `@Query` declarations, four native repository queries, and six confirmed direct JDBC access components. Catalogue, order, cart, inventory, POS, return/refund and report query paths inspected here generally retain tenant and relevant parent scope. Customer paths derive the global customer from the authenticated identity; platform billing and audit paths use platform-only authorization.
+The reviewed backend has a substantial tenant-scoped persistence foundation: 62 repository interfaces (including two inventory-owned read-only ownership projections), 64 explicit `@Query` declarations, four native repository queries, and seven confirmed direct JDBC access components. Catalogue, order, cart, inventory, POS, return/refund and report query paths inspected here generally retain tenant and relevant parent scope. Customer paths derive the global customer from the authenticated identity; platform billing and audit paths use platform-only authorization.
 
 The next work is targeted:
 

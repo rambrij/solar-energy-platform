@@ -4957,17 +4957,6 @@
         "vendor-claim-resolution"
       ]
     },
-    "WarehouseTransfers.tsx:69": {
-      "fn": "vendorApi",
-      "argument": "path",
-      "methodArgument": "'POST'",
-      "actions": [
-        "transfer-approve",
-        "transfer-cancel",
-        "transfer-dispatch",
-        "transfer-receive"
-      ]
-    },
     "ShipmentManagement.tsx:8": {
       "fn": "vendorApi",
       "argument": "path",
@@ -4981,6 +4970,17 @@
       "actions": [
         "pos-stock-products-list",
         "pos-stock-list"
+      ]
+    },
+    "WarehouseTransfers.tsx:71": {
+      "fn": "vendorApi",
+      "argument": "path",
+      "methodArgument": "'POST'",
+      "actions": [
+        "transfer-approve",
+        "transfer-cancel",
+        "transfer-dispatch",
+        "transfer-receive"
       ]
     }
   },

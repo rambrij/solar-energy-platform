@@ -3,6 +3,7 @@ import {ApiError,vendorApi} from './api';
 import {useSession} from './session';
 
 type Warehouse={id:number;branchId:number;code:string;name:string;active:boolean;version:number};
+type WarehouseStock={productId:number;sku:string;productName:string;onHand:number;reserved:number;damaged:number;available:number;version:number};
 type Transfer={id:string;sourceType:'BRANCH'|'WAREHOUSE';sourceWarehouseId:number|null;sourceBranchId:number;destinationType:'BRANCH'|'WAREHOUSE';destinationWarehouseId:number|null;destinationBranchId:number;productId:number;quantity:number;receivedQuantity:number;status:string;reason:string;createdBy:string;approvedBy:string|null;dispatchedBy:string|null;completedBy:string|null;createdAt:string;dispatchedAt:string|null;completedAt:string|null;version:number};
 type Detail={transfer:Transfer;events:{id:string;eventType:string;actorUsername:string;quantity:number|null;finalReceipt:boolean|null;detail:string;occurredAt:string}[]};
 
@@ -15,6 +16,7 @@ export default function WarehouseTransfers(){
  const [destinationType,setDestinationType]=useState<'BRANCH'|'WAREHOUSE'>('BRANCH'),[destinationWarehouseId,setDestinationWarehouseId]=useState('');
  const [destinationBranchId,setDestinationBranchId]=useState(String(account?.branchId??'')),[productId,setProductId]=useState(''),[quantity,setQuantity]=useState('1'),[reason,setReason]=useState('');
  const [detail,setDetail]=useState<Detail>();
+ const [stock,setStock]=useState<{warehouseId:number;items:WarehouseStock[]}>();
  const [receiveQuantity,setReceiveQuantity]=useState('1'),[finalReceipt,setFinalReceipt]=useState(true),[receiptReason,setReceiptReason]=useState('');
  const canView=!!account?.permissions.includes('INVENTORY_VIEW'),canTransfer=!!account?.permissions.includes('INVENTORY_TRANSFER');
 
@@ -52,6 +54,12 @@ export default function WarehouseTransfers(){
   catch(e){setError(e instanceof ApiError?e.message:'Transfer action failed. Reload before retrying.');}
   finally{setBusy(false);}
  }
+ async function openWarehouseStock(id:number){
+  setBusy(true);setError('');
+  try{const items=await vendorApi('/inventory/warehouses/'+id+'/stock');setStock({warehouseId:id,items});}
+  catch(e){setError(e instanceof ApiError?e.message:'Warehouse stock unavailable.');}
+  finally{setBusy(false);}
+ }
  async function openDetail(id:string){
   setBusy(true);setError('');
   try{const result=await vendorApi('/inventory/transfers/'+encodeURIComponent(id));setDetail(result);setReceiveQuantity(String(Math.max(1,result.transfer.quantity-result.transfer.receivedQuantity)));setFinalReceipt(true);setReceiptReason('');}
@@ -70,7 +78,8 @@ export default function WarehouseTransfers(){
    <button disabled={busy||!code.trim()||!name.trim()||!warehouseReason.trim()}>Create warehouse</button>
   </form>}
   <h3>Warehouses in your assigned branch</h3>
-  {warehouses.length===0?<p>No warehouses found for this branch.</p>:<ul>{warehouses.map(w=><li key={w.id}>{w.code} — {w.name} ({w.active?'Active':'Inactive'})</li>)}</ul>}
+  {warehouses.length===0?<p>No warehouses found for this branch.</p>:<ul>{warehouses.map(w=><li key={w.id}>{w.code} — {w.name} ({w.active?'Active':'Inactive'}) <button type="button" disabled={busy||!canView} onClick={()=>void openWarehouseStock(w.id)}>View stock</button></li>)}</ul>}
+  {stock&&<section aria-label="Warehouse stock balances"><h3>Stock in warehouse #{stock.warehouseId}</h3>{stock.items.length===0?<p>No stock recorded in this warehouse.</p>:<table><thead><tr><th>Product</th><th>SKU</th><th>On hand</th><th>Reserved</th><th>Damaged</th><th>Available</th></tr></thead><tbody>{stock.items.map(item=><tr key={item.productId}><td>{item.productName}</td><td>{item.sku}</td><td>{item.onHand}</td><td>{item.reserved}</td><td>{item.damaged}</td><td>{item.available}</td></tr>)}</tbody></table>}</section>}
   {canTransfer&&<form onSubmit={createTransfer}>
    <h3>Create stock transfer</h3>
    <label>Source location<select value={sourceType} onChange={e=>setSourceType(e.target.value as 'BRANCH'|'WAREHOUSE')}><option value="BRANCH">Assigned branch POS stock</option><option value="WAREHOUSE">Warehouse</option></select></label>
